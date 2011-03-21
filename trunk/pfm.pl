@@ -1,11 +1,11 @@
 #!/usr/local/bin/perl
 #
-# @(#) pfm.pl 04-04-1999 v0.96a
+# @(#) pfm.pl 04-04-1999 v0.97
 #
 # Author:      Rene Uittenbogaard
 # Usage:       pfm.pl [directory]
 # Description: Personal File Manager for Linux
-# Version:     v0.96a
+# Version:     v0.97
 # Date:        04-04-1999
 # 
 # TO-DO: multiple anything
@@ -15,20 +15,15 @@
 #        Attrib -> refresh
 #        F1 help 
 # documentation
-# config from PFM
-# show swap mode (s in kolom 0?)
-# intelligent handling ENTER at symlink
 # validate_position in SIG{WINCH} and deleting files
-#
-# I -> regexp match
-#   -> files only
 
 # ++++++++++++++++++++  declarations and initialization  ++++++++++++++++++++++ 
 
 require Term::PfmColor;
-use strict 'refs';
+use strict 'refs','subs';
 
-my $VERSION='0.96a';
+my $VERSION='0.97';
+my $configfilename=".pfmrc";
 my $maxfilenamelength=20;
 my $errordelay=1;     # seconds
 my $slowentries=300;
@@ -38,14 +33,14 @@ my $userline=21;
 my $dateline=22;
 my $datecol=66;
 my $position_at='.';
-my @sortmodes=( n => Name,         N =>' reverse',
+my @sortmodes=( n =>'Name',        N =>' reverse',
                'm'=>' ignorecase', M =>' rev+ignorec',
-                e => Extension,    E =>' reverse',
+                e =>'Extension',   E =>' reverse',
                 f =>' ignorecase', F =>' rev+ignorec',
                 d =>'Date/Time',   D =>' reverse',
-               's'=> Size,         S =>' reverse',
-                t => Type,         T =>' reverse',
-                i => Inode,        I =>' reverse'       );
+               's'=>'Size',        S =>' reverse',
+                t =>'Type',        T =>' reverse',
+                i =>'Inode',       I =>' reverse'       );
 my (%user,%group,$sort_mode,$multiple_mode,$swap_mode,$uid_mode,
     %currentfile,$currentline,$baseindex,
     $editor,$pager,$clsonexit,%dircolors,%pfmrc,$scr,$wasresized);
@@ -69,7 +64,7 @@ sub init_gids {
 sub read_pfmrc {
     # set $uid_mode,$sort_mode,$editor,$pager,$clsonexit,%dircolors
     local $_;
-    if (open PFMRC,"$ENV{HOME}/.pfmrc") {
+    if (open PFMRC,"$ENV{HOME}/$configfilename") {
         while (<PFMRC>) {
             s/#.*//;
             if ( /^\s*       # whitespace at beginning
@@ -264,10 +259,11 @@ sub ok_to_remove_marks {
 sub promptforwildfilename {
     my $wildfilename;
     $scr->at(0,0)->clreol()->bold()->cyan()
-        ->puts("Wild filename (as regexp): ")->normal()->cooked();
+        ->puts("Wild filename (regular expression): ")->normal()->cooked();
     chop ($wildfilename=<STDIN>);
     $scr->raw();      # init_header is done in handleinclude
-    unless (eval "/$wildfilename/") {
+    eval "/$wildfilename/";
+    if ($@) {
         &display_error($@);
         $scr->key_pressed(2*$errordelay); # triple reporting time
         $wildfilename = '^$';             # clear illegal regexp
@@ -539,9 +535,12 @@ sub handlemore {
             }
             &init_title($swap_mode,$uid_mode);
         };
-        /^e$/i and 1;
-        /^c$/i and 1;
+        /^c$/i and do {
+            system "$editor $ENV{HOME}/$configfilename" and &display_error($!);
+            $refresh=1;
+        };
         /^m$/i and 1;
+        /^e$/i and 1;
     }
     &init_header($multiple_mode);
     return $refresh;
@@ -568,8 +567,23 @@ sub handleinclude {
             $key="prepared";
             redo PARSEINCLUDE;
         };
-
-        /prepared/ and do {
+        /^a$/i and do {};
+        /^b$/i and do {};
+        /^t$/i and do {};
+        /^o$/i and do {   # include oldmarks 
+            foreach my $entry (@dircontents) {
+                if ($entry->{selected} eq "." && $exin eq " ") {
+                    $entry->{selected} = $exin;
+                } elsif ($entry->{selected} eq "." && $exin eq "*") {
+                    $entry->{selected} = $exin;
+                    $selected_nr_of{$entry->{type}}++;
+                    $entry->{type} =~ /-/ and
+                        $selected_nr_of{bytes} += $entry->{size};
+                }
+                $result=1;
+            }
+        };
+        /prepared/ and do { # the criterion has been set
             foreach my $entry (@dircontents) {
                 if (eval $criterion) {
                     if ($entry->{selected} eq "*" && $exin eq " ") {
@@ -589,24 +603,6 @@ sub handleinclude {
                 }
             }
         };
-
-        /^o$/i and do {   # include oldmarks 
-            foreach my $entry (@dircontents) {
-                if ($entry->{selected} eq "." && $exin eq " ") {
-                    $entry->{selected} = $exin;
-                } elsif ($entry->{selected} eq "." && $exin eq "*") {
-                    $entry->{selected} = $exin;
-                    $selected_nr_of{$entry->{type}}++;
-                    $entry->{type} =~ /-/ and
-                        $selected_nr_of{bytes} += $entry->{size};
-                }
-                $result=1;
-            }
-        };
-
-        /^a$/i and do {};
-        /^b$/i and do {};
-        /^t$/i and do {};
     } # for
     } # PARSEINCLUDE
     &init_header($multiple_mode);
@@ -1119,7 +1115,7 @@ sub browse {
                     eval $cmd;
                     &display_error($@) if $@;
                     redo DISPLAY;
-                    };
+                };
             } # KEY
         }   # STRIDE
     }     # DISPLAY 
