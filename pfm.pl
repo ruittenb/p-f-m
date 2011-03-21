@@ -1,11 +1,11 @@
-#!/usr/bin/env perl
+#!/usr/local/bin/perl
 #
-# @(#) pfm.pl 04-04-1999 v0.96
+# @(#) pfm.pl 04-04-1999 v0.96a
 #
 # Author:      Rene Uittenbogaard
 # Usage:       pfm.pl [directory]
 # Description: Personal File Manager for Linux
-# Version:     v0.96
+# Version:     v0.96a
 # Date:        04-04-1999
 # 
 # TO-DO: multiple anything
@@ -16,8 +16,9 @@
 #        F1 help 
 # documentation
 # config from PFM
-# laten zien swap mode (s in kolom 0?)
-# intelligente afhandeling ENTER bij symlink
+# show swap mode (s in kolom 0?)
+# intelligent handling ENTER at symlink
+# validate_position in SIG{WINCH} and deleting files
 #
 # I -> regexp match
 #   -> files only
@@ -27,7 +28,7 @@
 require Term::PfmColor;
 use strict 'refs';
 
-my $VERSION='0.96';
+my $VERSION='0.96a';
 my $maxfilenamelength=20;
 my $errordelay=1;     # seconds
 my $slowentries=300;
@@ -252,13 +253,26 @@ sub display_error {
 sub ok_to_remove_marks {
     my $sure;
     if (&mark_info) {
-        $scr->at(0,0)->clreol();
-        $scr->bold()->cyan()->puts("OK to remove marks [Y/N]? ")->normal();
-        $sure = $scr->getch();
+        $sure = $scr->at(0,0)->clreol()->bold()->cyan()
+                    ->puts("OK to remove marks [Y/N]? ")->normal()->getch();
         &init_header($multiple_mode);
         return ($sure =~ /y/i);
     }
     1;
+}
+
+sub promptforwildfilename {
+    my $wildfilename;
+    $scr->at(0,0)->clreol()->bold()->cyan()
+        ->puts("Wild filename (as regexp): ")->normal()->cooked();
+    chop ($wildfilename=<STDIN>);
+    $scr->raw();      # init_header is done in handleinclude
+    unless (eval "/$wildfilename/") {
+        &display_error($@);
+        $scr->key_pressed(2*$errordelay); # triple reporting time
+        $wildfilename = '^$';             # clear illegal regexp
+    }
+    return $wildfilename;
 }
 
 sub clearcolumn {
@@ -319,6 +333,10 @@ sub init_title { # swap_mode, uid_mode
     my @title=split(/\n/,<<_eoKop_);
   filename.ext            size  date      time   inode attrib          disk info
   filename.ext            size  userid   groupid lnks  attrib          disk info
+  filename.ext            size  date      time   inode attrib     your commands 
+  filename.ext            size  userid   groupid lnks  attrib     your commands 
+  filename.ext            size  date      time   inode attrib     sort mode     
+  filename.ext            size  userid   groupid lnks  attrib     sort mode     
 _eoKop_
     $swapmode ? $scr->on_black()
               : $scr->on_white()->bold();
@@ -532,19 +550,35 @@ sub handlemore {
 sub handleinclude {
     local $_;
     my $result=0;
+    my ($wildfilename,$criterion);
     my $exin = $_[0];
     $exin =~ tr/ix/* /;
     &init_header(2);
-    my $key=$scr->at(0,68)->getch();
+    my $key=$scr->at(0,58)->getch();
+    PARSEINCLUDE: {
     for ($key) {
-        /^e$/i and do {
+        /^e$/i and do {    # include every
+            $criterion='$entry->{name} !~ /^\.\.?$/';
+            $key="prepared";
+            redo PARSEINCLUDE;
+        };
+        /^f$/i and do {    # include files
+            $wildfilename=&promptforwildfilename;
+            $criterion='$entry->{name} =~ /$wildfilename/';
+            $key="prepared";
+            redo PARSEINCLUDE;
+        };
+
+        /prepared/ and do {
             foreach my $entry (@dircontents) {
-                unless ($entry->{name} =~ /^\.\.?$/) {
+                if (eval $criterion) {
                     if ($entry->{selected} eq "*" && $exin eq " ") {
                         $entry->{selected} = $exin;
                         $selected_nr_of{$entry->{type}}--;
                         $entry->{type} =~ /-/ and
                             $selected_nr_of{bytes} -= $entry->{size};
+                    } elsif ($entry->{selected} eq "." && $exin eq " ") {
+                        $entry->{selected} = $exin;
                     } elsif ($entry->{selected} ne "*" && $exin eq "*") {
                         $entry->{selected} = $exin;
                         $selected_nr_of{$entry->{type}}++;
@@ -555,20 +589,32 @@ sub handleinclude {
                 }
             }
         };
-        /^t$/i and 1;
-        /^o$/i and 1;
-        /^a$/i and 1;
-        /^b$/i and 1;
-        /^i$/i and 1;
-    }
+
+        /^o$/i and do {   # include oldmarks 
+            foreach my $entry (@dircontents) {
+                if ($entry->{selected} eq "." && $exin eq " ") {
+                    $entry->{selected} = $exin;
+                } elsif ($entry->{selected} eq "." && $exin eq "*") {
+                    $entry->{selected} = $exin;
+                    $selected_nr_of{$entry->{type}}++;
+                    $entry->{type} =~ /-/ and
+                        $selected_nr_of{bytes} += $entry->{size};
+                }
+                $result=1;
+            }
+        };
+
+        /^a$/i and do {};
+        /^b$/i and do {};
+        /^t$/i and do {};
+    } # for
+    } # PARSEINCLUDE
     &init_header($multiple_mode);
     return $result;
 }
 
 sub handleview {
     &markcurrentline('V');
-#    my $target=' -> '.readlink($currentfile{name})
-#        unless ($currentfile{type} ne 'l');
     $scr->at($currentline+$baseline,2)
         ->bold()->puts($currentfile{display}.' ');
     &applycolor($currentline+$baseline,1,%currentfile);
@@ -580,6 +626,7 @@ sub handlesort {
     my $printline=$baseline;
     my %sortmodes=@sortmodes;
     &init_header(4);
+    &init_title($swap_mode,$uid_mode+4);
     &clearcolumn;
     for ($i=0; $i<$#sortmodes; $i+=2) {
         $^A="";
@@ -629,6 +676,7 @@ sub handlecommand { # Y or O
     &markcurrentline(uc($_[0]));
     if ($_[0] =~ /y/i) { # Your
         &clearcolumn;
+        &init_title($swap_mode,$uid_mode+2);
         $printline=$baseline;
         foreach (sort keys %pfmrc) {
             if (/^[A-Z]$/ && $printline <= $baseline+$screenheight) { 
@@ -945,6 +993,7 @@ sub position_cursor {
 sub resizehandler {
     $wasresized=0;
     &handlefit;
+    &validate_position;
 }
 
 sub redisplayscreen {
