@@ -1,11 +1,11 @@
 #!/usr/local/bin/perl
 #
-# @(#) pfm.pl 04-04-1999 v0.97
+# @(#) pfm.pl 04-04-1999 v0.97a
 #
 # Author:      Rene Uittenbogaard
 # Usage:       pfm.pl [directory]
 # Description: Personal File Manager for Linux
-# Version:     v0.97
+# Version:     v0.97a
 # Date:        04-04-1999
 # 
 # TO-DO: multiple anything
@@ -22,7 +22,7 @@
 require Term::PfmColor;
 use strict 'refs','subs';
 
-my $VERSION='0.97';
+my $VERSION='0.97a';
 my $configfilename=".pfmrc";
 my $maxfilenamelength=20;
 my $errordelay=1;     # seconds
@@ -965,8 +965,7 @@ sub printdircontents { # @contents
 }
 
 sub countdircontents {
-    %total_nr_of   = # (  d=>0, l=>0, '-'=>0,                            # %%%%%
-                     #    c=>0, b=>0, 's'=>0, p=>0 );                    # %%%%%
+    %total_nr_of   = 
     %selected_nr_of=(  d=>0, l=>0, '-'=>0, bytes=>0,
                        c=>0, b=>0, 's'=>0, p=>0 );
     foreach my $i (0..$#_) {
