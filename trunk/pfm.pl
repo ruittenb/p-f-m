@@ -1,16 +1,16 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 29-03-2000 v1.03
+# @(#) pfm.pl 2000-04-06 v1.04
 #
 # Author:      Rene Uittenbogaard
 # Usage:       pfm.pl [directory]
 # Description: Personal File Manager for Unix/Linux
-# Version:     v1.03
-# Date:        29-03-2000
+# Version:     v1.04
+# Date:        2000-04-06
 # 
 # TO-DO: test change ownership
-#        mtime/atime switch
+#        mtime/atime test
 #        tidy up multiple commands
 #        titlebar colors configurable
 #        validate_position in SIG{WINCH}
@@ -48,7 +48,7 @@ require Term::ScreenColor;
 use Term::ReadLine;
 use strict 'refs','subs';
 
-my $VERSION='1.03';
+my $VERSION='1.04';
 my $configfilename=".pfmrc";
 my $majorminorseparator=',';
 my $defaultmaxfilenamelength=20;
@@ -65,7 +65,8 @@ my @sortmodes=( n =>'Name',        N =>' reverse',
                'm'=>' ignorecase', M =>' rev+ignorec',
                 e =>'Extension',   E =>' reverse',
                 f =>' ignorecase', F =>' rev+ignorec',
-                d =>'Date/Time',   D =>' reverse',
+                d =>'Date/mtime',  D =>' reverse',
+                a =>'date/Atime',  A =>' reverse',
                's'=>'Size',        S =>' reverse',
                 t =>'Type',        T =>' reverse',
                 i =>'Inode',       I =>' reverse'       );
@@ -117,8 +118,7 @@ sub read_pfmrc { # $rereadflag - 0=read 1=reread
     &copyright($pfmrc{copyrightdelay}) unless ($_[0]);
     $clsonexit        = $pfmrc{clsonexit};
     $cwdinheritance   = $pfmrc{cwdinheritance};
-    $autoexitmultiple = $pfmrc{autoexitmultiple}; # %%%%%
-#    $printcmd      = $pfmrc{printcmd}   || $ENV{PRINTER} ? "lpr -P$ENV{PRINTER}" : 'lpr';
+    $autoexitmultiple = $pfmrc{autoexitmultiple};
     ($printcmd)    = ($pfmrc{printcmd}) || ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER}" : 'lpr');
     $timeformat    = $pfmrc{timeformat} || 'pfm';
     $sort_mode     = $pfmrc{sortmode}   || 'n';
@@ -141,7 +141,7 @@ sub read_pfmrc { # $rereadflag - 0=read 1=reread
 ##########################################################################
 # some translations
 
-sub mtime2str {
+sub time2str {
     my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst,$monname,$val);
     ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime($_[0]);
     $monname =(qw/Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec/)[$mon];
@@ -199,13 +199,17 @@ sub inhibit {
 	return !$_[1] && $_[0];
 }
 
-sub basename {
-    $_[0] =~ m!/([^/]*)$!;
-    return $1;
+sub triggle {
+    $_[0]-- or $_[0] = 2;
 }
 
 sub toggle {
-    $_[0]=!$_[0];
+    $_[0] = !$_[0];
+}
+
+sub basename {
+    $_[0] =~ m!/([^/]*)$!;
+    return $1;
 }
 
 sub exclude { # $entry,$oldmark
@@ -278,19 +282,22 @@ sub uidline {
 
 sub tdline {
     $^A = "";
-    formline($tdlineformat,@_[0,1,2,3],&mtime2str($_[4],0),@_[5,6]);
+    formline($tdlineformat,@_[0,1,2,3],&time2str($_[4],0),@_[5,6]);
     return $^A;
 }
 
 sub fileline {
     my %specs=@_;
     my $neatsize = &fit2limit($specs{size});
-    if ($uid_mode) {
+    unless ($uid_mode) {
+        return  &tdline( @specs{qw/selected display too_long/},$neatsize,
+                         @specs{qw/mtime inode mode/}        );
+    } elsif ($uid_mode == 1) {
         return &uidline( @specs{qw/selected display too_long/},$neatsize,
                          @specs{qw/uid gid nlink mode/}      );
     } else {
         return  &tdline( @specs{qw/selected display too_long/},$neatsize,
-                         @specs{qw/mtime inode mode/}        );
+                         @specs{qw/atime inode mode/}        );
     }
 }
 
@@ -394,10 +401,13 @@ sub init_title { # swap_mode, uid_mode
     my @title=split(/\n/,<<_eoKop_);
 size  date      mtime  inode attrib          disk info
 size  userid   groupid lnks  attrib          disk info
+size  date      atime  inode attrib          disk info
 size  date      mtime  inode attrib     your commands 
 size  userid   groupid lnks  attrib     your commands 
+size  date      atime  inode attrib     your commands 
 size  date      mtime  inode attrib     sort mode     
 size  userid   groupid lnks  attrib     sort mode     
+size  date      atime  inode attrib     sort mode     
 _eoKop_
     $swapmode ? $scr->on_black()
               : $scr->on_white()->bold();
@@ -417,7 +427,7 @@ _eoFunction_
 
 sub copyright {
     $scr->cyan()->puts("PFM $VERSION for Unix computers and compatibles.")
-        ->at(1,0)->puts("Copyright (c) 1999 Rene Uittenbogaard")
+        ->at(1,0)->puts("Copyright (c) 1999/2000 Rene Uittenbogaard")
         ->at(2,0)->puts("This software comes with no warranty: see the file "
                        ."COPYING for details.")->normal();
     return $scr->key_pressed($_[0]);
@@ -448,7 +458,7 @@ sub credits {
 
              PFM for Unix computers and compatibles.  Version $VERSION
              Original idea/design: Paul R. Culley and Henk de Heer
-                Author and Copyright (c) 1999 Rene Uittenbogaard
+             Author and Copyright (c) 1999/2000 Rene Uittenbogaard
 
 
        PFM is distributed under the GNU General Public License version 2.
@@ -539,7 +549,7 @@ sub mark_info {
 sub date_info {
     my ($line,$col)=@_;
     my ($datetime,$date,$time);
-    $datetime=&mtime2str(time,1);
+    $datetime=&time2str(time,1);
     ($date,$time) = ($datetime =~ /(.*)\s+(.*)/);
     if ($scr->getrows() > 24) {
         $scr->at($line++,$col+3)->puts($date);
@@ -562,6 +572,8 @@ sub as_requested {
         /M/ and return lc($b->{name}) cmp lc($a->{name}),   last SWITCH;
         /d/ and return    $a->{mtime} <=>    $b->{mtime},   last SWITCH;
         /D/ and return    $b->{mtime} <=>    $a->{mtime},   last SWITCH;
+        /a/ and return    $a->{atime} <=>    $b->{atime},   last SWITCH;
+        /A/ and return    $b->{atime} <=>    $a->{atime},   last SWITCH;
         /s/ and return    $a->{size}  <=>    $b->{size},    last SWITCH;
         /S/ and return    $b->{size}  <=>    $a->{size},    last SWITCH;
         /i/ and return    $a->{inode} <=>    $b->{inode},   last SWITCH;
@@ -742,7 +754,7 @@ sub handlesort {
     my $printline=$baseline;
     my %sortmodes=@sortmodes;
     &init_header(4);
-    &init_title($swap_mode,$uid_mode+4);
+    &init_title($swap_mode,$uid_mode+6);
     &clearcolumn;
     for ($i=0; $i<$#sortmodes; $i+=2) {
         $^A="";
@@ -837,7 +849,7 @@ sub handlecommand { # Y or O
     &markcurrentline(uc($_[0])) unless $multiple_mode;
     if ($_[0] =~ /y/i) { # Your
         &clearcolumn;
-        &init_title($swap_mode,$uid_mode+2);
+        &init_title($swap_mode,$uid_mode+3);
         $printline=$baseline;
         foreach (sort keys %pfmrc) {
             if (/^[A-Z]$/ && $printline <= $baseline+$screenheight) { 
@@ -1382,7 +1394,7 @@ sub browse {
                 /^k5$/ and
                     &ok_to_remove_marks ? last STRIDE : last KEY;
                 /^k9$/i and
-                    &toggle($uid_mode),
+                    &triggle($uid_mode),
                     &printdircontents(@dircontents),
                     &init_title($swap_mode,$uid_mode),
                     last KEY;
