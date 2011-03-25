@@ -1,16 +1,15 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 30-07-1999 v0.99.12
+# @(#) pfm.pl 02-08-1999 v1.00
 #
 # Author:      Rene Uittenbogaard
 # Usage:       pfm.pl [directory]
 # Description: Personal File Manager for Unix/Linux
-# Version:     v0.99.12
-# Date:        30-07-1999
+# Version:     v1.00
+# Date:        02-08-1999
 # 
-# TO-DO: multiple rename
-#        change ownership testen
+# TO-DO: change ownership testen
 #        tidy up multiple commands
 #        titlebar colors configurable
 #        validate_position in SIG{WINCH}
@@ -49,7 +48,7 @@
 require Term::ScreenColor;
 use strict 'refs','subs';
 
-my $VERSION='0.99.12';
+my $VERSION='1.00';
 my $configfilename=".pfmrc";
 my $majorminorseparator=',';
 my $maxfilenamelength=20;
@@ -619,7 +618,6 @@ sub handlemore {
             } else { 
                 $do_a_refresh=1;
             }
-#            &init_title($swap_mode,$uid_mode);
         };
         /^m$/i and do {
             return 0 unless &ok_to_remove_marks;
@@ -638,7 +636,6 @@ sub handlemore {
                 $do_a_refresh=2;
                 $position_at='.';
             }
-#            &init_title($swap_mode,$uid_mode);
         };
         /^c$/i and do {
             system "$editor $ENV{HOME}/$configfilename" and &display_error($!);
@@ -653,10 +650,8 @@ sub handlemore {
             system "$editor $newname" and &display_error($!);
             $scr->raw();
             $do_a_refresh=1;
-#            &init_title($swap_mode,$uid_mode);
         }
     }
-#    &init_header($multiple_mode);
     return $do_a_refresh;
 }
 
@@ -670,48 +665,49 @@ sub handleinclude { # include/exclude flag
     $exin =~ tr/ix/* /;
     my $key=$scr->at(0,46)->getch();
     PARSEINCLUDE: {
-    for ($key) {
-        /^e$/i and do {    # include every
-            $criterion='$entry->{name} !~ /^\.\.?$/';
-            $key="prepared";
-            redo PARSEINCLUDE;
-        };
-        /^f$/i and do {    # include files
-            $wildfilename=&promptforwildfilename;
-            $criterion='$entry->{name} =~ /$wildfilename/ and $entry->{type} eq "-" ';
-            $key="prepared";
-            redo PARSEINCLUDE;
-        };
-        /^u$/i and do { # user only
-            $criterion = '$entry->{uid}' . " =~ /$ENV{USER}/";
-            $key="prepared";
-            redo PARSEINCLUDE;
-        };
-        /^o$/i and do {   # include oldmarks 
-            foreach my $entry (@dircontents) {
-                if ($entry->{selected} eq "." && $exin eq " ") {
-                    $entry->{selected} = $exin;
-                } elsif ($entry->{selected} eq "." && $exin eq "*") {
-                    &include($entry);
-                }
-                $result=1;
-            }
-        };
-        /prepared/ and do { # the criterion has been set
-            foreach my $entry (@dircontents) {
-                if (eval $criterion) {
-                    if ($entry->{selected} eq "*" && $exin eq " ") {
-                        &exclude($entry);
-                    } elsif ($entry->{selected} eq "." && $exin eq " ") {
+        for ($key) {
+            /^e$/i and do {    # include every
+                $criterion='$entry->{name} !~ /^\.\.?$/';
+                $key="prepared";
+                redo PARSEINCLUDE;
+            };
+            /^f$/i and do {    # include files
+                $wildfilename=&promptforwildfilename;
+                $criterion='$entry->{name} =~ /$wildfilename/'
+		          .' and $entry->{type} eq "-" ';
+                $key="prepared";
+                redo PARSEINCLUDE;
+            };
+            /^u$/i and do { # user only
+                $criterion = '$entry->{uid}' . " =~ /$ENV{USER}/";
+                $key="prepared";
+                redo PARSEINCLUDE;
+            };
+            /^o$/i and do {   # include oldmarks 
+                foreach my $entry (@dircontents) {
+                    if ($entry->{selected} eq "." && $exin eq " ") {
                         $entry->{selected} = $exin;
-                    } elsif ($entry->{selected} ne "*" && $exin eq "*") {
+                    } elsif ($entry->{selected} eq "." && $exin eq "*") {
                         &include($entry);
                     }
                     $result=1;
                 }
-            }
-        };
-    } # for
+            };
+            /prepared/ and do { # the criterion has been set
+                foreach my $entry (@dircontents) {
+                    if (eval $criterion) {
+                        if ($entry->{selected} eq "*" && $exin eq " ") {
+                            &exclude($entry);
+                        } elsif ($entry->{selected} eq "." && $exin eq " ") {
+                            $entry->{selected} = $exin;
+                        } elsif ($entry->{selected} ne "*" && $exin eq "*") {
+                            &include($entry);
+                        }
+                        $result=1;
+                    }
+                }
+            };
+        } # for
     } # PARSEINCLUDE
     &init_header($multiple_mode);
     return $result;
@@ -1025,24 +1021,27 @@ sub handleedit {
     $scr->clrscr()->raw();
 }
 
-sub handlerename {
-    my $newname;
-    &markcurrentline('R');
-    $scr->at(0,0)->clreol()->bold()->cyan();
-    $scr->puts("New name: ")->normal()->cooked();
-    chop($newname=<STDIN>);
-    &expand_escapes($newname,\%currentfile);
-    $scr->raw();
-    return if ($newname eq '');
-    system(qq/mv "$currentfile{name}" "$newname"/) and &display_error($!);
-}
+#sub handlerename {
+#    my $newname;
+#    &markcurrentline('R');
+#    $scr->at(0,0)->clreol()->bold()->cyan();
+#    $scr->puts("New name: ")->normal()->cooked();
+#    chop($newname=<STDIN>);
+#    &expand_escapes($newname,\%currentfile);
+#    $scr->raw();
+#    return if ($newname eq '');
+#    system(qq/mv "$currentfile{name}" "$newname"/) and &display_error($!);
+#}
 
-sub handlecopy {
+sub handlecopyrename {
+    my $state = "\u$_[0]";
+    my $statecmd = $state eq 'C' ? 'cp' : 'mv';
+    my $stateprompt = $state eq 'C' ? 'Destination: ' : 'New name: ';
     my ($loopfile,$index,$newname,$command,$do_this);
     my $do_a_refresh=0;
-    &markcurrentline('C') unless $multiple_mode;
+    &markcurrentline($state) unless $multiple_mode;
     $scr->at(0,0)->clreol()->bold()->cyan()
-        ->puts("Destination: ")->normal()->cooked();
+        ->puts($stateprompt)->normal()->cooked();
     chop($newname=<STDIN>);
     $scr->raw();
     return 0 if ($newname eq '');
@@ -1051,7 +1050,7 @@ sub handlecopy {
             ." while destination is single file.")->normal()->getch();
         return 0; # don't refresh screen
     }
-    $command = 'system qq{cp $loopfile->{name}'." $newname}";
+    $command = "system qq{$statecmd ".'$loopfile->{name}'." $newname}";
     if ($multiple_mode) {
         $scr->at(1,0)->clreol();
         for $index (0..$#dircontents) {
@@ -1359,7 +1358,7 @@ sub browse {
                     last KEY;
                 /^kr|kl|[hl\e]$/i and
                     &handleentry($_) ? last STRIDE : last KEY;
-                /^s|\r$/ and
+                /^[s\r]$/ and                          # changed recently %%%%%
                     $dircontents[$currentline+$baseindex]{type} eq 'd'
                        ? do { &handleentry($_) ? last STRIDE : last KEY }
                        : do { if (/\r/ && $currentfile{mode} =~ /x/)
@@ -1406,11 +1405,10 @@ sub browse {
                         last KEY;
                     };
 # from this point: test if display is updated correctly
-                /^c$/i and
-                    &handlecopy ? redo DISPLAY
-                                : do { &init_header($multiple_mode),last KEY };
-                /^r$/i and
-                    &handlerename, last STRIDE;
+                /^[cr]$/i and
+                    &handlecopyrename($_)
+		        ? redo DISPLAY
+                        : do { &init_header($multiple_mode) ,last KEY };
                 /^u$/i and
                     &handlechown ? redo DISPLAY : do {
                         &init_header($multiple_mode),
