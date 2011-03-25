@@ -1,22 +1,22 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 21-07-1999 v0.99f
+# @(#) pfm.pl 21-07-1999 v0.99h
 #
 # Author:      Rene Uittenbogaard
 # Usage:       pfm.pl [directory]
 # Description: Personal File Manager for Linux
-# Version:     v0.99f
+# Version:     v0.99h
 # Date:        21-07-1999
 # 
 # TO-DO: multiple rename
-#        multiple edit
-#        multiple show
-#        multiple cOmmand
+#        tidy up multiple commands
 #        titlebar colors configurable
 #        validate_position in SIG{WINCH}
 #        key response (flush_input)
 # terminal:
+#        intelligent restat (changes in current dir?)
+#        window resizable horizontally
 #        make use of Term::Complete?
 #        command history
 # documentation:
@@ -47,7 +47,7 @@
 require Term::ScreenColor;
 use strict 'refs','subs';
 
-my $VERSION='0.99f';
+my $VERSION='0.99h';
 my $configfilename=".pfmrc";
 my $majorminorseparator=',';
 my $maxfilenamelength=20;
@@ -368,7 +368,7 @@ sub init_header { # "multiple"mode
 Attribute Time Copy Delete Edit Print Rename Show Your cOmmands Quit View More  
 Multiple Include eXclude Attribute Time Copy Delete Print Rename Your cOmmands  
 include? Every, Oldmarks, User or Files only:                                   
-Config PFM Edit new file Make new dir Show new drive/dir ESC to main menu       
+Config PFM Edit new file Make new dir Show new dir ESC to main menu             
 Sort by: Name, Extension, Size, Date, Type, Inode (ignorecase, reverse):        
 _eoFirst_
     $scr->at(0,0);
@@ -444,7 +444,8 @@ sub credits {
 
        PFM is distributed under the GNU General Public License version 2.
                     PFM is distributed without any warranty,
-         even the implied warranty of fitness for a particular purpose.
+	     even without the implied warranties of merchantability 
+		      or fitness for a particular purpose.
                    Please read the file COPYING for details.
 
 
@@ -900,27 +901,37 @@ sub handleprint {
     my ($loopfile,$do_this,$index);
     &markcurrentline('P') unless $multiple_mode;
     $scr->at(0,0)->clreol();
-    $do_this = 'system qq/$printcmd "$loopfile->{name}"/ and &display_error($!);';
     if ($multiple_mode) {
         for $index (0..$#dircontents) {
             $loopfile=$dircontents[$index];
             if ($loopfile->{selected} eq '*') {
                 $scr->at(1,0)->clreol()->puts($loopfile->{name});
                 &exclude($loopfile,'.');
-                eval($do_this);
+                system qq/$printcmd "$loopfile->{name}"/ and &display_error($!);
             }
         }
     } else { 
-        $loopfile=\%currentfile;
-        eval($do_this);
+        system qq/$printcmd "$currentfile{name}"/ and &display_error($!);
     }
     &pressanykey;
     $scr->clrscr();
 }
 
 sub handleshow {
-    $scr->clrscr()->cooked();
-    system(qq/$pager "$currentfile{name}"/) ? &display_error($!) : &pressanykey;
+    my ($loopfile,$index);
+    $scr->clrscr()->at(0,0)->cooked();
+    if ($multiple_mode) {
+        for $index (0..$#dircontents) {
+            $loopfile=$dircontents[$index];
+            if ($loopfile->{selected} eq '*') {
+                $scr->puts($loopfile->{name});
+                &exclude($loopfile,'.');
+                system (qq/$pager "$loopfile->{name}"/) and &display_error($!);
+            }
+        }
+    } else {
+        system qq/$pager "$currentfile{name}"/ and &display_error($!);
+    }
     $scr->clrscr()->raw();
 }
 
@@ -967,8 +978,20 @@ sub handletime {
 }
 
 sub handleedit {
-    $scr->clrscr()->cooked();
-    system( "$editor $currentfile{name}" ) && &display_error($!);
+    my ($loopfile,$index);
+    $scr->clrscr()->at(0,0)->cooked();
+    if ($multiple_mode) {
+        for $index (0..$#dircontents) {
+            $loopfile=$dircontents[$index];
+            if ($loopfile->{selected} eq '*') {
+                $scr->puts($loopfile->{name});
+                &exclude($loopfile,'.');
+                system qq/$editor "$loopfile->{name}"/ and &display_error($!);
+            }
+        }
+    } else {
+        system qq/$editor "$currentfile{name}"/ and &display_error($!);
+    }
     $scr->clrscr()->raw();
 }
 
@@ -985,15 +1008,39 @@ sub handlerename {
 }
 
 sub handlecopy {
-    my $newname;
-    &markcurrentline('C');
-    $scr->at(0,0)->clreol()->bold()->cyan();
-    $scr->puts("Destination: ")->normal()->cooked();
+    my ($loopfile,$index,$newname,$command,$do_this);
+    my $do_a_refresh=0;
+    &markcurrentline('C') unless $multiple_mode;
+    $scr->at(0,0)->clreol()->bold()->cyan()
+        ->puts("Destination: ")->normal()->cooked();
     chop($newname=<STDIN>);
-    &expand_escapes($newname,\%currentfile);
     $scr->raw();
-    return if ($newname eq '');
-    system("cp \"$currentfile{name}\" \"$newname\"") and &display_error($!);
+    return 0 if ($newname eq '');
+    if ($multiple_mode and $newname !~ /\e/ and !-d($newname)) {
+        $scr->at(0,0)->cyan()->bold()->puts("Cannot do multifile operation"
+            ." while destination is single file.")->normal()->getch();
+        return 0; # don't refresh screen
+    }
+    $command = 'system qq{cp $loopfile->{name}'." $newname}";
+    if ($multiple_mode) {
+        $scr->at(1,0)->clreol();
+        for $index (0..$#dircontents) {
+            $loopfile=$dircontents[$index];
+            if ($loopfile->{selected} eq '*') {
+                &exclude($loopfile,'.');
+                $do_this = $command;
+                &expand_escapes($do_this,$loopfile);
+                $scr->at(1,0)->puts($loopfile->{name});
+                eval ($do_this) and &display_error($!);
+                $do_a_refresh++;
+            }
+        }
+    } else {
+        $loopfile=\%currentfile;
+        &expand_escapes($command,$loopfile);
+        eval ($command) and &display_error($!);
+    }
+    return $do_a_refresh;
 }
 
 sub handleselect {
@@ -1191,7 +1238,7 @@ sub printdircontents { # @contents
 
 sub countdircontents {
     %total_nr_of   = 
-    %selected_nr_of=(  d=>0, l=>0, '-'=>0, bytes=>0,
+    %selected_nr_of=(  d=>0, l=>0, '-'=>0, D=>0, bytes=>0,
                        c=>0, b=>0, 's'=>0, p=>0 );
     foreach my $i (0..$#_) {
         $total_nr_of{$_[$i]{type}}++;
@@ -1329,8 +1376,8 @@ sub browse {
                     };
 # from this point: test if display is updated correctly
                 /^c$/i and
-                    &handlecopy, last STRIDE; # nog testen of multiple_mode
-                                              # en exitcode (success)
+                    &handlecopy ? redo DISPLAY
+                                : do { &init_header($multiple_mode),last KEY };
                 /^r$/i and
                     &handlerename, last STRIDE;
                 /^[yo]$/i and
@@ -1456,7 +1503,9 @@ cannot be set. Read the chmod(1) page for more details.
 =item B<Copy>
 
 Copy pointed file to another. You will be prompted for the destination
-file name. In multiple-mode, the destination MUST be a directoryname.
+file name. In multiple-mode, beware that you don't copy files to the same
+destination file. Specify the destination name with escapes (see the B<O>
+command below).
 
 =item B<Delete>
 
