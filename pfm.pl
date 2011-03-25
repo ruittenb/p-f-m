@@ -1,13 +1,13 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 02-08-1999 v1.00
+# @(#) pfm.pl 17-08-1999 v1.02.1
 #
 # Author:      Rene Uittenbogaard
 # Usage:       pfm.pl [directory]
 # Description: Personal File Manager for Unix/Linux
-# Version:     v1.00
-# Date:        02-08-1999
+# Version:     v1.02.1
+# Date:        17-08-1999
 # 
 # TO-DO: change ownership testen
 #        tidy up multiple commands
@@ -16,7 +16,6 @@
 #        key response (flush_input)
 # terminal:
 #        intelligent restat (changes in current dir?)
-#        apply color correctly when $screenwidth>80
 #        display '+' correctly when $screenwidth>80
 #        make use of Term::Complete?
 #        command history
@@ -46,9 +45,10 @@
 # declarations and initialization
 
 require Term::ScreenColor;
+use Term::ReadLine;
 use strict 'refs','subs';
 
-my $VERSION='1.00';
+my $VERSION='1.02.1';
 my $configfilename=".pfmrc";
 my $majorminorseparator=',';
 my $maxfilenamelength=20;
@@ -73,7 +73,7 @@ my %timehints = ( pfm   => '[[CC]YY]MMDDhhmm[.ss]',
                   touch => 'MMDDhhmm[[CC]YY][.ss]' );
 my (%user,%group,$sort_mode,$multiple_mode,$swap_mode,$uid_mode,
     %currentfile,$currentline,$baseindex,
-    $editor,$pager,$printcmd,$clsonexit,$cwdinheritance,$confirmquit,
+    $editor,$pager,$printcmd,$clsonexit,$cwdinheritance,
     $timeformat,%dircolors,%pfmrc,$scr,$wasresized);
 
 sub init_uids {
@@ -94,7 +94,7 @@ sub init_gids {
 
 sub read_pfmrc { # $rereadflag - 0=read 1=reread
     $uid_mode=$sort_mode=$editor=$pager=$clsonexit
-             =$cwdinheritance=$confirmquit='';
+             =$cwdinheritance='';
     %dircolors=%pfmrc=();
     local $_;
     if (open PFMRC,"$ENV{HOME}/$configfilename") {
@@ -116,7 +116,6 @@ sub read_pfmrc { # $rereadflag - 0=read 1=reread
     }
     &copyright($pfmrc{copyrightdelay}) unless ($_[0]);
     $clsonexit     = $pfmrc{clsonexit};
-    $confirmquit   = $pfmrc{confirmquit};
     $cwdinheritance= $pfmrc{cwdinheritance};
     $printcmd      = $pfmrc{printcmd}   || 'lpr';
     $timeformat    = $pfmrc{timeformat} || 'pfm';
@@ -125,7 +124,7 @@ sub read_pfmrc { # $rereadflag - 0=read 1=reread
     $editor        = $pfmrc{editor}     || $ENV{EDITOR} || 'vi';
     $pager         = $pfmrc{pager}      || $ENV{PAGER}  ||
                       ($^O =~ /linux/i ? 'less' : 'more');
-#    system "stty erase $erase" if defined($erase);
+    system "stty erase $pfmrc{erase}" if defined($pfmrc{erase});
     foreach (keys %pfmrc) {
         $pfmrc{$_} =~ s/\^\[|\\e/\e/g; # insert escapes
     }
@@ -242,7 +241,7 @@ sub decidecolor {
 sub applycolor { 
     if ($scr->colorizable()) {
         my ($line,$length,%file)=(shift,shift,@_);
-        $length= $length ? 255 : 20;
+        $length= $length ? 255 : $screenwidth-60;                        # %%%%%
         &decidecolor(%file);
         $scr->at($line,2)->puts(substr($file{name},0,$length))->normal();
     }
@@ -516,7 +515,7 @@ sub mark_info {
                + $selected_nr_of{'D'};
     my $startline=15;
     my $total=0;
-    $values[2]=&fit2limit($values[2]);
+    $values[0]=&fit2limit($values[0]);
     $scr->at($startline-1,$screenwidth-$datecol+2)->puts('Marked files');
     foreach (0..4) {
         $scr->at($startline+$_,$screenwidth-$datecol+1)
@@ -577,8 +576,8 @@ sub as_requested {
 # user commands
 
 sub handlequit {
-    return 1 if $confirmquit =~ /never/i;
-    return 1 if ($confirmquit =~ /marked/i and !&mark_info);
+    return 1 if $pfmrc{confirmquit} =~ /never/i;
+    return 1 if ($pfmrc{confirmquit} =~ /marked/i and !&mark_info);
     $scr->at(0,0)->clreol()->bold()->cyan();
     $scr->puts("Are you sure you want to quit [Y/N]? ")->normal();
     my $sure = $scr->getch();
@@ -749,7 +748,7 @@ sub handlesort {
 sub handlechown {
     my ($newuid,$loopfile,$do_this,$index);
     my $do_a_refresh = $multiple_mode;
-    &markcurrentline('A') unless $multiple_mode;
+    &markcurrentline('U') unless $multiple_mode;
     $scr->at(0,0)->clreol()->bold()->cyan();
     $scr->puts("New user[:group] : ")->normal(); # what about group?
     $scr->cooked();
@@ -830,9 +829,9 @@ sub handlecommand { # Y or O
                 $scr->at($printline++,$screenwidth-$datecol)->puts($^A);
             }
         }
-        $key=$scr->at(0,0)->clreol()
+        $key=$scr->at(0,0)->clreol()->cyan()->bold()
                  ->puts('Enter one of the highlighted chars at right:')
-                 ->at(0,45)->getch();
+                 ->at(0,45)->normal()->getch();
         &clearcolumn;
         return unless ($command = $pfmrc{uc($key)}); # assignment!
         $scr->cooked();
@@ -1021,18 +1020,6 @@ sub handleedit {
     $scr->clrscr()->raw();
 }
 
-#sub handlerename {
-#    my $newname;
-#    &markcurrentline('R');
-#    $scr->at(0,0)->clreol()->bold()->cyan();
-#    $scr->puts("New name: ")->normal()->cooked();
-#    chop($newname=<STDIN>);
-#    &expand_escapes($newname,\%currentfile);
-#    $scr->raw();
-#    return if ($newname eq '');
-#    system(qq/mv "$currentfile{name}" "$newname"/) and &display_error($!);
-#}
-
 sub handlecopyrename {
     my $state = "\u$_[0]";
     my $statecmd = $state eq 'C' ? 'cp' : 'mv';
@@ -1047,10 +1034,11 @@ sub handlecopyrename {
     return 0 if ($newname eq '');
     if ($multiple_mode and $newname !~ /\e/ and !-d($newname)) {
         $scr->at(0,0)->cyan()->bold()->puts("Cannot do multifile operation"
-            ." while destination is single file.")->normal()->getch();
+            ." when destination is single file.")->normal()->getch();
         return 0; # don't refresh screen
     }
-    $command = "system qq{$statecmd ".'$loopfile->{name}'." $newname}";
+#    $command = "system qq{$statecmd ".'$loopfile->{name}'." $newname}";
+    $command = 'system qq{'.$statecmd.' "$loopfile->{name}" "'.$newname.'"}';
     if ($multiple_mode) {
         $scr->at(1,0)->clreol();
         for $index (0..$#dircontents) {
@@ -1433,7 +1421,8 @@ sub browse {
                          else { last KEY }
                        };
                 /@/ and do {
-                    $scr->at(0,0)->clreol()->cyan()->puts("Enter Perl command:")
+                    $scr->at(0,0)->clreol()->cyan()->bold()
+		        ->puts("Enter Perl command:")
                         ->at(1,0)->normal()->clreol()->cooked();
                     $cmd=<STDIN>; 
                     $scr->raw();
