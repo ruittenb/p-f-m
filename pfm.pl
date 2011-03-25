@@ -1,12 +1,12 @@
-#!/usr/local/bin/perl
+#!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 11-07-1999 v0.98c
+# @(#) pfm.pl 11-07-1999 v0.99
 #
 # Author:      Rene Uittenbogaard
 # Usage:       pfm.pl [directory]
 # Description: Personal File Manager for Linux
-# Version:     v0.98c
+# Version:     v0.99
 # Date:        11-07-1999
 # 
 # TO-DO: multiple attrib
@@ -14,13 +14,13 @@
 #        multiple rename
 #        multiple print
 #        multiple edit
+#        multiple time
 #        multiple show
 #        key response (flush_input)
 #        handleinclude 
 #        handlemore  Show
-#        Attrib -> refresh: reread single file in multiple mode
-#        (de)?select procedure : implement
-#        time
+#        attrib: in multiple mode, refresh (restat) file
+#        Include/Exclude procedure : implement aTtribute
 #        F1 help 
 # documentation
 # validate_position in SIG{WINCH} and deleting files
@@ -28,10 +28,10 @@
 ##########################################################################
 # declarations and initialization
 
-require Term::PfmColor;
+require Term::ScreenColor;
 use strict 'refs','subs';
 
-my $VERSION='0.98c';
+my $VERSION='0.99';
 my $configfilename=".pfmrc";
 my $maxfilenamelength=20;
 my $errordelay=1;     # seconds
@@ -88,9 +88,9 @@ sub read_pfmrc { # $rereadflag - 0=read 1=reread
         close PFMRC;
     }
     if (defined($pfmrc{usecolor}) && !$pfmrc{usecolor}) {
-        $Term::PfmColor::colorizable=0;
+        $scr->colorizable(0);
     } elsif (defined($pfmrc{usecolor}) && ($pfmrc{usecolor}==2)) {
-        $Term::PfmColor::colorizable=1;
+        $scr->colorizable(1);
     }
     &copyright($pfmrc{copyrightdelay}) unless ($_[0]);
     $clsonexit     = $pfmrc{clsonexit};
@@ -210,7 +210,7 @@ sub decidecolor {
 }
 
 sub applycolor { 
-    if ($Term::PfmColor::colorizable) { 
+    if ($scr->colorizable()) {
         my ($line,$length,%file)=(shift,shift,@_);
         $length= $length ? 255 : 20;
         &decidecolor(%file);
@@ -381,7 +381,7 @@ PFM $VERSION for Unix computers and compatibles.
 _eoCopy1_
 Copyright (c) 1999 Rene Uittenbogaard
 _eoCopy2_
-This software comes with NO WARRANTY: see the file COPYING for details.
+This software comes with no warranty: see the file COPYING for details.
 _eoCopy3_
     return $scr->key_pressed($_[0]);
 }
@@ -467,8 +467,8 @@ sub disk_info { # %disk{ total, used, avail }
 
 sub dir_info {
     local $_;
-    my @desc=qw/dirs files symln spec/;
-    my @values=@total_nr_of{'d','-','l'};
+    my @desc=qw/files dirs symln spec/;
+    my @values=@total_nr_of{'-','d','l'};
     $values[3] = $total_nr_of{'c'} + $total_nr_of{'b'}
                + $total_nr_of{'p'} + $total_nr_of{'s'};
     my $startline=9;
@@ -480,8 +480,8 @@ sub dir_info {
 }
 
 sub mark_info {
-    my @desc=qw/dirs files bytes symln spec/;
-    my @values=@selected_nr_of{'d','-','bytes','l'};
+    my @desc=qw/files bytes dirs symln spec/;
+    my @values=@selected_nr_of{'-','bytes','d','l'};
     $values[4] = $selected_nr_of{'c'} + $selected_nr_of{'b'}
                + $selected_nr_of{'p'} + $selected_nr_of{'s'};
     my $startline=15;
@@ -554,20 +554,20 @@ sub handlequit {
 sub handlemore {
     local $_;
     my $refresh=0;
+    my $newname;
     &init_header(3);
     my $key=$scr->at(0,74)->getch();
     for ($key) {
         /^s$/i and do {
             return 0 unless &ok_to_remove_marks;
             $scr->at(0,0)->clreol()
-                ->bold()->cyan->puts('Directory Pathname: ')->normal()
+                ->bold()->cyan()->puts('Directory Pathname: ')->normal()
                 ->cooked()->at(0,20);
             chop($currentdir=<STDIN>);
             $scr->raw();
             $position_at='.';
             if ( !chdir $currentdir ) {
                 &display_error("$currentdir: $!");
-#                &init_header($multiple_mode);
                 chop($currentdir=`pwd`);
             } else { 
                 $refresh=1;
@@ -580,7 +580,16 @@ sub handlemore {
             $refresh=1;
         };
         /^m$/i and 1;
-        /^e$/i and 1;
+        /^e$/i and do {
+            $scr->at(0,0)->clreol()
+                ->bold()->cyan()->puts('New name: ')->normal()
+                ->cooked()->at(0,10);
+            chop($newname=<STDIN>);
+            system "$editor $newname" and &display_error($!);
+            $scr->raw();
+            $refresh=1;
+            &init_title($swap_mode,$uid_mode);
+        }
     }
     &init_header($multiple_mode);
     return $refresh;
@@ -809,14 +818,22 @@ sub handleshow {
     $scr->clrscr()->raw();
 }
 
+sub handlehelp {
+    $scr->clrscr();
+    system "man pfm";
+}
+
 sub handletime {
     my $newtime;
     &markcurrentline('T');
     $scr->at(0,0)->clreol()->bold()->cyan();
-    $scr->puts("Put date/time MMDDhhmm[[CC]YY][.ss]: ")->normal()->cooked();
+    $scr->puts("Put date/time [[CC]YY]MMDDhhmm[.ss]: ")->normal()->cooked();
     chop($newtime=<STDIN>);
     $scr->raw();
     return if ($newtime eq '');
+#   Entered date/time must be converted
+#   from [[CC]YY]MMDDhhmm[.ss] to MMDDhhmm[[CC]YY][.ss] (touch(1)) format
+    $newtime =~ s/^(\d{0,4})(\d{8})(\..*)?/$2$1$3/;
     system("touch -t $newtime \"$currentfile{name}\"") and &display_error($!);
     $dircontents[$currentline+$baseindex] = &stat_entry($currentfile{name});
 }
@@ -1181,9 +1198,10 @@ sub browse {
                     &handlemore ? last STRIDE : redo DISPLAY;
                 /^[ix]$/i and
                     &handleinclude($_) ? redo DISPLAY : last KEY;
-                /^k1$/ and &credits, redo DISPLAY;
-                /^k3$/ and &handlefit, last KEY;                         # %%%%%
-                /^k4$/ and &toggle($Term::PfmColor::colorizable), redo DISPLAY;
+                /^k1$/ and &handlehelp, &credits, redo DISPLAY;
+                /^k3$/ and &handlefit, last KEY;
+                /^k4$/ and $scr->colorizable(!$scr->colorizable()),
+                           redo DISPLAY;
                 /^k6$/ and
                     &handlesort, redo DISPLAY;
                 /^k7$/ and
@@ -1214,7 +1232,7 @@ sub browse {
 ################################################################################
 
 $SIG{WINCH} = sub { $wasresized=1; };
-$scr= new Term::PfmColor;
+$scr= new Term::ScreenColor;
 $scr->clrscr();
 
 &read_pfmrc;
@@ -1265,25 +1283,40 @@ In single file mode, the command corresponding to the keypress will be
 executed on the file next to the cursor only. In multiple file mode,
 the command will apply to all marked files (see Marking below).
 
-=head2 COMMANDS
+Note that in the following descriptions, B<file> can mean any type
+of file, not just plain regular files. These will be referred to as
+B<regular files>.
+
+=head1 NAVIGATION
+
+=over
+
+Navigation through directories may be achieved by using the arrow keys,
+the vi cursor keys (B<hjkl>), the B<->, B<+>, B<PgUp>, B<PgDn>, B<home>,
+B<end>, B<CTRL-F> and B<CTRL-B>.  Pressing escape twice will take you
+one directory level up.  Pressing B<ENTER> while on a directory will take
+you into the directory.  Pressing B<SPACE> will both mark the current file
+and advance the cursor.
+
+=back
+
+=head1 COMMANDS
 
 =over
 
 =item B<Attrib>
 
 Change the mode of the file. The Read, Write, eXecute, Setuid, Setgid,
-and sTicky bits may be changed if you own the file. Use a '+' to add
-a permission, a '-' to remove it, and a '=' specify the mode exactly,
-or specify the mode numerically. Read the chmod(1) page for more details.
-
-=item B<Time>
-
-Change date and time of the file.
+and sTicky bits may be changed if you own the file. Use a '+' to add a
+permission, a '-' to remove it, and a '=' specify the mode exactly, or
+specify the mode numerically. Read the chmod(1) page for more details.
+Note that the mode on a symbolic link cannot be set. Attempting to do
+so will change the mode of the file the symbolic link is pointing to.
 
 =item B<Copy>
 
-Copy pointed file to another. The 'destination' file prompt may be
-answered with a pathname and a wildcard format filename.
+Copy pointed file to another. You will be prompted for the destination
+file name.
 
 =item B<Delete>
 
@@ -1296,10 +1329,39 @@ Edit the pointed file with your external editor. You can specify an
 editor with the environment variable $EDITOR or in the .pfmrc file,
 else vi(1) is used.
 
+=item B<Include>
+
+Allows you to mark files which meet a certain criterion: Every (all
+files), aTtribute (only files with certain permissions), Oldmarks (file
+which have an I<oldmark>, User (only files owned by you) or Files only
+(prompts for a regular expression which the filename must match).  If you
+Include Every, dotfiles will be included as well, except for the B<.>
+and B<..> entries.
+
+=item B<More>
+
+Presents you with a choice of operations not related to the current
+files. Use this to config PFM, edit a new file, make a new directory,
+or view a different directory. See More Commands below. Pressing ESC
+will bring you back in the main menu.
+
+=item B<cOmmand>
+
+Allows execution of a shell command on the marked files. Entering an
+empty line will activate a copy of your default login shell until the
+'exit' command is entered. After the command completes, pfm will resume.
+
 =item B<Print>
 
 Print the pointed file on the default system printer by piping it
 through lpr(1).  No formatting is done.
+
+=item B<Quit>
+
+Exit pfm. You may specify in your $HOME/.pfmrc whether pfm will ask for
+confirmation (confirmquit:always|never|marked). 'marked' means you will
+only be asked for confirmation if there are any marked files in the
+current directory.
 
 =item B<Rename>
 
@@ -1312,35 +1374,106 @@ Displays the contents of the current file or directory on the screen.
 You can choose which pager to use for file viewing with the environment
 variable $PAGER, or in the .pfmrc file.
 
-=item B<cOmmand>
+=item B<Time>
 
-Allows execution of shell commands. A blank entry will activate a copy
-of your default login shell until the 'exit' command is entered. After
-the command completes, pfm will resume.
-
-=item B<Your command>
-
-Like 'O' command above, except that it uses your preconfigured commands.
-See the More-Config command help for details on how to preconfigure.
+Change date and time of the file. The format used is converted to a
+format which touch(1) can use.
 
 =item B<View>
 
 View the complete long filename. For a symbolic link, also displays the
 target of the symbolic link.
 
+=item B<eXclude>
+
+Allows you to erase marks on files which meet a certain criterion: Every (all
+files), aTtribute (only files with certain permissions), Oldmarks (files
+which have an I<oldmark>, User (only files owned by you) or Files only
+(prompts for a regular expression which the filename must match).  If you
+eXclude Every, dotfiles will be excluded as well, except for the B<.>
+and B<..> entries.
+
+=item B<Your command>
+
+Like B<O> command above, except that it uses your preconfigured commands.
+See the More-Config command help for details on how to preconfigure.
+
+=back
+
+=head1 MORE COMMANDS
+
+=over
+
+=item Config PFM
+
+This option will open the .pfmrc configuration file with your preferred editor.
+
+=item Edit new file
+
+You will be prompted for the new file name, then your editor will be spawned.
+
+=item Make new directory
+
+Enter a new directory name and PFM will create it for you. Furthermore,
+if you don't have any files marked, your current directory will be set
+to the newly created directory. If you don't want that, you will have
+to create the directory using the B<cOmmand> command.
+
+=item Show new drive/dir
+
+You will have to enter the new directory you want to view. Just pressing
+ENTER will take you to your home directory. Be aware that this option
+is different from B<F7> because this will not change your current swap
+directory status.
+
+=back
+
+=head1 MARKING FILES
+
+=head1 MISCELLANEOUS and FUNCTION KEYS
+
+=over
+
+=item B<F1>
+
+Display help and licence information.
+
+=item B<F3>
+
+Fit the file list into the current window. PFM attempts to refresh the
+display when the window size changes, but should this fail, then press F3.
+
+=item B<F4>
+
+Toggle the use of color.
+
+=item B<F5>
+
+Reread current directory. This will erase all marks!
+
+=item B<F6>
+
+Specify sort mode. You will be presented by a number of choices.
+
+=item B<F7>
+
+Set swap path. You may temporarily switch to another directory using
+this option. When you press B<F7> again, you will be in your previous
+directory. While in the swap directory, you may specify the directory
+you came from in commands as B<ESC>5
+
+=item B<F8>
+
+Mark/unmark the current file.
+
 =item B<F9>
 
 Toggle the display mode between either user id, group id, and link count,
 or date, time, and inode number.
 
-=item B<More>
+=item B<F10>
 
-Allows operations not related to the displayed directory. Use to config
-PFM, edit a new file, make a new directory, or view a different directory.
-
-=item B<Quit>
-
-Exit PFM and return to your shell. You will be prompted with 'Are you Sure'.
+Toggle single/multiple file mode.
 
 =back
 
@@ -1350,8 +1483,8 @@ Exit PFM and return to your shell. You will be prompted with 'Are you Sure'.
 
 =item B<$PAGER>
 
-Identifies the pager with which to view text files. Defaults to B<less>
-for Linux systems or B<more> for Unix systems.
+Identifies the pager with which to view text files. Defaults to less(1)
+for Linux systems or more(1) for Unix systems.
 
 =item B<$EDITOR>
 
@@ -1359,9 +1492,11 @@ The editor to be used for the B<E> command.
 
 =item B<$SHELL>
 
-Your login shell, spawned by cB<O>mmand with an empty line.
+Your default login shell, spawned by cB<O>mmand with an empty line.
 
 =back
+
+=head1 FILENAME ABBREVIATIONS
 
 =head1 FILES
 
@@ -1369,8 +1504,7 @@ $HOME/.pfmrc
 
 =head1 AUTHOR
 
-pfm.pl by Rene Uittenbogaard. 
-PFM.COM v2.32 and v3.14 by Paul Culley and Henk de Heer.
+Rene Uittenbogaard (ruittenbogaard@profuse.nl)
 
 =head1 BUGS
 
@@ -1379,6 +1513,8 @@ Multiple file mode and swap directories are not yet operational.
 
 =head1 SEE ALSO
 
-The documentation on PFM.COM . The man page for chmod(1).
+The documentation on PFM.COM . The mentioned man pages for chmod(1),
+less(1), lpr(1), touch(1).
 
 =cut
+
