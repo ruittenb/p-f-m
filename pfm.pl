@@ -1,22 +1,21 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 17-08-1999 v1.02.1
+# @(#) pfm.pl 24-01-2000 v1.02.2
 #
 # Author:      Rene Uittenbogaard
 # Usage:       pfm.pl [directory]
 # Description: Personal File Manager for Unix/Linux
-# Version:     v1.02.1
-# Date:        17-08-1999
+# Version:     v1.02.2
+# Date:        24-01-2000
 # 
-# TO-DO: change ownership testen
+# TO-DO: test change ownership
 #        tidy up multiple commands
 #        titlebar colors configurable
 #        validate_position in SIG{WINCH}
 #        key response (flush_input)
 # terminal:
 #        intelligent restat (changes in current dir?)
-#        display '+' correctly when $screenwidth>80
 #        make use of Term::Complete?
 #        command history
 # documentation:
@@ -48,10 +47,10 @@ require Term::ScreenColor;
 use Term::ReadLine;
 use strict 'refs','subs';
 
-my $VERSION='1.02.1';
+my $VERSION='1.02.2';
 my $configfilename=".pfmrc";
 my $majorminorseparator=',';
-my $maxfilenamelength=20;
+my $defaultmaxfilenamelength=20;
 my $errordelay=1;     # seconds
 my $slowentries=300;
 my $baseline=3;
@@ -250,24 +249,35 @@ sub applycolor {
 ##########################################################################
 # small printing routines
 
+sub makeformatlines {
+    $pathlineformat='@'.'<'x($screenwidth-$datecol-2).' [@<<<<<<<<<<<]';
+    $uidlineformat ='@ @'.'<'x($screenwidth-$datecol-47)
+                   .'@@>>>>>>  @<<<<<<< @<<<<<<<@###  @<<<<<<<<<';
+    $tdlineformat  ='@ @'.'<'x($screenwidth-$datecol-47)
+                   .'@@>>>>>>  @<<<<<<<<<<<<<<@###### @<<<<<<<<<';
+}
+
 sub pathline {
     $^A = "";
-    formline('@'.'<'x($screenwidth-$datecol-2).' [@<<<<<<<<<<<]',@_);
+#    formline('@'.'<'x($screenwidth-$datecol-2).' [@<<<<<<<<<<<]',@_);
+    formline($pathlineformat,@_);
     return $^A;
 }
 
 sub uidline {
     $^A = "";
-    formline('@ @'.'<'x($screenwidth-$datecol-47)
-            .'@@>>>>>>  @<<<<<<< @<<<<<<<@###  @<<<<<<<<<',@_);
+#    formline('@ @'.'<'x($screenwidth-$datecol-47)
+#            .'@@>>>>>>  @<<<<<<< @<<<<<<<@###  @<<<<<<<<<',@_);
+    formline($uidlineformat,@_);
     return $^A;
 }
 
 sub tdline {
     $^A = "";
-    formline('@ @'.'<'x($screenwidth-$datecol-47)
-            .'@@>>>>>>  @<<<<<<<<<<<<<<@###### @<<<<<<<<<'
-            ,@_[0,1,2,3],&mtime2str($_[4],0),@_[5,6]);
+#    formline('@ @'.'<'x($screenwidth-$datecol-47)
+#            .'@@>>>>>>  @<<<<<<<<<<<<<<@###### @<<<<<<<<<'
+#            ,@_[0,1,2,3],&mtime2str($_[4],0),@_[5,6]);
+    formline($tdlineformat,@_[0,1,2,3],&mtime2str($_[4],0),@_[5,6]);
     return $^A;
 }
 
@@ -585,12 +595,18 @@ sub handlequit {
 }
 
 sub handlefit {
+    local $_;
     $scr->resize();
     my $newheight= $scr->getrows();
     my $newwidth = $scr->getcols();
     if ($newheight || $newwidth) {
         $screenheight=$newheight-$baseline-2;
         $screenwidth =$newwidth;
+        $maxfilenamelength = $screenwidth - (80-$defaultmaxfilenamelength);
+        &makeformatlines;
+        foreach (@dircontents) {                                                   #%%%%%%
+            $_->{too_long} = length($_->{display})>$maxfilenamelength ? '+' : ' '; #%%%%%%
+        }                                                                          #%%%%%%
         $scr->clrscr();
         &redisplayscreen;
     }
@@ -1211,7 +1227,6 @@ sub stat_entry { # path_of_entry, selected_flag
     $ptr->{type}     = substr($ptr->{mode},0,1);
     $ptr->{target}   = $ptr->{type} eq 'l' ? ' -> '.readlink($ptr->{name}) : '';
     $ptr->{display}  = $entry.$ptr->{target};
-#    $ptr->{too_long} = (' ','+')[length($ptr->{display})>$maxfilenamelength];
     $ptr->{too_long} = length($ptr->{display})>$maxfilenamelength ? '+' : ' ';
     $total_nr_of{ $ptr->{type} }++;
     if ($ptr->{type} =~ /[bc]/) {
@@ -1453,6 +1468,8 @@ $swap_mode = $multiple_mode = 0;
 
 if ($scr->getrows()) { $screenheight=$scr->getrows()-$baseline-2 }
 if ($scr->getcols()) { $screenwidth =$scr->getcols() }
+$maxfilenamelength = $screenwidth - (80-$defaultmaxfilenamelength);   #%%%%%%	
+&makeformatlines;
 &init_frame(0,0,$uid_mode);
 # uid_mode coming from .pfmrc
 
