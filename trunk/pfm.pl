@@ -1,12 +1,12 @@
-#!/usr/local/bin/perl
+#!/usr/bin/env perl
 #
-# @(#) pfm.pl 13-05-1999 v0.97d
+# @(#) pfm.pl 27-05-1999 v0.98
 #
 # Author:      Rene Uittenbogaard
 # Usage:       pfm.pl [directory]
 # Description: Personal File Manager for Linux
-# Version:     v0.97d
-# Date:        13-05-1999
+# Version:     v0.98
+# Date:        27-05-1999
 # 
 # TO-DO: multiple attrib
 #        multiple delete
@@ -22,15 +22,13 @@
 #        F1 help 
 # documentation
 # validate_position in SIG{WINCH} and deleting files
-# Can't use an undefined value as a HASH reference at - line 1049
-# reread .pfmrc na more->config - OK?
 
 # ++++++++++++++++++++  declarations and initialization  ++++++++++++++++++++++ 
 
 require Term::PfmColor;
 use strict 'refs','subs';
 
-my $VERSION='0.97d';
+my $VERSION='0.98';
 my $configfilename=".pfmrc";
 my $maxfilenamelength=20;
 my $errordelay=1;     # seconds
@@ -70,8 +68,8 @@ sub init_gids {
 }
 
 sub read_pfmrc { # $rereadflag - 0=read 1=reread
-    $uid_mode=$sort_mode=$editor=$pager=$clsonexit='';
-    %dircolors=%pfmrc=();
+    $uid_mode=$sort_mode=$editor=$pager=$clsonexit='';                   # %%%%%
+    %dircolors=%pfmrc=();                                                # %%%%%
     local $_;
     if (open PFMRC,"$ENV{HOME}/$configfilename") {
         while (<PFMRC>) {
@@ -306,8 +304,6 @@ sub clearcolumn {
 # +++++++++++++++++++++++++  headers, footers  +++++++++++++++++++++++++ 
 
 sub print_with_shortcuts {
-    # Maybe sometime we could handle this with a regexp which is passed
-    # to the subroutine. That would make it more versatile
     my ($printme,$pattern)=@_;
     $scr->on_blue()->puts($printme)->bold();
     while ($printme =~ /$pattern/g) { 
@@ -1030,7 +1026,9 @@ sub resizehandler {
 }
 
 sub recalc_ptr {
-        return $dircontents[0];
+    $position_at='.';
+    &position_cursor;
+    return $dircontents[$currentline+$baseindex];
 }
 
 sub redisplayscreen {
@@ -1048,7 +1046,7 @@ sub redisplayscreen {
 sub browse {
     local $currentdir;
     local %disk;
-    my ($returncode,@dflist,$key,$backupptr);
+    my ($returncode,@dflist,$key);
     my $quitting=0;
 
     # collect info
