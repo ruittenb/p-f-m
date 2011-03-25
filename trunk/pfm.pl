@@ -1,13 +1,13 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 21-07-1999 v0.99h
+# @(#) pfm.pl 25-07-1999 v0.99i
 #
 # Author:      Rene Uittenbogaard
 # Usage:       pfm.pl [directory]
 # Description: Personal File Manager for Linux
-# Version:     v0.99h
-# Date:        21-07-1999
+# Version:     v0.99i
+# Date:        25-07-1999
 # 
 # TO-DO: multiple rename
 #        tidy up multiple commands
@@ -16,7 +16,8 @@
 #        key response (flush_input)
 # terminal:
 #        intelligent restat (changes in current dir?)
-#        window resizable horizontally
+#        apply color correctly when $screenwidth>80
+#        display '+' correctly when $screenwidth>80
 #        make use of Term::Complete?
 #        command history
 # documentation:
@@ -47,7 +48,7 @@
 require Term::ScreenColor;
 use strict 'refs','subs';
 
-my $VERSION='0.99h';
+my $VERSION='0.99i';
 my $configfilename=".pfmrc";
 my $majorminorseparator=',';
 my $maxfilenamelength=20;
@@ -58,7 +59,7 @@ my $screenheight=20; # inner height
 my $screenwidth=80; # terminal width
 my $userline=21;
 my $dateline=22;
-my $datecol=66;
+my $datecol=14;
 my $position_at='.';
 my @sortmodes=( n =>'Name',        N =>' reverse',
                'm'=>' ignorecase', M =>' rev+ignorec',
@@ -251,25 +252,22 @@ sub applycolor {
 
 sub pathline {
     $^A = "";
-    formline(<<'_eoPathFormat_',@_);
-@<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< [@<<<<<<<<<<<]
-_eoPathFormat_
+    formline('@'.'<'x($screenwidth-$datecol-2).' [@<<<<<<<<<<<]',@_);
     return $^A;
 }
 
 sub uidline {
     $^A = "";
-    formline(<<'_eoUidFormat_',@_);
-@ @<<<<<<<<<<<<<<<<<<<@@>>>>>>  @<<<<<<< @<<<<<<<@###  @<<<<<<<<<
-_eoUidFormat_
+    formline('@ @'.'<'x($screenwidth-$datecol-47)
+            .'@@>>>>>>  @<<<<<<< @<<<<<<<@###  @<<<<<<<<<',@_);
     return $^A;
 }
 
 sub tdline {
     $^A = "";
-    formline(<<'_eoTDFormat_',@_[0,1,2,3],&mtime2str($_[4],0),@_[5,6]);
-@ @<<<<<<<<<<<<<<<<<<<@@>>>>>>  @<<<<<<<<<<<<<<@###### @<<<<<<<<<
-_eoTDFormat_
+    formline('@ @'.'<'x($screenwidth-$datecol-47)
+            .'@@>>>>>>  @<<<<<<<<<<<<<<@###### @<<<<<<<<<'
+            ,@_[0,1,2,3],&mtime2str($_[4],0),@_[5,6]);
     return $^A;
 }
 
@@ -337,9 +335,9 @@ sub promptforwildfilename {
 
 sub clearcolumn {
     local $_;
-    my $spaces=' 'x(80-$datecol);
+    my $spaces=' 'x$datecol;
     foreach ($baseline..$baseline+$screenheight) {
-        $scr->at($_,$datecol)->puts($spaces);
+        $scr->at($_,$screenwidth-$datecol)->puts($spaces);
     }
 }
 
@@ -367,12 +365,13 @@ sub init_header { # "multiple"mode
     my @header=split(/\n/,<<_eoFirst_);
 Attribute Time Copy Delete Edit Print Rename Show Your cOmmands Quit View More  
 Multiple Include eXclude Attribute Time Copy Delete Print Rename Your cOmmands  
-include? Every, Oldmarks, User or Files only:                                   
+Include? Every, Oldmarks, User or Files only:                                   
 Config PFM Edit new file Make new dir Show new dir ESC to main menu             
 Sort by: Name, Extension, Size, Date, Type, Inode (ignorecase, reverse):        
 _eoFirst_
     $scr->at(0,0);
-    &print_with_shortcuts($header[$mode],"[A-Z](?!FM|M E| Ed)");
+    &print_with_shortcuts($header[$mode].' 'x($screenwidth-80),
+                          "[A-Z](?!FM|M E| Ed)");
     if ($mode == 1) { 
         $scr->reverse()->bold()->cyan()->on_white()
             ->at(0,0)->puts("Multiple")->normal();
@@ -382,35 +381,34 @@ _eoFirst_
 sub init_title { # swap_mode, uid_mode
     my ($swapmode,$uidmode)=@_;
     my @title=split(/\n/,<<_eoKop_);
-  filename.ext            size  date      time   inode attrib          disk info
-  filename.ext            size  userid   groupid lnks  attrib          disk info
-  filename.ext            size  date      time   inode attrib     your commands 
-  filename.ext            size  userid   groupid lnks  attrib     your commands 
-  filename.ext            size  date      time   inode attrib     sort mode     
-  filename.ext            size  userid   groupid lnks  attrib     sort mode     
+size  date      time   inode attrib          disk info
+size  userid   groupid lnks  attrib          disk info
+size  date      time   inode attrib     your commands 
+size  userid   groupid lnks  attrib     your commands 
+size  date      time   inode attrib     sort mode     
+size  userid   groupid lnks  attrib     sort mode     
 _eoKop_
     $swapmode ? $scr->on_black()
               : $scr->on_white()->bold();
-    $scr->reverse()->cyan()->at(2,0)->puts($title[$uidmode])->normal();
+    $scr->reverse()->cyan()->at(2,0)
+        ->puts('  filename.ext'.' 'x($screenwidth-$datecol-54).$title[$uidmode])
+        ->normal();
 }
 
 sub init_footer {
     my $footer;
     chop($footer=<<_eoFunction_);
-F1-Help  F3-Fit F4-Color F5-Reread F6-Sort F7-Swap F8-Include F9-Uids  F10-Multi
+F1-Help F3-Fit F4-Color F5-Reread F6-Sort F7-Swap F8-Include F9-Uids F10-Multi  
 _eoFunction_
-    $scr->reverse()->bold()->blue()->on_white()
-        ->at($baseline+$screenheight+1,0)->puts($footer)->normal();
+    $scr->reverse()->bold()->blue()->on_white()->at($baseline+$screenheight+1,0)
+        ->puts($footer.' 'x($screenwidth-80))->normal();
 }
 
 sub copyright {
-    $scr->cyan()->puts(<<"_eoCopy1_")->at(1,0)->puts(<<"_eoCopy2_")->at(2,0)->puts(<<"_eoCopy3_")->normal();
-PFM $VERSION for Unix computers and compatibles.
-_eoCopy1_
-Copyright (c) 1999 Rene Uittenbogaard
-_eoCopy2_
-This software comes with no warranty: see the file COPYING for details.
-_eoCopy3_
+    $scr->cyan()->puts("PFM $VERSION for Unix computers and compatibles.")
+        ->at(1,0)->puts("Copyright (c) 1999 Rene Uittenbogaard")
+        ->at(2,0)->puts("This software comes with no warranty: see the file "
+                       ."COPYING for details.")->normal();
     return $scr->key_pressed($_[0]);
 }
 
@@ -444,8 +442,8 @@ sub credits {
 
        PFM is distributed under the GNU General Public License version 2.
                     PFM is distributed without any warranty,
-	     even without the implied warranties of merchantability 
-		      or fitness for a particular purpose.
+             even without the implied warranties of merchantability 
+                      or fitness for a particular purpose.
                    Please read the file COPYING for details.
 
 
@@ -469,7 +467,7 @@ _eoCredits_
 sub user_info {
     $^A = "";
     formline('@>>>>>>>',$user{$>});
-    $scr->at($userline,$datecol+6)->puts($^A);
+    $scr->at($userline,$screenwidth-$datecol+6)->puts($^A);
 }
 
 sub infoline { # number, description
@@ -483,13 +481,13 @@ sub disk_info { # %disk{ total, used, avail }
     my @desc=('K tot','K usd','K avl');
     my @values=@disk{qw/total used avail/};
     my $startline=4;
-    $scr->at($startline-1,$datecol+4)->puts('Disk space');
+    $scr->at($startline-1,$screenwidth-$datecol+4)->puts('Disk space');
     foreach (0..2) {
         while ( $values[$_] > 99999 ) {
                 $values[$_] /= 1024;
                 $desc[$_] =~ tr/KMGT/MGTP/;
         }
-        $scr->at($startline+$_,$datecol+1)
+        $scr->at($startline+$_,$screenwidth-$datecol+1)
             ->puts(&infoline(int($values[$_]),$desc[$_]));
     }
 }
@@ -502,9 +500,9 @@ sub dir_info {
                + $total_nr_of{'p'} + $total_nr_of{'s'}
                + $total_nr_of{'D'};
     my $startline=9;
-    $scr->at($startline-1,$datecol+5)->puts('Directory');
+    $scr->at($startline-1,$screenwidth-$datecol+5)->puts('Directory');
     foreach (0..3) {
-        $scr->at($startline+$_,$datecol+1)
+        $scr->at($startline+$_,$screenwidth-$datecol+1)
             ->puts(&infoline($values[$_],$desc[$_]));
     }
 }
@@ -518,9 +516,9 @@ sub mark_info {
     my $startline=15;
     my $total=0;
     $values[2]=&fit2limit($values[2]);
-    $scr->at($startline-1,$datecol+2)->puts('Marked files');
+    $scr->at($startline-1,$screenwidth-$datecol+2)->puts('Marked files');
     foreach (0..4) {
-        $scr->at($startline+$_,$datecol+1)
+        $scr->at($startline+$_,$screenwidth-$datecol+1)
             ->puts(&infoline($values[$_],$desc[$_]));
         $total+=$values[$_];
     }
@@ -666,7 +664,7 @@ sub handleinclude { # include/exclude flag
     my ($wildfilename,$criterion);
     my $exin = $_[0];
     &init_header(2);
-    if ($exin =~ /x/i) { $scr->at(0,0)->on_blue()->puts('ex')->normal(); }
+    if ($exin =~ /x/i) { $scr->at(0,0)->on_blue()->puts('Ex')->normal(); }
     $exin =~ tr/ix/* /;
     my $key=$scr->at(0,46)->getch();
     PARSEINCLUDE: {
@@ -735,7 +733,7 @@ sub handlesort {
     for ($i=0; $i<$#sortmodes; $i+=2) {
         $^A="";
         formline('@ @<<<<<<<<<<<',$sortmodes[$i],$sortmodes{$sortmodes[$i]});
-        $scr->at($printline++,$datecol)->puts($^A);
+        $scr->at($printline++,$screenwidth-$datecol)->puts($^A);
     }
     $key=$scr->at(0,73)->getch();
     &clearcolumn;
@@ -801,7 +799,7 @@ sub handlecommand { # Y or O
                 $printstr =~ s/\e/^[/g;
                 $^A="";
                 formline('@ @<<<<<<<<<<<',$_,$printstr);
-                $scr->at($printline++,$datecol)->puts($^A);
+                $scr->at($printline++,$screenwidth-$datecol)->puts($^A);
             }
         }
         $key=$scr->at(0,0)->clreol()
@@ -1231,7 +1229,8 @@ sub printdircontents { # @contents
             $scr->at($i+$baseline-$baseindex,0)->puts(&fileline(%{$_[$i]}));
             &applycolor($i+$baseline-$baseindex,0,%{$_[$i]});
         } else {
-            $scr->at($i+$baseline-$baseindex,0)->puts(' 'x($datecol-1));
+            $scr->at($i+$baseline-$baseindex,0)
+                ->puts(' 'x($screenwidth-$datecol-1));
         }
     }
 }
@@ -1281,7 +1280,7 @@ sub redisplayscreen {
     &dir_info(%total_nr_of);
     &mark_info(%selected_nr_of);
     &user_info;
-    &date_info($dateline,$datecol);
+    &date_info($dateline,$screenwidth-$datecol);
 }
 
 sub browse {
@@ -1314,7 +1313,7 @@ sub browse {
             &highlightline(1);
             until ($scr->key_pressed(1)) { 
                 if ($wasresized) { &resizehandler; }
-                &date_info($dateline,$datecol);
+                &date_info($dateline,$screenwidth-$datecol);
                 $scr->at($currentline+$baseline,0);
             }
             $key = $scr->getch();
@@ -1470,7 +1469,8 @@ All PFM commands are one- or two-letter commands (case insensitive).
 PFM operates in two modes: single file mode and multiple file mode.
 In single file mode, the command corresponding to the keypress will be
 executed on the file next to the cursor only. In multiple file mode,
-the command will apply to all marked files (see Marking below).
+the command will apply to all marked files. You may switch modes by
+pressing B<F10>.
 
 Note that in the following descriptions, B<file> can mean any type
 of file, not just plain regular files. These will be referred to as
@@ -1482,7 +1482,7 @@ B<regular files>.
 
 Navigation through directories may be achieved by using the arrow keys,
 the vi cursor keys (B<hjkl>), B<->, B<+>, B<PgUp>, B<PgDn>, B<home>,
-B<end>, B<CTRL-F> and B<CTRL-B>. Pressing B<ESC> twice will take you one
+B<end>, B<CTRL-F> and B<CTRL-B>. Pressing B<ESC> will take you one
 directory level up. Pressing B<ENTER> while on a directory will take
 you into the directory. Pressing B<SPACE> will both mark the current
 file and advance the cursor.
@@ -1502,10 +1502,9 @@ cannot be set. Read the chmod(1) page for more details.
 
 =item B<Copy>
 
-Copy pointed file to another. You will be prompted for the destination
-file name. In multiple-mode, beware that you don't copy files to the same
-destination file. Specify the destination name with escapes (see the B<O>
-command below).
+Copy current file. You will be prompted for the destination file name. In
+multiple-mode, beware that you don't copy files to the same destination
+file. Specify the destination name with escapes (see the B<O> command below).
 
 =item B<Delete>
 
@@ -1514,7 +1513,7 @@ Delete a file or directory.
 =item B<Edit>
 
 Edit a file with your external editor. You can specify an editor with the
-environment variable $EDITOR or in the B<.pfmrc> file, else vi(1) is used.
+environment variable $EDITOR or in the F<.pfmrc> file, else vi(1) is used.
 
 =item B<Include>
 
@@ -1531,11 +1530,11 @@ except for the B<.> and B<..> entries.
 Presents you with a choice of operations not related to the current
 files. Use this to config PFM, edit a new file, make a new directory,
 or view a different directory. See More Commands below. Pressing ESC
-will bring you back in the main menu.
+will take you back to the main menu.
 
 =item B<cOmmand>
 
-Allows execution of a shell command on the marked files. Entering an
+Allows execution of a shell command on the current files. Entering an
 empty line will activate a copy of your default login shell until the
 'exit' command is given. After the command completes, pfm will resume.
 You may abbreviate the current filename as B<ESC>2, the current filename
@@ -1545,7 +1544,8 @@ the swap directory path (see B<F7> command) as B<ESC>5.
 =item B<Print>
 
 Print the specified file on the default system printer by piping it
-through lpr(1). No formatting is done.
+through your print command (default lpr(1)). No formatting is done.
+You may specify a print command in your F<.pfmrc> (see below).
 
 =item B<Quit>
 
@@ -1556,9 +1556,9 @@ current directory.
 
 =item B<Rename>
 
-Change the name of the file to the name specified. A different pathname
-and filename in the same filesystem is allowed. In multiple-file mode,
-the new name MUST be a directoryname.
+Change the name of the file to the name specified. A different pathname and
+filename in the same filesystem is allowed. In multiple-file mode, the new name
+MUST be a directoryname or a name containing escapes (see B<cOmmand> above).
 
 =item B<Show>
 
@@ -1587,9 +1587,9 @@ dotfiles will be excluded as well, except for the B<.> and B<..> entries.
 =item B<Your command>
 
 Like B<O> command above, except that it uses your preconfigured
-commands. Commands may be abbreviated as in cB<O>mmand. Commands can
-be preconfigured by entering them in the configuration file as a
-I<letter>:I<command> line, e.g.
+commands. Filenames may be abbreviated with escapes as in cB<O>mmand.
+Commands can be preconfigured by entering them in the configuration file as
+a I<letter>:I<command> line, e.g.
 
  T:tar tvfz ^[2
 
@@ -1614,7 +1614,7 @@ be spawned.
 Specify a new directory name and PFM will create it for you. Furthermore,
 if you don't have any files marked, your current directory will be set
 to the newly created directory. If you don't want that, you will have
-to create the directory using the B<cOmmand> command.
+to create the directory using the B<O> command.
 
 =item Show new directory
 
@@ -1644,13 +1644,13 @@ Toggle the use of color.
 
 =item B<F5>
 
-Current directory will be reread. Use this when a disk has changed. This
-will erase all marks!
+Current directory will be reread. Use this when the contents of the
+directory have changed. This will erase all marks!
 
 =item B<F6>
 
 Allows you to re-sort the directory listing. You will be presented by
-a number of choices.
+a number of sort modes.
 
 =item B<F7>
 
@@ -1663,8 +1663,8 @@ the first screen in commands as B<ESC>5
 
 =item B<F8>
 
-Toggles the include flag on an individual file. See the multi-file HELP
-for more info. Space toggles the flag and moves to the next file entry.
+Toggles the include flag (mark) on an individual file. Space toggles the
+flag and moves to the next file entry.
 
 =item B<F9>
 
