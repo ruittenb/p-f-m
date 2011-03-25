@@ -1,15 +1,16 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 25-07-1999 v0.99i
+# @(#) pfm.pl 30-07-1999 v0.99.12
 #
 # Author:      Rene Uittenbogaard
 # Usage:       pfm.pl [directory]
-# Description: Personal File Manager for Linux
-# Version:     v0.99i
-# Date:        25-07-1999
+# Description: Personal File Manager for Unix/Linux
+# Version:     v0.99.12
+# Date:        30-07-1999
 # 
 # TO-DO: multiple rename
+#        change ownership testen
 #        tidy up multiple commands
 #        titlebar colors configurable
 #        validate_position in SIG{WINCH}
@@ -26,7 +27,7 @@
 # licence
 
 ##########################################################################
-# Main data structure:
+# Main data structures:
 #
 # @dircontents   : array (current directory data) of pointers (to file data)
 # $dircontents[$index]      : pointer (to file data) to hash (file data)
@@ -48,7 +49,7 @@
 require Term::ScreenColor;
 use strict 'refs','subs';
 
-my $VERSION='0.99i';
+my $VERSION='0.99.12';
 my $configfilename=".pfmrc";
 my $majorminorseparator=',';
 my $maxfilenamelength=20;
@@ -100,6 +101,7 @@ sub read_pfmrc { # $rereadflag - 0=read 1=reread
     if (open PFMRC,"$ENV{HOME}/$configfilename") {
         while (<PFMRC>) {
             s/#.*//;
+            if (s/\\\n?$//) { $_ .= <PFMRC>; redo; }
             if ( /^\s*       # whitespace at beginning
                   ([^:\s]+)  # keyword
                   \s*:\s*    # separator (:), may have whitespace around it
@@ -363,7 +365,7 @@ sub init_frame { # multiple_mode, swap_mode, uid_mode
 sub init_header { # "multiple"mode
     my $mode=shift;
     my @header=split(/\n/,<<_eoFirst_);
-Attribute Time Copy Delete Edit Print Rename Show Your cOmmands Quit View More  
+Attrib Time Copy Delete Edit Print Rename Show Your cOmmands Quit View Uid More 
 Multiple Include eXclude Attribute Time Copy Delete Print Rename Your cOmmands  
 Include? Every, Oldmarks, User or Files only:                                   
 Config PFM Edit new file Make new dir Show new dir ESC to main menu             
@@ -601,7 +603,7 @@ sub handlemore {
     my $do_a_refresh=0;
     my $newname;
     &init_header(3);
-    my $key=$scr->at(0,74)->getch();
+    my $key=$scr->at(0,68)->getch();
     for ($key) {
         /^s$/i and do {
             return 0 unless &ok_to_remove_marks;
@@ -748,6 +750,37 @@ sub handlesort {
     }
 }
 
+sub handlechown {
+    my ($newuid,$loopfile,$do_this,$index);
+    my $do_a_refresh = $multiple_mode;
+    &markcurrentline('A') unless $multiple_mode;
+    $scr->at(0,0)->clreol()->bold()->cyan();
+    $scr->puts("New user[:group] : ")->normal(); # what about group?
+    $scr->cooked();
+    chop ($newuid=<STDIN>);
+    $scr->raw();
+    $do_this = 'system qq/chown '.$1.' $loopfile->{name}/ '
+             . 'and &display_error($!), $do_a_refresh++';
+    if ($multiple_mode) {
+        for $index (0..$#dircontents) {
+            $loopfile=$dircontents[$index];
+            if ($loopfile->{selected} eq '*') {
+                $scr->at(1,0)->clreol()->puts($loopfile->{name});
+                &exclude($loopfile,'.');
+                eval($do_this);
+                $dircontents[$index] =
+                    &stat_entry($loopfile->{name},$loopfile->{selected});
+            }
+        }
+    } else { 
+        $loopfile=\%currentfile;
+        eval($do_this);
+        $dircontents[$currentline+$baseindex] =
+            &stat_entry($currentfile{name},$currentfile{selected});
+    }
+    return $do_a_refresh;
+}
+
 sub handlechmod {
     my ($newmode,$loopfile,$do_this,$index);
     my $do_a_refresh = $multiple_mode;
@@ -781,7 +814,6 @@ sub handlechmod {
         $dircontents[$currentline+$baseindex] =
             &stat_entry($currentfile{name},$currentfile{selected});
     }
-#    &init_frame($multiple_mode,$swap_mode,$uid_mode);
     return $do_a_refresh;
 }
 
@@ -1379,6 +1411,11 @@ sub browse {
                                 : do { &init_header($multiple_mode),last KEY };
                 /^r$/i and
                     &handlerename, last STRIDE;
+                /^u$/i and
+                    &handlechown ? redo DISPLAY : do {
+                        &init_header($multiple_mode),
+                        last KEY;
+                    };
                 /^[yo]$/i and
                     &handlecommand($_), redo DISPLAY;
                 /^m$/i and
@@ -1398,8 +1435,8 @@ sub browse {
                          else { last KEY }
                        };
                 /@/ and do {
-                    $scr->at(0,0)->clreol()->puts("Enter Perl command:")
-                        ->at(1,0)->clreol()->cooked();
+                    $scr->at(0,0)->clreol()->cyan()->puts("Enter Perl command:")
+                        ->at(1,0)->normal()->clreol()->cooked();
                     $cmd=<STDIN>; 
                     $scr->raw();
                     eval $cmd;
@@ -1570,6 +1607,11 @@ variable $PAGER, or in the F<.pfmrc> file.
 
 Change date and time of the file. The format used is converted to a
 format which touch(1) can use.
+
+=item B<Uid>
+
+Change ownership of a file. Some systems may not allow normal users to
+change ownership.
 
 =item B<View>
 
