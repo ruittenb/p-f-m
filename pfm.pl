@@ -1,19 +1,20 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 19-07-1999 v0.99e
+# @(#) pfm.pl 21-07-1999 v0.99f
 #
 # Author:      Rene Uittenbogaard
 # Usage:       pfm.pl [directory]
 # Description: Personal File Manager for Linux
-# Version:     v0.99e
-# Date:        19-07-1999
+# Version:     v0.99f
+# Date:        21-07-1999
 # 
 # TO-DO: multiple rename
 #        multiple edit
 #        multiple show
+#        multiple cOmmand
 #        titlebar colors configurable
-#        validate_position in SIG{WINCH} and deleting files
+#        validate_position in SIG{WINCH}
 #        key response (flush_input)
 # terminal:
 #        make use of Term::Complete?
@@ -21,7 +22,6 @@
 # documentation:
 #        man page
 #        comments in english
-#        vim file based on .xdefaults
 # licence
 
 ##########################################################################
@@ -47,7 +47,7 @@
 require Term::ScreenColor;
 use strict 'refs','subs';
 
-my $VERSION='0.99e';
+my $VERSION='0.99f';
 my $configfilename=".pfmrc";
 my $majorminorseparator=',';
 my $maxfilenamelength=20;
@@ -183,10 +183,11 @@ sub fit2limit {
 }
 
 sub expand_escapes {
+    my %thisfile = %{$_[1]};
     my $namenoext =
-        $currentfile{name} =~ /^(.*)\.(\w+)$/ ? $1 : $currentfile{name};
+        $thisfile{name} =~ /^(.*)\.(\w+)$/ ? $1 : $thisfile{name};
     $_[0] =~ s/\e1/$namenoext/g;
-    $_[0] =~ s/\e2/$currentfile{name}/g;
+    $_[0] =~ s/\e2/$thisfile{name}/g;
     $_[0] =~ s!\e3!$currentdir/!g;
     $_[0] =~ s!\e5!$swap_mode->{path}/!g if $swap_mode;
 }
@@ -303,7 +304,7 @@ sub pressanykey {
 }
 
 sub display_error { 
-    $scr->at(0,0)->clreol();
+#    $scr->at(0,0)->clreol();
     $scr->cyan()->bold()->puts($_[0])->normal();
     return $scr->key_pressed($errordelay); # return value not actually used
 }
@@ -586,8 +587,11 @@ sub handlequit {
 
 sub handlefit {
     $scr->resize();
-    if (my $newsize=$scr->getrows()) {
-        $screenheight=$newsize-$baseline-2;
+    my $newheight= $scr->getrows();
+    my $newwidth = $scr->getcols();
+    if ($newheight || $newwidth) {
+        $screenheight=$newheight-$baseline-2;
+        $screenwidth =$newwidth;
         $scr->clrscr();
         &redisplayscreen;
     }
@@ -784,8 +788,8 @@ sub handlechmod {
 
 sub handlecommand { # Y or O
     local $_;
-    my ($key,$command,$printstr,$printline);
-    &markcurrentline(uc($_[0]));
+    my ($key,$command,$do_this,$printstr,$printline,$loopfile,$index);
+    &markcurrentline(uc($_[0])) unless $multiple_mode;
     if ($_[0] =~ /y/i) { # Your
         &clearcolumn;
         &init_title($swap_mode,$uid_mode+2);
@@ -805,19 +809,38 @@ sub handlecommand { # Y or O
         &clearcolumn;
         return unless ($command = $pfmrc{uc($key)}); # assignment!
         $scr->cooked();
-        $command .="\n";
+        $command .= "\n";
     } else { # cOmmand
         $printstr=<<_eoPrompt_;
 Enter Unix command (ESC1=name, ESC2=name.ext, ESC3=path, ESC5=swap path):
 _eoPrompt_
         $scr->at(0,0)->clreol()->bold()->cyan()->puts($printstr)->normal();
         $scr->at(1,0)->clreol()->cooked();
-        $command=<STDIN>;
+        $command = <STDIN>;
     }
-    $command =~ s/^\n$/$ENV{'SHELL'}\n/;
-    &expand_escapes($command);
-    $scr->clrscr()->at(0,0)->puts($command);
-    system ($command) and $scr->puts($!);
+    $command =~ s/^\n?$/$ENV{'SHELL'}\n/;
+    if ($multiple_mode) {
+        $scr->clrscr()->at(0,0);
+        for $index (0..$#dircontents) {
+            $loopfile=$dircontents[$index];
+            if ($loopfile->{selected} eq '*') {
+                &exclude($loopfile,'.');
+                $do_this = $command;
+                &expand_escapes($do_this,$loopfile);
+                $scr->puts($do_this);
+                system ($do_this) and &display_error($!);
+                $dircontents[$index] =
+                    &stat_entry($loopfile->{name},$loopfile->{selected});
+            }
+        }
+    } else {
+        $loopfile=\%currentfile;
+        &expand_escapes($command,\%currentfile);
+        $scr->clrscr()->at(0,0)->puts($command);
+        system ($command) and &display_error($!);
+        $dircontents[$currentline+$baseindex] =
+            &stat_entry($currentfile{name},$currentfile{selected});
+    }
     &pressanykey;
     $scr->clrscr();
     &init_frame($multiple_mode,$swap_mode,$uid_mode);
@@ -955,7 +978,7 @@ sub handlerename {
     $scr->at(0,0)->clreol()->bold()->cyan();
     $scr->puts("New name: ")->normal()->cooked();
     chop($newname=<STDIN>);
-    &expand_escapes($newname);
+    &expand_escapes($newname,\%currentfile);
     $scr->raw();
     return if ($newname eq '');
     system(qq/mv "$currentfile{name}" "$newname"/) and &display_error($!);
@@ -967,7 +990,7 @@ sub handlecopy {
     $scr->at(0,0)->clreol()->bold()->cyan();
     $scr->puts("Destination: ")->normal()->cooked();
     chop($newname=<STDIN>);
-    &expand_escapes($newname);
+    &expand_escapes($newname,\%currentfile);
     $scr->raw();
     return if ($newname eq '');
     system("cp \"$currentfile{name}\" \"$newname\"") and &display_error($!);
