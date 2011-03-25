@@ -1,12 +1,12 @@
 #!/usr/local/bin/perl
 #
-# @(#) pfm.pl 27-05-1999 v0.98a
+# @(#) pfm.pl 24-06-1999 v0.98b
 #
 # Author:      Rene Uittenbogaard
 # Usage:       pfm.pl [directory]
 # Description: Personal File Manager for Linux
-# Version:     v0.98a
-# Date:        27-05-1999
+# Version:     v0.98b
+# Date:        24-06-1999
 # 
 # TO-DO: multiple attrib
 #        multiple delete
@@ -28,7 +28,7 @@
 require Term::PfmColor;
 use strict 'refs','subs';
 
-my $VERSION='0.98a';
+my $VERSION='0.98b';
 my $configfilename=".pfmrc";
 my $maxfilenamelength=20;
 my $errordelay=1;     # seconds
@@ -86,12 +86,13 @@ sub read_pfmrc { # $rereadflag - 0=read 1=reread
         $Term::PfmColor::colorizable=0;
     }
     &copyright($pfmrc{copyrightdelay}) unless ($_[0]);
-    $clsonexit= $pfmrc{clsonexit};
-    $sort_mode= $pfmrc{sortmode} || 'n';
-    $uid_mode = $pfmrc{uidmode};
-    $editor   = $pfmrc{editor}   || $ENV{EDITOR} || 'vi';
-    $pager    = $pfmrc{pager}    || $ENV{PAGER}  ||
-                 ($^O =~ /linux/i ? 'less' : 'more');
+    $clsonexit     = $pfmrc{clsonexit};
+    $cwdinheritance= $pfmrc{cwdinheritance};
+    $sort_mode     = $pfmrc{sortmode} || 'n';
+    $uid_mode      = $pfmrc{uidmode};
+    $editor        = $pfmrc{editor}   || $ENV{EDITOR} || 'vi';
+    $pager         = $pfmrc{pager}    || $ENV{PAGER}  ||
+                      ($^O =~ /linux/i ? 'less' : 'more');
     $pfmrc{dircolors} ||= $ENV{LS_COLORS} || $ENV{LS_COLOURS};
     if ($pfmrc{dircolors}) {
         while ($pfmrc{dircolors} =~ /([^:=*]+)=([^:=]+)/g ) {
@@ -123,9 +124,11 @@ sub mode2str {
     my $octmode=sprintf("%lo",$nummode);
     my @strmodes=(qw/--- --x -w- -wx r-- r-x rw- rwx/);
     $octmode =~ /(\d\d?)(\d)(\d)(\d)(\d)$/;
-    $strmode = substr('^pc^d^b^-^l^s^=^=^=^d',oct($1),1)
+    $strmode = substr('^pc^d^b^-^l^s^=D=^=^d',oct($1),1)
                .$strmodes[$3].$strmodes[$4].$strmodes[$5];
-               # first d for Linux, second for AIX
+               # first  d for Linux, OSF1, Solaris
+               # second d for AIX
+               # D is Solaris Door
     if ($2 & 4) { substr($strmode,3,1) =~ tr/-x/Ss/ }
     if ($2 & 2) { substr($strmode,6,1) =~ tr/-x/Ss/ }
     if ($2 & 1) { substr($strmode,9,1) =~ tr/-x/Tt/ }
@@ -378,6 +381,14 @@ sub goodbye {
 _eoGoodbye_
         $scr->normal()->at($screenheight+$baseline+1,0)->clreol();
     }
+    if ($cwdinheritance) {
+        $scr->cooked();
+        open CWDFILE,">$cwdinheritance"
+            or warn "Cannot create $cwdinheritance: $!";
+        print CWDFILE `pwd`;
+        close CWDFILE;
+    }
+    exit 0;
 }
 
 sub credits {
@@ -855,7 +866,7 @@ sub handlemove {
     local $_=$_[0];
     my $displacement = -10*(/^-$/)  -(/^ku|k$/   )
                        +10*(/^\+$/) +(/^kd|[j ]$/)
-		       +$screenheight*(/\cF|pgdn/) +$screenheight*(/\cD/)/2
+                       +$screenheight*(/\cF|pgdn/) +$screenheight*(/\cD/)/2
                        -$screenheight*(/\cB|pgup/) -$screenheight*(/\cU/)/2
                        -($currentline +$baseindex)  *(/^home$/)
                        +($#dircontents-$currentline)*(/^end$/ );
@@ -1151,7 +1162,8 @@ sub browse {
                          else { last KEY }
                        };
                 /@/ and do {
-                    $scr->at(1,0)->clreol()->cooked();
+                    $scr->at(0,0)->clreol()->puts("Enter Perl command:")
+                        ->at(1,0)->clreol()->cooked();
                     $cmd=<STDIN>; 
                     $scr->raw();
                     eval $cmd;
