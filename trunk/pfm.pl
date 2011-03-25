@@ -1,18 +1,24 @@
 #!/usr/local/bin/perl
 #
-# @(#) pfm.pl 04-04-1999 v0.97a
+# @(#) pfm.pl 13-05-1999 v0.97b
 #
 # Author:      Rene Uittenbogaard
 # Usage:       pfm.pl [directory]
 # Description: Personal File Manager for Linux
-# Version:     v0.97a
-# Date:        04-04-1999
+# Version:     v0.97b
+# Date:        13-05-1999
 # 
-# TO-DO: multiple anything
+# TO-DO: multiple attrib
+#        multiple delete
+#        multiple rename
+#        multiple print
+#        multiple edit
+#        multiple show
 #        key response (flush_input)
 #        handleinclude 
 #        handlemore  Show
-#        Attrib -> refresh
+#        Attrib -> refresh: reread single file
+#        (de)?select procedure
 #        F1 help 
 # documentation
 # validate_position in SIG{WINCH} and deleting files
@@ -22,7 +28,7 @@
 require Term::PfmColor;
 use strict 'refs','subs';
 
-my $VERSION='0.97a';
+my $VERSION='0.97b';
 my $configfilename=".pfmrc";
 my $maxfilenamelength=20;
 my $errordelay=1;     # seconds
@@ -153,6 +159,13 @@ sub basename {
 
 sub toggle {
     $_[0]=!$_[0];
+}
+
+sub include { # $entry
+    my $entry = $_[0];
+    $entry->{selected} = "*";
+    $selected_nr_of{$entry->{type}}++;
+    $entry->{type} =~ /-/ and $selected_nr_of{bytes} += $entry->{size};
 }
 
 # +++++++++++++++++++++++++++++  apply color  +++++++++++++++++++++++++++++ 
@@ -290,14 +303,6 @@ sub print_with_shortcuts {
         $pos=pos($printme)-1;
         $scr->at(0,$pos)->puts(substr($printme,$pos,1));
     }
-#    while (/(.)/g) {
-#        $reminder=$1;
-#        if ($reminder eq lc($reminder)) {
-#            $scr->normal()->on_blue()->puts($reminder);
-#        } else {
-#            $scr->bold()->on_blue()->puts($reminder);
-#        }
-#    }
     $scr->normal();
 }
 
@@ -643,17 +648,32 @@ sub handlesort {
 }
 
 sub handlechmod {
-    my ($newmode,$error);
-    &markcurrentline('A');
+    my ($newmode,$error,$loopfile,$do_this);
+    unless ($multiple_mode) { &markcurrentline('A') }
     $scr->at(0,0)->clreol()->bold()->cyan();
     $scr->puts("Permissions ( [ugoa][-=+][rwxst] or octal ): ")->normal();
     $scr->cooked();
     chop ($newmode=<STDIN>);
     $scr->raw();
     if ($newmode =~ /^\s*(\d+)\s*$/) {
-        chmod oct($1),$currentfile{name} or &display_error($!);
+        $do_this =         'chmod '.oct($1). ',$loopfile->{name} '
+                  .'or &display_error($!)';
     } else {
-        system "chmod $newmode $currentfile{name}" and &display_error($!);
+        $do_this = 'system "chmod '.$newmode.' $loopfile->{name}" '
+                  .'and &display_error($!)';
+    }
+    if ($multiple_mode) {
+        foreach $loopfile (@dircontents) {
+            if ($loopfile->{selected} eq '*') {
+                $scr->at(1,0)->puts($loopfile->{name});
+                $loopfile->{selected} = '.';
+                $selected_nr_of{$loopfile->{type}}--;
+                eval($do_this);
+            }
+        }
+    } else { 
+        $loopfile=\$currentfile;
+        eval($do_this);
     }
 }
 
@@ -826,8 +846,8 @@ sub validate_position {
 
 sub handlemove {
     local $_=$_[0];
-    my $displacement = -10*(/^-$/)  -(/^ku|k$/   ) -$screenheight*(/pgup/)
-                       +10*(/^\+$/) +(/^kd|[j ]$/) +$screenheight*(/pgdn/)
+    my $displacement = -10*(/^-$/)  -(/^ku|k$/   ) -$screenheight*(/\cB|pgup/)
+                       +10*(/^\+$/) +(/^kd|[j ]$/) +$screenheight*(/\cF|pgdn/)
                        -($currentline +$baseindex)  *(/^home$/)
                        +($#dircontents-$currentline)*(/^end$/ );
     $currentline += $displacement;
@@ -1041,7 +1061,7 @@ sub browse {
                 /^q$/i and
                     &handlequit ? do { $quitting=1, last STRIDE }
                                 : do { &init_header($multiple_mode), last KEY };
-                /^ku|kd|pgup|pgdn|home|end|[-+jk]$/i and 
+                /^\cF|\cB|ku|kd|pgup|pgdn|home|end|[-+jk]$/i and 
                     &handlemove($_) and &printdircontents(@dircontents),
                     last KEY;
                 /^kr|kl|[hl\e]$/i and
@@ -1139,6 +1159,7 @@ $swap_mode = $multiple_mode = 0;
 
 if ($scr->{ROWS}) { $screenheight=$scr->{ROWS}-$baseline-2 }
 &init_frame(0,0,$uid_mode);
+# uid_mode coming from .pfmrc
 
 $ARGV[0] and chdir($ARGV[0]) || do {
     $scr->at(1,0)->clreol();
@@ -1148,6 +1169,7 @@ $ARGV[0] and chdir($ARGV[0]) || do {
 };
 
 MAIN: {
+    $multiple_mode=0;
     redo MAIN unless &browse;
 }
 
