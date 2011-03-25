@@ -1,16 +1,16 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 2000-04-06 v1.04
+# @(#) pfm.pl 2000-04-11 v1.10
 #
 # Author:      Rene Uittenbogaard
 # Usage:       pfm.pl [directory]
 # Description: Personal File Manager for Unix/Linux
-# Version:     v1.04
-# Date:        2000-04-06
+# Version:     v1.10
+# Date:        2000-04-11
 # 
 # TO-DO: test change ownership
-#        mtime/atime test
+#        touch with . argument to just touch with current time
 #        tidy up multiple commands
 #        titlebar colors configurable
 #        validate_position in SIG{WINCH}
@@ -21,7 +21,6 @@
 #        command history
 # documentation:
 #        man page
-#        comments in english
 # licence
 
 ##########################################################################
@@ -48,7 +47,7 @@ require Term::ScreenColor;
 use Term::ReadLine;
 use strict 'refs','subs';
 
-my $VERSION='1.04';
+my $VERSION='1.10';
 my $configfilename=".pfmrc";
 my $majorminorseparator=',';
 my $defaultmaxfilenamelength=20;
@@ -77,20 +76,15 @@ my (%user,%group,$sort_mode,$multiple_mode,$swap_mode,$uid_mode,
     $editor,$pager,$printcmd,$clsonexit,$cwdinheritance,
     $timeformat,%dircolors,%pfmrc,$scr,$wasresized);
 
-sub init_uids {
-    my (%user,$name,$pwd,$uid);
-    while (($name,$pwd,$uid)=getpwent) {
-        $user{$uid}=$name
-    }
-    return \%user;
-}
+##########################################################################
+# read/write resource file
 
-sub init_gids {
-    my (%group,$name,$pwd,$gid);
-    while (($name,$pwd,$gid)=getgrent) {
-        $group{$gid}=$name
+sub write_pfmrc {
+    if (open MKPFMRC,">$ENV{HOME}/$configfilename") {
+        my @resourcefile = &return_pfmrc;
+        print MKPFMRC @resourcefile;
+        close MKPFMRC;
     }
-    return \%group;
 }
 
 sub read_pfmrc { # $rereadflag - 0=read 1=reread
@@ -98,7 +92,10 @@ sub read_pfmrc { # $rereadflag - 0=read 1=reread
              =$cwdinheritance='';
     %dircolors=%pfmrc=();
     local $_;
-    if (open PFMRC,"$ENV{HOME}/$configfilename") {
+    unless (-r "$ENV{HOME}/$configfilename") {
+        &write_pfmrc;
+    }
+    if (open PFMRC,"<$ENV{HOME}/$configfilename") {
         while (<PFMRC>) {
             s/#.*//;
             if (s/\\\n?$//) { $_ .= <PFMRC>; redo; }
@@ -119,7 +116,8 @@ sub read_pfmrc { # $rereadflag - 0=read 1=reread
     $clsonexit        = $pfmrc{clsonexit};
     $cwdinheritance   = $pfmrc{cwdinheritance};
     $autoexitmultiple = $pfmrc{autoexitmultiple};
-    ($printcmd)    = ($pfmrc{printcmd}) || ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER}" : 'lpr');
+    ($printcmd)    = ($pfmrc{printcmd}) ||
+                         ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER}" : 'lpr');
     $timeformat    = $pfmrc{timeformat} || 'pfm';
     $sort_mode     = $pfmrc{sortmode}   || 'n';
     $uid_mode      = $pfmrc{uidmode};
@@ -140,6 +138,22 @@ sub read_pfmrc { # $rereadflag - 0=read 1=reread
 
 ##########################################################################
 # some translations
+
+sub init_uids {
+    my (%user,$name,$pwd,$uid);
+    while (($name,$pwd,$uid)=getpwent) {
+        $user{$uid}=$name
+    }
+    return \%user;
+}
+
+sub init_gids {
+    my (%group,$name,$pwd,$gid);
+    while (($name,$pwd,$gid)=getgrent) {
+        $group{$gid}=$name
+    }
+    return \%group;
+}
 
 sub time2str {
     my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst,$monname,$val);
@@ -196,7 +210,7 @@ sub expand_escapes {
 }
 
 sub inhibit {
-	return !$_[1] && $_[0];
+        return !$_[1] && $_[0];
 }
 
 sub triggle {
@@ -618,7 +632,8 @@ sub handlefit {
         $maxfilenamelength = $screenwidth - (80-$defaultmaxfilenamelength);
         &makeformatlines;
         foreach (@dircontents) {
-            $_->{too_long} = length($_->{display})>$maxfilenamelength ? '+' : ' ';
+            $_->{too_long} = length($_->{display})>$maxfilenamelength ? '+'
+                                                                      : ' ';
         }
         $scr->clrscr();
         &redisplayscreen;
@@ -702,7 +717,7 @@ sub handleinclude { # include/exclude flag
             /^f$/i and do {    # include files
                 $wildfilename=&promptforwildfilename;
                 $criterion='$entry->{name} =~ /$wildfilename/'
-		          .' and $entry->{type} eq "-" ';
+                          .' and $entry->{type} eq "-" ';
                 $key="prepared";
                 redo PARSEINCLUDE;
             };
@@ -778,9 +793,8 @@ sub handlechown {
     my ($newuid,$loopfile,$do_this,$index);
     my $do_a_refresh = $multiple_mode;
     &markcurrentline('U') unless $multiple_mode;
-    $scr->at(0,0)->clreol()->bold()->cyan();
-    $scr->puts("New user[:group] : ")->normal(); # what about group?
-    $scr->cooked();
+    $scr->at(0,0)->clreol()->bold()->cyan()
+        ->puts("New user[:group] : ")->normal()->cooked();
     chop ($newuid=<STDIN>);
     $scr->raw();
     $do_this = 'system qq/chown '.$1.' $loopfile->{name}/ '
@@ -796,7 +810,7 @@ sub handlechown {
                     &stat_entry($loopfile->{name},$loopfile->{selected});
             }
         }
-	$multiple_mode = &inhibit($autoexitmultiple,$multiple_mode);
+        $multiple_mode = &inhibit($autoexitmultiple,$multiple_mode);
     } else { 
         $loopfile=\%currentfile;
         eval($do_this);
@@ -810,9 +824,9 @@ sub handlechmod {
     my ($newmode,$loopfile,$do_this,$index);
     my $do_a_refresh = $multiple_mode;
     &markcurrentline('A') unless $multiple_mode;
-    $scr->at(0,0)->clreol()->bold()->cyan();
-    $scr->puts("Permissions ( [ugoa][-=+][rwxst] or octal ): ")->normal();
-    $scr->cooked();
+    $scr->at(0,0)->clreol()->bold()->cyan()
+        ->puts("Permissions ( [ugoa][-=+][rwxst] or octal ): ")->normal()
+        ->cooked();
     chop ($newmode=<STDIN>);
     $scr->raw();
     if ($newmode =~ /^\s*(\d+)\s*$/) {
@@ -833,7 +847,7 @@ sub handlechmod {
                     &stat_entry($loopfile->{name},$loopfile->{selected});
             }
         }
-	$multiple_mode = &inhibit($autoexitmultiple,$multiple_mode);
+        $multiple_mode = &inhibit($autoexitmultiple,$multiple_mode);
     } else { 
         $loopfile=\%currentfile;
         eval($do_this);
@@ -871,8 +885,8 @@ sub handlecommand { # Y or O
         $printstr=<<_eoPrompt_;
 Enter Unix command (ESC1=name, ESC2=name.ext, ESC3=path, ESC5=swap path):
 _eoPrompt_
-        $scr->at(0,0)->clreol()->bold()->cyan()->puts($printstr)->normal();
-        $scr->at(1,0)->clreol()->cooked();
+        $scr->at(0,0)->clreol()->bold()->cyan()->puts($printstr)->normal()
+            ->at(1,0)->clreol()->cooked();
         $command = <STDIN>;
     }
     $command =~ s/^\n?$/$ENV{'SHELL'}\n/;
@@ -890,7 +904,7 @@ _eoPrompt_
                     &stat_entry($loopfile->{name},$loopfile->{selected});
             }
         }
-	$multiple_mode = &inhibit($autoexitmultiple,$multiple_mode);
+        $multiple_mode = &inhibit($autoexitmultiple,$multiple_mode);
     } else {
         $loopfile=\%currentfile;
         &expand_escapes($command,\%currentfile);
@@ -907,8 +921,8 @@ _eoPrompt_
 sub handledelete { 
     my ($loopfile,$do_this,$index,$success);
     &markcurrentline('D') unless $multiple_mode;
-    $scr->at(0,0)->clreol()->cyan()->bold();
-    $scr->puts("Are you sure you want to delete [Y/N]? ")->normal();
+    $scr->at(0,0)->clreol()->cyan()->bold()
+        ->puts("Are you sure you want to delete [Y/N]? ")->normal();
     my $sure = $scr->getch();
     return 0 if $sure !~ /y/i;
     $do_this = q"if ($loopfile->{type} eq 'd') {
@@ -920,7 +934,7 @@ sub handledelete {
                      $total_nr_of{$loopfile->{type}}--;
                      &exclude($loopfile) if $loopfile->{selected} eq '*';
                      if ($currentline+$baseindex >= $#dircontents) {
-                         $currentline--; # note
+                         $currentline--; # note: see below
                      }
                      @dircontents=(
                          $index>0             ? @dircontents[0..$index-1]             : (),
@@ -936,7 +950,8 @@ sub handledelete {
     # unfortunately, for NTFS filesystems, this is not always correct
     # the subroutine position_cursor corrects this
     if ($multiple_mode) {
-        # we must delete in reverse order because of the deletions
+        # we must delete in reverse order because the number of directory
+        # entries will decrease by deleting
         # (we could also have done a 'redo LOOP if $success')
         for $index (reverse(0..$#dircontents)) {
             $loopfile=$dircontents[$index];
@@ -945,7 +960,7 @@ sub handledelete {
                 eval($do_this);
             }
         }
-	$multiple_mode = &inhibit($autoexitmultiple,$multiple_mode);
+        $multiple_mode = &inhibit($autoexitmultiple,$multiple_mode);
     } else { 
         $loopfile=\%currentfile;
         $index=$currentline+$baseindex;
@@ -968,7 +983,7 @@ sub handleprint {
                 system qq/$printcmd "$loopfile->{name}"/ and &display_error($!);
             }
         }
-	$multiple_mode = &inhibit($autoexitmultiple,$multiple_mode);
+        $multiple_mode = &inhibit($autoexitmultiple,$multiple_mode);
     } else { 
         system qq/$printcmd "$currentfile{name}"/ and &display_error($!);
     }
@@ -988,7 +1003,7 @@ sub handleshow {
                 system (qq/$pager "$loopfile->{name}"/) and &display_error($!);
             }
         }
-	$multiple_mode = &inhibit($autoexitmultiple,$multiple_mode);
+        $multiple_mode = &inhibit($autoexitmultiple,$multiple_mode);
     } else {
         system qq/$pager "$currentfile{name}"/ and &display_error($!);
     }
@@ -1005,8 +1020,8 @@ sub handletime {
     my ($newtime,$loopfile,$do_this,$index,$do_a_refresh);
     $do_a_refresh=$multiple_mode;
     &markcurrentline('T') unless $multiple_mode;
-    $scr->at(0,0)->clreol()->bold()->cyan();
-    $scr->puts("Put date/time $timehints{$timeformat}: ")->normal()->cooked();
+    $scr->at(0,0)->clreol()->bold()->cyan()
+        ->puts("Put date/time $timehints{$timeformat}: ")->normal()->cooked();
     chop($newtime=<STDIN>);
     $scr->raw();
     return if ($newtime eq '');
@@ -1027,7 +1042,7 @@ sub handletime {
                     &stat_entry($loopfile->{name},$loopfile->{selected});
             }
         }
-	$multiple_mode = &inhibit($autoexitmultiple,$multiple_mode);
+        $multiple_mode = &inhibit($autoexitmultiple,$multiple_mode);
     } else { 
         $loopfile=\%currentfile;
         eval($do_this);
@@ -1050,7 +1065,7 @@ sub handleedit {
                 system qq/$editor "$loopfile->{name}"/ and &display_error($!);
             }
         }
-	$multiple_mode = &inhibit($autoexitmultiple,$multiple_mode);
+        $multiple_mode = &inhibit($autoexitmultiple,$multiple_mode);
     } else {
         system qq/$editor "$currentfile{name}"/ and &display_error($!);
     }
@@ -1070,8 +1085,9 @@ sub handlecopyrename {
     $scr->raw();
     return 0 if ($newname eq '');
     if ($multiple_mode and $newname !~ /\e/ and !-d($newname)) {
-        $scr->at(0,0)->cyan()->bold()->puts("Cannot do multifile operation"
-            ." when destination is single file.")->normal()->getch();
+        $scr->at(0,0)->cyan()->bold()
+        ->puts("Cannot do multifile operation when destination is single file.")
+        ->normal()->getch();
         return 0; # don't refresh screen
     }
 #    $command = "system qq{$statecmd ".'$loopfile->{name}'." $newname}";
@@ -1089,7 +1105,7 @@ sub handlecopyrename {
                 $do_a_refresh++;
             }
         }
-	$multiple_mode = &inhibit($autoexitmultiple,$multiple_mode);
+        $multiple_mode = &inhibit($autoexitmultiple,$multiple_mode);
     } else {
         $loopfile=\%currentfile;
         &expand_escapes($command,$loopfile);
@@ -1179,9 +1195,8 @@ sub handleswap {
                      selected => { %selected_nr_of },
                      totals   => { %total_nr_of },
                     };
-        $scr->at(0,0)->clreol();
-        $scr->bold()->cyan->puts('Directory Pathname: ')->normal();
-        $scr->cooked();
+        $scr->at(0,0)->clreol()->bold()->cyan()
+            ->puts('Directory Pathname: ')->normal()->cooked();
         chop($currentdir=<STDIN>);
         $scr->raw();
         $position_at='.';
@@ -1217,6 +1232,7 @@ sub handleentry {
         $position_at='..';
     }
     unless ($success) {
+        $scr->at(0,0)->clreol();
         &display_error($!);
         &init_header($multiple_mode);
     }
@@ -1266,11 +1282,13 @@ sub getdircontents { # (current)directory
         closedir CURRENT;
     } else {
         @allentries=('.','..');
+        $scr->at(0,0)->clreol();
         &display_error("Cannot read . : $!");
         &init_header($multiple_mode);
     }
     if ($#allentries>$slowentries) {
-        $scr->at($baseline,2)->bold()->puts('Please Wait')->normal();
+        # don't use display_error here because that would just cost more time
+        $scr->at(0,0)->clreol()->cyan()->bold()->puts('Please Wait')->normal();
     }
     foreach $entry (@allentries) {
         # have the mark cleared on first stat with ' '
@@ -1346,7 +1364,6 @@ sub browse {
     my $quitting=0;
 
     # collect info
-
     chop($currentdir=`pwd`);
     local %total_nr_of   =( d=>0, l=>0, '-'=>0,
                             c=>0, b=>0, 's'=>0, p=>0, D=>0 );
@@ -1359,13 +1376,11 @@ sub browse {
     $disk{'avail'} !~ /%/ or $disk{'avail'}=$disk{'total'}-$disk{'used'};
 
     # now just reprint screen
-
     DISPLAY: {
         &redisplayscreen;
 #        $scr->flush_input();
-
         STRIDE: for (;;) {
-            %currentfile=%{ $dircontents[$currentline+$baseindex] || &recalc_ptr };
+            %currentfile=%{$dircontents[$currentline+$baseindex]||&recalc_ptr};
             &highlightline(1);
             until ($scr->key_pressed(1)) { 
                 if ($wasresized) { &resizehandler; }
@@ -1432,7 +1447,7 @@ sub browse {
 # from this point: test if display is updated correctly
                 /^[cr]$/i and
                     &handlecopyrename($_)
-		        ? redo DISPLAY
+                        ? redo DISPLAY
                         : do { &init_header($multiple_mode) ,last KEY };
                 /^u$/i and
                     &handlechown ? redo DISPLAY : do {
@@ -1459,7 +1474,7 @@ sub browse {
                        };
                 /@/ and do {
                     $scr->at(0,0)->clreol()->cyan()->bold()
-		        ->puts("Enter Perl command:")
+                        ->puts("Enter Perl command:")
                         ->at(1,0)->normal()->clreol()->cooked();
                     $cmd=<STDIN>; 
                     $scr->raw();
@@ -1496,7 +1511,7 @@ $maxfilenamelength = $screenwidth - (80-$defaultmaxfilenamelength);
 # uid_mode coming from .pfmrc
 
 $ARGV[0] and chdir($ARGV[0]) || do {
-    $scr->at(1,0)->clreol();
+    $scr->at(0,0)->clreol();
     &display_error("$ARGV[0]: $! - using .");
     $scr->key_pressed($errordelay); # effectively double delay
     &init_header(0);
@@ -1508,6 +1523,143 @@ MAIN: {
 }
 
 &goodbye;
+
+##########################################################################
+# resource code file
+
+sub return_pfmrc {
+    local $_;
+    my @resourcefile = <<'_eoPfmrc_';
+##########################################################################
+# Configuration file for Personal File Manager
+# Version x
+
+# every option line in this file should have the form:
+# [whitespace] option [whitespace]:[whitespace] value
+# (whitespace is optional)
+# in other words: /^\s*([^:\s]+)\s*:\s*(.*)$/
+# lines may be broken by ending them in \
+
+# some options can be set using environment variables.
+# your environment settings override the options in this file.
+
+##########################################################################
+# General
+
+# define your pager. you can also use $PAGER for this
+#pager:less
+# your editor. you can also use $EDITOR
+editor:vi
+# the erase character for your terminal
+#erase:^H
+# your system's print command. Specify if the default 'lpr' does not work.
+#printcmd:lp -d$ENV{PRINTER}
+
+# whether multiple file mode should be exited after executing a multiple command
+autoexitmultiple:1
+# time to display copyright message at start (in seconds, fractions allowed)
+copyrightdelay:0.2
+# whether you want to have the screen cleared when pfm exits (0 or 1)
+clsonexit:0
+# have pfm ask for confirmation when you press 'q'uit? (always,never,selected)
+confirmquit:always
+# initial sort mode (see F6 command) (nNmMeEfFsSiItTdDaA) (n is default)
+sortmode:n
+# initial title bar mode (F9 command) (0=mtime, 1=uid, 2=atime) (0 is default)
+uidmode:0
+# format for time: touch MMDDhhmm[[CC]YY][.ss] or pfm [[CC]YY]MMDDhhmm[.ss]
+timeformat:pfm
+
+# if you want to keep your cwd when you exit pfm,
+# enable this to have pfm save its cwd in a file
+cwdinheritance:x
+# to turn this off, use
+#cwdinheritance:
+#
+# the calling shell may then use some function like this (bash example):
+#pfm () {
+#	pfmcwdfile=`awk -F: '$1=="cwdinheritance" {print $2}' < ~/.pfmrc`
+#	/usr/local/bin/pfm $*
+#	if [ -n "$pfmcwdfile" ]; then 
+#		cd "`cat $pfmcwdfile`" # double quotes for names with spaces
+#		rm -f $pfmcwdfile
+#		unset pfmcwdfile
+#	fi
+#}
+
+##########################################################################
+# Colors
+
+# set 'usecolor' to 0 if you want no color at all. if you set this to 1,
+# you will get colored title bars (if your terminal supports it).
+# set this to 2 to force pfm to try and use color on any terminal.
+# your *files* will only be colored if you also define 'dircolors' below
+usecolor:2
+
+# 'dircolors' defines the colors that will be used for your files.
+# for your files to become colored, you must set 'usecolor' to 1.
+# see also the manpages for ls(1) and dircolors(1L) (on Linux systems).
+# if you don't want to set this, you can also use $LS_COLORS or $LS_COLOURS
+
+#-attribute codes:
+# 00=none 01=bold 04=underscore 05=blink 07=reverse 08=concealed
+#-text color codes:
+# 30=black 31=red 32=green 33=yellow 34=blue 35=magenta 36=cyan 37=white
+#-background color codes:
+# 40=black 41=red 42=green 43=yellow 44=blue 45=magenta 46=cyan 47=white
+#-file types:
+# no=normal fi=file di=directory ln=symlink pi=fifo so=socket bd=block special
+# cd=character special or=orphan link mi=missing link ex=executable
+# *.<ext> defines extension colors
+
+# you may specify the escape as a real escape, as \e or as ^[ (caret, bracket)
+
+dircolors:no=00:fi=00:di=01;34:ln=01;36:pi=00;40;33:so=01;35:bd=40;33;01:\
+cd=40;33;01:or=01;05;37;41:mi=01;05;37;41:ex=00;32:lc=^[[:rc=m:\
+*.cmd=01;32:*.exe=01;32:*.com=01;32:*.btm=01;32:*.bat=01;32:*.pas=32:\
+*.tar=01;31:*.tgz=01;31:*.arj=01;31:*.taz=01;31:*.lzh=01;31:*.zip=01;31:\
+*.z=01;31:*.Z=01;31:*.gz=01;31:*.bz2=01;31:*.rpm=31:*.pm=00;36:*.pl=00;36:\
+*.jpg=01;35:*.gif=01;35:*.bmp=01;35:*.xbm=01;35:*.xpm=01;35:\
+*.mpg=01;37:*.avi=01;37:*.gl=01;37:*.dl=01;37:*.htm=01;33:*.html=01;33
+
+# use this if you want no colors for your files, but only for the title bars
+#dircolors:-
+
+##########################################################################
+# Your commands
+
+# you may specify escapes as real escapes, as \e or as ^[ (caret, bracket)
+
+B:xv -root +noresetroot +smooth -maxpect -quit ^[2
+C:tar cvf - "^[2" | gzip > "^[2".tar.gz
+D:uudecode ^[2
+E:unarj l "^[2" | more
+F:file ^[2
+G:gvim "^[2"
+I:rpm -qp -i ^[2
+L:mv "^[2" "`echo ^[2 | tr A-Z a-z`"
+N:nroff -man ^[2 | more
+P:perl -cw ^[2
+Q:unzip -l "^[2" | more
+R:rpm -qp -l ^[2 | more
+S:strings ^[2 | more
+T:gunzip < "^[2" | tar tvf - | more
+U:gunzip "^[2"
+V:xv ^[2 &
+W:what ^[2
+X:gunzip < "^[2" | tar xvf -
+Y:lynx ^[2
+Z:gzip "^[2"
+
+_eoPfmrc_
+    return map {
+        s/(# Version )x/$1$VERSION/;
+        s!(cwdinheritance:)x!$1$ENV{HOME}/.pfmcwd!;
+        $_;
+    } @resourcefile;
+}
+
+__END__
 
 ##########################################################################
 # Pod Documentation
@@ -1607,7 +1759,7 @@ the swap directory path (see B<F7> command) as B<ESC>5.
 =item B<Print>
 
 Print the specified file on the default system printer by piping it
-through your print command (default lpr -P$PRINTER). No formatting is done.
+through your print command (default lpr B<-P>$PRINTER). No formatting is done.
 You may specify a print command in your F<.pfmrc> (see below).
 
 =item B<Quit>
@@ -1820,7 +1972,7 @@ Rene Uittenbogaard (ruittenbogaard@profuse.nl)
 =head1 SEE ALSO
 
 The documentation on PFM.COM . The mentioned man pages for chmod(1),
-less(1), lpr(1), touch(1). The man page of B<ScreenColor.pm(3)>
+less(1), lpr(1), touch(1). The man page of ScreenColor.pm(3)
 
 =cut
 
