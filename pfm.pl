@@ -1,10 +1,10 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 2000-12-01 v1.21
+# @(#) pfm.pl 2000-12-01 v1.22
 #
 # Name:        pfm.pl
-# Version:     1.21 - first readline history version!
+# Version:     1.22
 # Author:      Rene Uittenbogaard
 # Date:        2000-12-02
 # Usage:       pfm.pl [directory]
@@ -19,10 +19,11 @@
 # TO-DO: test update screenline 1 (path/device) -> own sub.
 #        change F7 swap mode: fully exchangeable
 #        keymap vi ?
-#        expand_escapes - which escape char?
+#        expand_escapes - which escape char? replace \\ with \ and \2 with fname
 #        major/minor numbers on DU 4.0E are wrong
 #        jump back to old current dir with `
 #        tidy up multiple commands
+#        sub countdircontents is not used
 #        validate_position in SIG{WINCH}
 #        key response (flush_input)
 #        cOmmand -> rm ^[2 will have to delete the entry from @dircontents;
@@ -31,8 +32,7 @@
 #            this fucks up with e.g. cOmmand -> cp ^[2 /somewhere/else
 # terminal:
 #        intelligent restat (changes in current dir?)
-#        filename completion?
-#        command history - save to file?
+#        command history - save to file? - history choppen?
 # licence
 
 ##########################################################################
@@ -59,7 +59,7 @@ BEGIN { $ENV{PERL_RL} = 'Gnu ornaments=0' }
 
 use Term::ScreenColor;
 use Term::ReadLine;
-use strict 'refs', 'subs', 'vars';
+use strict;
 
 my $VERSION             = &getversion;
 my $configfilename      = ".pfmrc";
@@ -94,16 +94,20 @@ my  @mode_history    = qw(755 644);
 my  @path_history    = ('/',$ENV{HOME});
 my  @regex_history   = qw(.*\.jpg);
 my  @time_history;
+my  @perlcmd_history;
 
-my (%user, %group, %currentfile, $currentline, $baseindex,
+my (%user, %group, %pfmrc, %dircolors, $maxfilenamelength, $wasresized,
+    $scr, $keyb,
     $sort_mode, $multiple_mode, $swap_mode, $uid_mode,
-    $timeformat, %dircolors, %pfmrc, $scr, $keyb, $wasresized);
-my ($editor, $pager, $printcmd, $clsonexit, $cwdinheritance, $showlockchar,
+    $currentdir, @dircontents, %currentfile, $currentline, $baseindex,
+    %disk, %total_nr_of, %selected_nr_of);
+my ($pathlineformat, $uidlineformat, $tdlineformat, $timeformat);
+my ($editor, $pager, $printcmd, $cwdinheritance, $showlockchar,
     $autoexitmultiple,
     $titlecolor, $footercolor, $headercolor, $swapcolor, $multicolor);
 
 ##########################################################################
-# read/write resource file
+# read/write resource file and history file
 
 sub write_pfmrc {
     local $_;
@@ -114,7 +118,7 @@ sub write_pfmrc {
         print MKPFMRC map {
             s/^(# Version )x$/$1$VERSION/m;
             s/^(#?cwdinheritance:)x$/$1$ENV{HOME}\/.pfmcwd/m;
-            s/^(#?savehist:)x$/$1$ENV{HOME}\/.pfmhist/m;
+            s/^(#?historyfile:)x$/$1$ENV{HOME}\/.pfmhistory/m;
             s/^([A-Z]:\w+.*?\s+)more(\s*)$/$1less$2/mg if $^O =~ /linux/i;
             $_;
         } @resourcefile;
@@ -122,9 +126,8 @@ sub write_pfmrc {
     }
 }
 
-sub read_pfmrc { # $rereadflag - 0=read 1=reread
-    $uid_mode = $sort_mode = $editor = $pager = $clsonexit
-              = $cwdinheritance = '';
+sub read_pfmrc { # $rereadflag - 0=read 1=reread (for copyright message)
+    $uid_mode = $sort_mode = $editor = $pager = $cwdinheritance = '';
     %dircolors = %pfmrc = ();
     local $_;
     unless (-r "$ENV{HOME}/$configfilename") {
@@ -148,7 +151,6 @@ sub read_pfmrc { # $rereadflag - 0=read 1=reread
         $scr->colorizable(1);
     }
     &copyright($pfmrc{copyrightdelay}) unless ($_[0]);
-    $clsonexit        = $pfmrc{clsonexit};
     $cwdinheritance   = $pfmrc{cwdinheritance};
     $autoexitmultiple = $pfmrc{autoexitmultiple};
     ($printcmd)       = ($pfmrc{printcmd}) ||
@@ -175,6 +177,31 @@ sub read_pfmrc { # $rereadflag - 0=read 1=reread
         while ($pfmrc{dircolors} =~ /([^:=*]+)=([^:=]+)/g ) {
             $dircolors{$1}=$2;
         }
+    }
+}
+
+sub write_history {
+    my $line;
+    if ($pfmrc{historyfile} && open HISTFILE, ">$pfmrc{historyfile}") {
+        no strict 'refs';
+        foreach (qw(command mode path regex time perlcmd)) {
+            $_ .= '_history';
+            print HISTFILE join ("\n",
+                "\@::$_ = (",
+#                (map { "q\001$_\001" } @$_),
+                (map { ($line = "$_") =~ s/'/\'/g; "q'$line'," } @$_),
+                ");\n"
+            );
+        }
+        close HISTFILE;
+    }
+}
+
+sub read_history {
+    my $historyfile = $pfmrc{historyfile};
+    if ($historyfile and -r $historyfile) {
+        do $historyfile;
+        &display_error($@) if $@;
     }
 }
 
@@ -280,7 +307,7 @@ sub toggle {
 }
 
 sub basename {
-    $_[0] =~ m!/([^/]*)$!;
+    $_[0] =~ /\/([^\/]*)$/; # ok, we suffer LTS but this looks better in vim
     return $1;
 }
 
@@ -441,11 +468,12 @@ sub path_info {
 # headers, footers
 
 sub print_with_shortcuts {
-    my ($printme,$pattern)=@_;
+    my ($printme,$pattern) = @_;
+    my $pos;
     &digestcolor($headercolor);
     $scr->puts($printme)->bold();
     while ($printme =~ /$pattern/g) {
-        $pos=pos($printme)-1;
+        $pos = pos($printme) -1;
         $scr->at(0,$pos)->puts(substr($printme,$pos,1));
     }
     $scr->normal();
@@ -517,7 +545,7 @@ sub copyright {
 }
 
 sub goodbye {
-    if ($clsonexit) {
+    if ($pfmrc{clsonexit}) {
         $scr->clrscr();
     } else {
         $scr->at(0,0)->puts(<<_eoGoodbye_);
@@ -710,6 +738,19 @@ sub handlefit {
         $scr->clrscr();
         &redisplayscreen;
     }
+}
+
+sub handleperlcommand {
+    my $perlcmd;
+    $scr->at(0,0)->clreol()->cyan()->bold()
+        ->puts("Enter Perl command:")
+        ->at(1,0)->normal()->clreol()->cooked();
+    $keyb->SetHistory(@perlcmd_history);                            #%%% 1.21 %
+    $perlcmd = $keyb->readline();                                   #%%% 1.21 %
+    push (@perlcmd_history, $perlcmd) if $perlcmd =~ /\S/;          #%%% 1.21 %
+    $scr->raw();
+    eval $perlcmd;
+    &display_error($@) if $@;
 }
 
 sub handlemore {
@@ -1112,8 +1153,8 @@ sub handletime {
     &markcurrentline('T') unless $multiple_mode;
     $scr->at(0,0)->clreol()->bold()->cyan()
         ->puts("Put date/time $timehints{$timeformat}: ")->normal()->cooked();
-    $keyb->SetHistory(@time_history);                            # %%%% 1.21 %%%
-    $newtime = $keyb->readline();                                # %%%% 1.21 %%%
+    $keyb->SetHistory(@time_history);                            # %%%% 1.22 %%%
+    $newtime = $keyb->readline();                                # %%%% 1.22 %%%
     push @time_history, $newtime if $newtime =~ /\S/;
 #    chop($newtime=<STDIN>);
     $scr->raw();
@@ -1179,10 +1220,13 @@ sub handlecopyrename {
     &markcurrentline($state) unless $multiple_mode;
     $scr->at(0,0)->clreol()->bold()->cyan()
         ->puts($stateprompt)->normal()->cooked();
-    chop($newname=<STDIN>);
+#    chop($newname=<STDIN>);
+    $keyb->SetHistory(@path_history);                                 #%%% 1.22
+    $newname = $keyb->readline();                                     #%%% 1.22
+    push (@path_history, $newname) if $newname =~ /\S/;               #%%% 1.22
     $scr->raw();
     return 0 if ($newname eq '');
-    if ($multiple_mode and $newname !~ /\e/ and !-d($newname)) {
+    if ($multiple_mode and $newname !~ /\e|(?<!\\)\\/ and !-d($newname)) {
         $scr->at(0,0)->cyan()->bold()
         ->puts("Cannot do multifile operation when destination is single file.")
         ->normal()->at(0,0);
@@ -1300,7 +1344,10 @@ sub handleswap {
                     };
         $scr->at(0,0)->clreol()->bold()->cyan()
             ->puts('Directory Pathname: ')->normal()->cooked();
-        chop($currentdir=<STDIN>);
+#        chop($currentdir=<STDIN>);
+        $keyb->SetHistory(@path_history);                             #%%% 1.22
+        $currentdir = $keyb->readline();                              #%%% 1.22
+        push (@path_history, $currentdir) if $currentdir =~ /\S/;     #%%% 1.22
         $scr->raw();
         $position_at='.';
         $refresh=2;
@@ -1461,18 +1508,17 @@ sub redisplayscreen {
 }
 
 sub browse {
-    local $currentdir;
-    local %disk;
+#    local $currentdir;     # now global                        # %%% 1.22 %%%
+#    local %disk;           # now global                        # %%% 1.22 %%%
     my ($returncode,@dflist,$key);
     my $quitting=0;
 
     # collect info
     chop($currentdir=`pwd`);
-    local %total_nr_of   =( d=>0, l=>0, '-'=>0,
-                            c=>0, b=>0, 's'=>0, p=>0, D=>0 );
-    local %selected_nr_of=( d=>0, l=>0, '-'=>0, bytes=>0,
-                            c=>0, b=>0, 's'=>0, p=>0, D=>0 );
-    local @dircontents = sort as_requested (&getdircontents($currentdir));
+    %total_nr_of    = ( d=>0, l=>0, '-'=>0, c=>0, b=>0, 's'=>0, p=>0, D=>0 );
+    %selected_nr_of = ( d=>0, l=>0, '-'=>0, c=>0, b=>0, 's'=>0, p=>0, D=>0,
+                        bytes=>0 );
+    @dircontents = sort as_requested (&getdircontents($currentdir));
     chop (@dflist=`df -k .`);
     @disk{qw/device total used avail/} =
          split ( /\s+/, ( grep !/filesys/i, @dflist )[0] );
@@ -1576,16 +1622,8 @@ sub browse {
                          elsif ($returncode==2) { last STRIDE }
                          else { last KEY }
                        };
-                /@/ and do {
-                    $scr->at(0,0)->clreol()->cyan()->bold()
-                        ->puts("Enter Perl command:")
-                        ->at(1,0)->normal()->clreol()->cooked();
-                    $cmd=<STDIN>;
-                    $scr->raw();
-                    eval $cmd;
-                    &display_error($@) if $@;
-                    redo DISPLAY;
-                };
+                /@/ and
+                    &handleperlcommand, redo DISPLAY;
             } # KEY
         }   # STRIDE
     }     # DISPLAY
@@ -1604,6 +1642,7 @@ $keyb = Term::ReadLine->new('Pfm', \*STDIN, \*STDOUT);
 #$keyb->set_keymap('vi');
 
 &read_pfmrc;
+&read_history;
 
 %user  = %{&init_uids};
 %group = %{&init_gids};
@@ -1677,7 +1716,7 @@ showlock:sun
 # F7 key swap path method: (askpath,traversepath) (not implemented)
 #swapmethod:traversepath
 # save command history, path history etc. to file (not implemented)
-#savehist:x
+#historyfile:x
 
 # if you want to pass your cwd back to your shell when you exit pfm,
 # enable this to have pfm save its cwd in a file
@@ -2078,8 +2117,12 @@ F<$HOME/.pfmrc>
 Beware of the key repeat! When key repeat sets in, you may have more
 keyclicks in the buffer than expected.
 
-Sometimes, the B<ESC> key needs to be pressed twice. This is actually
-a problem in C<Term::Screen.pm>.
+When typed by itself, the B<ESC> key needs to be pressed twice. This is
+due to the lack of a proper timeout in C<Term::Screen.pm>.
+
+In order to allow spaces in filenames, several commands assume they can
+safely surround filenames with double quotes. This prevents the correct
+processing of filenames containing double quotes.
 
 =head1 AUTHOR
 
