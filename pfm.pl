@@ -1,16 +1,15 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 17-07-1999 v0.99d
+# @(#) pfm.pl 19-07-1999 v0.99e
 #
 # Author:      Rene Uittenbogaard
 # Usage:       pfm.pl [directory]
 # Description: Personal File Manager for Linux
-# Version:     v0.99d
-# Date:        17-07-1999
+# Version:     v0.99e
+# Date:        19-07-1999
 # 
 # TO-DO: multiple rename
-#        multiple print
 #        multiple edit
 #        multiple show
 #        titlebar colors configurable
@@ -22,6 +21,7 @@
 # documentation:
 #        man page
 #        comments in english
+#        vim file based on .xdefaults
 # licence
 
 ##########################################################################
@@ -47,14 +47,15 @@
 require Term::ScreenColor;
 use strict 'refs','subs';
 
-my $VERSION='0.99d';
+my $VERSION='0.99e';
 my $configfilename=".pfmrc";
 my $majorminorseparator=',';
 my $maxfilenamelength=20;
 my $errordelay=1;     # seconds
 my $slowentries=300;
 my $baseline=3;
-my $screenheight=20;
+my $screenheight=20; # inner height
+my $screenwidth=80; # terminal width
 my $userline=21;
 my $dateline=22;
 my $datecol=66;
@@ -67,10 +68,12 @@ my @sortmodes=( n =>'Name',        N =>' reverse',
                's'=>'Size',        S =>' reverse',
                 t =>'Type',        T =>' reverse',
                 i =>'Inode',       I =>' reverse'       );
+my %timehints = ( pfm   => '[[CC]YY]MMDDhhmm[.ss]',
+                  touch => 'MMDDhhmm[[CC]YY][.ss]' );
 my (%user,%group,$sort_mode,$multiple_mode,$swap_mode,$uid_mode,
     %currentfile,$currentline,$baseindex,
-    $editor,$pager,$clsonexit,$cwdinheritance,$confirmquit,%dircolors,
-    %pfmrc,$scr,$wasresized);
+    $editor,$pager,$printcmd,$clsonexit,$cwdinheritance,$confirmquit,
+    $timeformat,%dircolors,%pfmrc,$scr,$wasresized);
 
 sub init_uids {
     my (%user,$name,$pwd,$uid);
@@ -113,10 +116,12 @@ sub read_pfmrc { # $rereadflag - 0=read 1=reread
     $clsonexit     = $pfmrc{clsonexit};
     $confirmquit   = $pfmrc{confirmquit};
     $cwdinheritance= $pfmrc{cwdinheritance};
-    $sort_mode     = $pfmrc{sortmode} || 'n';
+    $printcmd      = $pfmrc{printcmd}   || 'lpr';
+    $timeformat    = $pfmrc{timeformat} || 'pfm';
+    $sort_mode     = $pfmrc{sortmode}   || 'n';
     $uid_mode      = $pfmrc{uidmode};
-    $editor        = $pfmrc{editor}   || $ENV{EDITOR} || 'vi';
-    $pager         = $pfmrc{pager}    || $ENV{PAGER}  ||
+    $editor        = $pfmrc{editor}     || $ENV{EDITOR} || 'vi';
+    $pager         = $pfmrc{pager}      || $ENV{PAGER}  ||
                       ($^O =~ /linux/i ? 'less' : 'more');
 #    system "stty erase $erase" if defined($erase);
     foreach (keys %pfmrc) {
@@ -226,6 +231,7 @@ sub decidecolor {
     $file{type} eq 'c' and &digestcolor($dircolors{cd}), return;
     $file{type} eq 'p' and &digestcolor($dircolors{pi}), return;
     $file{type} eq 's' and &digestcolor($dircolors{so}), return;
+    $file{type} eq 'D' and &digestcolor($dircolors{'do'}), return;
     $file{mode} =~ /[xst]/ and &digestcolor($dircolors{ex}), return;
     $file{name} =~/(\.\w+)$/ and &digestcolor($dircolors{$1}), return;
 }
@@ -390,7 +396,7 @@ _eoKop_
 sub init_footer {
     my $footer;
     chop($footer=<<_eoFunction_);
-F1-Help F3-Fit F4-Color F5-Reread F6-Sort F7-Swap F8-Include F9-Uids F10-Multi  
+F1-Help  F3-Fit F4-Color F5-Reread F6-Sort F7-Swap F8-Include F9-Uids  F10-Multi
 _eoFunction_
     $scr->reverse()->bold()->blue()->on_white()
         ->at($baseline+$screenheight+1,0)->puts($footer)->normal();
@@ -524,8 +530,12 @@ sub date_info {
     my ($datetime,$date,$time);
     $datetime=&mtime2str(time,1);
     ($date,$time) = ($datetime =~ /(.*)\s+(.*)/);
-    $scr->at($line++,$col+3)->puts("$date");
-    $scr->at($line++,$col+6)->puts("$time");
+    if ($scr->getrows() > 24) {
+        $scr->at($line++,$col+3)->puts($date);
+        $scr->at($line++,$col+6)->puts($time);
+    } else {
+        $scr->at($line++,$col+6)->puts($time);
+    }
 }
 
 ##########################################################################
@@ -738,7 +748,7 @@ sub handlesort {
 sub handlechmod {
     my ($newmode,$loopfile,$do_this,$index);
     my $do_a_refresh = $multiple_mode;
-    unless ($multiple_mode) { &markcurrentline('A') }
+    &markcurrentline('A') unless $multiple_mode;
     $scr->at(0,0)->clreol()->bold()->cyan();
     $scr->puts("Permissions ( [ugoa][-=+][rwxst] or octal ): ")->normal();
     $scr->cooked();
@@ -815,7 +825,7 @@ _eoPrompt_
 
 sub handledelete { 
     my ($loopfile,$do_this,$index,$success);
-    unless ($multiple_mode) { &markcurrentline('D') }
+    &markcurrentline('D') unless $multiple_mode;
     $scr->at(0,0)->clreol()->cyan()->bold();
     $scr->puts("Are you sure you want to delete [Y/N]? ")->normal();
     my $sure = $scr->getch();
@@ -859,40 +869,57 @@ sub handledelete {
         $index=$currentline+$baseindex;
         eval($do_this);
     }
+    &validate_position;
     return 1; # yes, please do a refresh
 }
 
 sub handleprint { 
-    &markcurrentline('P');
+    my ($loopfile,$do_this,$index);
+    &markcurrentline('P') unless $multiple_mode;
     $scr->at(0,0)->clreol();
-    system( "lpr $currentfile{name}" ) ? &display_error($!) : &pressanykey;
+    $do_this = 'system qq/$printcmd "$loopfile->{name}"/ and &display_error($!);';
+    if ($multiple_mode) {
+        for $index (0..$#dircontents) {
+            $loopfile=$dircontents[$index];
+            if ($loopfile->{selected} eq '*') {
+                $scr->at(1,0)->clreol()->puts($loopfile->{name});
+                &exclude($loopfile,'.');
+                eval($do_this);
+            }
+        }
+    } else { 
+        $loopfile=\%currentfile;
+        eval($do_this);
+    }
+    &pressanykey;
     $scr->clrscr();
 }
 
 sub handleshow {
     $scr->clrscr()->cooked();
-    system( "$pager $currentfile{name}" ) ? &display_error($!) : &pressanykey;
+    system(qq/$pager "$currentfile{name}"/) ? &display_error($!) : &pressanykey;
     $scr->clrscr()->raw();
 }
 
 sub handlehelp {
     $scr->clrscr();
-    # dit is heel lomp, maar okee :-)
+    # how unsubtle :-)
     system "man pfm";
 }
 
 sub handletime {
     my ($newtime,$loopfile,$do_this,$index,$do_a_refresh);
     $do_a_refresh=$multiple_mode;
-    unless ($multiple_mode) { &markcurrentline('T') }
+    &markcurrentline('T') unless $multiple_mode;
     $scr->at(0,0)->clreol()->bold()->cyan();
-    $scr->puts("Put date/time [[CC]YY]MMDDhhmm[.ss]: ")->normal()->cooked();
+    $scr->puts("Put date/time $timehints{$timeformat}: ")->normal()->cooked();
     chop($newtime=<STDIN>);
     $scr->raw();
     return if ($newtime eq '');
-    # Entered date/time must be converted
-    # from [[CC]YY]MMDDhhmm[.ss] to MMDDhhmm[[CC]YY][.ss] (touch(1)) format
-    $newtime =~ s/^(\d{0,4})(\d{8})(\..*)?/$2$1$3/;
+    # convert date/time to touch format if necessary
+    if ($timeformat eq 'pfm') {
+        $newtime =~ s/^(\d{0,4})(\d{8})(\..*)?/$2$1$3/;
+    }
     $do_this = "system qq/touch -t $newtime \$loopfile->{name}/ "
               .'and &display_error($!), $do_a_refresh++';
     if ($multiple_mode) {
@@ -1332,6 +1359,7 @@ $scr->clrscr();
 $swap_mode = $multiple_mode = 0;
 
 if ($scr->getrows()) { $screenheight=$scr->getrows()-$baseline-2 }
+if ($scr->getcols()) { $screenwidth =$scr->getcols() }
 &init_frame(0,0,$uid_mode);
 # uid_mode coming from .pfmrc
 
@@ -1640,19 +1668,19 @@ Your default login shell, spawned by cB<O>mmand with an empty line.
 
 F<$HOME/.pfmrc>
 
-=head1 AUTHOR
-
-Rene Uittenbogaard (ruittenbogaard@profuse.nl)
-
 =head1 BUGS
 
 Beware of the key repeat! When key repeat sets in, you may have more
 keyclicks in the buffer than expected.
 
+=head1 AUTHOR
+
+Rene Uittenbogaard (ruittenbogaard@profuse.nl)
+
 =head1 SEE ALSO
 
 The documentation on PFM.COM . The mentioned man pages for chmod(1),
-less(1), lpr(1), touch(1). The man page of ScreenColor.pm(1)
+less(1), lpr(1), touch(1). The man page of B<ScreenColor.pm(3)>
 
 =cut
 
