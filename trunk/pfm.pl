@@ -1,17 +1,16 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 17-02-2000 v1.02.3
+# @(#) pfm.pl 29-03-2000 v1.03
 #
 # Author:      Rene Uittenbogaard
 # Usage:       pfm.pl [directory]
 # Description: Personal File Manager for Unix/Linux
-# Version:     v1.02.3
-# Date:        17-02-2000
+# Version:     v1.03
+# Date:        29-03-2000
 # 
 # TO-DO: test change ownership
 #        mtime/atime switch
-#        implement autoexitmultiple              %%%%%%%%%%
 #        tidy up multiple commands
 #        titlebar colors configurable
 #        validate_position in SIG{WINCH}
@@ -49,7 +48,7 @@ require Term::ScreenColor;
 use Term::ReadLine;
 use strict 'refs','subs';
 
-my $VERSION='1.02.3';
+my $VERSION='1.03';
 my $configfilename=".pfmrc";
 my $majorminorseparator=',';
 my $defaultmaxfilenamelength=20;
@@ -116,8 +115,9 @@ sub read_pfmrc { # $rereadflag - 0=read 1=reread
         $scr->colorizable(1);
     }
     &copyright($pfmrc{copyrightdelay}) unless ($_[0]);
-    $clsonexit     = $pfmrc{clsonexit};
-    $cwdinheritance= $pfmrc{cwdinheritance};
+    $clsonexit        = $pfmrc{clsonexit};
+    $cwdinheritance   = $pfmrc{cwdinheritance};
+    $autoexitmultiple = $pfmrc{autoexitmultiple}; # %%%%%
 #    $printcmd      = $pfmrc{printcmd}   || $ENV{PRINTER} ? "lpr -P$ENV{PRINTER}" : 'lpr';
     ($printcmd)    = ($pfmrc{printcmd}) || ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER}" : 'lpr');
     $timeformat    = $pfmrc{timeformat} || 'pfm';
@@ -195,6 +195,10 @@ sub expand_escapes {
     $_[0] =~ s!\e5!$swap_mode->{path}/!g if $swap_mode;
 }
 
+sub inhibit {
+	return !$_[1] && $_[0];
+}
+
 sub basename {
     $_[0] =~ m!/([^/]*)$!;
     return $1;
@@ -243,7 +247,7 @@ sub decidecolor {
 sub applycolor { 
     if ($scr->colorizable()) {
         my ($line,$length,%file)=(shift,shift,@_);
-        $length= $length ? 255 : $screenwidth-60;                        # %%%%%
+        $length= $length ? 255 : $screenwidth-60;
         &decidecolor(%file);
         $scr->at($line,2)->puts(substr($file{name},0,$length))->normal();
     }
@@ -262,24 +266,18 @@ sub makeformatlines {
 
 sub pathline {
     $^A = "";
-#    formline('@'.'<'x($screenwidth-$datecol-2).' [@<<<<<<<<<<<]',@_);
     formline($pathlineformat,@_);
     return $^A;
 }
 
 sub uidline {
     $^A = "";
-#    formline('@ @'.'<'x($screenwidth-$datecol-47)
-#            .'@@>>>>>>  @<<<<<<< @<<<<<<<@###  @<<<<<<<<<',@_);
     formline($uidlineformat,@_);
     return $^A;
 }
 
 sub tdline {
     $^A = "";
-#    formline('@ @'.'<'x($screenwidth-$datecol-47)
-#            .'@@>>>>>>  @<<<<<<<<<<<<<<@###### @<<<<<<<<<'
-#            ,@_[0,1,2,3],&mtime2str($_[4],0),@_[5,6]);
     formline($tdlineformat,@_[0,1,2,3],&mtime2str($_[4],0),@_[5,6]);
     return $^A;
 }
@@ -607,9 +605,9 @@ sub handlefit {
         $screenwidth =$newwidth;
         $maxfilenamelength = $screenwidth - (80-$defaultmaxfilenamelength);
         &makeformatlines;
-        foreach (@dircontents) {                                                   #%%%%%%
-            $_->{too_long} = length($_->{display})>$maxfilenamelength ? '+' : ' '; #%%%%%%
-        }                                                                          #%%%%%%
+        foreach (@dircontents) {
+            $_->{too_long} = length($_->{display})>$maxfilenamelength ? '+' : ' ';
+        }
         $scr->clrscr();
         &redisplayscreen;
     }
@@ -786,6 +784,7 @@ sub handlechown {
                     &stat_entry($loopfile->{name},$loopfile->{selected});
             }
         }
+	$multiple_mode = &inhibit($autoexitmultiple,$multiple_mode);
     } else { 
         $loopfile=\%currentfile;
         eval($do_this);
@@ -822,6 +821,7 @@ sub handlechmod {
                     &stat_entry($loopfile->{name},$loopfile->{selected});
             }
         }
+	$multiple_mode = &inhibit($autoexitmultiple,$multiple_mode);
     } else { 
         $loopfile=\%currentfile;
         eval($do_this);
@@ -878,6 +878,7 @@ _eoPrompt_
                     &stat_entry($loopfile->{name},$loopfile->{selected});
             }
         }
+	$multiple_mode = &inhibit($autoexitmultiple,$multiple_mode);
     } else {
         $loopfile=\%currentfile;
         &expand_escapes($command,\%currentfile);
@@ -932,6 +933,7 @@ sub handledelete {
                 eval($do_this);
             }
         }
+	$multiple_mode = &inhibit($autoexitmultiple,$multiple_mode);
     } else { 
         $loopfile=\%currentfile;
         $index=$currentline+$baseindex;
@@ -954,6 +956,7 @@ sub handleprint {
                 system qq/$printcmd "$loopfile->{name}"/ and &display_error($!);
             }
         }
+	$multiple_mode = &inhibit($autoexitmultiple,$multiple_mode);
     } else { 
         system qq/$printcmd "$currentfile{name}"/ and &display_error($!);
     }
@@ -973,6 +976,7 @@ sub handleshow {
                 system (qq/$pager "$loopfile->{name}"/) and &display_error($!);
             }
         }
+	$multiple_mode = &inhibit($autoexitmultiple,$multiple_mode);
     } else {
         system qq/$pager "$currentfile{name}"/ and &display_error($!);
     }
@@ -1011,6 +1015,7 @@ sub handletime {
                     &stat_entry($loopfile->{name},$loopfile->{selected});
             }
         }
+	$multiple_mode = &inhibit($autoexitmultiple,$multiple_mode);
     } else { 
         $loopfile=\%currentfile;
         eval($do_this);
@@ -1033,6 +1038,7 @@ sub handleedit {
                 system qq/$editor "$loopfile->{name}"/ and &display_error($!);
             }
         }
+	$multiple_mode = &inhibit($autoexitmultiple,$multiple_mode);
     } else {
         system qq/$editor "$currentfile{name}"/ and &display_error($!);
     }
@@ -1071,6 +1077,7 @@ sub handlecopyrename {
                 $do_a_refresh++;
             }
         }
+	$multiple_mode = &inhibit($autoexitmultiple,$multiple_mode);
     } else {
         $loopfile=\%currentfile;
         &expand_escapes($command,$loopfile);
@@ -1364,7 +1371,7 @@ sub browse {
                     last KEY;
                 /^kr|kl|[hl\e]$/i and
                     &handleentry($_) ? last STRIDE : last KEY;
-                /^[s\r]$/ and                          # changed recently %%%%%
+                /^[s\r]$/ and
                     $dircontents[$currentline+$baseindex]{type} eq 'd'
                        ? do { &handleentry($_) ? last STRIDE : last KEY }
                        : do { if (/\r/ && $currentfile{mode} =~ /x/)
@@ -1471,7 +1478,7 @@ $swap_mode = $multiple_mode = 0;
 
 if ($scr->getrows()) { $screenheight=$scr->getrows()-$baseline-2 }
 if ($scr->getcols()) { $screenwidth =$scr->getcols() }
-$maxfilenamelength = $screenwidth - (80-$defaultmaxfilenamelength);   #%%%%%%	
+$maxfilenamelength = $screenwidth - (80-$defaultmaxfilenamelength);
 &makeformatlines;
 &init_frame(0,0,$uid_mode);
 # uid_mode coming from .pfmrc
