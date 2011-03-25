@@ -1,19 +1,18 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 17-07-1999 v0.99c
+# @(#) pfm.pl 17-07-1999 v0.99d
 #
 # Author:      Rene Uittenbogaard
 # Usage:       pfm.pl [directory]
 # Description: Personal File Manager for Linux
-# Version:     v0.99c
+# Version:     v0.99d
 # Date:        17-07-1999
 # 
 # TO-DO: multiple rename
 #        multiple print
 #        multiple edit
 #        multiple show
-#        handlemore  Show
 #        titlebar colors configurable
 #        validate_position in SIG{WINCH} and deleting files
 #        key response (flush_input)
@@ -48,7 +47,7 @@
 require Term::ScreenColor;
 use strict 'refs','subs';
 
-my $VERSION='0.99c';
+my $VERSION='0.99d';
 my $configfilename=".pfmrc";
 my $majorminorseparator=',';
 my $maxfilenamelength=20;
@@ -586,7 +585,7 @@ sub handlefit {
 
 sub handlemore {
     local $_;
-    my $refresh=0;
+    my $do_a_refresh=0;
     my $newname;
     &init_header(3);
     my $key=$scr->at(0,74)->getch();
@@ -603,16 +602,34 @@ sub handlemore {
                 &display_error("$currentdir: $!");
                 chop($currentdir=`pwd`);
             } else { 
-                $refresh=1;
+                $do_a_refresh=1;
             }
-            &init_title($swap_mode,$uid_mode);
+#            &init_title($swap_mode,$uid_mode);
+        };
+        /^m$/i and do {
+            return 0 unless &ok_to_remove_marks;
+            $scr->at(0,0)->clreol()
+                ->bold()->cyan()->puts('New Directory Pathname: ')->normal()
+                ->cooked()->at(0,24);
+            chop($newname = <STDIN>);
+            $scr->raw();
+            $do_a_refresh=1;
+            if ( !mkdir $newname,0777 ) {
+                &display_error("$newname: $!");
+            } elsif ( !chdir $newname ) {
+                &display_error("$newname: $!"); # in case of restrictive umask
+            } else { 
+                chop($currentdir=`pwd`);
+                $do_a_refresh=2;
+                $position_at='.';
+            }
+#            &init_title($swap_mode,$uid_mode);
         };
         /^c$/i and do {
             system "$editor $ENV{HOME}/$configfilename" and &display_error($!);
             &read_pfmrc(1);
-            $refresh=1;
+            $do_a_refresh=1;
         };
-        /^m$/i and 1;
         /^e$/i and do {
             $scr->at(0,0)->clreol()
                 ->bold()->cyan()->puts('New name: ')->normal()
@@ -620,12 +637,12 @@ sub handlemore {
             chop($newname=<STDIN>);
             system "$editor $newname" and &display_error($!);
             $scr->raw();
-            $refresh=1;
-            &init_title($swap_mode,$uid_mode);
+            $do_a_refresh=1;
+#            &init_title($swap_mode,$uid_mode);
         }
     }
-    &init_header($multiple_mode);
-    return $refresh;
+#    &init_header($multiple_mode);
+    return $do_a_refresh;
 }
 
 sub handleinclude { # include/exclude flag
@@ -1367,10 +1384,10 @@ B<regular files>.
 
 Navigation through directories may be achieved by using the arrow keys,
 the vi cursor keys (B<hjkl>), B<->, B<+>, B<PgUp>, B<PgDn>, B<home>,
-B<end>, B<CTRL-F> and B<CTRL-B>.  Pressing B<ESC> twice will take you
-one directory level up.  Pressing B<ENTER> while on a directory will take
-you into the directory.  Pressing B<SPACE> will both mark the current file
-and advance the cursor.
+B<end>, B<CTRL-F> and B<CTRL-B>. Pressing B<ESC> twice will take you one
+directory level up. Pressing B<ENTER> while on a directory will take
+you into the directory. Pressing B<SPACE> will both mark the current
+file and advance the cursor.
 
 =back
 
@@ -1380,12 +1397,10 @@ and advance the cursor.
 
 =item B<Attrib>
 
-Change the mode of the file. The Read, Write, eXecute, Setuid, Setgid,
-and sTicky bits may be changed if you own the file. Use a '+' to add a
-permission, a '-' to remove it, and a '=' specify the mode exactly, or
-specify the mode numerically. Read the chmod(1) page for more details.
-Note that the mode on a symbolic link cannot be set. Attempting to do
-so will change the mode of the file the symbolic link is pointing to.
+Changes the mode of the file if you are the owner. Use a '+' to add
+a permission, a '-' to remove it, and a '=' specify the mode exactly,
+or specify the mode numerically. Note that the mode on a symbolic link
+cannot be set. Read the chmod(1) page for more details.
 
 =item B<Copy>
 
@@ -1394,22 +1409,22 @@ file name. In multiple-mode, the destination MUST be a directoryname.
 
 =item B<Delete>
 
-Delete a pointed file or directory.  You must answer the 'Are you sure'
-prompt with a 'Y' to actually delete the file.
+Delete a file or directory.
 
 =item B<Edit>
 
-Edit the pointed file with your external editor. You can specify an
-editor with the environment variable $EDITOR or in the .pfmrc file,
-else vi(1) is used.
+Edit a file with your external editor. You can specify an editor with the
+environment variable $EDITOR or in the B<.pfmrc> file, else vi(1) is used.
 
 =item B<Include>
 
-Allows you to mark a group of files which meet a certain criterion: Every
-(all files), Oldmarks (file which have an I<oldmark>, User (only files
-owned by you) or Files only (prompts for a regular expression which the
-filename must match).  If you Include Every, dotfiles will be included
-as well, except for the B<.> and B<..> entries.
+Allows you to mark a group of files which meet a certain criterion:
+Every file, Oldmarks (reselects any files which were previously selected
+and now bear an I<oldmark> '.'), User (only files owned by you) or Files
+only (prompts for a regular expression which the filename must match).
+Oldmarks may be used to do multifile operations on a group of files
+more than once. If you Include Every, dotfiles will be included as well,
+except for the B<.> and B<..> entries.
 
 =item B<More>
 
@@ -1423,16 +1438,18 @@ will bring you back in the main menu.
 Allows execution of a shell command on the marked files. Entering an
 empty line will activate a copy of your default login shell until the
 'exit' command is given. After the command completes, pfm will resume.
-See also I<Command Abbreviations> below.
+You may abbreviate the current filename as B<ESC>2, the current filename
+without extension as B<ESC>1, the current directory path as B<ESC>3, and
+the swap directory path (see B<F7> command) as B<ESC>5.
 
 =item B<Print>
 
 Print the specified file on the default system printer by piping it
-through lpr(1).  No formatting is done.
+through lpr(1). No formatting is done.
 
 =item B<Quit>
 
-Exit pfm. You may specify in your $HOME/.pfmrc whether pfm will ask for
+Exit pfm. You may specify in your F<$HOME/.pfmrc> whether pfm will ask for
 confirmation (confirmquit:always|never|marked). 'marked' means you will
 only be asked for confirmation if there are any marked files in the
 current directory.
@@ -1447,7 +1464,7 @@ the new name MUST be a directoryname.
 
 Displays the contents of the current file or directory on the screen.
 You can choose which pager to use for file viewing with the environment
-variable $PAGER, or in the .pfmrc file.
+variable $PAGER, or in the F<.pfmrc> file.
 
 =item B<Time>
 
@@ -1464,13 +1481,17 @@ target of the symbolic link.
 Allows you to erase marks on a group of files which meet a certain
 criterion: Every (all files), Oldmarks (files which have an I<oldmark>,
 User (only files owned by you) or Files only (prompts for a regular
-expression which the filename must match).  If you eXclude Every,
+expression which the filename must match). If you eXclude Every,
 dotfiles will be excluded as well, except for the B<.> and B<..> entries.
 
 =item B<Your command>
 
-Like B<O> command above, except that it uses your preconfigured commands.
-See the More-Config command help for details on how to preconfigure.
+Like B<O> command above, except that it uses your preconfigured
+commands. Commands may be abbreviated as in cB<O>mmand. Commands can
+be preconfigured by entering them in the configuration file as a
+I<letter>:I<command> line, e.g.
+
+ T:tar tvfz ^[2
 
 =back
 
@@ -1480,7 +1501,7 @@ See the More-Config command help for details on how to preconfigure.
 
 =item Config PFM
 
-This option will open the .pfmrc configuration file with your preferred
+This option will open the F<.pfmrc> configuration file with your preferred
 editor.
 
 =item Edit new file
@@ -1495,7 +1516,7 @@ if you don't have any files marked, your current directory will be set
 to the newly created directory. If you don't want that, you will have
 to create the directory using the B<cOmmand> command.
 
-=item Show new drive/dir
+=item Show new directory
 
 You will have to enter the new directory you want to view. Just pressing
 ENTER will take you to your home directory. Be aware that this option
@@ -1503,8 +1524,6 @@ is different from B<F7> because this will not change your current swap
 directory status.
 
 =back
-
-=head1 MARKING FILES
 
 =head1 MISCELLANEOUS and FUNCTION KEYS
 
@@ -1568,11 +1587,33 @@ Shows the parent directory of the shown dir (backup directory tree).
 
 =back
 
-=head1 COMMAND ABBREVIATIONS
+=head1 OPTIONS
 
 =over
 
-=item ESC 1
+You may specify a starting directory on the command line when invoking
+pfm.
+
+=back
+
+=head1 WORKING DIRECTORY INHERITANCE
+
+=over 
+
+In order to have the current working directory "inherited" by the calling
+process (shell), you may specify the I<cwdinheritance> option in the
+configuration file. You will then have to call pfm using a function like
+the following (add it to your .profile):
+
+ pfm () {
+        pfmcwdfile=`awk -F: '$1=="cwdinheritance" {print $2}' < ~/.pfmrc`
+        /usr/local/bin/pfm $*
+        if [ -n "$pfmcwdfile" ]; then 
+                cd "`cat $pfmcwdfile`"
+                rm -f $pfmcwdfile
+                unset pfmcwdfile
+        fi
+ }
 
 =back
 
@@ -1597,7 +1638,7 @@ Your default login shell, spawned by cB<O>mmand with an empty line.
 
 =head1 FILES
 
-$HOME/.pfmrc
+F<$HOME/.pfmrc>
 
 =head1 AUTHOR
 
@@ -1605,8 +1646,8 @@ Rene Uittenbogaard (ruittenbogaard@profuse.nl)
 
 =head1 BUGS
 
-Beware of the key repeat! When key repeat sets in, many keyclicks will
-be stored in a buffer.
+Beware of the key repeat! When key repeat sets in, you may have more
+keyclicks in the buffer than expected.
 
 =head1 SEE ALSO
 
