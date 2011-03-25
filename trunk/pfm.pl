@@ -1,12 +1,13 @@
 #!/usr/local/bin/perl
 #
-# @(#) pfm.pl 24-06-1999 v0.98b
+##########################################################################
+# @(#) pfm.pl 11-07-1999 v0.98c
 #
 # Author:      Rene Uittenbogaard
 # Usage:       pfm.pl [directory]
 # Description: Personal File Manager for Linux
-# Version:     v0.98b
-# Date:        24-06-1999
+# Version:     v0.98c
+# Date:        11-07-1999
 # 
 # TO-DO: multiple attrib
 #        multiple delete
@@ -19,16 +20,18 @@
 #        handlemore  Show
 #        Attrib -> refresh: reread single file in multiple mode
 #        (de)?select procedure : implement
+#        time
 #        F1 help 
 # documentation
 # validate_position in SIG{WINCH} and deleting files
 
-# ++++++++++++++++++++  declarations and initialization  ++++++++++++++++++++++ 
+##########################################################################
+# declarations and initialization
 
 require Term::PfmColor;
 use strict 'refs','subs';
 
-my $VERSION='0.98b';
+my $VERSION='0.98c';
 my $configfilename=".pfmrc";
 my $maxfilenamelength=20;
 my $errordelay=1;     # seconds
@@ -49,7 +52,8 @@ my @sortmodes=( n =>'Name',        N =>' reverse',
                 i =>'Inode',       I =>' reverse'       );
 my (%user,%group,$sort_mode,$multiple_mode,$swap_mode,$uid_mode,
     %currentfile,$currentline,$baseindex,
-    $editor,$pager,$clsonexit,%dircolors,%pfmrc,$scr,$wasresized);
+    $editor,$pager,$clsonexit,$cwdinheritance,$confirmquit,%dircolors,
+    %pfmrc,$scr,$wasresized);
 
 sub init_uids {
     my (%user,$name,$pwd,$uid);
@@ -68,8 +72,9 @@ sub init_gids {
 }
 
 sub read_pfmrc { # $rereadflag - 0=read 1=reread
-    $uid_mode=$sort_mode=$editor=$pager=$clsonexit='';                   # %%%%%
-    %dircolors=%pfmrc=();                                                # %%%%%
+    $uid_mode=$sort_mode=$editor=$pager=$clsonexit
+             =$cwdinheritance=$confirmquit='';
+    %dircolors=%pfmrc=();
     local $_;
     if (open PFMRC,"$ENV{HOME}/$configfilename") {
         while (<PFMRC>) {
@@ -84,9 +89,12 @@ sub read_pfmrc { # $rereadflag - 0=read 1=reread
     }
     if (defined($pfmrc{usecolor}) && !$pfmrc{usecolor}) {
         $Term::PfmColor::colorizable=0;
+    } elsif (defined($pfmrc{usecolor}) && ($pfmrc{usecolor}==2)) {
+        $Term::PfmColor::colorizable=1;
     }
     &copyright($pfmrc{copyrightdelay}) unless ($_[0]);
     $clsonexit     = $pfmrc{clsonexit};
+    $confirmquit   = $pfmrc{confirmquit};
     $cwdinheritance= $pfmrc{cwdinheritance};
     $sort_mode     = $pfmrc{sortmode} || 'n';
     $uid_mode      = $pfmrc{uidmode};
@@ -101,7 +109,8 @@ sub read_pfmrc { # $rereadflag - 0=read 1=reread
     }
 }
 
-# +++++++++++++++++++++++++++++++  translations  ++++++++++++++++++++++++++++ 
+##########################################################################
+# some translations
 
 sub mtime2str {
     my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst,$monname,$val);
@@ -180,7 +189,8 @@ sub include { # $entry
     $entry->{type} =~ /-/ and $selected_nr_of{bytes} += $entry->{size};
 }
 
-# +++++++++++++++++++++++++++++  apply color  +++++++++++++++++++++++++++++ 
+##########################################################################
+# apply color
 
 sub digestcolor {
     local $_;
@@ -208,7 +218,8 @@ sub applycolor {
     }
 }
 
-# +++++++++++++++++++++++++  small printing subs  +++++++++++++++++++++++++ 
+##########################################################################
+# small printing routines
 
 sub pathline {
     $^A = "";
@@ -304,7 +315,8 @@ sub clearcolumn {
     }
 }
 
-# +++++++++++++++++++++++++  headers, footers  +++++++++++++++++++++++++ 
+##########################################################################
+# headers, footers
 
 sub print_with_shortcuts {
     my ($printme,$pattern)=@_;
@@ -364,11 +376,13 @@ _eoFunction_
 }
 
 sub copyright {
-    $scr->cyan()->puts(<<"_eoCopy1_")->at(1,0)->puts(<<_eoCopy2_)->normal();
-PFM $VERSION for COMPAQ and compatibles
+    $scr->cyan()->puts(<<"_eoCopy1_")->at(1,0)->puts(<<"_eoCopy2_")->at(2,0)->puts(<<"_eoCopy3_")->normal();
+PFM $VERSION for Unix computers and compatibles.
 _eoCopy1_
-Copyright Paul R. Culley, Henk de Heer & Rene Uittenbogaard 1983-1999
+Copyright (c) 1999 Rene Uittenbogaard
 _eoCopy2_
+This software comes with NO WARRANTY: see the file COPYING for details.
+_eoCopy3_
     return $scr->key_pressed($_[0]);
 }
 
@@ -382,7 +396,6 @@ _eoGoodbye_
         $scr->normal()->at($screenheight+$baseline+1,0)->clreol();
     }
     if ($cwdinheritance) {
-        $scr->cooked();
         open CWDFILE,">$cwdinheritance"
             or warn "Cannot create $cwdinheritance: $!";
         print CWDFILE `pwd`;
@@ -395,35 +408,34 @@ sub credits {
     $scr->clrscr()->cooked();
     print <<"_eoCredits_";
 
+
             PFM for Unix computers and compatibles.  Version $VERSION
                  Original Idea: Paul R. Culley and Henk de Heer
-                        Author: Rene Uittenbogaard 1999
+                Author and Copyright (c) 1999 Rene Uittenbogaard
 
-            PFM is distributed under the GNU Public License. You are
-      encouraged to copy and share this program with other users. Any bug,
-       comment or suggestion will also be used in updating this product.
 
-            USER-SUPPORTED software is based on these three beliefs:
+       PFM is distributed under the GNU General Public License version 2.
+                    PFM is distributed without any warranty,
+         even the implied warranty of fitness for a particular purpose.
+                   Please read the file COPYING for details.
 
-              1.  The value of software is best assessed by the
-                  user on his own system.
-              2.  Creation of personal computer software can and
-                  should be supported by computing community.
-              3.  That copying of programs should be encouraged,
-                  rather than restricted.
 
-      Paul R. Culley          Henk de Heer            For questions
-      13010 Marron Dr.        Noordzijdseweg 147      about the Product,
-      Cypress, Texas 77429    3415 RB  Polsbroek      send Self Addressed
-      USA                     The Netherlands         Stamped Envelope.
+      You are encouraged to copy and share this program with other users.
+   Any bug, comment or suggestion is welcome in order to update this product.
 
-                                                                Esc-exit to PFM
+
+     For questions/remarks about PFM, or just to tell me you are using it,
+                   send email to: ruittenbogaard\@profuse.nl
+
+
+                                                          any key to exit to PFM
 _eoCredits_
     $scr->raw()->getch();
     $scr->clrscr();
 }
 
-# +++++++++++++++++++++++++  system information  +++++++++++++++++++++++++ 
+##########################################################################
+# system information
 
 sub user_info {
     $^A = "";
@@ -453,7 +465,7 @@ sub disk_info { # %disk{ total, used, avail }
     }
 }
 
-sub dir_info { # total_nr_of
+sub dir_info {
     local $_;
     my @desc=qw/dirs files symln spec/;
     my @values=@total_nr_of{'d','-','l'};
@@ -467,7 +479,7 @@ sub dir_info { # total_nr_of
     }
 }
 
-sub mark_info { # %selected_nr_of
+sub mark_info {
     my @desc=qw/dirs files bytes symln spec/;
     my @values=@selected_nr_of{'d','-','bytes','l'};
     $values[4] = $selected_nr_of{'c'} + $selected_nr_of{'b'}
@@ -493,7 +505,8 @@ sub date_info {
     $scr->at($line++,$col+6)->puts("$time");
 }
 
-# ++++++++++++++++++++++++++++  sorting sub  ++++++++++++++++++++++++++++ 
+##########################################################################
+# sorting sub
 
 sub as_requested { 
     my ($exta,$extb);
@@ -526,9 +539,12 @@ sub as_requested {
     }
 }
 
-# +++++++++++++++++++++++++++++  user commands  +++++++++++++++++++++++++++++ 
+##########################################################################
+# user commands
 
 sub handlequit {
+    return 1 if $confirmquit =~ /never/i;
+    return 1 if ($confirmquit =~ /marked/i and !&mark_info);
     $scr->at(0,0)->clreol()->bold()->cyan();
     $scr->puts("Are you sure you want to quit [Y/N]? ")->normal();
     my $sure = $scr->getch();
@@ -793,6 +809,18 @@ sub handleshow {
     $scr->clrscr()->raw();
 }
 
+sub handletime {
+    my $newtime;
+    &markcurrentline('T');
+    $scr->at(0,0)->clreol()->bold()->cyan();
+    $scr->puts("Put date/time MMDDhhmm[[CC]YY][.ss]: ")->normal()->cooked();
+    chop($newtime=<STDIN>);
+    $scr->raw();
+    return if ($newtime eq '');
+    system("touch -t $newtime \"$currentfile{name}\"") and &display_error($!);
+    $dircontents[$currentline+$baseindex] = &stat_entry($currentfile{name});
+}
+
 sub handleedit {
     $scr->clrscr()->cooked();
     system( "$editor $currentfile{name}" ) && &display_error($!);
@@ -948,7 +976,8 @@ sub handleentry {
     return $success;
 }
 
-# ++++++++++++++++++++++++++  directory browsing  ++++++++++++++++++++++++++ 
+##########################################################################
+# directory browsing
 
 sub stat_entry { # path_of_entry
     my $entry = $_[0];
@@ -1125,6 +1154,8 @@ sub browse {
                     last KEY;
                 /^e$/i and
                     &handleedit, redo DISPLAY;
+                /^t$/i and
+                    &handletime, redo DISPLAY;
                 /^p$/i and
                     &handleprint, redo DISPLAY;
                 /^a$/i and
@@ -1224,10 +1255,17 @@ C<pfm [directory]>
 
 =head1 DESCRIPTION
 
-PFM is a very simple and convenient file manager program, originally
-written for MS-DOS.
+PFM is a terminal-based file manager, not unlike Midnight Commander.
+This version was based on PFM.COM 2.32, originally written for MS-DOS
+by Paul R. Culley and Henk de Heer.
 
 All PFM commands are one- or two-letter commands (case insensitive).
+PFM operates in two modes: single file mode and multiple file mode.
+In single file mode, the command corresponding to the keypress will be
+executed on the file next to the cursor only. In multiple file mode,
+the command will apply to all marked files (see Marking below).
+
+=head2 COMMANDS
 
 =over
 
@@ -1254,40 +1292,41 @@ prompt with a 'Y' to actually delete the file.
 
 =item B<Edit>
 
-Edit the pointed file with your external editor. You can specify an editor
-with $EDITOR, else vi(1) is used.
+Edit the pointed file with your external editor. You can specify an
+editor with the environment variable $EDITOR or in the .pfmrc file,
+else vi(1) is used.
 
 =item B<Print>
 
-Print the pointed file on system printer by piping it through lpr(1).
-No formatting is done.
+Print the pointed file on the default system printer by piping it
+through lpr(1).  No formatting is done.
 
 =item B<Rename>
 
-Change the name of the file. A different pathname and filename on the
-same drive is allowed. Wildcards in the filename are also allowed.
+Change the name of the file. A different pathname and filename in the
+same filesystem is allowed. Wildcards in the filename are also allowed.
 
 =item B<Show>
 
 Displays the contents of the current file or directory on the screen.
 You can choose which pager to use for file viewing with the environment
-variable $PAGER.
+variable $PAGER, or in the .pfmrc file.
 
 =item B<cOmmand>
 
 Allows execution of shell commands. A blank entry will activate a copy
-of your login shell until the 'exit' command is entered. Otherwise the
-system will return to PFM immediatly after the command completes.
+of your default login shell until the 'exit' command is entered. After
+the command completes, pfm will resume.
 
 =item B<Your command>
 
-Like 'O' command above, except uses your preconfigured commands.
-See the More Config command help for details on how to preconfigure.
+Like 'O' command above, except that it uses your preconfigured commands.
+See the More-Config command help for details on how to preconfigure.
 
 =item B<View>
 
-View the complete long filename. For a symbolic link, also displays the target
-of the symbolic link.
+View the complete long filename. For a symbolic link, also displays the
+target of the symbolic link.
 
 =item B<F9>
 
@@ -1297,7 +1336,7 @@ or date, time, and inode number.
 =item B<More>
 
 Allows operations not related to the displayed directory. Use to config
-PFM, edit a new file, make a new directory, or show a pathname.
+PFM, edit a new file, make a new directory, or view a different directory.
 
 =item B<Quit>
 
