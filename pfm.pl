@@ -1,11 +1,11 @@
 #!/usr/local/bin/perl
 #
-# @(#) pfm.pl 13-05-1999 v0.97b
+# @(#) pfm.pl 13-05-1999 v0.97c
 #
 # Author:      Rene Uittenbogaard
 # Usage:       pfm.pl [directory]
 # Description: Personal File Manager for Linux
-# Version:     v0.97b
+# Version:     v0.97c
 # Date:        13-05-1999
 # 
 # TO-DO: multiple attrib
@@ -18,17 +18,18 @@
 #        handleinclude 
 #        handlemore  Show
 #        Attrib -> refresh: reread single file
-#        (de)?select procedure
+#        (de)?select procedure : implement
 #        F1 help 
 # documentation
 # validate_position in SIG{WINCH} and deleting files
+# Can't use an undefined value as a HASH reference at - line 1049
 
 # ++++++++++++++++++++  declarations and initialization  ++++++++++++++++++++++ 
 
 require Term::PfmColor;
 use strict 'refs','subs';
 
-my $VERSION='0.97b';
+my $VERSION='0.97c';
 my $configfilename=".pfmrc";
 my $maxfilenamelength=20;
 my $errordelay=1;     # seconds
@@ -159,6 +160,14 @@ sub basename {
 
 sub toggle {
     $_[0]=!$_[0];
+}
+
+sub exclude { # $entry,$oldmark
+    my ($entry,$oldmark) = @_;
+    $oldmark ||= " ";
+    $entry->{selected} = $oldmark;
+    $selected_nr_of{$entry->{type}}--;
+    $entry->{type} =~ /-/ and $selected_nr_of{bytes} -= $entry->{size};
 }
 
 sub include { # $entry
@@ -317,7 +326,7 @@ sub init_header { # "multiple"mode
     my @header=split(/\n/,<<_eoFirst_);
 Attribute Time Copy Delete Edit Print Rename Show Your cOmmands Quit View More  
 Multiple Include eXclude Attribute Time Copy Delete Print Rename Your cOmmands  
-Every; aTtribute; Oldmarks; After, Before, or Files only:                       
+Every; aTtribute; Oldmarks; User; After, Before, or Files only:                 
 Config PFM Edit new file Make new dir Show new drive/dir ESC to main menu       
 Sort by: Name, Extension, Size, Date, Type, Inode (ignorecase, reverse):        
 _eoFirst_
@@ -558,7 +567,7 @@ sub handleinclude {
     my $exin = $_[0];
     $exin =~ tr/ix/* /;
     &init_header(2);
-    my $key=$scr->at(0,58)->getch();
+    my $key=$scr->at(0,64)->getch();
     PARSEINCLUDE: {
     for ($key) {
         /^e$/i and do {    # include every
@@ -575,15 +584,17 @@ sub handleinclude {
         /^a$/i and do {};
         /^b$/i and do {};
         /^t$/i and do {};
+        /^u$/i and do { # user only
+            $criterion = '$entry->{uid}' . " =~ /$ENV{USER}/";
+            $key="prepared";
+            redo PARSEINCLUDE;
+        };
         /^o$/i and do {   # include oldmarks 
             foreach my $entry (@dircontents) {
                 if ($entry->{selected} eq "." && $exin eq " ") {
                     $entry->{selected} = $exin;
                 } elsif ($entry->{selected} eq "." && $exin eq "*") {
-                    $entry->{selected} = $exin;
-                    $selected_nr_of{$entry->{type}}++;
-                    $entry->{type} =~ /-/ and
-                        $selected_nr_of{bytes} += $entry->{size};
+                    &include($entry);
                 }
                 $result=1;
             }
@@ -592,17 +603,11 @@ sub handleinclude {
             foreach my $entry (@dircontents) {
                 if (eval $criterion) {
                     if ($entry->{selected} eq "*" && $exin eq " ") {
-                        $entry->{selected} = $exin;
-                        $selected_nr_of{$entry->{type}}--;
-                        $entry->{type} =~ /-/ and
-                            $selected_nr_of{bytes} -= $entry->{size};
+                        &exclude($entry);
                     } elsif ($entry->{selected} eq "." && $exin eq " ") {
                         $entry->{selected} = $exin;
                     } elsif ($entry->{selected} ne "*" && $exin eq "*") {
-                        $entry->{selected} = $exin;
-                        $selected_nr_of{$entry->{type}}++;
-                        $entry->{type} =~ /-/ and
-                            $selected_nr_of{bytes} += $entry->{size};
+                        &include($entry);
                     }
                     $result=1;
                 }
@@ -666,13 +671,12 @@ sub handlechmod {
         foreach $loopfile (@dircontents) {
             if ($loopfile->{selected} eq '*') {
                 $scr->at(1,0)->puts($loopfile->{name});
-                $loopfile->{selected} = '.';
-                $selected_nr_of{$loopfile->{type}}--;
+                &exclude($loopfile,'.');
                 eval($do_this);
             }
         }
     } else { 
-        $loopfile=\$currentfile;
+        $loopfile=\%currentfile;
         eval($do_this);
     }
 }
@@ -729,7 +733,7 @@ _eoPrompt_
 
 sub handledelete { 
     &markcurrentline('D');
-    my $index=$currentline+$baseindex;
+    my $index = $currentline+$baseindex;
     my $success;
     $scr->at(0,0)->clreol()->cyan()->bold();
     $scr->puts("Are you sure you want to delete [Y/N]? ")->normal();
@@ -746,10 +750,11 @@ sub handledelete {
         }
         $total_nr_of{$currentfile{type}}--;
         if ($dircontents[$index]{selected} eq '*') {
-            $selected_nr_of{$currentfile{type}}--;
-            if ($currentfile{type} eq '-') {
-                $selected_nr_of{bytes} -= $currentfile{size};
-            }
+            &exclude(\%currentfile);
+#            $selected_nr_of{$currentfile{type}}--;
+#            if ($currentfile{type} eq '-') {
+#                $selected_nr_of{bytes} -= $currentfile{size};
+#            }
         }
         if ($index >= $#dircontents) { $currentline-- }
         # this uses the fact that a directory can never be empty, so
