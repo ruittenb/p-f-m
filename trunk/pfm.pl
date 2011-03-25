@@ -1,29 +1,50 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 14-07-1999 v0.99a
+# @(#) pfm.pl 15-07-1999 v0.99b
 #
 # Author:      Rene Uittenbogaard
 # Usage:       pfm.pl [directory]
 # Description: Personal File Manager for Linux
-# Version:     v0.99a
-# Date:        14-07-1999
+# Version:     v0.99b
+# Date:        15-07-1999
 # 
-# TO-DO: multiple attrib
-#        multiple delete
+# TO-DO: multiple delete
 #        multiple rename
 #        multiple print
 #        multiple edit
-#        multiple time
 #        multiple show
-#        key response (flush_input)
+#        handlechmod, redo DISPLAY => only if $multiple_mode testen!
 #        handleinclude 
 #        handlemore  Show
-#        attrib: in multiple mode, refresh (restat) file
 #        Include/Exclude procedure : implement aTtribute
-#        F1 help 
-# documentation
-# validate_position in SIG{WINCH} and deleting files
+#        titlebar colors configurable
+#        validate_position in SIG{WINCH} and deleting files
+#        key response (flush_input)
+# terminal:
+#        make use of Term::Complete?
+#        command history
+# documentation:
+#        man page
+#        comments in english
+# licence
+
+##########################################################################
+# Main data structure:
+#
+# @dircontents   : array (current directory data) of pointers (to file data)
+# $dircontents[$index]      : pointer (to file data) to hash (file data)
+# %{ $dircontents[$index] } : hash (file data)
+# $dircontents[$index]{name}
+#                     {selected}
+#                     {size}
+#                     {type}
+#
+# %currentfile = %{ $dircontents[$currentfile+$baseindex] } (current file data)
+# $currentfile{name}
+#             {selected}
+#             {size}
+#             {type}
 
 ##########################################################################
 # declarations and initialization
@@ -31,8 +52,9 @@
 require Term::ScreenColor;
 use strict 'refs','subs';
 
-my $VERSION='0.99a';
+my $VERSION='0.99b';
 my $configfilename=".pfmrc";
+my $majorminorseparator=',';
 my $maxfilenamelength=20;
 my $errordelay=1;     # seconds
 my $slowentries=300;
@@ -236,7 +258,7 @@ _eoPathFormat_
 sub uidline {
     $^A = "";
     formline(<<'_eoUidFormat_',@_);
-@ @<<<<<<<<<<<<<<<<<<<@@>>>>>>  @<<<<<<< @<<<<<<< @##  @<<<<<<<<<
+@ @<<<<<<<<<<<<<<<<<<<@@>>>>>>  @<<<<<<< @<<<<<<<@###  @<<<<<<<<<
 _eoUidFormat_
     return $^A;
 }
@@ -414,7 +436,7 @@ sub credits {
 
 
              PFM for Unix computers and compatibles.  Version $VERSION
-	     Original idea/design: Paul R. Culley and Henk de Heer
+             Original idea/design: Paul R. Culley and Henk de Heer
                 Author and Copyright (c) 1999 Rene Uittenbogaard
 
 
@@ -475,7 +497,7 @@ sub dir_info {
     my @values=@total_nr_of{'-','d','l'};
     $values[3] = $total_nr_of{'c'} + $total_nr_of{'b'}
                + $total_nr_of{'p'} + $total_nr_of{'s'}
-	       + $total_nr_of{'D'};
+               + $total_nr_of{'D'};
     my $startline=9;
     $scr->at($startline-1,$datecol+5)->puts('Directory');
     foreach (0..3) {
@@ -489,7 +511,7 @@ sub mark_info {
     my @values=@selected_nr_of{'bytes','-','d','l'};
     $values[4] = $selected_nr_of{'c'} + $selected_nr_of{'b'}
                + $selected_nr_of{'p'} + $selected_nr_of{'s'}
-	       + $selected_nr_of{'D'};
+               + $selected_nr_of{'D'};
     my $startline=15;
     my $total=0;
     $values[2]=&fit2limit($values[2]);
@@ -557,6 +579,15 @@ sub handlequit {
     return $sure =~ /y/i;
 }
 
+sub handlefit {
+    $scr->resize();
+    if (my $newsize=$scr->getrows()) {
+        $screenheight=$newsize-$baseline-2;
+        $scr->clrscr();
+        &redisplayscreen;
+    }
+}
+
 sub handlemore {
     local $_;
     my $refresh=0;
@@ -618,7 +649,7 @@ sub handleinclude {
         };
         /^f$/i and do {    # include files
             $wildfilename=&promptforwildfilename;
-            $criterion='$entry->{name} =~ /$wildfilename/';
+            $criterion='$entry->{name} =~ /$wildfilename/ and $entry->{type} eq "-" ';
             $key="prepared";
             redo PARSEINCLUDE;
         };
@@ -694,7 +725,8 @@ sub handlesort {
 }
 
 sub handlechmod {
-    my ($newmode,$error,$loopfile,$do_this);
+    my ($newmode,$loopfile,$do_this,$index,$do_a_refresh);
+    $do_a_refresh = $multiple_mode;
     unless ($multiple_mode) { &markcurrentline('A') }
     $scr->at(0,0)->clreol()->bold()->cyan();
     $scr->puts("Permissions ( [ugoa][-=+][rwxst] or octal ): ")->normal();
@@ -703,35 +735,30 @@ sub handlechmod {
     $scr->raw();
     if ($newmode =~ /^\s*(\d+)\s*$/) {
         $do_this =           'chmod '.oct($1).  ',$loopfile->{name} '
-                  .'or  &display_error($!)';
+                  .'or  &display_error($!), $do_a_refresh++';
     } else {
         $do_this = 'system qq/chmod '.$newmode.' "$loopfile->{name}"/'
-                  .'and &display_error($!)';
+                  .'and &display_error($!), $do_a_refresh++';
     }
     if ($multiple_mode) {
-        foreach $loopfile (@dircontents) {
+        for $index (0..$#dircontents) {
+            $loopfile=$dircontents[$index];
             if ($loopfile->{selected} eq '*') {
                 $scr->at(1,0)->puts($loopfile->{name});
                 &exclude($loopfile,'.');
                 eval($do_this);
-#                $dircontents[$currentline+$baseindex] =
-#                    &stat_entry($currentfile{name}); # nog naar kijken! %%%%%%
+                $dircontents[$index] =
+                    &stat_entry($loopfile->{name},$loopfile->{selected});
             }
         }
     } else { 
         $loopfile=\%currentfile;
         eval($do_this);
-        $dircontents[$currentline+$baseindex] = &stat_entry($currentfile{name});
+        $dircontents[$currentline+$baseindex] =
+            &stat_entry($currentfile{name},$currentfile{selected});
     }
-}
-
-sub handlefit {
-    $scr->resize();
-    if (my $newsize=$scr->{ROWS}) {
-        $screenheight=$newsize-$baseline-2;
-        $scr->clrscr();
-        &redisplayscreen;
-    }
+#    &init_frame($multiple_mode,$swap_mode,$uid_mode);
+    return $do_a_refresh;
 }
 
 sub handlecommand { # Y or O
@@ -798,9 +825,9 @@ sub handledelete {
         }
         if ($index >= $#dircontents) { $currentline-- }
         # the above line uses the fact that a directory can never be
-	# empty, so $currentline must be >2 when this occurs
-	# unfortunately, for NTFS filesystems, this is not always correct
-	# the subroutine position_cursor corrects this
+        # empty, so $currentline must be >2 when this occurs
+        # unfortunately, for NTFS filesystems, this is not always correct
+        # the subroutine position_cursor corrects this
         @dircontents=(
              $index>0             ? @dircontents[0..$index-1]             : (),
              $index<$#dircontents ? @dircontents[$index+1..$#dircontents] : ()
@@ -824,12 +851,14 @@ sub handleshow {
 
 sub handlehelp {
     $scr->clrscr();
+    # dit is heel lomp, maar okee :-)
     system "man pfm";
 }
 
 sub handletime {
-    my $newtime;
-    &markcurrentline('T');
+    my ($newtime,$loopfile,$do_this,$index,$do_a_refresh);
+    $do_a_refresh=$multiple_mode;
+    unless ($multiple_mode) { &markcurrentline('T') }
     $scr->at(0,0)->clreol()->bold()->cyan();
     $scr->puts("Put date/time [[CC]YY]MMDDhhmm[.ss]: ")->normal()->cooked();
     chop($newtime=<STDIN>);
@@ -838,8 +867,27 @@ sub handletime {
     # Entered date/time must be converted
     # from [[CC]YY]MMDDhhmm[.ss] to MMDDhhmm[[CC]YY][.ss] (touch(1)) format
     $newtime =~ s/^(\d{0,4})(\d{8})(\..*)?/$2$1$3/;
-    system("touch -t $newtime \"$currentfile{name}\"") and &display_error($!);
-    $dircontents[$currentline+$baseindex] = &stat_entry($currentfile{name});
+    $do_this = "system qq/touch -t $newtime \$loopfile->{name}/ "
+              .'and &display_error($!), $do_a_refresh++';
+    if ($multiple_mode) {
+        for $index (0..$#dircontents) { 
+            $loopfile=$dircontents[$index];
+            if ($loopfile->{selected} eq '*') { 
+                $scr->at(1,0)->puts($loopfile->{name});
+                &exclude($loopfile,'.');
+                eval($do_this);
+                $dircontents[$index] = 
+                    &stat_entry($loopfile->{name},$loopfile->{selected});
+            }
+        }
+    } else { 
+        $loopfile=\%currentfile;
+        eval($do_this);
+        $dircontents[$currentline+$baseindex] =
+            &stat_entry($currentfile{name},$currentfile{selected});
+    }
+#    &init_frame($multiple_mode,$swap_mode,$uid_mode);
+    return $do_a_refresh;
 }
 
 sub handleedit {
@@ -1000,8 +1048,11 @@ sub handleentry {
 ##########################################################################
 # directory browsing
 
-sub stat_entry { # path_of_entry
-    my $entry = $_[0];
+sub stat_entry { # path_of_entry, selected_flag
+    # the second argument is used to have the caller specify whether the
+    # 'selected' field of the file info should be cleared (when reading
+    # a new directory) or kept intact (when re-statting)
+    my ($entry,$selected_flag) = @_;
     my ($ptr,$too_long,$target);
     my ($device,$inode,$mode,$nlink,$uid,$gid,$rdev,$size);
     my ($atime,$mtime,$ctime,$blksize,$blocks);
@@ -1016,14 +1067,15 @@ sub stat_entry { # path_of_entry
              size     => $size,          atime    => $atime,
              mtime    => $mtime,         ctime    => $ctime,
              blksize  => $blksize,       blocks   => $blocks,
-             selected => ' ' };
+             selected => $selected_flag };
     $ptr->{type}     = substr($ptr->{mode},0,1);
     $ptr->{target}   = $ptr->{type} eq 'l' ? ' -> '.readlink($ptr->{name}) : '';
     $ptr->{display}  = $entry.$ptr->{target};
-    $ptr->{too_long} = (' ','+')[length($ptr->{display})>$maxfilenamelength];
+#    $ptr->{too_long} = (' ','+')[length($ptr->{display})>$maxfilenamelength];
+    $ptr->{too_long} = length($ptr->{display})>$maxfilenamelength ? '+' : ' ';
     $total_nr_of{ $ptr->{type} }++;
     if ($ptr->{type} =~ /[bc]/) {
-        $ptr->{size}=sprintf("%d",$rdev/256).';'.($rdev%256);
+        $ptr->{size}=sprintf("%d",$rdev/256).$majorminorseparator.($rdev%256);
     }
     return $ptr;
 }
@@ -1044,7 +1096,8 @@ sub getdircontents { # (current)directory
         $scr->at($baseline,2)->bold()->puts('Please Wait')->normal();
     }
     foreach $entry (@allentries) {
-        push @contents,&stat_entry($entry);
+        # have the mark cleared on first stat with ' '
+        push @contents,&stat_entry($entry,' ');
     }
     return @contents;
 }
@@ -1118,9 +1171,9 @@ sub browse {
 
     chop($currentdir=`pwd`);
     local %total_nr_of   =( d=>0, l=>0, '-'=>0,
-                            c=>0, b=>0, 's'=>0, p=>0 );
+                            c=>0, b=>0, 's'=>0, p=>0, D=>0 );
     local %selected_nr_of=( d=>0, l=>0, '-'=>0, bytes=>0,
-                            c=>0, b=>0, 's'=>0, p=>0 );
+                            c=>0, b=>0, 's'=>0, p=>0, D=>0 );
     local @dircontents = sort as_requested (&getdircontents($currentdir));
     chop (@dflist=`df -k .`);
     @disk{qw/device total used avail/} =
@@ -1178,11 +1231,17 @@ sub browse {
                 /^e$/i and
                     &handleedit, redo DISPLAY;
                 /^t$/i and
-                    &handletime, redo DISPLAY;
+                    &handletime ? redo DISPLAY : do {
+                        &init_header($multiple_mode),
+                        last KEY;
+                    };
                 /^p$/i and
                     &handleprint, redo DISPLAY;
                 /^a$/i and
-                    &handlechmod, redo DISPLAY;
+                    &handlechmod ? redo DISPLAY : do {
+                        &init_header($multiple_mode),
+                        last KEY;
+                    };
                 /^k8$/ and
                     &handleselect, last KEY;
                 /^v$/i and
@@ -1192,7 +1251,7 @@ sub browse {
                         &init_header($multiple_mode),
                         last KEY;
                     };
-# vanaf hier nog display update testen
+# from this point: test if display is updated correctly
                 /^c$/i and
                     &handlecopy, last STRIDE; # nog testen of multiple_mode
                                               # en exitcode (success)
@@ -1232,9 +1291,8 @@ sub browse {
 }      # sub browse
 
 ################################################################################
-##                                                                            ##
-##                               void main (void)                             ##
-##                                                                            ##
+# void main (void)
+                                                                               #
 ################################################################################
 
 $SIG{WINCH} = sub { $wasresized=1; };
@@ -1247,7 +1305,7 @@ $scr->clrscr();
 %group=%{&init_gids};
 $swap_mode = $multiple_mode = 0;
 
-if ($scr->{ROWS}) { $screenheight=$scr->{ROWS}-$baseline-2 }
+if ($scr->getrows()) { $screenheight=$scr->getrows()-$baseline-2 }
 &init_frame(0,0,$uid_mode);
 # uid_mode coming from .pfmrc
 
@@ -1265,7 +1323,8 @@ MAIN: {
 
 &goodbye;
 
-# ############################  Pod Documentation  ############################ 
+##########################################################################
+# Pod Documentation
 
 =pod
 
@@ -1514,13 +1573,13 @@ Rene Uittenbogaard (ruittenbogaard@profuse.nl)
 
 =head1 BUGS
 
-You cannot use the function keys in cOmmand.
-Multiple file mode and swap directories are not yet operational.
+Beware of the key repeat! When key repeat sets in, many keyclicks will
+be stored in a buffer.
 
 =head1 SEE ALSO
 
 The documentation on PFM.COM . The mentioned man pages for chmod(1),
-less(1), lpr(1), touch(1).
+less(1), lpr(1), touch(1). The man page of ScreenColor.pm(1)
 
 =cut
 
