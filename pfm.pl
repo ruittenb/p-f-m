@@ -1,23 +1,19 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 15-07-1999 v0.99b
+# @(#) pfm.pl 17-07-1999 v0.99c
 #
 # Author:      Rene Uittenbogaard
 # Usage:       pfm.pl [directory]
 # Description: Personal File Manager for Linux
-# Version:     v0.99b
-# Date:        15-07-1999
+# Version:     v0.99c
+# Date:        17-07-1999
 # 
-# TO-DO: multiple delete
-#        multiple rename
+# TO-DO: multiple rename
 #        multiple print
 #        multiple edit
 #        multiple show
-#        handlechmod, redo DISPLAY => only if $multiple_mode testen!
-#        handleinclude 
 #        handlemore  Show
-#        Include/Exclude procedure : implement aTtribute
 #        titlebar colors configurable
 #        validate_position in SIG{WINCH} and deleting files
 #        key response (flush_input)
@@ -52,7 +48,7 @@
 require Term::ScreenColor;
 use strict 'refs','subs';
 
-my $VERSION='0.99b';
+my $VERSION='0.99c';
 my $configfilename=".pfmrc";
 my $majorminorseparator=',';
 my $maxfilenamelength=20;
@@ -365,7 +361,7 @@ sub init_header { # "multiple"mode
     my @header=split(/\n/,<<_eoFirst_);
 Attribute Time Copy Delete Edit Print Rename Show Your cOmmands Quit View More  
 Multiple Include eXclude Attribute Time Copy Delete Print Rename Your cOmmands  
-Every; aTtribute; Oldmarks; User; After, Before, or Files only:                 
+include? Every, Oldmarks, User or Files only:                                   
 Config PFM Edit new file Make new dir Show new drive/dir ESC to main menu       
 Sort by: Name, Extension, Size, Date, Type, Inode (ignorecase, reverse):        
 _eoFirst_
@@ -632,14 +628,15 @@ sub handlemore {
     return $refresh;
 }
 
-sub handleinclude {
+sub handleinclude { # include/exclude flag
     local $_;
     my $result=0;
     my ($wildfilename,$criterion);
     my $exin = $_[0];
-    $exin =~ tr/ix/* /;
     &init_header(2);
-    my $key=$scr->at(0,64)->getch();
+    if ($exin =~ /x/i) { $scr->at(0,0)->on_blue()->puts('ex')->normal(); }
+    $exin =~ tr/ix/* /;
+    my $key=$scr->at(0,46)->getch();
     PARSEINCLUDE: {
     for ($key) {
         /^e$/i and do {    # include every
@@ -653,9 +650,6 @@ sub handleinclude {
             $key="prepared";
             redo PARSEINCLUDE;
         };
-        /^a$/i and do {};
-        /^b$/i and do {};
-        /^t$/i and do {};
         /^u$/i and do { # user only
             $criterion = '$entry->{uid}' . " =~ /$ENV{USER}/";
             $key="prepared";
@@ -725,8 +719,8 @@ sub handlesort {
 }
 
 sub handlechmod {
-    my ($newmode,$loopfile,$do_this,$index,$do_a_refresh);
-    $do_a_refresh = $multiple_mode;
+    my ($newmode,$loopfile,$do_this,$index);
+    my $do_a_refresh = $multiple_mode;
     unless ($multiple_mode) { &markcurrentline('A') }
     $scr->at(0,0)->clreol()->bold()->cyan();
     $scr->puts("Permissions ( [ugoa][-=+][rwxst] or octal ): ")->normal();
@@ -744,7 +738,7 @@ sub handlechmod {
         for $index (0..$#dircontents) {
             $loopfile=$dircontents[$index];
             if ($loopfile->{selected} eq '*') {
-                $scr->at(1,0)->puts($loopfile->{name});
+                $scr->at(1,0)->clreol()->puts($loopfile->{name});
                 &exclude($loopfile,'.');
                 eval($do_this);
                 $dircontents[$index] =
@@ -803,37 +797,52 @@ _eoPrompt_
 }
 
 sub handledelete { 
-    &markcurrentline('D');
-    my $index = $currentline+$baseindex;
-    my $success;
+    my ($loopfile,$do_this,$index,$success);
+    unless ($multiple_mode) { &markcurrentline('D') }
     $scr->at(0,0)->clreol()->cyan()->bold();
     $scr->puts("Are you sure you want to delete [Y/N]? ")->normal();
     my $sure = $scr->getch();
-    if ($sure =~ /y/i ) {
-        if ($currentfile{type} eq 'd') {
-            $success=rmdir $currentfile{name};
-        } else {
-            $success=unlink $currentfile{name};
+    return 0 if $sure !~ /y/i;
+    $do_this = q"if ($loopfile->{type} eq 'd') {
+                    $success=rmdir $loopfile->{name};
+                 } else {
+                    $success=unlink $loopfile->{name};
+                 }
+                 if ($success) {
+                     $total_nr_of{$loopfile->{type}}--;
+                     &exclude($loopfile) if $loopfile->{selected} eq '*';
+                     if ($currentline+$baseindex >= $#dircontents) {
+                         $currentline--; # note
+                     }
+                     @dircontents=(
+                         $index>0             ? @dircontents[0..$index-1]             : (),
+                         $index<$#dircontents ? @dircontents[$index+1..$#dircontents] : ()
+                     );
+
+                 } else { # not success
+                     &display_error($!);
+                 }
+                 ";
+    # the above line marked 'note' uses the fact that a directory can
+    # never be empty, so $currentline must be >2 when this occurs
+    # unfortunately, for NTFS filesystems, this is not always correct
+    # the subroutine position_cursor corrects this
+    if ($multiple_mode) {
+        # we must delete in reverse order because of the deletions
+        # (we could also have done a 'redo LOOP if $success')
+        for $index (reverse(0..$#dircontents)) {
+            $loopfile=$dircontents[$index];
+            if ($loopfile->{selected} eq '*') {
+                $scr->at(1,0)->clreol()->puts($loopfile->{name});
+                eval($do_this);
+            }
         }
-        unless ($success) {
-            &display_error($!);
-            return 1;
-        }
-        $total_nr_of{$currentfile{type}}--;
-        if ($dircontents[$index]{selected} eq '*') {
-            &exclude(\%currentfile);
-        }
-        if ($index >= $#dircontents) { $currentline-- }
-        # the above line uses the fact that a directory can never be
-        # empty, so $currentline must be >2 when this occurs
-        # unfortunately, for NTFS filesystems, this is not always correct
-        # the subroutine position_cursor corrects this
-        @dircontents=(
-             $index>0             ? @dircontents[0..$index-1]             : (),
-             $index<$#dircontents ? @dircontents[$index+1..$#dircontents] : ()
-        );
+    } else { 
+        $loopfile=\%currentfile;
+        $index=$currentline+$baseindex;
+        eval($do_this);
     }
-    return $sure =~ /y/i;
+    return 1; # yes, please do a refresh
 }
 
 sub handleprint { 
@@ -873,7 +882,7 @@ sub handletime {
         for $index (0..$#dircontents) { 
             $loopfile=$dircontents[$index];
             if ($loopfile->{selected} eq '*') { 
-                $scr->at(1,0)->puts($loopfile->{name});
+                $scr->at(1,0)->clreol()->puts($loopfile->{name});
                 &exclude($loopfile,'.');
                 eval($do_this);
                 $dircontents[$index] = 
@@ -1357,8 +1366,8 @@ B<regular files>.
 =over
 
 Navigation through directories may be achieved by using the arrow keys,
-the vi cursor keys (B<hjkl>), the B<->, B<+>, B<PgUp>, B<PgDn>, B<home>,
-B<end>, B<CTRL-F> and B<CTRL-B>.  Pressing escape twice will take you
+the vi cursor keys (B<hjkl>), B<->, B<+>, B<PgUp>, B<PgDn>, B<home>,
+B<end>, B<CTRL-F> and B<CTRL-B>.  Pressing B<ESC> twice will take you
 one directory level up.  Pressing B<ENTER> while on a directory will take
 you into the directory.  Pressing B<SPACE> will both mark the current file
 and advance the cursor.
@@ -1381,7 +1390,7 @@ so will change the mode of the file the symbolic link is pointing to.
 =item B<Copy>
 
 Copy pointed file to another. You will be prompted for the destination
-file name.
+file name. In multiple-mode, the destination MUST be a directoryname.
 
 =item B<Delete>
 
@@ -1396,12 +1405,11 @@ else vi(1) is used.
 
 =item B<Include>
 
-Allows you to mark files which meet a certain criterion: Every (all
-files), aTtribute (only files with certain permissions), Oldmarks (file
-which have an I<oldmark>, User (only files owned by you) or Files only
-(prompts for a regular expression which the filename must match).  If you
-Include Every, dotfiles will be included as well, except for the B<.>
-and B<..> entries.
+Allows you to mark a group of files which meet a certain criterion: Every
+(all files), Oldmarks (file which have an I<oldmark>, User (only files
+owned by you) or Files only (prompts for a regular expression which the
+filename must match).  If you Include Every, dotfiles will be included
+as well, except for the B<.> and B<..> entries.
 
 =item B<More>
 
@@ -1414,11 +1422,12 @@ will bring you back in the main menu.
 
 Allows execution of a shell command on the marked files. Entering an
 empty line will activate a copy of your default login shell until the
-'exit' command is entered. After the command completes, pfm will resume.
+'exit' command is given. After the command completes, pfm will resume.
+See also I<Command Abbreviations> below.
 
 =item B<Print>
 
-Print the pointed file on the default system printer by piping it
+Print the specified file on the default system printer by piping it
 through lpr(1).  No formatting is done.
 
 =item B<Quit>
@@ -1430,8 +1439,9 @@ current directory.
 
 =item B<Rename>
 
-Change the name of the file. A different pathname and filename in the
-same filesystem is allowed. Wildcards in the filename are also allowed.
+Change the name of the file to the name specified. A different pathname
+and filename in the same filesystem is allowed. In multiple-file mode,
+the new name MUST be a directoryname.
 
 =item B<Show>
 
@@ -1451,12 +1461,11 @@ target of the symbolic link.
 
 =item B<eXclude>
 
-Allows you to erase marks on files which meet a certain criterion: Every (all
-files), aTtribute (only files with certain permissions), Oldmarks (files
-which have an I<oldmark>, User (only files owned by you) or Files only
-(prompts for a regular expression which the filename must match).  If you
-eXclude Every, dotfiles will be excluded as well, except for the B<.>
-and B<..> entries.
+Allows you to erase marks on a group of files which meet a certain
+criterion: Every (all files), Oldmarks (files which have an I<oldmark>,
+User (only files owned by you) or Files only (prompts for a regular
+expression which the filename must match).  If you eXclude Every,
+dotfiles will be excluded as well, except for the B<.> and B<..> entries.
 
 =item B<Your command>
 
@@ -1471,15 +1480,17 @@ See the More-Config command help for details on how to preconfigure.
 
 =item Config PFM
 
-This option will open the .pfmrc configuration file with your preferred editor.
+This option will open the .pfmrc configuration file with your preferred
+editor.
 
 =item Edit new file
 
-You will be prompted for the new file name, then your editor will be spawned.
+You will be prompted for the new file name, then your editor will
+be spawned.
 
 =item Make new directory
 
-Enter a new directory name and PFM will create it for you. Furthermore,
+Specify a new directory name and PFM will create it for you. Furthermore,
 if you don't have any files marked, your current directory will be set
 to the newly created directory. If you don't want that, you will have
 to create the directory using the B<cOmmand> command.
@@ -1514,22 +1525,27 @@ Toggle the use of color.
 
 =item B<F5>
 
-Reread current directory. This will erase all marks!
+Current directory will be reread. Use this when a disk has changed. This
+will erase all marks!
 
 =item B<F6>
 
-Specify sort mode. You will be presented by a number of choices.
+Allows you to re-sort the directory listing. You will be presented by
+a number of choices.
 
 =item B<F7>
 
-Set swap path. You may temporarily switch to another directory using
-this option. When you press B<F7> again, you will be in your previous
-directory. While in the swap directory, you may specify the directory
-you came from in commands as B<ESC>5
+Swaps the display between primary and secondary screen. When switching
+from primary to secondary, you are prompted for a path to show.
+When switching back by pressing B<F7> again, the original contents are
+displayed unchanged. Header text changes color when in secondary screen.
+While in the secondary screen, you may specify the swap directory from
+the first screen in commands as B<ESC>5
 
 =item B<F8>
 
-Mark/unmark the current file.
+Toggles the include flag on an individual file. See the multi-file HELP
+for more info. Space toggles the flag and moves to the next file entry.
 
 =item B<F9>
 
@@ -1538,7 +1554,25 @@ or date, time, and inode number.
 
 =item B<F10>
 
-Toggle single/multiple file mode.
+Switch between single-file and multiple-file mode.
+
+=item B<ENTER>
+
+Displays the contents of the current file or directory on the screen.
+If the current file is executable, this will execute the command.
+Be very careful with this key when running pfm as root!
+
+=item B<ESC>
+
+Shows the parent directory of the shown dir (backup directory tree).
+
+=back
+
+=head1 COMMAND ABBREVIATIONS
+
+=over
+
+=item ESC 1
 
 =back
 
@@ -1560,8 +1594,6 @@ The editor to be used for the B<E> command.
 Your default login shell, spawned by cB<O>mmand with an empty line.
 
 =back
-
-=head1 FILENAME ABBREVIATIONS
 
 =head1 FILES
 
