@@ -1,11 +1,11 @@
 #!/usr/local/bin/perl
 #
-# @(#) pfm.pl 13-05-1999 v0.97c
+# @(#) pfm.pl 13-05-1999 v0.97d
 #
 # Author:      Rene Uittenbogaard
 # Usage:       pfm.pl [directory]
 # Description: Personal File Manager for Linux
-# Version:     v0.97c
+# Version:     v0.97d
 # Date:        13-05-1999
 # 
 # TO-DO: multiple attrib
@@ -17,19 +17,20 @@
 #        key response (flush_input)
 #        handleinclude 
 #        handlemore  Show
-#        Attrib -> refresh: reread single file
+#        Attrib -> refresh: reread single file in multiple mode
 #        (de)?select procedure : implement
 #        F1 help 
 # documentation
 # validate_position in SIG{WINCH} and deleting files
 # Can't use an undefined value as a HASH reference at - line 1049
+# reread .pfmrc na more->config - OK?
 
 # ++++++++++++++++++++  declarations and initialization  ++++++++++++++++++++++ 
 
 require Term::PfmColor;
 use strict 'refs','subs';
 
-my $VERSION='0.97c';
+my $VERSION='0.97d';
 my $configfilename=".pfmrc";
 my $maxfilenamelength=20;
 my $errordelay=1;     # seconds
@@ -68,8 +69,9 @@ sub init_gids {
     return \%group;
 }
 
-sub read_pfmrc {
-    # set $uid_mode,$sort_mode,$editor,$pager,$clsonexit,%dircolors
+sub read_pfmrc { # $rereadflag - 0=read 1=reread
+    $uid_mode=$sort_mode=$editor=$pager=$clsonexit='';
+    %dircolors=%pfmrc=();
     local $_;
     if (open PFMRC,"$ENV{HOME}/$configfilename") {
         while (<PFMRC>) {
@@ -85,7 +87,7 @@ sub read_pfmrc {
     if (defined($pfmrc{usecolor}) && !$pfmrc{usecolor}) {
         $Term::PfmColor::colorizable=0;
     }
-    &copyright($pfmrc{copyrightdelay});
+    &copyright($pfmrc{copyrightdelay}) unless ($_[0]);
     $clsonexit= $pfmrc{clsonexit};
     $sort_mode= $pfmrc{sortmode} || 'n';
     $uid_mode = $pfmrc{uidmode};
@@ -551,6 +553,7 @@ sub handlemore {
         };
         /^c$/i and do {
             system "$editor $ENV{HOME}/$configfilename" and &display_error($!);
+            &read_pfmrc(1);
             $refresh=1;
         };
         /^m$/i and 1;
@@ -673,11 +676,14 @@ sub handlechmod {
                 $scr->at(1,0)->puts($loopfile->{name});
                 &exclude($loopfile,'.');
                 eval($do_this);
+#                $dircontents[$currentline+$baseindex] =
+#                    &stat_entry($currentfile{name}); # nog naar kijken! %%%%%%
             }
         }
     } else { 
         $loopfile=\%currentfile;
         eval($do_this);
+        $dircontents[$currentline+$baseindex] = &stat_entry($currentfile{name});
     }
 }
 
@@ -792,10 +798,10 @@ sub handlerename {
     $scr->at(0,0)->clreol()->bold()->cyan();
     $scr->puts("New name: ")->normal()->cooked();
     chop($newname=<STDIN>);
-    &expand_escapes($newname);                                           # %%%%%
+    &expand_escapes($newname);
     $scr->raw();
-    return if ($newname eq '');                                          # %%%%%
-    system("mv \"$currentfile{name}\" \"$newname\"") and &display_error($!);
+    return if ($newname eq '');
+    system(qq/mv "$currentfile{name}" "$newname"/) and &display_error($!);
 }
 
 sub handlecopy {
@@ -804,9 +810,9 @@ sub handlecopy {
     $scr->at(0,0)->clreol()->bold()->cyan();
     $scr->puts("Destination: ")->normal()->cooked();
     chop($newname=<STDIN>);
-    &expand_escapes($newname);                                           # %%%%%
+    &expand_escapes($newname);
     $scr->raw();
-    return if ($newname eq '');                                          # %%%%%
+    return if ($newname eq '');
     system("cp \"$currentfile{name}\" \"$newname\"") and &display_error($!);
 }
 
@@ -935,10 +941,36 @@ sub handleentry {
 
 # ++++++++++++++++++++++++++  directory browsing  ++++++++++++++++++++++++++ 
 
-sub getdircontents { # (current)directory
-    my (@contents,@allentries,$entry,$ptr,$too_long,$target);
+sub stat_entry { # path_of_entry
+    my $entry = $_[0];
+    my ($ptr,$too_long,$target);
     my ($device,$inode,$mode,$nlink,$uid,$gid,$rdev,$size);
     my ($atime,$mtime,$ctime,$blksize,$blocks);
+   ($device,$inode,$mode,$nlink,$uid,$gid,$rdev,$size,
+    $atime,$mtime,$ctime,$blksize,$blocks) = lstat $entry;
+    if (!defined $user{$uid})  { $user{$uid}=$uid }
+    if (!defined $group{$gid}) { $group{$gid}=$gid }
+    $ptr = { name     => $entry,         device   => $device,
+             inode    => $inode,         mode     => &mode2str($mode),
+             uid      => $user{$uid},    gid      => $group{$gid},
+             nlink    => $nlink,         rdev     => $rdev,
+             size     => $size,          atime    => $atime,
+             mtime    => $mtime,         ctime    => $ctime,
+             blksize  => $blksize,       blocks   => $blocks,
+             selected => ' ' };
+    $ptr->{type}     = substr($ptr->{mode},0,1);
+    $ptr->{target}   = $ptr->{type} eq 'l' ? ' -> '.readlink($ptr->{name}) : '';
+    $ptr->{display}  = $entry.$ptr->{target};
+    $ptr->{too_long} = (' ','+')[length($ptr->{display})>$maxfilenamelength];
+    $total_nr_of{ $ptr->{type} }++;
+    if ($ptr->{type} =~ /[bc]/) {
+        $ptr->{size}=sprintf("%d",$rdev/256).';'.($rdev%256);
+    }
+    return $ptr;
+}
+
+sub getdircontents { # (current)directory
+    my (@contents,@allentries,$entry);
     &init_header($multiple_mode);
     &init_title($swap_mode,$uid_mode);
     if ( opendir CURRENT,"$_[0]" ) {
@@ -953,27 +985,7 @@ sub getdircontents { # (current)directory
         $scr->at($baseline,2)->bold()->puts('Please Wait')->normal();
     }
     foreach $entry (@allentries) {
-       ($device,$inode,$mode,$nlink,$uid,$gid,$rdev,$size,
-        $atime,$mtime,$ctime,$blksize,$blocks) = lstat $entry;
-        if (!defined $user{$uid})  { $user{$uid}=$uid }
-        if (!defined $group{$gid}) { $group{$gid}=$gid }
-        $ptr = { name     => $entry,         device   => $device,
-                 inode    => $inode,         mode     => &mode2str($mode),
-                 uid      => $user{$uid},    gid      => $group{$gid},
-                 nlink    => $nlink,         rdev     => $rdev,
-                 size     => $size,          atime    => $atime,
-                 mtime    => $mtime,         ctime    => $ctime,
-                 blksize  => $blksize,       blocks   => $blocks,
-                 selected => ' ' };
-        $ptr->{type}  =substr($ptr->{mode},0,1);
-        $ptr->{target}=$ptr->{type} eq 'l' ? ' -> '.readlink($ptr->{name}) : '';
-        $ptr->{display}=$entry.$ptr->{target};
-        $ptr->{too_long}= (' ','+')[length($ptr->{display})>$maxfilenamelength];
-        $total_nr_of{$ptr->{type}}++;
-        if ($ptr->{type} =~ /[bc]/) {
-            $ptr->{size}=sprintf("%d",$rdev/256).';'.($rdev%256);
-        }
-        push @contents,$ptr;
+        push @contents,&stat_entry($entry);
     }
     return @contents;
 }
@@ -1003,6 +1015,7 @@ sub position_cursor {
     local $_;
     $currentline=0;
     $baseindex=0;
+    if ($#dircontents<0) { push @dircontents,{name => '.'} }
     for (0..$#dircontents) {
         if ($position_at eq $dircontents[$_]{name}) { $currentline=$_ , last };
     }
@@ -1016,6 +1029,10 @@ sub resizehandler {
     &validate_position;
 }
 
+sub recalc_ptr {
+        return $dircontents[0];
+}
+
 sub redisplayscreen {
     &init_frame($multiple_mode, $swap_mode, $uid_mode);
     $scr->at(1,0)->puts(&pathline($currentdir,$disk{'device'}));
@@ -1025,12 +1042,13 @@ sub redisplayscreen {
     &dir_info(%total_nr_of);
     &mark_info(%selected_nr_of);
     &user_info;
+    &date_info($dateline,$datecol);
 }
 
 sub browse {
     local $currentdir;
     local %disk;
-    my ($returncode,@dflist,$key);
+    my ($returncode,@dflist,$key,$backupptr);
     my $quitting=0;
 
     # collect info
@@ -1053,13 +1071,13 @@ sub browse {
 #        $scr->flush_input();
 
         STRIDE: for (;;) {
-            %currentfile=%{$dircontents[$currentline+$baseindex]};
+            %currentfile=%{ $dircontents[$currentline+$baseindex] || &recalc_ptr };
             &highlightline(1);
-            do { 
+            until ($scr->key_pressed(1)) { 
                 if ($wasresized) { &resizehandler; }
                 &date_info($dateline,$datecol);
                 $scr->at($currentline+$baseline,0);
-            } until ($scr->key_pressed(1));
+            }
             $key = $scr->getch();
             &highlightline(0);
             KEY: for ($key) {
