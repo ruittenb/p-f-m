@@ -1,15 +1,17 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 24-01-2000 v1.02.2
+# @(#) pfm.pl 17-02-2000 v1.02.3
 #
 # Author:      Rene Uittenbogaard
 # Usage:       pfm.pl [directory]
 # Description: Personal File Manager for Unix/Linux
-# Version:     v1.02.2
-# Date:        24-01-2000
+# Version:     v1.02.3
+# Date:        17-02-2000
 # 
 # TO-DO: test change ownership
+#        mtime/atime switch
+#        implement autoexitmultiple              %%%%%%%%%%
 #        tidy up multiple commands
 #        titlebar colors configurable
 #        validate_position in SIG{WINCH}
@@ -47,7 +49,7 @@ require Term::ScreenColor;
 use Term::ReadLine;
 use strict 'refs','subs';
 
-my $VERSION='1.02.2';
+my $VERSION='1.02.3';
 my $configfilename=".pfmrc";
 my $majorminorseparator=',';
 my $defaultmaxfilenamelength=20;
@@ -116,12 +118,13 @@ sub read_pfmrc { # $rereadflag - 0=read 1=reread
     &copyright($pfmrc{copyrightdelay}) unless ($_[0]);
     $clsonexit     = $pfmrc{clsonexit};
     $cwdinheritance= $pfmrc{cwdinheritance};
-    $printcmd      = $pfmrc{printcmd}   || 'lpr';
+#    $printcmd      = $pfmrc{printcmd}   || $ENV{PRINTER} ? "lpr -P$ENV{PRINTER}" : 'lpr';
+    ($printcmd)    = ($pfmrc{printcmd}) || ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER}" : 'lpr');
     $timeformat    = $pfmrc{timeformat} || 'pfm';
     $sort_mode     = $pfmrc{sortmode}   || 'n';
     $uid_mode      = $pfmrc{uidmode};
-    $editor        = $pfmrc{editor}     || $ENV{EDITOR} || 'vi';
-    $pager         = $pfmrc{pager}      || $ENV{PAGER}  ||
+    $editor        = $ENV{EDITOR} || $pfmrc{editor} || 'vi';
+    $pager         = $ENV{PAGER}  || $pfmrc{pager}  ||
                       ($^O =~ /linux/i ? 'less' : 'more');
     system "stty erase $pfmrc{erase}" if defined($pfmrc{erase});
     foreach (keys %pfmrc) {
@@ -391,11 +394,11 @@ _eoFirst_
 sub init_title { # swap_mode, uid_mode
     my ($swapmode,$uidmode)=@_;
     my @title=split(/\n/,<<_eoKop_);
-size  date      time   inode attrib          disk info
+size  date      mtime  inode attrib          disk info
 size  userid   groupid lnks  attrib          disk info
-size  date      time   inode attrib     your commands 
+size  date      mtime  inode attrib     your commands 
 size  userid   groupid lnks  attrib     your commands 
-size  date      time   inode attrib     sort mode     
+size  date      mtime  inode attrib     sort mode     
 size  userid   groupid lnks  attrib     sort mode     
 _eoKop_
     $swapmode ? $scr->on_black()
@@ -1585,7 +1588,7 @@ the swap directory path (see B<F7> command) as B<ESC>5.
 =item B<Print>
 
 Print the specified file on the default system printer by piping it
-through your print command (default lpr(1)). No formatting is done.
+through your print command (default lpr -P$PRINTER). No formatting is done.
 You may specify a print command in your F<.pfmrc> (see below).
 
 =item B<Quit>
