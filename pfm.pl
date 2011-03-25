@@ -1,12 +1,12 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 2000-04-17 v1.17
+# @(#) pfm.pl 2000-07-21 v1.18
 #
 # Name:        pfm.pl
-# Version:     1.17
+# Version:     1.18
 # Author:      Rene Uittenbogaard
-# Date:        2000-04-17
+# Date:        2000-07-21
 # Usage:       pfm.pl [directory]
 # Requires:    Term/ScreenColor.pm
 #              Term/Screen.pm
@@ -14,8 +14,7 @@
 #              strict.pm
 # Description: Personal File Manager for Unix/Linux
 # 
-# TO-DO: test change ownership
-#        test update screenline 1 (path/device) -> own sub.
+# TO-DO: test update screenline 1 (path/device) -> own sub.
 #        touch with . argument to just touch with current time
 #        sunos 5.7 drwxr-l--- implement?
 #        major/minor numbers on DU 4.0E are wrong
@@ -54,7 +53,7 @@ require Term::ScreenColor;
 use Term::ReadLine;
 use strict 'refs','subs';
 
-my $VERSION='1.17';
+my $VERSION='1.18';
 my $configfilename=".pfmrc";
 my $majorminorseparator=',';
 my $defaultmaxfilenamelength=20;
@@ -385,6 +384,10 @@ sub clearcolumn {
     foreach ($baseline..$baseline+$screenheight) {
         $scr->at($_,$screenwidth-$datecol)->puts($spaces);
     }
+}
+
+sub path_info {
+    $scr->at(1,0)->puts(&pathline($currentdir,$disk{'device'}));
 }
 
 ##########################################################################
@@ -821,7 +824,8 @@ sub handlechown {
         ->puts("New user[:group] : ")->normal()->cooked();
     chop ($newuid=<STDIN>);
     $scr->raw();
-    $do_this = 'system qq/chown '.$1.' $loopfile->{name}/ '
+    return 0 if ($newuid eq '');
+    $do_this = 'system qq/chown '.$newuid.' $loopfile->{name}/ '
              . 'and &display_error($!), $do_a_refresh++';
     if ($multiple_mode) {
         for $index (0..$#dircontents) {
@@ -853,6 +857,7 @@ sub handlechmod {
         ->cooked();
     chop ($newmode=<STDIN>);
     $scr->raw();
+    return 0 if ($newmode eq '');
     if ($newmode =~ /^\s*(\d+)\s*$/) {
         $do_this =           'chmod '.oct($1).  ',$loopfile->{name} '
                   .'or  &display_error($!), $do_a_refresh++';
@@ -1114,8 +1119,8 @@ sub handlecopyrename {
         $scr->at(0,0)->cyan()->bold()
         ->puts("Cannot do multifile operation when destination is single file.")
         ->normal()->at(0,0);
-#        ->getch(); # don't getch; instead:                     # %%%%%%%
         &pressanykey;
+	&path_info;
         return 0; # don't refresh screen - is this correct?
     }
 #    $command = "system qq{$statecmd ".'$loopfile->{name}'." $newname}";
@@ -1129,7 +1134,7 @@ sub handlecopyrename {
                 $do_this = $command;
                 &expand_escapes($do_this,$loopfile);
                 $scr->at(1,0)->puts($loopfile->{name});
-                eval ($do_this) and $scr->at(0,0)->clreol(),&display_error($!); # %%%%%%%
+                eval ($do_this) and $scr->at(0,0)->clreol(),&display_error($!);
                 $do_a_refresh++;
             }
         }
@@ -1138,9 +1143,9 @@ sub handlecopyrename {
         $loopfile=\%currentfile;
         &expand_escapes($command,$loopfile);
         eval ($command) and do {
-		$scr->at(0,0)->clreol();
-		&display_error($!); # %%%%%%%%%%
-	}
+                $scr->at(0,0)->clreol();
+                &display_error($!);
+        }
     }
     return $do_a_refresh;
 }
@@ -1378,7 +1383,7 @@ sub recalc_ptr {
 
 sub redisplayscreen {
     &init_frame($multiple_mode, $swap_mode, $uid_mode);
-    $scr->at(1,0)->puts(&pathline($currentdir,$disk{'device'}));
+    &path_info;
     if ($position_at ne '') { &position_cursor }
     &printdircontents(@dircontents);
     &disk_info(%disk);
@@ -1477,9 +1482,10 @@ sub browse {
                     };
 # from this point: test if display is updated correctly
                 /^[cr]$/i and
-                    &handlecopyrename($_)
-                        ? redo DISPLAY
-                        : do { &init_header($multiple_mode) ,last KEY };
+                    &handlecopyrename($_) ? redo DISPLAY : do {
+                        &init_header($multiple_mode),
+                        last KEY;
+                    };
                 /^u$/i and
                     &handlechown ? redo DISPLAY : do {
                         &init_header($multiple_mode),
@@ -1980,16 +1986,16 @@ the following (add it to your .profile):
 
 =over 
 
-=item B<$PAGER>
+=item B<PAGER>
 
 Identifies the pager with which to view text files. Defaults to less(1)
 for Linux systems or more(1) for Unix systems.
 
-=item B<$EDITOR>
+=item B<EDITOR>
 
 The editor to be used for the B<E> command.
 
-=item B<$SHELL>
+=item B<SHELL>
 
 Your default login shell, spawned by cB<O>mmand with an empty line.
 
