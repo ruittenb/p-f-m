@@ -1,12 +1,12 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 2000-12-01 v1.20
+# @(#) pfm.pl 2000-12-01 v1.21
 #
 # Name:        pfm.pl
-# Version:     1.20
+# Version:     1.21 - first readline history version!
 # Author:      Rene Uittenbogaard
-# Date:        2000-12-01
+# Date:        2000-12-02
 # Usage:       pfm.pl [directory]
 # Requires:    Term::ScreenColor
 #              Term::Screen
@@ -17,8 +17,11 @@
 # Description: Personal File Manager for Unix/Linux
 #
 # TO-DO: test update screenline 1 (path/device) -> own sub.
-#        touch with . argument to just touch with current time
+#        change F7 swap mode: fully exchangeable
+#        keymap vi ?
+#        expand_escapes - which escape char?
 #        major/minor numbers on DU 4.0E are wrong
+#        jump back to old current dir with `
 #        tidy up multiple commands
 #        validate_position in SIG{WINCH}
 #        key response (flush_input)
@@ -28,8 +31,8 @@
 #            this fucks up with e.g. cOmmand -> cp ^[2 /somewhere/else
 # terminal:
 #        intelligent restat (changes in current dir?)
-#        make use of Term::Complete?
-#        command history
+#        filename completion?
+#        command history - save to file?
 # licence
 
 ##########################################################################
@@ -52,25 +55,27 @@
 ##########################################################################
 # declarations and initialization
 
-BEGIN { $ENV{PERL_RL} = 'Gnu' } # Do not test TR::Gnu !
+BEGIN { $ENV{PERL_RL} = 'Gnu ornaments=0' }
 
 use Term::ScreenColor;
 use Term::ReadLine;
-use strict 'refs','subs';
+use strict 'refs', 'subs', 'vars';
 
-my $VERSION = &getversion;
-my $configfilename = ".pfmrc";
+my $VERSION             = &getversion;
+my $configfilename      = ".pfmrc";
 my $majorminorseparator = ',';
+my $maxhistsize         = 40;
+my $errordelay          = 1;     # seconds
+my $slowentries         = 300;
+my $baseline            = 3;
+my $screenheight        = 20;    # inner height
+my $screenwidth         = 80;    # terminal width
+my $userline            = 21;
+my $dateline            = 22;
+my $datecol             = 14;
+my $position_at         = '.';   # start with cursor here
 my $defaultmaxfilenamelength = 20;
-my $errordelay = 1;     # seconds
-my $slowentries = 300;
-my $baseline = 3;
-my $screenheight = 20; # inner height
-my $screenwidth = 80; # terminal width
-my $userline = 21;
-my $dateline = 22;
-my $datecol = 14;
-my $position_at = '.';
+
 my @sortmodes=( n =>'Name',        N =>' reverse',
                'm'=>' ignorecase', M =>' rev+ignorec',
                 e =>'Extension',   E =>' reverse',
@@ -79,14 +84,23 @@ my @sortmodes=( n =>'Name',        N =>' reverse',
                 a =>'date/Atime',  A =>' reverse',
                's'=>'Size',        S =>' reverse',
                 t =>'Type',        T =>' reverse',
-                i =>'Inode',       I =>' reverse'       );
+                i =>'Inode',       I =>' reverse' );
+
 my %timehints = ( pfm   => '[[CC]YY]MMDDhhmm[.ss]',
                   touch => 'MMDDhhmm[[CC]YY][.ss]' );
-my (%user,%group,$sort_mode,$multiple_mode,$swap_mode,$uid_mode,
-    %currentfile,$currentline,$baseindex,
-    $editor,$pager,$printcmd,$clsonexit,$cwdinheritance,$showlockchar,
-    $titlecolor,$footercolor,$headercolor,$swapcolor,$multicolor,
-    $timeformat,%dircolors,%pfmrc,$scr,$wasresized);
+
+my  @command_history = qw(true);
+my  @mode_history    = qw(755 644);
+my  @path_history    = ('/',$ENV{HOME});
+my  @regex_history   = qw(.*\.jpg);
+my  @time_history;
+
+my (%user, %group, %currentfile, $currentline, $baseindex,
+    $sort_mode, $multiple_mode, $swap_mode, $uid_mode,
+    $timeformat, %dircolors, %pfmrc, $scr, $keyb, $wasresized);
+my ($editor, $pager, $printcmd, $clsonexit, $cwdinheritance, $showlockchar,
+    $autoexitmultiple,
+    $titlecolor, $footercolor, $headercolor, $swapcolor, $multicolor);
 
 ##########################################################################
 # read/write resource file
@@ -100,6 +114,7 @@ sub write_pfmrc {
         print MKPFMRC map {
             s/^(# Version )x$/$1$VERSION/m;
             s/^(#?cwdinheritance:)x$/$1$ENV{HOME}\/.pfmcwd/m;
+            s/^(#?savehist:)x$/$1$ENV{HOME}\/.pfmhist/m;
             s/^([A-Z]:\w+.*?\s+)more(\s*)$/$1less$2/mg if $^O =~ /linux/i;
             $_;
         } @resourcefile;
@@ -108,9 +123,9 @@ sub write_pfmrc {
 }
 
 sub read_pfmrc { # $rereadflag - 0=read 1=reread
-    $uid_mode=$sort_mode=$editor=$pager=$clsonexit
-             =$cwdinheritance='';
-    %dircolors=%pfmrc=();
+    $uid_mode = $sort_mode = $editor = $pager = $clsonexit
+              = $cwdinheritance = '';
+    %dircolors = %pfmrc = ();
     local $_;
     unless (-r "$ENV{HOME}/$configfilename") {
         &write_pfmrc;
@@ -199,12 +214,12 @@ sub time2str {
     $monname =(qw/Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec/)[$mon];
     foreach $val ($mday,$hour,$min,$sec) { if ($val<10) { $val="0$val" } }
     if ($_[1]) {
-        $min="$min:$sec";
+        $min = "$min:$sec";
         $year += 1900;
     } else {
         $year %= 100;
     }
-    if ($year<10) { $year="0$year" }
+    if ($year<10) { $year = "0$year" }
     return "$year $monname $mday $hour:$min";
 }
 
@@ -218,7 +233,6 @@ sub mode2str {
                .$strmodes[$3].$strmodes[$4].$strmodes[$5];
                # first  d for Linux, OSF1, Solaris
                # second d for AIX
-               # D is Solaris Door
     if ($2 & 4) {       substr( $strmode,3,1) =~ tr/-x/Ss/ }
     if ($2 & 2) { eval "substr(\$strmode,6,1) =~ tr/-x/${showlockchar}s/" }
     if ($2 & 1) {       substr( $strmode,9,1) =~ tr/-x/Tt/ }
@@ -232,7 +246,7 @@ sub fit2limit {
     while ( $neatsize > $limit ) {
         $neatsize = int($neatsize/1024);
         $neatletter =~ tr/KMGT/MGTP/ || do { $neatletter = 'K' };
-        $limit=999999;
+        $limit = 999999;
     }
     return $neatsize.$neatletter;
 }
@@ -241,10 +255,16 @@ sub expand_escapes {
     my %thisfile = %{$_[1]};
     my $namenoext =
         $thisfile{name} =~ /^(.*)\.(\w+)$/ ? $1 : $thisfile{name};
-    $_[0] =~ s/\e1/$namenoext/g;
-    $_[0] =~ s/\e2/$thisfile{name}/g;
-    $_[0] =~ s!\e3!$currentdir/!g;
-    $_[0] =~ s!\e5!$swap_mode->{path}/!g if $swap_mode;
+    # these regexps use the negative lookbehind assertion:
+    # the escaping \ must not be preceded by another \
+    $_[0] =~ s/(?<!\\)\\1|\e1/$namenoext/g;
+#    $_[0] =~ s/\\1/$namenoext/g;
+    $_[0] =~ s/(?<!\\)\\2|\e2/$thisfile{name}/g;
+#    $_[0] =~ s/\\2/$thisfile{name}/g;
+    $_[0] =~ s/(?<!\\)\\3|\e3/$currentdir\//g;
+#    $_[0] =~ s!\\3!$currentdir/!g;
+    $_[0] =~ s/(?<!\\)\\5|\e5/$swap_mode->{path}\//g if $swap_mode;
+#    $_[0] =~ s!\\5!$swap_mode->{path}/!g if $swap_mode;
 }
 
 sub inhibit {
@@ -392,7 +412,9 @@ sub promptforwildfilename {
     my $wildfilename;
     $scr->at(0,0)->clreol()->bold()->cyan()
         ->puts("Wild filename (regular expression): ")->normal()->cooked();
-    chop ($wildfilename=<STDIN>);
+    $keyb->SetHistory(@regex_history);                               #%%% 1.21 %
+    $wildfilename = $keyb->readline();                               #%%% 1.21 %
+    push (@regex_history, $wildfilename) if $wildfilename =~ /\S/;   #%%% 1.21 %
     $scr->raw();      # init_header is done in handleinclude
     eval "/$wildfilename/";
     if ($@) {
@@ -702,7 +724,10 @@ sub handlemore {
             $scr->at(0,0)->clreol()
                 ->bold()->cyan()->puts('Directory Pathname: ')->normal()
                 ->cooked()->at(0,20);
-            chop($currentdir=<STDIN>);
+            $keyb->SetHistory(@path_history);                        #%%% 1.21 %
+            $currentdir = $keyb->readline();                         #%%% 1.21 %
+            push (@path_history, $currentdir) if $currentdir =~ /\S/;#%%% 1.21 %
+#            chop($currentdir=<STDIN>);
             $scr->raw();
             $position_at='.';
             if ( !chdir $currentdir ) {
@@ -717,7 +742,10 @@ sub handlemore {
             $scr->at(0,0)->clreol()
                 ->bold()->cyan()->puts('New Directory Pathname: ')->normal()
                 ->cooked()->at(0,24);
-            chop($newname = <STDIN>);
+            $keyb->SetHistory(@path_history);                        #%%% 1.21 %
+            $newname = $keyb->readline();                            #%%% 1.21 %
+            push (@path_history, $newname) if $newname =~ /\S/;      #%%% 1.21 %
+#            chop($newname = <STDIN>);
             $scr->raw();
             $do_a_refresh=1;
             if ( !mkdir $newname,0777 ) {
@@ -740,7 +768,10 @@ sub handlemore {
             $scr->at(0,0)->clreol()
                 ->bold()->cyan()->puts('New name: ')->normal()
                 ->cooked()->at(0,10);
-            chop($newname=<STDIN>);
+            $keyb->SetHistory(@path_history);                        #%%% 1.21 %
+            $newname = $keyb->readline();                            #%%% 1.21 %
+            push (@path_history, $newname) if $newname =~ /\S/;      #%%% 1.21 %
+#            chop($newname=<STDIN>);
             system "$editor $newname" and &display_error($!);
             $scr->raw();
             $do_a_refresh=1;
@@ -877,7 +908,7 @@ sub handlechmod {
     my $do_a_refresh = $multiple_mode;
     &markcurrentline('A') unless $multiple_mode;
     $scr->at(0,0)->clreol()->bold()->cyan()
-        ->puts("Permissions ( [ugoa][-=+][rwxst] or octal ): ")->normal()
+        ->puts("Permissions ( [ugoa][-=+][rwxslt] or octal ): ")->normal()
         ->cooked();
     chop ($newmode=<STDIN>);
     $scr->raw();
@@ -942,9 +973,12 @@ Enter Unix command (ESC1=name, ESC2=name.ext, ESC3=path, ESC5=swap path):
 _eoPrompt_
         $scr->at(0,0)->clreol()->bold()->cyan()->puts($printstr)->normal()
             ->at(1,0)->clreol()->cooked();
-        $command = <STDIN>;
+        $keyb->SetHistory(@command_history);                           #%%% 1.21
+        $command = $keyb->readline();                                  #%%% 1.21
+        push (@command_history, $command) if $command =~ /\S/;         #%%% 1.21
     }
-    $command =~ s/^\n?$/$ENV{'SHELL'}\n/;
+    $command =~ s/^\s*\n?$/$ENV{'SHELL'}/;
+    $command .= "\n";
     if ($multiple_mode) {
         $scr->clrscr()->at(0,0);
         for $index (0..$#dircontents) {
@@ -996,8 +1030,7 @@ sub handledelete {
                      @dircontents=(
                          $index>0             ? @dircontents[0..$index-1]             : (),
                          $index<$#dircontents ? @dircontents[$index+1..$#dircontents] : ()
-                     );
-
+                     ); # splice doesn't work for me
                  } else { # not success
                      &display_error($!);
                  }
@@ -1074,19 +1107,27 @@ sub handlehelp {
 }
 
 sub handletime {
-    my ($newtime,$loopfile,$do_this,$index,$do_a_refresh);
-    $do_a_refresh=$multiple_mode;
+    my ($newtime, $loopfile, $do_this, $index, $do_a_refresh);
+    $do_a_refresh = $multiple_mode;
     &markcurrentline('T') unless $multiple_mode;
     $scr->at(0,0)->clreol()->bold()->cyan()
         ->puts("Put date/time $timehints{$timeformat}: ")->normal()->cooked();
-    chop($newtime=<STDIN>);
+    $keyb->SetHistory(@time_history);                            # %%%% 1.21 %%%
+    $newtime = $keyb->readline();                                # %%%% 1.21 %%%
+    push @time_history, $newtime if $newtime =~ /\S/;
+#    chop($newtime=<STDIN>);
     $scr->raw();
     return if ($newtime eq '');
     # convert date/time to touch format if necessary
     if ($timeformat eq 'pfm') {
         $newtime =~ s/^(\d{0,4})(\d{8})(\..*)?/$2$1$3/;
     }
-    $do_this = "system qq/touch -t $newtime \$loopfile->{name}/ "
+    if ($newtime eq '.') {
+        $newtime = '';
+    } else {
+        $newtime = "-t $newtime";
+    }
+    $do_this = "system qq/touch $newtime \$loopfile->{name}/ "
               .'and &display_error($!), $do_a_refresh++';
     if ($multiple_mode) {
         for $index (0..$#dircontents) {
@@ -1557,8 +1598,10 @@ sub browse {
 ################################################################################
 
 $SIG{WINCH} = sub { $wasresized=1; };
-$scr = new Term::ScreenColor;
+$scr = Term::ScreenColor->new();
 $scr->clrscr();
+$keyb = Term::ReadLine->new('Pfm', \*STDIN, \*STDOUT);
+#$keyb->set_keymap('vi');
 
 &read_pfmrc;
 
@@ -1631,6 +1674,10 @@ uidmode:0
 timeformat:pfm
 # show whether mandatory locking is enabled (e.g. -rw-r-lr-- ) (yes,no,sun)
 showlock:sun
+# F7 key swap path method: (askpath,traversepath) (not implemented)
+#swapmethod:traversepath
+# save command history, path history etc. to file (not implemented)
+#savehist:x
 
 # if you want to pass your cwd back to your shell when you exit pfm,
 # enable this to have pfm save its cwd in a file
@@ -1847,8 +1894,9 @@ variable C<PAGER>, or in the F<.pfmrc> file.
 
 =item B<Time>
 
-Change date and time of the file. The format used is converted to a
-format which C<touch>(1) can use.
+Change timestamp of the file. The format used is converted to a format
+which C<touch>(1) can use. Enter 'B<.>' to set the timestamp to the current
+date and time.
 
 =item B<Uid>
 
