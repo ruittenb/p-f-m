@@ -1,18 +1,25 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 2000-04-11 v1.10
+# @(#) pfm.pl 2000-04-17 v1.17
 #
+# Name:        pfm.pl
+# Version:     1.17
 # Author:      Rene Uittenbogaard
+# Date:        2000-04-17
 # Usage:       pfm.pl [directory]
+# Requires:    Term/ScreenColor.pm
+#              Term/Screen.pm
+#              Term/Cap.pm
+#              strict.pm
 # Description: Personal File Manager for Unix/Linux
-# Version:     v1.10
-# Date:        2000-04-11
 # 
 # TO-DO: test change ownership
+#        test update screenline 1 (path/device) -> own sub.
 #        touch with . argument to just touch with current time
+#        sunos 5.7 drwxr-l--- implement?
+#        major/minor numbers on DU 4.0E are wrong
 #        tidy up multiple commands
-#        titlebar colors configurable
 #        validate_position in SIG{WINCH}
 #        key response (flush_input)
 # terminal:
@@ -47,7 +54,7 @@ require Term::ScreenColor;
 use Term::ReadLine;
 use strict 'refs','subs';
 
-my $VERSION='1.10';
+my $VERSION='1.17';
 my $configfilename=".pfmrc";
 my $majorminorseparator=',';
 my $defaultmaxfilenamelength=20;
@@ -74,6 +81,7 @@ my %timehints = ( pfm   => '[[CC]YY]MMDDhhmm[.ss]',
 my (%user,%group,$sort_mode,$multiple_mode,$swap_mode,$uid_mode,
     %currentfile,$currentline,$baseindex,
     $editor,$pager,$printcmd,$clsonexit,$cwdinheritance,
+    $titlecolor,$footercolor,$headercolor,$swapcolor,$multicolor,
     $timeformat,%dircolors,%pfmrc,$scr,$wasresized);
 
 ##########################################################################
@@ -81,7 +89,7 @@ my (%user,%group,$sort_mode,$multiple_mode,$swap_mode,$uid_mode,
 
 sub write_pfmrc {
     if (open MKPFMRC,">$ENV{HOME}/$configfilename") {
-        my @resourcefile = &return_pfmrc;
+        my @resourcefile = &make_pfmrc;
         print MKPFMRC @resourcefile;
         close MKPFMRC;
     }
@@ -121,6 +129,11 @@ sub read_pfmrc { # $rereadflag - 0=read 1=reread
     $timeformat    = $pfmrc{timeformat} || 'pfm';
     $sort_mode     = $pfmrc{sortmode}   || 'n';
     $uid_mode      = $pfmrc{uidmode};
+    $headercolor   = $pfmrc{headercolor} || '37;44';
+    $multicolor    = $pfmrc{multicolor}  || '36;47';
+    $titlecolor    = $pfmrc{titlecolor}  || '36;47';
+    $swapcolor     = $pfmrc{swapcolor}   || '36;40';
+    $footercolor   = $pfmrc{footercolor} || '34;47';
     $editor        = $ENV{EDITOR} || $pfmrc{editor} || 'vi';
     $pager         = $ENV{PAGER}  || $pfmrc{pager}  ||
                       ($^O =~ /linux/i ? 'less' : 'more');
@@ -181,6 +194,7 @@ sub mode2str {
                # first  d for Linux, OSF1, Solaris
                # second d for AIX
                # D is Solaris Door
+               # note that SunOS 5.7 uses l instead of S in group position
     if ($2 & 4) { substr($strmode,3,1) =~ tr/-x/Ss/ }
     if ($2 & 2) { substr($strmode,6,1) =~ tr/-x/Ss/ }
     if ($2 & 1) { substr($strmode,9,1) =~ tr/-x/Tt/ }
@@ -378,7 +392,8 @@ sub clearcolumn {
 
 sub print_with_shortcuts {
     my ($printme,$pattern)=@_;
-    $scr->on_blue()->puts($printme)->bold();
+    &digestcolor($headercolor);
+    $scr->puts($printme)->bold();
     while ($printme =~ /$pattern/g) { 
         $pos=pos($printme)-1;
         $scr->at(0,$pos)->puts(substr($printme,$pos,1));
@@ -405,8 +420,8 @@ _eoFirst_
     &print_with_shortcuts($header[$mode].' 'x($screenwidth-80),
                           "[A-Z](?!FM|M E| Ed)");
     if ($mode == 1) { 
-        $scr->reverse()->bold()->cyan()->on_white()
-            ->at(0,0)->puts("Multiple")->normal();
+        &digestcolor($multicolor);
+        $scr->reverse()->bold()->at(0,0)->puts("Multiple")->normal();
     }
 }
 
@@ -423,9 +438,14 @@ size  date      mtime  inode attrib     sort mode
 size  userid   groupid lnks  attrib     sort mode     
 size  date      atime  inode attrib     sort mode     
 _eoKop_
-    $swapmode ? $scr->on_black()
-              : $scr->on_white()->bold();
-    $scr->reverse()->cyan()->at(2,0)
+#    $swapmode ? $scr->on_black()
+#              : $scr->on_white()->bold();
+    $swapmode ? &digestcolor($swapcolor)
+              : do {
+                    &digestcolor($titlecolor);
+                    $scr->bold();
+                };
+    $scr->reverse()->at(2,0)
         ->puts('  filename.ext'.' 'x($screenwidth-$datecol-54).$title[$uidmode])
         ->normal();
 }
@@ -435,13 +455,15 @@ sub init_footer {
     chop($footer=<<_eoFunction_);
 F1-Help F3-Fit F4-Color F5-Reread F6-Sort F7-Swap F8-Include F9-Uids F10-Multi  
 _eoFunction_
-    $scr->reverse()->bold()->blue()->on_white()->at($baseline+$screenheight+1,0)
+    &digestcolor($footercolor);
+#    $scr->reverse()->bold()->blue()->on_white()->at($baseline+$screenheight+1,0)
+    $scr->reverse()->bold()->at($baseline+$screenheight+1,0)
         ->puts($footer.' 'x($screenwidth-80))->normal();
 }
 
 sub copyright {
     $scr->cyan()->puts("PFM $VERSION for Unix computers and compatibles.")
-        ->at(1,0)->puts("Copyright (c) 1999/2000 Rene Uittenbogaard")
+        ->at(1,0)->puts("Copyright (c) 1999,2000 Rene Uittenbogaard")
         ->at(2,0)->puts("This software comes with no warranty: see the file "
                        ."COPYING for details.")->normal();
     return $scr->key_pressed($_[0]);
@@ -462,7 +484,6 @@ _eoGoodbye_
         print CWDFILE `pwd`;
         close CWDFILE;
     }
-    exit 0;
 }
 
 sub credits {
@@ -472,7 +493,7 @@ sub credits {
 
              PFM for Unix computers and compatibles.  Version $VERSION
              Original idea/design: Paul R. Culley and Henk de Heer
-             Author and Copyright (c) 1999/2000 Rene Uittenbogaard
+             Author and Copyright (c) 1999,2000 Rene Uittenbogaard
 
 
        PFM is distributed under the GNU General Public License version 2.
@@ -502,7 +523,10 @@ _eoCredits_
 sub user_info {
     $^A = "";
     formline('@>>>>>>>',$user{$>});
-    $scr->at($userline,$screenwidth-$datecol+6)->puts($^A);
+    unless ($>) {
+        $scr->red();
+    }
+    $scr->at($userline,$screenwidth-$datecol+6)->puts($^A)->normal();
 }
 
 sub infoline { # number, description
@@ -899,7 +923,8 @@ _eoPrompt_
                 $do_this = $command;
                 &expand_escapes($do_this,$loopfile);
                 $scr->puts($do_this);
-                system ($do_this) and &display_error($!);
+#                system ($do_this) and $scr->at(0,0)->clreol(),&display_error($!); # %%%%%%%
+                system ($do_this) and &display_error($!); # %%%%%%%
                 $dircontents[$index] =
                     &stat_entry($loopfile->{name},$loopfile->{selected});
             }
@@ -909,7 +934,8 @@ _eoPrompt_
         $loopfile=\%currentfile;
         &expand_escapes($command,\%currentfile);
         $scr->clrscr()->at(0,0)->puts($command);
-        system ($command) and &display_error($!);
+#        system ($command) and $scr->at(0,0)->clreol(),&display_error($!); # %%%%%%%%%
+        system ($command) and &display_error($!); # %%%%%%%%%
         $dircontents[$currentline+$baseindex] =
             &stat_entry($currentfile{name},$currentfile{selected});
     }
@@ -1087,8 +1113,10 @@ sub handlecopyrename {
     if ($multiple_mode and $newname !~ /\e/ and !-d($newname)) {
         $scr->at(0,0)->cyan()->bold()
         ->puts("Cannot do multifile operation when destination is single file.")
-        ->normal()->getch();
-        return 0; # don't refresh screen
+        ->normal()->at(0,0);
+#        ->getch(); # don't getch; instead:                     # %%%%%%%
+        &pressanykey;
+        return 0; # don't refresh screen - is this correct?
     }
 #    $command = "system qq{$statecmd ".'$loopfile->{name}'." $newname}";
     $command = 'system qq{'.$statecmd.' "$loopfile->{name}" "'.$newname.'"}';
@@ -1101,7 +1129,7 @@ sub handlecopyrename {
                 $do_this = $command;
                 &expand_escapes($do_this,$loopfile);
                 $scr->at(1,0)->puts($loopfile->{name});
-                eval ($do_this) and &display_error($!);
+                eval ($do_this) and $scr->at(0,0)->clreol(),&display_error($!); # %%%%%%%
                 $do_a_refresh++;
             }
         }
@@ -1109,7 +1137,10 @@ sub handlecopyrename {
     } else {
         $loopfile=\%currentfile;
         &expand_escapes($command,$loopfile);
-        eval ($command) and &display_error($!);
+        eval ($command) and do {
+		$scr->at(0,0)->clreol();
+		&display_error($!); # %%%%%%%%%%
+	}
     }
     return $do_a_refresh;
 }
@@ -1494,17 +1525,17 @@ sub browse {
 ################################################################################
 
 $SIG{WINCH} = sub { $wasresized=1; };
-$scr= new Term::ScreenColor;
+$scr = new Term::ScreenColor;
 $scr->clrscr();
 
 &read_pfmrc;
 
-%user =%{&init_uids};
-%group=%{&init_gids};
+%user  = %{&init_uids};
+%group = %{&init_gids};
 $swap_mode = $multiple_mode = 0;
 
-if ($scr->getrows()) { $screenheight=$scr->getrows()-$baseline-2 }
-if ($scr->getcols()) { $screenwidth =$scr->getcols() }
+if ($scr->getrows()) { $screenheight = $scr->getrows()-$baseline-2 }
+if ($scr->getcols()) { $screenwidth  = $scr->getcols() }
 $maxfilenamelength = $screenwidth - (80-$defaultmaxfilenamelength);
 &makeformatlines;
 &init_frame(0,0,$uid_mode);
@@ -1523,11 +1554,12 @@ MAIN: {
 }
 
 &goodbye;
+exit 0;
 
 ##########################################################################
 # resource code file
 
-sub return_pfmrc {
+sub make_pfmrc {
     local $_;
     my @resourcefile = <<'_eoPfmrc_';
 ##########################################################################
@@ -1570,21 +1602,21 @@ uidmode:0
 # format for time: touch MMDDhhmm[[CC]YY][.ss] or pfm [[CC]YY]MMDDhhmm[.ss]
 timeformat:pfm
 
-# if you want to keep your cwd when you exit pfm,
+# if you want to pass your cwd back to your shell when you exit pfm,
 # enable this to have pfm save its cwd in a file
-cwdinheritance:x
+#cwdinheritance:x
 # to turn this off, use
-#cwdinheritance:
+cwdinheritance:
 #
 # the calling shell may then use some function like this (bash example):
 #pfm () {
-#	pfmcwdfile=`awk -F: '$1=="cwdinheritance" {print $2}' < ~/.pfmrc`
-#	/usr/local/bin/pfm $*
-#	if [ -n "$pfmcwdfile" ]; then 
-#		cd "`cat $pfmcwdfile`" # double quotes for names with spaces
-#		rm -f $pfmcwdfile
-#		unset pfmcwdfile
-#	fi
+#    pfmcwdfile=`awk -F: '$1=="cwdinheritance" {print $2}' < ~/.pfmrc`
+#    /usr/local/bin/pfm $*
+#    if [ -n "$pfmcwdfile" ]; then 
+#        cd "`cat $pfmcwdfile`" # double quotes for names with spaces
+#        rm -f $pfmcwdfile
+#        unset pfmcwdfile
+#    fi
 #}
 
 ##########################################################################
@@ -1625,6 +1657,13 @@ cd=40;33;01:or=01;05;37;41:mi=01;05;37;41:ex=00;32:lc=^[[:rc=m:\
 # use this if you want no colors for your files, but only for the title bars
 #dircolors:-
 
+# colors for header, title, footer; title and footer are always in reverse!
+headercolor:37;44
+multicolor:36;47
+titlecolor:36;47
+swapcolor:36;40
+footercolor:34;47
+
 ##########################################################################
 # Your commands
 
@@ -1653,8 +1692,9 @@ Z:gzip "^[2"
 
 _eoPfmrc_
     return map {
-        s/(# Version )x/$1$VERSION/;
-        s!(cwdinheritance:)x!$1$ENV{HOME}/.pfmcwd!;
+        s/^(# Version )x$/$1$VERSION/m;
+        s/^(#?cwdinheritance:)x$/$1$ENV{HOME}\/.pfmcwd/m;
+        s/^([A-Z]:\w+.*?\s+)more\s*$/$1less/mg if $^O =~ /linux/i;
         $_;
     } @resourcefile;
 }
@@ -1718,7 +1758,7 @@ cannot be set. Read the chmod(1) page for more details.
 =item B<Copy>
 
 Copy current file. You will be prompted for the destination file name. In
-multiple-mode, beware that you don't copy files to the same destination
+multiple-mode, it is not possible to copy files to the same destination
 file. Specify the destination name with escapes (see the B<O> command below).
 
 =item B<Delete>
@@ -1833,8 +1873,7 @@ be spawned.
 
 Specify a new directory name and PFM will create it for you. Furthermore,
 if you don't have any files marked, your current directory will be set
-to the newly created directory. If you don't want that, you will have
-to create the directory using the B<O> command.
+to the newly created directory.
 
 =item Show new directory
 
@@ -1967,12 +2006,12 @@ keyclicks in the buffer than expected.
 
 =head1 AUTHOR
 
-Rene Uittenbogaard (ruittenbogaard@profuse.nl)
+RenE<eacute> Uittenbogaard (ruittenbogaard@profuse.nl)
 
 =head1 SEE ALSO
 
 The documentation on PFM.COM . The mentioned man pages for chmod(1),
-less(1), lpr(1), touch(1). The man page of ScreenColor.pm(3)
+less(1), lpr(1), touch(1). The man page of I<ScreenColor.pm>(3).
 
 =cut
 
