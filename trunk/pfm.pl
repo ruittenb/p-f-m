@@ -1,12 +1,12 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 2000-12-01 v1.22
+# @(#) pfm.pl 2000-12-03 v1.23
 #
 # Name:        pfm.pl
-# Version:     1.22
+# Version:     1.23
 # Author:      Rene Uittenbogaard
-# Date:        2000-12-02
+# Date:        2000-12-03
 # Usage:       pfm.pl [directory]
 # Requires:    Term::ScreenColor
 #              Term::Screen
@@ -16,23 +16,28 @@
 #              strict
 # Description: Personal File Manager for Unix/Linux
 #
-# TO-DO: test update screenline 1 (path/device) -> own sub.
-#        change F7 swap mode: fully exchangeable
+# TO-DO:
+# first: expand_escapes - which escape char? replace \\ with \ and \2 with fname
+#        command history - save to file? - history choppen?
+#        history mechanism in documentation
+#
+# next:  change F7 swap mode: fully exchangeable
 #        keymap vi ?
-#        expand_escapes - which escape char? replace \\ with \ and \2 with fname
-#        major/minor numbers on DU 4.0E are wrong
 #        jump back to old current dir with `
-#        tidy up multiple commands
-#        sub countdircontents is not used
-#        validate_position in SIG{WINCH}
-#        key response (flush_input)
-#        cOmmand -> rm ^[2 will have to delete the entry from @dircontents;
-#            otherwise the mark count is not correct
 #        stat_entry() must *not* rebuild the selected_nr and total_nr lists:
 #            this fucks up with e.g. cOmmand -> cp ^[2 /somewhere/else
+#            closely related to:
+#        sub countdircontents is not used
+#        cOmmand -> rm ^[2 will have to delete the entry from @dircontents;
+#            otherwise the mark count is not correct
+#
+#        test update screenline 1 (path/device) -> own sub.
+#        major/minor numbers on DU 4.0E are wrong
+#        tidy up multiple commands
+#        validate_position in SIG{WINCH}
+#        key response (flush_input)
 # terminal:
 #        intelligent restat (changes in current dir?)
-#        command history - save to file? - history choppen?
 # licence
 
 ##########################################################################
@@ -182,14 +187,17 @@ sub read_pfmrc { # $rereadflag - 0=read 1=reread (for copyright message)
 
 sub write_history {
     my $line;
-    if ($pfmrc{historyfile} && open HISTFILE, ">$pfmrc{historyfile}") {
-        no strict 'refs';
-        foreach (qw(command mode path regex time perlcmd)) {
-            $_ .= '_history';
+    if ($pfmrc{historyfile} && open (HISTFILE, ">$pfmrc{historyfile}")) {
+        my %histories = (command_history => \@command_history,
+                         mode_history    => \@mode_history,
+                         path_history    => \@path_history,
+                         regex_history   => \@regex_history,
+                         time_history    => \@time_history,
+                         perlcmd_history => \@perlcmd_history );
+        foreach (keys(%histories)) {
             print HISTFILE join ("\n",
                 "\@::$_ = (",
-#                (map { "q\001$_\001" } @$_),
-                (map { ($line = "$_") =~ s/'/\'/g; "q'$line'," } @$_),
+                (map{ ($line="$_") =~ s/'/\'/g; "'$line'," } @{$histories{$_}}),
                 ");\n"
             );
         }
@@ -198,9 +206,10 @@ sub write_history {
 }
 
 sub read_history {
-    my $historyfile = $pfmrc{historyfile};
-    if ($historyfile and -r $historyfile) {
-        do $historyfile;
+    my @histeval;
+    if ($pfmrc{historyfile} && open (HISTFILE, $pfmrc{historyfile})) {
+        @histeval = <HISTFILE>;
+        eval join '',@histeval;
         &display_error($@) if $@;
     }
 }
@@ -284,6 +293,8 @@ sub expand_escapes {
         $thisfile{name} =~ /^(.*)\.(\w+)$/ ? $1 : $thisfile{name};
     # these regexps use the negative lookbehind assertion:
     # the escaping \ must not be preceded by another \
+    # this is actually not correct: think \\1 : this is an escaped backslash -
+    # some thinking required!
     $_[0] =~ s/(?<!\\)\\1|\e1/$namenoext/g;
 #    $_[0] =~ s/\\1/$namenoext/g;
     $_[0] =~ s/(?<!\\)\\2|\e2/$thisfile{name}/g;
