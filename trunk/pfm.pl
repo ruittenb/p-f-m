@@ -1,11 +1,11 @@
-#!/usr/bin/env perl
+#!/usr/local/bin/perl
 #
-# @(#) pfm.pl 27-05-1999 v0.98
+# @(#) pfm.pl 27-05-1999 v0.98a
 #
 # Author:      Rene Uittenbogaard
 # Usage:       pfm.pl [directory]
 # Description: Personal File Manager for Linux
-# Version:     v0.98
+# Version:     v0.98a
 # Date:        27-05-1999
 # 
 # TO-DO: multiple attrib
@@ -28,7 +28,7 @@
 require Term::PfmColor;
 use strict 'refs','subs';
 
-my $VERSION='0.98';
+my $VERSION='0.98a';
 my $configfilename=".pfmrc";
 my $maxfilenamelength=20;
 my $errordelay=1;     # seconds
@@ -663,7 +663,7 @@ sub handlechmod {
         $do_this =         'chmod '.oct($1). ',$loopfile->{name} '
                   .'or &display_error($!)';
     } else {
-        $do_this = 'system "chmod '.$newmode.' $loopfile->{name}" '
+        $do_this = 'system qq/chmod '.$newmode.' "$loopfile->{name}"/'
                   .'and &display_error($!)';
     }
     if ($multiple_mode) {
@@ -853,8 +853,10 @@ sub validate_position {
 
 sub handlemove {
     local $_=$_[0];
-    my $displacement = -10*(/^-$/)  -(/^ku|k$/   ) -$screenheight*(/\cB|pgup/)
-                       +10*(/^\+$/) +(/^kd|[j ]$/) +$screenheight*(/\cF|pgdn/)
+    my $displacement = -10*(/^-$/)  -(/^ku|k$/   )
+                       +10*(/^\+$/) +(/^kd|[j ]$/)
+		       +$screenheight*(/\cF|pgdn/) +$screenheight*(/\cD/)/2
+                       -$screenheight*(/\cB|pgup/) -$screenheight*(/\cU/)/2
                        -($currentline +$baseindex)  *(/^home$/)
                        +($#dircontents-$currentline)*(/^end$/ );
     $currentline += $displacement;
@@ -1082,7 +1084,7 @@ sub browse {
                 /^q$/i and
                     &handlequit ? do { $quitting=1, last STRIDE }
                                 : do { &init_header($multiple_mode), last KEY };
-                /^\cF|\cB|ku|kd|pgup|pgdn|home|end|[-+jk]$/i and 
+                /^\cF|\cB|\cD|\cU|ku|kd|pgup|pgdn|home|end|[-+jk]$/i and 
                     &handlemove($_) and &printdircontents(@dircontents),
                     last KEY;
                 /^kr|kl|[hl\e]$/i and
