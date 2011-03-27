@@ -1,12 +1,12 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 2001-03-10 v1.32
+# @(#) pfm.pl 2001-03-11 v1.33
 #
 # Name:        pfm.pl
-# Version:     1.32
+# Version:     1.33
 # Author:      Rene Uittenbogaard
-# Date:        2001-03-10
+# Date:        2001-03-11
 # Usage:       pfm.pl [directory]
 # Requires:    Term::ScreenColor
 #              Term::Screen
@@ -25,15 +25,15 @@
 #        change F2 to use @old_cwd_at
 #      Argument "10681K" isn't numeric in addition (+) at /root/bin/pfm line 793
 #        test pfm with -w
-#        handlechmod() does not use history correctly
+#        handlechmod() does not use history correctly <- reproduce?
 # next:  clean up configuration options (yes/no,1/0,true/false)
-#        F command: jump to file (entering $position_at)
+#        F command (alias / ): jump to file (entering $position_at)
 #        validate_position should not replace $baseline when not necessary
 #        stat_entry() must *not* rebuild the selected_nr and total_nr lists:
-#            this fucks up with e.g. cOmmand -> cp ^[2 /somewhere/else
+#            this fucks up with e.g. cOmmand -> cp \2 /somewhere/else
 #            closely related to:
 #        sub countdircontents is not used
-#        cOmmand -> rm ^[2 will have to delete the entry from @dircontents;
+#        cOmmand -> rm \2 will have to delete the entry from @dircontents;
 #            otherwise the mark count is not correct
 #
 #        test update screenline 1 (path/device) -> own sub.
@@ -125,7 +125,8 @@ my (%user, %group, %pfmrc, %dircolors, $maxfilenamelength, $wasresized,
     $scr, $keyb,
     $uidlineformat, $tdlineformat, $timeformat,
 #    $pathlineformat,
-    $sort_mode, $multiple_mode, $swap_mode, $uid_mode,
+    $sort_mode, $multiple_mode, $uid_mode, $swap_mode,
+    $swap_persistent, $swap_state,
     $currentdir, @dircontents, %currentfile, $currentline, $baseindex,
     $oldcurrentdir, %disk, %total_nr_of, %selected_nr_of);
 my ($editor, $pager, $printcmd, $showlockchar, $autoexitmultiple,
@@ -185,6 +186,7 @@ sub read_pfmrc { # $rereadflag - 0=read 1=reread (for copyright message)
     $timeformat       = $pfmrc{timeformat} || 'pfm';
     $sort_mode        = $pfmrc{sortmode}   || 'n';
     $uid_mode         = $pfmrc{uidmode};
+    $swap_persistent  = $pfmrc{persistentswap};
     $headercolor      = $pfmrc{headercolor} || '37;44';
     $multicolor       = $pfmrc{multicolor}  || '36;47';
     $titlecolor       = $pfmrc{titlecolor}  || '36;47';
@@ -325,6 +327,7 @@ sub expand_escapes {
     $_[0] =~ s/((?<!\\)(?:\\\\)*)\\3/$1$currentdir/g;
     $_[0] =~ s/((?<!\\)(?:\\\\)*)\\4/$1$disk{mountpoint}/g;
     $_[0] =~ s/((?<!\\)(?:\\\\)*)\\5/$1$swap_mode->{path}/g if $swap_mode;
+#        if ($swap_mode || $swap_persistent); ######## NEXT ! #############
     $_[0] =~ s/\\\\/\\/g;
 }
 
@@ -429,7 +432,7 @@ sub pathline {
     my $elision      = '..';
     my $normaldevlen = 12;
     my $actualdevlen = max($normaldevlen, length($dev));
-    # the three in the next exp is the overflow char plus the '[]'
+    # the three in the next exp is the length of the overflow char plus the '[]'
     my $maxpathlen   = $screenwidth -$actualdevlen -3;
     my ($restpathlen, $disppath);
     $dev = $dev . ' 'x max($actualdevlen -length($dev), 0);
@@ -591,7 +594,7 @@ _eoFirst_
 }
 
 sub init_title { # swap_mode, uid_mode
-    my ($swapmode,$uidmode)=@_;
+    my ($smode,$umode)=@_; ## #########################################
     my @title=split(/\n/,<<_eoKop_);
 size  date      mtime  inode attrib          disk info
 size  userid   groupid lnks  attrib          disk info
@@ -603,13 +606,13 @@ size  date      mtime  inode attrib     sort mode
 size  userid   groupid lnks  attrib     sort mode     
 size  date      atime  inode attrib     sort mode     
 _eoKop_
-    $swapmode ? &digestcolor($swapcolor)
-              : do {
-                    &digestcolor($titlecolor);
-                    $scr->bold();
-                };
+    $smode ? &digestcolor($swapcolor)
+           : do {
+               &digestcolor($titlecolor);
+               $scr->bold();
+           };
     $scr->reverse()->at(2,0)
-        ->puts('  filename.ext'.' 'x($screenwidth-$datecol-54).$title[$uidmode])
+        ->puts('  filename.ext'.' 'x($screenwidth-$datecol-54).$title[$umode])
         ->normal();
 }
 
@@ -1286,7 +1289,6 @@ sub handletime {
         $dircontents[$currentline+$baseindex] =
             &stat_entry($currentfile{name},$currentfile{selected});
     }
-#    &init_frame($multiple_mode,$swap_mode,$uid_mode);
     return $do_a_refresh;
 }
 
@@ -1418,11 +1420,12 @@ sub handlemove {
     local $_ = $_[0];
     my $displacement = -10*(/^-$/)  -(/^(?:ku|k)$/   )
                        +10*(/^\+$/) +(/^(?:kd|j| )$/)
-                       +$screenheight*(/\cF|pgdn/) +$screenheight*(/\cD/)/2
-                       -$screenheight*(/\cB|pgup/) -$screenheight*(/\cU/)/2
+                       +$screenheight*(/\cF|pgdn/)
+                       -$screenheight*(/\cB|pgup/)
+                       +int($screenheight*(/\cD/)/2)
+                       -int($screenheight*(/\cU/)/2)
                        -($currentline  +$baseindex)              *(/^home$/)
                        +($#dircontents -$currentline -$baseindex)*(/^end$/ );
-#                       +($#dircontents-$currentline)*(/^end$/ );
     $currentline += $displacement;
     return &validate_position;
 }
@@ -1450,13 +1453,13 @@ sub handleswap {
             $refresh = 0;
         }
     } else {
-        $swap_mode={ path     =>   $currentdir,
-                     contents => [ @dircontents ],
-                     position =>   $currentfile{name},
-                     disk     => { %disk },
-                     selected => { %selected_nr_of },
-                     totals   => { %total_nr_of },
-                    };
+        $swap_mode = { path     =>   $currentdir,
+                       contents => [ @dircontents ],
+                       position =>   $currentfile{name},
+                       disk     => { %disk },
+                       selected => { %selected_nr_of },
+                       totals   => { %total_nr_of },
+                      };
         $scr->at(0,0)->clreol()->bold()->cyan()
             ->puts('Directory Pathname: ')->normal()->cooked();
         $currentdir = &readintohist(\@path_history);
@@ -1612,7 +1615,6 @@ sub resizehandler {
 sub recalc_ptr {
     $position_at = '.';
     return &position_cursor; # refresh flag
-#    return $dircontents[$currentline+$baseindex];
 }
 
 sub redisplayscreen {
@@ -1646,6 +1648,8 @@ sub browse {
     $0 = 'pfm [on '.($disk{device}eq'none'?$disk{mountpoint}:$disk{device}).']';
 
     # now just reprint screen
+    # hopefully we can someday put an end to all this last KEY/redo DISPLAY/
+    #  last STRIDE shit
     DISPLAY: {
         &redisplayscreen;
 #        $scr->flush_input();
@@ -1688,7 +1692,8 @@ sub browse {
                 /^k2$/i and
                     &ok_to_remove_marks ? do
                     {
-                        chdir $oldcurrentdir; # assumes this is always possible; maybe make a decent &mychdir();
+                        chdir $oldcurrentdir; # assumes this is always possible;
+                        # maybe make a decent &mychdir();
                         $oldcurrentdir = $currentdir;
                         last STRIDE;
                     } : last KEY;
@@ -1830,8 +1835,8 @@ uidmode:0
 timeformat:pfm
 # show whether mandatory locking is enabled (e.g. -rw-r-lr-- ) (yes,no,sun)
 showlock:sun
-# F7 key swap path method: (persistent,exclusive) (not implemented)
-#swapmethod:persistent
+# F7 key swap path method is persistent? (0,1) (0 is default)  (not implemented)
+#persistentswap:0
 
 ##########################################################################
 # Colors
