@@ -1,12 +1,12 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 2000-12-03 v1.24
+# @(#) pfm.pl 2000-12-09 v1.25
 #
 # Name:        pfm.pl
-# Version:     1.24
+# Version:     1.25
 # Author:      Rene Uittenbogaard
-# Date:        2000-12-03
+# Date:        2000-12-09
 # Usage:       pfm.pl [directory]
 # Requires:    Term::ScreenColor
 #              Term::Screen
@@ -18,10 +18,10 @@
 #
 # TO-DO:
 # first: expand_escapes - which escape char? replace \\ with \ and \2 with fname
-#        command history - save to file? - history choppen?
+#        command history - history choppen? eliminate doubles
 #        history mechanism in documentation
 #
-# next:  change F7 swap mode: fully exchangeable
+# next:  change F7 persistent swap mode
 #        keymap vi ?
 #        clean up configuration options (yes/no,1/0,true/false)
 #        jump back to old current dir with `
@@ -70,6 +70,7 @@ use strict;
 
 my $VERSION             = &getversion;
 my $configdirname       = "$ENV{HOME}/.pfm";
+my $configfilename      = ".pfmrc";
 my $majorminorseparator = ',';
 my $maxhistsize         = 40;
 my $errordelay          = 1;     # seconds
@@ -96,12 +97,13 @@ my @sortmodes=( n =>'Name',        N =>' reverse',
 my %timehints = ( pfm   => '[[CC]YY]MMDDhhmm[.ss]',
                   touch => 'MMDDhhmm[[CC]YY][.ss]' );
 
-my  @command_history = qw(true);
-my  @mode_history    = qw(755 644);
-my  @path_history    = ('/',$ENV{HOME});
-my  @regex_history   = qw(.*\.jpg);
-my  @time_history;
-my  @perlcmd_history;
+my @command_history = qw(true);
+my @mode_history    = qw(755 644);
+my @path_history    = ('/',$ENV{HOME});
+my @regex_history   = qw(.*\.jpg);
+my @time_history;
+my @perlcmd_history;
+
 my %histories = (history_command => \@command_history,
                  history_mode    => \@mode_history,
                  history_path    => \@path_history,
@@ -116,7 +118,6 @@ my (%user, %group, %pfmrc, %dircolors, $maxfilenamelength, $wasresized,
     %disk, %total_nr_of, %selected_nr_of);
 my ($pathlineformat, $uidlineformat, $tdlineformat, $timeformat);
 my ($editor, $pager, $printcmd, $showlockchar, $autoexitmultiple,
-#   $cwdinheritance,
     $titlecolor, $footercolor, $headercolor, $swapcolor, $multicolor);
 
 ##########################################################################
@@ -125,14 +126,13 @@ my ($editor, $pager, $printcmd, $showlockchar, $autoexitmultiple,
 sub write_pfmrc {
     local $_;
     my @resourcefile;
-    if (open MKPFMRC,">$configdirname/pfmrc") {
+    if (open MKPFMRC,">$configdirname/$configfilename") {
         # both __DATA__ and __END__ markers are used at the same time
         push (@resourcefile, $_) while (($_ = <DATA>) !~ /^__END__$/);
         close DATA;
         print MKPFMRC map {
             s/^(# Version )x$/$1$VERSION/m;
 #            s/^(#?cwdinheritance:)x$/$1$ENV{HOME}\/.pfmcwd/m; # %%%%%%%%%%
-#            s/^(#?historyfile:)x$/$1$ENV{HOME}\/.pfmhistory/m; # %%%%%%%%
             s/^([A-Z]:\w+.*?\s+)more(\s*)$/$1less$2/mg if $^O =~ /linux/i;
             $_;
         } @resourcefile;
@@ -144,11 +144,11 @@ sub read_pfmrc { # $rereadflag - 0=read 1=reread (for copyright message)
     $uid_mode = $sort_mode = $editor = $pager = '';
     %dircolors = %pfmrc = ();
     local $_;
-    unless (-r "$configdirname/pfmrc") {
-        mkdir $configdirname, 0777 unless -d $configdirname;
+    unless (-r "$configdirname/$configfilename") {
+        mkdir $configdirname, 0700 unless -d $configdirname;
         &write_pfmrc;
     }
-    if (open PFMRC,"<$configdirname/pfmrc") {
+    if (open PFMRC,"<$configdirname/$configfilename") {
         while (<PFMRC>) {
             s/#.*//;
             if (s/\\\n?$//) { $_ .= <PFMRC>; redo; }
@@ -196,32 +196,34 @@ sub read_pfmrc { # $rereadflag - 0=read 1=reread (for copyright message)
 }
 
 sub write_history {
-    my $line;
+    my $failed;
     foreach (keys(%histories)) {
         if (open (HISTFILE, ">$configdirname/$_")) {
             print HISTFILE join "\n",@{$histories{$_}};
-#            print HISTFILE join ("\n",
-#                "\@::$_ = (",
-#                (map{ ($line="$_")=~ s/'/\'/g; "'$line'," } @{$histories{$_}}),
-#                ");\n"
-#            );
             close HISTFILE;
+        } elsif (!$failed) {
+            warn "pfm: unable to save (part of) history: $!\n";
+            $failed++; # warn only once
         }
     }
 }
 
 sub read_history {
     foreach (keys(%histories)) {
-        open HISTFILE, "$configdirname/$_";
-        chomp( @{$histories{$_}} = <HISTFILE> );
-        close HISTFILE;
+        if (open (HISTFILE, "$configdirname/$_")) {
+            chomp( @{$histories{$_}} = <HISTFILE> );
+            close HISTFILE;
+        }
     }
-#    my @histeval;
-#    if ($pfmrc{historyfile} && open (HISTFILE, $pfmrc{historyfile})) {
-#        @histeval = <HISTFILE>;
-#        eval join '',@histeval;
-#        &display_error($@) if $@;
-#    }
+}
+
+sub write_cwd {
+    if (open CWDFILE,">$configdirname/cwd") {
+        print CWDFILE `pwd`;
+        close CWDFILE;
+    } else {
+        warn "pfm: unable to create $configdirname/cwd: $!\n";
+    }
 }
 
 ##########################################################################
@@ -349,6 +351,18 @@ sub include { # $entry
     $entry->{type} =~ /-/ and $selected_nr_of{bytes} += $entry->{size};
 }
 
+sub readintohist { # \@history
+    my ($history) = @_;
+    my $input;
+    $keyb->SetHistory(@$history);
+    $input = $keyb->readline();
+    if ($input =~ /\S/ and $input ne ${$history}[$#$history]) {
+        push (@$history, $input);
+        shift (@$history) if ($#$history > $maxhistsize);
+    }
+    return $input;
+}
+
 ##########################################################################
 # apply color
 
@@ -462,9 +476,10 @@ sub promptforwildfilename {
     my $wildfilename;
     $scr->at(0,0)->clreol()->bold()->cyan()
         ->puts("Wild filename (regular expression): ")->normal()->cooked();
-    $keyb->SetHistory(@regex_history);                               #%%% 1.21 %
-    $wildfilename = $keyb->readline();                               #%%% 1.21 %
-    push (@regex_history, $wildfilename) if $wildfilename =~ /\S/;   #%%% 1.21 %
+#    $keyb->SetHistory(@regex_history);
+#    $wildfilename = $keyb->readline();
+#    push (@regex_history, $wildfilename) if $wildfilename =~ /\S/;
+    $wildfilename = &readintohist(\@regex_history);             # %%%%%%%%%%
     $scr->raw();      # init_header is done in handleinclude
     eval "/$wildfilename/";
     if ($@) {
@@ -568,20 +583,15 @@ sub copyright {
 }
 
 sub goodbye {
+    my $bye = 'Goodbye from your Personal File Manager!';
     if ($pfmrc{clsonexit}) {
         $scr->clrscr();
     } else {
-        $scr->at(0,0)->puts(<<_eoGoodbye_);
-                    Goodbye from your Personal File Manager!                    
-_eoGoodbye_
-        $scr->normal()->at($screenheight+$baseline+1,0)->clreol();
+        $scr->at(0,0)->puts(' 'x(($screenwidth-length $bye)/2).$bye)->clreol()
+            ->normal()->at($screenheight+$baseline+1,0)->clreol()->cooked();
     }
-    if (open CWDFILE,">$configdirname/cwd") {
-        print CWDFILE `pwd`;
-        close CWDFILE;
-    } else {
-        warn "Cannot create $configdirname/cwd: $!";
-    }
+    &write_cwd;
+    &write_history;
 }
 
 sub credits {
@@ -768,9 +778,10 @@ sub handleperlcommand {
     $scr->at(0,0)->clreol()->cyan()->bold()
         ->puts("Enter Perl command:")
         ->at(1,0)->normal()->clreol()->cooked();
-    $keyb->SetHistory(@perlcmd_history);                            #%%% 1.21 %
-    $perlcmd = $keyb->readline();                                   #%%% 1.21 %
-    push (@perlcmd_history, $perlcmd) if $perlcmd =~ /\S/;          #%%% 1.21 %
+#    $keyb->SetHistory(@perlcmd_history);
+#    $perlcmd = $keyb->readline();
+#    push (@perlcmd_history, $perlcmd) if $perlcmd =~ /\S/;
+    $perlcmd = &readintohist(\@perlcmd_history);                # %%%%%%%%%%%%
     $scr->raw();
     eval $perlcmd;
     &display_error($@) if $@;
@@ -788,10 +799,10 @@ sub handlemore {
             $scr->at(0,0)->clreol()
                 ->bold()->cyan()->puts('Directory Pathname: ')->normal()
                 ->cooked()->at(0,20);
-            $keyb->SetHistory(@path_history);                        #%%% 1.21 %
-            $currentdir = $keyb->readline();                         #%%% 1.21 %
-            push (@path_history, $currentdir) if $currentdir =~ /\S/;#%%% 1.21 %
-#            chop($currentdir=<STDIN>);
+#            $keyb->SetHistory(@path_history);
+#            $currentdir = $keyb->readline();
+#            push (@path_history, $currentdir) if $currentdir =~ /\S/;
+            $currentdir = &readintohist(\@path_history);        # %%%%%%%%%%%
             $scr->raw();
             $position_at='.';
             if ( !chdir $currentdir ) {
@@ -806,10 +817,10 @@ sub handlemore {
             $scr->at(0,0)->clreol()
                 ->bold()->cyan()->puts('New Directory Pathname: ')->normal()
                 ->cooked()->at(0,24);
-            $keyb->SetHistory(@path_history);                        #%%% 1.21 %
-            $newname = $keyb->readline();                            #%%% 1.21 %
-            push (@path_history, $newname) if $newname =~ /\S/;      #%%% 1.21 %
-#            chop($newname = <STDIN>);
+#            $keyb->SetHistory(@path_history);
+#            $newname = $keyb->readline();
+#            push (@path_history, $newname) if $newname =~ /\S/;
+            $newname = &readintohist(\@path_history);            # %%%%%%%%%%%
             $scr->raw();
             $do_a_refresh=1;
             if ( !mkdir $newname,0777 ) {
@@ -823,7 +834,7 @@ sub handlemore {
             }
         };
         /^c$/i and do {
-            system "$editor $configdirname/pfmrc"
+            system "$editor $configdirname/$configfilename"
                 and &display_error($!);
             &read_pfmrc(1);
             $scr->clrscr();
@@ -833,10 +844,10 @@ sub handlemore {
             $scr->at(0,0)->clreol()
                 ->bold()->cyan()->puts('New name: ')->normal()
                 ->cooked()->at(0,10);
-            $keyb->SetHistory(@path_history);                        #%%% 1.21 %
-            $newname = $keyb->readline();                            #%%% 1.21 %
-            push (@path_history, $newname) if $newname =~ /\S/;      #%%% 1.21 %
-#            chop($newname=<STDIN>);
+#            $keyb->SetHistory(@path_history);
+#            $newname = $keyb->readline();
+#            push (@path_history, $newname) if $newname =~ /\S/;
+            $newname = &readintohist(\@path_history);            # %%%%%%%%%%%
             system "$editor $newname" and &display_error($!);
             $scr->raw();
             $do_a_refresh=1;
@@ -1038,9 +1049,10 @@ Enter Unix command (ESC1=name, ESC2=name.ext, ESC3=path, ESC5=swap path):
 _eoPrompt_
         $scr->at(0,0)->clreol()->bold()->cyan()->puts($printstr)->normal()
             ->at(1,0)->clreol()->cooked();
-        $keyb->SetHistory(@command_history);                           #%%% 1.21
-        $command = $keyb->readline();                                  #%%% 1.21
-        push (@command_history, $command) if $command =~ /\S/;         #%%% 1.21
+#        $keyb->SetHistory(@command_history);
+#        $command = $keyb->readline();
+#        push (@command_history, $command) if $command =~ /\S/;
+        $command = &readintohist(\@command_history);            # %%%%%%%%%%
     }
     $command =~ s/^\s*\n?$/$ENV{'SHELL'}/;
     $command .= "\n";
@@ -1168,7 +1180,7 @@ sub handleshow {
 sub handlehelp {
     $scr->clrscr();
     # how unsubtle :-)
-    system "man pfm";
+    system 'man', 'pfm';
 }
 
 sub handletime {
@@ -1177,10 +1189,10 @@ sub handletime {
     &markcurrentline('T') unless $multiple_mode;
     $scr->at(0,0)->clreol()->bold()->cyan()
         ->puts("Put date/time $timehints{$timeformat}: ")->normal()->cooked();
-    $keyb->SetHistory(@time_history);                            # %%%% 1.22 %%%
-    $newtime = $keyb->readline();                                # %%%% 1.22 %%%
-    push @time_history, $newtime if $newtime =~ /\S/;
-#    chop($newtime=<STDIN>);
+#    $keyb->SetHistory(@time_history);
+#    $newtime = $keyb->readline();
+#    push @time_history, $newtime if $newtime =~ /\S/;
+    $newtime = &readintohist(\@time_history);                   # %%%%%%%%%%%
     $scr->raw();
     return if ($newtime eq '');
     # convert date/time to touch format if necessary
@@ -1244,10 +1256,10 @@ sub handlecopyrename {
     &markcurrentline($state) unless $multiple_mode;
     $scr->at(0,0)->clreol()->bold()->cyan()
         ->puts($stateprompt)->normal()->cooked();
-#    chop($newname=<STDIN>);
-    $keyb->SetHistory(@path_history);                                 #%%% 1.22
-    $newname = $keyb->readline();                                     #%%% 1.22
-    push (@path_history, $newname) if $newname =~ /\S/;               #%%% 1.22
+#    $keyb->SetHistory(@path_history);
+#    $newname = $keyb->readline();
+#    push (@path_history, $newname) if $newname =~ /\S/;
+    $newname = &readintohist(\@path_history);                   # %%%%%%%%%%%
     $scr->raw();
     return 0 if ($newname eq '');
     if ($multiple_mode and $newname !~ /\e|(?<!\\)\\/ and !-d($newname)) {
@@ -1368,10 +1380,10 @@ sub handleswap {
                     };
         $scr->at(0,0)->clreol()->bold()->cyan()
             ->puts('Directory Pathname: ')->normal()->cooked();
-#        chop($currentdir=<STDIN>);
-        $keyb->SetHistory(@path_history);                             #%%% 1.22
-        $currentdir = $keyb->readline();                              #%%% 1.22
-        push (@path_history, $currentdir) if $currentdir =~ /\S/;     #%%% 1.22
+#        $keyb->SetHistory(@path_history);
+#        $currentdir = $keyb->readline();
+#        push (@path_history, $currentdir) if $currentdir =~ /\S/;
+        $currentdir = &readintohist(\@path_history);              # %%%%%%%%%%%
         $scr->raw();
         $position_at='.';
         $refresh=2;
@@ -1659,7 +1671,7 @@ sub browse {
                                                                                #
 ################################################################################
 
-$SIG{WINCH} = sub { $wasresized=1; };
+$SIG{WINCH} = sub { $wasresized=1 };
 $scr = Term::ScreenColor->new();
 $scr->clrscr();
 $keyb = Term::ReadLine->new('Pfm', \*STDIN, \*STDOUT);
@@ -1676,8 +1688,7 @@ if ($scr->getrows()) { $screenheight = $scr->getrows()-$baseline-2 }
 if ($scr->getcols()) { $screenwidth  = $scr->getcols() }
 $maxfilenamelength = $screenwidth - (80-$defaultmaxfilenamelength);
 &makeformatlines;
-&init_frame(0,0,$uid_mode);
-# uid_mode coming from .pfmrc
+&init_frame(0,0,$uid_mode); # uid_mode coming from pfmrc
 
 $ARGV[0] and chdir($ARGV[0]) || do {
     $scr->at(0,0)->clreol();
@@ -1779,11 +1790,12 @@ cd=40;33;01:or=01;05;37;41:mi=01;05;37;41:ex=00;32:lc=^[[:rc=m:\
 #dircolors:-
 
 # colors for header, title, footer; title and footer are always in reverse!
-headercolor:37;44
-multicolor:36;47
-titlecolor:36;47
-swapcolor:36;40
-footercolor:34;47
+# these are commented out because they are the defaults
+#headercolor:37;44
+#multicolor:36;47
+#titlecolor:36;47
+#swapcolor:36;40
+#footercolor:34;47
 
 ##########################################################################
 # Your commands
@@ -1797,6 +1809,7 @@ E:unarj l "\2" | more
 F:file "\2"
 G:gvim "\2"
 I:rpm -qp -i "\2"
+J:mpg123 "\2" &
 L:mv "\2" `echo "\2" | tr A-Z a-z`
 N:nroff -man "\2" | more
 P:perl -cw "\2"
