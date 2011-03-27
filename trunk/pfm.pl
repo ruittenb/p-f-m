@@ -1,18 +1,19 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20010516 v1.50
+# @(#) pfm.pl 19990314-20010919 v1.51
 #
 # Name:        pfm.pl
-# Version:     1.50
+# Version:     1.51
 # Author:      Rene Uittenbogaard
-# Date:        2001-05-16
+# Date:        2001-09-19
 # Usage:       pfm.pl [directory]
 # Requires:    Term::ScreenColor
 #              Term::Screen
 #              Term::Cap
 #              Term::ReadLine::Gnu
 #              Term::ReadLine
+#              Config
 #              Cwd
 #              strict
 #              vars
@@ -25,7 +26,9 @@
 #        change F2 to use @old_cwd_at
 #        use prompt from readline? <- done correctly?
 #        see if every command picks up \[12345] escapes correctly
-#        restat after rename
+#        implement ~jantje/bin substitution
+#        restat after rename?
+#        prevent deleting '.' and '..' entries
 # next:  clean up color configuration options (e.g. titlecolor:bold;on_cyan;rev)
 #        validate_position should not replace $baseindex when not necessary
 #        handleinclude can become faster with &$bla; instead of eval $bla;
@@ -41,13 +44,9 @@
 #
 #        siZe command?
 #        major/minor numbers on DU 4.0E are wrong
-#        validate_position in SIG{WINCH}
-#        window size is not corrected when resizing in a child shell
 #        key response (flush_input)
-#        rename: restat file under new name?
 # terminal:
 #        intelligent restat (changes in current dir?)
-# licence
 
 ##########################################################################
 # Main data structures:
@@ -458,6 +457,15 @@ sub yesno {
     return $_[0] =~ /^(always|yes|1|true|on)$/i;
 }
 
+# alternatively
+#sub max (@) {
+#    my ($max, $element);
+#    while (defined($element = shift)) {
+#        if ($element > $max) { $max = $element }
+#    }
+#    return $max;
+#}
+
 sub max ($$) {
     return ($_[1] > $_[0]) ? $_[1] : $_[0];
 }
@@ -479,7 +487,7 @@ sub toggle ($) {
 }
 
 sub basename {
-    $_[0] =~ /\/([^\/]*)$/; # ok, we suffer LTS but this looks better in vim
+    $_[0] =~ /\/([^\/]*)$/; # ok, we suffer from LTS but this looks better in vim
     return $1;
 }
 
@@ -822,7 +830,7 @@ sub credits {
 
 
      For questions/remarks about PFM, or just to tell me you are using it,
-                        send email to: ruittenb\@wish.nl
+                        send email to: ruittenb\@sourceforge.net
 
 
                                                           any key to exit to PFM
@@ -2617,7 +2625,7 @@ root and with the cursor next to F</sbin/reboot> . You have been warned.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.50 .
+This manual pertains to C<pfm> version 1.51 .
 
 =head1 SEE ALSO
 
