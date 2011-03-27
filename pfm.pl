@@ -1,10 +1,10 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 2000-12-03 v1.23
+# @(#) pfm.pl 2000-12-03 v1.24
 #
 # Name:        pfm.pl
-# Version:     1.23
+# Version:     1.24
 # Author:      Rene Uittenbogaard
 # Date:        2000-12-03
 # Usage:       pfm.pl [directory]
@@ -23,7 +23,9 @@
 #
 # next:  change F7 swap mode: fully exchangeable
 #        keymap vi ?
+#        clean up configuration options (yes/no,1/0,true/false)
 #        jump back to old current dir with `
+#        / command: jump to file (via $position_at)
 #        stat_entry() must *not* rebuild the selected_nr and total_nr lists:
 #            this fucks up with e.g. cOmmand -> cp ^[2 /somewhere/else
 #            closely related to:
@@ -67,7 +69,7 @@ use Term::ReadLine;
 use strict;
 
 my $VERSION             = &getversion;
-my $configfilename      = ".pfmrc";
+my $configdirname       = "$ENV{HOME}/.pfm";
 my $majorminorseparator = ',';
 my $maxhistsize         = 40;
 my $errordelay          = 1;     # seconds
@@ -100,6 +102,12 @@ my  @path_history    = ('/',$ENV{HOME});
 my  @regex_history   = qw(.*\.jpg);
 my  @time_history;
 my  @perlcmd_history;
+my %histories = (history_command => \@command_history,
+                 history_mode    => \@mode_history,
+                 history_path    => \@path_history,
+                 history_regex   => \@regex_history,
+                 history_time    => \@time_history,
+                 history_perlcmd => \@perlcmd_history );
 
 my (%user, %group, %pfmrc, %dircolors, $maxfilenamelength, $wasresized,
     $scr, $keyb,
@@ -107,8 +115,8 @@ my (%user, %group, %pfmrc, %dircolors, $maxfilenamelength, $wasresized,
     $currentdir, @dircontents, %currentfile, $currentline, $baseindex,
     %disk, %total_nr_of, %selected_nr_of);
 my ($pathlineformat, $uidlineformat, $tdlineformat, $timeformat);
-my ($editor, $pager, $printcmd, $cwdinheritance, $showlockchar,
-    $autoexitmultiple,
+my ($editor, $pager, $printcmd, $showlockchar, $autoexitmultiple,
+#   $cwdinheritance,
     $titlecolor, $footercolor, $headercolor, $swapcolor, $multicolor);
 
 ##########################################################################
@@ -117,13 +125,14 @@ my ($editor, $pager, $printcmd, $cwdinheritance, $showlockchar,
 sub write_pfmrc {
     local $_;
     my @resourcefile;
-    if (open MKPFMRC,">$ENV{HOME}/$configfilename") {
+    if (open MKPFMRC,">$configdirname/pfmrc") {
         # both __DATA__ and __END__ markers are used at the same time
         push (@resourcefile, $_) while (($_ = <DATA>) !~ /^__END__$/);
+        close DATA;
         print MKPFMRC map {
             s/^(# Version )x$/$1$VERSION/m;
-            s/^(#?cwdinheritance:)x$/$1$ENV{HOME}\/.pfmcwd/m;
-            s/^(#?historyfile:)x$/$1$ENV{HOME}\/.pfmhistory/m;
+#            s/^(#?cwdinheritance:)x$/$1$ENV{HOME}\/.pfmcwd/m; # %%%%%%%%%%
+#            s/^(#?historyfile:)x$/$1$ENV{HOME}\/.pfmhistory/m; # %%%%%%%%
             s/^([A-Z]:\w+.*?\s+)more(\s*)$/$1less$2/mg if $^O =~ /linux/i;
             $_;
         } @resourcefile;
@@ -132,13 +141,14 @@ sub write_pfmrc {
 }
 
 sub read_pfmrc { # $rereadflag - 0=read 1=reread (for copyright message)
-    $uid_mode = $sort_mode = $editor = $pager = $cwdinheritance = '';
+    $uid_mode = $sort_mode = $editor = $pager = '';
     %dircolors = %pfmrc = ();
     local $_;
-    unless (-r "$ENV{HOME}/$configfilename") {
+    unless (-r "$configdirname/pfmrc") {
+        mkdir $configdirname, 0777 unless -d $configdirname;
         &write_pfmrc;
     }
-    if (open PFMRC,"<$ENV{HOME}/$configfilename") {
+    if (open PFMRC,"<$configdirname/pfmrc") {
         while (<PFMRC>) {
             s/#.*//;
             if (s/\\\n?$//) { $_ .= <PFMRC>; redo; }
@@ -156,7 +166,7 @@ sub read_pfmrc { # $rereadflag - 0=read 1=reread (for copyright message)
         $scr->colorizable(1);
     }
     &copyright($pfmrc{copyrightdelay}) unless ($_[0]);
-    $cwdinheritance   = $pfmrc{cwdinheritance};
+#    $cwdinheritance   = $pfmrc{cwdinheritance};
     $autoexitmultiple = $pfmrc{autoexitmultiple};
     ($printcmd)       = ($pfmrc{printcmd}) ||
                             ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER}" : 'lpr');
@@ -187,31 +197,31 @@ sub read_pfmrc { # $rereadflag - 0=read 1=reread (for copyright message)
 
 sub write_history {
     my $line;
-    if ($pfmrc{historyfile} && open (HISTFILE, ">$pfmrc{historyfile}")) {
-        my %histories = (command_history => \@command_history,
-                         mode_history    => \@mode_history,
-                         path_history    => \@path_history,
-                         regex_history   => \@regex_history,
-                         time_history    => \@time_history,
-                         perlcmd_history => \@perlcmd_history );
-        foreach (keys(%histories)) {
-            print HISTFILE join ("\n",
-                "\@::$_ = (",
-                (map{ ($line="$_") =~ s/'/\'/g; "'$line'," } @{$histories{$_}}),
-                ");\n"
-            );
+    foreach (keys(%histories)) {
+        if (open (HISTFILE, ">$configdirname/$_")) {
+            print HISTFILE join "\n",@{$histories{$_}};
+#            print HISTFILE join ("\n",
+#                "\@::$_ = (",
+#                (map{ ($line="$_")=~ s/'/\'/g; "'$line'," } @{$histories{$_}}),
+#                ");\n"
+#            );
+            close HISTFILE;
         }
-        close HISTFILE;
     }
 }
 
 sub read_history {
-    my @histeval;
-    if ($pfmrc{historyfile} && open (HISTFILE, $pfmrc{historyfile})) {
-        @histeval = <HISTFILE>;
-        eval join '',@histeval;
-        &display_error($@) if $@;
+    foreach (keys(%histories)) {
+        open HISTFILE, "$configdirname/$_";
+        chomp( @{$histories{$_}} = <HISTFILE> );
+        close HISTFILE;
     }
+#    my @histeval;
+#    if ($pfmrc{historyfile} && open (HISTFILE, $pfmrc{historyfile})) {
+#        @histeval = <HISTFILE>;
+#        eval join '',@histeval;
+#        &display_error($@) if $@;
+#    }
 }
 
 ##########################################################################
@@ -233,6 +243,7 @@ sub init_uids {
     while (($name,$pwd,$uid)=getpwent) {
         $user{$uid}=$name
     }
+    endpwent;
     return \%user;
 }
 
@@ -241,6 +252,7 @@ sub init_gids {
     while (($name,$pwd,$gid)=getgrent) {
         $group{$gid}=$name
     }
+    endgrent;
     return \%group;
 }
 
@@ -564,11 +576,11 @@ sub goodbye {
 _eoGoodbye_
         $scr->normal()->at($screenheight+$baseline+1,0)->clreol();
     }
-    if ($cwdinheritance) {
-        open CWDFILE,">$cwdinheritance"
-            or warn "Cannot create $cwdinheritance: $!";
+    if (open CWDFILE,">$configdirname/cwd") {
         print CWDFILE `pwd`;
         close CWDFILE;
+    } else {
+        warn "Cannot create $configdirname/cwd: $!";
     }
 }
 
@@ -811,7 +823,8 @@ sub handlemore {
             }
         };
         /^c$/i and do {
-            system "$editor $ENV{HOME}/$configfilename" and &display_error($!);
+            system "$editor $configdirname/pfmrc"
+                and &display_error($!);
             &read_pfmrc(1);
             $scr->clrscr();
             $do_a_refresh=1;
@@ -1724,27 +1737,8 @@ uidmode:0
 timeformat:pfm
 # show whether mandatory locking is enabled (e.g. -rw-r-lr-- ) (yes,no,sun)
 showlock:sun
-# F7 key swap path method: (askpath,traversepath) (not implemented)
-#swapmethod:traversepath
-# save command history, path history etc. to file (not implemented)
-#historyfile:x
-
-# if you want to pass your cwd back to your shell when you exit pfm,
-# enable this to have pfm save its cwd in a file
-#cwdinheritance:x
-# to turn this off, use
-cwdinheritance:
-#
-# the calling shell may then use some function like this (bash example):
-#pfm () {
-#    pfmcwdfile=`awk -F: '$1=="cwdinheritance" {print $2}' < ~/.pfmrc`
-#    /usr/local/bin/pfm $*
-#    if [ -n "$pfmcwdfile" ]; then
-#        cd "`cat $pfmcwdfile`" # double quotes for names with spaces
-#        rm -f $pfmcwdfile
-#        unset pfmcwdfile
-#    fi
-#}
+# F7 key swap path method: (persistent,exclusive) (not implemented)
+#swapmethod:persistent
 
 ##########################################################################
 # Colors
@@ -1796,26 +1790,26 @@ footercolor:34;47
 
 # you may specify escapes as real escapes, as \e or as ^[ (caret, bracket)
 
-B:xv -root +noresetroot +smooth -maxpect -quit "^[2"
-C:tar cvf - "^[2" | gzip > "^[2".tar.gz
-D:uudecode "^[2"
-E:unarj l "^[2" | more
-F:file "^[2"
-G:gvim "^[2"
-I:rpm -qp -i "^[2"
-L:mv "^[2" `echo "^[2" | tr A-Z a-z`
-N:nroff -man "^[2" | more
-P:perl -cw "^[2"
-Q:unzip -l "^[2" | more
-R:rpm -qp -l "^[2" | more
-S:strings "^[2" | more
-T:gunzip < "^[2" | tar tvf - | more
-U:gunzip "^[2"
-V:xv "^[2" &
-W:what "^[2"
-X:gunzip < "^[2" | tar xvf -
-Y:lynx "^[2"
-Z:gzip "^[2"
+B:xv -root +noresetroot +smooth -maxpect -quit "\2"
+C:tar cvf - "\2" | gzip > "\2".tar.gz
+D:uudecode "\2"
+E:unarj l "\2" | more
+F:file "\2"
+G:gvim "\2"
+I:rpm -qp -i "\2"
+L:mv "\2" `echo "\2" | tr A-Z a-z`
+N:nroff -man "\2" | more
+P:perl -cw "\2"
+Q:unzip -l "\2" | more
+R:rpm -qp -l "\2" | more
+S:strings "\2" | more
+T:gunzip < "\2" | tar tvf - | more
+U:gunzip "\2"
+V:xv "\2" &
+W:what "\2"
+X:gunzip < "\2" | tar xvf -
+Y:lynx "\2"
+Z:gzip "\2"
 
 __END__
 
@@ -2083,19 +2077,17 @@ C<pfm>.
 
 =over
 
-In order to have the current working directory "inherited" by the calling
-process (shell), you may specify the I<cwdinheritance> option in the
-configuration file. You will then have to call C<pfm> using a function
-like the following (add it to your F<.profile>):
+Upon exit, C<pfm> will save its current working directory in a file
+F<~/.pfm/cwd> . In order to have this directory "inherited" by the calling
+process (shell), you may call C<pfm> using a function like the following
+(example for C<bash>(1), add it to your F<.profile>):
 
  pfm () {
-        pfmcwdfile=`awk -F: '$1=="cwdinheritance" {print $2}' < ~/.pfmrc`
-        /usr/local/bin/pfm $*
-        if [ -n "$pfmcwdfile" ]; then
-                cd "`cat $pfmcwdfile`"
-                rm -f $pfmcwdfile
-                unset pfmcwdfile
-        fi
+     /usr/local/bin/pfm $*
+     if [ -n ~/.pfm/cwd ]; then
+         cd "`cat ~/.pfm/cwd`" # double quotes for names with spaces
+         rm -f ~/.pfm/cwd
+     fi
  }
 
 =back
@@ -2121,7 +2113,7 @@ Your default login shell, spawned by cB<O>mmand with an empty line.
 
 =head1 FILES
 
-F<$HOME/.pfmrc>
+F<$HOME/.pfm/*>
 
 =head1 BUGS
 
