@@ -1,10 +1,10 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20010430 v1.48
+# @(#) pfm.pl 19990314-20010430 v1.49
 #
 # Name:        pfm.pl
-# Version:     1.48
+# Version:     1.49
 # Author:      Rene Uittenbogaard
 # Date:        2001-04-30
 # Usage:       pfm.pl [directory]
@@ -23,20 +23,20 @@
 # TO-DO:
 # first: jump back to old current dir with F2: debug for F7 and > $#dircontents
 #        change F2 to use @old_cwd_at
-#        ~ notation should work
-#        use prompt from readline?
-#        \5 should work in multiple copy/rename
-#        handleinclude can become faster with &$bla; instead of eval $bla;
+#        use prompt from readline? <- done correctly?
+#        see if every command picks up \[12345] escapes correctly
 #        restat after rename
 #        kill with user-supplied signal (like print: kill -TERM)
 # next:  clean up color configuration options (e.g. titlecolor:bold;on_cyan;rev)
 #        validate_position should not replace $baseindex when not necessary
+#        handleinclude can become faster with &$bla; instead of eval $bla;
 #        stat_entry() must *not* rebuild the selected_nr and total_nr lists:
 #            this fucks up with e.g. cOmmand -> cp \2 /somewhere/else
 #            closely related to:
 #        sub countdircontents is not used
 #        consistent use of constants
 #        neaten use of spaces in source
+#        use system qw(arg1 arg2 arg3) to prevent double-quoting problems
 #        cOmmand -> rm \2 will have to delete the entry from @dircontents;
 #            otherwise the mark count is not correct
 #
@@ -109,7 +109,7 @@ use vars qw(
 );
 
 BEGIN {
-    $ENV{PERL_RL} = 'Gnu ornaments=0';
+    $ENV{PERL_RL} = 'Gnu ornaments=1';
 }
 
 ##########################################################################
@@ -201,7 +201,7 @@ my (%user, %group, %pfmrc, %dircolors, $maxfilenamelength, $wasresized,
     $currentdir, @dircontents, %currentfile, $currentline, $baseindex,
     $oldcurrentdir, %disk, %total_nr_of, %selected_nr_of,
     $editor, $pager, $printcmd, $showlockchar, $autoexitmultiple,
-    $cursorveryvisible, $clsonexit, $autowritehistory, $viewbase,
+    $cursorveryvisible, $clsonexit, $autowritehistory, $viewbase, $trspace,
     $titlecolor, $footercolor, $headercolor, $swapcolor, $multicolor
 );
 
@@ -221,7 +221,7 @@ sub write_pfmrc {
             $_;
         } @resourcefile;
         close MKPFMRC;
-    } # no success? too bad
+    } # no success? well, that's just too bad
 }
 
 sub read_pfmrc { # $rereadflag - 0=firstread 1=reread (for copyright message)
@@ -259,13 +259,14 @@ sub read_pfmrc { # $rereadflag - 0=firstread 1=reread (for copyright message)
     $clsonexit         = &yesno($pfmrc{clsonexit});
     $autowritehistory  = &yesno($pfmrc{autowritehistory});
     $autoexitmultiple  = &yesno($pfmrc{autoexitmultiple});
+    $swap_persistent   = &yesno($pfmrc{persistentswap});
+    $trspace           = &yesno($pfmrc{translatespace}) ? ' ' : '';
     ($printcmd)        = ($pfmrc{printcmd}) ||
                              ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER}" : 'lpr');
     $timeformat        = $pfmrc{timeformat} || 'pfm';
     $sort_mode         = $pfmrc{sortmode}   || 'n';
     $uid_mode          = 2*($pfmrc{uidmode} eq 'atime')
                          + ($pfmrc{uidmode} eq 'uid');
-    $swap_persistent   = &yesno($pfmrc{persistentswap});
     $headercolor       = $pfmrc{headercolor} || '37;44';
     $multicolor        = $pfmrc{multicolor}  || '36;47';
     $titlecolor        = $pfmrc{titlecolor}  || '36;47;07;01';
@@ -401,31 +402,42 @@ sub fit2limit {
     return ($neatsize, $neatletter);
 }
 
-sub expand_escapes {
+sub expand_12_escapes {
     my %thisfile = %{$_[1]};
     my $namenoext =
         $thisfile{name} =~ /^(.*)\.([^\.]+)$/ ? $1 : $thisfile{name};
-    # these (hairy) regexps use a negative lookbehind assertion:
-    # count the nr. of backslashes before the \1 (must be odd
-    # because \\ must be interpreted as an escaped backslash)
-#    $_[0] =~ s/(?:[^\\]|^)((?:\\\\)*)\\1/$1$namenoext/g;
+    # there must be an odd nr. of backslashes before the digit
+    # because \\ must be interpreted as an escaped backslash
+#    $_[0] =~ s/((?:[^\\]|^)(?:\\\\)*)\\1/$1$namenoext/g;
     $_[0] =~ s/((?<!\\)(?:\\\\)*)\\1/$1$namenoext/g;
     $_[0] =~ s/((?<!\\)(?:\\\\)*)\\2/$1$thisfile{name}/g;
+}
+
+sub expand_345_escapes {
+    # there must be an odd nr. of backslashes before the digit
+    # because \\ must be interpreted as an escaped backslash
     $_[0] =~ s/((?<!\\)(?:\\\\)*)\\3/$1$currentdir/g;
     $_[0] =~ s/((?<!\\)(?:\\\\)*)\\4/$1$disk{mountpoint}/g;
     $_[0] =~ s/((?<!\\)(?:\\\\)*)\\5/$1$swap_state->{path}/g if $swap_state;
-#    $_[0] =~ s/((?<!\\)(?:\\\\)*)~/$1$ENV{HOME}/g;
+    # readline understands ~ notation; now we understand it too
+    $_[0] =~ s/^~/$ENV{HOME}/;
+}
+
+sub expand_escapes {
+    &expand_12_escapes(@_);
+    &expand_345_escapes(@_);
     $_[0] =~ s/\\\\/\\/g;
 }
 
-sub readintohist { # \@history
+sub readintohist { # \@history, $prompt, [$default_input]
     local $SIG{INT} = 'IGNORE'; # do not interrupt pfm
-    local $^W       = 0;        # Term::Readline::Gnu is not -w proof
+#    local $^W       = 0;        # Term::Readline::Gnu is not -w proof
     my $history     = shift;
-    my $input       = shift;    # or undef
+    my $prompt      = shift || '';
+    my $input       = shift || '';
     $kbd->SetHistory(@$history);
-    $input = $kbd->readline('',$input);  # this line barfs with -w
-    if ($input =~ /\S/ and $input ne ${$history}[$#$history]) { # this too ...
+    $input = $kbd->readline($prompt,$input);
+    if ($input =~ /\S/ and $input ne ${$history}[$#$history]) {
         push (@$history, $input);
         shift (@$history) if ($#$history > $MAXHISTSIZE);
     }
@@ -433,7 +445,7 @@ sub readintohist { # \@history
 }
 
 sub yesno {
-    return $_[0] =~ /^(always|yes|1|true)$/i;
+    return $_[0] =~ /^(always|yes|1|true|on)$/i;
 }
 
 sub max ($$) {
@@ -624,10 +636,11 @@ sub ok_to_remove_marks {
 }
 
 sub promptforwildfilename {
+    my $prompt = 'Wild filename (regular expression): ';
     my $wildfilename;
-    $scr->at(0,0)->clreol()->bold()->cyan()
-        ->puts("Wild filename (regular expression): ")->normal()->cooked();
-    $wildfilename = &readintohist(\@regex_history);
+    $scr->at(0,0)->clreol()->cooked();
+#    $scr->bold()->cyan()->puts($prompt)->normal();
+    $wildfilename = &readintohist(\@regex_history, $prompt); #### ornaments
     $scr->raw();      # init_header is done in handleinclude
     eval "/$wildfilename/";
     if ($@) {
@@ -731,7 +744,7 @@ sub copyright {
 }
 
 sub globalinit {
-    $SIG{WINCH} = sub { $wasresized = 1 };
+    $SIG{WINCH} = \&resizecatcher; # sub { $wasresized = 1 };
     $scr = Term::ScreenColor->new();
     $scr->clrscr();
     $kbd = Term::ReadLine->new('Pfm', \*STDIN, \*STDOUT);
@@ -771,7 +784,7 @@ sub goodbye {
     unless ($clsonexit) {
         $scr->at($screenheight+$BASELINE+1,0)->clreol()->cooked();
     }
-    system ('tput','cnorm') if $cursorveryvisible;
+    system qw(tput cnorm) if $cursorveryvisible;
 }
 
 sub credits {
@@ -984,9 +997,10 @@ sub handlecdold {
 
 sub handlefind {
     my $findme;
-    $scr->at(0,0)->clreol()->cyan()->bold()->puts("File to find: ")->normal()
-        ->cooked()->at(0,14);
-    ($findme = &readintohist(\@path_history)) =~ s/\/$//;
+    my $prompt = 'File to find: ';
+    $scr->at(0,0)->clreol()->cooked();
+#    $scr->cyan()->bold()->puts($prompt)->normal()->at(0,14);
+    ($findme = &readintohist(\@path_history, $prompt)) =~ s/\/$//; # ornaments
     if ($findme =~ /\//) { $findme = basename($findme) };
     $scr->raw();
     return $R_HEADER unless $findme;
@@ -1020,9 +1034,9 @@ sub handlefit {
 
 sub handleperlcommand {
     my $perlcmd;
-    $scr->at(0,0)->clreol()->cyan()->bold()
-        ->puts("Enter Perl command:")
-        ->at(1,0)->normal()->clreol()->cooked();
+    my $prompt = 'Enter Perl command:';
+    $scr->at(0,0)->clreol()->cyan()->bold()->puts($prompt)->normal()
+        ->at(1,0)->clreol()->cooked();
     $perlcmd = &readintohist(\@perlcmd_history);
     $scr->raw();
     eval $perlcmd;
@@ -1033,18 +1047,19 @@ sub handleperlcommand {
 sub handlemore {
     local $_;
     my $do_a_refresh = $R_SCREEN;
-    my $newname;
+    my ($newname, $stateprompt);
     &init_header($MOREHEADER);
     my $key = $scr->at(0,78)->getch();
     for ($key) {
         /^s$/i and do {
+            $stateprompt = 'Directory Pathname: ';
             return $R_HEADER unless &ok_to_remove_marks;
-            $scr->at(0,0)->clreol()
-                ->bold()->cyan()->puts('Directory Pathname: ')->normal()
-                ->cooked()->at(0,20);
-            $newname = &readintohist(\@path_history);
+            $scr->at(0,0)->clreol()->cooked();
+#            $scr->bold()->cyan()->puts($stateprompt)->normal()->at(0,20);
+            $newname = &readintohist(\@path_history, $stateprompt); # ornaments
             $scr->raw();
             $position_at='.';
+            &expand_escapes($newname, \%currentfile);
             if ( !chdir $newname ) {
                 &display_error("$newname: $!");
                 $currentdir = getcwd();
@@ -1055,10 +1070,10 @@ sub handlemore {
             }
         };
         /^m$/i and do {
-            $scr->at(0,0)->clreol()
-                ->bold()->cyan()->puts('New Directory Pathname: ')->normal()
-                ->cooked()->at(0,24);
-            $newname = &readintohist(\@path_history);
+            $stateprompt = 'New Directory Pathname: ';
+            $scr->at(0,0)->clreol()->cooked();
+#            $scr->bold()->cyan()->puts($stateprompt)->normal()->at(0,24);
+            $newname = &readintohist(\@path_history, $stateprompt); # ornaments
             $scr->raw();
             if ( !mkdir $newname,0777 ) {
                 &display_error("$newname: $!");
@@ -1086,10 +1101,10 @@ sub handlemore {
             $do_a_refresh = $R_CLEAR;
         };
         /^e$/i and do {
-            $scr->at(0,0)->clreol()
-                ->bold()->cyan()->puts('New name: ')->normal()
-                ->cooked()->at(0,10);
-            $newname = &readintohist(\@path_history);
+            $stateprompt = 'New name: ';
+            $scr->at(0,0)->clreol()->cooked();
+#            $scr->bold()->cyan()->puts($stateprompt)->normal()->at(0,10);
+            $newname = &readintohist(\@path_history, $stateprompt);
             system "$editor $newname" and &display_error($!);
             $scr->raw();
             $do_a_refresh = $R_CLEAR;
@@ -1189,7 +1204,7 @@ sub handleview {
     for ($currentfile{name}, $viewline) {
         s/\\/\\\\/;
         # don't ask how this works
-        s{([ \177[:cntrl:]]|[^[:ascii:]])}
+        s{([${trspace}\177[:cntrl:]]|[^[:ascii:]])}
          {'\\'.sprintf($viewbase,unpack('C',$1))}eg;
     }
     $scr->at($currentline+$BASELINE,2)->bold()
@@ -1262,12 +1277,12 @@ sub handlechown {
 
 sub handlechmod {
     my ($newmode,$loopfile,$do_this,$index);
+    my $prompt = 'Permissions ( [ugoa][-=+][rwxslt] or octal ): ';
     my $do_a_refresh = $multiple_mode ? $R_SCREEN : $R_HEADER;
     &markcurrentline('A') unless $multiple_mode;
-    $scr->at(0,0)->clreol()->bold()->cyan()
-        ->puts("Permissions ( [ugoa][-=+][rwxslt] or octal ): ")->normal()
-        ->cooked();
-    chomp($newmode = &readintohist(\@mode_history));
+    $scr->at(0,0)->clreol()->cooked();
+#    $scr->bold()->cyan()->puts($prompt)->normal();
+    chomp($newmode = &readintohist(\@mode_history, $prompt)); # ornaments
     $scr->raw();
     return $R_HEADER if ($newmode eq '');
     if ($newmode =~ /^\s*(\d+)\s*$/) {
@@ -1373,6 +1388,7 @@ sub handledelete {
         ->puts("Are you sure you want to delete [Y/N]? ")->normal();
     my $sure = $scr->getch();
     return $R_HEADER if $sure !~ /y/i;
+    $scr->at(1,0);
     $do_this = q"if ($loopfile->{type} eq 'd') {
                     $success=rmdir $loopfile->{name};
                  } else {
@@ -1475,11 +1491,12 @@ sub handlehelp {
 
 sub handletime {
     my ($newtime, $loopfile, $do_this, $index, $do_a_refresh);
+    my $prompt = "Put date/time $TIMEHINTS{$timeformat}: ";
     $do_a_refresh = $multiple_mode ? $R_SCREEN : $R_HEADER;
     &markcurrentline('T') unless $multiple_mode;
-    $scr->at(0,0)->clreol()->bold()->cyan()
-        ->puts("Put date/time $TIMEHINTS{$timeformat}: ")->normal()->cooked();
-    $newtime = &readintohist(\@time_history);
+    $scr->at(0,0)->clreol()->cooked();
+#    $scr->bold()->cyan()->puts($prompt)->normal();
+    $newtime = &readintohist(\@time_history, $prompt); # ornaments
     $scr->raw();
     return $R_HEADER if ($newtime eq '');
     # convert date/time to touch format if necessary
@@ -1541,13 +1558,18 @@ sub handlecopyrename {
     my ($loopfile,$index,$newname,$command,$do_this);
     my $do_a_refresh = $R_HEADER;
     &markcurrentline($state) unless $multiple_mode;
-    $scr->at(0,0)->clreol()->bold()->cyan()
-        ->puts($stateprompt)->normal()->cooked();
-#    $newname = &readintohist(\@path_history, $multiple_mode ? '' : $currentfile{name}); # do this differently: push the old name onto the history
-    $newname = &readintohist(\@path_history, '');
+    $scr->at(0,0)->clreol()->cooked();
+#    $scr->bold()->cyan()->puts($stateprompt)->normal();
+    push (@path_history, $currentfile{name}) unless $multiple_mode;
+    $scr->at(0,0);
+    $newname = &readintohist(\@path_history, $stateprompt);     # ornaments
+    if ($#path_history > 0 and $path_history[-1] eq $path_history[-2]) {
+        pop @path_history;
+    }
     $scr->raw();
     return $R_HEADER if ($newname eq '');
-    # we would like to substitute \[345] at this point, but not yet \[\12]
+    # expand \[345] at this point, but not yet \[12]
+    &expand_345_escapes($newname, \%currentfile);
     if ($multiple_mode and $newname !~ /(?<!\\)(?:\\\\)*\\[12]/
                        and !-d($newname) )
     {
@@ -1556,7 +1578,7 @@ sub handlecopyrename {
         ->normal()->at(0,0);
         &pressanykey;
         &path_info;
-        return 0; # don't refresh screen - is this correct?
+        return $R_HEADER;
     }
     $command = 'system qq{'.$statecmd.' "$loopfile->{name}" "'.$newname.'"}';
     if ($multiple_mode) {
@@ -1579,6 +1601,8 @@ sub handlecopyrename {
         eval ($command) and do {
                 $scr->at(0,0)->clreol();
                 &display_error($!);
+                &path_info;
+                $do_a_refresh = $R_HEADER;
         }
     }
     return $do_a_refresh;
@@ -1658,8 +1682,9 @@ sub handleenter {
 }
 
 sub handleswap {
-    my $refresh    = $R_KEY;
-    my $temp_state = $swap_state;
+    my $refresh     = $R_KEY;
+    my $temp_state  = $swap_state;
+    my $stateprompt = 'Directory Pathname: ';
     if ($swap_state and !$swap_persistent) { # swap back if ok_to_remove_marks
         if (&ok_to_remove_marks) {
             $currentdir     =   $swap_state->{path};
@@ -1712,9 +1737,10 @@ sub handleswap {
         $swap_mode     = 1;
         $sort_mode     = $pfmrc{sortmode} || 'n';
         $multiple_mode = 0;
-        $scr->at(0,0)->clreol()->bold()->cyan()
-            ->puts('Directory Pathname: ')->normal()->cooked();
-        $currentdir = &readintohist(\@path_history);
+        $scr->at(0,0)->clreol()->cooked();
+#        $scr->bold()->cyan()->puts($stateprompt)->normal(); # ornaments
+        $currentdir = &readintohist(\@path_history, $stateprompt);
+        &expand_escapes($currentdir, \%currentfile);
         $scr->raw();
         $position_at = '.';
         $refresh = $R_CHDIR;
@@ -1724,7 +1750,7 @@ sub handleswap {
         $currentdir = getcwd();
         $refresh = $R_HEADER;
     }
-    &init_title($swap_mode,$uid_mode);
+    &init_title($swap_mode, $uid_mode);
     return $refresh;
 }
 
@@ -1873,10 +1899,16 @@ sub set_argv0 {
                                                 : $disk{device} ) . ']';
 }
 
+sub resizecatcher {
+    $wasresized = 1;
+    $SIG{WINCH} = \&resizecatcher;
+}
+
 sub resizehandler {
     $wasresized = 0;
-    &handlefit;
-    return &validate_position;
+    &handlefit;         # returns R_SCREEN, which is correct...
+    &validate_position; # ... but we must validate the cursor position too
+    return $R_SCREEN;
 }
 
 sub recalc_ptr {
@@ -1906,7 +1938,7 @@ sub redisplayscreen {
 # DISPLAY       (R_SCREEN):       show title, footer and stats;
 # L_DIRLISTING  (R_DIRLISTING):   display directory contents;
 # STRIDE        (R_STRIDE):       wait for key;
-# KEY           ():               call sub handling key command;
+# KEY           ():               call key command handling subroutine;
 #                                 jump to redo point (using R_*);
 #               (R_CHDIR):
 #               (R_QUITTING):
@@ -1916,17 +1948,17 @@ sub redisplayscreen {
 # redo points are jumped to according to the result of the sub that handles
 # the key command. these subs are supposed to return a value which reports
 # the "severity" of the result. the higher the value, the more redrawing
-# should be done on-screen, i.e. the more loops should be exited from.
+# should be done on-screen, and the more loops should be exited from.
 # the following are valid return values, in increasing order of severity:
 #
 # $R_KEY         == 0;
 # $R_HEADER      == 1; # just call init_header()
-# $R_STRIDE      == 2;
+# $R_STRIDE      == 2; # in previous versions: last KEY (= redo STRIDE)
 # $R_DIRLISTING  == 3;
-# $R_SCREEN      == 4;
+# $R_SCREEN      == 4; # in previous versions: redo DISPLAY
 # $R_CLEAR       == 5; # like R_SCREEN, but clrscr() first
 # $R_DIRCONTENTS == 6;
-# $R_CHDIR       == 7;
+# $R_CHDIR       == 7; # in previous versions: last STRIDE
 # $R_QUITTING    == 255;
 
 sub browse {
@@ -1950,15 +1982,16 @@ sub browse {
                 STRIDE: do {
                     %currentfile = %{$dircontents[$currentline+$baseindex]};
                     &highlightline($HIGHLIGHT_ON);
-                    until ($scr->key_pressed(1)) {
-                        if ($wasresized) { &resizehandler }
+                    $result = $R_KEY;
+                    until ($scr->key_pressed(1) || $wasresized) {
                         &date_info($DATELINE, $screenwidth-$DATECOL);
                         $scr->at($currentline+$BASELINE, 0);
                     }
-                    $key = $scr->getch();
                     &highlightline($HIGHLIGHT_OFF);
-                    $result = $R_KEY;
-                    KEY: for ($key) {
+                    if ($wasresized) { # the terminal was resized
+                        $result = &resizehandler;
+                    } elsif ($key = $scr->getch()) { # this is an assignment
+                        KEY: for ($key) {
                         /^(?:kr|kl|[hl\e])$/i
                                    and $result = &handleentry($_),     last KEY;
                         /^[cr]$/i  and $result = &handlecopyrename($_),last KEY;
@@ -1971,7 +2004,7 @@ sub browse {
                         /^ $/      and $result = &handleadvance($_),   last KEY;
                         /^d$/i     and $result = &handledelete,        last KEY;
                         /^[ix]$/i  and $result = &handleinclude($_),   last KEY;
-                        /^[s\r]$/  and $result = &handleshowenter($_), last KEY;
+                        /^[s\r]$/i and $result = &handleshowenter($_), last KEY;
                         /^k7$/     and $result = &handleswap,          last KEY;
                         /^k5$/     and $result = &handlerefresh,       last KEY;
                         /^k3$/     and $result = &handlefit,           last KEY;
@@ -1984,14 +2017,15 @@ sub browse {
                         /^a$/i     and $result = &handlechmod,         last KEY;
                         /^q$/i     and $result = &handlequit($_),      last KEY;
                         /^k6$/     and $result = &handlesort,          last KEY;
-                        /^[\/f]$/i and $result = &handlefind($_),      last KEY;
+                        /^[\/f]$/i and $result = &handlefind,          last KEY;
                         /^k1$/     and $result = &handlehelp,          last KEY;
                         /^k2$/     and $result = &handlecdold,         last KEY;
                         /^k9$/     and $result = &handlecolumns,       last KEY;
                         /^k4$/     and $result = &handlecolor,         last KEY;
                         /^\@$/     and $result = &handleperlcommand,   last KEY;
                         /^u$/i     and $result = &handlechown,         last KEY;
-                    } # end KEY
+                        } # end KEY
+                    } # end if $key
                     if ($result == $R_HEADER) { &init_header($multiple_mode) }
                 } until ($result > $R_STRIDE);
                 # end STRIDE
@@ -2025,7 +2059,7 @@ __DATA__
 # everything following a # is regarded as a comment.
 # lines may be continued on the next line by ending them in \
 
-# binary options may have yes/no, true/false, or 0/1 values.
+# binary options may have yes/no, true/false, on/off, or 0/1 values.
 # some options can be set using environment variables.
 # your environment settings override the options in this file.
 
@@ -2066,6 +2100,8 @@ showlock:sun
 sortmode:n
 # format for time: touch MMDDhhmm[[CC]YY][.ss] or pfm [[CC]YY]MMDDhhmm[.ss]
 timeformat:pfm
+# translate spaces when Viewing
+translatespace:no
 # initial title bar mode (F9 command) (mtime,uid,atime) (default mtime)
 uidmode:mtime
 # base number system to View non-ascii characters with (hex,oct)
@@ -2163,14 +2199,13 @@ C<pfm [>I<directory>C<]>
 
 =head1 DESCRIPTION
 
-C<pfm> is a terminal-based file manager. This version was based on PFM.COM
-2.32, originally written for MS-DOS by Paul R. Culley and Henk de Heer.
+C<pfm> is a terminal-based file manager, based on PFM.COM for MS-DOS.
 
 All C<pfm> commands are one- or two-letter commands (case-insensitive).
 C<pfm> can operate in single-file mode or multiple-file mode.
 In single-file mode, the command corresponding to the keypress will be
-executed on the file next to the cursor only. In multiple-file mode, the
-command will apply to all files which the user has previously marked.
+executed on the file next to the cursor only. In multiple-file mode,
+the command will apply to all files which the user has previously marked.
 See FUNCTION KEYS below for the relevant commands.
 
 Note that throughout this manual page, I<file> can mean any type
@@ -2211,6 +2246,10 @@ current file and advance the cursor.
 
 Allows the user to enter a perl command to be executed in the context
 of C<pfm>. Primarily used for debugging.
+
+=item B</>
+
+Identical to B<F>ind.
 
 =item B<Attrib>
 
@@ -2311,16 +2350,17 @@ normal (non-C<root>) users to change ownership.
 =item B<View>
 
 View the complete long filename. For a symbolic link, also displays the
-target of the symbolic link. Non-ASCII characters, spaces and control
-characters will be displayed in octal or hexadecimal (configurable in
-F<$HOME/.pfm/.pfmrc>), formatted like the following examples:
+target of the symbolic link. Non-ASCII characters, control characters
+and (optionally) spaces will be displayed in octal or hexadecimal
+(configurable through the 'viewbase' option in F<$HOME/.pfm/.pfmrc>),
+formatted like the following examples:
 
- octal:                  hexadecimal:
+  octal:                   hexadecimal:
 
- control-A : \001        control-A : \0x01
- control-I : \011        control-I : \0x09
- c-cedilla : \347        c-cedilla : \0xe7
- backslash : \\          backslash : \\
+  control-A : \001         control-A : \0x01
+  space     : \040         space     : \0x20
+  c-cedilla : \347         c-cedilla : \0xe7
+  backslash : \\           backslash : \\
 
 =item B<eXclude>
 
@@ -2517,19 +2557,17 @@ processing of filenames containing double quotes.
 
 The F<readline> library does not allow a half-finished line to be
 aborted by pressing B<ESC>. For most commands, you will need to clear
-the half-finished line, but for cB<O>mmand, you have to enter something
+the half-finished line. For cB<O>mmand, you have to enter something
 anyway. You could use C<true>(1) for this purpose.
 
 Sometimes when key repeat sets in, not all keypress events have been
-processed, although they have been registered. This can be dangerous
-when deleting files.
+processed, although they have been registered. This can be dangerous when
+deleting files.  The author once almost pressed ENTER when logged in as
+root and with the cursor next to F</sbin/reboot> . You have been warned.
 
-The author once almost pressed ENTER when logged in as root and with
-the cursor next to F</sbin/reboot> . You have been warned.
+=head1 VERSION
 
-=head1 AUTHOR
-
-RenE<eacute> Uittenbogaard (ruittenb@wish.nl)
+This manual pertains to C<pfm> version 1.49 .
 
 =head1 SEE ALSO
 
@@ -2537,9 +2575,17 @@ The documentation on PFM.COM . The mentioned manual pages for
 C<chmod>(1), C<less>(1), C<lpr>(1), C<touch>(1). The manual pages for
 C<Term::ScreenColor>(3) and C<Term::ReadLine::Gnu>(3).
 
-=head1 VERSION
+=head1 AUTHOR
 
-This manual pertains to C<pfm> version 1.48 .
+Written by RenE<eacute> Uittenbogaard (ruittenb@wish.nl).
+This program was based on PFM.COM version 2.32, originally written
+for MS-DOS by Paul R. Culley and Henk de Heer.
+
+=head1 COPYRIGHT
+
+All rights reserved. This program is free software; you can redistribute
+it and/or modify it under the terms described by the GNU General Public
+License version 2.
 
 =cut
 

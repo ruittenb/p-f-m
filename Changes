@@ -1,0 +1,7 @@
+1.49
+
+* fixes to expanding escapes in filenames and c(O)mmands
+* added 'translatespace'
+* added / as synonym for (F)ind
+* start using ReadLine's prompt
+
