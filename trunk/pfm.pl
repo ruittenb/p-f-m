@@ -1,30 +1,27 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 2000-12-09 v1.25
+# @(#) pfm.pl 2000-12-10 v1.26
 #
 # Name:        pfm.pl
-# Version:     1.25
+# Version:     1.26
 # Author:      Rene Uittenbogaard
-# Date:        2000-12-09
+# Date:        2000-12-10
 # Usage:       pfm.pl [directory]
 # Requires:    Term::ScreenColor
 #              Term::Screen
 #              Term::Cap
 #              Term::ReadLine::Gnu
 #              Term::ReadLine
+#              Cwd
 #              strict
 # Description: Personal File Manager for Unix/Linux
 #
 # TO-DO:
-# first: expand_escapes - which escape char? replace \\ with \ and \2 with fname
-#        command history - history choppen? eliminate doubles
-#        history mechanism in documentation
-#
-# next:  change F7 persistent swap mode
-#        keymap vi ?
-#        clean up configuration options (yes/no,1/0,true/false)
+# first: change F7 persistent swap mode
 #        jump back to old current dir with `
+# next:  keymap vi ?
+#        clean up configuration options (yes/no,1/0,true/false)
 #        / command: jump to file (via $position_at)
 #        stat_entry() must *not* rebuild the selected_nr and total_nr lists:
 #            this fucks up with e.g. cOmmand -> cp ^[2 /somewhere/else
@@ -62,11 +59,17 @@
 ##########################################################################
 # declarations and initialization
 
-BEGIN { $ENV{PERL_RL} = 'Gnu ornaments=0' }
+BEGIN {
+    $ENV{PERL_RL} = 'Gnu ornaments=0';
+#    $^W = 1;
+}
 
 use Term::ScreenColor;
 use Term::ReadLine;
+use Cwd;
 use strict;
+use diagnostics; # so we can switch it on in '@'
+disable diagnostics;
 
 my $VERSION             = &getversion;
 my $configdirname       = "$ENV{HOME}/.pfm";
@@ -218,11 +221,12 @@ sub read_history {
 }
 
 sub write_cwd {
-    if (open CWDFILE,">$configdirname/cwd") {
-        print CWDFILE `pwd`;
+    my $cwdfilename = 'cwd';
+    if (open CWDFILE,">$configdirname/$cwdfilename") {
+        print CWDFILE getcwd;
         close CWDFILE;
     } else {
-        warn "pfm: unable to create $configdirname/cwd: $!\n";
+        warn "pfm: unable to create $configdirname/$cwdfilename: $!\n";
     }
 }
 
@@ -290,13 +294,13 @@ sub mode2str {
 }
 
 sub fit2limit {
-    my $neatletter='';
-    my $neatsize=$_[0];
-    my $limit=9999999;
+    my $neatletter = '';
+    my $neatsize = $_[0];
+    my $limit = 9_999_999;
     while ( $neatsize > $limit ) {
         $neatsize = int($neatsize/1024);
         $neatletter =~ tr/KMGT/MGTP/ || do { $neatletter = 'K' };
-        $limit = 999999;
+        $limit = 999_999;
     }
     return $neatsize.$neatletter;
 }
@@ -305,18 +309,35 @@ sub expand_escapes {
     my %thisfile = %{$_[1]};
     my $namenoext =
         $thisfile{name} =~ /^(.*)\.(\w+)$/ ? $1 : $thisfile{name};
-    # these regexps use the negative lookbehind assertion:
-    # the escaping \ must not be preceded by another \
-    # this is actually not correct: think \\1 : this is an escaped backslash -
-    # some thinking required!
-    $_[0] =~ s/(?<!\\)\\1|\e1/$namenoext/g;
+    # these (hairy) regexps use a negative lookbehind assertion:
+    # count the nr. of backslashes before the \1 (must be odd
+    # because \\ must be interpreted as an escaped backslash)
+    $_[0] =~ s/((?<!\\)(?:\\\\)*)\\1/$1$namenoext/g;
+#    $_[0] =~ s/(?<!\\)\\1|\e1/$namenoext/g;
 #    $_[0] =~ s/\\1/$namenoext/g;
-    $_[0] =~ s/(?<!\\)\\2|\e2/$thisfile{name}/g;
+    $_[0] =~ s/((?<!\\)(?:\\\\)*)\\2/$1$thisfile{name}/g;
+#    $_[0] =~ s/(?<!\\)\\2|\e2/$thisfile{name}/g;
 #    $_[0] =~ s/\\2/$thisfile{name}/g;
-    $_[0] =~ s/(?<!\\)\\3|\e3/$currentdir\//g;
+    $_[0] =~ s/((?<!\\)(?:\\\\)*)\\3/$1$currentdir/g;
+#    $_[0] =~ s/(?<!\\)\\3|\e3/$currentdir\//g;
 #    $_[0] =~ s!\\3!$currentdir/!g;
-    $_[0] =~ s/(?<!\\)\\5|\e5/$swap_mode->{path}\//g if $swap_mode;
+    $_[0] =~ s/((?<!\\)(?:\\\\)*)\\4/$1$disk{mountpoint}/g;
+    $_[0] =~ s/((?<!\\)(?:\\\\)*)\\5/$1$swap_mode->{path}/g if $swap_mode;
+#    $_[0] =~ s/(?<!\\)\\5|\e5/$swap_mode->{path}\//g if $swap_mode;
 #    $_[0] =~ s!\\5!$swap_mode->{path}/!g if $swap_mode;
+    $_[0] =~ s/\\\\/\\/g;
+}
+
+sub readintohist { # \@history
+    my ($history) = @_;
+    my $input = '';
+    $keyb->SetHistory(@$history);
+    $input = $keyb->readline();
+    if ($input =~ /\S/ and $input ne ${$history}[$#$history]) {
+        push (@$history, $input);
+        shift (@$history) if ($#$history > $maxhistsize);
+    }
+    return $input;
 }
 
 sub inhibit {
@@ -349,18 +370,6 @@ sub include { # $entry
     $entry->{selected} = "*";
     $selected_nr_of{$entry->{type}}++;
     $entry->{type} =~ /-/ and $selected_nr_of{bytes} += $entry->{size};
-}
-
-sub readintohist { # \@history
-    my ($history) = @_;
-    my $input;
-    $keyb->SetHistory(@$history);
-    $input = $keyb->readline();
-    if ($input =~ /\S/ and $input ne ${$history}[$#$history]) {
-        push (@$history, $input);
-        shift (@$history) if ($#$history > $maxhistsize);
-    }
-    return $input;
 }
 
 ##########################################################################
@@ -807,9 +816,9 @@ sub handlemore {
             $position_at='.';
             if ( !chdir $currentdir ) {
                 &display_error("$currentdir: $!");
-                chop($currentdir=`pwd`);
+                $currentdir = getcwd;
             } else {
-                $do_a_refresh=1;
+                $do_a_refresh = 1;
             }
         };
         /^m$/i and do {
@@ -828,9 +837,9 @@ sub handlemore {
             } elsif ( !chdir $newname ) {
                 &display_error("$newname: $!"); # in case of restrictive umask
             } else {
-                chop($currentdir=`pwd`);
-                $do_a_refresh=2;
-                $position_at='.';
+                $currentdir = getcwd;
+                $do_a_refresh = 2;
+                $position_at = '.';
             }
         };
         /^c$/i and do {
@@ -1044,8 +1053,8 @@ sub handlecommand { # Y or O
         $scr->cooked();
         $command .= "\n";
     } else { # cOmmand
-        $printstr=<<_eoPrompt_;
-Enter Unix command (ESC1=name, ESC2=name.ext, ESC3=path, ESC5=swap path):
+        $printstr=<<'_eoPrompt_';
+Enter Unix command (\1=name, \2=name.ext, \3=path, \4=mountpoint, \5=swap path):
 _eoPrompt_
         $scr->at(0,0)->clreol()->bold()->cyan()->puts($printstr)->normal()
             ->at(1,0)->clreol()->cooked();
@@ -1065,8 +1074,7 @@ _eoPrompt_
                 $do_this = $command;
                 &expand_escapes($do_this,$loopfile);
                 $scr->puts($do_this);
-#                system ($do_this) and $scr->at(0,0)->clreol(),&display_error($!); # %%%%%%%
-                system ($do_this) and &display_error($!); # %%%%%%%
+                system ($do_this) and &display_error($!);
                 $dircontents[$index] =
                     &stat_entry($loopfile->{name},$loopfile->{selected});
             }
@@ -1076,8 +1084,7 @@ _eoPrompt_
         $loopfile=\%currentfile;
         &expand_escapes($command,\%currentfile);
         $scr->clrscr()->at(0,0)->puts($command);
-#        system ($command) and $scr->at(0,0)->clreol(),&display_error($!); # %%%%%%%%%
-        system ($command) and &display_error($!); # %%%%%%%%%
+        system ($command) and &display_error($!);
         $dircontents[$currentline+$baseindex] =
             &stat_entry($currentfile{name},$currentfile{selected});
     }
@@ -1112,14 +1119,13 @@ sub handledelete {
                      &display_error($!);
                  }
                  ";
-    # the above line marked 'note' uses the fact that a directory can
-    # never be empty, so $currentline must be >2 when this occurs
+    # the above line marked 'note' makes the assumption that a directory can
+    # never have zero entries, so $currentline must be >2 when this occurs
     # unfortunately, for NTFS filesystems, this is not always correct
     # the subroutine position_cursor corrects this
     if ($multiple_mode) {
         # we must delete in reverse order because the number of directory
         # entries will decrease by deleting
-        # (we could also have done a 'redo LOOP if $success')
         for $index (reverse(0..$#dircontents)) {
             $loopfile=$dircontents[$index];
             if ($loopfile->{selected} eq '*') {
@@ -1180,7 +1186,7 @@ sub handleshow {
 sub handlehelp {
     $scr->clrscr();
     # how unsubtle :-)
-    system 'man', 'pfm';
+    system ('man', 'pfm');
 }
 
 sub handletime {
@@ -1359,16 +1365,16 @@ sub handleswap {
     my $refresh=0;
     if ($swap_mode) {
         if (&ok_to_remove_marks) {
-            $currentdir    =   $swap_mode->{path};
-            @dircontents   = @{$swap_mode->{contents}};
-            $position_at   =   $swap_mode->{position};
-            %disk          = %{$swap_mode->{disk}};
-            %selected_nr_of= %{$swap_mode->{selected}};
-            %total_nr_of   = %{$swap_mode->{totals}};
-            $swap_mode=0;
-            $refresh=1;
+            $currentdir     =   $swap_mode->{path};
+            @dircontents    = @{$swap_mode->{contents}};
+            $position_at    =   $swap_mode->{position};
+            %disk           = %{$swap_mode->{disk}};
+            %selected_nr_of = %{$swap_mode->{selected}};
+            %total_nr_of    = %{$swap_mode->{totals}};
+            $swap_mode = 0;
+            $refresh = 1;
         } else {
-            $refresh=0;
+            $refresh = 0;
         }
     } else {
         $swap_mode={ path     =>   $currentdir,
@@ -1391,8 +1397,8 @@ sub handleswap {
     if ( !chdir $currentdir ) {
         &display_error("$currentdir: $!");
         &init_header($multiple_mode);
-        chop($currentdir=`pwd`);
-        $refresh=0;
+        $currentdir = getcwd;
+        $refresh = 0;
     }
     &init_title($swap_mode,$uid_mode);
     return $refresh;
@@ -1544,21 +1550,19 @@ sub redisplayscreen {
 }
 
 sub browse {
-#    local $currentdir;     # now global                        # %%% 1.22 %%%
-#    local %disk;           # now global                        # %%% 1.22 %%%
-    my ($returncode,@dflist,$key);
-    my $quitting=0;
-
+    my ($returncode,$dflist,$key);
+    my $quitting = 0;
+    
     # collect info
-    chop($currentdir=`pwd`);
+    $currentdir     = getcwd;
     %total_nr_of    = ( d=>0, l=>0, '-'=>0, c=>0, b=>0, 's'=>0, p=>0, D=>0 );
     %selected_nr_of = ( d=>0, l=>0, '-'=>0, c=>0, b=>0, 's'=>0, p=>0, D=>0,
                         bytes=>0 );
-    @dircontents = sort as_requested (&getdircontents($currentdir));
-    chop (@dflist=`df -k .`);
-    @disk{qw/device total used avail/} =
-         split ( /\s+/, ( grep !/filesys/i, @dflist )[0] );
-    $disk{'avail'} !~ /%/ or $disk{'avail'}=$disk{'total'}-$disk{'used'};
+    @dircontents    = sort as_requested (&getdircontents($currentdir));
+    chop( ($dflist) = grep ! /filesys/i, `df -k .` );
+    @disk{qw/device total used avail/} = split ( /\s+/, $dflist );
+    $disk{'avail'} !~ /%/ or $disk{'avail'} = $disk{'total'} - $disk{'used'};
+    @disk{qw/mountpoint/} = $dflist =~ /(\S*)$/;
 
     # now just reprint screen
     DISPLAY: {
@@ -1844,7 +1848,7 @@ C<pfm >I<[directory]>
 C<pfm> is a terminal-based file manager. This version was based on PFM.COM
 2.32, originally written for MS-DOS by Paul R. Culley and Henk de Heer.
 
-All C<pfm> commands are one- or two-letter commands (case insensitive).
+All C<pfm> commands are one- or two-letter commands (case-insensitive).
 C<pfm> operates in two modes: single-file mode and multiple-file mode.
 In single-file mode, the command corresponding to the keypress will be
 executed on the file next to the cursor only. In multiple-file mode,
@@ -1892,9 +1896,9 @@ Delete a file or directory.
 
 =item B<Edit>
 
-Edit a file with your external editor. You can specify an editor with the
-environment variable C<EDITOR> or in the F<.pfmrc> file, else C<vi>(1)
-is used.
+Edit a file with your external editor. You can specify an editor with
+the environment variable C<EDITOR> or in the F<$HOME/.pfm/.pfmrc> file,
+else C<vi>(1) is used.
 
 =item B<Include>
 
@@ -1916,25 +1920,27 @@ below. Pressing B<ESC> will take you back to the main menu.
 =item B<cOmmand>
 
 Allows execution of a shell command on the current files. Entering an
-empty line will activate a copy of your default login shell until the
-C<exit> command is given. After the command completes, C<pfm> will resume.
-You may abbreviate the current filename as B<ESC>2, the current filename
-without extension as B<ESC>1, the current directory path as B<ESC>3,
-and the swap directory path (see B<F7> command) as B<ESC>5.
+empty line will spawn your default login shell until you C<exit> from it.
+After the command completes, C<pfm> will resume.  You may abbreviate
+the current filename as B<\2>, the current filename without extension
+as B<\1>, the current directory path as B<\3>, the mount point of the
+current filesystem as B<\4> and the swap directory path (see B<F7>
+command) as B<\5>. To enter a backslash, use B<\\>.
 
 =item B<Print>
 
 Print the specified file on the default system printer by piping it
 through your print command (default C<lpr -P$PRINTER>). No formatting
-is done. You may specify a print command in your F<.pfmrc> (see below).
+is done. You may specify a print command in your F<$HOME/.pfm/.pfmrc>
+(see below).
 
 =item B<Quit>
 
-Exit C<pfm>. You may specify in your F<$HOME/.pfmrc> whether C<pfm>
+Exit C<pfm>. You may specify in your F<$HOME/.pfm/.pfmrc> whether C<pfm>
 will ask for confirmation (confirmquit:always|never|marked). 'marked'
 means you will only be asked for confirmation if there are any marked
-files in the current directory. Note that by pressing 'Q' (quick quit),
-you will I<never> be asked for confirmation.
+files in the current directory. Note that by pressing a capital 'Q'
+(quick quit), you will I<never> be asked for confirmation.
 
 =item B<Rename>
 
@@ -1947,7 +1953,7 @@ cB<O>mmand above).
 
 Displays the contents of the current file or directory on the screen.
 You can choose which pager to use for file viewing with the environment
-variable C<PAGER>, or in the F<.pfmrc> file.
+variable C<PAGER>, or in the F<$HOME/.pfm/.pfmrc> file.
 
 =item B<Time>
 
@@ -1981,7 +1987,7 @@ commands. Filenames may be abbreviated with escapes just as in cB<O>mmand.
 Commands can be preconfigured by entering them in the configuration file
 as a I<letter>B<:>I<command> line, e.g.
 
- T:tar tvfz ^[2
+ T:tar tvfz \2
 
 =back
 
@@ -1991,8 +1997,8 @@ as a I<letter>B<:>I<command> line, e.g.
 
 =item Config PFM
 
-This option will open the F<.pfmrc> configuration file with your preferred
-editor. The file is supposed to be self-explanatory.
+This option will open the F<~/.pfm/.pfmrc> configuration file with your
+preferred editor. The file is supposed to be self-explanatory.
 
 =item Edit new file
 
@@ -2024,9 +2030,9 @@ Display help and licence information.
 
 =item B<F3>
 
-Fit the file list into the current window. C<pfm> attempts to refresh
-the display when the window size changes, but should this fail, then
-press B<F3>.
+Fit the file list into the current window and refresh. C<pfm> attempts to
+refresh the display when the window size changes, but should this fail,
+then press B<F3>.
 
 =item B<F4>
 
@@ -2048,8 +2054,8 @@ Swaps the display between primary and secondary screen. When switching
 from primary to secondary, you are prompted for a path to show.
 When switching back by pressing B<F7> again, the original contents are
 displayed unchanged. Header text changes color when in secondary screen.
-While in the secondary screen, you may specify the swap directory from
-the first screen in commands as B<ESC>5
+While in the secondary screen, the swap directory from the first screen
+may be referred to in commands as B<\5>.
 
 =item B<F8>
 
@@ -2075,6 +2081,11 @@ Be very careful with this key when running C<pfm> as C<root>!
 
 Shows the parent directory of the shown dir (backup directory tree).
 
+=item input history
+
+A history is kept of the various items (e.g. pathnames, commands) being
+entered. The history is accessible using the arrow-up and down keys.
+
 =back
 
 =head1 OPTIONS
@@ -2091,9 +2102,9 @@ C<pfm>.
 =over
 
 Upon exit, C<pfm> will save its current working directory in a file
-F<~/.pfm/cwd> . In order to have this directory "inherited" by the calling
-process (shell), you may call C<pfm> using a function like the following
-(example for C<bash>(1), add it to your F<.profile>):
+F<$HOME/.pfm/cwd> . In order to have this directory "inherited" by the
+calling process (shell), you may call C<pfm> using a function like the
+following (example for C<bash>(1), add it to your F<.profile>):
 
  pfm () {
      /usr/local/bin/pfm $*
@@ -2126,7 +2137,8 @@ Your default login shell, spawned by cB<O>mmand with an empty line.
 
 =head1 FILES
 
-F<$HOME/.pfm/*>
+The directory F<$HOME/.pfm/> and files therein. Also, an input history
+is kept in this directory.
 
 =head1 BUGS
 
