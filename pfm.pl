@@ -1,12 +1,12 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 2001-03-11 v1.34
+# @(#) pfm.pl 2001-03-12 v1.35
 #
 # Name:        pfm.pl
-# Version:     1.34
+# Version:     1.35
 # Author:      Rene Uittenbogaard
-# Date:        2001-03-11
+# Date:        2001-03-12
 # Usage:       pfm.pl [directory]
 # Requires:    Term::ScreenColor
 #              Term::Screen
@@ -25,6 +25,7 @@
 #      Argument "10681K" isn't numeric in addition (+) at /root/bin/pfm line 793
 #        test pfm with -w
 #        handlechmod() does not use history correctly <- reproduce?
+#        \5 should work in multiple copy/rename
 # next:  clean up configuration options (yes/no,1/0,true/false)
 #        F command (alias / ): jump to file (entering $position_at)
 #        validate_position should not replace $baseline when not necessary
@@ -32,10 +33,12 @@
 #            this fucks up with e.g. cOmmand -> cp \2 /somewhere/else
 #            closely related to:
 #        sub countdircontents is not used
+#        consistent use of constants
+#        neaten use of spaces in source
+#        pressing [enter] on a symlink is not handled correctly
 #        cOmmand -> rm \2 will have to delete the entry from @dircontents;
 #            otherwise the mark count is not correct
 #
-#        test update screenline 1 (path/device) -> own sub.
 #        major/minor numbers on DU 4.0E are wrong
 #        tidy up multiple commands
 #        validate_position in SIG{WINCH}
@@ -73,9 +76,13 @@ use Term::ScreenColor;
 use Term::ReadLine;
 use Cwd;
 use strict;
-# use diagnostics; # so we can switch it on in '@'
-# disable diagnostics;
-# $^W = 0;
+use vars qw($FIRSTREAD $REREAD);
+#use diagnostics; # so we can switch it on in '@'
+#disable diagnostics;
+#$^W = 0;
+
+*FIRSTREAD = \0;
+*REREAD    = \1;
 
 my $VERSION             = &getversion;
 my $configdirname       = "$ENV{HOME}/.pfm";
@@ -123,7 +130,6 @@ my %histories = (history_command => \@command_history,
 my (%user, %group, %pfmrc, %dircolors, $maxfilenamelength, $wasresized,
     $scr, $keyb,
     $uidlineformat, $tdlineformat, $timeformat,
-#    $pathlineformat,
     $sort_mode, $multiple_mode, $uid_mode, $swap_mode,
     $swap_persistent, $swap_state,
     $currentdir, @dircontents, %currentfile, $currentline, $baseindex,
@@ -150,7 +156,7 @@ sub write_pfmrc {
     }
 }
 
-sub read_pfmrc { # $rereadflag - 0=read 1=reread (for copyright message)
+sub read_pfmrc { # $rereadflag - 0=firstread 1=reread (for copyright message)
     $uid_mode = $sort_mode = $editor = $pager = '';
     %dircolors = %pfmrc = ();
     local $_;
@@ -180,6 +186,8 @@ sub read_pfmrc { # $rereadflag - 0=read 1=reread (for copyright message)
     system ('stty', 'erase', $pfmrc{erase}) if defined($pfmrc{erase});
     $keyb->set_keymap($pfmrc{keymap})       if $pfmrc{keymap};
     $autoexitmultiple = $pfmrc{autoexitmultiple};
+    # note: some configuration options are NOT fetched into common scalars -
+    # they remain accessable in %pfmrc (e.g. autowritehistory)
     ($printcmd)       = ($pfmrc{printcmd}) ||
                             ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER}" : 'lpr');
     $timeformat       = $pfmrc{timeformat} || 'pfm';
@@ -196,9 +204,9 @@ sub read_pfmrc { # $rereadflag - 0=read 1=reread (for copyright message)
     $editor           = $ENV{EDITOR} || $pfmrc{editor} || 'vi';
     $pager            = $ENV{PAGER}  || $pfmrc{pager}  ||
                             ($^O =~ /linux/i ? 'less' : 'more');
-    foreach (keys %pfmrc) {
-        $pfmrc{$_} =~ s/\^\[|\\e/\e/g; # insert escapes
-    }
+#    foreach (keys %pfmrc) {
+#        $pfmrc{$_} =~ s/\^\[|\\e/\e/g; # insert escapes
+#    }
     $pfmrc{dircolors} ||= $ENV{LS_COLORS} || $ENV{LS_COLOURS};
     if ($pfmrc{dircolors}) {
         while ($pfmrc{dircolors} =~ /([^:=*]+)=([^:=]+)/g ) {
@@ -214,7 +222,8 @@ sub write_history {
             print HISTFILE join "\n",@{$histories{$_}};
             close HISTFILE;
         } elsif (!$failed) {
-            warn "pfm: unable to save (part of) history: $!\n";
+            $scr->at(0,0)->puts("Unable to save (part of) history: $!\n");
+            # wait? refresh?
             $failed++; # warn only once
         }
     }
@@ -235,6 +244,7 @@ sub write_cwd {
         print CWDFILE getcwd();
         close CWDFILE;
     } else {
+        # pfm is exiting, can use warn() here
         warn "pfm: unable to create $configdirname/$cwdfilename: $!\n";
     }
 }
@@ -254,26 +264,26 @@ sub getversion {
 }
 
 sub init_uids {
-    my (%user,$name,$pwd,$uid);
-    while (($name,$pwd,$uid)=getpwent) {
-        $user{$uid}=$name
+    my (%user, $name, $pwd, $uid);
+    while (($name, $pwd, $uid) = getpwent) {
+        $user{$uid} = $name
     }
     endpwent;
     return \%user;
 }
 
 sub init_gids {
-    my (%group,$name,$pwd,$gid);
-    while (($name,$pwd,$gid)=getgrent) {
-        $group{$gid}=$name
+    my (%group, $name, $pwd, $gid);
+    while (($name, $pwd, $gid) = getgrent) {
+        $group{$gid} = $name
     }
     endgrent;
     return \%group;
 }
 
 sub time2str {
-    my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst,$monname,$val);
-    ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime($_[0]);
+    my ($monname,$val);
+    my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime($_[0]);
     $monname =(qw/Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec/)[$mon];
     foreach $val ($mday,$hour,$min,$sec) { if ($val<10) { $val="0$val" } }
     if ($_[1]) {
@@ -366,26 +376,8 @@ sub basename {
     return $1;
 }
 
-sub exch_sc {
-    return +($_[0],$_[1]) = @_[1,0];
-}
-
-sub exch_ar {
-    my $temp = $_[0];
-    @{$_[0]} = @{$_[1]};
-    @{$_[1]} = @$temp;
-    return @_;
-}
-
-sub exch_hs {
-    my $temp = $_[0];
-    %{$_[0]} = %{$_[1]};
-    %{$_[1]} = %$temp;
-    return @_;
-}
-
 sub exclude { # $entry,$oldmark
-    my ($entry,$oldmark) = @_;
+    my ($entry, $oldmark) = @_;
     $oldmark ||= " ";
     $entry->{selected} = $oldmark;
     $selected_nr_of{$entry->{type}}--;
@@ -433,7 +425,6 @@ sub applycolor {
 # small printing routines
 
 sub makeformatlines {
-#    $pathlineformat='@'.'<'x($screenwidth-$datecol-2).' [@<<<<<<<<<<<]';
     $uidlineformat ='@ @'.'<'x($screenwidth-$datecol-47)
                    .'@@>>>>>>  @<<<<<<< @<<<<<<<@###  @<<<<<<<<<';
     $tdlineformat  ='@ @'.'<'x($screenwidth-$datecol-47)
@@ -657,7 +648,7 @@ sub globalinit {
     $scr = Term::ScreenColor->new();
     $scr->clrscr();
     $keyb = Term::ReadLine->new('Pfm', \*STDIN, \*STDOUT);
-    &read_pfmrc;
+    &read_pfmrc($FIRSTREAD);
     &read_history;
     %user  = %{&init_uids};
     %group = %{&init_gids};
@@ -856,6 +847,9 @@ sub handlequit { # key
     return $sure =~ /y/i;
 }
 
+sub handlefind {
+}
+
 sub handlefit {
     local $_;
     $scr->resize();
@@ -888,10 +882,10 @@ sub handleperlcommand {
 
 sub handlemore {
     local $_;
-    my $do_a_refresh=0;
+    my $do_a_refresh = 0;
     my $newname;
     &init_header(3);
-    my $key=$scr->at(0,76)->getch();
+    my $key = $scr->at(0,76)->getch();
     for ($key) {
         /^s$/i and do {
             return 0 unless &ok_to_remove_marks;
@@ -911,30 +905,32 @@ sub handlemore {
             }
         };
         /^m$/i and do {
-            return 0 unless &ok_to_remove_marks;
             $scr->at(0,0)->clreol()
                 ->bold()->cyan()->puts('New Directory Pathname: ')->normal()
                 ->cooked()->at(0,24);
             $newname = &readintohist(\@path_history);
             $scr->raw();
-            $do_a_refresh=1;
             if ( !mkdir $newname,0777 ) {
                 &display_error("$newname: $!");
-            } elsif ( !chdir $newname ) {
-                &display_error("$newname: $!"); # in case of restrictive umask
             } else {
-                $oldcurrentdir = $currentdir;
-                $currentdir = getcwd();
-                $do_a_refresh = 2;
-                $position_at = '.';
+                return 0 unless &ok_to_remove_marks;
+                $do_a_refresh = 1;
+                if ( !chdir $newname ) {
+                    &display_error("$newname: $!"); # e.g. by restrictive umask
+                } else {
+                    $oldcurrentdir = $currentdir;
+                    $currentdir = getcwd();
+                    $do_a_refresh = 2;
+                    $position_at = '.';
+                }
             }
         };
         /^c$/i and do {
             system "$editor $configdirname/$configfilename"
                 and &display_error($!);
-            &read_pfmrc(1);
+            &read_pfmrc($REREAD);
             $scr->clrscr();
-            $do_a_refresh=1;
+            $do_a_refresh = 1;
         };
         /^e$/i and do {
             $scr->at(0,0)->clreol()
@@ -943,7 +939,7 @@ sub handlemore {
             $newname = &readintohist(\@path_history);
             system "$editor $newname" and &display_error($!);
             $scr->raw();
-            $do_a_refresh=1;
+            $do_a_refresh = 1;
         };
         /^w$/i and do {
             &write_history;
@@ -1226,15 +1222,15 @@ sub handledelete {
 }
 
 sub handleprint {
-    my ($loopfile,$do_this,$index);
+    my ($loopfile, $do_this, $index);
     &markcurrentline('P') unless $multiple_mode;
     $scr->at(0,0)->clreol();
     if ($multiple_mode) {
         for $index (0..$#dircontents) {
-            $loopfile=$dircontents[$index];
+            $loopfile = $dircontents[$index];
             if ($loopfile->{selected} eq '*') {
                 $scr->at(1,0)->clreol()->puts($loopfile->{name});
-                &exclude($loopfile,'.');
+                &exclude($loopfile, '.');
                 system qq/$printcmd "$loopfile->{name}"/ and &display_error($!);
             }
         }
@@ -1313,14 +1309,14 @@ sub handletime {
 }
 
 sub handleedit {
-    my ($loopfile,$index);
+    my ($loopfile, $index);
     $scr->clrscr()->at(0,0)->cooked();
     if ($multiple_mode) {
         for $index (0..$#dircontents) {
-            $loopfile=$dircontents[$index];
+            $loopfile = $dircontents[$index];
             if ($loopfile->{selected} eq '*') {
                 $scr->puts($loopfile->{name});
-                &exclude($loopfile,'.');
+                &exclude($loopfile, '.');
                 system qq/$editor "$loopfile->{name}"/ and &display_error($!);
             }
         }
@@ -1343,6 +1339,7 @@ sub handlecopyrename {
     $newname = &readintohist(\@path_history);
     $scr->raw();
     return 0 if ($newname eq '');
+    # we would like to substitute \[345] at this point, but not yet \[\12]
     if ($multiple_mode and $newname !~ /(?<!\\)(?:\\\\)*\\[12]/
                        and !-d($newname) )
     {
@@ -1357,11 +1354,11 @@ sub handlecopyrename {
     if ($multiple_mode) {
         $scr->at(1,0)->clreol();
         for $index (0..$#dircontents) {
-            $loopfile=$dircontents[$index];
+            $loopfile = $dircontents[$index];
             if ($loopfile->{selected} eq '*') {
                 &exclude($loopfile,'.');
                 $do_this = $command;
-                &expand_escapes($do_this,$loopfile);
+                &expand_escapes($do_this, $loopfile);
                 $scr->at(1,0)->puts($loopfile->{name});
                 eval ($do_this) and $scr->at(0,0)->clreol(),&display_error($!);
                 $do_a_refresh++;
@@ -1369,7 +1366,7 @@ sub handlecopyrename {
         }
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
-        $loopfile=\%currentfile;
+        $loopfile = \%currentfile;
         &expand_escapes($command,$loopfile);
         eval ($command) and do {
                 $scr->at(0,0)->clreol();
@@ -1561,14 +1558,14 @@ sub stat_entry { # path_of_entry, selected_flag
     # the second argument is used to have the caller specify whether the
     # 'selected' field of the file info should be cleared (when reading
     # a new directory) or kept intact (when re-statting)
-    my ($entry,$selected_flag) = @_;
-    my ($ptr,$too_long,$target);
-    my ($device,$inode,$mode,$nlink,$uid,$gid,$rdev,$size);
-    my ($atime,$mtime,$ctime,$blksize,$blocks);
-   ($device,$inode,$mode,$nlink,$uid,$gid,$rdev,$size,
-    $atime,$mtime,$ctime,$blksize,$blocks) = lstat $entry;
-    if (!defined $user{$uid})  { $user{$uid}=$uid }
-    if (!defined $group{$gid}) { $group{$gid}=$gid }
+    my ($entry, $selected_flag) = @_;
+    my ($ptr, $too_long, $target);
+#    my ($device,$inode,$mode,$nlink,$uid,$gid,$rdev,$size);
+#    my ($atime,$mtime,$ctime,$blksize,$blocks);
+    my ($device, $inode, $mode, $nlink, $uid, $gid, $rdev, $size, 
+            $atime, $mtime, $ctime, $blksize, $blocks) = lstat $entry;
+    if (!defined $user{$uid})  {  $user{$uid} = $uid }
+    if (!defined $group{$gid}) { $group{$gid} = $gid }
     $ptr = { name     => $entry,         device   => $device,
              inode    => $inode,         mode     => &mode2str($mode),
              uid      => $user{$uid},    gid      => $group{$gid},
@@ -1576,7 +1573,8 @@ sub stat_entry { # path_of_entry, selected_flag
              size     => $size,          atime    => $atime,
              mtime    => $mtime,         ctime    => $ctime,
              blksize  => $blksize,       blocks   => $blocks,
-             selected => $selected_flag };
+             selected => $selected_flag
+            };
     $ptr->{type}     = substr($ptr->{mode},0,1);
     $ptr->{target}   = $ptr->{type} eq 'l' ? ' -> '.readlink($ptr->{name}) : '';
     $ptr->{display}  = $entry.$ptr->{target};
@@ -1635,7 +1633,6 @@ sub countdircontents {
 }
 
 sub position_cursor {
-#    local $_;
     $currentline = 0;
     $baseindex   = 0 if $position_at eq '..'; # descending into this dir
     # next line corrects for directories with no entries at all
@@ -1694,7 +1691,7 @@ sub browse {
     $disk{avail} = $disk{total} - $disk{used} unless $disk{avail} =~ /%/;
     @disk{qw/mountpoint/} = $dflist[0] =~ /(\S*)$/;
     $0 = 'pfm [on '.($disk{device}eq'none'?$disk{mountpoint}:$disk{device}).']';
-
+    
     # now just reprint screen
     # hopefully we can someday put an end to all this last KEY/redo DISPLAY/
     #  last STRIDE shit
@@ -1705,7 +1702,6 @@ sub browse {
             if ( !defined $dircontents[$currentline+$baseindex] ) {
                 &recalc_ptr and &printdircontents(@dircontents);
             }
-#            %currentfile=%{$dircontents[$currentline+$baseindex]||&recalc_ptr};
             %currentfile=%{$dircontents[$currentline+$baseindex]};
             &highlightline(1);
             until ($scr->key_pressed(1)) {
@@ -1792,6 +1788,8 @@ sub browse {
                         &init_header($multiple_mode),
                         last KEY;
                     };
+                /^[/f]$/i and
+                    &handlefind($_) ? redo DISPLAY : last KEY;
                 /^[yo]$/i and
                     &handlecommand($_), redo DISPLAY;
                 /^m$/i and
@@ -1867,13 +1865,14 @@ editor:vi
 autoexitmultiple:1
 # use very visible cursor (block cursor on 'linux' type terminal)
 cursorveryvisible:1
-# write history automatically upon exit
+# write history files automatically upon exit
 autowritehistory:0
 # time to display copyright message at start (in seconds, fractions allowed)
 copyrightdelay:0.2
 # whether you want to have the screen cleared when pfm exits (0 or 1)
 clsonexit:0
 # have pfm ask for confirmation when you press 'q'uit? (always,never,marked)
+# 'marked' = ask only if there are any marked files in the current directory
 confirmquit:always
 # initial sort mode (see F6 command) (nNmMeEfFsSiItTdDaA) (n is default)
 sortmode:n
@@ -1970,7 +1969,7 @@ C<pfm> - Personal File Manager for Linux/Unix
 
 =head1 SYNOPSIS
 
-C<pfm >I<[directory]>
+C<pfm [>I<directory>C<]>
 
 =head1 DESCRIPTION
 
@@ -1978,26 +1977,39 @@ C<pfm> is a terminal-based file manager. This version was based on PFM.COM
 2.32, originally written for MS-DOS by Paul R. Culley and Henk de Heer.
 
 All C<pfm> commands are one- or two-letter commands (case-insensitive).
-C<pfm> operates in two modes: single-file mode and multiple-file mode.
+C<pfm> can operate in single-file mode or multiple-file mode.
 In single-file mode, the command corresponding to the keypress will be
-executed on the file next to the cursor only. In multiple-file mode,
-the command will apply to all marked files. You may switch modes by
-pressing B<F10>.
+executed on the file next to the cursor only. In multiple-file mode, the
+command will apply to all files which the user has previously marked.
+See FUNCTION KEYS below for the relevant commands.
 
-Note that in the following descriptions, I<file> can mean any type
+Note that throughout this manual page, I<file> can mean any type
 of file, not just plain regular files. These will be referred to as
 I<regular files>.
+
+=head1 OPTIONS
+
+=over
+
+You may specify a starting directory on the command line when invoking
+C<pfm>. There are no command line options. Configuration is read from a
+file, F<$HOME/.pfm/.pfmrc> , which is created automatically the first
+time you start C<pfm>. The file is supposed to be self-explanatory.
+See also MORE COMMANDS below.
+
+=back
 
 =head1 NAVIGATION
 
 =over
 
-Navigation through directories may be achieved by using the arrow keys,
-the C<vi>(1) cursor keys (B<hjkl>), B<->, B<+>, B<PgUp>, B<PgDn>,
-B<home>, B<end>, B<CTRL-F> and B<CTRL-B>. Pressing B<ESC> will take
-you one directory level up. Pressing B<ENTER> when the cursor is on a
-directory will take you into the directory. Pressing B<SPACE> will both
-mark the current file and advance the cursor.
+Navigation through directories is done using the arrow keys, the
+C<vi>(1) cursor keys (B<hjkl>), B<->, B<+>, B<PgUp>, B<PgDn>, B<home>,
+B<end>, B<CTRL-F>, B<CTRL-B>, B<CTRL-U>, B<CTRL-D>, B<CTRL-Y> and
+B<CTRL-E>. Pressing B<ESC> will take you one directory level up (but:
+see BUGS below). Pressing B<ENTER> when the cursor is on a directory
+will take you into the directory. Pressing B<SPACE> will both mark the
+current file and advance the cursor.
 
 =back
 
@@ -2014,10 +2026,10 @@ cannot be set. Read the C<chmod>(1) page for more details.
 
 =item B<Copy>
 
-Copy current file. You will be prompted for the destination file
-name. In multiple-file mode, it is not possible to copy files to the
-same destination file. Specify the destination name with escapes (see
-cB<O>mmand below).
+Copy current file. You will be prompted for the destination filename.
+In multiple-file mode, it is not allowed to specify a regular file
+for a destination. Specify the destination name with B<\1> or B<\2>
+(see cB<O>mmand below), or use a directory as destination.
 
 =item B<Delete>
 
@@ -2029,22 +2041,28 @@ Edit a file with your external editor. You can specify an editor with
 the environment variable C<EDITOR> or in the F<$HOME/.pfm/.pfmrc> file,
 else C<vi>(1) is used.
 
+=item B<Find>
+
+Prompts for a filename, then positions the cursor on that file.
+
 =item B<Include>
 
-Allows you to mark a group of files which meet a certain criterion: Every
-file, Oldmarks (reselects any files which were previously selected and
-are now marked with an I<oldmark> 'B<.>'), User (only files owned by you)
-or Files only (prompts for a regular expression which the filename must
-match). Oldmarks may be used to do multifile operations on a group of
-files more than once. If you Include Every, dotfiles will be included
-as well, except for the B<.> and B<..> directory entries.
+Allows you to mark a group of files which meet a certain criterion:
+B<E>very file, B<O>ldmarks (reselects any files which were previously
+marked and are now denoted with an I<oldmark> B<.> ), B<U>ser (only
+files owned by you) or B<F>iles only (prompts for a regular expression
+(not a glob pattern) which the filename must match). Oldmarks may be
+used to do multifile operations on a group of files more than once. If
+you B<I>nclude B<E>very, dotfiles will be included as well, except for
+the B<.> and B<..> directory entries.
 
 =item B<More>
 
-Presents you with a choice of operations not related to the
-current files. Use this to configure C<pfm>, edit a new file, make
-a new directory, or view a different directory. See B<More Commands>
-below. Pressing B<ESC> will take you back to the main menu.
+Presents you with a choice of operations not related to the current
+files. Use this to configure C<pfm>, edit a new file, make a new
+directory, show a different directory, or write the history files to
+disk. See MORE COMMANDS below. Pressing B<ESC> will take you back to
+the main menu.
 
 =item B<cOmmand>
 
@@ -2058,25 +2076,23 @@ command) as B<\5>. To enter a backslash, use B<\\>.
 
 =item B<Print>
 
-Print the specified file on the default system printer by piping it
-through your print command (default C<lpr -P$PRINTER>). No formatting
-is done. You may specify a print command in your F<$HOME/.pfm/.pfmrc>
-(see below).
+Print the specified file by piping it through your print command
+(default C<lpr -P$PRINTER>). No formatting is done. You may specify a
+print command in your F<$HOME/.pfm/.pfmrc> (see below).
 
 =item B<Quit>
 
-Exit C<pfm>. You may specify in your F<$HOME/.pfm/.pfmrc> whether C<pfm>
-will ask for confirmation (confirmquit:always|never|marked). 'marked'
-means you will only be asked for confirmation if there are any marked
-files in the current directory. Note that by pressing a capital 'Q'
-(quick quit), you will I<never> be asked for confirmation.
+Exit C<pfm>. You may specify in your F<$HOME/.pfm/.pfmrc> whether
+C<pfm> should ask for confirmation (option 'confirmquit').  Note that
+by pressing a capital Q (quick quit), you will I<never> be asked for
+confirmation. This is in fact the one case-sensitive command.
 
 =item B<Rename>
 
 Change the name of the file to the name specified. A different pathname
 and filename in the same filesystem is allowed. In multiple-file mode,
-the new name I<must> be a directoryname or a name containing escapes (see
-cB<O>mmand above).
+the new name I<must> be a directoryname or a name containing a B<\1>
+or B<\2> escape (see cB<O>mmand above).
 
 =item B<Show>
 
@@ -2086,14 +2102,14 @@ variable C<PAGER>, or in the F<$HOME/.pfm/.pfmrc> file.
 
 =item B<Time>
 
-Change timestamp of the file. The format used is converted to a format
-which C<touch>(1) can use. Enter 'B<.>' to set the timestamp to the current
-date and time.
+Change mtime (modification date/time) of the file. The format used is
+converted to a format which C<touch>(1) can use. Enter B<.> to set the
+mtime to the current date and time.
 
 =item B<Uid>
 
-Change ownership of a file. Note that many systems do not allow normal
-(non-C<root>) users to change ownership.
+Change ownership of a file. Note that many Unix variants do not allow
+normal (non-C<root>) users to change ownership.
 
 =item B<View>
 
@@ -2103,20 +2119,16 @@ target of the symbolic link.
 =item B<eXclude>
 
 Allows you to erase marks on a group of files which meet a certain
-criterion: B<E>very (all files), B<O>ldmarks (files which have an
-I<oldmark>, B<U>ser (only files owned by you) or B<F>iles only (prompts
-for a regular expression which the filename must match). If you eB<X>clude
-B<E>very, dotfiles will be excluded as well, except for the B<.> and
-B<..> entries.
+criterion. See B<I>nclude for details.
 
 =item B<Your command>
 
-Like B<O> command above, except that it uses your preconfigured
-commands. Filenames may be abbreviated with escapes just as in cB<O>mmand.
-Commands can be preconfigured by entering them in the configuration file
-as a I<letter>B<:>I<command> line, e.g.
+Like cB<O>mmand (see above), except that it uses commands that have
+been preconfigured in F<$HOME/.pfm/.pfmrc> by a I<letter>B<:>I<command>
+line. Commands may use B<\1>-B<\5> escapes just as in cB<O>mmand, e.g.
 
- T:tar tvfz \2
+ C:tar cvf - \2 | gzip > \2.tar.gz
+ W:what \2
 
 =back
 
@@ -2126,12 +2138,13 @@ as a I<letter>B<:>I<command> line, e.g.
 
 =item Config PFM
 
-This option will open the F<~/.pfm/.pfmrc> configuration file with your
-preferred editor. The file is supposed to be self-explanatory.
+This option will open the F<$HOME/.pfm/.pfmrc> configuration file with
+your preferred editor. The file is re-read by C<pfm> after you exit
+your editor.
 
 =item Edit new file
 
-You will be prompted for the new file name, then your editor will
+You will be prompted for the new filename, then your editor will
 be spawned.
 
 =item Make new directory
@@ -2147,6 +2160,15 @@ B<ENTER> will take you to your home directory. Be aware that this option
 is different from B<F7> because this will not change your current swap
 directory status.
 
+=item Write history
+
+C<pfm> uses the readline library for keeping track of the Unix commands,
+pathnames, regular expressions, mtimes, and file modes entered. The
+history is read from individual files in F<$HOME/.pfm/> every time
+C<pfm> starts. The history is written only when this command is given,
+or when C<pfm> exits and the 'autowritehistory' option is set in
+F<$HOME/.pfm/.pfmrc> .
+
 =back
 
 =head1 MISCELLANEOUS and FUNCTION KEYS
@@ -2155,7 +2177,7 @@ directory status.
 
 =item B<F1>
 
-Display help and licence information.
+Display help, version number and license information.
 
 =item B<F2>
 
@@ -2163,9 +2185,9 @@ Jump back to the previous directory.
 
 =item B<F3>
 
-Fit the file list into the current window and refresh. C<pfm> attempts to
-refresh the display when the window size changes, but should this fail,
-then press B<F3>.
+Fit the file list into the current window and refresh the display. C<pfm>
+attempts to refresh the display when the window size changes, but should
+this fail, then press B<F3>.
 
 =item B<F4>
 
@@ -2174,7 +2196,7 @@ Toggle the use of color.
 =item B<F5>
 
 Current directory will be reread. Use this when the contents of the
-directory have changed. I<This will erase all marks!>
+directory have changed. This command will erase all marks.
 
 =item B<F6>
 
@@ -2192,8 +2214,7 @@ may be referred to in commands as B<\5>.
 
 =item B<F8>
 
-Toggles the include flag (mark) on an individual file. B<SPACE> toggles
-the flag and moves the cursor to the next directory entry.
+Toggles the include flag (mark) on an individual file.
 
 =item B<F9>
 
@@ -2204,29 +2225,20 @@ or date, time, and inode number.
 
 Switch between single-file and multiple-file mode.
 
+=item B<SPACE>
+
+Toggles the include flag (mark) on an individual file and advances the
+cursor to the next directory entry.
+
 =item B<ENTER>
 
 Displays the contents of the current file or directory on the screen.
-If the current file is executable, this will execute the command.
-Be very careful with this key when running C<pfm> as C<root>!
+If the current file is executable, the executable will be invoked.
 
 =item B<ESC>
 
-Shows the parent directory of the shown dir (backup directory tree).
-
-=item input history
-
-A history is kept of the various items (e.g. pathnames, commands) being
-entered. The history is accessible using the arrow-up and down keys.
-
-=back
-
-=head1 OPTIONS
-
-=over
-
-You may specify a starting directory on the command line when invoking
-C<pfm>.
+Shows the parent directory of the current one (go up in the directory
+tree).
 
 =back
 
@@ -2264,7 +2276,8 @@ The editor to be used for the B<E>dit command.
 
 =item B<SHELL>
 
-Your default login shell, spawned by cB<O>mmand with an empty line.
+Your default login shell, spawned by cB<O>mmand when an empty line is
+entered.
 
 =back
 
@@ -2273,10 +2286,7 @@ Your default login shell, spawned by cB<O>mmand with an empty line.
 The directory F<$HOME/.pfm/> and files therein. Also, an input history
 is kept in this directory.
 
-=head1 BUGS
-
-Beware of the key repeat! When key repeat sets in, you may have more
-keyclicks in the buffer than expected.
+=head1 BUGS and WARNINGS
 
 When typed by itself, the B<ESC> key needs to be pressed twice. This is
 due to the lack of a proper timeout in C<Term::Screen.pm>.
@@ -2285,6 +2295,13 @@ In order to allow spaces in filenames, several commands assume they can
 safely surround filenames with double quotes. This prevents the correct
 processing of filenames containing double quotes.
 
+Sometimes when key repeat sets in, not all keypress events have been
+processed, although they have been registered. This can be dangerous
+when deleting files.
+
+The author once almost pressed ENTER when logged in as root and with
+the cursor next to F</sbin/reboot> . You have been warned.
+
 =head1 AUTHOR
 
 RenE<eacute> Uittenbogaard (ruittenbogaard@profuse.nl)
@@ -2292,8 +2309,12 @@ RenE<eacute> Uittenbogaard (ruittenbogaard@profuse.nl)
 =head1 SEE ALSO
 
 The documentation on PFM.COM . The mentioned man pages for
-C<chmod>(1), C<less>(1), C<lpr>(1), C<touch>(1). The man page for
+C<chmod>(1), C<less>(1), C<lpr>(1), C<touch>(1). The manual page for
 C<Term::ScreenColor.pm>(3).
+
+=head1 VERSION
+
+This manual pertains to C<pfm> version 1.35.
 
 =cut
 
