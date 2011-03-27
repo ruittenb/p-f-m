@@ -1,12 +1,12 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 2001-03-13 v1.39
+# @(#) pfm.pl 2001-03-16 v1.40
 #
 # Name:        pfm.pl
-# Version:     1.39
+# Version:     1.40
 # Author:      Rene Uittenbogaard
-# Date:        2001-03-13
+# Date:        2001-03-16
 # Usage:       pfm.pl [directory]
 # Requires:    Term::ScreenColor
 #              Term::Screen
@@ -24,8 +24,8 @@
 #        jump back to old current dir with F2: debug for F7 and > $#dircontents
 #        change F2 to use @old_cwd_at
 #        test pfm with -w
-#        handlechmod() does not use history correctly <- reproduce? <- as bsp?
 #        \5 should work in multiple copy/rename
+#        More -> Kill all child processes?
 # next:  clean up configuration options (yes/no,1/0,true/false)
 #        validate_position should not replace $baseindex when not necessary
 #        stat_entry() must *not* rebuild the selected_nr and total_nr lists:
@@ -66,22 +66,27 @@
 #             {type}
 
 ##########################################################################
-# declarations and initialization
+# requirements
 
-BEGIN {
-    $ENV{PERL_RL} = 'Gnu ornaments=0';
-}
+require 5.005; # for negative lookbehind in re
 
 use Term::ScreenColor;
 use Term::ReadLine;
 use Cwd;
 use strict;
-use vars qw($FIRSTREAD $REREAD $SHOWSHORT $SHOWLONG);
-use vars qw($HIGHLIGHT_OFF $HIGHLIGHT_ON $FALSE $TRUE $NARROWTIME $WIDETIME);
-use vars qw($SINGLEHEADER $MULTIHEADER $INCLUDEHEADER $MOREHEADER $SORTHEADER);
+use vars qw($FIRSTREAD $REREAD $SHOWSHORT $SHOWLONG
+            $HIGHLIGHT_OFF $HIGHLIGHT_ON $FALSE $TRUE $NARROWTIME $WIDETIME
+            $SINGLEHEADER $MULTIHEADER $INCLUDEHEADER $MOREHEADER $SORTHEADER);
 #use diagnostics; # so we can switch it on in '@'
 #disable diagnostics;
 #$^W = 0;
+
+BEGIN {
+    $ENV{PERL_RL} = 'Gnu ornaments=0';
+}
+
+##########################################################################
+# declarations and initialization
 
 *FIRSTREAD     = \0;
 *REREAD        = \1;
@@ -112,6 +117,7 @@ my $USERLINE            = 21;
 my $DATELINE            = 22;
 my $DATECOL             = 14;
 my $RESERVEDSCREENWIDTH = 60;
+my $CONFIGFILEMODE      = 0777;
 
 my @SORTMODES = ( n =>'Name',        N =>' reverse',
                  'm'=>' ignorecase', M =>' rev+ignorec',
@@ -129,6 +135,7 @@ my %TIMEHINTS = ( pfm   => '[[CC]YY]MMDDhhmm[.ss]',
 my $screenheight    = 20;    # inner height
 my $screenwidth     = 80;    # terminal width
 my $position_at     = '.';   # start with cursor here
+
 my @command_history = qw(true);
 my @mode_history    = qw(755 644);
 my @path_history    = ('/',$ENV{HOME});
@@ -177,7 +184,7 @@ sub read_pfmrc { # $rereadflag - 0=firstread 1=reread (for copyright message)
     %dircolors = %pfmrc = ();
     local $_;
     unless (-r "$CONFIGDIRNAME/$CONFIGFILENAME") {
-        mkdir $CONFIGDIRNAME, 0777 unless -d $CONFIGDIRNAME;
+        mkdir $CONFIGDIRNAME, $CONFIGFILEMODE unless -d $CONFIGDIRNAME;
         &write_pfmrc;
     }
     if (open PFMRC,"<$CONFIGDIRNAME/$CONFIGFILENAME") {
@@ -193,9 +200,9 @@ sub read_pfmrc { # $rereadflag - 0=firstread 1=reread (for copyright message)
         close PFMRC;
     }
     if (defined($pfmrc{usecolor}) && !$pfmrc{usecolor}) {
-        $scr->colorizable(0);
+        $scr->colorizable($FALSE);
     } elsif (defined($pfmrc{usecolor}) && ($pfmrc{usecolor}==2)) {
-        $scr->colorizable(1);
+        $scr->colorizable($TRUE);
     }
     &copyright($pfmrc{copyrightdelay}) unless ($_[0]);
     system ('tput', $pfmrc{cursorveryvisible} ? 'cvvis' : 'cnorm');
@@ -220,9 +227,6 @@ sub read_pfmrc { # $rereadflag - 0=firstread 1=reread (for copyright message)
     $editor           = $ENV{EDITOR} || $pfmrc{editor} || 'vi';
     $pager            = $ENV{PAGER}  || $pfmrc{pager}  ||
                             ($^O =~ /linux/i ? 'less' : 'more');
-#    foreach (keys %pfmrc) {
-#        $pfmrc{$_} =~ s/\^\[|\\e/\e/g; # insert escapes
-#    }
     $pfmrc{dircolors} ||= $ENV{LS_COLORS} || $ENV{LS_COLOURS};
     if ($pfmrc{dircolors}) {
         while ($pfmrc{dircolors} =~ /([^:=*]+)=([^:=]+)/g ) {
@@ -334,11 +338,11 @@ sub mode2str {
 sub fit2limit {
     my $neatletter = '';
     my $neatsize = $_[0];
-    my $limit = 9_999_999;
-    while ( $neatsize > $limit ) {
+    my $LIMIT = 9_999_999;
+    while ( $neatsize > $LIMIT ) {
         $neatsize = int($neatsize/1024);
         $neatletter =~ tr/KMGT/MGTP/ || do { $neatletter = 'K' };
-#        $limit = 999_999;
+#        $LIMIT = 999_999;
     }
     return ($neatsize, $neatletter);
 }
@@ -359,6 +363,7 @@ sub expand_escapes {
 }
 
 sub readintohist { # \@history
+    local $SIG{INT} = 'IGNORE';
     my ($history) = @_;
     my $input = '';
     $kbd->SetHistory(@$history);
@@ -444,9 +449,9 @@ sub applycolor {
 # small printing routines
 
 sub makeformatlines {
-    $uidlineformat ='@ @'.'<'x($screenwidth-$DATECOL-47)
+    $uidlineformat ='@ @' . '<' x ($screenwidth - $RESERVEDSCREENWIDTH - 1)
                    .'@@>>>>>>@ @<<<<<<< @<<<<<<<@###  @<<<<<<<<<';
-    $tdlineformat  ='@ @'.'<'x($screenwidth-$DATECOL-47)
+    $tdlineformat  ='@ @' . '<' x ($screenwidth - $RESERVEDSCREENWIDTH - 1)
                    .'@@>>>>>>@ @<<<<<<<<<<<<<<@###### @<<<<<<<<<';
 }
 
@@ -459,7 +464,7 @@ sub pathline {
     my $normaldevlen = 12;
     my $actualdevlen = max($normaldevlen, length($dev));
     # the three in the next exp is the length of the overflow char plus the '[]'
-    my $maxpathlen   = $screenwidth -$actualdevlen -3;
+    my $maxpathlen   = $screenwidth - $actualdevlen -3;
     my ($restpathlen, $disppath);
     $dev = $dev . ' 'x max($actualdevlen -length($dev), 0);
     FIT: {
@@ -523,15 +528,15 @@ sub fileline {
 }
 
 sub highlightline { # true/false
-    $scr->at($currentline+$BASELINE, 0);
+    $scr->at($currentline + $BASELINE, 0);
     $scr->bold() if ($_[0] == $HIGHLIGHT_ON);
     $scr->puts(&fileline(%currentfile));
-    &applycolor($currentline+$BASELINE, $SHOWSHORT, %currentfile);
+    &applycolor($currentline + $BASELINE, $SHOWSHORT, %currentfile);
     $scr->normal()->at($currentline + $BASELINE, 0);
 }
 
 sub markcurrentline { # letter
-    $scr->at($currentline+$BASELINE, 0)->puts($_[0]);
+    $scr->at($currentline + $BASELINE, 0)->puts($_[0]);
 }
 
 sub pressanykey {
@@ -594,7 +599,7 @@ sub print_with_shortcuts {
     $scr->puts($printme)->bold();
     while ($printme =~ /$pattern/g) {
         $pos = pos($printme) -1;
-        $scr->at(0,$pos)->puts(substr($printme,$pos,1));
+        $scr->at(0, $pos)->puts(substr($printme, $pos, 1));
     }
     $scr->normal();
 }
@@ -615,7 +620,7 @@ Config PFM Edit new file Make new dir Show dir Write history ESC to mainmenu
 Sort by: Name, Extension, Size, Date, Type, Inode (ignorecase, reverse):        
 _eoFirst_
     $scr->at(0,0);
-    &print_with_shortcuts($header[$mode].' 'x($screenwidth-80),
+    &print_with_shortcuts($header[$mode].' 'x($screenwidth - 80),
                           "[A-Z](?!FM|M E| Ed)");
     if ($mode == 1) {
         &digestcolor($multicolor);
@@ -2386,7 +2391,8 @@ C<Term::ScreenColor>(3) and C<Term::ReadLine::Gnu>(3).
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.39.
+This manual pertains to C<pfm> version 1.40.
 
 =cut
 
+# vi: set tabstop=4 shiftwidth=4 expandtab list:
