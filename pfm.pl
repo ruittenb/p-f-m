@@ -1,12 +1,12 @@
 #!/usr/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20011212 v1.54-oleg
+# @(#) pfm.pl 19990314-20020329 v1.56
 #
 # Name:        pfm.pl
-# Version:     1.54-oleg
+# Version:     1.56
 # Author:      Rene Uittenbogaard
-# Date:        2001-12-12
+# Date:        2002-03-29
 # Usage:       pfm.pl [directory]
 # Requires:    Term::ScreenColor
 #              Term::Screen
@@ -22,18 +22,23 @@
 # Description: Personal File Manager for Unix/Linux
 #
 # TO-DO:
-# first: jump back to old current dir with F2: debug for F7 and > $#dircontents
-#        use prompt from readline? <- done correctly?
-#        see if every command picks up \[12345] escapes correctly
+# first: test jump back with F2: test for F7 and > $#dircontents
+#        test if every command picks up \[12345] escapes correctly
+#        test if handlecopyrename() handles double quotes etc. well
+#        double quote support by using system(@) for all commands
 #        restat after rename?
-#        move interactive? test if terminal input reaches command correctly
+#        use quotemeta() for quoting?
+#        show/hide dot files
+#        customizable columns
 # next:  validate_position should not replace $baseindex when not necessary
 #        handleinclude can become faster with &$bla; instead of eval $bla;
+#        set ROWS en COLUMNS in environment for child processes; but see if
+#            this does not mess up with $scr->getrows etc. which use these
+#            variables internally; portability?
 #        stat_entry() must *not* rebuild the selected_nr and total_nr lists:
-#            this fucks up with e.g. cOmmand -> cp \2 /somewhere/else
-#            closely related to:
+#            this messes up with e.g. cOmmand -> cp \2 /somewhere/else
+#            (which is, therefore, still buggy). this is closely related to:
 #        sub countdircontents is not used
-#        consistent use of constants
 #        consistent use of gnu ornaments / cyan colored prompt
 #        cOmmand -> rm \2 will have to delete the entry from @dircontents;
 #            otherwise the mark count is not correct
@@ -191,12 +196,12 @@ my %HISTORIES = (
 my (%user, %group, %pfmrc, @signame, %dircolors, $maxfilenamelength,
     $wasresized, $scr, $kbd,
     $uidlineformat, $tdlineformat, $timeformat,
-    $sort_mode, $multiple_mode, $uid_mode, $swap_mode,
-    $swap_persistent, $swap_state,
+    $sort_mode, $multiple_mode, $uid_mode, $swap_mode, $dot_mode,
     $currentdir, @dircontents, %currentfile, $currentline, $baseindex,
-    $oldcurrentdir, %disk, %total_nr_of, %selected_nr_of,
+    $oldcurrentdir, %disk, $swap_state, %total_nr_of, %selected_nr_of,
     $editor, $pager, $printcmd, $showlockchar, $autoexitmultiple, $clobber,
     $cursorveryvisible, $clsonexit, $autowritehistory, $viewbase, $trspace,
+    $swap_persistent,
     $titlecolor, $footercolor, $headercolor, $swapcolor, $multicolor
 );
 
@@ -253,6 +258,7 @@ sub read_pfmrc { # $rereadflag - 0=firstread 1=reread (for copyright message)
     # (e.g. confirmquit) - however, they remain accessable in %pfmrc
     $clsonexit         = &yesno($pfmrc{clsonexit});
     $clobber           = &yesno($pfmrc{clobber});
+    $dot_mode          = &yesno($pfmrc{dotmode});
     $autowritehistory  = &yesno($pfmrc{autowritehistory});
     $autoexitmultiple  = &yesno($pfmrc{autoexitmultiple});
     $swap_persistent   = &yesno($pfmrc{persistentswap});
@@ -325,7 +331,7 @@ sub write_cwd {
 sub getversion {
     my $ver = '?';
     if ( open (SELF, $0) || open (SELF, `which $0`) ) {
-        foreach (grep /^# Version:/, <SELF>) {
+        foreach (grep /^#+ Version:/, <SELF>) {
             /([\d\.]+)/ and $ver = "$1";
         }
         close SELF;
@@ -339,7 +345,7 @@ sub init_uids {
         $user{$uid} = $name
     }
     endpwent;
-    return \%user;
+    return %user;
 }
 
 sub init_gids {
@@ -348,7 +354,7 @@ sub init_gids {
         $group{$gid} = $name
     }
     endgrent;
-    return \%group;
+    return %group;
 }
 
 sub init_signames {
@@ -358,7 +364,7 @@ sub init_signames {
 #        $signo{$name} = $i;
         $signame[$i++] = $_;
     }
-    return \@signame;
+    return @signame;
 }
 
 sub time2str {
@@ -386,8 +392,10 @@ sub mode2str {
     my $octmode  = sprintf("%lo", $nummode);
     my @strmodes = (qw/--- --x -w- -wx r-- r-x rw- rwx/);
     $octmode     =~ /(\d\d?)(\d)(\d)(\d)(\d)$/;
-    $strmode     = substr('?pc?d?b?-?l?s?=D=?=?d', oct($1), 1)
+    $strmode     = substr('-pc?d?b?-?l?s?=D=?=?d', oct($1), 1)
                  . $strmodes[$3] . $strmodes[$4] . $strmodes[$5];
+                 # first  - is continuation inode for ext2,
+                 # second - is regular file
                  # first  d for Linux, OSF1, Solaris
                  # second d for AIX
     if ($2 & 4) {       substr( $strmode,3,1) =~ tr/-x/Ss/ }
@@ -426,8 +434,9 @@ sub expand_345_escapes {
     $_[0] =~ s/((?<!\\)(?:\\\\)*)\\4/$1$disk{mountpoint}/g;
     $_[0] =~ s/((?<!\\)(?:\\\\)*)\\5/$1$swap_state->{path}/g if $swap_state;
     # readline understands ~ notation; now we understand it too
-    $_[0] =~ s/^~\//$ENV{HOME}\//;
-    $_[0] =~ s/^~([^:\/]+)/(getpwnam $1)[7]/e;
+    # ~user is not replaced if it is not in the passwd file
+    $_[0] =~ s/^~(\/|$)/$ENV{HOME}\//;
+    $_[0] =~ s/^~([^:\/]+)/(getpwnam $1)[7] || "~$1"/e;
 }
 
 sub expand_escapes {
@@ -456,11 +465,11 @@ sub yesno {
 }
 
 sub min ($$) {
-    return ($_[1] < $_[0]) ? $_[1] : $_[0];
+    return +($_[1] < $_[0]) ? $_[1] : $_[0];
 }
 
 sub max ($$) {
-    return ($_[1] > $_[0]) ? $_[1] : $_[0];
+    return +($_[1] > $_[0]) ? $_[1] : $_[0];
 }
 
 # alternatively
@@ -471,11 +480,31 @@ sub max ($$) {
 #    }
 #    return $max;
 #}
+# or:
+#sub max (@) {
+#    return +(sort { $b <=> $a } @_)[0];
+#}
+
+sub findchangedir {
+    my $goal = $_[0];
+    if (!-d $goal and $goal !~ /\//) {
+        foreach (split /:/, $ENV{CDPATH}) {
+            if (-d "$_/$goal") {
+                $goal = "$_/$goal";
+                $scr->at(0,0)->clreol();
+                &display_error("Using $goal");
+                $scr->at(0,0);
+                last;
+            }
+        }
+    }
+    return chdir $goal;
+}
 
 sub mychdir ($) {
     my $target = $_[0];
     my $result;
-    if ($result = chdir $target and $target ne $currentdir) {
+    if ($result = &findchangedir($target) and $target ne $currentdir) {
         $oldcurrentdir = $currentdir;
     }
     $currentdir = getcwd() || $ENV{HOME};
@@ -559,7 +588,7 @@ sub pathline {
     # all those exceptions
     my ($path, $dev) = @_;
     my $overflow     = ' ';
-    my $elision      = '..';
+    my $ELISION      = '..';
     my $normaldevlen = 12;
     my $actualdevlen = max($normaldevlen, length($dev));
     # the three in the next exp is the length of the overflow char plus the '[]'
@@ -579,7 +608,7 @@ sub pathline {
             }
             ($disppath, $path) = ($1, $2);
             # the one being subtracted is for the '/' char in the next match
-            $restpathlen = $maxpathlen -length($disppath) -length($elision) -1;
+            $restpathlen = $maxpathlen -length($disppath) -length($ELISION) -1;
             unless ($path =~ /(\/.{1,$restpathlen})$/) {
                 # impossible to replace; just truncate
                 # this is the case for e.g. /usr/someinsanelylongdirectoryname
@@ -588,7 +617,7 @@ sub pathline {
                 last FIT;
             }
             # pathname component candidate for replacement found; name will fit
-            $disppath .= $elision . $1;
+            $disppath .= $ELISION . $1;
         }
     }
     return $disppath . ' 'x max($maxpathlen -length($disppath), 0)
@@ -715,7 +744,7 @@ sub init_header { # "multiple"mode
 Attr Time Copy Del Edit Find Print Rename Show Uid View Your cOmmand Quit More  
 Multiple Include eXclude Attribute Time Copy Delete Print Rename Your cOmmands  
 Include? Every, Oldmarks, User or Files only:                                   
-Config PFM Edit new file Make new dir Show dir Kill children Write history ESC  
+Config PFM Edit new file Make new dir sHell Show dir Kill Write history ESC     
 Sort by: Name, Extension, Size, Date, Type, Inode (ignorecase, reverse):        
 _eoFirst_
     $scr->at(0,0);
@@ -765,7 +794,7 @@ _eoFunction_
 
 sub copyright {
     $scr->cyan()->puts("PFM $VERSION for Unix computers and compatibles.")
-        ->at(1,0)->puts("Copyright (c) 1999-2001 Rene Uittenbogaard")
+        ->at(1,0)->puts("Copyright (c) 1999-2002 Rene Uittenbogaard")
         ->at(2,0)->puts("This software comes with no warranty: see the file "
                        ."COPYING for details.")->normal();
     return $scr->key_pressed($_[0]);
@@ -778,9 +807,9 @@ sub globalinit {
     $kbd = Term::ReadLine->new('Pfm', \*STDIN, \*STDOUT);
     &read_pfmrc($FIRSTREAD);
     &read_history;
-    %user    = %{&init_uids};
-    %group   = %{&init_gids};
-    @signame = @{&init_signames};
+    %user    = &init_uids;
+    %group   = &init_gids;
+    @signame = &init_signames;
     %selected_nr_of = %total_nr_of = ();
     $swap_state = $swap_mode = $multiple_mode = 0;
     if ($scr->getrows()) { $screenheight = $scr->getrows()-$BASELINE-2 }
@@ -823,7 +852,7 @@ sub credits {
 
              PFM for Unix computers and compatibles.  Version $VERSION
              Original idea/design: Paul R. Culley and Henk de Heer
-             Author and Copyright (c) 1999-2001 Rene Uittenbogaard
+             Author and Copyright (c) 1999-2002 Rene Uittenbogaard
 
 
        PFM is distributed under the GNU General Public License version 2.
@@ -999,6 +1028,11 @@ sub handleadvance {
     goto &handlemove; # this autopasses the " " key in $_[0] to &handlemove
 }
 
+sub handledot {
+    &toggle($dot_mode);
+    return $R_DIRLISTING;
+}
+
 sub handleshowenter {
     my $followmode = &mode2str((stat $currentfile{name})[2]);
     if ($followmode =~ /^d/) {
@@ -1047,6 +1081,8 @@ sub handlefit {
     my $newheight = $scr->getrows();
     my $newwidth  = $scr->getcols();
     if ($newheight || $newwidth) {
+#        $ENV{ROWS}    = $newheight;
+#        $ENV{COLUMNS} = $newwidth;
         $screenheight = $newheight - $BASELINE - 2;
         $screenwidth  = $newwidth;
         $maxfilenamelength = $screenwidth - $RESERVEDSCREENWIDTH;
@@ -1058,23 +1094,6 @@ sub handlefit {
         return $R_CLEAR;
     }
 }
-
-# oleg@sai.msu.su
-# quick and dirty hack !
-# 1. needs save previous size
-# 2. needs calc. new width to try fit maxfilenamelength 
-sub togglewidth {
- if ( $scr->getcols() <= 80 ) {
-    system('resize -s 24 120');
-    $scr->resize(120,84);
- } else {
-    system('resize -s 24 80');
-    $scr->resize(80,24);
- }
- resizehandler();
- return $R_CLEAR;
-}
-######################
 
 sub handleperlcommand {
     my $perlcmd;
@@ -1158,7 +1177,7 @@ sub handlemoreedit {
 
 sub handlemorekill {
     my $printline   = $BASELINE;
-    my $stateprompt = 'Signal: ';
+    my $stateprompt = 'Signal to send to child processes: ';
     my $signal      = 'TERM';
     &init_title($swap_mode, $uid_mode+9);
     &clearcolumn;
@@ -1181,6 +1200,15 @@ sub handlemorekill {
     return $R_SCREEN;
 }
 
+sub handlemoreshell {
+    $scr->clrscr->cooked;
+#    @ENV{qw(ROWS COLUMNS)} = ($screenheight + $BASELINE + 2, $screenwidth);
+    system ($ENV{SHELL} ? $ENV{SHELL} : 'ksh'); # most portable
+#    $scr->raw; # done in &pressanykey
+    &pressanykey;
+    return $R_CLEAR;
+}
+
 sub handlemore {
     local $_;
     my $do_a_refresh = $R_SCREEN;
@@ -1192,8 +1220,10 @@ sub handlemore {
         /^m$/i and $do_a_refresh = &handlemoremake,   last MOREKEY;
         /^c$/i and $do_a_refresh = &handlemoreconfig, last MOREKEY;
         /^e$/i and $do_a_refresh = &handlemoreedit,   last MOREKEY;
+        /^h$/i and $do_a_refresh = &handlemoreshell,  last MOREKEY;
         /^w$/i and &write_history,                    last MOREKEY;
         /^k$/i and &handlemorekill,                   last MOREKEY;
+#        /^p$/i and &handlemoreprocgroup,              last MOREKEY;
     }
     return $do_a_refresh;
 }
@@ -1317,19 +1347,18 @@ sub handlesort {
         $sort_mode   = $key;
         $position_at = $currentfile{name};
         @dircontents = sort as_requested @dircontents;
-# oleg@sai.msu.su - don't sort '.', '..', needs some thought :-)
-#        @dircontents =  sort as_requested grep { ${$_}{name}!~ /^(\.){1,2}$/ } @dircontents;
     }
     return $R_SCREEN; # the column with sort modes should be restored anyway
 }
 
 sub handlechown {
     my ($newuid, $loopfile, $do_this, $index);
+    my $prompt = 'New user[:group] : ';
     my $do_a_refresh = $multiple_mode ? $R_SCREEN : $R_HEADER;
     &markcurrentline('U') unless $multiple_mode;
-    $scr->at(0,0)->clreol()->bold()->cyan()
-        ->puts("New user[:group] : ")->normal()->cooked();
-    chop ($newuid = <STDIN>);
+    $scr->at(0,0)->clreol()->cooked();
+    chomp($newuid = &readintohist(\@mode_history, $prompt)); # ornaments
+#    chop ($newuid = <STDIN>);
     $scr->raw();
     return $R_HEADER if ($newuid eq '');
     $do_this = 'system qq/chown '.$newuid.' $loopfile->{name}/ '
@@ -1361,7 +1390,6 @@ sub handlechmod {
     my $do_a_refresh = $multiple_mode ? $R_SCREEN : $R_HEADER;
     &markcurrentline('A') unless $multiple_mode;
     $scr->at(0,0)->clreol()->cooked();
-#    $scr->bold()->cyan()->puts($prompt)->normal();
     chomp($newmode = &readintohist(\@mode_history, $prompt)); # ornaments
     $scr->raw();
     return $R_HEADER if ($newmode eq '');
@@ -1416,14 +1444,7 @@ sub handlecommand { # Y or O
                    ->puts('Enter one of the highlighted chars at right:')
                    ->at(0,45)->normal()->getch();
         &clearcolumn;
-# oleg@sai.msu.su
-# first check actual $key, if no command associated then try to ignore case of $key
-        return $R_SCREEN if ( !( 
-                                 ( $command = $pfmrc{$key}  )    || 
-                                 ( $command = $pfmrc{lc($key)} ) || 
-                                 ( $command = $pfmrc{uc($key)} ) 
-                               ) 
-                            );
+        return $R_SCREEN unless ($command = $pfmrc{uc($key)}); # assignment!
         $scr->cooked();
     } else { # cOmmand
         $printstr = <<'_eoPrompt_';
@@ -1433,40 +1454,41 @@ _eoPrompt_
             ->at(1,0)->clreol()->cooked();
         $command = &readintohist(\@command_history);
     }
-# oleg@sai.msu.su - I don't like to invoke shell implicitly (esp in multiple mode), 
-# it's easy just enter "bash" if needed
 #    $command =~ s/^\s*\n?$/$ENV{'SHELL'}/;
-#    $command .= "\n";
-    if ($multiple_mode) {
-        $scr->clrscr()->at(0,0);
-        for $index (0..$#dircontents) {
-            $loopfile = $dircontents[$index];
-            if ($loopfile->{selected} eq '*') {
-                &exclude($loopfile,'.');
-                $do_this = $command;
-                &expand_escapes($do_this,$loopfile);
-                $scr->puts($do_this);
-                system ($do_this) and &display_error($!);
-                $dircontents[$index] =
-                    &stat_entry($loopfile->{name},$loopfile->{selected});
-                if ($dircontents[$index]{mode} =~ /^\?/) {
-                    $dircontents[$index]{display} .= " $LOSTMSG";
+    unless ($command =~ /^\s*\n?$/) {
+        $command .= "\n";
+        if ($multiple_mode) {
+            $scr->clrscr()->at(0,0);
+            for $index (0..$#dircontents) {
+                $loopfile = $dircontents[$index];
+                if ($loopfile->{selected} eq '*') {
+                    &exclude($loopfile,'.');
+                    $do_this = $command;
+                    &expand_escapes($do_this,$loopfile);
+                    $scr->puts($do_this);
+                    system ($do_this) and &display_error($!);
+                    $dircontents[$index] =
+                        &stat_entry($loopfile->{name},$loopfile->{selected});
+                    if ($dircontents[$index]{mode} =~ /^\?/) {
+                        $dircontents[$index]{display} .= " $LOSTMSG";
+                    }
                 }
             }
+            $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
+        } else {
+            $loopfile = \%currentfile;
+            &expand_escapes($command, \%currentfile);
+            $scr->clrscr()->at(0,0)->puts($command);
+            system ($command) and &display_error($!);
+            $dircontents[$currentline+$baseindex] =
+                &stat_entry($currentfile{name}, $currentfile{selected});
+            if ($dircontents[$currentline+$baseindex]{nlink} == 0) {
+                $dircontents[$currentline+$baseindex]{display} .= " $LOSTMSG";
+            }
         }
-        $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
-    } else {
-        $loopfile = \%currentfile;
-        &expand_escapes($command, \%currentfile);
-        $scr->clrscr()->at(0,0)->puts($command);
-        system ($command) and &display_error($!);
-        $dircontents[$currentline+$baseindex] =
-            &stat_entry($currentfile{name}, $currentfile{selected});
-        if ($dircontents[$currentline+$baseindex]{mode} =~ /^\?/) {
-            $dircontents[$currentline+$baseindex]{display} .= " $LOSTMSG";
-        }
+        &pressanykey;
     }
-    &pressanykey;
+    $scr->raw();
     return $R_CLEAR;
 }
 
@@ -1650,9 +1672,9 @@ sub handleedit {
 
 sub handlecopyrename {
     my $state = "\u$_[0]";
-    my $statecmd = ($state eq 'C' ? 'cp' : 'mv') . ($clobber ? '' : ' -i');
+    my $statecmd = ($state eq 'C' ? 'cp' : 'mv');
     my $stateprompt = $state eq 'C' ? 'Destination: ' : 'New name: ';
-    my ($loopfile, $index, $newname, $command, $do_this);
+    my ($loopfile, $index, $newname, $newnameexpanded, $command);
     my $do_a_refresh = $R_HEADER;
     &markcurrentline($state) unless $multiple_mode;
     $scr->at(0,0)->clreol()->cooked();
@@ -1677,19 +1699,22 @@ sub handlecopyrename {
         &path_info;
         return $R_HEADER;
     }
-    # this assumes there are no " characters in the filename
-    $command = 'system qq{'.$statecmd.' "$loopfile->{name}" "'.$newname.'"}';
+#    $command = 'system qq{'.$statecmd.' "$loopfile->{name}" "'.$newname.'"}';
+    $command = 'system ($statecmd,' . ($clobber ? '' : "'-i',") .
+               '$loopfile->{name}, $newnameexpanded)';
     if ($multiple_mode) {
-        $scr->at(1,0)->clreol();
+#        $scr->at(1,0)->clreol();
         for $index (0..$#dircontents) {
             $loopfile = $dircontents[$index];
             if ($loopfile->{selected} eq '*') {
-                &exclude($loopfile,'.');
-                $do_this = $command;
-                &expand_escapes($do_this, $loopfile);
-                $scr->at(1,0)->puts($loopfile->{name});
+                &exclude($loopfile, '.');
+#                $do_this = $command;
+#                &expand_escapes($do_this, $loopfile);
+                &expand_escapes(($newnameexpanded = $newname), $loopfile);
+                $scr->at(1,0)->clreol()->puts($loopfile->{name});
                 $scr->cooked() unless $clobber;
-                eval ($do_this) and
+#                eval ($do_this) and
+                eval ($command) and
                     $scr->raw()->at(0,0)->clreol(),&display_error($!);
                 $scr->raw() unless $clobber;
                 $do_a_refresh = $R_SCREEN;
@@ -1698,7 +1723,8 @@ sub handlecopyrename {
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
         $loopfile = \%currentfile;
-        &expand_escapes($command,$loopfile);
+#        &expand_escapes($command, $loopfile);
+        &expand_escapes(($newnameexpanded = $newname), $loopfile);
         $scr->cooked() unless $clobber;
         eval ($command) and do {
                 $scr->raw()->at(0,0)->clreol();
@@ -1926,11 +1952,7 @@ sub getdircontents { # (current)directory
     &init_header($multiple_mode);
     &init_title($swap_mode, $uid_mode);
     if ( opendir CURRENT, "$_[0]" ) {
-#        @allentries = readdir CURRENT;
-# oleg@sai.msu.su
-# toggle - show/hide hidden files 
-        @allentries = ( $_[1] ) ? readdir CURRENT :
-                                grep { !/^\.[\w\d\s]+/ } readdir CURRENT;
+        @allentries = readdir CURRENT;
         closedir CURRENT;
     } else {
         $scr->at(0,0)->clreol();
@@ -1955,7 +1977,6 @@ sub getdircontents { # (current)directory
 
 sub printdircontents { # @contents
     foreach my $i ($baseindex .. $baseindex+$screenheight) {
-# oleg@sai.msu.su
         unless ($i > $#_) {
             $scr->at($i+$BASELINE-$baseindex,0)->puts(&fileline(%{$_[$i]}));
             &applycolor($i+$BASELINE-$baseindex, $SHOWSHORT, %{$_[$i]});
@@ -2072,7 +2093,6 @@ sub redisplayscreen {
 
 sub browse {
     my ($key, $result);
-    my $togglehidden;
     # collect info
     $currentdir = getcwd();
     %disk       = &get_filesystem_info;
@@ -2081,7 +2101,7 @@ sub browse {
         %total_nr_of    = ( d=>0, l=>0, '-'=>0, c=>0, b=>0, 's'=>0, p=>0, D=>0);
         %selected_nr_of = ( d=>0, l=>0, '-'=>0, c=>0, b=>0, 's'=>0, p=>0, D=>0,
                             bytes=>0 );
-        @dircontents    = sort as_requested (&getdircontents($currentdir,$togglehidden));
+        @dircontents    = sort as_requested (&getdircontents($currentdir));
         DISPLAY: do {
             &redisplayscreen;
             if ($position_at ne '') { &position_cursor }
@@ -2099,7 +2119,7 @@ sub browse {
                     }
                     if ($wasresized) { # the terminal was resized
                         $result = &resizehandler;
-                    # the next line is an assignment on purpose
+                    # the next line contains an assignment on purpose
                     } elsif ($scr->key_pressed() and $key = $scr->getch()) {
                         &highlightline($HIGHLIGHT_OFF);
                         KEY: for ($key) {
@@ -2131,13 +2151,10 @@ sub browse {
                         /^[\/f]$/i and $result = &handlefind,          last KEY;
                         /^k1$/     and $result = &handlehelp,          last KEY;
                         /^k2$/     and $result = &handlecdold,         last KEY;
+                        /\./       and $result = &handledot,           last KEY;
                         /^k9$/     and $result = &handlecolumns,       last KEY;
                         /^k4$/     and $result = &handlecolor,         last KEY;
                         /^\@$/     and $result = &handleperlcommand,   last KEY;
-# oleg@sai.msu.su
-                        /^w$/i    and $result = &togglewidth,         last KEY;
-                        /^\.$/i   and $togglehidden = ( $togglehidden ) ? 0:1, goto DIRCONTENTS;
-#####################
                         /^u$/i     and $result = &handlechown,         last KEY;
                         } # end KEY
                     } # end if $key
@@ -2164,93 +2181,95 @@ exit 0;
 
 __DATA__
 ##########################################################################
-# Configuration file for Personal File Manager
-# Version x
+## Configuration file for Personal File Manager
+## Version x
 
-# every option line in this file should have the form:
-# [whitespace] option [whitespace]:[whitespace] value
-# (whitespace is optional)
-# in other words: /^\s*([^:\s]+)\s*:\s*(.*)$/
-# everything following a # is regarded as a comment.
-# lines may be continued on the next line by ending them in \
+## every option line in this file should have the form:
+## [whitespace] option [whitespace]:[whitespace] value
+## (whitespace is optional)
+## in other words: /^\s*([^:\s]+)\s*:\s*(.*)$/
+## everything following a # is regarded as a comment.
+## lines may be continued on the next line by ending them in \
 
-# binary options may have yes/no, true/false, on/off, or 0/1 values.
-# some options can be set using environment variables.
-# your environment settings override the options in this file.
+## binary options may have yes/no, true/false, on/off, or 0/1 values.
+## some options can be set using environment variables.
+## your environment settings override the options in this file.
 
 ##########################################################################
-# General
+## General
 
-# specify your favorite editor. you can also use $EDITOR for this
+## specify your favorite editor. you can also use $EDITOR for this
 editor:vi
-# your pager. you can also use $PAGER
+## your pager. you can also use $PAGER
 #pager:less
-# your system's print command. Specify if the default 'lpr' does not work.
+## your system's print command. Specify if the default 'lpr' does not work.
 #printcmd:lp -d$ENV{PRINTER}
 
-# the erase character for your terminal (default: don't set)
+## the erase character for your terminal (default: don't set)
 #erase:^H
-# the keymap to use in readline (vi,emacs). (default emacs)
+## the keymap to use in readline (vi,emacs). (default emacs)
 #keymap:vi
 
-# whether multiple file mode should be exited after executing a multiple command
+## whether multiple file mode should be exited after executing a multiple command
 autoexitmultiple:yes
-# write history files automatically upon exit
+## write history files automatically upon exit
 autowritehistory:no
-# automatically clobber existing files
+## automatically clobber existing files
 clobber:no
-# whether you want to have the screen cleared when pfm exits
+## whether you want to have the screen cleared when pfm exits
 clsonexit:no
-# have pfm ask for confirmation when you press 'q'uit? (yes,no,marked)
-# 'marked' = ask only if there are any marked files in the current directory
+## have pfm ask for confirmation when you press 'q'uit? (yes,no,marked)
+## 'marked' = ask only if there are any marked files in the current directory
 confirmquit:yes
-# time to display copyright message at start (in seconds, fractions allowed)
+## time to display copyright message at start (in seconds, fractions allowed)
 copyrightdelay:0.2
-# use very visible cursor (e.g. block cursor on 'linux' type terminal)
+## use very visible cursor (e.g. block cursor on 'linux' type terminal)
 cursorveryvisible:yes
-# F7 key swap path method is persistent? (default no)
+## show dot files or hide them (not implemented)
+#dotmode:yes
+## F7 key swap path method is persistent? (default no)
 #persistentswap:yes
-# show whether mandatory locking is enabled (e.g. -rw-r-lr-- ) (yes,no,sun)
-# 'sun' = show locking only on sunos/solaris
+## show whether mandatory locking is enabled (e.g. -rw-r-lr-- ) (yes,no,sun)
+## 'sun' = show locking only on sunos/solaris
 showlock:sun
-# initial sort mode (see F6 command) (nNmMeEfFsSiItTdDaA) (default n)
+## initial sort mode (see F6 command) (nNmMeEfFsSiItTdDaA) (default n)
 sortmode:n
-# format for time: touch MMDDhhmm[[CC]YY][.ss] or pfm [[CC]YY]MMDDhhmm[.ss]
+## format for time: touch MMDDhhmm[[CC]YY][.ss] or pfm [[CC]YY]MMDDhhmm[.ss]
 timeformat:pfm
-# translate spaces when Viewing
+## translate spaces when Viewing
 translatespace:no
-# initial title bar mode (F9 command) (mtime,uid,atime) (default mtime)
+## initial title bar mode (F9 command) (mtime,uid,atime) (default mtime)
 uidmode:mtime
-# base number system to View non-ascii characters with (hex,oct)
+## base number system to View non-ascii characters with (hex,oct)
 viewbase:hex
 
 ##########################################################################
-# Colors
+## Colors
 
-# use color (yes,no,force)
-# 'no'    = use no color at all
-# 'yes'   = use color for title bars, if your terminal supports it
-# 'force' = use color for title bars on any terminal
-# your *files* will only be colored if you also define 'dircolors' below
+## use color (yes,no,force)
+## 'no'    = use no color at all
+## 'yes'   = use color for title bars, if your terminal supports it
+## 'force' = use color for title bars on any terminal
+## your *files* will only be colored if you also define 'dircolors' below
 usecolor:force
 
-# 'dircolors' defines the colors that will be used for your files.
-# for your files to become colored, you must set 'usecolor' to 1.
-# see also the manpages for ls(1) and dircolors(1L) (on Linux systems).
-# you can also use $LS_COLORS or $LS_COLOURS to set this.
+## 'dircolors' defines the colors that will be used for your files.
+## for your files to become colored, you must set 'usecolor' to 1.
+## see also the manpages for ls(1) and dircolors(1L) (on Linux systems).
+## you can also use $LS_COLORS or $LS_COLOURS to set this.
 
-#-attribute codes:
-# 00=none 01=bold 04=underscore 05=blink 07=reverse 08=concealed(?)
-#-text color codes:
-# 30=black 31=red 32=green 33=yellow 34=blue 35=magenta 36=cyan 37=white
-#-background color codes:
-# 40=black 41=red 42=green 43=yellow 44=blue 45=magenta 46=cyan 47=white
-#-file types:
-# no=normal fi=file di=directory ln=symlink pi=fifo so=socket bd=block special
-# cd=character special or=orphan link mi=missing link ex=executable
-# *.<ext> defines extension colors
+##-attribute codes:
+## 00=none 01=bold 04=underscore 05=blink 07=reverse 08=concealed(?)
+##-text color codes:
+## 30=black 31=red 32=green 33=yellow 34=blue 35=magenta 36=cyan 37=white
+##-background color codes:
+## 40=black 41=red 42=green 43=yellow 44=blue 45=magenta 46=cyan 47=white
+##-file types:
+## no=normal fi=file di=directory ln=symlink pi=fifo so=socket bd=block special
+## cd=character special or=orphan link mi=missing link ex=executable
+## *.<ext> defines extension colors
 
-# you may specify the escape as a real escape, as \e or as ^[ (caret, bracket)
+## you may specify the escape as a real escape, as \e or as ^[ (caret, bracket)
 
 dircolors:no=00:fi=00:di=01;34:ln=01;36:pi=00;40;33:so=01;35:bd=40;33;01:\
 cd=40;33;01:or=01;05;37;41:mi=01;05;37;41:ex=00;32:lc=^[[:rc=m:\
@@ -2260,12 +2279,12 @@ cd=40;33;01:or=01;05;37;41:mi=01;05;37;41:ex=00;32:lc=^[[:rc=m:\
 *.jpg=01;35:*.gif=01;35:*.bmp=01;35:*.xbm=01;35:*.xpm=01;35:\
 *.mpg=01;37:*.avi=01;37:*.gl=01;37:*.dl=01;37:*.htm=01;33:*.html=01;33
 
-# use this if you want no colors for your files, but only for the title bars
+## use this if you want no colors for your files, but only for the title bars
 #dircolors:-
 
-# colors for header, title, footer
-# regardless of these settings, the footer will always be bold
-# these are commented out because they are the defaults
+## colors for header, title, footer
+## regardless of these settings, the footer will always be bold
+## these are commented out because they are the defaults
 #headercolor:37;44
 #multicolor:36;47
 #titlecolor:36;47;07;01
@@ -2273,9 +2292,9 @@ cd=40;33;01:or=01;05;37;41:mi=01;05;37;41:ex=00;32:lc=^[[:rc=m:\
 #footercolor:34;47;07
 
 ##########################################################################
-# Your commands
+## Your commands
 
-# these assume you do not have filenames with double quotes in them
+## these assume you do not have filenames with double quotes in them
 
 B:xv -root +noresetroot +smooth -maxpect -quit "\2"
 C:tar cvf - "\2" | gzip > "\2".tar.gz
@@ -2283,7 +2302,7 @@ D:uudecode "\2"
 E:unarj l "\2" | more
 F:file "\2"
 G:gvim "\2"
-I:rpm -qp -i "\2"
+I:rpm -qpi "\2"
 J:mpg123 "\2" &
 L:mv -i "\2" "`echo \"\2\" | tr A-Z a-z`"
 N:nroff -man "\2" | more
@@ -2299,7 +2318,7 @@ X:gunzip < "\2" | tar xvf -
 Y:lynx "\2"
 Z:gzip "\2"
 
-# vi: set filetype=xdefaults: # close enough, just not for multiline strings
+## vi: set filetype=xdefaults: # close enough, just not for multiline strings
 __END__
 
 ##########################################################################
@@ -2349,7 +2368,7 @@ See also MORE COMMANDS below.
 Navigation through directories is done using the arrow keys, the
 C<vi>(1) cursor keys (B<hjkl>), B<->, B<+>, B<PgUp>, B<PgDn>, B<home>,
 B<end>, B<CTRL-F>, B<CTRL-B>, B<CTRL-U>, B<CTRL-D>, B<CTRL-Y> and
-B<CTRL-E>. Pressing B<ESC> will take you one directory level up (but:
+B<CTRL-E>. Pressing B<ESC> will take you one directory level up (note:
 see BUGS below). Pressing B<ENTER> when the cursor is on a directory
 will take you into the directory. Pressing B<SPACE> will both mark the
 current file and advance the cursor.
@@ -2360,14 +2379,18 @@ current file and advance the cursor.
 
 =over
 
-=item B<@>
+=item B<.>
 
-Allows the user to enter a perl command to be executed in the context
-of C<pfm>. Primarily used for debugging.
+Show/hide dot files (not implemented).
 
 =item B</>
 
 Identical to B<F>ind.
+
+=item B<@>
+
+Allows the user to enter a perl command to be executed in the context
+of C<pfm>. Primarily used for debugging.
 
 =item B<Attrib>
 
@@ -2637,6 +2660,12 @@ following (example for C<bash>(1), add it to your F<.profile>):
 
 =over
 
+=item B<CDPATH>
+
+A colon-separated list of directories specifying the search path when
+changing directories. There is an implicit '.' entry at the start of this
+search path.
+
 =item B<EDITOR>
 
 The editor to be used for the B<E>dit command.
@@ -2688,7 +2717,7 @@ root and with the cursor next to F</sbin/reboot> . You have been warned.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.54 .
+This manual pertains to C<pfm> version 1.56 .
 
 =head1 SEE ALSO
 
