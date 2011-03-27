@@ -1,10 +1,10 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20010430 v1.47
+# @(#) pfm.pl 19990314-20010430 v1.48
 #
 # Name:        pfm.pl
-# Version:     1.47
+# Version:     1.48
 # Author:      Rene Uittenbogaard
 # Date:        2001-04-30
 # Usage:       pfm.pl [directory]
@@ -27,7 +27,8 @@
 #        use prompt from readline?
 #        \5 should work in multiple copy/rename
 #        handleinclude can become faster with &$bla; instead of eval $bla;
-#        display filenames like 'ls -b' in View (with escapes)
+#        restat after rename
+#        kill with user-supplied signal (like print: kill -TERM)
 # next:  clean up color configuration options (e.g. titlecolor:bold;on_cyan;rev)
 #        validate_position should not replace $baseindex when not necessary
 #        stat_entry() must *not* rebuild the selected_nr and total_nr lists:
@@ -200,7 +201,7 @@ my (%user, %group, %pfmrc, %dircolors, $maxfilenamelength, $wasresized,
     $currentdir, @dircontents, %currentfile, $currentline, $baseindex,
     $oldcurrentdir, %disk, %total_nr_of, %selected_nr_of,
     $editor, $pager, $printcmd, $showlockchar, $autoexitmultiple,
-    $cursorveryvisible, $clsonexit, $autowritehistory,
+    $cursorveryvisible, $clsonexit, $autowritehistory, $viewbase,
     $titlecolor, $footercolor, $headercolor, $swapcolor, $multicolor
 );
 
@@ -270,6 +271,7 @@ sub read_pfmrc { # $rereadflag - 0=firstread 1=reread (for copyright message)
     $titlecolor        = $pfmrc{titlecolor}  || '36;47;07;01';
     $swapcolor         = $pfmrc{swapcolor}   || '36;40;07';
     $footercolor       = $pfmrc{footercolor} || '34;47;07';
+    $viewbase          = $pfmrc{viewbase} eq 'hex' ? "%#04lx" : "%03lo";
     $showlockchar      = ( $pfmrc{showlock} eq 'sun' && $^O =~ /sun|solaris/i
                              or &yesno($pfmrc{showlock}) ) ? 'l' : 'S';
     $editor            = $ENV{EDITOR} || $pfmrc{editor} || 'vi';
@@ -406,8 +408,8 @@ sub expand_escapes {
     # these (hairy) regexps use a negative lookbehind assertion:
     # count the nr. of backslashes before the \1 (must be odd
     # because \\ must be interpreted as an escaped backslash)
-#    $_[0] =~ s/((?<!\\)(?:\\\\)*)\\1/$1$namenoext/g;
-    $_[0] =~ s/(?:[^\\]|^)((?:\\\\)*)\\1/$1$namenoext/g;
+#    $_[0] =~ s/(?:[^\\]|^)((?:\\\\)*)\\1/$1$namenoext/g;
+    $_[0] =~ s/((?<!\\)(?:\\\\)*)\\1/$1$namenoext/g;
     $_[0] =~ s/((?<!\\)(?:\\\\)*)\\2/$1$thisfile{name}/g;
     $_[0] =~ s/((?<!\\)(?:\\\\)*)\\3/$1$currentdir/g;
     $_[0] =~ s/((?<!\\)(?:\\\\)*)\\4/$1$disk{mountpoint}/g;
@@ -431,7 +433,7 @@ sub readintohist { # \@history
 }
 
 sub yesno {
-    return $_[0] =~ /^(yes|1|true)$/i;
+    return $_[0] =~ /^(always|yes|1|true)$/i;
 }
 
 sub max ($$) {
@@ -921,7 +923,7 @@ sub by_name {
 # user commands
 
 sub handlequit { # key
-    return $R_QUITTING if $pfmrc{confirmquit} =~ /^(never|no?|false|0)$/i;
+    return $R_QUITTING if $pfmrc{confirmquit} =~ /^(never|no|false|0)$/i;
     return $R_QUITTING if $_[0] eq 'Q'; # quick quit
     return $R_QUITTING if ($pfmrc{confirmquit} =~ /marked/i and !&mark_info);
     $scr->at(0,0)->clreol()->bold()->cyan();
@@ -1180,10 +1182,21 @@ sub handleinclude { # include/exclude flag (from keypress)
 
 sub handleview {
     &markcurrentline('V');
-    $scr->at($currentline+$BASELINE,2)
-        ->bold()->puts($currentfile{display}.' ');
+    my $viewline = $currentfile{target};
+    my $removed = ($viewline =~ s/^ -> //);
+    # we are allowed to alter %currentfile because we will exit with
+    # at least $R_STRIDE; &browse will re-assign %currentfile
+    for ($currentfile{name}, $viewline) {
+        s/\\/\\\\/;
+        # don't ask how this works
+        s{([ \177[:cntrl:]]|[^[:ascii:]])}
+         {'\\'.sprintf($viewbase,unpack('C',$1))}eg;
+    }
+    $scr->at($currentline+$BASELINE,2)->bold()
+        # erase char after name, under cursor
+        ->puts($currentfile{name} . ($removed?' -> ':'') . $viewline . " \cH");
     &applycolor($currentline+$BASELINE, $SHOWLONG, %currentfile);
-    $scr->normal()->getch();
+    $scr->getch();
     if (length($currentfile{display}) > $screenwidth-$DATECOL-2) {
         return $R_CLEAR;
     } else {
@@ -1198,7 +1211,8 @@ sub handlesort {
     &init_header($SORTHEADER);
     &init_title($swap_mode, $uid_mode+6);
     &clearcolumn;
-    foreach (grep { ($i+=1)%=2 } @SORTMODES) {
+    # we can't use foreach (keys %SORTMODES) because we would lose ordering
+    foreach (grep { ($i+=1)%=2 } @SORTMODES) { # keep keys, skip values
         $^A = "";
         formline('@ @<<<<<<<<<<<', $_, $sortmodes{$_});
         $scr->at($printline++, $screenwidth-$DATECOL)->puts($^A);
@@ -1238,10 +1252,10 @@ sub handlechown {
         }
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
-        $loopfile=\%currentfile;
+        $loopfile = \%currentfile;
         eval($do_this);
         $dircontents[$currentline+$baseindex] =
-            &stat_entry($currentfile{name},$currentfile{selected});
+            &stat_entry($currentfile{name}, $currentfile{selected});
     }
     return $do_a_refresh;
 }
@@ -1339,11 +1353,11 @@ _eoPrompt_
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
         $loopfile = \%currentfile;
-        &expand_escapes($command,\%currentfile);
+        &expand_escapes($command, \%currentfile);
         $scr->clrscr()->at(0,0)->puts($command);
         system ($command) and &display_error($!);
         $dircontents[$currentline+$baseindex] =
-            &stat_entry($currentfile{name},$currentfile{selected});
+            &stat_entry($currentfile{name}, $currentfile{selected});
         if ($dircontents[$currentline+$baseindex]{mode} =~ /^\?/) {
             $dircontents[$currentline+$baseindex]{display} .= " $LOSTMSG";
         }
@@ -1390,8 +1404,8 @@ sub handledelete {
         }
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
-        $loopfile=\%currentfile;
-        $index=$currentline+$baseindex;
+        $loopfile = \%currentfile;
+        $index = $currentline+$baseindex;
         eval($do_this);
     }
     &validate_position;
@@ -1492,10 +1506,10 @@ sub handletime {
         }
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
-        $loopfile=\%currentfile;
+        $loopfile = \%currentfile;
         eval($do_this);
         $dircontents[$currentline+$baseindex] =
-            &stat_entry($currentfile{name},$currentfile{selected});
+            &stat_entry($currentfile{name}, $currentfile{selected});
     }
     return $do_a_refresh;
 }
@@ -1529,7 +1543,7 @@ sub handlecopyrename {
     &markcurrentline($state) unless $multiple_mode;
     $scr->at(0,0)->clreol()->bold()->cyan()
         ->puts($stateprompt)->normal()->cooked();
-#    $newname = &readintohist(\@path_history, $multiple_mode ? '' : $currentfile{name});
+#    $newname = &readintohist(\@path_history, $multiple_mode ? '' : $currentfile{name}); # do this differently: push the old name onto the history
     $newname = &readintohist(\@path_history, '');
     $scr->raw();
     return $R_HEADER if ($newname eq '');
@@ -1767,7 +1781,7 @@ sub stat_entry { # path_of_entry, selected_flag
             };
     $ptr->{type}     = substr($ptr->{mode},0,1);
     $ptr->{target}   = $ptr->{type} eq 'l' ? ' -> '.readlink($ptr->{name}) : '';
-    $ptr->{display}  = $entry.$ptr->{target};
+    $ptr->{display}  = $entry . $ptr->{target};
     $ptr->{too_long} = length($ptr->{display})>$maxfilenamelength ? '+' : ' ';
     $total_nr_of{ $ptr->{type} }++; # this is wrong! e.g. after cOmmand
     if ($ptr->{type} =~ /[bc]/) {
@@ -2050,10 +2064,12 @@ cursorveryvisible:yes
 showlock:sun
 # initial sort mode (see F6 command) (nNmMeEfFsSiItTdDaA) (default n)
 sortmode:n
-# initial title bar mode (F9 command) (mtime,uid,atime) (default mtime)
-uidmode:mtime
 # format for time: touch MMDDhhmm[[CC]YY][.ss] or pfm [[CC]YY]MMDDhhmm[.ss]
 timeformat:pfm
+# initial title bar mode (F9 command) (mtime,uid,atime) (default mtime)
+uidmode:mtime
+# base number system to View non-ascii characters with (hex,oct)
+viewbase:hex
 
 ##########################################################################
 # Colors
@@ -2239,9 +2255,9 @@ the B<.> and B<..> directory entries.
 
 Presents you with a choice of operations not related to the current
 files. Use this to configure C<pfm>, edit a new file, make a new
-directory, show a different directory, or write the history files to
-disk. See MORE COMMANDS below. Pressing B<ESC> will take you back to
-the main menu.
+directory, show a different directory, kill all child processes, or
+write the history files to disk. See MORE COMMANDS below. Pressing B<ESC>
+will take you back to the main menu.
 
 =item B<cOmmand>
 
@@ -2269,10 +2285,11 @@ confirmation. This is in fact the one case-sensitive command.
 
 =item B<Rename>
 
-Change the name of the file to the name specified. A different pathname
-and filename in the same filesystem is allowed. In multiple-file mode,
-the new name I<must> be a directoryname or a name containing a B<\1>
-or B<\2> escape (see cB<O>mmand above).
+Change the name of the file to the path- and filename specified. Depending
+on your Unix implementation, a different path- and filename on another
+filesystem may or may not be allowed. In multiple-file mode, the new
+name I<must> be a directoryname or a name containing a B<\1> or B<\2>
+escape (see cB<O>mmand above).
 
 =item B<Show>
 
@@ -2294,7 +2311,16 @@ normal (non-C<root>) users to change ownership.
 =item B<View>
 
 View the complete long filename. For a symbolic link, also displays the
-target of the symbolic link.
+target of the symbolic link. Non-ASCII characters, spaces and control
+characters will be displayed in octal or hexadecimal (configurable in
+F<$HOME/.pfm/.pfmrc>), formatted like the following examples:
+
+ octal:                  hexadecimal:
+
+ control-A : \001        control-A : \0x01
+ control-I : \011        control-I : \0x09
+ c-cedilla : \347        c-cedilla : \0xe7
+ backslash : \\          backslash : \\
 
 =item B<eXclude>
 
@@ -2483,7 +2509,7 @@ is kept in this directory.
 =head1 BUGS and WARNINGS
 
 When typed by itself, the B<ESC> key needs to be pressed twice. This is
-due to the lack of a proper timeout in C<Term::Screen.pm>.
+due to the lack of a proper timeout in C<Term::Screen>.
 
 In order to allow spaces in filenames, several commands assume they can
 safely surround filenames with double quotes. This prevents the correct
@@ -2503,7 +2529,7 @@ the cursor next to F</sbin/reboot> . You have been warned.
 
 =head1 AUTHOR
 
-RenE<eacute> Uittenbogaard (ruittenbogaard@profuse.nl)
+RenE<eacute> Uittenbogaard (ruittenb@wish.nl)
 
 =head1 SEE ALSO
 
@@ -2513,7 +2539,7 @@ C<Term::ScreenColor>(3) and C<Term::ReadLine::Gnu>(3).
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.47 .
+This manual pertains to C<pfm> version 1.48 .
 
 =cut
 
