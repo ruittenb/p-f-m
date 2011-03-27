@@ -1,4 +1,6 @@
-1.51
+1.53
 
-* updated documentation
+* fixed fatal error when chdir()ing into a non-existent directory
+* fixed fatal error when deleting '.' entry
+* implemented ~username notation
 
