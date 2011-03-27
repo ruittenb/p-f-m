@@ -1,10 +1,10 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 2000-12-23 v1.27
+# @(#) pfm.pl 2000-12-23 v1.28
 #
 # Name:        pfm.pl
-# Version:     1.27
+# Version:     1.28
 # Author:      Rene Uittenbogaard
 # Date:        2000-12-23
 # Usage:       pfm.pl [directory]
@@ -20,11 +20,10 @@
 #
 # TO-DO:
 # first: change F7 persistent swap mode
-#        neaten \n in all commands (Y/O/...)
+#        neaten \n in all commands (Y/O/...), and in history, and in historyfile
 #        jump back to old current dir with F2: debug
 #        handlecopyrename: lookbehind regexp needs correction
-# next:  keymap vi ?
-#        clean up configuration options (yes/no,1/0,true/false)
+# next:  clean up configuration options (yes/no,1/0,true/false)
 #        / command: jump to file (via $position_at)
 #        stat_entry() must *not* rebuild the selected_nr and total_nr lists:
 #            this fucks up with e.g. cOmmand -> cp ^[2 /somewhere/else
@@ -173,6 +172,8 @@ sub read_pfmrc { # $rereadflag - 0=read 1=reread (for copyright message)
     }
     &copyright($pfmrc{copyrightdelay}) unless ($_[0]);
     system ('tput', $pfmrc{cursorveryvisible} ? 'cvvis' : 'cnorm');
+    system ('stty', 'erase', $pfmrc{erase}) if defined($pfmrc{erase});
+    $keyb->set_keymap($pfmrc{keymap})       if $pfmrc{keymap};
     $autoexitmultiple = $pfmrc{autoexitmultiple};
     ($printcmd)       = ($pfmrc{printcmd}) ||
                             ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER}" : 'lpr');
@@ -189,7 +190,6 @@ sub read_pfmrc { # $rereadflag - 0=read 1=reread (for copyright message)
     $editor           = $ENV{EDITOR} || $pfmrc{editor} || 'vi';
     $pager            = $ENV{PAGER}  || $pfmrc{pager}  ||
                             ($^O =~ /linux/i ? 'less' : 'more');
-    system "stty erase $pfmrc{erase}" if defined($pfmrc{erase});
     foreach (keys %pfmrc) {
         $pfmrc{$_} =~ s/\^\[|\\e/\e/g; # insert escapes
     }
@@ -343,6 +343,10 @@ sub readintohist { # \@history
     return $input;
 }
 
+sub max ($$) {
+    return ($_[1] > $_[0]) ? $_[1] : $_[0];
+}
+
 sub min ($$) {
     return ($_[1] < $_[0]) ? $_[1] : $_[0];
 }
@@ -421,23 +425,64 @@ sub makeformatlines {
 }
 
 sub pathline {
-    $^A = "";
-    my ($path, $device)    = @_;
-    my $normalpathlength   = $screenwidth-$datecol-1;
-    my $normaldevicelength = 12;
-    my $transfer           = 0;
-    my $pathlineformat;
-    if (length($device) > $normaldevicelength
-    and length($path)   < $normalpathlength)
-    {
-        $transfer = min(length($device) - $normaldevicelength,
-                        $normalpathlength - length($path));
+    # pfff.. this has become very complicated since we wanted to handle
+    # all those exceptions
+    my ($path, $dev) = @_;
+    my $overflow     = ' ';
+    my $elision      = '..';
+    my $normaldevlen = 12;
+    my $actualdevlen = max($normaldevlen, length($dev));
+    # the three in the next exp is the overflow char plus the '[]'
+    my $maxpathlen   = $screenwidth -$actualdevlen -3;
+    my ($restpathlen, $disppath);
+    $dev = $dev . ' 'x max($actualdevlen -length($dev), 0);
+    FIT: {
+        # the next line is supposed to contain an assignment
+        unless (length($path) <= $maxpathlen and $disppath = $path) {
+            # no fit: try to replace (part of) the name with ..
+            unless ($path =~ /^(\/[^\/]+?\/)(.+)/) {
+                # impossible to replace; just truncate
+                # this is the case for e.g. /some_insanely_long_directoryname
+                $disppath = substr($path, 0, $maxpathlen);
+                $overflow = '+';
+                last FIT;
+            }
+            ($disppath, $path) = ($1, $2);
+            # the one being subtracted is for the '/' char in the next match
+            $restpathlen = $maxpathlen -length($disppath) -length($elision) -1;
+            unless ($path =~ /(\/.{1,$restpathlen})$/) {
+                # impossible to replace; just truncate
+                # this is the case for e.g. /usr/someinsanelylongdirectoryname
+                $disppath = substr($disppath.$path, 0, $maxpathlen);
+                $overflow = '+';
+                last FIT;
+            }
+            # pathname component candidate for replacement found; name will fit
+            $disppath .= $elision . $1;
+        }
     }
-    $pathlineformat = '@'.'<'x($normalpathlength  -$transfer-1).
-                    ' [@'.'<'x($normaldevicelength+$transfer-1).']';
-    formline($pathlineformat,@_);
-    return $^A;
+    return $disppath . ' 'x max($maxpathlen -length($disppath), 0)
+         . $overflow . "[$dev]";
 }
+
+#sub pathline_newer {
+#    $^A = "";
+#    my ($path, $device)    = @_;
+#    my $normalpathlength   = $screenwidth-$datecol-1;
+#    my $normaldevicelength = 12;
+#    my $transfer           = 0;
+#    my $pathlineformat;
+#    if (length($device) > $normaldevicelength
+#    and length($path)   < $normalpathlength)
+#    {
+#        $transfer = min(length($device) - $normaldevicelength,
+#                        $normalpathlength - length($path));
+#    }
+#    $pathlineformat = '@'.'<'x($normalpathlength  -$transfer-1).
+#                    ' [@'.'<'x($normaldevicelength+$transfer-1).']';
+#    formline($pathlineformat,@_);
+#    return $^A;
+#}
 
 #sub pathline_old {
 #    $^A = "";
@@ -561,7 +606,7 @@ sub init_header { # "multiple"mode
 Attrib Time Copy Delete Edit Print Rename Show Your cOmmands Quit View Uid More 
 Multiple Include eXclude Attribute Time Copy Delete Print Rename Your cOmmands  
 Include? Every, Oldmarks, User or Files only:                                   
-Config PFM Edit new file Make new dir Show new dir ESC to main menu             
+Config PFM Edit new file Make new dir Show dir Write history ESC to mainmenu    
 Sort by: Name, Extension, Size, Date, Type, Inode (ignorecase, reverse):        
 _eoFirst_
     $scr->at(0,0);
@@ -619,7 +664,6 @@ sub globalinit {
     $scr = Term::ScreenColor->new();
     $scr->clrscr();
     $keyb = Term::ReadLine->new('Pfm', \*STDIN, \*STDOUT);
-    #$keyb->set_keymap('vi');
     &read_pfmrc;
     &read_history;
     %user  = %{&init_uids};
@@ -649,7 +693,7 @@ sub goodbye {
             ->normal()->at($screenheight+$baseline+1,0)->clreol()->cooked();
     }
     &write_cwd;
-    &write_history;
+    &write_history if $pfmrc{autowritehistory};
     system ('tput','cnorm') if $pfmrc{cursorveryvisible};
 }
 
@@ -848,7 +892,7 @@ sub handlemore {
     my $do_a_refresh=0;
     my $newname;
     &init_header(3);
-    my $key=$scr->at(0,68)->getch();
+    my $key=$scr->at(0,76)->getch();
     for ($key) {
         /^s$/i and do {
             return 0 unless &ok_to_remove_marks;
@@ -901,7 +945,10 @@ sub handlemore {
             system "$editor $newname" and &display_error($!);
             $scr->raw();
             $do_a_refresh=1;
-        }
+        };
+        /^w$/i and do {
+            &write_history;
+        };
     }
     return $do_a_refresh;
 }
@@ -1743,15 +1790,20 @@ __DATA__
 #pager:less
 # your editor. you can also use $EDITOR
 editor:vi
-# the erase character for your terminal
-#erase:^H
 # your system's print command. Specify if the default 'lpr' does not work.
 #printcmd:lp -d$ENV{PRINTER}
+
+# the erase character for your terminal
+#erase:^H
+# the keymap to use in readline (vi,emacs); default emacs
+#keymap:vi
 
 # whether multiple file mode should be exited after executing a multiple command
 autoexitmultiple:1
 # use very visible cursor (block cursor on 'linux' type terminal)
-cursorveryvisibile:1
+cursorveryvisible:1
+# write history automatically upon exit
+autowritehistory:0
 # time to display copyright message at start (in seconds, fractions allowed)
 copyrightdelay:0.2
 # whether you want to have the screen cleared when pfm exits (0 or 1)
