@@ -1,12 +1,12 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 2000-12-24 v1.29
+# @(#) pfm.pl 2001-03-10 v1.32
 #
 # Name:        pfm.pl
-# Version:     1.29
+# Version:     1.32
 # Author:      Rene Uittenbogaard
-# Date:        2000-12-24
+# Date:        2001-03-10
 # Usage:       pfm.pl [directory]
 # Requires:    Term::ScreenColor
 #              Term::Screen
@@ -22,10 +22,12 @@
 # first: change F7 persistent swap mode
 #        neaten \n in all commands (Y/O/...), and in history, and in historyfile
 #        jump back to old current dir with F2: debug for F7 and > $#dircontents
-#        Argument "10681K" isn't numeric in addition (+) at /root/bin/pfm line 793
+#        change F2 to use @old_cwd_at
+#      Argument "10681K" isn't numeric in addition (+) at /root/bin/pfm line 793
 #        test pfm with -w
+#        handlechmod() does not use history correctly
 # next:  clean up configuration options (yes/no,1/0,true/false)
-#        / command: jump to file (via $position_at)
+#        F command: jump to file (entering $position_at)
 #        validate_position should not replace $baseline when not necessary
 #        stat_entry() must *not* rebuild the selected_nr and total_nr lists:
 #            this fucks up with e.g. cOmmand -> cp ^[2 /somewhere/else
@@ -35,11 +37,11 @@
 #            otherwise the mark count is not correct
 #
 #        test update screenline 1 (path/device) -> own sub.
-#        change $0 on change dir <- hold on - security?
 #        major/minor numbers on DU 4.0E are wrong
 #        tidy up multiple commands
 #        validate_position in SIG{WINCH}
 #        key response (flush_input)
+#        rename: restat file under new name?
 # terminal:
 #        intelligent restat (changes in current dir?)
 # licence
@@ -72,9 +74,9 @@ use Term::ScreenColor;
 use Term::ReadLine;
 use Cwd;
 use strict;
-use diagnostics; # so we can switch it on in '@'
-disable diagnostics;
-$^W = 0;
+# use diagnostics; # so we can switch it on in '@'
+# disable diagnostics;
+# $^W = 0;
 
 my $VERSION             = &getversion;
 my $configdirname       = "$ENV{HOME}/.pfm";
@@ -314,7 +316,7 @@ sub fit2limit {
 sub expand_escapes {
     my %thisfile = %{$_[1]};
     my $namenoext =
-        $thisfile{name} =~ /^(.*)\.(\w+)$/ ? $1 : $thisfile{name};
+        $thisfile{name} =~ /^(.*)\.([^\.]+)$/ ? $1 : $thisfile{name};
     # these (hairy) regexps use a negative lookbehind assertion:
     # count the nr. of backslashes before the \1 (must be odd
     # because \\ must be interpreted as an escaped backslash)
@@ -459,31 +461,6 @@ sub pathline {
     return $disppath . ' 'x max($maxpathlen -length($disppath), 0)
          . $overflow . "[$dev]";
 }
-
-#sub pathline_newer {
-#    $^A = "";
-#    my ($path, $device)    = @_;
-#    my $normalpathlength   = $screenwidth-$datecol-1;
-#    my $normaldevicelength = 12;
-#    my $transfer           = 0;
-#    my $pathlineformat;
-#    if (length($device) > $normaldevicelength
-#    and length($path)   < $normalpathlength)
-#    {
-#        $transfer = min(length($device) - $normaldevicelength,
-#                        $normalpathlength - length($path));
-#    }
-#    $pathlineformat = '@'.'<'x($normalpathlength  -$transfer-1).
-#                    ' [@'.'<'x($normaldevicelength+$transfer-1).']';
-#    formline($pathlineformat,@_);
-#    return $^A;
-#}
-
-#sub pathline_old {
-#    $^A = "";
-#    formline($pathlineformat,@_);
-#    return $^A;
-#}
 
 sub uidline {
     $^A = "";
@@ -807,7 +784,7 @@ sub date_info {
 # sorting sub
 
 sub as_requested {
-    my ($exta,$extb);
+    my ($exta, $extb);
     SWITCH:
     for ($sort_mode) {
         /n/ and return    $a->{name}  cmp    $b->{name},    last SWITCH;
@@ -823,18 +800,22 @@ sub as_requested {
         /i/ and return    $a->{inode} <=>    $b->{inode},   last SWITCH;
         /I/ and return    $b->{inode} <=>    $a->{inode},   last SWITCH;
         /t/ and return $a->{type}.$a->{name}
-                                     cmp $b->{type}.$b->{name}, last SWITCH;
+                                      cmp $b->{type}.$b->{name}, last SWITCH;
         /T/ and return $b->{type}.$b->{name}
-                                     cmp $a->{type}.$a->{name}, last SWITCH;
+                                      cmp $a->{type}.$a->{name}, last SWITCH;
         /[ef]/i and do {
-             if ($a->{name} =~ /^(.*)(\.\w+)$/) { $exta=$2."\0377".$1 }
-                                           else { $exta="\0377".$a->{name} };
-             if ($b->{name} =~ /^(.*)(\.\w+)$/) { $extb=$2."\0377".$1 }
-                                           else { $extb="\0377".$b->{name} };
-             if    (/e/) { return    $exta  cmp    $extb  }
-             elsif (/E/) { return    $extb  cmp    $exta  }
-             elsif (/f/) { return lc($exta) cmp lc($extb) }
-             elsif (/F/) { return lc($extb) cmp lc($exta) }
+             if ($a->{name} =~ /^(.*)(\.[^\.]+)$/) { $exta = $2."\0377".$1 }
+                                             else { $exta = "\0377".$a->{name} }
+             if ($b->{name} =~ /^(.*)(\.[^\.]+)$/) { $extb = $2."\0377".$1 }
+                                             else { $extb = "\0377".$b->{name} }
+             /e/ and return    $exta  cmp    $extb,        last SWITCH;
+             /E/ and return    $extb  cmp    $exta,        last SWITCH;
+             /f/ and return lc($exta) cmp lc($extb),       last SWITCH;
+             /F/ and return lc($extb) cmp lc($exta),       last SWITCH;
+#             if    (/e/) { return    $exta  cmp    $extb  }
+#             elsif (/E/) { return    $extb  cmp    $exta  }
+#             elsif (/f/) { return lc($exta) cmp lc($extb) }
+#             elsif (/F/) { return lc($extb) cmp lc($exta) }
         };
     }
 }
@@ -1078,7 +1059,8 @@ sub handlechmod {
     $scr->at(0,0)->clreol()->bold()->cyan()
         ->puts("Permissions ( [ugoa][-=+][rwxslt] or octal ): ")->normal()
         ->cooked();
-    chop ($newmode=<STDIN>);
+#    chop ($newmode=<STDIN>);
+    chomp($newmode = &readintohist(\@mode_history));
     $scr->raw();
     return 0 if ($newmode eq '');
     if ($newmode =~ /^\s*(\d+)\s*$/) {
@@ -1199,13 +1181,10 @@ sub handledelete {
                      &display_error($!);
                  }
                  ";
-    # the above line marked 'note' makes the assumption that a directory can
-    # never have zero entries, so $currentline must be >2 when this occurs
-    # unfortunately, for NTFS filesystems, this is not always correct
-    # the subroutine position_cursor corrects this
     if ($multiple_mode) {
         # we must delete in reverse order because the number of directory
         # entries will decrease by deleting
+        # the subroutine position_cursor corrects for directories with 0 entries
         for $index (reverse(0..$#dircontents)) {
             $loopfile=$dircontents[$index];
             if ($loopfile->{selected} eq '*') {
@@ -1395,25 +1374,29 @@ sub handleselect {
 }
 
 sub validate_position {
-    my $redraw=0;
+    my $redraw = 0;
     if ( $currentline < 0 ) {
         $baseindex += $currentline;
-        $baseindex < 0 and $baseindex=0;
+        $baseindex   < 0 and $baseindex = 0;
         $currentline = 0;
-        $redraw=1;
+        $redraw = 1;
     }
     if ( $currentline > $screenheight ) {
-        $baseindex += $currentline-$screenheight;
+        $baseindex  += $currentline - $screenheight;
         $currentline = $screenheight;
-        $redraw=1;
+        $redraw = 1;
     }
-    if ( $currentline+$baseindex > $#dircontents) {
-        $currentline = $screenheight;
-        $baseindex   = $#dircontents-$screenheight;
-        $baseindex   < 0             and $baseindex=0;
-        $currentline > $#dircontents and $currentline=$#dircontents;
-        $redraw=1;
+    if ( $currentline + $baseindex > $#dircontents ) {
+        $currentline = $#dircontents - $baseindex;
+        $redraw = 1;
     }
+#    if ( $currentline+$baseindex > $#dircontents) {
+#        $currentline = $screenheight;
+#        $baseindex   = $#dircontents - $screenheight;
+#        $baseindex   < 0             and $baseindex   = 0;
+#        $currentline > $#dircontents and $currentline = $#dircontents;
+#        $redraw = 1;
+#    }
     return $redraw;
 }
 
@@ -1437,8 +1420,9 @@ sub handlemove {
                        +10*(/^\+$/) +(/^(?:kd|j| )$/)
                        +$screenheight*(/\cF|pgdn/) +$screenheight*(/\cD/)/2
                        -$screenheight*(/\cB|pgup/) -$screenheight*(/\cU/)/2
-                       -($currentline +$baseindex)  *(/^home$/)
-                       +($#dircontents-$currentline)*(/^end$/ );
+                       -($currentline  +$baseindex)              *(/^home$/)
+                       +($#dircontents -$currentline -$baseindex)*(/^end$/ );
+#                       +($#dircontents-$currentline)*(/^end$/ );
     $currentline += $displacement;
     return &validate_position;
 }
@@ -1600,29 +1584,35 @@ sub countdircontents {
 }
 
 sub position_cursor {
-    local $_;
-    $currentline=0;
-    $baseindex=0;
-    # this line corrects for directories with no entries at all
+#    local $_;
+    $currentline = 0;
+    $baseindex   = 0 if $position_at eq '..'; # descending into this dir
+    # next line corrects for directories with no entries at all
     # (sometimes the case on NTFS filesystems)
-    if ($#dircontents<0) { push @dircontents,{name => '.'} }
-    for (0..$#dircontents) {
-        if ($position_at eq $dircontents[$_]{name}) { $currentline=$_ , last };
+    if ($#dircontents < 0) { push @dircontents, {name => '.'} }
+    ANYENTRY: {
+        for (0..$#dircontents) {
+            if ($position_at eq $dircontents[$_]{name}) {
+                $currentline = $_ - $baseindex;
+                last ANYENTRY;
+            }
+        }
+        $baseindex = 0;
     }
-    $position_at='';
-    &validate_position;
+    $position_at = '';
+    return &validate_position; # refresh flag
 }
 
 sub resizehandler {
-    $wasresized=0;
+    $wasresized = 0;
     &handlefit;
-    &validate_position;
+    return &validate_position;
 }
 
 sub recalc_ptr {
-    $position_at='.';
-    &position_cursor;
-    return $dircontents[$currentline+$baseindex];
+    $position_at = '.';
+    return &position_cursor; # refresh flag
+#    return $dircontents[$currentline+$baseindex];
 }
 
 sub redisplayscreen {
@@ -1653,13 +1643,18 @@ sub browse {
     @disk{qw/device total used avail/} = split ( /\s+/, $dflist[0] );
     $disk{avail} = $disk{total} - $disk{used} unless $disk{avail} =~ /%/;
     @disk{qw/mountpoint/} = $dflist[0] =~ /(\S*)$/;
+    $0 = 'pfm [on '.($disk{device}eq'none'?$disk{mountpoint}:$disk{device}).']';
 
     # now just reprint screen
     DISPLAY: {
         &redisplayscreen;
 #        $scr->flush_input();
         STRIDE: for (;;) {
-            %currentfile=%{$dircontents[$currentline+$baseindex]||&recalc_ptr};
+            if ( !defined $dircontents[$currentline+$baseindex] ) {
+                &recalc_ptr and &printdircontents(@dircontents);
+            }
+#            %currentfile=%{$dircontents[$currentline+$baseindex]||&recalc_ptr};
+            %currentfile=%{$dircontents[$currentline+$baseindex]};
             &highlightline(1);
             until ($scr->key_pressed(1)) {
                 if ($wasresized) { &resizehandler; }
@@ -1887,8 +1882,6 @@ cd=40;33;01:or=01;05;37;41:mi=01;05;37;41:ex=00;32:lc=^[[:rc=m:\
 ##########################################################################
 # Your commands
 
-# you may specify escapes as real escapes, as \e or as ^[ (caret, bracket)
-
 B:xv -root +noresetroot +smooth -maxpect -quit "\2"
 C:tar cvf - "\2" | gzip > "\2".tar.gz
 D:uudecode "\2"
@@ -2110,6 +2103,10 @@ directory status.
 =item B<F1>
 
 Display help and licence information.
+
+=item B<F2>
+
+Jump back to the previous directory.
 
 =item B<F3>
 
