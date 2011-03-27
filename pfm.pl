@@ -1,10 +1,10 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 2001-03-12 v1.36
+# @(#) pfm.pl 2001-03-12 v1.38
 #
 # Name:        pfm.pl
-# Version:     1.36
+# Version:     1.38
 # Author:      Rene Uittenbogaard
 # Date:        2001-03-12
 # Usage:       pfm.pl [directory]
@@ -23,13 +23,14 @@
 # first: neaten \n in all commands (Y/O/...), and in history, and in historyfile
 #        jump back to old current dir with F2: debug for F7 and > $#dircontents
 #        change F2 to use @old_cwd_at
-#      Argument "10681K" isn't numeric in addition (+) at /root/bin/pfm line 793
+#        Argument "10681K" isn't numeric in addition (+)
+#            at /root/bin/pfm line 793
 #        test pfm with -w
 #        outdent file size 1 char to have the K stand out in "10203K"
 #        handlechmod() does not use history correctly <- reproduce?
 #        \5 should work in multiple copy/rename
 # next:  clean up configuration options (yes/no,1/0,true/false)
-#        validate_position should not replace $baseline when not necessary
+#        validate_position should not replace $baseindex when not necessary
 #        stat_entry() must *not* rebuild the selected_nr and total_nr lists:
 #            this fucks up with e.g. cOmmand -> cp \2 /somewhere/else
 #            closely related to:
@@ -78,41 +79,49 @@ use Term::ScreenColor;
 use Term::ReadLine;
 use Cwd;
 use strict;
-use vars qw($FIRSTREAD $REREAD $HILIGHT_OFF $HILIGHT_ON);
+use vars qw($FIRSTREAD $REREAD $HIGHLIGHT_OFF $HIGHLIGHT_ON);
+use vars qw($SINGLEHEADER $MULTIHEADER $INCLUDEHEADER $MOREHEADER $SORTHEADER);
 #use diagnostics; # so we can switch it on in '@'
 #disable diagnostics;
 #$^W = 0;
 
-*FIRSTREAD = \0;
-*REREAD    = \1;
-*HILIGHT_OFF= \0;
-*HILIGHT_ON = \1;
+*FIRSTREAD     = \0;
+*REREAD        = \1;
+*HIGHLIGHT_OFF = \0;
+*HIGHLIGHT_ON  = \1;
+*SINGLEHEADER  = \0;
+*MULTIHEADER   = \1;
+*INCLUDEHEADER = \2;
+*MOREHEADER    = \3;
+*SORTHEADER    = \4;
 
 my $VERSION             = &getversion;
-my $configdirname       = "$ENV{HOME}/.pfm";
-my $configfilename      = ".pfmrc";
-my $majorminorseparator = ',';
-my $maxhistsize         = 40;
-my $errordelay          = 1;     # seconds
-my $slowentries         = 300;
-my $baseline            = 3;
+my $CONFIGDIRNAME       = "$ENV{HOME}/.pfm";
+my $CONFIGFILENAME      = '.pfmrc';
+my $CWDFILENAME         = 'cwd';
+my $MAJORMINORSEPARATOR = ',';
+my $MAXHISTSIZE         = 40;
+my $ERRORDELAY          = 1;     # seconds
+my $SLOWENTRIES         = 300;
+my $BASELINE            = 3;
+my $USERLINE            = 21;
+my $DATELINE            = 22;
+my $DATECOL             = 14;
+my $RESERVEDSCREENWIDTH = 60;
+
 my $screenheight        = 20;    # inner height
 my $screenwidth         = 80;    # terminal width
-my $userline            = 21;
-my $dateline            = 22;
-my $datecol             = 14;
 my $position_at         = '.';   # start with cursor here
-my $defaultmaxfilenamelength = 20;
 
-my @sortmodes=( n =>'Name',        N =>' reverse',
-               'm'=>' ignorecase', M =>' rev+ignorec',
-                e =>'Extension',   E =>' reverse',
-                f =>' ignorecase', F =>' rev+ignorec',
-                d =>'Date/mtime',  D =>' reverse',
-                a =>'date/Atime',  A =>' reverse',
-               's'=>'Size',        S =>' reverse',
-                t =>'Type',        T =>' reverse',
-                i =>'Inode',       I =>' reverse' );
+my @SORTMODES = ( n =>'Name',        N =>' reverse',
+                 'm'=>' ignorecase', M =>' rev+ignorec',
+                  e =>'Extension',   E =>' reverse',
+                  f =>' ignorecase', F =>' rev+ignorec',
+                  d =>'Date/mtime',  D =>' reverse',
+                  a =>'date/Atime',  A =>' reverse',
+                 's'=>'Size',        S =>' reverse',
+                  t =>'Type',        T =>' reverse',
+                  i =>'Inode',       I =>' reverse' );
 
 my %timehints = ( pfm   => '[[CC]YY]MMDDhhmm[.ss]',
                   touch => 'MMDDhhmm[[CC]YY][.ss]' );
@@ -137,8 +146,8 @@ my (%user, %group, %pfmrc, %dircolors, $maxfilenamelength, $wasresized,
     $sort_mode, $multiple_mode, $uid_mode, $swap_mode,
     $swap_persistent, $swap_state,
     $currentdir, @dircontents, %currentfile, $currentline, $baseindex,
-    $oldcurrentdir, %disk, %total_nr_of, %selected_nr_of);
-my ($editor, $pager, $printcmd, $showlockchar, $autoexitmultiple,
+    $oldcurrentdir, %disk, %total_nr_of, %selected_nr_of,
+    $editor, $pager, $printcmd, $showlockchar, $autoexitmultiple,
     $titlecolor, $footercolor, $headercolor, $swapcolor, $multicolor);
 
 ##########################################################################
@@ -147,7 +156,7 @@ my ($editor, $pager, $printcmd, $showlockchar, $autoexitmultiple,
 sub write_pfmrc {
     local $_;
     my @resourcefile;
-    if (open MKPFMRC,">$configdirname/$configfilename") {
+    if (open MKPFMRC,">$CONFIGDIRNAME/$CONFIGFILENAME") {
         # both __DATA__ and __END__ markers are used at the same time
         push (@resourcefile, $_) while (($_ = <DATA>) !~ /^__END__$/);
         close DATA;
@@ -164,11 +173,11 @@ sub read_pfmrc { # $rereadflag - 0=firstread 1=reread (for copyright message)
     $uid_mode = $sort_mode = $editor = $pager = '';
     %dircolors = %pfmrc = ();
     local $_;
-    unless (-r "$configdirname/$configfilename") {
-        mkdir $configdirname, 0700 unless -d $configdirname;
+    unless (-r "$CONFIGDIRNAME/$CONFIGFILENAME") {
+        mkdir $CONFIGDIRNAME, 0700 unless -d $CONFIGDIRNAME;
         &write_pfmrc;
     }
-    if (open PFMRC,"<$configdirname/$configfilename") {
+    if (open PFMRC,"<$CONFIGDIRNAME/$CONFIGFILENAME") {
         while (<PFMRC>) {
             s/#.*//;
             if (s/\\\n?$//) { $_ .= <PFMRC>; redo; }
@@ -200,7 +209,7 @@ sub read_pfmrc { # $rereadflag - 0=firstread 1=reread (for copyright message)
     $swap_persistent  = $pfmrc{persistentswap};
     $headercolor      = $pfmrc{headercolor} || '37;44';
     $multicolor       = $pfmrc{multicolor}  || '36;47';
-    $titlecolor       = $pfmrc{titlecolor}  || '36;47;07';
+    $titlecolor       = $pfmrc{titlecolor}  || '36;47;07;01';
     $swapcolor        = $pfmrc{swapcolor}   || '36;40;07';
     $footercolor      = $pfmrc{footercolor} || '34;47;07';
     $showlockchar     = ($pfmrc{showlock} eq 'sun' && $^O =~ /sun|solaris/i
@@ -222,7 +231,7 @@ sub read_pfmrc { # $rereadflag - 0=firstread 1=reread (for copyright message)
 sub write_history {
     my $failed;
     foreach (keys(%histories)) {
-        if (open (HISTFILE, ">$configdirname/$_")) {
+        if (open (HISTFILE, ">$CONFIGDIRNAME/$_")) {
             print HISTFILE join "\n",@{$histories{$_}};
             close HISTFILE;
         } elsif (!$failed) {
@@ -235,7 +244,7 @@ sub write_history {
 
 sub read_history {
     foreach (keys(%histories)) {
-        if (open (HISTFILE, "$configdirname/$_")) {
+        if (open (HISTFILE, "$CONFIGDIRNAME/$_")) {
             chomp( @{$histories{$_}} = <HISTFILE> );
             close HISTFILE;
         }
@@ -243,13 +252,12 @@ sub read_history {
 }
 
 sub write_cwd {
-    my $cwdfilename = 'cwd';
-    if (open CWDFILE,">$configdirname/$cwdfilename") {
+    if (open CWDFILE,">$CONFIGDIRNAME/$CWDFILENAME") {
         print CWDFILE getcwd();
         close CWDFILE;
     } else {
         # pfm is exiting, can use warn() here
-        warn "pfm: unable to create $configdirname/$cwdfilename: $!\n";
+        warn "pfm: unable to create $CONFIGDIRNAME/$CWDFILENAME: $!\n";
     }
 }
 
@@ -350,7 +358,7 @@ sub readintohist { # \@history
     $input = $keyb->readline();
     if ($input =~ /\S/ and $input ne ${$history}[$#$history]) {
         push (@$history, $input);
-        shift (@$history) if ($#$history > $maxhistsize);
+        shift (@$history) if ($#$history > $MAXHISTSIZE);
     }
     return $input;
 }
@@ -429,9 +437,9 @@ sub applycolor {
 # small printing routines
 
 sub makeformatlines {
-    $uidlineformat ='@ @'.'<'x($screenwidth-$datecol-47)
+    $uidlineformat ='@ @'.'<'x($screenwidth-$DATECOL-47)
                    .'@@>>>>>>  @<<<<<<< @<<<<<<<@###  @<<<<<<<<<';
-    $tdlineformat  ='@ @'.'<'x($screenwidth-$datecol-47)
+    $tdlineformat  ='@ @'.'<'x($screenwidth-$DATECOL-47)
                    .'@@>>>>>>  @<<<<<<<<<<<<<<@###### @<<<<<<<<<';
 }
 
@@ -504,15 +512,15 @@ sub fileline {
 }
 
 sub highlightline { # true/false
-    $scr->at($currentline+$baseline,0);
+    $scr->at($currentline+$BASELINE, 0);
     $scr->bold() if $_[0];
     $scr->puts(&fileline(%currentfile));
-    &applycolor($currentline+$baseline,0,%currentfile);
-    $scr->normal()->at($currentline+$baseline,0);
+    &applycolor($currentline+$BASELINE,0,%currentfile);
+    $scr->normal()->at($currentline+$BASELINE,0);
 }
 
 sub markcurrentline { # letter
-    $scr->at($currentline+$baseline,0)->puts($_[0]);
+    $scr->at($currentline+$BASELINE,0)->puts($_[0]);
 }
 
 sub pressanykey {
@@ -524,7 +532,7 @@ sub pressanykey {
 sub display_error {
 #    $scr->at(0,0)->clreol();
     $scr->cyan()->bold()->puts($_[0])->normal();
-    return $scr->key_pressed($errordelay); # return value not actually used
+    return $scr->key_pressed($ERRORDELAY); # return value not actually used
 }
 
 sub ok_to_remove_marks {
@@ -547,17 +555,17 @@ sub promptforwildfilename {
     eval "/$wildfilename/";
     if ($@) {
         &display_error($@);
-        $scr->key_pressed(2*$errordelay); # triple reporting time
-        $wildfilename = '^$';             # clear illegal regexp
+        $scr->key_pressed(2);  # add two seconds
+        $wildfilename = '^$';  # clear illegal regexp
     }
     return $wildfilename;
 }
 
 sub clearcolumn {
     local $_;
-    my $spaces=' 'x$datecol;
-    foreach ($baseline..$baseline+$screenheight) {
-        $scr->at($_,$screenwidth-$datecol)->puts($spaces);
+    my $spaces = ' ' x $DATECOL;
+    foreach ($BASELINE .. $BASELINE+$screenheight) {
+        $scr->at($_, $screenwidth-$DATECOL)->puts($spaces);
     }
 }
 
@@ -569,7 +577,7 @@ sub path_info {
 # headers, footers
 
 sub print_with_shortcuts {
-    my ($printme,$pattern) = @_;
+    my ($printme, $pattern) = @_;
     my $pos;
     &digestcolor($headercolor);
     $scr->puts($printme)->bold();
@@ -587,8 +595,8 @@ sub init_frame { # multiple_mode, swap_mode, uid_mode
 }
 
 sub init_header { # "multiple"mode
-    my $mode=shift;
-    my @header=split(/\n/,<<_eoFirst_);
+    my $mode = $_[0];
+    my @header = split(/\n/,<<_eoFirst_);
 Attr Time Copy Del Edit Find Print Rename Show Uid View Your cOmmand Quit More  
 Multiple Include eXclude Attribute Time Copy Delete Print Rename Your cOmmands  
 Include? Every, Oldmarks, User or Files only:                                   
@@ -606,6 +614,7 @@ _eoFirst_
 
 sub init_title { # swap_mode, uid_mode
     my ($smode, $umode) = @_;
+    my $linecolor;
     my @title = split(/\n/,<<_eoHead_);
 size  date      mtime  inode attrib          disk info
 size  userid   groupid lnks  attrib          disk info
@@ -617,14 +626,16 @@ size  date      mtime  inode attrib     sort mode
 size  userid   groupid lnks  attrib     sort mode     
 size  date      atime  inode attrib     sort mode     
 _eoHead_
-    $smode ? &digestcolor($swapcolor)
-           : do {
-               &digestcolor($titlecolor);
-               $scr->bold();
-           };
-    $scr->reverse() if ($swapcolor =~ /\b0?7\b/);
+#    $smode ? &digestcolor($swapcolor)
+#           : do {
+#               &digestcolor($titlecolor);
+#               $scr->bold();
+#           };
+    &digestcolor($linecolor = $smode ? $swapcolor : $titlecolor);
+    $scr->reverse() if ($linecolor =~ /\b0?7\b/);
+    $scr->bold()    if ($linecolor =~ /\b0?1\b/);
     $scr->at(2,0)
-        ->puts('  filename.ext'.' 'x($screenwidth-$datecol-54).$title[$umode])
+        ->puts('  filename.ext'.' 'x($screenwidth-$DATECOL-54).$title[$umode])
         ->normal();
 }
 
@@ -635,7 +646,7 @@ F1-Help F2-Back F3-Fit F4-Color F5-Read F6-Sort F7-Swap F8-Incl F9-Uid F10-Multi
 _eoFunction_
     &digestcolor($footercolor);
     $scr->reverse() if ($footercolor =~ /\b0?7\b/);
-    $scr->bold()->at($baseline+$screenheight+1,0)
+    $scr->bold()->at($BASELINE+$screenheight+1,0)
         ->puts($footer.' 'x($screenwidth-80))->normal();
 }
 
@@ -658,9 +669,9 @@ sub globalinit {
     %group = %{&init_gids};
     %selected_nr_of = %total_nr_of = ();
     $swap_state = $swap_mode = $multiple_mode = 0;
-    if ($scr->getrows()) { $screenheight = $scr->getrows()-$baseline-2 }
+    if ($scr->getrows()) { $screenheight = $scr->getrows()-$BASELINE-2 }
     if ($scr->getcols()) { $screenwidth  = $scr->getcols() }
-    $maxfilenamelength = $screenwidth - (80-$defaultmaxfilenamelength);
+    $maxfilenamelength = $screenwidth - $RESERVEDSCREENWIDTH;
     &makeformatlines;
     &init_frame(0,0,$uid_mode); # uid_mode coming from pfmrc
     # now find starting directory
@@ -668,8 +679,8 @@ sub globalinit {
     $ARGV[0] and chdir($ARGV[0]) || do {
         $scr->at(0,0)->clreol();
         &display_error("$ARGV[0]: $! - using .");
-        $scr->key_pressed($errordelay); # effectively double delay
-        &init_header(0);
+        $scr->key_pressed(1); # add another second error delay
+        &init_header($SINGLEHEADER);
     };
 }
 
@@ -679,7 +690,7 @@ sub goodbye {
         $scr->clrscr();
     } else {
         $scr->at(0,0)->puts(' 'x(($screenwidth-length $bye)/2).$bye)->clreol()
-            ->normal()->at($screenheight+$baseline+1,0)->clreol()->cooked();
+            ->normal()->at($screenheight+$BASELINE+1,0)->clreol()->cooked();
     }
     &write_cwd;
     &write_history if $pfmrc{autowritehistory};
@@ -723,10 +734,8 @@ _eoCredits_
 sub user_info {
     $^A = "";
     formline('@>>>>>>>',$user{$>});
-    unless ($>) {
-        $scr->red();
-    }
-    $scr->at($userline,$screenwidth-$datecol+6)->puts($^A)->normal();
+    $scr->red() unless ($>);
+    $scr->at($USERLINE, $screenwidth-$DATECOL+6)->puts($^A)->normal();
 }
 
 sub infoline { # number, description
@@ -740,13 +749,13 @@ sub disk_info { # %disk{ total, used, avail }
     my @desc=('K tot','K usd','K avl');
     my @values=@disk{qw/total used avail/};
     my $startline=4;
-    $scr->at($startline-1,$screenwidth-$datecol+4)->puts('Disk space');
+    $scr->at($startline-1,$screenwidth-$DATECOL+4)->puts('Disk space');
     foreach (0..2) {
         while ( $values[$_] > 99_999 ) {
                 $values[$_] /= 1024;
                 $desc[$_] =~ tr/KMGT/MGTP/;
         }
-        $scr->at($startline+$_,$screenwidth-$datecol+1)
+        $scr->at($startline+$_,$screenwidth-$DATECOL+1)
             ->puts(&infoline(int($values[$_]),$desc[$_]));
     }
 }
@@ -759,10 +768,10 @@ sub dir_info {
                + $total_nr_of{'p'} + $total_nr_of{'s'}
                + $total_nr_of{'D'};
     my $startline = 9;
-    $scr->at($startline-1, $screenwidth-$datecol+2)
+    $scr->at($startline-1, $screenwidth-$DATECOL+2)
         ->puts("Directory($sort_mode)");
     foreach (0..3) {
-        $scr->at($startline+$_,$screenwidth-$datecol+1)
+        $scr->at($startline+$_,$screenwidth-$DATECOL+1)
             ->puts(&infoline($values[$_],$desc[$_]));
     }
 }
@@ -776,9 +785,9 @@ sub mark_info {
     my $startline=15;
     my $total=0;
     $values[0]=&fit2limit($values[0]);
-    $scr->at($startline-1,$screenwidth-$datecol+2)->puts('Marked files');
+    $scr->at($startline-1,$screenwidth-$DATECOL+2)->puts('Marked files');
     foreach (0..4) {
-        $scr->at($startline+$_,$screenwidth-$datecol+1)
+        $scr->at($startline+$_,$screenwidth-$DATECOL+1)
             ->puts(&infoline($values[$_],$desc[$_]));
         $total += $values[$_];
     }
@@ -786,10 +795,10 @@ sub mark_info {
 }
 
 sub date_info {
-    my ($line,$col)=@_;
-    my ($datetime,$date,$time);
-    $datetime=&time2str(time,1);
-    ($date,$time) = ($datetime =~ /(.*)\s+(.*)/);
+    my ($line, $col)=@_;
+    my ($datetime, $date, $time);
+    $datetime = &time2str(time, 1);
+    ($date, $time) = ($datetime =~ /(.*)\s+(.*)/);
     if ($scr->getrows() > 24) {
         $scr->at($line++,$col+3)->puts($date);
         $scr->at($line++,$col+6)->puts($time);
@@ -799,7 +808,11 @@ sub date_info {
 }
 
 ##########################################################################
-# sorting sub
+# sorting subs
+
+sub by_name {
+    return $a->{name} cmp $b->{name};
+}
 
 sub as_requested {
     my ($exta, $extb);
@@ -830,10 +843,6 @@ sub as_requested {
              /E/ and return    $extb  cmp    $exta,        last SWITCH;
              /f/ and return lc($exta) cmp lc($extb),       last SWITCH;
              /F/ and return lc($extb) cmp lc($exta),       last SWITCH;
-#             if    (/e/) { return    $exta  cmp    $extb  }
-#             elsif (/E/) { return    $extb  cmp    $exta  }
-#             elsif (/f/) { return lc($exta) cmp lc($extb) }
-#             elsif (/F/) { return lc($extb) cmp lc($exta) }
         };
     }
 }
@@ -855,29 +864,33 @@ sub handlefind {
     my $findme;
     $scr->at(0,0)->clreol()->cyan()->bold()->puts("File to find: ")->normal()
         ->cooked()->at(0,14);
-    $findme = &readintohist(\@path_history);
+    ($findme = &readintohist(\@path_history)) =~ s/\/$//;
+    if ($findme =~ /\//) { $findme = basename($findme) };
     $scr->raw();
-    if ($findme) {
-        $position_at = ($findme =~ /\//) ? basename($findme) : $findme;
-        return 1;
-    } else {
-        return 0;
+    return 0 unless $findme;
+    FINDENTRY:
+    foreach (sort by_name @dircontents) {
+        if ( $_->{name} =~ /^$findme/ ) {
+            $position_at = $_->{name};
+            last FINDENTRY;
+        }
     }
+    return 1;
 }
 
 sub handlefit {
     local $_;
     $scr->resize();
-    my $newheight= $scr->getrows();
-    my $newwidth = $scr->getcols();
+    my $newheight = $scr->getrows();
+    my $newwidth  = $scr->getcols();
     if ($newheight || $newwidth) {
-        $screenheight=$newheight-$baseline-2;
-        $screenwidth =$newwidth;
-        $maxfilenamelength = $screenwidth - (80-$defaultmaxfilenamelength);
+        $screenheight = $newheight-$BASELINE-2;
+        $screenwidth  = $newwidth;
+        $maxfilenamelength = $screenwidth - $RESERVEDSCREENWIDTH;
         &makeformatlines;
         foreach (@dircontents) {
-            $_->{too_long} = length($_->{display})>$maxfilenamelength ? '+'
-                                                                      : ' ';
+            $_->{too_long} = length($_->{display}) > $maxfilenamelength ? '+'
+                                                                        : ' ';
         }
         $scr->clrscr();
         &redisplayscreen;
@@ -899,7 +912,7 @@ sub handlemore {
     local $_;
     my $do_a_refresh = 0;
     my $newname;
-    &init_header(3);
+    &init_header($MOREHEADER);
     my $key = $scr->at(0,76)->getch();
     for ($key) {
         /^s$/i and do {
@@ -941,7 +954,7 @@ sub handlemore {
             }
         };
         /^c$/i and do {
-            system "$editor $configdirname/$configfilename"
+            system "$editor $CONFIGDIRNAME/$CONFIGFILENAME"
                 and &display_error($!);
             &read_pfmrc($REREAD);
             $scr->clrscr();
@@ -968,7 +981,7 @@ sub handleinclude { # include/exclude flag
     my $result=0;
     my ($wildfilename,$criterion);
     my $exin = $_[0];
-    &init_header(2);
+    &init_header($INCLUDEHEADER);
     if ($exin =~ /x/i) { $scr->at(0,0)->on_blue()->puts('Ex')->normal(); }
     $exin =~ tr/ix/* /;
     my $key=$scr->at(0,46)->getch();
@@ -1023,31 +1036,36 @@ sub handleinclude { # include/exclude flag
 
 sub handleview {
     &markcurrentline('V');
-    $scr->at($currentline+$baseline,2)
+    $scr->at($currentline+$BASELINE,2)
         ->bold()->puts($currentfile{display}.' ');
-    &applycolor($currentline+$baseline,1,%currentfile);
+    &applycolor($currentline+$BASELINE,1,%currentfile);
     $scr->normal()->getch();
 }
 
 sub handlesort {
-    my ($i,$key);
-    my $printline=$baseline;
-    my %sortmodes=@sortmodes;
-    &init_header(4);
-    &init_title($swap_mode,$uid_mode+6);
+    my ($i, $key);
+    my $printline = $BASELINE;
+    my %sortmodes = @SORTMODES;
+    &init_header($SORTHEADER);
+    &init_title($swap_mode, $uid_mode+6);
     &clearcolumn;
-    for ($i=0; $i<$#sortmodes; $i+=2) {
-        $^A="";
-        formline('@ @<<<<<<<<<<<',$sortmodes[$i],$sortmodes{$sortmodes[$i]});
-        $scr->at($printline++,$screenwidth-$datecol)->puts($^A);
-    }
-    $key=$scr->at(0,73)->getch();
+#    for ($i=0; $i<$#SORTMODES; $i+=2) {
+#        $^A = "";
+#        formline('@ @<<<<<<<<<<<', $SORTMODES[$i], $sortmodes{$SORTMODES[$i]});
+#        $scr->at($printline++, $screenwidth-$DATECOL)->puts($^A);
+#    }
+    foreach (grep { ($i+=1)%=2 } @SORTMODES) {                    # %%% 1.37 %%%
+        $^A = "";                                                 # %%% 1.37 %%%
+        formline('@ @<<<<<<<<<<<', $_, $sortmodes{$_});           # %%% 1.37 %%%
+        $scr->at($printline++, $screenwidth-$DATECOL)->puts($^A); # %%% 1.37 %%%
+    }                                                             # %%% 1.37 %%%
+    $key = $scr->at(0,73)->getch();
     &clearcolumn;
     &init_header($multiple_mode);
     if ($sortmodes{$key}) {
-        $sort_mode=$key;
-        $position_at=$currentfile{name};
-        @dircontents=sort as_requested @dircontents;
+        $sort_mode   = $key;
+        $position_at = $currentfile{name};
+        @dircontents = sort as_requested @dircontents;
         return 1;
     } else {
         return 0;
@@ -1134,14 +1152,14 @@ sub handlecommand { # Y or O
     if ($_[0] =~ /y/i) { # Your
         &clearcolumn;
         &init_title($swap_mode,$uid_mode+3);
-        $printline=$baseline;
+        $printline = $BASELINE;
         foreach (sort keys %pfmrc) {
-            if (/^[A-Z]$/ && $printline <= $baseline+$screenheight) {
+            if (/^[A-Z]$/ && $printline <= $BASELINE+$screenheight) {
                 $printstr=$pfmrc{$_};
                 $printstr =~ s/\e/^[/g;
                 $^A="";
                 formline('@ @<<<<<<<<<<<',$_,$printstr);
-                $scr->at($printline++,$screenwidth-$datecol)->puts($^A);
+                $scr->at($printline++,$screenwidth-$DATECOL)->puts($^A);
             }
         }
         $key=$scr->at(0,0)->clreol()->cyan()->bold()
@@ -1239,22 +1257,36 @@ sub handledelete {
 sub handleprint {
     my ($loopfile, $do_this, $index);
     &markcurrentline('P') unless $multiple_mode;
-    $scr->at(0,0)->clreol();
+#    $scr->at(0,0)->clreol();
+    $scr->at(0,0)->clreol()->bold()->cyan()->puts('Enter print command: ')->normal()
+        ->at(1,0)->clreol()->cooked();
+    # don't use readintohist : special case with command_history
+    $keyb->SetHistory(@command_history);
+    $do_this = $keyb->readline('',$printcmd);
+    if ($do_this =~ /\S/
+        and $do_this ne $printcmd
+        and $do_this ne $command_history[$#command_history]
+    ) {
+        push (@command_history, $do_this);
+        shift (@command_history) if ($#command_history > $MAXHISTSIZE);
+    }
+    $scr->raw();
+    return if $do_this eq '';
     if ($multiple_mode) {
         for $index (0..$#dircontents) {
             $loopfile = $dircontents[$index];
             if ($loopfile->{selected} eq '*') {
                 $scr->at(1,0)->clreol()->puts($loopfile->{name});
                 &exclude($loopfile, '.');
-                system qq/$printcmd "$loopfile->{name}"/ and &display_error($!);
+                system qq/$do_this "$loopfile->{name}"/ and &display_error($!);
             }
         }
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
-        system qq/$printcmd "$currentfile{name}"/ and &display_error($!);
+        system qq/$do_this "$currentfile{name}"/ and &display_error($!);
     }
-    &pressanykey;
-    $scr->clrscr();
+#    &pressanykey;   # %%%%%%%%%%%
+#    $scr->clrscr(); # %%%%%%%%%%%
 }
 
 sub handleshow {
@@ -1403,7 +1435,7 @@ sub handleselect {
         $file->{type} =~ /-/ and $selected_nr_of{bytes} += $file->{size};
     }
     %currentfile=%$file;
-    &highlightline($HILIGHT_OFF);
+    &highlightline($HIGHLIGHT_OFF);
     &mark_info(%selected_nr_of);
 }
 
@@ -1596,7 +1628,7 @@ sub stat_entry { # path_of_entry, selected_flag
     $ptr->{too_long} = length($ptr->{display})>$maxfilenamelength ? '+' : ' ';
     $total_nr_of{ $ptr->{type} }++; # this is wrong! e.g. after cOmmand
     if ($ptr->{type} =~ /[bc]/) {
-        $ptr->{size}=sprintf("%d",$rdev/256).$majorminorseparator.($rdev%256);
+        $ptr->{size}=sprintf("%d",$rdev/256).$MAJORMINORSEPARATOR.($rdev%256);
     }
     return $ptr;
 }
@@ -1614,7 +1646,7 @@ sub getdircontents { # (current)directory
         &display_error("Cannot read . : $!");
         &init_header($multiple_mode);
     }
-    if ($#allentries>$slowentries) {
+    if ($#allentries > $SLOWENTRIES) {
         # don't use display_error here because that would just cost more time
         $scr->at(0,0)->clreol()->cyan()->bold()->puts('Please Wait')->normal();
     }
@@ -1628,11 +1660,11 @@ sub getdircontents { # (current)directory
 sub printdircontents { # @contents
     foreach my $i ($baseindex .. $baseindex+$screenheight) {
         unless ($i > $#_) {
-            $scr->at($i+$baseline-$baseindex,0)->puts(&fileline(%{$_[$i]}));
-            &applycolor($i+$baseline-$baseindex,0,%{$_[$i]});
+            $scr->at($i+$BASELINE-$baseindex,0)->puts(&fileline(%{$_[$i]}));
+            &applycolor($i+$BASELINE-$baseindex,0,%{$_[$i]});
         } else {
-            $scr->at($i+$baseline-$baseindex,0)
-                ->puts(' 'x($screenwidth-$datecol-1));
+            $scr->at($i+$BASELINE-$baseindex,0)
+                ->puts(' 'x($screenwidth-$DATECOL-1));
         }
     }
 }
@@ -1686,7 +1718,7 @@ sub redisplayscreen {
     &dir_info(%total_nr_of);
     &mark_info(%selected_nr_of);
     &user_info;
-    &date_info($dateline,$screenwidth-$datecol);
+    &date_info($DATELINE,$screenwidth-$DATECOL);
 }
 
 sub browse {
@@ -1718,14 +1750,14 @@ sub browse {
                 &recalc_ptr and &printdircontents(@dircontents);
             }
             %currentfile=%{$dircontents[$currentline+$baseindex]};
-            &highlightline($HILIGHT_ON);
+            &highlightline($HIGHLIGHT_ON);
             until ($scr->key_pressed(1)) {
                 if ($wasresized) { &resizehandler; }
-                &date_info($dateline,$screenwidth-$datecol);
-                $scr->at($currentline+$baseline,0);
+                &date_info($DATELINE, $screenwidth-$DATECOL);
+                $scr->at($currentline+$BASELINE, 0);
             }
             $key = $scr->getch();
-            &highlightline($HILIGHT_OFF);
+            &highlightline($HIGHLIGHT_OFF);
             KEY: for ($key) {
                 /^q$/i and &handlequit($_)
                     ? do { $quitting=1, last STRIDE }
@@ -2099,9 +2131,10 @@ command) as B<\5>. To enter a backslash, use B<\\>.
 
 =item B<Print>
 
-Print the specified file by piping it through your print command
-(default C<lpr -P$PRINTER>). No formatting is done. You may specify a
-print command in your F<$HOME/.pfm/.pfmrc> (see below).
+Will prompt for a print command (default C<lpr -P$PRINTER>, or C<lpr>
+if C<PRINTER> is unset) and will pipe the current file through
+it. No formatting is done. You may specify a print command in your
+F<$HOME/.pfm/.pfmrc> (see below).
 
 =item B<Quit>
 
@@ -2288,14 +2321,23 @@ following (example for C<bash>(1), add it to your F<.profile>):
 
 =over
 
+=item B<EDITOR>
+
+The editor to be used for the B<E>dit command.
+
+=item B<HOME>
+
+The directory where the B<M>ore - B<S>how new dir command will take you
+if you don't specify a new directory.
+
 =item B<PAGER>
 
 Identifies the pager with which to view text files. Defaults to C<less>(1)
 for Linux systems or C<more>(1) for Unix systems.
 
-=item B<EDITOR>
+=item B<PRINTER>
 
-The editor to be used for the B<E>dit command.
+May be used to specify a printer to print to using the B<P>rint command.
 
 =item B<SHELL>
 
@@ -2337,7 +2379,7 @@ C<Term::ScreenColor>(3) and C<Term::ReadLine::Gnu>(3).
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.36.
+This manual pertains to C<pfm> version 1.38.
 
 =cut
 
