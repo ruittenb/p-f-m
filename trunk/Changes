@@ -1,4 +1,11 @@
-1.54
+Version 1.54-oleg.
 
-* implemented 'clobber: no' option
+These are changes proposed by Oleg Bartunov (oleg@sai.msu.su).
+They eventually found their way into pfm, albeit in a different implementation.
+
+* Toggle screenwidth (implemented as configurable columnlayouts in combination with the SIGWINCH handler)
+* Don't sort '.' and '..' entries (implemented as 'dotdotmode')
+* Case-sensitive Your commands (implemented in version 1.83)
+* In c(O)mmand, don't invoke the shell implicitly (implemented as (M)ore - s(H)ell)
+* Toggle show/hide dotfiles (implemented as '.' command, preserving marks)
 

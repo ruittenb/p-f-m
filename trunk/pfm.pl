@@ -1,10 +1,10 @@
 #!/usr/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20011212 v1.54
+# @(#) pfm.pl 19990314-20011212 v1.54-oleg
 #
 # Name:        pfm.pl
-# Version:     1.54
+# Version:     1.54-oleg
 # Author:      Rene Uittenbogaard
 # Date:        2001-12-12
 # Usage:       pfm.pl [directory]
@@ -1059,6 +1059,23 @@ sub handlefit {
     }
 }
 
+# oleg@sai.msu.su
+# quick and dirty hack !
+# 1. needs save previous size
+# 2. needs calc. new width to try fit maxfilenamelength 
+sub togglewidth {
+ if ( $scr->getcols() <= 80 ) {
+    system('resize -s 24 120');
+    $scr->resize(120,84);
+ } else {
+    system('resize -s 24 80');
+    $scr->resize(80,24);
+ }
+ resizehandler();
+ return $R_CLEAR;
+}
+######################
+
 sub handleperlcommand {
     my $perlcmd;
     my $prompt = 'Enter Perl command:';
@@ -1300,6 +1317,8 @@ sub handlesort {
         $sort_mode   = $key;
         $position_at = $currentfile{name};
         @dircontents = sort as_requested @dircontents;
+# oleg@sai.msu.su - don't sort '.', '..', needs some thought :-)
+#        @dircontents =  sort as_requested grep { ${$_}{name}!~ /^(\.){1,2}$/ } @dircontents;
     }
     return $R_SCREEN; # the column with sort modes should be restored anyway
 }
@@ -1397,7 +1416,14 @@ sub handlecommand { # Y or O
                    ->puts('Enter one of the highlighted chars at right:')
                    ->at(0,45)->normal()->getch();
         &clearcolumn;
-        return $R_SCREEN unless ($command = $pfmrc{uc($key)}); # assignment!
+# oleg@sai.msu.su
+# first check actual $key, if no command associated then try to ignore case of $key
+        return $R_SCREEN if ( !( 
+                                 ( $command = $pfmrc{$key}  )    || 
+                                 ( $command = $pfmrc{lc($key)} ) || 
+                                 ( $command = $pfmrc{uc($key)} ) 
+                               ) 
+                            );
         $scr->cooked();
     } else { # cOmmand
         $printstr = <<'_eoPrompt_';
@@ -1407,8 +1433,10 @@ _eoPrompt_
             ->at(1,0)->clreol()->cooked();
         $command = &readintohist(\@command_history);
     }
-    $command =~ s/^\s*\n?$/$ENV{'SHELL'}/;
-    $command .= "\n";
+# oleg@sai.msu.su - I don't like to invoke shell implicitly (esp in multiple mode), 
+# it's easy just enter "bash" if needed
+#    $command =~ s/^\s*\n?$/$ENV{'SHELL'}/;
+#    $command .= "\n";
     if ($multiple_mode) {
         $scr->clrscr()->at(0,0);
         for $index (0..$#dircontents) {
@@ -1898,7 +1926,11 @@ sub getdircontents { # (current)directory
     &init_header($multiple_mode);
     &init_title($swap_mode, $uid_mode);
     if ( opendir CURRENT, "$_[0]" ) {
-        @allentries = readdir CURRENT;
+#        @allentries = readdir CURRENT;
+# oleg@sai.msu.su
+# toggle - show/hide hidden files 
+        @allentries = ( $_[1] ) ? readdir CURRENT :
+                                grep { !/^\.[\w\d\s]+/ } readdir CURRENT;
         closedir CURRENT;
     } else {
         $scr->at(0,0)->clreol();
@@ -1923,6 +1955,7 @@ sub getdircontents { # (current)directory
 
 sub printdircontents { # @contents
     foreach my $i ($baseindex .. $baseindex+$screenheight) {
+# oleg@sai.msu.su
         unless ($i > $#_) {
             $scr->at($i+$BASELINE-$baseindex,0)->puts(&fileline(%{$_[$i]}));
             &applycolor($i+$BASELINE-$baseindex, $SHOWSHORT, %{$_[$i]});
@@ -2039,6 +2072,7 @@ sub redisplayscreen {
 
 sub browse {
     my ($key, $result);
+    my $togglehidden;
     # collect info
     $currentdir = getcwd();
     %disk       = &get_filesystem_info;
@@ -2047,7 +2081,7 @@ sub browse {
         %total_nr_of    = ( d=>0, l=>0, '-'=>0, c=>0, b=>0, 's'=>0, p=>0, D=>0);
         %selected_nr_of = ( d=>0, l=>0, '-'=>0, c=>0, b=>0, 's'=>0, p=>0, D=>0,
                             bytes=>0 );
-        @dircontents    = sort as_requested (&getdircontents($currentdir));
+        @dircontents    = sort as_requested (&getdircontents($currentdir,$togglehidden));
         DISPLAY: do {
             &redisplayscreen;
             if ($position_at ne '') { &position_cursor }
@@ -2100,6 +2134,10 @@ sub browse {
                         /^k9$/     and $result = &handlecolumns,       last KEY;
                         /^k4$/     and $result = &handlecolor,         last KEY;
                         /^\@$/     and $result = &handleperlcommand,   last KEY;
+# oleg@sai.msu.su
+                        /^w$/i    and $result = &togglewidth,         last KEY;
+                        /^\.$/i   and $togglehidden = ( $togglehidden ) ? 0:1, goto DIRCONTENTS;
+#####################
                         /^u$/i     and $result = &handlechown,         last KEY;
                         } # end KEY
                     } # end if $key
