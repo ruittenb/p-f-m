@@ -1,12 +1,12 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20010428 v1.46
+# @(#) pfm.pl 19990314-20010430 v1.47
 #
 # Name:        pfm.pl
-# Version:     1.46
+# Version:     1.47
 # Author:      Rene Uittenbogaard
-# Date:        2001-04-28
+# Date:        2001-04-30
 # Usage:       pfm.pl [directory]
 # Requires:    Term::ScreenColor
 #              Term::Screen
@@ -21,14 +21,14 @@
 # Description: Personal File Manager for Unix/Linux
 #
 # TO-DO:
-# first: neaten \n in all commands (Y/O/...), and in history, and in historyfile
-#        jump back to old current dir with F2: debug for F7 and > $#dircontents
+# first: jump back to old current dir with F2: debug for F7 and > $#dircontents
 #        change F2 to use @old_cwd_at
-#        test pfm with -w
+#        ~ notation should work
+#        use prompt from readline?
 #        \5 should work in multiple copy/rename
 #        handleinclude can become faster with &$bla; instead of eval $bla;
 #        display filenames like 'ls -b' in View (with escapes)
-# next:  clean up configuration options (yes/no,1/0,true/false)
+# next:  clean up color configuration options (e.g. titlecolor:bold;on_cyan;rev)
 #        validate_position should not replace $baseindex when not necessary
 #        stat_entry() must *not* rebuild the selected_nr and total_nr lists:
 #            this fucks up with e.g. cOmmand -> cp \2 /somewhere/else
@@ -41,11 +41,10 @@
 #
 #        siZe command?
 #        major/minor numbers on DU 4.0E are wrong
-#        tidy up multiple commands
 #        validate_position in SIG{WINCH}
+#        window size is not corrected when resizing in a child shell
 #        key response (flush_input)
 #        rename: restat file under new name?
-#        we might someday use the 'constant' pragma
 # terminal:
 #        intelligent restat (changes in current dir?)
 # licence
@@ -143,6 +142,7 @@ BEGIN {
 my $VERSION             = &getversion;
 my $CONFIGDIRNAME       = "$ENV{HOME}/.pfm";
 my $CONFIGFILENAME      = '.pfmrc';
+my $LOSTMSG             = '(file lost)';
 my $CWDFILENAME         = 'cwd';
 my $MAJORMINORSEPARATOR = ',';
 my $MAXHISTSIZE         = 40;
@@ -200,6 +200,7 @@ my (%user, %group, %pfmrc, %dircolors, $maxfilenamelength, $wasresized,
     $currentdir, @dircontents, %currentfile, $currentline, $baseindex,
     $oldcurrentdir, %disk, %total_nr_of, %selected_nr_of,
     $editor, $pager, $printcmd, $showlockchar, $autoexitmultiple,
+    $cursorveryvisible, $clsonexit, $autowritehistory,
     $titlecolor, $footercolor, $headercolor, $swapcolor, $multicolor
 );
 
@@ -242,34 +243,38 @@ sub read_pfmrc { # $rereadflag - 0=firstread 1=reread (for copyright message)
         }
         close PFMRC;
     }
-    if (defined($pfmrc{usecolor}) && !$pfmrc{usecolor}) {
-        $scr->colorizable($FALSE);
-    } elsif (defined($pfmrc{usecolor}) && ($pfmrc{usecolor}==2)) {
+    if (defined($pfmrc{usecolor}) && ($pfmrc{usecolor} eq 'force')) {
         $scr->colorizable($TRUE);
+    } elsif (defined($pfmrc{usecolor}) && ! &yesno($pfmrc{usecolor})) {
+        $scr->colorizable($FALSE);
     }
     &copyright($pfmrc{copyrightdelay}) unless ($_[0]);
-    system ('tput', $pfmrc{cursorveryvisible} ? 'cvvis' : 'cnorm');
+    $cursorveryvisible = &yesno($pfmrc{cursorveryvisible});
+    system ('tput', $cursorveryvisible ? 'cvvis' : 'cnorm');
     system ('stty', 'erase', $pfmrc{erase}) if defined($pfmrc{erase});
     $kbd->set_keymap($pfmrc{keymap})        if $pfmrc{keymap};
-    $autoexitmultiple = $pfmrc{autoexitmultiple};
-    # some configuration options are NOT fetched into common scalars -
-    # they remain accessable in %pfmrc (e.g. autowritehistory)
-    ($printcmd)       = ($pfmrc{printcmd}) ||
-                            ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER}" : 'lpr');
-    $timeformat       = $pfmrc{timeformat} || 'pfm';
-    $sort_mode        = $pfmrc{sortmode}   || 'n';
-    $uid_mode         = $pfmrc{uidmode};
-    $swap_persistent  = $pfmrc{persistentswap};
-    $headercolor      = $pfmrc{headercolor} || '37;44';
-    $multicolor       = $pfmrc{multicolor}  || '36;47';
-    $titlecolor       = $pfmrc{titlecolor}  || '36;47;07;01';
-    $swapcolor        = $pfmrc{swapcolor}   || '36;40;07';
-    $footercolor      = $pfmrc{footercolor} || '34;47;07';
-    $showlockchar     = ($pfmrc{showlock} eq 'sun' && $^O =~ /sun|solaris/i
-                            or $pfmrc{showlock} eq 'yes') ? 'l' : 'S';
-    $editor           = $ENV{EDITOR} || $pfmrc{editor} || 'vi';
-    $pager            = $ENV{PAGER}  || $pfmrc{pager}  ||
-                            ($^O =~ /linux/i ? 'less' : 'more');
+    # some configuration options are NOT fetched into common scalars
+    # (e.g. confirmquit) - however, they remain accessable in %pfmrc
+    $clsonexit         = &yesno($pfmrc{clsonexit});
+    $autowritehistory  = &yesno($pfmrc{autowritehistory});
+    $autoexitmultiple  = &yesno($pfmrc{autoexitmultiple});
+    ($printcmd)        = ($pfmrc{printcmd}) ||
+                             ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER}" : 'lpr');
+    $timeformat        = $pfmrc{timeformat} || 'pfm';
+    $sort_mode         = $pfmrc{sortmode}   || 'n';
+    $uid_mode          = 2*($pfmrc{uidmode} eq 'atime')
+                         + ($pfmrc{uidmode} eq 'uid');
+    $swap_persistent   = &yesno($pfmrc{persistentswap});
+    $headercolor       = $pfmrc{headercolor} || '37;44';
+    $multicolor        = $pfmrc{multicolor}  || '36;47';
+    $titlecolor        = $pfmrc{titlecolor}  || '36;47;07;01';
+    $swapcolor         = $pfmrc{swapcolor}   || '36;40;07';
+    $footercolor       = $pfmrc{footercolor} || '34;47;07';
+    $showlockchar      = ( $pfmrc{showlock} eq 'sun' && $^O =~ /sun|solaris/i
+                             or &yesno($pfmrc{showlock}) ) ? 'l' : 'S';
+    $editor            = $ENV{EDITOR} || $pfmrc{editor} || 'vi';
+    $pager             = $ENV{PAGER}  || $pfmrc{pager}  ||
+                             ($^O =~ /linux/i ? 'less' : 'more');
     $pfmrc{dircolors} ||= $ENV{LS_COLORS} || $ENV{LS_COLOURS};
     if ($pfmrc{dircolors}) {
         while ($pfmrc{dircolors} =~ /([^:=*]+)=([^:=]+)/g ) {
@@ -401,11 +406,13 @@ sub expand_escapes {
     # these (hairy) regexps use a negative lookbehind assertion:
     # count the nr. of backslashes before the \1 (must be odd
     # because \\ must be interpreted as an escaped backslash)
-    $_[0] =~ s/((?<!\\)(?:\\\\)*)\\1/$1$namenoext/g;
+#    $_[0] =~ s/((?<!\\)(?:\\\\)*)\\1/$1$namenoext/g;
+    $_[0] =~ s/(?:[^\\]|^)((?:\\\\)*)\\1/$1$namenoext/g;
     $_[0] =~ s/((?<!\\)(?:\\\\)*)\\2/$1$thisfile{name}/g;
     $_[0] =~ s/((?<!\\)(?:\\\\)*)\\3/$1$currentdir/g;
     $_[0] =~ s/((?<!\\)(?:\\\\)*)\\4/$1$disk{mountpoint}/g;
     $_[0] =~ s/((?<!\\)(?:\\\\)*)\\5/$1$swap_state->{path}/g if $swap_state;
+#    $_[0] =~ s/((?<!\\)(?:\\\\)*)~/$1$ENV{HOME}/g;
     $_[0] =~ s/\\\\/\\/g;
 }
 
@@ -421,6 +428,10 @@ sub readintohist { # \@history
         shift (@$history) if ($#$history > $MAXHISTSIZE);
     }
     return $input;
+}
+
+sub yesno {
+    return $_[0] =~ /^(yes|1|true)$/i;
 }
 
 sub max ($$) {
@@ -747,18 +758,18 @@ sub globalinit {
 
 sub goodbye {
     my $bye = 'Goodbye from your Personal File Manager!';
-    if ($pfmrc{clsonexit}) {
+    if ($clsonexit) {
         $scr->cooked()->clrscr();
     } else {
         $scr->at(0,0)->puts(' 'x(($screenwidth-length $bye)/2).$bye)->clreol()
             ->cooked()->normal()->at(1,0);
     }
     &write_cwd;
-    &write_history if $pfmrc{autowritehistory};
-    unless ($pfmrc{clsonexit}) {
+    &write_history if $autowritehistory;
+    unless ($clsonexit) {
         $scr->at($screenheight+$BASELINE+1,0)->clreol()->cooked();
     }
-    system ('tput','cnorm') if $pfmrc{cursorveryvisible};
+    system ('tput','cnorm') if $cursorveryvisible;
 }
 
 sub credits {
@@ -783,7 +794,7 @@ sub credits {
 
 
      For questions/remarks about PFM, or just to tell me you are using it,
-                   send email to: ruittenbogaard\@profuse.nl
+                        send email to: ruittenb\@wish.nl
 
 
                                                           any key to exit to PFM
@@ -910,7 +921,7 @@ sub by_name {
 # user commands
 
 sub handlequit { # key
-    return $R_QUITTING if $pfmrc{confirmquit} =~ /never/i;
+    return $R_QUITTING if $pfmrc{confirmquit} =~ /^(never|no?|false|0)$/i;
     return $R_QUITTING if $_[0] eq 'Q'; # quick quit
     return $R_QUITTING if ($pfmrc{confirmquit} =~ /marked/i and !&mark_info);
     $scr->at(0,0)->clreol()->bold()->cyan();
@@ -1320,6 +1331,9 @@ _eoPrompt_
                 system ($do_this) and &display_error($!);
                 $dircontents[$index] =
                     &stat_entry($loopfile->{name},$loopfile->{selected});
+                if ($dircontents[$index]{mode} =~ /^\?/) {
+                    $dircontents[$index]{display} .= " $LOSTMSG";
+                }
             }
         }
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
@@ -1330,6 +1344,9 @@ _eoPrompt_
         system ($command) and &display_error($!);
         $dircontents[$currentline+$baseindex] =
             &stat_entry($currentfile{name},$currentfile{selected});
+        if ($dircontents[$currentline+$baseindex]{mode} =~ /^\?/) {
+            $dircontents[$currentline+$baseindex]{display} .= " $LOSTMSG";
+        }
     }
     &pressanykey;
     return $R_CLEAR;
@@ -1639,6 +1656,7 @@ sub handleswap {
             %total_nr_of    = %{$swap_state->{totals}};
             $multiple_mode  =   $swap_state->{multiple_mode};
             $sort_mode      =   $swap_state->{sort_mode};
+            $0              =   $swap_state->{argvnull};
             $swap_mode = $swap_state = 0;
             $refresh = $R_SCREEN;
         } else { # not ok to remove marks
@@ -1652,7 +1670,8 @@ sub handleswap {
                         selected      => { %selected_nr_of },
                         totals        => { %total_nr_of },
                         multiple_mode =>   $multiple_mode,
-                        sort_mode     =>   $sort_mode
+                        sort_mode     =>   $sort_mode,
+                        argvnull      =>   $0
                        };
         $currentdir     =   $temp_state->{path};
         @dircontents    = @{$temp_state->{contents}};
@@ -1662,6 +1681,7 @@ sub handleswap {
         %total_nr_of    = %{$temp_state->{totals}};
         $multiple_mode  =   $temp_state->{multiple_mode};
         $sort_mode      =   $temp_state->{sort_mode};
+        $0              =   $temp_state->{argvnull};
         toggle($swap_mode);
         $refresh = $R_SCREEN;
     } else { # $swap_state = 0; ask and swap forward
@@ -1672,7 +1692,8 @@ sub handleswap {
                         selected      => { %selected_nr_of },
                         totals        => { %total_nr_of },
                         multiple_mode =>   $multiple_mode,
-                        sort_mode     =>   $sort_mode
+                        sort_mode     =>   $sort_mode,
+                        argvnull      =>   $0
                        };
         $swap_mode     = 1;
         $sort_mode     = $pfmrc{sortmode} || 'n';
@@ -1833,6 +1854,11 @@ sub position_cursor {
     return &validate_position; # refresh flag
 }
 
+sub set_argv0 {
+    $0 = 'pfm [on ' . ( $disk{device} eq 'none' ? $disk{mountpoint}
+                                                : $disk{device} ) . ']';
+}
+
 sub resizehandler {
     $wasresized = 0;
     &handlefit;
@@ -1894,8 +1920,7 @@ sub browse {
     # collect info
     $currentdir = getcwd();
     %disk       = &get_filesystem_info;
-    $0          = 'pfm [on ' . ( $disk{device} eq 'none'
-                               ? $disk{mountpoint} : $disk{device} ) . ']';
+    &set_argv0;
     L_DIRCONTENTS: do {
         %total_nr_of    = ( d=>0, l=>0, '-'=>0, c=>0, b=>0, 's'=>0, p=>0, D=>0);
         %selected_nr_of = ( d=>0, l=>0, '-'=>0, c=>0, b=>0, 's'=>0, p=>0, D=>0,
@@ -1983,58 +2008,62 @@ __DATA__
 # [whitespace] option [whitespace]:[whitespace] value
 # (whitespace is optional)
 # in other words: /^\s*([^:\s]+)\s*:\s*(.*)$/
-# lines may be broken by ending them in \
+# everything following a # is regarded as a comment.
+# lines may be continued on the next line by ending them in \
 
+# binary options may have yes/no, true/false, or 0/1 values.
 # some options can be set using environment variables.
 # your environment settings override the options in this file.
 
 ##########################################################################
 # General
 
-# define your pager. you can also use $PAGER for this
-#pager:less
-# your editor. you can also use $EDITOR
+# specify your favorite editor. you can also use $EDITOR for this
 editor:vi
+# your pager. you can also use $PAGER
+#pager:less
 # your system's print command. Specify if the default 'lpr' does not work.
 #printcmd:lp -d$ENV{PRINTER}
 
-# the erase character for your terminal
+# the erase character for your terminal (default: don't set)
 #erase:^H
-# the keymap to use in readline (vi,emacs); default emacs
+# the keymap to use in readline (vi,emacs). (default emacs)
 #keymap:vi
 
 # whether multiple file mode should be exited after executing a multiple command
-autoexitmultiple:1
-# use very visible cursor (block cursor on 'linux' type terminal)
-cursorveryvisible:1
+autoexitmultiple:yes
 # write history files automatically upon exit
-autowritehistory:0
+autowritehistory:no
+# whether you want to have the screen cleared when pfm exits
+clsonexit:no
+# have pfm ask for confirmation when you press 'q'uit? (yes,no,marked)
+# 'marked' = ask only if there are any marked files in the current directory
+confirmquit:yes
 # time to display copyright message at start (in seconds, fractions allowed)
 copyrightdelay:0.2
-# whether you want to have the screen cleared when pfm exits (0 or 1)
-clsonexit:0
-# have pfm ask for confirmation when you press 'q'uit? (always,never,marked)
-# 'marked' = ask only if there are any marked files in the current directory
-confirmquit:always
-# initial sort mode (see F6 command) (nNmMeEfFsSiItTdDaA) (n is default)
+# use very visible cursor (e.g. block cursor on 'linux' type terminal)
+cursorveryvisible:yes
+# F7 key swap path method is persistent? (default no)
+#persistentswap:yes
+# show whether mandatory locking is enabled (e.g. -rw-r-lr-- ) (yes,no,sun)
+# 'sun' = show locking only on sunos/solaris
+showlock:sun
+# initial sort mode (see F6 command) (nNmMeEfFsSiItTdDaA) (default n)
 sortmode:n
-# initial title bar mode (F9 command) (0=mtime, 1=uid, 2=atime) (0 is default)
-uidmode:0
+# initial title bar mode (F9 command) (mtime,uid,atime) (default mtime)
+uidmode:mtime
 # format for time: touch MMDDhhmm[[CC]YY][.ss] or pfm [[CC]YY]MMDDhhmm[.ss]
 timeformat:pfm
-# show whether mandatory locking is enabled (e.g. -rw-r-lr-- ) (yes,no,sun)
-showlock:sun
-# F7 key swap path method is persistent? (0,1) (0 is default)
-#persistentswap:0
 
 ##########################################################################
 # Colors
 
-# set 'usecolor' to 0 if you want no color at all. if you set this to 1,
-# you will get colored title bars (if your terminal supports it).
-# set this to 2 to force pfm to try and use color on any terminal.
+# use color (yes,no,force)
+# 'no'    = use no color at all
+# 'yes'   = use color for title bars, if your terminal supports it
+# 'force' = use color for title bars on any terminal
 # your *files* will only be colored if you also define 'dircolors' below
-usecolor:2
+usecolor:force
 
 # 'dircolors' defines the colors that will be used for your files.
 # for your files to become colored, you must set 'usecolor' to 1.
@@ -2042,7 +2071,7 @@ usecolor:2
 # if you don't want to set this, you can also use $LS_COLORS or $LS_COLOURS
 
 #-attribute codes:
-# 00=none 01=bold 04=underscore 05=blink 07=reverse 08=concealed
+# 00=none 01=bold 04=underscore 05=blink 07=reverse 08=concealed(?)
 #-text color codes:
 # 30=black 31=red 32=green 33=yellow 34=blue 35=magenta 36=cyan 37=white
 #-background color codes:
@@ -2065,16 +2094,19 @@ cd=40;33;01:or=01;05;37;41:mi=01;05;37;41:ex=00;32:lc=^[[:rc=m:\
 # use this if you want no colors for your files, but only for the title bars
 #dircolors:-
 
-# colors for header, title, footer; title and footer are always in reverse!
+# colors for header, title, footer
+# regardless of these settings, the footer will always be bold
 # these are commented out because they are the defaults
 #headercolor:37;44
 #multicolor:36;47
-#titlecolor:36;47;07
+#titlecolor:36;47;07;01
 #swapcolor:36;40;07
 #footercolor:34;47;07
 
 ##########################################################################
 # Your commands
+
+# these assume you do not have filenames with double quotes in them
 
 B:xv -root +noresetroot +smooth -maxpect -quit "\2"
 C:tar cvf - "\2" | gzip > "\2".tar.gz
@@ -2481,7 +2513,7 @@ C<Term::ScreenColor>(3) and C<Term::ReadLine::Gnu>(3).
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.46 .
+This manual pertains to C<pfm> version 1.47 .
 
 =cut
 
