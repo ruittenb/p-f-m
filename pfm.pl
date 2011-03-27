@@ -1,12 +1,12 @@
 #!/usr/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20011016 v1.53
+# @(#) pfm.pl 19990314-20011212 v1.54
 #
 # Name:        pfm.pl
-# Version:     1.53
+# Version:     1.54
 # Author:      Rene Uittenbogaard
-# Date:        2001-10-16
+# Date:        2001-12-12
 # Usage:       pfm.pl [directory]
 # Requires:    Term::ScreenColor
 #              Term::Screen
@@ -26,6 +26,7 @@
 #        use prompt from readline? <- done correctly?
 #        see if every command picks up \[12345] escapes correctly
 #        restat after rename?
+#        move interactive? test if terminal input reaches command correctly
 # next:  validate_position should not replace $baseindex when not necessary
 #        handleinclude can become faster with &$bla; instead of eval $bla;
 #        stat_entry() must *not* rebuild the selected_nr and total_nr lists:
@@ -171,7 +172,7 @@ my $screenheight    = 20;    # inner height
 my $screenwidth     = 80;    # terminal width
 my $position_at     = '.';   # start with cursor here
 
-my @command_history = qw(true);
+my @command_history = ('du -ks *', 'true');
 my @mode_history    = qw(755 644);
 my @path_history    = ('/',$ENV{HOME});
 my @regex_history   = qw(.*\.jpg);
@@ -194,7 +195,7 @@ my (%user, %group, %pfmrc, @signame, %dircolors, $maxfilenamelength,
     $swap_persistent, $swap_state,
     $currentdir, @dircontents, %currentfile, $currentline, $baseindex,
     $oldcurrentdir, %disk, %total_nr_of, %selected_nr_of,
-    $editor, $pager, $printcmd, $showlockchar, $autoexitmultiple,
+    $editor, $pager, $printcmd, $showlockchar, $autoexitmultiple, $clobber,
     $cursorveryvisible, $clsonexit, $autowritehistory, $viewbase, $trspace,
     $titlecolor, $footercolor, $headercolor, $swapcolor, $multicolor
 );
@@ -251,6 +252,7 @@ sub read_pfmrc { # $rereadflag - 0=firstread 1=reread (for copyright message)
     # some configuration options are NOT fetched into common scalars
     # (e.g. confirmquit) - however, they remain accessable in %pfmrc
     $clsonexit         = &yesno($pfmrc{clsonexit});
+    $clobber           = &yesno($pfmrc{clobber});
     $autowritehistory  = &yesno($pfmrc{autowritehistory});
     $autoexitmultiple  = &yesno($pfmrc{autoexitmultiple});
     $swap_persistent   = &yesno($pfmrc{persistentswap});
@@ -1157,7 +1159,8 @@ sub handlemorekill {
         $signal = $signame[$signal];
     }
     local $SIG{$signal} = 'IGNORE';
-    kill $signal, -$$;
+#    kill $signal, -$$; # kill proc groups: not portable, see perlfunc
+    kill -$signal, $$;
     return $R_SCREEN;
 }
 
@@ -1619,9 +1622,9 @@ sub handleedit {
 
 sub handlecopyrename {
     my $state = "\u$_[0]";
-    my $statecmd = $state eq 'C' ? 'cp' : 'mv';
+    my $statecmd = ($state eq 'C' ? 'cp' : 'mv') . ($clobber ? '' : ' -i');
     my $stateprompt = $state eq 'C' ? 'Destination: ' : 'New name: ';
-    my ($loopfile,$index,$newname,$command,$do_this);
+    my ($loopfile, $index, $newname, $command, $do_this);
     my $do_a_refresh = $R_HEADER;
     &markcurrentline($state) unless $multiple_mode;
     $scr->at(0,0)->clreol()->cooked();
@@ -1646,6 +1649,7 @@ sub handlecopyrename {
         &path_info;
         return $R_HEADER;
     }
+    # this assumes there are no " characters in the filename
     $command = 'system qq{'.$statecmd.' "$loopfile->{name}" "'.$newname.'"}';
     if ($multiple_mode) {
         $scr->at(1,0)->clreol();
@@ -1656,7 +1660,10 @@ sub handlecopyrename {
                 $do_this = $command;
                 &expand_escapes($do_this, $loopfile);
                 $scr->at(1,0)->puts($loopfile->{name});
-                eval ($do_this) and $scr->at(0,0)->clreol(),&display_error($!);
+                $scr->cooked() unless $clobber;
+                eval ($do_this) and
+                    $scr->raw()->at(0,0)->clreol(),&display_error($!);
+                $scr->raw() unless $clobber;
                 $do_a_refresh = $R_SCREEN;
             }
         }
@@ -1664,12 +1671,14 @@ sub handlecopyrename {
     } else {
         $loopfile = \%currentfile;
         &expand_escapes($command,$loopfile);
+        $scr->cooked() unless $clobber;
         eval ($command) and do {
-                $scr->at(0,0)->clreol();
+                $scr->raw()->at(0,0)->clreol();
                 &display_error($!);
                 &path_info;
                 $do_a_refresh = $R_HEADER;
-        }
+        };
+        $scr->raw() unless $clobber;
     }
     return $do_a_refresh;
 }
@@ -2150,6 +2159,8 @@ editor:vi
 autoexitmultiple:yes
 # write history files automatically upon exit
 autowritehistory:no
+# automatically clobber existing files
+clobber:no
 # whether you want to have the screen cleared when pfm exits
 clsonexit:no
 # have pfm ask for confirmation when you press 'q'uit? (yes,no,marked)
@@ -2188,7 +2199,7 @@ usecolor:force
 # 'dircolors' defines the colors that will be used for your files.
 # for your files to become colored, you must set 'usecolor' to 1.
 # see also the manpages for ls(1) and dircolors(1L) (on Linux systems).
-# if you don't want to set this, you can also use $LS_COLORS or $LS_COLOURS
+# you can also use $LS_COLORS or $LS_COLOURS to set this.
 
 #-attribute codes:
 # 00=none 01=bold 04=underscore 05=blink 07=reverse 08=concealed(?)
@@ -2236,7 +2247,7 @@ F:file "\2"
 G:gvim "\2"
 I:rpm -qp -i "\2"
 J:mpg123 "\2" &
-L:mv "\2" `echo "\2" | tr A-Z a-z`
+L:mv -i "\2" "`echo \"\2\" | tr A-Z a-z`"
 N:nroff -man "\2" | more
 P:perl -cw "\2"
 Q:unzip -l "\2" | more
@@ -2397,7 +2408,9 @@ Change the name of the file to the path- and filename specified. Depending
 on your Unix implementation, a different path- and filename on another
 filesystem may or may not be allowed. In multiple-file mode, the new
 name I<must> be a directoryname or a name containing a B<\1> or B<\2>
-escape (see cB<O>mmand above).
+escape (see cB<O>mmand above). If the option I<clobber> is set to I<no>
+in F<$HOME/.pfm/.pfmrc>, existing files will not be overwritten unless
+the action is confirmed by the user.
 
 =item B<Show>
 
@@ -2592,8 +2605,8 @@ The editor to be used for the B<E>dit command.
 
 =item B<HOME>
 
-The directory where the B<M>ore - B<S>how new dir command will take you
-if you don't specify a new directory.
+The directory where the B<M>ore - B<S>how new dir and B<F7> commands
+will take you if you don't specify a new directory.
 
 =item B<PAGER>
 
@@ -2613,8 +2626,8 @@ entered.
 
 =head1 FILES
 
-The directory F<$HOME/.pfm/> and files therein. Also, an input history
-is kept in this directory.
+The directory F<$HOME/.pfm/> and files therein. Several input histories
+are saved to this directory.
 
 =head1 BUGS and WARNINGS
 
@@ -2637,7 +2650,7 @@ root and with the cursor next to F</sbin/reboot> . You have been warned.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.53 .
+This manual pertains to C<pfm> version 1.54 .
 
 =head1 SEE ALSO
 
