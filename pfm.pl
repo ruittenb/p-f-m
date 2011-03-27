@@ -1,12 +1,12 @@
 #!/usr/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20020329 v1.56
+# @(#) pfm.pl 19990314-20020401 v1.57
 #
 # Name:        pfm.pl
-# Version:     1.56
+# Version:     1.57
 # Author:      Rene Uittenbogaard
-# Date:        2002-03-29
+# Date:        2002-04-01
 # Usage:       pfm.pl [directory]
 # Requires:    Term::ScreenColor
 #              Term::Screen
@@ -28,7 +28,7 @@
 #        double quote support by using system(@) for all commands
 #        restat after rename?
 #        use quotemeta() for quoting?
-#        show/hide dot files
+#        show/hide dot files : handledelete() URGENT! debugging required
 #        customizable columns
 # next:  validate_position should not replace $baseindex when not necessary
 #        handleinclude can become faster with &$bla; instead of eval $bla;
@@ -197,8 +197,9 @@ my (%user, %group, %pfmrc, @signame, %dircolors, $maxfilenamelength,
     $wasresized, $scr, $kbd,
     $uidlineformat, $tdlineformat, $timeformat,
     $sort_mode, $multiple_mode, $uid_mode, $swap_mode, $dot_mode,
-    $currentdir, @dircontents, %currentfile, $currentline, $baseindex,
-    $oldcurrentdir, %disk, $swap_state, %total_nr_of, %selected_nr_of,
+    $currentdir, $oldcurrentdir, @dircontents, @showncontents, %currentfile,
+    %disk, $swap_state, %total_nr_of, %selected_nr_of,
+    $currentline, $baseindex,
     $editor, $pager, $printcmd, $showlockchar, $autoexitmultiple, $clobber,
     $cursorveryvisible, $clsonexit, $autowritehistory, $viewbase, $trspace,
     $swap_persistent,
@@ -216,7 +217,7 @@ sub write_pfmrc {
         push (@resourcefile, $_) while (($_ = <DATA>) !~ /^__END__$/);
         close DATA;
         print MKPFMRC map {
-            s/^(# Version )x$/$1$VERSION/m;
+            s/^(##? Version )x$/$1$VERSION/m;
             s/^([A-Z]:\w+.*?\s+)more(\s*)$/$1less$2/mg if $^O =~ /linux/i;
             $_;
         } @resourcefile;
@@ -474,20 +475,12 @@ sub max ($$) {
 
 # alternatively
 #sub max (@) {
-#    my ($max, $element);
-#    while (defined($element = shift)) {
-#        if ($element > $max) { $max = $element }
-#    }
-#    return $max;
-#}
-# or:
-#sub max (@) {
 #    return +(sort { $b <=> $a } @_)[0];
 #}
 
 sub findchangedir {
     my $goal = $_[0];
-    if (!-d $goal and $goal !~ /\//) {
+    if (!-d $goal and $goal !~ /\// and $goal ne '') {
         foreach (split /:/, $ENV{CDPATH}) {
             if (-d "$_/$goal") {
                 $goal = "$_/$goal";
@@ -524,7 +517,7 @@ sub toggle ($) {
 }
 
 sub basename {
-    $_[0] =~ /\/([^\/]*)$/; # ok, we suffer from LTS but this looks better in vim
+    $_[0] =~ /\/([^\/]*)$/; # ok, it is LTS but this looks better in vim
     return $1;
 }
 
@@ -541,6 +534,18 @@ sub include { # $entry
     $entry->{selected} = "*";
     $selected_nr_of{$entry->{type}}++;
     $entry->{type} =~ /-/ and $selected_nr_of{bytes} += $entry->{size};
+}
+
+sub filterdir {
+    return grep { $dot_mode || $_->{name} =~ /^(\.\.?|[^\.].*)$/ } @_;
+}
+
+sub copyback { # copy a changed entry from @showncontents back to @dircontents
+    my $somefilename = $_[0];
+    my $count = 0;
+    my %nameindexmap = map { $_->{name}, $count++ } @dircontents;
+    $dircontents[$nameindexmap{$somefilename}] =
+        $showncontents[$currentline+$baseindex];
 }
 
 ##########################################################################
@@ -744,7 +749,7 @@ sub init_header { # "multiple"mode
 Attr Time Copy Del Edit Find Print Rename Show Uid View Your cOmmand Quit More  
 Multiple Include eXclude Attribute Time Copy Delete Print Rename Your cOmmands  
 Include? Every, Oldmarks, User or Files only:                                   
-Config PFM Edit new file Make new dir sHell Show dir Kill Write history ESC     
+Config PFM Edit new file Make new dir Show new dir sHell Kill Write history ESC 
 Sort by: Name, Extension, Size, Date, Type, Inode (ignorecase, reverse):        
 _eoFirst_
     $scr->at(0,0);
@@ -896,6 +901,11 @@ sub disk_info { # %disk{ total, used, avail }
     my @desc      = ('K tot','K usd','K avl');
     my @values    = @disk{qw/total used avail/};
     my $startline = 4;
+    # I played with vt100 boxes once,      lqqk
+    # but I hated it.                      x  x
+    # In case someone wants to try:        mqqj
+#    $scr->at($startline-1,$screenwidth-$DATECOL)
+#        ->puts("\cNlq\cODisk space\cNqk\cO");
     $scr->at($startline-1,$screenwidth-$DATECOL+4)->puts('Disk space');
     foreach (0..2) {
         while ( $values[$_] > 99_999 ) {
@@ -915,8 +925,8 @@ sub dir_info {
                + $total_nr_of{'p'} + $total_nr_of{'s'}
                + $total_nr_of{'D'};
     my $startline = 9;
-    $scr->at($startline-1, $screenwidth-$DATECOL+2)
-        ->puts("Directory($sort_mode)");
+    $scr->at($startline-1, $screenwidth - $DATECOL + $dot_mode)
+        ->puts(" Directory($sort_mode" . ($dot_mode ? '' : '.') . ")");
     foreach (0..3) {
         $scr->at($startline+$_,$screenwidth-$DATECOL+1)
             ->puts(&infoline($values[$_],$desc[$_]));
@@ -1030,7 +1040,13 @@ sub handleadvance {
 
 sub handledot {
     &toggle($dot_mode);
-    return $R_DIRLISTING;
+    @showncontents = &filterdir(@dircontents);
+#    if ($currentline + $baseindex > @showncontents) {
+#        $currentline = @showncontents - $baseindex +1;
+#    }
+    $position_at = $currentfile{name};
+#    &validate_position;
+    return $R_SCREEN;
 }
 
 sub handleshowenter {
@@ -1066,7 +1082,7 @@ sub handlefind {
     $scr->raw();
     return $R_HEADER unless $findme;
     FINDENTRY:
-    foreach (sort by_name @dircontents) {
+    foreach (sort by_name @showncontents) {
         if ( $_->{name} =~ /^$findme/ ) {
             $position_at = $_->{name};
             last FINDENTRY;
@@ -1214,7 +1230,7 @@ sub handlemore {
     my $do_a_refresh = $R_SCREEN;
     my ($newname, $stateprompt);
     &init_header($MOREHEADER);
-    my $key = $scr->at(0,78)->getch();
+    my $key = $scr->at(0,79)->getch();
     MOREKEY: for ($key) {
         /^s$/i and $do_a_refresh = &handlemoreshow,   last MOREKEY;
         /^m$/i and $do_a_refresh = &handlemoremake,   last MOREKEY;
@@ -1371,21 +1387,22 @@ sub handlechown {
                 &exclude($loopfile,'.');
                 eval($do_this);
                 $dircontents[$index] =
-                    &stat_entry($loopfile->{name},$loopfile->{selected});
+                    &stat_entry($loopfile->{name}, $loopfile->{selected});
             }
         }
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
         $loopfile = \%currentfile;
         eval($do_this);
-        $dircontents[$currentline+$baseindex] =
+        $showncontents[$currentline+$baseindex] =
             &stat_entry($currentfile{name}, $currentfile{selected});
+        &copyback($currentfile{name});
     }
     return $do_a_refresh;
 }
 
 sub handlechmod {
-    my ($newmode,$loopfile,$do_this,$index);
+    my ($newmode, $loopfile, $do_this, $index);
     my $prompt = 'Permissions ( [ugoa][-=+][rwxslt] or octal ): ';
     my $do_a_refresh = $multiple_mode ? $R_SCREEN : $R_HEADER;
     &markcurrentline('A') unless $multiple_mode;
@@ -1417,8 +1434,9 @@ sub handlechmod {
     } else {
         $loopfile = \%currentfile;
         eval($do_this);
-        $dircontents[$currentline+$baseindex] =
+        $showncontents[$currentline+$baseindex] =
             &stat_entry($currentfile{name}, $currentfile{selected});
+        &copyback($currentfile{name});
     }
     return $do_a_refresh;
 }
@@ -1469,7 +1487,8 @@ _eoPrompt_
                     system ($do_this) and &display_error($!);
                     $dircontents[$index] =
                         &stat_entry($loopfile->{name},$loopfile->{selected});
-                    if ($dircontents[$index]{mode} =~ /^\?/) {
+#                    if ($dircontents[$index]{mode} =~ /^\?/) {
+                    if ($dircontents[$index]{nlink} == 0) {
                         $dircontents[$index]{display} .= " $LOSTMSG";
                     }
                 }
@@ -1480,11 +1499,12 @@ _eoPrompt_
             &expand_escapes($command, \%currentfile);
             $scr->clrscr()->at(0,0)->puts($command);
             system ($command) and &display_error($!);
-            $dircontents[$currentline+$baseindex] =
+            $showncontents[$currentline+$baseindex] =
                 &stat_entry($currentfile{name}, $currentfile{selected});
-            if ($dircontents[$currentline+$baseindex]{nlink} == 0) {
-                $dircontents[$currentline+$baseindex]{display} .= " $LOSTMSG";
+            if ($showncontents[$currentline+$baseindex]{nlink} == 0) {
+                $showncontents[$currentline+$baseindex]{display} .= " $LOSTMSG";
             }
+            &copyback($currentfile{name});
         }
         &pressanykey;
     }
@@ -1504,19 +1524,19 @@ sub handledelete {
     # is empty, but if that leaves the parent directory empty, then it can also
     # be removed, which causes a fatal error.
     $do_this = q"if ($loopfile->{type} eq 'd') {
-                    if ($loopfile->{name} eq '.') {
-                        $success = 0;
-                        $msg = 'Deleting current directory not allowed';
-                    } else {
-                        $success = rmdir $loopfile->{name};
-                    }
+                     if ($loopfile->{name} eq '.') {
+                         $success = 0;
+                         $msg = 'Deleting current directory not allowed';
+                     } else {
+                         $success = rmdir $loopfile->{name};
+                     }
                  } else {
-                    $success = unlink $loopfile->{name};
+                     $success = unlink $loopfile->{name};
                  }
                  if ($success) {
                      $total_nr_of{$loopfile->{type}}--;
                      &exclude($loopfile) if $loopfile->{selected} eq '*';
-                     if ($currentline+$baseindex >= $#dircontents) {
+                     if ($currentline+$baseindex >= $#showncontents) {
                          $currentline--; # note: see below
                      }
                      @dircontents = (
@@ -1603,7 +1623,7 @@ sub handleshow {
 
 sub handlehelp {
     $scr->clrscr();
-    system ('man', 'pfm'); # how unsubtle :-)
+    system qw(man pfm); # how unsubtle :-)
     &credits;
     return $R_CLEAR;
 }
@@ -1644,8 +1664,9 @@ sub handletime {
     } else {
         $loopfile = \%currentfile;
         eval($do_this);
-        $dircontents[$currentline+$baseindex] =
+        $showncontents[$currentline+$baseindex] =
             &stat_entry($currentfile{name}, $currentfile{selected});
+        &copyback($currentfile{name});
     }
     return $do_a_refresh;
 }
@@ -1699,21 +1720,16 @@ sub handlecopyrename {
         &path_info;
         return $R_HEADER;
     }
-#    $command = 'system qq{'.$statecmd.' "$loopfile->{name}" "'.$newname.'"}';
     $command = 'system ($statecmd,' . ($clobber ? '' : "'-i',") .
                '$loopfile->{name}, $newnameexpanded)';
     if ($multiple_mode) {
-#        $scr->at(1,0)->clreol();
         for $index (0..$#dircontents) {
             $loopfile = $dircontents[$index];
             if ($loopfile->{selected} eq '*') {
                 &exclude($loopfile, '.');
-#                $do_this = $command;
-#                &expand_escapes($do_this, $loopfile);
                 &expand_escapes(($newnameexpanded = $newname), $loopfile);
                 $scr->at(1,0)->clreol()->puts($loopfile->{name});
                 $scr->cooked() unless $clobber;
-#                eval ($do_this) and
                 eval ($command) and
                     $scr->raw()->at(0,0)->clreol(),&display_error($!);
                 $scr->raw() unless $clobber;
@@ -1739,9 +1755,9 @@ sub handlecopyrename {
 
 sub handleselect {
     # we cannot use %currentfile because we don't want to modify a copy
-    my $file          = $dircontents[$currentline+$baseindex];
+    my $file          = $showncontents[$currentline+$baseindex];
     my $was_selected  = $file->{selected} =~ /\*/;
-    $file->{selected} = substr('* ',$was_selected,1);
+    $file->{selected} = substr('* ', $was_selected, 1);
     if ($was_selected) {
         $selected_nr_of{$file->{type}}--;
         $file->{type} =~ /-/ and $selected_nr_of{bytes} -= $file->{size};
@@ -1750,6 +1766,7 @@ sub handleselect {
         $file->{type} =~ /-/ and $selected_nr_of{bytes} += $file->{size};
     }
     %currentfile = %$file;
+    &copyback($currentfile{name});
     &highlightline($HIGHLIGHT_OFF);
     &mark_info(%selected_nr_of);
     return $R_KEY;
@@ -1768,8 +1785,8 @@ sub validate_position {
         $currentline = $screenheight;
         $redraw = $R_DIRLISTING;
     }
-    if ( $currentline + $baseindex > $#dircontents ) {
-        $currentline = $#dircontents - $baseindex;
+    if ( $currentline + $baseindex > $#showncontents ) {
+        $currentline = $#showncontents - $baseindex;
         $redraw = $R_DIRLISTING;
     }
     return $redraw;
@@ -1777,7 +1794,7 @@ sub validate_position {
 
 sub handlescroll {
     local $_ = $_[0];
-    return 0 if (/\cE/ && $baseindex == $#dircontents && $currentline == 0)
+    return 0 if (/\cE/ && $baseindex == $#showncontents && $currentline == 0)
              or (/\cY/ && $baseindex == 0);
     my $displacement = -(/^\cY$/)
                        +(/^\cE$/);
@@ -1785,7 +1802,6 @@ sub handlescroll {
     $currentline -= $displacement if $currentline-$displacement >= 0
                                 and $currentline-$displacement <= $screenheight;
 #    &validate_position;
-#    $scr->at(0,0)->puts("$currentline,$baseindex");
     return $R_DIRLISTING;
 }
 
@@ -1797,8 +1813,8 @@ sub handlemove {
                        -$screenheight*(/\cB|pgup/)
                        +int($screenheight*(/\cD/)/2)
                        -int($screenheight*(/\cU/)/2)
-                       -($currentline  +$baseindex)              *(/^home$/)
-                       +($#dircontents -$currentline -$baseindex)*(/^end$/ );
+                       -($currentline    +$baseindex)              *(/^home$/)
+                       +($#showncontents -$currentline -$baseindex)*(/^end$/ );
     $currentline += $displacement;
     return &validate_position;
 }
@@ -2012,8 +2028,8 @@ sub position_cursor {
     $currentline = 0;
     $baseindex   = 0 if $position_at eq '..'; # descending into this dir
     ANYENTRY: {
-        for (0..$#dircontents) {
-            if ($position_at eq $dircontents[$_]{name}) {
+        for (0..$#showncontents) {
+            if ($position_at eq $showncontents[$_]{name}) {
                 $currentline = $_ - $baseindex;
                 last ANYENTRY;
             }
@@ -2065,7 +2081,7 @@ sub redisplayscreen {
 # sub {
 #                                 get filesystem info;
 # DIRCONTENTS   (R_DIRCONTENTS):  read directory contents;
-# DISPLAY       (R_SCREEN):       show title, footer and stats;
+# SCREEN        (R_SCREEN):       show title, footer and stats;
 # DIRLISTING    (R_DIRLISTING):   display directory contents;
 # STRIDE        (R_STRIDE):       wait for key;
 # KEY           ():               call key command handling subroutine;
@@ -2084,7 +2100,7 @@ sub redisplayscreen {
 # $R_KEY         == 0;
 # $R_HEADER      == 1; # just call init_header()
 # $R_STRIDE      == 2; # in previous versions: last KEY (= redo STRIDE)
-# $R_DIRLISTING  == 3;
+# $R_DIRLISTING  == 3; # reinit @showncontents from @dircontents; redisplay list
 # $R_SCREEN      == 4; # in previous versions: redo DISPLAY
 # $R_CLEAR       == 5; # like R_SCREEN, but clrscr() first
 # $R_DIRCONTENTS == 6;
@@ -2101,16 +2117,18 @@ sub browse {
         %total_nr_of    = ( d=>0, l=>0, '-'=>0, c=>0, b=>0, 's'=>0, p=>0, D=>0);
         %selected_nr_of = ( d=>0, l=>0, '-'=>0, c=>0, b=>0, 's'=>0, p=>0, D=>0,
                             bytes=>0 );
-        @dircontents    = sort as_requested (&getdircontents($currentdir));
-        DISPLAY: do {
+        @showncontents = &filterdir(
+            @dircontents = sort as_requested &getdircontents($currentdir)
+        );
+        SCREEN: do {
             &redisplayscreen;
-            if ($position_at ne '') { &position_cursor }
-            &recalc_ptr unless defined $dircontents[$currentline+$baseindex];
+            &position_cursor if $position_at ne '';
+            &recalc_ptr unless defined $showncontents[$currentline+$baseindex];
             DIRLISTING: do {
-                &printdircontents(@dircontents);
+                &printdircontents(@showncontents = &filterdir(@dircontents));
 #                $scr->flush_input();
                 STRIDE: do {
-                    %currentfile = %{$dircontents[$currentline+$baseindex]};
+                    %currentfile = %{$showncontents[$currentline+$baseindex]};
                     &highlightline($HIGHLIGHT_ON);
                     $result = $R_KEY;
                     until ($scr->key_pressed(1) || $wasresized) {
@@ -2151,7 +2169,7 @@ sub browse {
                         /^[\/f]$/i and $result = &handlefind,          last KEY;
                         /^k1$/     and $result = &handlehelp,          last KEY;
                         /^k2$/     and $result = &handlecdold,         last KEY;
-                        /\./       and $result = &handledot,           last KEY;
+                        /^\.$/     and $result = &handledot,           last KEY;
                         /^k9$/     and $result = &handlecolumns,       last KEY;
                         /^k4$/     and $result = &handlecolor,         last KEY;
                         /^\@$/     and $result = &handleperlcommand,   last KEY;
@@ -2165,7 +2183,7 @@ sub browse {
             # end DIRLISTING
             if ($result == $R_CLEAR) { $scr->clrscr }
         } until ($result > $R_CLEAR);
-        # end DISPLAY
+        # end SCREEN
     } until ($result > $R_DIRCONTENTS);
     # end DIRCONTENTS
     return $result == $R_QUITTING;
@@ -2225,7 +2243,7 @@ confirmquit:yes
 copyrightdelay:0.2
 ## use very visible cursor (e.g. block cursor on 'linux' type terminal)
 cursorveryvisible:yes
-## show dot files or hide them (not implemented)
+## show dot files? (hide them otherwise, toggle with . key)
 #dotmode:yes
 ## F7 key swap path method is persistent? (default no)
 #persistentswap:yes
@@ -2381,11 +2399,11 @@ current file and advance the cursor.
 
 =item B<.>
 
-Show/hide dot files (not implemented).
+Toggle show/hide dot files.
 
 =item B</>
 
-Identical to B<F>ind.
+Identical to B<F>ind I<(vide infra)>.
 
 =item B<@>
 
@@ -2441,13 +2459,12 @@ will take you back to the main menu.
 
 =item B<cOmmand>
 
-Allows execution of a shell command on the current files. Entering an
-empty line will spawn your default login shell until you C<exit> from it.
-After the command completes, C<pfm> will resume.  You may abbreviate
-the current filename as B<\2>, the current filename without extension
-as B<\1>, the current directory path as B<\3>, the mount point of the
-current filesystem as B<\4> and the swap directory path (see B<F7>
-command) as B<\5>. To enter a backslash, use B<\\>.
+Allows execution of a shell command on the current files.  After the
+command completes, C<pfm> will resume.  You may abbreviate the current
+filename as B<\2>, the current filename without extension as B<\1>,
+the current directory path as B<\3>, the mount point of the current
+filesystem as B<\4> and the swap directory path (see B<F7> command)
+as B<\5>. To enter a backslash, use B<\\>.
 
 =item B<Print>
 
@@ -2525,37 +2542,41 @@ line. Commands may use B<\1>-B<\5> escapes just as in cB<O>mmand, e.g.
 
 =over
 
-=item Config PFM
+=item B<Config PFM>
 
 This option will open the F<$HOME/.pfm/.pfmrc> configuration file with
 your preferred editor. The file is re-read by C<pfm> after you exit
 your editor.
 
-=item Edit new file
+=item B<Edit new file>
 
 You will be prompted for the new filename, then your editor will
 be spawned.
 
-=item Make new directory
+=item B<Make new directory>
 
 Specify a new directory name and C<pfm> will create it for you.
 Furthermore, if you don't have any files marked, your current
 directory will be set to the newly created directory.
 
-=item Show new directory
+=item B<Show new directory>
 
 You will have to enter the new directory you want to view. Just pressing
 B<ENTER> will take you to your home directory. Be aware that this option
 is different from B<F7> because this will not change your current swap
 directory status.
 
-=item Kill children
+=item B<sHell>
 
-Lists available signals. After selection of a signal, sends all child
-processes of C<pfm> (more accurately: all processes in the same process
-group) the specified signal.
+Spawns your default login shell until you exit from it, then resumes.
 
-=item Write history
+=item B<Kill children>
+
+Lists available signals. After selection of a signal, sends this signal
+to all child processes of C<pfm> (more accurately: all processes in the
+same process group).
+
+=item B<Write history>
 
 C<pfm> uses the readline library for keeping track of the Unix commands,
 pathnames, regular expressions, mtimes, and file modes entered. The
@@ -2663,8 +2684,9 @@ following (example for C<bash>(1), add it to your F<.profile>):
 =item B<CDPATH>
 
 A colon-separated list of directories specifying the search path when
-changing directories. There is an implicit '.' entry at the start of this
-search path.
+changing directories. There is an implicit '.' entry at the start of
+this search path. Make sure the variable is exported if you want to use
+this feature.
 
 =item B<EDITOR>
 
@@ -2707,8 +2729,7 @@ processing of filenames containing double quotes.
 
 The F<readline> library does not allow a half-finished line to be
 aborted by pressing B<ESC>. For most commands, you will need to clear
-the half-finished line. For cB<O>mmand, you have to enter something
-anyway. You could use C<true>(1) for this purpose.
+the half-finished line.
 
 Sometimes when key repeat sets in, not all keypress events have been
 processed, although they have been registered. This can be dangerous when
@@ -2717,7 +2738,7 @@ root and with the cursor next to F</sbin/reboot> . You have been warned.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.56 .
+This manual pertains to C<pfm> version 1.57 .
 
 =head1 SEE ALSO
 
