@@ -1,12 +1,12 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 2000-12-23 v1.28
+# @(#) pfm.pl 2000-12-24 v1.29
 #
 # Name:        pfm.pl
-# Version:     1.28
+# Version:     1.29
 # Author:      Rene Uittenbogaard
-# Date:        2000-12-23
+# Date:        2000-12-24
 # Usage:       pfm.pl [directory]
 # Requires:    Term::ScreenColor
 #              Term::Screen
@@ -21,10 +21,12 @@
 # TO-DO:
 # first: change F7 persistent swap mode
 #        neaten \n in all commands (Y/O/...), and in history, and in historyfile
-#        jump back to old current dir with F2: debug
-#        handlecopyrename: lookbehind regexp needs correction
+#        jump back to old current dir with F2: debug for F7 and > $#dircontents
+#        Argument "10681K" isn't numeric in addition (+) at /root/bin/pfm line 793
+#        test pfm with -w
 # next:  clean up configuration options (yes/no,1/0,true/false)
 #        / command: jump to file (via $position_at)
+#        validate_position should not replace $baseline when not necessary
 #        stat_entry() must *not* rebuild the selected_nr and total_nr lists:
 #            this fucks up with e.g. cOmmand -> cp ^[2 /somewhere/else
 #            closely related to:
@@ -33,6 +35,7 @@
 #            otherwise the mark count is not correct
 #
 #        test update screenline 1 (path/device) -> own sub.
+#        change $0 on change dir <- hold on - security?
 #        major/minor numbers on DU 4.0E are wrong
 #        tidy up multiple commands
 #        validate_position in SIG{WINCH}
@@ -63,7 +66,6 @@
 
 BEGIN {
     $ENV{PERL_RL} = 'Gnu ornaments=0';
-    $^W = 0;
 }
 
 use Term::ScreenColor;
@@ -72,6 +74,7 @@ use Cwd;
 use strict;
 use diagnostics; # so we can switch it on in '@'
 disable diagnostics;
+$^W = 0;
 
 my $VERSION             = &getversion;
 my $configdirname       = "$ENV{HOME}/.pfm";
@@ -316,18 +319,10 @@ sub expand_escapes {
     # count the nr. of backslashes before the \1 (must be odd
     # because \\ must be interpreted as an escaped backslash)
     $_[0] =~ s/((?<!\\)(?:\\\\)*)\\1/$1$namenoext/g;
-#    $_[0] =~ s/(?<!\\)\\1|\e1/$namenoext/g;
-#    $_[0] =~ s/\\1/$namenoext/g;
     $_[0] =~ s/((?<!\\)(?:\\\\)*)\\2/$1$thisfile{name}/g;
-#    $_[0] =~ s/(?<!\\)\\2|\e2/$thisfile{name}/g;
-#    $_[0] =~ s/\\2/$thisfile{name}/g;
     $_[0] =~ s/((?<!\\)(?:\\\\)*)\\3/$1$currentdir/g;
-#    $_[0] =~ s/(?<!\\)\\3|\e3/$currentdir\//g;
-#    $_[0] =~ s!\\3!$currentdir/!g;
     $_[0] =~ s/((?<!\\)(?:\\\\)*)\\4/$1$disk{mountpoint}/g;
     $_[0] =~ s/((?<!\\)(?:\\\\)*)\\5/$1$swap_mode->{path}/g if $swap_mode;
-#    $_[0] =~ s/(?<!\\)\\5|\e5/$swap_mode->{path}\//g if $swap_mode;
-#    $_[0] =~ s!\\5!$swap_mode->{path}/!g if $swap_mode;
     $_[0] =~ s/\\\\/\\/g;
 }
 
@@ -790,7 +785,7 @@ sub mark_info {
     foreach (0..4) {
         $scr->at($startline+$_,$screenwidth-$datecol+1)
             ->puts(&infoline($values[$_],$desc[$_]));
-        $total+=$values[$_];
+        $total += $values[$_];
     }
     return $total;
 }
@@ -1153,7 +1148,7 @@ _eoPrompt_
     if ($multiple_mode) {
         $scr->clrscr()->at(0,0);
         for $index (0..$#dircontents) {
-            $loopfile=$dircontents[$index];
+            $loopfile = $dircontents[$index];
             if ($loopfile->{selected} eq '*') {
                 &exclude($loopfile,'.');
                 $do_this = $command;
@@ -1166,7 +1161,7 @@ _eoPrompt_
         }
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
-        $loopfile=\%currentfile;
+        $loopfile = \%currentfile;
         &expand_escapes($command,\%currentfile);
         $scr->clrscr()->at(0,0)->puts($command);
         system ($command) and &display_error($!);
@@ -1347,7 +1342,9 @@ sub handlecopyrename {
     $newname = &readintohist(\@path_history);
     $scr->raw();
     return 0 if ($newname eq '');
-    if ($multiple_mode and $newname !~ /\e|(?<!\\)\\/ and !-d($newname)) {
+    if ($multiple_mode and $newname !~ /(?<!\\)(?:\\\\)*\\[12]/
+                       and !-d($newname) )
+    {
         $scr->at(0,0)->cyan()->bold()
         ->puts("Cannot do multifile operation when destination is single file.")
         ->normal()->at(0,0);
@@ -1411,19 +1408,33 @@ sub validate_position {
         $redraw=1;
     }
     if ( $currentline+$baseindex > $#dircontents) {
-        $currentline=$screenheight;
-        $baseindex  = $#dircontents-$screenheight;
-        $baseindex   <0             and $baseindex=0;
-        $currentline >$#dircontents and $currentline=$#dircontents;
+        $currentline = $screenheight;
+        $baseindex   = $#dircontents-$screenheight;
+        $baseindex   < 0             and $baseindex=0;
+        $currentline > $#dircontents and $currentline=$#dircontents;
         $redraw=1;
     }
     return $redraw;
 }
 
+sub handlescroll {
+    local $_ = $_[0];
+    return 0 if (/\cE/ && $baseindex == $#dircontents && $currentline == 0)
+             or (/\cY/ && $baseindex == 0);
+    my $displacement = -(/^\cY$/)
+                       +(/^\cE$/);
+    $baseindex   += $displacement;
+    $currentline -= $displacement if $currentline-$displacement >= 0
+                                and $currentline-$displacement <= $screenheight;
+#    &validate_position;
+#    $scr->at(0,0)->puts("$currentline,$baseindex");
+    return 1;
+}
+
 sub handlemove {
-    local $_=$_[0];
-    my $displacement = -10*(/^-$/)  -(/^ku|k$/   )
-                       +10*(/^\+$/) +(/^kd|[j ]$/)
+    local $_ = $_[0];
+    my $displacement = -10*(/^-$/)  -(/^(?:ku|k)$/   )
+                       +10*(/^\+$/) +(/^(?:kd|j| )$/)
                        +$screenheight*(/\cF|pgdn/) +$screenheight*(/\cD/)/2
                        -$screenheight*(/\cB|pgup/) -$screenheight*(/\cU/)/2
                        -($currentline +$baseindex)  *(/^home$/)
@@ -1497,6 +1508,7 @@ sub handleentry {
         $oldcurrentdir = $currentdir;
         $position_at   = &basename($currentdir);
     } elsif ($success && $direction =~ /down/) {
+        $oldcurrentdir = $currentdir;
         $position_at   = '..';
     }
     unless ($success) {
@@ -1626,7 +1638,7 @@ sub redisplayscreen {
 }
 
 sub browse {
-    my ($returncode,$dflist,$key);
+    my ($returncode, @dflist, $key);
     my $quitting = 0;
     
     # collect info
@@ -1635,10 +1647,12 @@ sub browse {
     %selected_nr_of = ( d=>0, l=>0, '-'=>0, c=>0, b=>0, 's'=>0, p=>0, D=>0,
                         bytes=>0 );
     @dircontents    = sort as_requested (&getdircontents($currentdir));
-    chop( ($dflist) = grep ! /filesys/i, `df -k .` );
-    @disk{qw/device total used avail/} = split ( /\s+/, $dflist );
-    $disk{'avail'} !~ /%/ or $disk{'avail'} = $disk{'total'} - $disk{'used'};
-    @disk{qw/mountpoint/} = $dflist =~ /(\S*)$/;
+#    chop( @dflist = grep ! /filesys/i, `df -k .` );
+    chop( (undef,@dflist) = `df -k .` ); # undef to swallow header
+    $dflist[0] .= $dflist[1]; # in case filesystem info wraps onto next line
+    @disk{qw/device total used avail/} = split ( /\s+/, $dflist[0] );
+    $disk{avail} = $disk{total} - $disk{used} unless $disk{avail} =~ /%/;
+    @disk{qw/mountpoint/} = $dflist[0] =~ /(\S*)$/;
 
     # now just reprint screen
     DISPLAY: {
@@ -1658,10 +1672,13 @@ sub browse {
                 /^q$/i and &handlequit($_)
                     ? do { $quitting=1, last STRIDE }
                     : do { &init_header($multiple_mode), last KEY };
-                /^\cF|\cB|\cD|\cU|ku|kd|pgup|pgdn|home|end|[-+jk]$/i and
+                /^(?:\cE|\cY)$/i and
+                    &handlescroll($_) and &printdircontents(@dircontents),
+                    last KEY;
+                /^(?:\cF|\cB|\cD|\cU|ku|kd|pgup|pgdn|home|end|[-+jk])$/i and
                     &handlemove($_) and &printdircontents(@dircontents),
                     last KEY;
-                /^kr|kl|[hl\e]$/i and
+                /^(?:kr|kl|[hl\e])$/i and
                     &handleentry($_) ? last STRIDE : last KEY;
                 /^[s\r]$/ and
                     $dircontents[$currentline+$baseindex]{type} eq 'd'
