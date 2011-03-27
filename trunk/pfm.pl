@@ -1,12 +1,12 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 2001-04-11 v1.45
+# @(#) pfm.pl 19990314-20010428 v1.46
 #
 # Name:        pfm.pl
-# Version:     1.45
+# Version:     1.46
 # Author:      Rene Uittenbogaard
-# Date:        2001-04-11
+# Date:        2001-04-28
 # Usage:       pfm.pl [directory]
 # Requires:    Term::ScreenColor
 #              Term::Screen
@@ -16,8 +16,8 @@
 #              Cwd
 #              strict
 #              vars
-#              warnings
-#              diagnostics
+#              (warnings)
+#              (diagnostics)
 # Description: Personal File Manager for Unix/Linux
 #
 # TO-DO:
@@ -27,7 +27,7 @@
 #        test pfm with -w
 #        \5 should work in multiple copy/rename
 #        handleinclude can become faster with &$bla; instead of eval $bla;
-#        display filenames like 'ls -b' (with escapes)
+#        display filenames like 'ls -b' in View (with escapes)
 # next:  clean up configuration options (yes/no,1/0,true/false)
 #        validate_position should not replace $baseindex when not necessary
 #        stat_entry() must *not* rebuild the selected_nr and total_nr lists:
@@ -76,9 +76,9 @@ use Term::ScreenColor;
 use Term::ReadLine;
 use Cwd;
 use strict;
-use warnings;
-use diagnostics;
-disable diagnostics; # so we can switch it on in '@'
+#use warnings;
+#use diagnostics;
+#disable diagnostics; # so we can switch it on in '@'
 #$^W = 0;
 
 use vars qw(
@@ -282,7 +282,7 @@ sub write_history {
     my $failed;
     foreach (keys(%HISTORIES)) {
         if (open (HISTFILE, ">$CONFIGDIRNAME/$_")) {
-            print HISTFILE join "\n",@{$HISTORIES{$_}};
+            print HISTFILE join "\n",@{$HISTORIES{$_}},'';
             close HISTFILE;
         } elsif (!$failed) {
             $scr->bold()->cyan()->puts("Unable to save (part of) history: $!\n")
@@ -294,10 +294,10 @@ sub write_history {
 }
 
 sub read_history {
-    local $_;
+    my $hfile;
     foreach (keys(%HISTORIES)) {
-        $_ = "$CONFIGDIRNAME/$_";
-        if (-s $_ and open (HISTFILE, $_)) {
+        $hfile = "$CONFIGDIRNAME/$_";
+        if (-s $hfile and open (HISTFILE, $hfile)) {
             chomp( @{$HISTORIES{$_}} = <HISTFILE> );
             close HISTFILE;
         }
@@ -309,8 +309,6 @@ sub write_cwd {
         print CWDFILE getcwd();
         close CWDFILE;
     } else {
-        # pfm is exiting, can use warn() here
-#        warn "pfm: unable to create $CONFIGDIRNAME/$CWDFILENAME: $!\n";
         $scr->bold()->cyan()
             ->puts("Unable to create $CONFIGDIRNAME/$CWDFILENAME: $!\n")
             ->normal();
@@ -370,7 +368,7 @@ sub time2str {
 
 sub mode2str {
     my $strmode;
-    my $nummode  = shift;
+    my $nummode  = shift; # || 0;
     my $octmode  = sprintf("%lo", $nummode);
     my @strmodes = (qw/--- --x -w- -wx r-- r-x rw- rwx/);
     $octmode     =~ /(\d\d?)(\d)(\d)(\d)(\d)$/;
@@ -386,7 +384,7 @@ sub mode2str {
 
 sub fit2limit {
     my $neatletter = '';
-    my $neatsize = $_[0];
+    my $neatsize = $_[0]; # might be uninitialized or major/minor
     my $LIMIT = 9_999_999;
     while ( $neatsize > $LIMIT ) {
         $neatsize = int($neatsize/1024);
@@ -417,7 +415,7 @@ sub readintohist { # \@history
     my $history     = shift;
     my $input       = shift;    # or undef
     $kbd->SetHistory(@$history);
-    $input = $kbd->readline();  # this line barfs with -w
+    $input = $kbd->readline('',$input);  # this line barfs with -w
     if ($input =~ /\S/ and $input ne ${$history}[$#$history]) { # this too ...
         push (@$history, $input);
         shift (@$history) if ($#$history > $MAXHISTSIZE);
@@ -1400,7 +1398,7 @@ sub handleprint {
         shift (@command_history) if ($#command_history > $MAXHISTSIZE);
     }
     $scr->raw();
-    return if $do_this eq '';
+    return $R_SCREEN if $do_this eq '';
     if ($multiple_mode) {
         for $index (0..$#dircontents) {
             $loopfile = $dircontents[$index];
@@ -1514,7 +1512,8 @@ sub handlecopyrename {
     &markcurrentline($state) unless $multiple_mode;
     $scr->at(0,0)->clreol()->bold()->cyan()
         ->puts($stateprompt)->normal()->cooked();
-    $newname = &readintohist(\@path_history);
+#    $newname = &readintohist(\@path_history, $multiple_mode ? '' : $currentfile{name});
+    $newname = &readintohist(\@path_history, '');
     $scr->raw();
     return $R_HEADER if ($newname eq '');
     # we would like to substitute \[345] at this point, but not yet \[\12]
@@ -1732,9 +1731,7 @@ sub stat_entry { # path_of_entry, selected_flag
     # a new directory) or kept intact (when re-statting)
     my ($entry, $selected_flag) = @_;
     my ($ptr, $too_long, $target);
-#    my ($device,$inode,$mode,$nlink,$uid,$gid,$rdev,$size);
-#    my ($atime,$mtime,$ctime,$blksize,$blocks);
-    my ($device, $inode, $mode, $nlink, $uid, $gid, $rdev, $size, 
+    my ($device, $inode, $mode, $nlink, $uid, $gid, $rdev, $size,
             $atime, $mtime, $ctime, $blksize, $blocks) = lstat $entry;
     if (!defined $user{$uid})  {  $user{$uid} = $uid }
     if (!defined $group{$gid}) { $group{$gid} = $gid }
@@ -2484,7 +2481,7 @@ C<Term::ScreenColor>(3) and C<Term::ReadLine::Gnu>(3).
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.45 .
+This manual pertains to C<pfm> version 1.46 .
 
 =cut
 
