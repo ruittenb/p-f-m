@@ -1,7 +1,6 @@
-1.49
+1.50
 
-* fixes to expanding escapes in filenames and c(O)mmands
-* added 'translatespace'
-* added / as synonym for (F)ind
-* start using ReadLine's prompt
+ * restructured (M)ore commands
+ * expanded (M)ore - (K)ill to provide a selection of signals
+ * updated documentation
 

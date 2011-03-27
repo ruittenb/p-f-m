@@ -1,12 +1,12 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20010430 v1.49
+# @(#) pfm.pl 19990314-20010516 v1.50
 #
 # Name:        pfm.pl
-# Version:     1.49
+# Version:     1.50
 # Author:      Rene Uittenbogaard
-# Date:        2001-04-30
+# Date:        2001-05-16
 # Usage:       pfm.pl [directory]
 # Requires:    Term::ScreenColor
 #              Term::Screen
@@ -26,7 +26,6 @@
 #        use prompt from readline? <- done correctly?
 #        see if every command picks up \[12345] escapes correctly
 #        restat after rename
-#        kill with user-supplied signal (like print: kill -TERM)
 # next:  clean up color configuration options (e.g. titlecolor:bold;on_cyan;rev)
 #        validate_position should not replace $baseindex when not necessary
 #        handleinclude can become faster with &$bla; instead of eval $bla;
@@ -74,6 +73,7 @@ require 5.005; # for negative lookbehind in re
 
 use Term::ScreenColor;
 use Term::ReadLine;
+use Config;
 use Cwd;
 use strict;
 #use warnings;
@@ -193,8 +193,8 @@ my %HISTORIES = (
     history_perlcmd => \@perlcmd_history
 );
 
-my (%user, %group, %pfmrc, %dircolors, $maxfilenamelength, $wasresized,
-    $scr, $kbd,
+my (%user, %group, %pfmrc, @signame, %dircolors, $maxfilenamelength,
+    $wasresized, $scr, $kbd,
     $uidlineformat, $tdlineformat, $timeformat,
     $sort_mode, $multiple_mode, $uid_mode, $swap_mode,
     $swap_persistent, $swap_state,
@@ -353,6 +353,16 @@ sub init_gids {
     }
     endgrent;
     return \%group;
+}
+
+sub init_signames {
+    my $i = 0;
+    my @signame;
+    foreach (split(/ /, $Config{sig_name})) {
+#        $signo{$name} = $i;
+        $signame[$i++] = $_;
+    }
+    return \@signame;
 }
 
 sub time2str {
@@ -583,7 +593,6 @@ sub tdline {
 
 sub fileline {
     my %specs = @_;
-#    my $neatsize = &fit2limit($specs{size});
     my ($neatsize, $ofchar) = &fit2limit($specs{size});
     unless ($uid_mode) {
         return  &tdline( @specs{qw/selected display too_long/},
@@ -715,6 +724,9 @@ size  date      atime  inode attrib     your commands
 size  date      mtime  inode attrib     sort mode     
 size  userid   groupid lnks  attrib     sort mode     
 size  date      atime  inode attrib     sort mode     
+size  date      mtime  inode attrib       nr signal   
+size  userid   groupid lnks  attrib       nr signal   
+size  date      atime  inode attrib       nr signal   
 _eoHead_
     &digestcolor($linecolor = $smode ? $swapcolor : $titlecolor);
     $scr->reverse() if ($linecolor =~ /\b0?7\b/);
@@ -750,8 +762,9 @@ sub globalinit {
     $kbd = Term::ReadLine->new('Pfm', \*STDIN, \*STDOUT);
     &read_pfmrc($FIRSTREAD);
     &read_history;
-    %user  = %{&init_uids};
-    %group = %{&init_gids};
+    %user    = %{&init_uids};
+    %group   = %{&init_gids};
+    @signame = @{&init_signames};
     %selected_nr_of = %total_nr_of = ();
     $swap_state = $swap_mode = $multiple_mode = 0;
     if ($scr->getrows()) { $screenheight = $scr->getrows()-$BASELINE-2 }
@@ -1044,78 +1057,113 @@ sub handleperlcommand {
     return $R_SCREEN;
 }
 
+sub handlemoreshow {
+    my $newname;
+    my $do_a_refresh = $R_SCREEN;
+    my $stateprompt  = 'Directory Pathname: ';
+    return $R_HEADER unless &ok_to_remove_marks;
+    $scr->at(0,0)->clreol()->cooked();
+#    $scr->bold()->cyan()->puts($stateprompt)->normal()->at(0,20);
+    $newname = &readintohist(\@path_history, $stateprompt); # ornaments
+    $scr->raw();
+    $position_at='.';
+    &expand_escapes($newname, \%currentfile);
+    if ( !chdir $newname ) {
+        &display_error("$newname: $!");
+        $currentdir = getcwd();
+    } else {
+        $oldcurrentdir = $currentdir;
+        $currentdir = $newname;
+        $do_a_refresh = $R_CHDIR;
+    }
+    return $do_a_refresh;
+}
+
+sub handlemoremake {
+    my $newname;
+    my $do_a_refresh = $R_SCREEN;
+    my $stateprompt  = 'New Directory Pathname: ';
+    $scr->at(0,0)->clreol()->cooked();
+#    $scr->bold()->cyan()->puts($stateprompt)->normal()->at(0,24);
+    $newname = &readintohist(\@path_history, $stateprompt); # ornaments
+    $scr->raw();
+    if ( !mkdir $newname,0777 ) {
+        &display_error("$newname: $!");
+    } else {
+# could this be enough?
+#        return $R_HEADER unless &ok_to_remove_marks;
+        return $R_SCREEN unless &ok_to_remove_marks;
+        $do_a_refresh = $R_CHDIR;
+        if ( !chdir $newname ) {
+            &display_error("$newname: $!"); # e.g. by restrictive umask
+        } else {
+            $oldcurrentdir = $currentdir;
+            $currentdir = getcwd();
+            $position_at = '.';
+        }
+    }
+    return $do_a_refresh;
+}
+
+sub handlemoreconfig {
+    if (system "$editor $CONFIGDIRNAME/$CONFIGFILENAME") {
+        &display_error($!);
+    } else {
+        &read_pfmrc($REREAD);
+    }
+    $scr->clrscr();
+    return $R_CLEAR;
+}
+
+
+sub handlemoreedit {
+    my $newname;
+    my $stateprompt  = 'New name: ';
+    $scr->at(0,0)->clreol()->cooked();
+#    $scr->bold()->cyan()->puts($stateprompt)->normal()->at(0,10);
+    $newname = &readintohist(\@path_history, $stateprompt); #ornaments
+    system "$editor $newname" and &display_error($!);
+    $scr->raw();
+    return $R_CLEAR;
+}
+
+sub handlemorekill {
+    my $printline   = $BASELINE;
+    my $stateprompt = 'Signal: ';
+    my $signal      = 'TERM';
+    &init_title($swap_mode, $uid_mode+9);
+    &clearcolumn;
+    foreach (1 .. min($#signame, $screenheight)+1) {
+        $^A = "";
+        formline('@# @<<<<<<<<', $_, $signame[$_]);
+        $scr->at($printline++, $screenwidth-$DATECOL+2)->puts($^A);
+    }
+    $scr->at(0,0)->clreol()->cooked();
+    $signal = $kbd->readline($stateprompt, $signal); # special case
+    $scr->raw();
+    &clearcolumn;
+    return $R_SCREEN unless $signal;
+    if ($signal !~ /\D/) {
+        $signal = $signame[$signal];
+    }
+    local $SIG{$signal} = 'IGNORE';
+    kill $signal, -$$;
+    return $R_SCREEN;
+}
+
 sub handlemore {
     local $_;
     my $do_a_refresh = $R_SCREEN;
     my ($newname, $stateprompt);
     &init_header($MOREHEADER);
     my $key = $scr->at(0,78)->getch();
-    for ($key) {
-        /^s$/i and do {
-            $stateprompt = 'Directory Pathname: ';
-            return $R_HEADER unless &ok_to_remove_marks;
-            $scr->at(0,0)->clreol()->cooked();
-#            $scr->bold()->cyan()->puts($stateprompt)->normal()->at(0,20);
-            $newname = &readintohist(\@path_history, $stateprompt); # ornaments
-            $scr->raw();
-            $position_at='.';
-            &expand_escapes($newname, \%currentfile);
-            if ( !chdir $newname ) {
-                &display_error("$newname: $!");
-                $currentdir = getcwd();
-            } else {
-                $oldcurrentdir = $currentdir;
-                $currentdir = $newname;
-                $do_a_refresh = $R_CHDIR;
-            }
-        };
-        /^m$/i and do {
-            $stateprompt = 'New Directory Pathname: ';
-            $scr->at(0,0)->clreol()->cooked();
-#            $scr->bold()->cyan()->puts($stateprompt)->normal()->at(0,24);
-            $newname = &readintohist(\@path_history, $stateprompt); # ornaments
-            $scr->raw();
-            if ( !mkdir $newname,0777 ) {
-                &display_error("$newname: $!");
-            } else {
-# could this be enough?
-#                return $R_HEADER unless &ok_to_remove_marks;
-                return $R_SCREEN unless &ok_to_remove_marks;
-                $do_a_refresh = $R_CHDIR;
-                if ( !chdir $newname ) {
-                    &display_error("$newname: $!"); # e.g. by restrictive umask
-                } else {
-                    $oldcurrentdir = $currentdir;
-                    $currentdir = getcwd();
-                    $position_at = '.';
-                }
-            }
-        };
-        /^c$/i and do {
-            if (system "$editor $CONFIGDIRNAME/$CONFIGFILENAME") {
-                &display_error($!);
-            } else {
-                &read_pfmrc($REREAD);
-            }
-            $scr->clrscr();
-            $do_a_refresh = $R_CLEAR;
-        };
-        /^e$/i and do {
-            $stateprompt = 'New name: ';
-            $scr->at(0,0)->clreol()->cooked();
-#            $scr->bold()->cyan()->puts($stateprompt)->normal()->at(0,10);
-            $newname = &readintohist(\@path_history, $stateprompt);
-            system "$editor $newname" and &display_error($!);
-            $scr->raw();
-            $do_a_refresh = $R_CLEAR;
-        };
-        /^w$/i and do {
-            &write_history;
-        };
-        /^k$/i and do {
-            local $SIG{HUP} = 'IGNORE';
-            kill HUP => -$$;
-        };
+    MOREKEY: for ($key) {
+        /^s$/i and $do_a_refresh = &handlemoreshow,   last MOREKEY;
+        /^m$/i and $do_a_refresh = &handlemoremake,   last MOREKEY;
+        /^c$/i and $do_a_refresh = &handlemoreconfig, last MOREKEY;
+        /^e$/i and $do_a_refresh = &handlemoreedit,   last MOREKEY;
+        /^w$/i and &write_history,                    last MOREKEY;
+        /^k$/i and &handlemorekill,                   last MOREKEY;
     }
     return $do_a_refresh;
 }
@@ -1908,7 +1956,7 @@ sub resizehandler {
     $wasresized = 0;
     &handlefit;         # returns R_SCREEN, which is correct...
     &validate_position; # ... but we must validate the cursor position too
-    return $R_SCREEN;
+    return $R_CLEAR;
 }
 
 sub recalc_ptr {
@@ -1987,10 +2035,11 @@ sub browse {
                         &date_info($DATELINE, $screenwidth-$DATECOL);
                         $scr->at($currentline+$BASELINE, 0);
                     }
-                    &highlightline($HIGHLIGHT_OFF);
                     if ($wasresized) { # the terminal was resized
                         $result = &resizehandler;
-                    } elsif ($key = $scr->getch()) { # this is an assignment
+                    # the next line is an assignment on purpose
+                    } elsif ($scr->key_pressed() and $key = $scr->getch()) {
+                        &highlightline($HIGHLIGHT_OFF);
                         KEY: for ($key) {
                         /^(?:kr|kl|[hl\e])$/i
                                    and $result = &handleentry($_),     last KEY;
@@ -2199,7 +2248,7 @@ C<pfm [>I<directory>C<]>
 
 =head1 DESCRIPTION
 
-C<pfm> is a terminal-based file manager, based on PFM.COM for MS-DOS.
+C<pfm> is a terminal-based file manager, based on PFMS<.>COM for MS-DOS.
 
 All C<pfm> commands are one- or two-letter commands (case-insensitive).
 C<pfm> can operate in single-file mode or multiple-file mode.
@@ -2352,15 +2401,15 @@ normal (non-C<root>) users to change ownership.
 View the complete long filename. For a symbolic link, also displays the
 target of the symbolic link. Non-ASCII characters, control characters
 and (optionally) spaces will be displayed in octal or hexadecimal
-(configurable through the 'viewbase' option in F<$HOME/.pfm/.pfmrc>),
-formatted like the following examples:
+(configurable through the 'viewbase' and 'translatespace' options in
+F<$HOME/.pfm/.pfmrc>), formatted like the following examples:
 
-  octal:                   hexadecimal:
+    octal:                     hexadecimal:
 
-  control-A : \001         control-A : \0x01
-  space     : \040         space     : \0x20
-  c-cedilla : \347         c-cedilla : \0xe7
-  backslash : \\           backslash : \\
+    control-A : \001           control-A : \0x01
+    space     : \040           space     : \0x20
+    c-cedilla : \347           c-cedilla : \0xe7
+    backslash : \\             backslash : \\
 
 =item B<eXclude>
 
@@ -2408,8 +2457,9 @@ directory status.
 
 =item Kill children
 
-Sends all child processes of C<pfm> (more accurately: all processes in
-the same process group) the SIGHUP signal.
+Lists available signals. After selection of a signal, sends all child
+processes of C<pfm> (more accurately: all processes in the same process
+group) the specified signal.
 
 =item Write history
 
@@ -2567,19 +2617,20 @@ root and with the cursor next to F</sbin/reboot> . You have been warned.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.49 .
+This manual pertains to C<pfm> version 1.50 .
 
 =head1 SEE ALSO
 
-The documentation on PFM.COM . The mentioned manual pages for
+The documentation on PFMS<.>COM . The mentioned manual pages for
 C<chmod>(1), C<less>(1), C<lpr>(1), C<touch>(1). The manual pages for
 C<Term::ScreenColor>(3) and C<Term::ReadLine::Gnu>(3).
 
 =head1 AUTHOR
 
 Written by RenE<eacute> Uittenbogaard (ruittenb@wish.nl).
-This program was based on PFM.COM version 2.32, originally written
-for MS-DOS by Paul R. Culley and Henk de Heer.
+This program was based on PFMS<.>COM version 2.32, originally written
+for MS-DOS by Paul R. Culley and Henk de Heer. Permission to use the
+name 'pfm' was granted by Henk de Heer.
 
 =head1 COPYRIGHT
 
@@ -2590,3 +2641,4 @@ License version 2.
 =cut
 
 # vi: set tabstop=4 shiftwidth=4 expandtab list foldmethod=indent nofoldenable:
+
