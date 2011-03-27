@@ -1,12 +1,12 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 2001-04-09 v1.43
+# @(#) pfm.pl 2001-04-10 v1.44
 #
 # Name:        pfm.pl
-# Version:     1.43
+# Version:     1.44
 # Author:      Rene Uittenbogaard
-# Date:        2001-04-09
+# Date:        2001-04-10
 # Usage:       pfm.pl [directory]
 # Requires:    Term::ScreenColor
 #              Term::Screen
@@ -16,6 +16,7 @@
 #              Cwd
 #              strict
 #              vars
+#              warnings
 #              diagnostics
 # Description: Personal File Manager for Unix/Linux
 #
@@ -75,19 +76,37 @@ use Term::ScreenColor;
 use Term::ReadLine;
 use Cwd;
 use strict;
-#use diagnostics; # so we can switch it on in '@'
-#disable diagnostics;
+#use warnings;
+#use diagnostics;
+#disable diagnostics; # so we can switch it on in '@'
 #$^W = 0;
 
-use vars qw($FIRSTREAD $REREAD
-            $SHOWSHORT $SHOWLONG
-            $HIGHLIGHT_OFF $HIGHLIGHT_ON
-            $FALSE $TRUE
-            $NARROWTIME $WIDETIME
-            $SINGLEHEADER $MULTIHEADER
-            $INCLUDEHEADER $MOREHEADER $SORTHEADER
-            $R_KEY $R_HEADER $R_STRIDE $R_DIRLISTING $R_SCREEN $R_CLEAR
-            $R_DIRCONTENTS $R_CHDIR $R_QUITTING);
+use vars qw(
+    $FIRSTREAD
+    $REREAD
+    $SHOWSHORT
+    $SHOWLONG
+    $HIGHLIGHT_OFF
+    $HIGHLIGHT_ON
+    $FALSE
+    $TRUE
+    $NARROWTIME
+    $WIDETIME
+    $SINGLEHEADER
+    $MULTIHEADER
+    $INCLUDEHEADER
+    $MOREHEADER
+    $SORTHEADER
+    $R_KEY
+    $R_HEADER
+    $R_STRIDE
+    $R_DIRLISTING
+    $R_SCREEN
+    $R_CLEAR
+    $R_DIRCONTENTS
+    $R_CHDIR
+    $R_QUITTING
+);
 
 BEGIN {
     $ENV{PERL_RL} = 'Gnu ornaments=0';
@@ -136,18 +155,22 @@ my $DATECOL             = 14;
 my $RESERVEDSCREENWIDTH = 60;
 my $CONFIGFILEMODE      = 0777;
 
-my @SORTMODES = ( n =>'Name',        N =>' reverse',
-                 'm'=>' ignorecase', M =>' rev+ignorec',
-                  e =>'Extension',   E =>' reverse',
-                  f =>' ignorecase', F =>' rev+ignorec',
-                  d =>'Date/mtime',  D =>' reverse',
-                  a =>'date/Atime',  A =>' reverse',
-                 's'=>'Size',        S =>' reverse',
-                  t =>'Type',        T =>' reverse',
-                  i =>'Inode',       I =>' reverse' );
+my @SORTMODES = (
+    n =>'Name',        N =>' reverse',
+   'm'=>' ignorecase', M =>' rev+ignorec',
+    e =>'Extension',   E =>' reverse',
+    f =>' ignorecase', F =>' rev+ignorec',
+    d =>'Date/mtime',  D =>' reverse',
+    a =>'date/Atime',  A =>' reverse',
+   's'=>'Size',        S =>' reverse',
+    t =>'Type',        T =>' reverse',
+    i =>'Inode',       I =>' reverse'
+);
 
-my %TIMEHINTS = ( pfm   => '[[CC]YY]MMDDhhmm[.ss]',
-                  touch => 'MMDDhhmm[[CC]YY][.ss]' );
+my %TIMEHINTS = (
+    pfm   => '[[CC]YY]MMDDhhmm[.ss]',
+    touch => 'MMDDhhmm[[CC]YY][.ss]'
+);
 
 my $screenheight    = 20;    # inner height
 my $screenwidth     = 80;    # terminal width
@@ -160,12 +183,14 @@ my @regex_history   = qw(.*\.jpg);
 my @time_history;
 my @perlcmd_history;
 
-my %HISTORIES = (history_command => \@command_history,
-                 history_mode    => \@mode_history,
-                 history_path    => \@path_history,
-                 history_regex   => \@regex_history,
-                 history_time    => \@time_history,
-                 history_perlcmd => \@perlcmd_history );
+my %HISTORIES = (
+    history_command => \@command_history,
+    history_mode    => \@mode_history,
+    history_path    => \@path_history,
+    history_regex   => \@regex_history,
+    history_time    => \@time_history,
+    history_perlcmd => \@perlcmd_history
+);
 
 my (%user, %group, %pfmrc, %dircolors, $maxfilenamelength, $wasresized,
     $scr, $kbd,
@@ -175,7 +200,8 @@ my (%user, %group, %pfmrc, %dircolors, $maxfilenamelength, $wasresized,
     $currentdir, @dircontents, %currentfile, $currentline, $baseindex,
     $oldcurrentdir, %disk, %total_nr_of, %selected_nr_of,
     $editor, $pager, $printcmd, $showlockchar, $autoexitmultiple,
-    $titlecolor, $footercolor, $headercolor, $swapcolor, $multicolor);
+    $titlecolor, $footercolor, $headercolor, $swapcolor, $multicolor
+);
 
 ##########################################################################
 # read/write resource file and history file
@@ -300,8 +326,8 @@ sub getversion {
 }
 
 sub init_uids {
-    my (%user, $name, $pwd, $uid);
-    while (($name, $pwd, $uid) = getpwent) {
+    my (%user, $name, $uid);
+    while (($name, undef, $uid) = getpwent) {
         $user{$uid} = $name
     }
     endpwent;
@@ -309,8 +335,8 @@ sub init_uids {
 }
 
 sub init_gids {
-    my (%group, $name, $pwd, $gid);
-    while (($name, $pwd, $gid) = getgrent) {
+    my (%group, $name, $gid);
+    while (($name, undef, $gid) = getgrent) {
         $group{$gid} = $name
     }
     endgrent;
@@ -380,12 +406,13 @@ sub expand_escapes {
 }
 
 sub readintohist { # \@history
-    local $SIG{INT} = 'IGNORE';
-    my ($history) = @_;
-    my $input = '';
+    local $SIG{INT} = 'IGNORE'; # do not interrupt pfm
+    local $^W       = 0;        # Term::Readline::Gnu is not -w proof
+    my ($history)   = @_;
+    my $input       = '';
     $kbd->SetHistory(@$history);
-    $input = $kbd->readline();
-    if ($input =~ /\S/ and $input ne ${$history}[$#$history]) {
+    $input = $kbd->readline();  # this line barfs with -w
+    if ($input =~ /\S/ and $input ne ${$history}[$#$history]) { # this too ...
         push (@$history, $input);
         shift (@$history) if ($#$history > $MAXHISTSIZE);
     }
@@ -907,7 +934,7 @@ sub handlecolor {
 
 sub handleadvance {
     &handleselect;
-    goto &handlemove;
+    goto &handlemove; # this autopasses the " " key in $_[0] to &handlemove
 }
 
 sub handleshowenter {
@@ -1057,7 +1084,7 @@ sub handlemore {
 sub handleinclude { # include/exclude flag (from keypress)
     local $_;
     my $do_a_refresh = $R_HEADER;
-    my ($wildfilename, $criterion);
+    my ($wildfilename, $criterion, $entry);
     my $exin = $_[0];
     &init_header($INCLUDEHEADER);
     # modify header to say "exclude" when 'x' was pressed
@@ -1075,6 +1102,7 @@ sub handleinclude { # include/exclude flag (from keypress)
         for ($key) {
             /^e$/i and do {    # include every
                 $criterion = '$entry->{name} !~ /^\.\.?$/';
+#                $criterion = sub { $entry->{name} !~ /^\.\.?$/ };
                 $key       = "prepared";
                 redo PARSEINCLUDE;
             };
@@ -1082,16 +1110,24 @@ sub handleinclude { # include/exclude flag (from keypress)
                 $wildfilename = &promptforwildfilename;
                 $criterion    = '$entry->{name} =~ /$wildfilename/'
                               . ' and $entry->{type} eq "-" ';
+#                $criterion    = sub {
+#                                    my $wildfname = shift;
+#                                    $entry->{name} =~ /$wildfname/
+#                                    and $entry->{type} eq "-";
+#                                };
                 $key          = "prepared";
                 redo PARSEINCLUDE;
             };
             /^u$/i and do { # user only
                 $criterion = '$entry->{uid}' . " =~ /$ENV{USER}/";
+#                $criterion = sub {
+#                                 $entry->{uid} =~ /$ENV{USER}/;
+#                             };
                 $key       = "prepared";
                 redo PARSEINCLUDE;
             };
             /^o$/i and do {   # include oldmarks
-                foreach my $entry (@dircontents) {
+                foreach $entry (@dircontents) {
                     if ($entry->{selected} eq "." && $exin eq " ") {
                         $entry->{selected} = $exin;
                     } elsif ($entry->{selected} eq "." && $exin eq "*") {
@@ -1101,8 +1137,9 @@ sub handleinclude { # include/exclude flag (from keypress)
                 }
             };
             /prepared/ and do { # the criterion has been set
-                foreach my $entry (@dircontents) {
+                foreach $entry (@dircontents) {
                     if (eval $criterion) {
+#                    if (&$criterion($wildfilename)) {
                         if ($entry->{selected} eq "*" && $exin eq " ") {
                             &exclude($entry);
                         } elsif ($entry->{selected} eq "." && $exin eq " ") {
@@ -1763,7 +1800,7 @@ sub countdircontents {
 sub get_filesystem_info {
     my (@dflist, %tdisk);
     # maybe this should sometime be altered to run "bdf" on HP-UX
-    chop( (undef, @dflist) = `df -k .` ); # undef to swallow header
+    chop( (undef, @dflist) = (`df -k .`, '') ); # undef to swallow header
     $dflist[0] .= $dflist[1]; # in case filesystem info wraps onto next line
     @tdisk{qw/device total used avail/} = split ( /\s+/, $dflist[0] );
     $tdisk{avail} = $tdisk{total} - $tdisk{used} if $tdisk{avail} =~ /%/;
@@ -1875,37 +1912,37 @@ sub browse {
                     $result = $R_KEY;
                     KEY: for ($key) {
                         /^(?:kr|kl|[hl\e])$/i
-                                  and $result = &handleentry($_),      last KEY;
-                        /^[cr]$/i and $result = &handlecopyrename($_), last KEY;
-                        /^[yo]$/i and $result = &handlecommand($_),    last KEY;
-                        /^e$/i    and $result = &handleedit,           last KEY;
-                        /^(?:ku|kd|pgup|pgdn|[\cF\cB\cD\cU-+jk]|home|end)$/i
-                                  and $result = &handlemove($_),       last KEY;
-                        /^[\cE\cY]$/i
-                                  and $result = &handlescroll($_),     last KEY;
-                        /^ $/     and $result = &handleadvance,        last KEY;
-                        /^d$/i    and $result = &handledelete,         last KEY;
-                        /^[ix]$/i and $result = &handleinclude($_),    last KEY;
-                        /^[s\r]$/ and $result = &handleshowenter($_),  last KEY;
-                        /^k7$/    and $result = &handleswap,           last KEY;
-                        /^k5$/    and $result = &handlerefresh,        last KEY;
-                        /^k3$/    and $result = &handlefit,            last KEY;
-                        /^k10$/   and $result = &handlemultiple,       last KEY;
-                        /^m$/i    and $result = &handlemore,           last KEY;
-                        /^p$/i    and $result = &handleprint,          last KEY;
-                        /^v$/i    and $result = &handleview,           last KEY;
-                        /^k8$/    and $result = &handleselect,         last KEY;
-                        /^t$/i    and $result = &handletime,           last KEY;
-                        /^a$/i    and $result = &handlechmod,          last KEY;
-                        /^q$/i    and $result = &handlequit($_),       last KEY;
-                        /^k6$/    and $result = &handlesort,           last KEY;
-                        /^[\/f]$/i and $result= &handlefind($_),       last KEY;
-                        /^k1$/    and $result = &handlehelp,           last KEY;
-                        /^k2$/    and $result = &handlecdold,          last KEY;
-                        /^k9$/    and $result = &handlecolumns,        last KEY;
-                        /^k4$/    and $result = &handlecolor,          last KEY;
-                        /^\@$/    and $result = &handleperlcommand,    last KEY;
-                        /^u$/i    and $result = &handlechown,          last KEY;
+                                   and $result = &handleentry($_),     last KEY;
+                        /^[cr]$/i  and $result = &handlecopyrename($_),last KEY;
+                        /^[yo]$/i  and $result = &handlecommand($_),   last KEY;
+                        /^e$/i     and $result = &handleedit,          last KEY;
+                        /^(?:ku|kd|pgup|pgdn|[-+jk\cF\cB\cD\cU]|home|end)$/i
+                                   and $result = &handlemove($_),      last KEY;
+                        /^[\cE\cY]$/
+                                   and $result = &handlescroll($_),    last KEY;
+                        /^ $/      and $result = &handleadvance($_),   last KEY;
+                        /^d$/i     and $result = &handledelete,        last KEY;
+                        /^[ix]$/i  and $result = &handleinclude($_),   last KEY;
+                        /^[s\r]$/  and $result = &handleshowenter($_), last KEY;
+                        /^k7$/     and $result = &handleswap,          last KEY;
+                        /^k5$/     and $result = &handlerefresh,       last KEY;
+                        /^k3$/     and $result = &handlefit,           last KEY;
+                        /^k10$/    and $result = &handlemultiple,      last KEY;
+                        /^m$/i     and $result = &handlemore,          last KEY;
+                        /^p$/i     and $result = &handleprint,         last KEY;
+                        /^v$/i     and $result = &handleview,          last KEY;
+                        /^k8$/     and $result = &handleselect,        last KEY;
+                        /^t$/i     and $result = &handletime,          last KEY;
+                        /^a$/i     and $result = &handlechmod,         last KEY;
+                        /^q$/i     and $result = &handlequit($_),      last KEY;
+                        /^k6$/     and $result = &handlesort,          last KEY;
+                        /^[\/f]$/i and $result = &handlefind($_),      last KEY;
+                        /^k1$/     and $result = &handlehelp,          last KEY;
+                        /^k2$/     and $result = &handlecdold,         last KEY;
+                        /^k9$/     and $result = &handlecolumns,       last KEY;
+                        /^k4$/     and $result = &handlecolor,         last KEY;
+                        /^\@$/     and $result = &handleperlcommand,   last KEY;
+                        /^u$/i     and $result = &handlechown,         last KEY;
                     } # end KEY
                     if ($result == $R_HEADER) { &init_header($multiple_mode) }
                 } until ($result > $R_STRIDE);
@@ -1978,7 +2015,7 @@ uidmode:0
 timeformat:pfm
 # show whether mandatory locking is enabled (e.g. -rw-r-lr-- ) (yes,no,sun)
 showlock:sun
-# F7 key swap path method is persistent? (0,1) (0 is default)  (not implemented)
+# F7 key swap path method is persistent? (0,1) (0 is default)
 #persistentswap:0
 
 ##########################################################################
@@ -2425,7 +2462,7 @@ C<Term::ScreenColor>(3) and C<Term::ReadLine::Gnu>(3).
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.43 .
+This manual pertains to C<pfm> version 1.44 .
 
 =cut
 
