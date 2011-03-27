@@ -1,12 +1,12 @@
-#!/usr/local/bin/perl
+#!/usr/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20010919 v1.51
+# @(#) pfm.pl 19990314-20011016 v1.53
 #
 # Name:        pfm.pl
-# Version:     1.51
+# Version:     1.53
 # Author:      Rene Uittenbogaard
-# Date:        2001-09-19
+# Date:        2001-10-16
 # Usage:       pfm.pl [directory]
 # Requires:    Term::ScreenColor
 #              Term::Screen
@@ -23,27 +23,22 @@
 #
 # TO-DO:
 # first: jump back to old current dir with F2: debug for F7 and > $#dircontents
-#        change F2 to use @old_cwd_at
 #        use prompt from readline? <- done correctly?
 #        see if every command picks up \[12345] escapes correctly
-#        implement ~jantje/bin substitution
 #        restat after rename?
-#        prevent deleting '.' and '..' entries
-# next:  clean up color configuration options (e.g. titlecolor:bold;on_cyan;rev)
-#        validate_position should not replace $baseindex when not necessary
+# next:  validate_position should not replace $baseindex when not necessary
 #        handleinclude can become faster with &$bla; instead of eval $bla;
 #        stat_entry() must *not* rebuild the selected_nr and total_nr lists:
 #            this fucks up with e.g. cOmmand -> cp \2 /somewhere/else
 #            closely related to:
 #        sub countdircontents is not used
 #        consistent use of constants
-#        neaten use of spaces in source
-#        use system qw(arg1 arg2 arg3) to prevent double-quoting problems
+#        consistent use of gnu ornaments / cyan colored prompt
 #        cOmmand -> rm \2 will have to delete the entry from @dircontents;
 #            otherwise the mark count is not correct
 #
 #        siZe command?
-#        major/minor numbers on DU 4.0E are wrong
+#        major/minor numbers on DU 4.0E are wrong (does readline work there?)
 #        key response (flush_input)
 # terminal:
 #        intelligent restat (changes in current dir?)
@@ -51,8 +46,8 @@
 ##########################################################################
 # Main data structures:
 #
-# @dircontents   : array (current directory data) of pointers (to file data)
-# $dircontents[$index]      : pointer (to file data) to hash (file data)
+# @dircontents   : array (current directory data) of references (to file data)
+# $dircontents[$index]      : reference (to file data) to hash (file data)
 # %{ $dircontents[$index] } : hash (file data)
 # $dircontents[$index]{name}
 #                     {selected}
@@ -280,7 +275,7 @@ sub read_pfmrc { # $rereadflag - 0=firstread 1=reread (for copyright message)
     $pfmrc{dircolors} ||= $ENV{LS_COLORS} || $ENV{LS_COLOURS};
     if ($pfmrc{dircolors}) {
         while ($pfmrc{dircolors} =~ /([^:=*]+)=([^:=]+)/g ) {
-            $dircolors{$1}=$2;
+            $dircolors{$1} = $2;
         }
     }
 }
@@ -429,7 +424,8 @@ sub expand_345_escapes {
     $_[0] =~ s/((?<!\\)(?:\\\\)*)\\4/$1$disk{mountpoint}/g;
     $_[0] =~ s/((?<!\\)(?:\\\\)*)\\5/$1$swap_state->{path}/g if $swap_state;
     # readline understands ~ notation; now we understand it too
-    $_[0] =~ s/^~/$ENV{HOME}/;
+    $_[0] =~ s/^~\//$ENV{HOME}\//;
+    $_[0] =~ s/^~([^:\/]+)/(getpwnam $1)[7]/e;
 }
 
 sub expand_escapes {
@@ -457,6 +453,14 @@ sub yesno {
     return $_[0] =~ /^(always|yes|1|true|on)$/i;
 }
 
+sub min ($$) {
+    return ($_[1] < $_[0]) ? $_[1] : $_[0];
+}
+
+sub max ($$) {
+    return ($_[1] > $_[0]) ? $_[1] : $_[0];
+}
+
 # alternatively
 #sub max (@) {
 #    my ($max, $element);
@@ -466,12 +470,14 @@ sub yesno {
 #    return $max;
 #}
 
-sub max ($$) {
-    return ($_[1] > $_[0]) ? $_[1] : $_[0];
-}
-
-sub min ($$) {
-    return ($_[1] < $_[0]) ? $_[1] : $_[0];
+sub mychdir ($) {
+    my $target = $_[0];
+    my $result;
+    if ($result = chdir $target and $target ne $currentdir) {
+        $oldcurrentdir = $currentdir;
+    }
+    $currentdir = getcwd() || $ENV{HOME};
+    return $result;
 }
 
 sub inhibit ($$) {
@@ -515,7 +521,7 @@ sub digestcolor {
 }
 
 sub decidecolor {
-    my %file=@_;
+    my %file = @_;
     $file{type} eq 'd'       and &digestcolor($dircolors{di}), return;
     $file{type} eq 'l'       and &digestcolor($dircolors{ln}), return;
     $file{type} eq 'b'       and &digestcolor($dircolors{bd}), return;
@@ -746,7 +752,7 @@ _eoHead_
 
 sub init_footer {
     my $footer;
-    chop($footer=<<_eoFunction_);
+    chop($footer = <<_eoFunction_);
 F1-Help F2-Back F3-Fit F4-Color F5-Read F6-Sort F7-Swap F8-Incl F9-Uid F10-Multi
 _eoFunction_
     &digestcolor($footercolor);
@@ -764,7 +770,7 @@ sub copyright {
 }
 
 sub globalinit {
-    $SIG{WINCH} = \&resizecatcher; # sub { $wasresized = 1 };
+    $SIG{WINCH} = \&resizecatcher;
     $scr = Term::ScreenColor->new();
     $scr->clrscr();
     $kbd = Term::ReadLine->new('Pfm', \*STDIN, \*STDOUT);
@@ -783,8 +789,8 @@ sub globalinit {
     # uid_mode has been set from .pfmrc
     &init_frame($multiple_mode, $swap_mode, $uid_mode);
     # now find starting directory
-    $oldcurrentdir = getcwd();
-    $ARGV[0] and chdir($ARGV[0]) || do {
+    $oldcurrentdir = $currentdir = getcwd();
+    $ARGV[0] and &mychdir($ARGV[0]) || do {
         $scr->at(0,0)->clreol();
         &display_error("$ARGV[0]: $! - using .");
         $scr->key_pressed(1); # add another second error delay
@@ -829,8 +835,8 @@ sub credits {
    Any bug, comment or suggestion is welcome in order to update this product.
 
 
-     For questions/remarks about PFM, or just to tell me you are using it,
-                        send email to: ruittenb\@sourceforge.net
+                For questions, remarks or suggestions about PFM,
+                 send email to: ruittenb\@users.sourceforge.net
 
 
                                                           any key to exit to PFM
@@ -856,9 +862,9 @@ sub infoline { # number, description
 
 sub disk_info { # %disk{ total, used, avail }
     local $_;
-    my @desc=('K tot','K usd','K avl');
-    my @values=@disk{qw/total used avail/};
-    my $startline=4;
+    my @desc      = ('K tot','K usd','K avl');
+    my @values    = @disk{qw/total used avail/};
+    my $startline = 4;
     $scr->at($startline-1,$screenwidth-$DATECOL+4)->puts('Disk space');
     foreach (0..2) {
         while ( $values[$_] > 99_999 ) {
@@ -872,8 +878,8 @@ sub disk_info { # %disk{ total, used, avail }
 
 sub dir_info {
     local $_;
-    my @desc=qw/files dirs symln spec/;
-    my @values=@total_nr_of{'-','d','l'};
+    my @desc   = qw/files dirs symln spec/;
+    my @values = @total_nr_of{'-','d','l'};
     $values[3] = $total_nr_of{'c'} + $total_nr_of{'b'}
                + $total_nr_of{'p'} + $total_nr_of{'s'}
                + $total_nr_of{'D'};
@@ -905,7 +911,7 @@ sub mark_info {
 }
 
 sub date_info {
-    my ($line, $col)=@_;
+    my ($line, $col) = @_;
     my ($datetime, $date, $time);
     $datetime = &time2str(time, $WIDETIME);
     ($date, $time) = ($datetime =~ /(.*)\s+(.*)/);
@@ -1007,9 +1013,7 @@ sub handleshowenter {
 
 sub handlecdold {
     if (&ok_to_remove_marks) {
-        chdir $oldcurrentdir; # assumes this is always possible;
-        # maybe make a decent &mychdir();
-        $oldcurrentdir = $currentdir;
+        &mychdir($oldcurrentdir);
         return $R_CHDIR;
     } else {
         return $R_KEY;
@@ -1074,14 +1078,13 @@ sub handlemoreshow {
 #    $scr->bold()->cyan()->puts($stateprompt)->normal()->at(0,20);
     $newname = &readintohist(\@path_history, $stateprompt); # ornaments
     $scr->raw();
-    $position_at='.';
+    $position_at = '.';
     &expand_escapes($newname, \%currentfile);
-    if ( !chdir $newname ) {
+    if ( !&mychdir($newname) ) {
+#        $currentdir = getcwd();
         &display_error("$newname: $!");
-        $currentdir = getcwd();
     } else {
-        $oldcurrentdir = $currentdir;
-        $currentdir = $newname;
+#        ($oldcurrentdir, $currentdir) = ($currentdir, $newname);
         $do_a_refresh = $R_CHDIR;
     }
     return $do_a_refresh;
@@ -1102,11 +1105,10 @@ sub handlemoremake {
 #        return $R_HEADER unless &ok_to_remove_marks;
         return $R_SCREEN unless &ok_to_remove_marks;
         $do_a_refresh = $R_CHDIR;
-        if ( !chdir $newname ) {
+        if ( !&mychdir($newname) ) {
             &display_error("$newname: $!"); # e.g. by restrictive umask
         } else {
-            $oldcurrentdir = $currentdir;
-            $currentdir = getcwd();
+#            ($oldcurrentdir, $currentdir) = ($currentdir, getcwd());
             $position_at = '.';
         }
     }
@@ -1185,7 +1187,7 @@ sub handleinclude { # include/exclude flag (from keypress)
     # modify header to say "exclude" when 'x' was pressed
     if ($exin =~ /x/i) { $scr->at(0,0)->on_blue()->puts('Ex')->normal(); }
     $exin =~ tr/ix/* /;
-    my $key=$scr->at(0,46)->getch();
+    my $key = $scr->at(0,46)->getch();
     PARSEINCLUDE: {
         # hey Rene, look at this:
 #       %age = ( bear => 56, dog => 15, snake => 4, cat => 10, horse => 70);
@@ -1283,7 +1285,7 @@ sub handlesort {
     &init_title($swap_mode, $uid_mode+6);
     &clearcolumn;
     # we can't use foreach (keys %SORTMODES) because we would lose ordering
-    foreach (grep { ($i+=1)%=2 } @SORTMODES) { # keep keys, skip values
+    foreach (grep { ($i += 1) %= 2 } @SORTMODES) { # keep keys, skip values
         $^A = "";
         formline('@ @<<<<<<<<<<<', $_, $sortmodes{$_});
         $scr->at($printline++, $screenwidth-$DATECOL)->puts($^A);
@@ -1305,14 +1307,14 @@ sub handlechown {
     &markcurrentline('U') unless $multiple_mode;
     $scr->at(0,0)->clreol()->bold()->cyan()
         ->puts("New user[:group] : ")->normal()->cooked();
-    chop ($newuid=<STDIN>);
+    chop ($newuid = <STDIN>);
     $scr->raw();
     return $R_HEADER if ($newuid eq '');
     $do_this = 'system qq/chown '.$newuid.' $loopfile->{name}/ '
              . 'and &display_error($!), $do_a_refresh = $R_SCREEN';
     if ($multiple_mode) {
         for $index (0..$#dircontents) {
-            $loopfile=$dircontents[$index];
+            $loopfile = $dircontents[$index];
             if ($loopfile->{selected} eq '*') {
                 $scr->at(1,0)->clreol()->puts($loopfile->{name});
                 &exclude($loopfile,'.');
@@ -1381,21 +1383,21 @@ sub handlecommand { # Y or O
         $printline = $BASELINE;
         foreach (sort keys %pfmrc) {
             if (/^[A-Z]$/ && $printline <= $BASELINE+$screenheight) {
-                $printstr=$pfmrc{$_};
+                $printstr = $pfmrc{$_};
                 $printstr =~ s/\e/^[/g;
-                $^A="";
+                $^A = "";
                 formline('@ @<<<<<<<<<<<',$_,$printstr);
                 $scr->at($printline++,$screenwidth-$DATECOL)->puts($^A);
             }
         }
-        $key=$scr->at(0,0)->clreol()->cyan()->bold()
-                 ->puts('Enter one of the highlighted chars at right:')
-                 ->at(0,45)->normal()->getch();
+        $key = $scr->at(0,0)->clreol()->cyan()->bold()
+                   ->puts('Enter one of the highlighted chars at right:')
+                   ->at(0,45)->normal()->getch();
         &clearcolumn;
         return $R_SCREEN unless ($command = $pfmrc{uc($key)}); # assignment!
         $scr->cooked();
     } else { # cOmmand
-        $printstr=<<'_eoPrompt_';
+        $printstr = <<'_eoPrompt_';
 Enter Unix command (\1=name, \2=name.ext, \3=path, \4=mountpoint, \5=swap path):
 _eoPrompt_
         $scr->at(0,0)->clreol()->bold()->cyan()->puts($printstr)->normal()
@@ -1438,17 +1440,25 @@ _eoPrompt_
 }
 
 sub handledelete {
-    my ($loopfile,$do_this,$index,$success);
+    my ($loopfile, $do_this, $index, $success, $msg);
     &markcurrentline('D') unless $multiple_mode;
     $scr->at(0,0)->clreol()->cyan()->bold()
         ->puts("Are you sure you want to delete [Y/N]? ")->normal();
     my $sure = $scr->getch();
     return $R_HEADER if $sure !~ /y/i;
     $scr->at(1,0);
+    # don't allow people to delete '.': normally, this would be allowed if it
+    # is empty, but if that leaves the parent directory empty, then it can also
+    # be removed, which causes a fatal error.
     $do_this = q"if ($loopfile->{type} eq 'd') {
-                    $success=rmdir $loopfile->{name};
+                    if ($loopfile->{name} eq '.') {
+                        $success = 0;
+                        $msg = 'Deleting current directory not allowed';
+                    } else {
+                        $success = rmdir $loopfile->{name};
+                    }
                  } else {
-                    $success=unlink $loopfile->{name};
+                    $success = unlink $loopfile->{name};
                  }
                  if ($success) {
                      $total_nr_of{$loopfile->{type}}--;
@@ -1456,19 +1466,19 @@ sub handledelete {
                      if ($currentline+$baseindex >= $#dircontents) {
                          $currentline--; # note: see below
                      }
-                     @dircontents=(
+                     @dircontents = (
                          $index>0             ? @dircontents[0..$index-1]             : (),
                          $index<$#dircontents ? @dircontents[$index+1..$#dircontents] : ()
                      ); # splice doesn't work for me
                  } else { # not success
-                     &display_error($!);
+                     &display_error($msg || $!);
                  }
                  ";
     if ($multiple_mode) {
         # we must delete in reverse order because the number of directory
         # entries will decrease by deleting
         for $index (reverse(0..$#dircontents)) {
-            $loopfile=$dircontents[$index];
+            $loopfile = $dircontents[$index];
             if ($loopfile->{selected} eq '*') {
                 $scr->at(1,0)->clreol()->puts($loopfile->{name});
                 eval($do_this);
@@ -1523,7 +1533,7 @@ sub handleshow {
     $scr->clrscr()->at(0,0)->cooked();
     if ($multiple_mode) {
         for $index (0..$#dircontents) {
-            $loopfile=$dircontents[$index];
+            $loopfile = $dircontents[$index];
             if ($loopfile->{selected} eq '*') {
                 $scr->puts($loopfile->{name});
                 &exclude($loopfile,'.');
@@ -1568,7 +1578,7 @@ sub handletime {
               .'and &display_error($!), $do_a_refresh = $R_SCREEN';
     if ($multiple_mode) {
         for $index (0..$#dircontents) {
-            $loopfile=$dircontents[$index];
+            $loopfile = $dircontents[$index];
             if ($loopfile->{selected} eq '*') {
                 $scr->at(1,0)->clreol()->puts($loopfile->{name});
                 &exclude($loopfile,'.');
@@ -1741,9 +1751,10 @@ sub handleswap {
     my $refresh     = $R_KEY;
     my $temp_state  = $swap_state;
     my $stateprompt = 'Directory Pathname: ';
+    my $nextdir;
     if ($swap_state and !$swap_persistent) { # swap back if ok_to_remove_marks
         if (&ok_to_remove_marks) {
-            $currentdir     =   $swap_state->{path};
+            $nextdir        =   $swap_state->{path};
             @dircontents    = @{$swap_state->{contents}};
             $position_at    =   $swap_state->{position};
             %disk           = %{$swap_state->{disk}};
@@ -1768,7 +1779,7 @@ sub handleswap {
                         sort_mode     =>   $sort_mode,
                         argvnull      =>   $0
                        };
-        $currentdir     =   $temp_state->{path};
+        $nextdir        =   $temp_state->{path};
         @dircontents    = @{$temp_state->{contents}};
         $position_at    =   $temp_state->{position};
         %disk           = %{$temp_state->{disk}};
@@ -1795,16 +1806,16 @@ sub handleswap {
         $multiple_mode = 0;
         $scr->at(0,0)->clreol()->cooked();
 #        $scr->bold()->cyan()->puts($stateprompt)->normal(); # ornaments
-        $currentdir = &readintohist(\@path_history, $stateprompt);
-        &expand_escapes($currentdir, \%currentfile);
+        $nextdir = &readintohist(\@path_history, $stateprompt);
+        &expand_escapes($nextdir, \%currentfile);
         $scr->raw();
         $position_at = '.';
         $refresh = $R_CHDIR;
     }
-    if ( !chdir $currentdir ) {
-        &display_error("$currentdir: $!");
-        $currentdir = getcwd();
-        $refresh = $R_HEADER;
+    if ( !&mychdir($nextdir) ) {
+        $scr->at(1,0);
+        &display_error("$nextdir: $!");
+        $refresh = $R_CHDIR;
     }
     &init_title($swap_mode, $uid_mode);
     return $refresh;
@@ -1823,12 +1834,12 @@ sub handleentry {
     return $R_KEY if ($nextdir    eq '.');
     return $R_KEY if ($currentdir eq '/' && $direction eq 'up');
     return $R_KEY if ! &ok_to_remove_marks;
-    $success = chdir($nextdir);
+    $success = &mychdir($nextdir);
     if ($success && $direction =~ /up/ ) {
-        $oldcurrentdir = $currentdir;
-        $position_at   = &basename($currentdir);
+#        $oldcurrentdir = $currentdir;
+        $position_at   = &basename($oldcurrentdir);
     } elsif ($success && $direction =~ /down/) {
-        $oldcurrentdir = $currentdir;
+#        $oldcurrentdir = $currentdir;
         $position_at   = '..';
     }
     unless ($success) {
@@ -1867,7 +1878,7 @@ sub stat_entry { # path_of_entry, selected_flag
     $ptr->{too_long} = length($ptr->{display})>$maxfilenamelength ? '+' : ' ';
     $total_nr_of{ $ptr->{type} }++; # this is wrong! e.g. after cOmmand
     if ($ptr->{type} =~ /[bc]/) {
-        $ptr->{size}=sprintf("%d",$rdev/256).$MAJORMINORSEPARATOR.($rdev%256);
+        $ptr->{size} = sprintf("%d",$rdev/256).$MAJORMINORSEPARATOR.($rdev%256);
     }
     return $ptr;
 }
@@ -1990,9 +2001,9 @@ sub redisplayscreen {
 #
 # sub {
 #                                 get filesystem info;
-# L_DIRCONTENTS (R_DIRCONTENTS):  read directory contents;
+# DIRCONTENTS   (R_DIRCONTENTS):  read directory contents;
 # DISPLAY       (R_SCREEN):       show title, footer and stats;
-# L_DIRLISTING  (R_DIRLISTING):   display directory contents;
+# DIRLISTING    (R_DIRLISTING):   display directory contents;
 # STRIDE        (R_STRIDE):       wait for key;
 # KEY           ():               call key command handling subroutine;
 #                                 jump to redo point (using R_*);
@@ -2023,7 +2034,7 @@ sub browse {
     $currentdir = getcwd();
     %disk       = &get_filesystem_info;
     &set_argv0;
-    L_DIRCONTENTS: do {
+    DIRCONTENTS: do {
         %total_nr_of    = ( d=>0, l=>0, '-'=>0, c=>0, b=>0, 's'=>0, p=>0, D=>0);
         %selected_nr_of = ( d=>0, l=>0, '-'=>0, c=>0, b=>0, 's'=>0, p=>0, D=>0,
                             bytes=>0 );
@@ -2032,7 +2043,7 @@ sub browse {
             &redisplayscreen;
             if ($position_at ne '') { &position_cursor }
             &recalc_ptr unless defined $dircontents[$currentline+$baseindex];
-            L_DIRLISTING: do {
+            DIRLISTING: do {
                 &printdircontents(@dircontents);
 #                $scr->flush_input();
                 STRIDE: do {
@@ -2087,12 +2098,12 @@ sub browse {
                 } until ($result > $R_STRIDE);
                 # end STRIDE
             } until ($result > $R_DIRLISTING);
-            # end L_DIRLISTING
+            # end DIRLISTING
             if ($result == $R_CLEAR) { $scr->clrscr }
         } until ($result > $R_CLEAR);
         # end DISPLAY
     } until ($result > $R_DIRCONTENTS);
-    # end L_DIRCONTENTS
+    # end DIRCONTENTS
     return $result == $R_QUITTING;
 } # end sub browse
 
@@ -2239,6 +2250,7 @@ X:gunzip < "\2" | tar xvf -
 Y:lynx "\2"
 Z:gzip "\2"
 
+# vi: set filetype=xdefaults: # close enough, just not for multiline strings
 __END__
 
 ##########################################################################
@@ -2625,7 +2637,7 @@ root and with the cursor next to F</sbin/reboot> . You have been warned.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.51 .
+This manual pertains to C<pfm> version 1.53 .
 
 =head1 SEE ALSO
 
@@ -2635,7 +2647,7 @@ C<Term::ScreenColor>(3) and C<Term::ReadLine::Gnu>(3).
 
 =head1 AUTHOR
 
-Written by RenE<eacute> Uittenbogaard (ruittenb@wish.nl).
+Written by RenE<eacute> Uittenbogaard (ruittenb@users.sourceforge.net).
 This program was based on PFMS<.>COM version 2.32, originally written
 for MS-DOS by Paul R. Culley and Henk de Heer. Permission to use the
 name 'pfm' was granted by Henk de Heer.
