@@ -1,10 +1,10 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 2001-04-09 v1.42 # version unfinished! browse() under revision
+# @(#) pfm.pl 2001-04-09 v1.43
 #
 # Name:        pfm.pl
-# Version:     1.42
+# Version:     1.43
 # Author:      Rene Uittenbogaard
 # Date:        2001-04-09
 # Usage:       pfm.pl [directory]
@@ -26,9 +26,7 @@
 #        test pfm with -w
 #        \5 should work in multiple copy/rename
 #        More -> Kill all child processes?
-#        reorder key detections in KEY: for speed
-#        typographic: realign browse to 80 columns
-#        make Enter more intelligent on symlinks
+#        handleinclude can become faster with &$bla; instead of eval $bla;
 # next:  clean up configuration options (yes/no,1/0,true/false)
 #        validate_position should not replace $baseindex when not necessary
 #        stat_entry() must *not* rebuild the selected_nr and total_nr lists:
@@ -37,7 +35,6 @@
 #        sub countdircontents is not used
 #        consistent use of constants
 #        neaten use of spaces in source
-#        pressing [enter] on a symlink is not handled correctly
 #        cOmmand -> rm \2 will have to delete the entry from @dircontents;
 #            otherwise the mark count is not correct
 #
@@ -341,14 +338,14 @@ sub time2str {
 
 sub mode2str {
     my $strmode;
-    my $nummode=shift;
-    my $octmode=sprintf("%lo",$nummode);
-    my @strmodes=(qw/--- --x -w- -wx r-- r-x rw- rwx/);
-    $octmode =~ /(\d\d?)(\d)(\d)(\d)(\d)$/;
-    $strmode = substr('?pc?d?b?-?l?s?=D=?=?d',oct($1),1)
-               .$strmodes[$3].$strmodes[$4].$strmodes[$5];
-               # first  d for Linux, OSF1, Solaris
-               # second d for AIX
+    my $nummode  = shift;
+    my $octmode  = sprintf("%lo", $nummode);
+    my @strmodes = (qw/--- --x -w- -wx r-- r-x rw- rwx/);
+    $octmode     =~ /(\d\d?)(\d)(\d)(\d)(\d)$/;
+    $strmode     = substr('?pc?d?b?-?l?s?=D=?=?d', oct($1), 1)
+                 . $strmodes[$3] . $strmodes[$4] . $strmodes[$5];
+                 # first  d for Linux, OSF1, Solaris
+                 # second d for AIX
     if ($2 & 4) {       substr( $strmode,3,1) =~ tr/-x/Ss/ }
     if ($2 & 2) { eval "substr(\$strmode,6,1) =~ tr/-x/${showlockchar}s/" }
     if ($2 & 1) {       substr( $strmode,9,1) =~ tr/-x/Tt/ }
@@ -758,7 +755,6 @@ sub credits {
                                                           any key to exit to PFM
 _eoCredits_
     $scr->raw()->getch();
-    $scr->clrscr();
 }
 
 ##########################################################################
@@ -900,6 +896,45 @@ sub handlecolumns {
     return $R_DIRLISTING;
 }
 
+sub handlerefresh {
+    return &ok_to_remove_marks ? $R_DIRCONTENTS : $R_KEY;
+}
+
+sub handlecolor {
+    $scr->colorizable(!$scr->colorizable());
+    return $R_CLEAR;
+}
+
+sub handleadvance {
+    &handleselect;
+    goto &handlemove;
+}
+
+sub handleshowenter {
+    my $followmode = &mode2str((stat $currentfile{name})[2]);
+    if ($followmode =~ /^d/) {
+        goto &handleentry;
+    } else {
+        if ($_[0] =~ /\r/ and $followmode =~ /x/) {
+            goto &handleenter;
+        } else {
+            goto &handleshow;
+        }
+    }
+    die "exception in handleshowenter()"; # this point should not be reached
+}
+
+sub handlecdold {
+    if (&ok_to_remove_marks) {
+        chdir $oldcurrentdir; # assumes this is always possible;
+        # maybe make a decent &mychdir();
+        $oldcurrentdir = $currentdir;
+        return $R_CHDIR;
+    } else {
+        return $R_KEY;
+    }
+}
+
 sub handlefind {
     my $findme;
     $scr->at(0,0)->clreol()->cyan()->bold()->puts("File to find: ")->normal()
@@ -1019,32 +1054,40 @@ sub handlemore {
     return $do_a_refresh;
 }
 
-sub handleinclude { # include/exclude flag
+sub handleinclude { # include/exclude flag (from keypress)
     local $_;
-    my $result=0;
-    my ($wildfilename,$criterion);
+    my $do_a_refresh = $R_HEADER;
+    my ($wildfilename, $criterion);
     my $exin = $_[0];
     &init_header($INCLUDEHEADER);
+    # modify header to say "exclude" when 'x' was pressed
     if ($exin =~ /x/i) { $scr->at(0,0)->on_blue()->puts('Ex')->normal(); }
     $exin =~ tr/ix/* /;
     my $key=$scr->at(0,46)->getch();
     PARSEINCLUDE: {
+        # hey Rene, look at this:
+#       %age = ( bear => 56, dog => 15, snake => 4, cat => 10, horse => 70);
+#       $crit = sub { $bla =~ /a/ and println $bla }
+#       foreach $bla (keys %age) { &$crit; }
+# cat
+# snake
+# bear
         for ($key) {
             /^e$/i and do {    # include every
-                $criterion='$entry->{name} !~ /^\.\.?$/';
-                $key="prepared";
+                $criterion = '$entry->{name} !~ /^\.\.?$/';
+                $key       = "prepared";
                 redo PARSEINCLUDE;
             };
             /^f$/i and do {    # include files
-                $wildfilename=&promptforwildfilename;
-                $criterion='$entry->{name} =~ /$wildfilename/'
-                          .' and $entry->{type} eq "-" ';
-                $key="prepared";
+                $wildfilename = &promptforwildfilename;
+                $criterion    = '$entry->{name} =~ /$wildfilename/'
+                              . ' and $entry->{type} eq "-" ';
+                $key          = "prepared";
                 redo PARSEINCLUDE;
             };
             /^u$/i and do { # user only
                 $criterion = '$entry->{uid}' . " =~ /$ENV{USER}/";
-                $key="prepared";
+                $key       = "prepared";
                 redo PARSEINCLUDE;
             };
             /^o$/i and do {   # include oldmarks
@@ -1054,7 +1097,7 @@ sub handleinclude { # include/exclude flag
                     } elsif ($entry->{selected} eq "." && $exin eq "*") {
                         &include($entry);
                     }
-                    $result=1;
+                    $do_a_refresh = $R_SCREEN;
                 }
             };
             /prepared/ and do { # the criterion has been set
@@ -1067,14 +1110,13 @@ sub handleinclude { # include/exclude flag
                         } elsif ($entry->{selected} ne "*" && $exin eq "*") {
                             &include($entry);
                         }
-                        $result=1;
+                        $do_a_refresh = $R_SCREEN;
                     }
                 }
             };
         } # for
     } # PARSEINCLUDE
-    &init_header($multiple_mode);
-    return $result;
+    return $do_a_refresh;
 }
 
 sub handleview {
@@ -1109,10 +1151,8 @@ sub handlesort {
         $sort_mode   = $key;
         $position_at = $currentfile{name};
         @dircontents = sort as_requested @dircontents;
-        return $R_SCREEN;
-    } else {
-        return $R_SCREEN; # the column with sort modes should be restored anyway
     }
+    return $R_SCREEN; # the column with sort modes should be restored anyway
 }
 
 sub handlechown {
@@ -1168,7 +1208,7 @@ sub handlechmod {
     }
     if ($multiple_mode) {
         for $index (0..$#dircontents) {
-            $loopfile=$dircontents[$index];
+            $loopfile = $dircontents[$index];
             if ($loopfile->{selected} eq '*') {
                 $scr->at(1,0)->clreol()->puts($loopfile->{name});
                 &exclude($loopfile,'.');
@@ -1179,10 +1219,10 @@ sub handlechmod {
         }
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
-        $loopfile=\%currentfile;
+        $loopfile = \%currentfile;
         eval($do_this);
         $dircontents[$currentline+$baseindex] =
-            &stat_entry($currentfile{name},$currentfile{selected});
+            &stat_entry($currentfile{name}, $currentfile{selected});
     }
     return $do_a_refresh;
 }
@@ -1344,14 +1384,15 @@ sub handleshow {
     } else {
         system qq/$pager "$currentfile{name}"/ and &display_error($!);
     }
-    $scr->clrscr()->raw();
+    $scr->raw();
     return $R_CLEAR;
 }
 
 sub handlehelp {
     $scr->clrscr();
-    # how unsubtle :-)
-    system ('man', 'pfm');
+    system ('man', 'pfm'); # how unsubtle :-)
+    &credits;
+    return $R_CLEAR;
 }
 
 sub handletime {
@@ -1362,7 +1403,7 @@ sub handletime {
         ->puts("Put date/time $TIMEHINTS{$timeformat}: ")->normal()->cooked();
     $newtime = &readintohist(\@time_history);
     $scr->raw();
-    return $R_HEAEDER if ($newtime eq '');
+    return $R_HEADER if ($newtime eq '');
     # convert date/time to touch format if necessary
     if ($timeformat eq 'pfm') {
         $newtime =~ s/^(\d{0,4})(\d{8})(\..*)?/$2$1$3/;
@@ -1465,8 +1506,9 @@ sub handlecopyrename {
 }
 
 sub handleselect {
-    my $file = $dircontents[$currentline+$baseindex];
-    my $was_selected = $file->{selected} =~ /\*/;
+    # we cannot use %currentfile because we don't want to modify a copy
+    my $file          = $dircontents[$currentline+$baseindex];
+    my $was_selected  = $file->{selected} =~ /\*/;
     $file->{selected} = substr('* ',$was_selected,1);
     if ($was_selected) {
         $selected_nr_of{$file->{type}}--;
@@ -1478,7 +1520,7 @@ sub handleselect {
     %currentfile = %$file;
     &highlightline($HIGHLIGHT_OFF);
     &mark_info(%selected_nr_of);
-    return $R_STRIDE;
+    return $R_KEY;
 }
 
 sub validate_position {
@@ -1537,9 +1579,9 @@ sub handleenter {
 }
 
 sub handleswap {
-    my $refresh = 0;
+    my $refresh    = $R_KEY;
     my $temp_state = $swap_state;
-    if ($swap_state and !$swap_persistent) { # swap back if ok to remove marks
+    if ($swap_state and !$swap_persistent) { # swap back if ok_to_remove_marks
         if (&ok_to_remove_marks) {
             $currentdir     =   $swap_state->{path};
             @dircontents    = @{$swap_state->{contents}};
@@ -1550,9 +1592,9 @@ sub handleswap {
             $multiple_mode  =   $swap_state->{multiple_mode};
             $sort_mode      =   $swap_state->{sort_mode};
             $swap_mode = $swap_state = 0;
-            $refresh = 1;
+            $refresh = $R_SCREEN;
         } else { # not ok to remove marks
-            $refresh = 0;
+            $refresh = $R_KEY;
         }
     } elsif ($swap_state and $swap_persistent) { # swap persistent
         $swap_state = { path          =>   $currentdir,
@@ -1573,7 +1615,7 @@ sub handleswap {
         $multiple_mode  =   $temp_state->{multiple_mode};
         $sort_mode      =   $temp_state->{sort_mode};
         toggle($swap_mode);
-        $refresh = 1;
+        $refresh = $R_SCREEN;
     } else { # $swap_state = 0; ask and swap forward
         $swap_state = { path          =>   $currentdir,
                         contents      => [ @dircontents ],
@@ -1591,14 +1633,13 @@ sub handleswap {
             ->puts('Directory Pathname: ')->normal()->cooked();
         $currentdir = &readintohist(\@path_history);
         $scr->raw();
-        $position_at='.';
-        $refresh = 2;
+        $position_at = '.';
+        $refresh = $R_CHDIR;
     }
     if ( !chdir $currentdir ) {
         &display_error("$currentdir: $!");
-        &init_header($multiple_mode);
         $currentdir = getcwd();
-        $refresh = 0;
+        $refresh = $R_HEADER;
     }
     &init_title($swap_mode,$uid_mode);
     return $refresh;
@@ -1820,7 +1861,7 @@ sub browse {
             &recalc_ptr unless defined $dircontents[$currentline+$baseindex];
             L_DIRLISTING: do {
                 &printdircontents(@dircontents);
-        #        $scr->flush_input();
+#                $scr->flush_input();
                 STRIDE: do {
                     %currentfile = %{$dircontents[$currentline+$baseindex]};
                     &highlightline($HIGHLIGHT_ON);
@@ -1833,68 +1874,38 @@ sub browse {
                     &highlightline($HIGHLIGHT_OFF);
                     $result = $R_KEY;
                     KEY: for ($key) {
-                        /^[\cE\cY]$/i and $result = &handlescroll($_), last KEY;
-                        /^(?:ku|kd|pgup|pgdn|
-                            [\cF\cB\cD\cU-+jk]|
-                            home|end)$/ix       and $result = &handlemove($_),
-                                                                       last KEY;
-                        /^(?:kr|kl|[hl\e])$/i   and $result = &handleentry($_),
-                                                                       last KEY;
-                        /^k5$/     and $result =
-                                         &ok_to_remove_marks ? $R_DIRCONTENTS
-                                                             : $R_KEY,
-                                                                       last KEY;
-                        /^[s\r]$/ and
-                            $dircontents[$currentline+$baseindex]{type} eq 'd'
-                               ? do { $result = &handleentry($_) }
-                               : do { if (/\r/ && $currentfile{mode} =~ /x/)
-                                           { $result = &handleenter }
-                                      else { $result = &handleshow }
-                                    },                                 last KEY;
-                               # what will we do with symlinks here?
+                        /^(?:kr|kl|[hl\e])$/i
+                                  and $result = &handleentry($_),      last KEY;
+                        /^[cr]$/i and $result = &handlecopyrename($_), last KEY;
+                        /^[yo]$/i and $result = &handlecommand($_),    last KEY;
+                        /^e$/i    and $result = &handleedit,           last KEY;
+                        /^(?:ku|kd|pgup|pgdn|[\cF\cB\cD\cU-+jk]|home|end)$/i
+                                  and $result = &handlemove($_),       last KEY;
+                        /^[\cE\cY]$/i
+                                  and $result = &handlescroll($_),     last KEY;
+                        /^ $/     and $result = &handleadvance,        last KEY;
+                        /^d$/i    and $result = &handledelete,         last KEY;
+                        /^[ix]$/i and $result = &handleinclude($_),    last KEY;
+                        /^[s\r]$/ and $result = &handleshowenter($_),  last KEY;
+                        /^k7$/    and $result = &handleswap,           last KEY;
+                        /^k5$/    and $result = &handlerefresh,        last KEY;
+                        /^k3$/    and $result = &handlefit,            last KEY;
                         /^k10$/   and $result = &handlemultiple,       last KEY;
                         /^m$/i    and $result = &handlemore,           last KEY;
                         /^p$/i    and $result = &handleprint,          last KEY;
-                        /^e$/i    and $result = &handleedit,           last KEY;
                         /^v$/i    and $result = &handleview,           last KEY;
                         /^k8$/    and $result = &handleselect,         last KEY;
-                        /^[cr]$/i and $result = &handlecopyrename($_), last KEY;
-                        /^d$/i    and $result = &handledelete,         last KEY;
                         /^t$/i    and $result = &handletime,           last KEY;
                         /^a$/i    and $result = &handlechmod,          last KEY;
                         /^q$/i    and $result = &handlequit($_),       last KEY;
-                        /^[yo]$/i and $result = &handlecommand($_),    last KEY;
-                        /^k3$/    and $result = &handlefit,            last KEY;
-                        /^k9$/    and $result = &handlecolumns,        last KEY;
                         /^k6$/    and $result = &handlesort,           last KEY;
+                        /^[\/f]$/i and $result= &handlefind($_),       last KEY;
+                        /^k1$/    and $result = &handlehelp,           last KEY;
+                        /^k2$/    and $result = &handlecdold,          last KEY;
+                        /^k9$/    and $result = &handlecolumns,        last KEY;
+                        /^k4$/    and $result = &handlecolor,          last KEY;
                         /^\@$/    and $result = &handleperlcommand,    last KEY;
                         /^u$/i    and $result = &handlechown,          last KEY;
-                        /^[\/f]$/i and $result= &handlefind($_),       last KEY;
-# you are here --> #
-                        /^k2$/i and
-                            &ok_to_remove_marks ? do
-                            {
-                                chdir $oldcurrentdir; # assumes this is always possible;
-                                # maybe make a decent &mychdir();
-                                $oldcurrentdir = $currentdir;
-                                last STRIDE;
-                            } : redo STRIDE;
-                        /^ $/ and
-                            &handleselect,
-                            &handlemove($_) and &printdircontents(@dircontents),
-                            redo STRIDE;
-        # from this point: test if display is updated correctly
-                        /^[ix]$/i and
-                            &handleinclude($_) ? redo DISPLAY : redo STRIDE;
-                        /^k1$/ and &handlehelp, &credits, redo DISPLAY;
-                        /^k4$/ and $scr->colorizable(!$scr->colorizable()),
-                                   redo DISPLAY;
-                        /^k7$/ and
-                            do { $result = &handleswap },
-                            do { if    ($result==1) { redo DISPLAY }
-                                 elsif ($result==2) { last STRIDE }
-                                 else { redo STRIDE }
-                               };
                     } # end KEY
                     if ($result == $R_HEADER) { &init_header($multiple_mode) }
                 } until ($result > $R_STRIDE);
@@ -2414,7 +2425,7 @@ C<Term::ScreenColor>(3) and C<Term::ReadLine::Gnu>(3).
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.42 .
+This manual pertains to C<pfm> version 1.43 .
 
 =cut
 
