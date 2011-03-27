@@ -1,10 +1,10 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 2001-03-11 v1.33
+# @(#) pfm.pl 2001-03-11 v1.34
 #
 # Name:        pfm.pl
-# Version:     1.33
+# Version:     1.34
 # Author:      Rene Uittenbogaard
 # Date:        2001-03-11
 # Usage:       pfm.pl [directory]
@@ -19,8 +19,7 @@
 # Description: Personal File Manager for Unix/Linux
 #
 # TO-DO:
-# first: change F7 persistent swap mode
-#        neaten \n in all commands (Y/O/...), and in history, and in historyfile
+# first: neaten \n in all commands (Y/O/...), and in history, and in historyfile
 #        jump back to old current dir with F2: debug for F7 and > $#dircontents
 #        change F2 to use @old_cwd_at
 #      Argument "10681K" isn't numeric in addition (+) at /root/bin/pfm line 793
@@ -189,9 +188,9 @@ sub read_pfmrc { # $rereadflag - 0=read 1=reread (for copyright message)
     $swap_persistent  = $pfmrc{persistentswap};
     $headercolor      = $pfmrc{headercolor} || '37;44';
     $multicolor       = $pfmrc{multicolor}  || '36;47';
-    $titlecolor       = $pfmrc{titlecolor}  || '36;47';
-    $swapcolor        = $pfmrc{swapcolor}   || '36;40';
-    $footercolor      = $pfmrc{footercolor} || '34;47';
+    $titlecolor       = $pfmrc{titlecolor}  || '36;47;07';
+    $swapcolor        = $pfmrc{swapcolor}   || '36;40;07';
+    $footercolor      = $pfmrc{footercolor} || '34;47;07';
     $showlockchar     = ($pfmrc{showlock} eq 'sun' && $^O =~ /sun|solaris/i
                             or $pfmrc{showlock} eq 'yes') ? 'l' : 'S';
     $editor           = $ENV{EDITOR} || $pfmrc{editor} || 'vi';
@@ -326,8 +325,7 @@ sub expand_escapes {
     $_[0] =~ s/((?<!\\)(?:\\\\)*)\\2/$1$thisfile{name}/g;
     $_[0] =~ s/((?<!\\)(?:\\\\)*)\\3/$1$currentdir/g;
     $_[0] =~ s/((?<!\\)(?:\\\\)*)\\4/$1$disk{mountpoint}/g;
-    $_[0] =~ s/((?<!\\)(?:\\\\)*)\\5/$1$swap_mode->{path}/g if $swap_mode;
-#        if ($swap_mode || $swap_persistent); ######## NEXT ! #############
+    $_[0] =~ s/((?<!\\)(?:\\\\)*)\\5/$1$swap_state->{path}/g if $swap_state;
     $_[0] =~ s/\\\\/\\/g;
 }
 
@@ -366,6 +364,24 @@ sub toggle ($) {
 sub basename {
     $_[0] =~ /\/([^\/]*)$/; # ok, we suffer LTS but this looks better in vim
     return $1;
+}
+
+sub exch_sc {
+    return +($_[0],$_[1]) = @_[1,0];
+}
+
+sub exch_ar {
+    my $temp = $_[0];
+    @{$_[0]} = @{$_[1]};
+    @{$_[1]} = @$temp;
+    return @_;
+}
+
+sub exch_hs {
+    my $temp = $_[0];
+    %{$_[0]} = %{$_[1]};
+    %{$_[1]} = %$temp;
+    return @_;
 }
 
 sub exclude { # $entry,$oldmark
@@ -594,8 +610,8 @@ _eoFirst_
 }
 
 sub init_title { # swap_mode, uid_mode
-    my ($smode,$umode)=@_; ## #########################################
-    my @title=split(/\n/,<<_eoKop_);
+    my ($smode, $umode) = @_;
+    my @title = split(/\n/,<<_eoHead_);
 size  date      mtime  inode attrib          disk info
 size  userid   groupid lnks  attrib          disk info
 size  date      atime  inode attrib          disk info
@@ -605,13 +621,14 @@ size  date      atime  inode attrib     your commands
 size  date      mtime  inode attrib     sort mode     
 size  userid   groupid lnks  attrib     sort mode     
 size  date      atime  inode attrib     sort mode     
-_eoKop_
+_eoHead_
     $smode ? &digestcolor($swapcolor)
            : do {
                &digestcolor($titlecolor);
                $scr->bold();
            };
-    $scr->reverse()->at(2,0)
+    $scr->reverse() if ($swapcolor =~ /\b0?7\b/);
+    $scr->at(2,0)
         ->puts('  filename.ext'.' 'x($screenwidth-$datecol-54).$title[$umode])
         ->normal();
 }
@@ -622,13 +639,14 @@ sub init_footer {
 F1-Help F2-Back F3-Fit F4-Color F5-Read F6-Sort F7-Swap F8-Incl F9-Uid F10-Multi
 _eoFunction_
     &digestcolor($footercolor);
-    $scr->reverse()->bold()->at($baseline+$screenheight+1,0)
+    $scr->reverse() if ($footercolor =~ /\b0?7\b/);
+    $scr->bold()->at($baseline+$screenheight+1,0)
         ->puts($footer.' 'x($screenwidth-80))->normal();
 }
 
 sub copyright {
     $scr->cyan()->puts("PFM $VERSION for Unix computers and compatibles.")
-        ->at(1,0)->puts("Copyright (c) 1999,2000 Rene Uittenbogaard")
+        ->at(1,0)->puts("Copyright (c) 1999-2001 Rene Uittenbogaard")
         ->at(2,0)->puts("This software comes with no warranty: see the file "
                        ."COPYING for details.")->normal();
     return $scr->key_pressed($_[0]);
@@ -643,7 +661,8 @@ sub globalinit {
     &read_history;
     %user  = %{&init_uids};
     %group = %{&init_gids};
-    $swap_mode = $multiple_mode = 0;
+    %selected_nr_of = %total_nr_of = ();
+    $swap_state = $swap_mode = $multiple_mode = 0;
     if ($scr->getrows()) { $screenheight = $scr->getrows()-$baseline-2 }
     if ($scr->getcols()) { $screenwidth  = $scr->getcols() }
     $maxfilenamelength = $screenwidth - (80-$defaultmaxfilenamelength);
@@ -679,7 +698,7 @@ sub credits {
 
              PFM for Unix computers and compatibles.  Version $VERSION
              Original idea/design: Paul R. Culley and Henk de Heer
-             Author and Copyright (c) 1999,2000 Rene Uittenbogaard
+             Author and Copyright (c) 1999-2001 Rene Uittenbogaard
 
 
        PFM is distributed under the GNU General Public License version 2.
@@ -744,8 +763,9 @@ sub dir_info {
     $values[3] = $total_nr_of{'c'} + $total_nr_of{'b'}
                + $total_nr_of{'p'} + $total_nr_of{'s'}
                + $total_nr_of{'D'};
-    my $startline=9;
-    $scr->at($startline-1,$screenwidth-$datecol+5)->puts('Directory');
+    my $startline = 9;
+    $scr->at($startline-1, $screenwidth-$datecol+2)
+        ->puts("Directory($sort_mode)");
     foreach (0..3) {
         $scr->at($startline+$_,$screenwidth-$datecol+1)
             ->puts(&infoline($values[$_],$desc[$_]));
@@ -1438,34 +1458,62 @@ sub handleenter {
 }
 
 sub handleswap {
-    my $refresh=0;
-    if ($swap_mode) {
+    my $refresh = 0;
+    my $temp_state = $swap_state;
+    if ($swap_state and !$swap_persistent) { # swap back if ok to remove marks
         if (&ok_to_remove_marks) {
-            $currentdir     =   $swap_mode->{path};
-            @dircontents    = @{$swap_mode->{contents}};
-            $position_at    =   $swap_mode->{position};
-            %disk           = %{$swap_mode->{disk}};
-            %selected_nr_of = %{$swap_mode->{selected}};
-            %total_nr_of    = %{$swap_mode->{totals}};
-            $swap_mode = 0;
+            $currentdir     =   $swap_state->{path};
+            @dircontents    = @{$swap_state->{contents}};
+            $position_at    =   $swap_state->{position};
+            %disk           = %{$swap_state->{disk}};
+            %selected_nr_of = %{$swap_state->{selected}};
+            %total_nr_of    = %{$swap_state->{totals}};
+            $multiple_mode  =   $swap_state->{multiple_mode};
+            $sort_mode      =   $swap_state->{sort_mode};
+            $swap_mode = $swap_state = 0;
             $refresh = 1;
-        } else {
+        } else { # not ok to remove marks
             $refresh = 0;
         }
-    } else {
-        $swap_mode = { path     =>   $currentdir,
-                       contents => [ @dircontents ],
-                       position =>   $currentfile{name},
-                       disk     => { %disk },
-                       selected => { %selected_nr_of },
-                       totals   => { %total_nr_of },
-                      };
+    } elsif ($swap_state and $swap_persistent) { # swap persistent
+        $swap_state = { path          =>   $currentdir,
+                        contents      => [ @dircontents ],
+                        position      =>   $currentfile{name},
+                        disk          => { %disk },
+                        selected      => { %selected_nr_of },
+                        totals        => { %total_nr_of },
+                        multiple_mode =>   $multiple_mode,
+                        sort_mode     =>   $sort_mode
+                       };
+        $currentdir     =   $temp_state->{path};
+        @dircontents    = @{$temp_state->{contents}};
+        $position_at    =   $temp_state->{position};
+        %disk           = %{$temp_state->{disk}};
+        %selected_nr_of = %{$temp_state->{selected}};
+        %total_nr_of    = %{$temp_state->{totals}};
+        $multiple_mode  =   $temp_state->{multiple_mode};
+        $sort_mode      =   $temp_state->{sort_mode};
+        toggle($swap_mode);
+        $refresh = 1;
+    } else { # $swap_state = 0; ask and swap forward
+        $swap_state = { path          =>   $currentdir,
+                        contents      => [ @dircontents ],
+                        position      =>   $currentfile{name},
+                        disk          => { %disk },
+                        selected      => { %selected_nr_of },
+                        totals        => { %total_nr_of },
+                        multiple_mode =>   $multiple_mode,
+                        sort_mode     =>   $sort_mode
+                       };
+        $swap_mode     = 1;
+        $sort_mode     = $pfmrc{sortmode} || 'n';
+        $multiple_mode = 0;
         $scr->at(0,0)->clreol()->bold()->cyan()
             ->puts('Directory Pathname: ')->normal()->cooked();
         $currentdir = &readintohist(\@path_history);
         $scr->raw();
         $position_at='.';
-        $refresh=2;
+        $refresh = 2;
     }
     if ( !chdir $currentdir ) {
         &display_error("$currentdir: $!");
@@ -1880,9 +1928,9 @@ cd=40;33;01:or=01;05;37;41:mi=01;05;37;41:ex=00;32:lc=^[[:rc=m:\
 # these are commented out because they are the defaults
 #headercolor:37;44
 #multicolor:36;47
-#titlecolor:36;47
-#swapcolor:36;40
-#footercolor:34;47
+#titlecolor:36;47;07
+#swapcolor:36;40;07
+#footercolor:34;47;07
 
 ##########################################################################
 # Your commands
