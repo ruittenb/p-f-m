@@ -1,12 +1,12 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 2001-04-10 v1.44
+# @(#) pfm.pl 2001-04-11 v1.45
 #
 # Name:        pfm.pl
-# Version:     1.44
+# Version:     1.45
 # Author:      Rene Uittenbogaard
-# Date:        2001-04-10
+# Date:        2001-04-11
 # Usage:       pfm.pl [directory]
 # Requires:    Term::ScreenColor
 #              Term::Screen
@@ -26,8 +26,8 @@
 #        change F2 to use @old_cwd_at
 #        test pfm with -w
 #        \5 should work in multiple copy/rename
-#        More -> Kill all child processes?
 #        handleinclude can become faster with &$bla; instead of eval $bla;
+#        display filenames like 'ls -b' (with escapes)
 # next:  clean up configuration options (yes/no,1/0,true/false)
 #        validate_position should not replace $baseindex when not necessary
 #        stat_entry() must *not* rebuild the selected_nr and total_nr lists:
@@ -76,9 +76,9 @@ use Term::ScreenColor;
 use Term::ReadLine;
 use Cwd;
 use strict;
-#use warnings;
-#use diagnostics;
-#disable diagnostics; # so we can switch it on in '@'
+use warnings;
+use diagnostics;
+disable diagnostics; # so we can switch it on in '@'
 #$^W = 0;
 
 use vars qw(
@@ -219,7 +219,7 @@ sub write_pfmrc {
             $_;
         } @resourcefile;
         close MKPFMRC;
-    }
+    } # no success? too bad
 }
 
 sub read_pfmrc { # $rereadflag - 0=firstread 1=reread (for copyright message)
@@ -252,7 +252,7 @@ sub read_pfmrc { # $rereadflag - 0=firstread 1=reread (for copyright message)
     system ('stty', 'erase', $pfmrc{erase}) if defined($pfmrc{erase});
     $kbd->set_keymap($pfmrc{keymap})        if $pfmrc{keymap};
     $autoexitmultiple = $pfmrc{autoexitmultiple};
-    # note: some configuration options are NOT fetched into common scalars -
+    # some configuration options are NOT fetched into common scalars -
     # they remain accessable in %pfmrc (e.g. autowritehistory)
     ($printcmd)       = ($pfmrc{printcmd}) ||
                             ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER}" : 'lpr');
@@ -285,7 +285,8 @@ sub write_history {
             print HISTFILE join "\n",@{$HISTORIES{$_}};
             close HISTFILE;
         } elsif (!$failed) {
-            $scr->at(0,0)->puts("Unable to save (part of) history: $!\n");
+            $scr->bold()->cyan()->puts("Unable to save (part of) history: $!\n")
+                ->normal();
             # wait? refresh?
             $failed++; # warn only once
         }
@@ -293,8 +294,10 @@ sub write_history {
 }
 
 sub read_history {
+    local $_;
     foreach (keys(%HISTORIES)) {
-        if (open (HISTFILE, "$CONFIGDIRNAME/$_")) {
+        $_ = "$CONFIGDIRNAME/$_";
+        if (-s $_ and open (HISTFILE, $_)) {
             chomp( @{$HISTORIES{$_}} = <HISTFILE> );
             close HISTFILE;
         }
@@ -307,7 +310,10 @@ sub write_cwd {
         close CWDFILE;
     } else {
         # pfm is exiting, can use warn() here
-        warn "pfm: unable to create $CONFIGDIRNAME/$CWDFILENAME: $!\n";
+#        warn "pfm: unable to create $CONFIGDIRNAME/$CWDFILENAME: $!\n";
+        $scr->bold()->cyan()
+            ->puts("Unable to create $CONFIGDIRNAME/$CWDFILENAME: $!\n")
+            ->normal();
     }
 }
 
@@ -408,8 +414,8 @@ sub expand_escapes {
 sub readintohist { # \@history
     local $SIG{INT} = 'IGNORE'; # do not interrupt pfm
     local $^W       = 0;        # Term::Readline::Gnu is not -w proof
-    my ($history)   = @_;
-    my $input       = '';
+    my $history     = shift;
+    my $input       = shift;    # or undef
     $kbd->SetHistory(@$history);
     $input = $kbd->readline();  # this line barfs with -w
     if ($input =~ /\S/ and $input ne ${$history}[$#$history]) { # this too ...
@@ -660,7 +666,7 @@ sub init_header { # "multiple"mode
 Attr Time Copy Del Edit Find Print Rename Show Uid View Your cOmmand Quit More  
 Multiple Include eXclude Attribute Time Copy Delete Print Rename Your cOmmands  
 Include? Every, Oldmarks, User or Files only:                                   
-Config PFM Edit new file Make new dir Show dir Write history ESC to mainmenu    
+Config PFM Edit new file Make new dir Show dir Kill children Write history ESC  
 Sort by: Name, Extension, Size, Date, Type, Inode (ignorecase, reverse):        
 _eoFirst_
     $scr->at(0,0);
@@ -744,13 +750,16 @@ sub globalinit {
 sub goodbye {
     my $bye = 'Goodbye from your Personal File Manager!';
     if ($pfmrc{clsonexit}) {
-        $scr->clrscr();
+        $scr->cooked()->clrscr();
     } else {
         $scr->at(0,0)->puts(' 'x(($screenwidth-length $bye)/2).$bye)->clreol()
-            ->normal()->at($screenheight+$BASELINE+1,0)->clreol()->cooked();
+            ->cooked()->normal()->at(1,0);
     }
     &write_cwd;
     &write_history if $pfmrc{autowritehistory};
+    unless ($pfmrc{clsonexit}) {
+        $scr->at($screenheight+$BASELINE+1,0)->clreol()->cooked();
+    }
     system ('tput','cnorm') if $pfmrc{cursorveryvisible};
 }
 
@@ -776,7 +785,7 @@ sub credits {
 
 
      For questions/remarks about PFM, or just to tell me you are using it,
-                        send email to: ruittenb\@wish.nl
+                   send email to: ruittenbogaard\@profuse.nl
 
 
                                                           any key to exit to PFM
@@ -1015,7 +1024,7 @@ sub handlemore {
     my $do_a_refresh = $R_SCREEN;
     my $newname;
     &init_header($MOREHEADER);
-    my $key = $scr->at(0,76)->getch();
+    my $key = $scr->at(0,78)->getch();
     for ($key) {
         /^s$/i and do {
             return $R_HEADER unless &ok_to_remove_marks;
@@ -1076,6 +1085,10 @@ sub handlemore {
         };
         /^w$/i and do {
             &write_history;
+        };
+        /^k$/i and do {
+            local $SIG{HUP} = 'IGNORE';
+            kill HUP => -$$;
         };
     }
     return $do_a_refresh;
@@ -1287,7 +1300,6 @@ sub handlecommand { # Y or O
         &clearcolumn;
         return $R_SCREEN unless ($command = $pfmrc{uc($key)}); # assignment!
         $scr->cooked();
-        $command .= "\n";
     } else { # cOmmand
         $printstr=<<'_eoPrompt_';
 Enter Unix command (\1=name, \2=name.ext, \3=path, \4=mountpoint, \5=swap path):
@@ -2299,6 +2311,11 @@ B<ENTER> will take you to your home directory. Be aware that this option
 is different from B<F7> because this will not change your current swap
 directory status.
 
+=item Kill children
+
+Sends all child processes of C<pfm> (more accurately: all processes in
+the same process group) the SIGHUP signal.
+
 =item Write history
 
 C<pfm> uses the readline library for keeping track of the Unix commands,
@@ -2443,6 +2460,11 @@ In order to allow spaces in filenames, several commands assume they can
 safely surround filenames with double quotes. This prevents the correct
 processing of filenames containing double quotes.
 
+The F<readline> library does not allow a half-finished line to be
+aborted by pressing B<ESC>. For most commands, you will need to clear
+the half-finished line, but for cB<O>mmand, you have to enter something
+anyway. You could use C<true>(1) for this purpose.
+
 Sometimes when key repeat sets in, not all keypress events have been
 processed, although they have been registered. This can be dangerous
 when deleting files.
@@ -2462,8 +2484,8 @@ C<Term::ScreenColor>(3) and C<Term::ReadLine::Gnu>(3).
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.44 .
+This manual pertains to C<pfm> version 1.45 .
 
 =cut
 
-# vi: set tabstop=4 shiftwidth=4 expandtab list:
+# vi: set tabstop=4 shiftwidth=4 expandtab list foldmethod=indent nofoldenable:
