@@ -1,12 +1,12 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 2001-03-16 v1.40
+# @(#) pfm.pl 2001-04-09 v1.41 # version unfinished! browse() under revision
 #
 # Name:        pfm.pl
-# Version:     1.40
+# Version:     1.41
 # Author:      Rene Uittenbogaard
-# Date:        2001-03-16
+# Date:        2001-04-09
 # Usage:       pfm.pl [directory]
 # Requires:    Term::ScreenColor
 #              Term::Screen
@@ -44,6 +44,7 @@
 #        validate_position in SIG{WINCH}
 #        key response (flush_input)
 #        rename: restat file under new name?
+#        we might someday use the 'constant' pragma
 # terminal:
 #        intelligent restat (changes in current dir?)
 # licence
@@ -74,9 +75,12 @@ use Term::ScreenColor;
 use Term::ReadLine;
 use Cwd;
 use strict;
+
 use vars qw($FIRSTREAD $REREAD $SHOWSHORT $SHOWLONG
             $HIGHLIGHT_OFF $HIGHLIGHT_ON $FALSE $TRUE $NARROWTIME $WIDETIME
-            $SINGLEHEADER $MULTIHEADER $INCLUDEHEADER $MOREHEADER $SORTHEADER);
+            $SINGLEHEADER $MULTIHEADER $INCLUDEHEADER $MOREHEADER $SORTHEADER
+            $R_KEY $R_HEADER $R_STRIDE $R_DIRLISTING $R_SCREEN $R_DIRCONTENTS
+            $R_CHDIR $R_QUITTING);
 #use diagnostics; # so we can switch it on in '@'
 #disable diagnostics;
 #$^W = 0;
@@ -103,6 +107,14 @@ BEGIN {
 *INCLUDEHEADER = \2;
 *MOREHEADER    = \3;
 *SORTHEADER    = \4;
+*R_KEY         = \0;
+*R_HEADER      = \1;
+*R_STRIDE      = \2;
+*R_DIRLISTING  = \3;
+*R_SCREEN      = \4;
+*R_DIRCONTENTS = \5;
+*R_CHDIR       = \6;
+*R_QUITTING    = \255;
 
 my $VERSION             = &getversion;
 my $CONFIGDIRNAME       = "$ENV{HOME}/.pfm";
@@ -642,11 +654,6 @@ size  date      mtime  inode attrib     sort mode
 size  userid   groupid lnks  attrib     sort mode     
 size  date      atime  inode attrib     sort mode     
 _eoHead_
-#    $smode ? &digestcolor($swapcolor)
-#           : do {
-#               &digestcolor($titlecolor);
-#               $scr->bold();
-#           };
     &digestcolor($linecolor = $smode ? $swapcolor : $titlecolor);
     $scr->reverse() if ($linecolor =~ /\b0?7\b/);
     $scr->bold()    if ($linecolor =~ /\b0?1\b/);
@@ -675,7 +682,7 @@ sub copyright {
 }
 
 sub globalinit {
-    $SIG{WINCH} = sub { $wasresized=1 };
+    $SIG{WINCH} = sub { $wasresized = 1 };
     $scr = Term::ScreenColor->new();
     $scr->clrscr();
     $kbd = Term::ReadLine->new('Pfm', \*STDIN, \*STDOUT);
@@ -690,7 +697,8 @@ sub globalinit {
     $maxfilenamelength = $screenwidth - $RESERVEDSCREENWIDTH;
     $baseindex = 0;
     &makeformatlines;
-    &init_frame(0,0,$uid_mode); # uid_mode coming from pfmrc
+    # uid_mode has been set from .pfmrc
+    &init_frame($multiple_mode, $swap_mode, $uid_mode);
     # now find starting directory
     $oldcurrentdir = getcwd();
     $ARGV[0] and chdir($ARGV[0]) || do {
@@ -736,7 +744,7 @@ sub credits {
 
 
      For questions/remarks about PFM, or just to tell me you are using it,
-                   send email to: ruittenbogaard\@profuse.nl
+                        send email to: ruittenb\@wish.nl
 
 
                                                           any key to exit to PFM
@@ -816,12 +824,8 @@ sub date_info {
     my ($datetime, $date, $time);
     $datetime = &time2str(time, $WIDETIME);
     ($date, $time) = ($datetime =~ /(.*)\s+(.*)/);
-    if ($scr->getrows() > 24) {
-        $scr->at($line++,$col+3)->puts($date);
-        $scr->at($line++,$col+6)->puts($time);
-    } else {
-        $scr->at($line++,$col+6)->puts($time);
-    }
+    $scr->at($line++, $col+3)->puts($date) if ($scr->getrows() > 24);
+    $scr->at($line++, $col+6)->puts($time);
 }
 
 ##########################################################################
@@ -868,13 +872,13 @@ sub by_name {
 # user commands
 
 sub handlequit { # key
-    return 1 if $pfmrc{confirmquit} =~ /never/i;
-    return 1 if $_[0] eq 'Q'; # quick quit
-    return 1 if ($pfmrc{confirmquit} =~ /marked/i and !&mark_info);
+    return $R_QUITTING if $pfmrc{confirmquit} =~ /never/i;
+    return $R_QUITTING if $_[0] eq 'Q'; # quick quit
+    return $R_QUITTING if ($pfmrc{confirmquit} =~ /marked/i and !&mark_info);
     $scr->at(0,0)->clreol()->bold()->cyan();
     $scr->puts("Are you sure you want to quit [Y/N]? ")->normal();
     my $sure = $scr->getch();
-    return $sure =~ /y/i;
+    return +($sure =~ /y/i) ? $R_QUITTING : $R_HEADER;
 }
 
 sub handlefind {
@@ -901,7 +905,7 @@ sub handlefit {
     my $newheight = $scr->getrows();
     my $newwidth  = $scr->getcols();
     if ($newheight || $newwidth) {
-        $screenheight = $newheight-$BASELINE-2;
+        $screenheight = $newheight - $BASELINE - 2;
         $screenwidth  = $newwidth;
         $maxfilenamelength = $screenwidth - $RESERVEDSCREENWIDTH;
         &makeformatlines;
@@ -911,6 +915,7 @@ sub handlefit {
         }
         $scr->clrscr();
         &redisplayscreen;
+        &printdircontents(@dircontents);
     }
 }
 
@@ -1248,7 +1253,6 @@ sub handledelete {
     if ($multiple_mode) {
         # we must delete in reverse order because the number of directory
         # entries will decrease by deleting
-        # the subroutine position_cursor corrects for directories with 0 entries
         for $index (reverse(0..$#dircontents)) {
             $loopfile=$dircontents[$index];
             if ($loopfile->{selected} eq '*') {
@@ -1452,29 +1456,22 @@ sub handleselect {
 }
 
 sub validate_position {
-    my $redraw = 0;
+    my $redraw = $R_KEY;
     if ( $currentline < 0 ) {
         $baseindex += $currentline;
         $baseindex   < 0 and $baseindex = 0;
         $currentline = 0;
-        $redraw = 1;
+        $redraw = $R_DIRLISTING;
     }
     if ( $currentline > $screenheight ) {
         $baseindex  += $currentline - $screenheight;
         $currentline = $screenheight;
-        $redraw = 1;
+        $redraw = $R_DIRLISTING;
     }
     if ( $currentline + $baseindex > $#dircontents ) {
         $currentline = $#dircontents - $baseindex;
-        $redraw = 1;
+        $redraw = $R_DIRLISTING;
     }
-#    if ( $currentline+$baseindex > $#dircontents) {
-#        $currentline = $screenheight;
-#        $baseindex   = $#dircontents - $screenheight;
-#        $baseindex   < 0             and $baseindex   = 0;
-#        $currentline > $#dircontents and $currentline = $#dircontents;
-#        $redraw = 1;
-#    }
     return $redraw;
 }
 
@@ -1489,7 +1486,7 @@ sub handlescroll {
                                 and $currentline-$displacement <= $screenheight;
 #    &validate_position;
 #    $scr->at(0,0)->puts("$currentline,$baseindex");
-    return 1;
+    return $R_DIRLISTING;
 }
 
 sub handlemove {
@@ -1611,7 +1608,7 @@ sub handleentry {
 }
 
 ##########################################################################
-# directory browsing
+# directory browsing helper routines
 
 sub stat_entry { # path_of_entry, selected_flag
     # the second argument is used to have the caller specify whether the
@@ -1646,17 +1643,22 @@ sub stat_entry { # path_of_entry, selected_flag
 }
 
 sub getdircontents { # (current)directory
-    my (@contents, @allentries, $entry);
+    my (@contents, $entry);
+    my @allentries = ();
     &init_header($multiple_mode);
     &init_title($swap_mode, $uid_mode);
     if ( opendir CURRENT, "$_[0]" ) {
         @allentries = readdir CURRENT;
         closedir CURRENT;
     } else {
-        @allentries=('.', '..');
         $scr->at(0,0)->clreol();
         &display_error("Cannot read . : $!");
         &init_header($multiple_mode);
+    }
+    # next lines also correct for directories with no entries at all
+    # (this is sometimes the case on NTFS filesystems: why?)
+    if ($#allentries < 0) {
+        @allentries = ('.', '..');
     }
     if ($#allentries > $SLOWENTRIES) {
         # don't use display_error here because that would just cost more time
@@ -1664,7 +1666,7 @@ sub getdircontents { # (current)directory
     }
     foreach $entry (@allentries) {
         # have the mark cleared on first stat with ' '
-        push @contents,&stat_entry($entry,' ');
+        push @contents, &stat_entry($entry,' ');
     }
     return @contents;
 }
@@ -1691,12 +1693,20 @@ sub countdircontents {
     }
 }
 
+sub get_filesystem_info {
+    my (@dflist, %tdisk);
+    # maybe this should sometime be altered to run "bdf" on HP-UX
+    chop( (undef, @dflist) = `df -k .` ); # undef to swallow header
+    $dflist[0] .= $dflist[1]; # in case filesystem info wraps onto next line
+    @tdisk{qw/device total used avail/} = split ( /\s+/, $dflist[0] );
+    $tdisk{avail} = $tdisk{total} - $tdisk{used} if $tdisk{avail} =~ /%/;
+    @tdisk{qw/mountpoint/} = $dflist[0] =~ /(\S*)$/;
+    return %tdisk;
+}
+
 sub position_cursor {
     $currentline = 0;
     $baseindex   = 0 if $position_at eq '..'; # descending into this dir
-    # next line corrects for directories with no entries at all
-    # (sometimes the case on NTFS filesystems)
-    if ($#dircontents < 0) { push @dircontents, {name => '.'} }
     ANYENTRY: {
         for (0..$#dircontents) {
             if ($position_at eq $dircontents[$_]{name}) {
@@ -1724,8 +1734,6 @@ sub recalc_ptr {
 sub redisplayscreen {
     &init_frame($multiple_mode, $swap_mode, $uid_mode);
     &path_info;
-    if ($position_at ne '') { &position_cursor }
-    &printdircontents(@dircontents);
     &disk_info(%disk);
     &dir_info(%total_nr_of);
     &mark_info(%selected_nr_of);
@@ -1733,166 +1741,192 @@ sub redisplayscreen {
     &date_info($DATELINE,$screenwidth-$DATECOL);
 }
 
-sub browse {
-    my ($returncode, @dflist, $key);
-    my $quitting = 0;
-    
-    # collect info
-    $currentdir     = getcwd();
-    %total_nr_of    = ( d=>0, l=>0, '-'=>0, c=>0, b=>0, 's'=>0, p=>0, D=>0 );
-    %selected_nr_of = ( d=>0, l=>0, '-'=>0, c=>0, b=>0, 's'=>0, p=>0, D=>0,
-                        bytes=>0 );
-    @dircontents    = sort as_requested (&getdircontents($currentdir));
-#    chop( @dflist = grep ! /filesys/i, `df -k .` );
-    chop( (undef,@dflist) = `df -k .` ); # undef to swallow header
-    $dflist[0] .= $dflist[1]; # in case filesystem info wraps onto next line
-    @disk{qw/device total used avail/} = split ( /\s+/, $dflist[0] );
-    $disk{avail} = $disk{total} - $disk{used} unless $disk{avail} =~ /%/;
-    @disk{qw/mountpoint/} = $dflist[0] =~ /(\S*)$/;
-    $0 = 'pfm [on '.($disk{device}eq'none'?$disk{mountpoint}:$disk{device}).']';
-    
-    # now just reprint screen
-    # hopefully we can someday put an end to all this last KEY/redo DISPLAY/
-    #  last STRIDE shit
-    DISPLAY: {
-        &redisplayscreen;
-#        $scr->flush_input();
-        STRIDE: for (;;) {
-            if ( !defined $dircontents[$currentline+$baseindex] ) {
-                &recalc_ptr and &printdircontents(@dircontents);
-            }
-            %currentfile = %{$dircontents[$currentline+$baseindex]};
-            &highlightline($HIGHLIGHT_ON);
-            until ($scr->key_pressed(1)) {
-                if ($wasresized) { &resizehandler; }
-                &date_info($DATELINE, $screenwidth-$DATECOL);
-                $scr->at($currentline+$BASELINE, 0);
-            }
-            $key = $scr->getch();
-            &highlightline($HIGHLIGHT_OFF);
-            KEY: for ($key) {
-                /^q$/i and &handlequit($_)
-                    ? do { $quitting=1, last STRIDE }
-                    : do { &init_header($multiple_mode), last KEY };
-                /^(?:\cE|\cY)$/i and
-                    &handlescroll($_) and &printdircontents(@dircontents),
-                    last KEY;
-                /^(?:\cF|\cB|\cD|\cU|ku|kd|pgup|pgdn|home|end|[-+jk])$/i and
-                    &handlemove($_) and &printdircontents(@dircontents),
-                    last KEY;
-                /^(?:kr|kl|[hl\e])$/i and
-                    &handleentry($_) ? last STRIDE : last KEY;
-                /^[s\r]$/ and
-                    $dircontents[$currentline+$baseindex]{type} eq 'd'
-                       ? do { &handleentry($_) ? last STRIDE : last KEY }
-                       : do { if (/\r/ && $currentfile{mode} =~ /x/)
-                                   { &handleenter, redo DISPLAY }
-                              else { &handleshow,  redo DISPLAY }
-                            };
-                       # what will we do with symlinks here?
-                /^k5$/ and
-                    &ok_to_remove_marks ? last STRIDE : last KEY;
-                /^k2$/i and
-                    &ok_to_remove_marks ? do
-                    {
-                        chdir $oldcurrentdir; # assumes this is always possible;
-                        # maybe make a decent &mychdir();
-                        $oldcurrentdir = $currentdir;
-                        last STRIDE;
-                    } : last KEY;
-                /^k9$/i and
-                    triggle($uid_mode),
-                    &printdircontents(@dircontents),
-                    &init_title($swap_mode,$uid_mode),
-                    last KEY;
-                /^k10$/ and
-                    toggle($multiple_mode),
-                    &init_header($multiple_mode),
-                    last KEY;
-                /^ $/ and
-                    &handleselect,
-                    &handlemove($_) and &printdircontents(@dircontents),
-                    last KEY;
-                /^e$/i and
-                    &handleedit, redo DISPLAY;
-                /^t$/i and
-                    &handletime ? redo DISPLAY : do {
-                        &init_header($multiple_mode),
-                        last KEY;
-                    };
-                /^p$/i and
-                    &handleprint, redo DISPLAY;
-                /^a$/i and
-                    &handlechmod ? redo DISPLAY : do {
-                        &init_header($multiple_mode),
-                        last KEY;
-                    };
-                /^k8$/ and
-                    &handleselect, last KEY;
-                /^v$/i and
-                    &handleview, last KEY; # redo DISPLAY;
-                /^d$/i and
-                    &handledelete ? redo DISPLAY : do {
-                        &init_header($multiple_mode),
-                        last KEY;
-                    };
-# from this point: test if display is updated correctly
-                /^[cr]$/i and
-                    &handlecopyrename($_) ? redo DISPLAY : do {
-                        &init_header($multiple_mode),
-                        last KEY;
-                    };
-                /^u$/i and
-                    &handlechown ? redo DISPLAY : do {
-                        &init_header($multiple_mode),
-                        last KEY;
-                    };
-                /^[\/f]$/i and
-                    &handlefind($_) ? redo DISPLAY : do {
-                        &init_header($multiple_mode);
-                        last KEY;
-                    };
-                /^[yo]$/i and
-                    &handlecommand($_), redo DISPLAY;
-                /^m$/i and
-                    &handlemore ? last STRIDE : redo DISPLAY;
-                /^[ix]$/i and
-                    &handleinclude($_) ? redo DISPLAY : last KEY;
-                /^k1$/ and &handlehelp, &credits, redo DISPLAY;
-                /^k3$/ and &handlefit, last KEY;
-                /^k4$/ and $scr->colorizable(!$scr->colorizable()),
-                           redo DISPLAY;
-                /^k6$/ and
-                    &handlesort, redo DISPLAY;
-                /^k7$/ and
-                    do { $returncode = &handleswap },
-                    do { if    ($returncode==1) { redo DISPLAY }
-                         elsif ($returncode==2) { last STRIDE }
-                         else { last KEY }
-                       };
-                /@/ and
-                    &handleperlcommand, redo DISPLAY;
-            } # KEY
-        }   # STRIDE
-    }     # DISPLAY
-    return $quitting;
-}      # sub browse
+##########################################################################
+# directory browsing main routine
+#
+# this sub is called every time a new directory is entered.
+# it is the heart of pfm. it has the following structure:
+#
+# sub {
+#                                 get filesystem info;
+# L_DIRCONTENTS (R_DIRCONTENTS):  read directory contents;
+# DISPLAY       (R_SCREEN):       show title, footer and stats;
+# L_DIRLISTING  (R_DIRLISTING):   display directory contents;
+# STRIDE        (R_STRIDE):       wait for key;
+# KEY           ():               call sub handling key command;
+#                                 jump to redo point (using R_*);
+#               (R_CHDIR):
+#               (R_QUITTING):
+# }
+#
+# actually, jumps have been implemented using do..until loops.
+# redo points are jumped to according to the result of the sub that handles
+# the key command. these subs are supposed to return a value which reports
+# the "severity" of the result. the higher the value, the more redrawing
+# should be done on-screen, i.e. the more loops should be exited from.
+# the following are valid return values, in increasing order of severity:
+#
+# $R_KEY         == 0;
+# $R_HEADER      == 1; # just call init_header
+# $R_STRIDE      == 2;
+# $R_DIRLISTING  == 3;
+# $R_SCREEN      == 4;
+# $R_DIRCONTENTS == 5;
+# $R_CHDIR       == 6;
+# $R_QUITTING    == 255;
 
-################################################################################
+sub browse {
+    my ($key, $result);
+    # collect info
+    $currentdir = getcwd();
+    %disk       = &get_filesystem_info;
+    $0          = 'pfm [on ' . ( $disk{device} eq 'none'
+                               ? $disk{mountpoint} : $disk{device} ) . ']';
+    L_DIRCONTENTS: do {
+        %total_nr_of    = ( d=>0, l=>0, '-'=>0, c=>0, b=>0, 's'=>0, p=>0, D=>0 );
+        %selected_nr_of = ( d=>0, l=>0, '-'=>0, c=>0, b=>0, 's'=>0, p=>0, D=>0,
+                            bytes=>0 );
+        @dircontents    = sort as_requested (&getdircontents($currentdir));
+        DISPLAY: do {
+            &redisplayscreen;
+            if ($position_at ne '') { &position_cursor }
+            # next line has been moved: did we need it inside the inner loop?    %%%%%%% 1.41 %%%%%%%
+            &recalc_ptr unless defined $dircontents[$currentline+$baseindex];
+            L_DIRLISTING: do {
+                &printdircontents(@dircontents);
+        #        $scr->flush_input();
+                STRIDE: do {
+        ## this was the original position                                        %%%%%%% 1.41 %%%%%%%
+        #            unless ( defined $dircontents[$currentline+$baseindex] ) {  %%%%%%% 1.41 %%%%%%%
+        #                &recalc_ptr and &printdircontents(@dircontents);        %%%%%%% 1.41 %%%%%%%
+        #            }                                                           %%%%%%% 1.41 %%%%%%%
+                    %currentfile = %{$dircontents[$currentline+$baseindex]};
+                    &highlightline($HIGHLIGHT_ON);
+                    until ($scr->key_pressed(1)) {
+                        if ($wasresized) { &resizehandler }
+                        &date_info($DATELINE, $screenwidth-$DATECOL);
+                        $scr->at($currentline+$BASELINE, 0);
+                    }
+                    $key = $scr->getch();
+                    &highlightline($HIGHLIGHT_OFF);
+                    $result = $R_KEY;
+                    KEY: for ($key) {
+                        /^q$/i           and $result = &handlequit($_);
+                        /^(?:\cE|\cY)$/i and $result = &handlescroll($_);
+                        /^(?:\cF|\cB|\cD|\cU|ku|kd|pgup|pgdn|home|end|[-+jk])$/i and &handlemove($_);
+                        /^(?:kr|kl|[hl\e])$/i and
+                            &handleentry($_) ? last STRIDE : redo STRIDE;
+                        /^[s\r]$/ and
+                            $dircontents[$currentline+$baseindex]{type} eq 'd'
+                               ? do { &handleentry($_) ? last STRIDE : redo STRIDE }
+                               : do { if (/\r/ && $currentfile{mode} =~ /x/)
+                                           { &handleenter, redo DISPLAY }
+                                      else { &handleshow,  redo DISPLAY }
+                                    };
+                               # what will we do with symlinks here?
+                        /^k5$/ and
+                            &ok_to_remove_marks ? last STRIDE : redo STRIDE;
+                        /^k2$/i and
+                            &ok_to_remove_marks ? do
+                            {
+                                chdir $oldcurrentdir; # assumes this is always possible;
+                                # maybe make a decent &mychdir();
+                                $oldcurrentdir = $currentdir;
+                                last STRIDE;
+                            } : redo STRIDE;
+                        /^k9$/i and
+                            triggle($uid_mode),
+                            &printdircontents(@dircontents),
+                            &init_title($swap_mode,$uid_mode),
+                            redo STRIDE;
+                        /^k10$/ and
+                            toggle($multiple_mode),
+                            &init_header($multiple_mode),
+                            redo STRIDE;
+                        /^ $/ and
+                            &handleselect,
+                            &handlemove($_) and &printdircontents(@dircontents),
+                            redo STRIDE;
+                        /^e$/i and
+                            &handleedit, redo DISPLAY;
+                        /^t$/i and
+                            &handletime ? redo DISPLAY : do {
+                                &init_header($multiple_mode),
+                                redo STRIDE;
+                            };
+                        /^p$/i and
+                            &handleprint, redo DISPLAY;
+                        /^a$/i and
+                            &handlechmod ? redo DISPLAY : do {
+                                &init_header($multiple_mode),
+                                redo STRIDE;
+                            };
+                        /^k8$/ and
+                            &handleselect, redo STRIDE;
+                        /^v$/i and
+                            &handleview, redo STRIDE;
+                            # in some situations, redo DISPLAY would be required
+                        /^d$/i and
+                            &handledelete ? redo DISPLAY : do {
+                                &init_header($multiple_mode),
+                                redo STRIDE;
+                            };
+        # from this point: test if display is updated correctly
+                        /^[cr]$/i and
+                            &handlecopyrename($_) ? redo DISPLAY : do {
+                                &init_header($multiple_mode),
+                                redo STRIDE;
+                            };
+                        /^u$/i and
+                            &handlechown ? redo DISPLAY : do {
+                                &init_header($multiple_mode),
+                                redo STRIDE;
+                            };
+                        /^[\/f]$/i and
+                            &handlefind($_) ? redo DISPLAY : do {
+                                &init_header($multiple_mode);
+                                redo STRIDE;
+                            };
+                        /^[yo]$/i and
+                            &handlecommand($_), redo DISPLAY;
+                        /^m$/i and
+                            &handlemore ? last STRIDE : redo DISPLAY;
+                        /^[ix]$/i and
+                            &handleinclude($_) ? redo DISPLAY : redo STRIDE;
+                        /^k1$/ and &handlehelp, &credits, redo DISPLAY;
+                        /^k3$/ and &handlefit, redo STRIDE;
+                        /^k4$/ and $scr->colorizable(!$scr->colorizable()),
+                                   redo DISPLAY;
+                        /^k6$/ and
+                            &handlesort, redo DISPLAY;
+                        /^k7$/ and
+                            do { $result = &handleswap },
+                            do { if    ($result==1) { redo DISPLAY }
+                                 elsif ($result==2) { last STRIDE }
+                                 else { redo STRIDE }
+                               };
+                        /\@/ and
+                            &handleperlcommand, redo DISPLAY;
+                    } # end KEY
+                    if ($result == $R_HEADER) { &init_header($multiple_mode) }
+                } until ($result > $R_STRIDE);
+                # end STRIDE
+            } until ($result > $R_DIRLISTING);
+            # end L_DIRLISTING
+        } until ($result > $R_SCREEN);
+        # end DISPLAY
+    } until ($result > $R_DIRCONTENTS);
+    # end L_DIRCONTENTS
+    return $result == $R_QUITTING;
+} # end sub browse
+
+##########################################################################
 # void main (void)
-                                                                               #
-################################################################################
 
 &globalinit;
-
-MAIN: {
-    $multiple_mode=0;
-    redo MAIN unless &browse;
-}
-
+until (&browse) { $multiple_mode = 0 };
 &goodbye;
 exit 0;
-
 
 __DATA__
 ##########################################################################
@@ -2391,7 +2425,7 @@ C<Term::ScreenColor>(3) and C<Term::ReadLine::Gnu>(3).
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.40.
+This manual pertains to C<pfm> version 1.41.
 
 =cut
 
