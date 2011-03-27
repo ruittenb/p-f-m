@@ -1,10 +1,10 @@
 #!/usr/local/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 2001-03-12 v1.35
+# @(#) pfm.pl 2001-03-12 v1.36
 #
 # Name:        pfm.pl
-# Version:     1.35
+# Version:     1.36
 # Author:      Rene Uittenbogaard
 # Date:        2001-03-12
 # Usage:       pfm.pl [directory]
@@ -15,6 +15,7 @@
 #              Term::ReadLine
 #              Cwd
 #              strict
+#              vars
 #              diagnostics
 # Description: Personal File Manager for Unix/Linux
 #
@@ -24,10 +25,10 @@
 #        change F2 to use @old_cwd_at
 #      Argument "10681K" isn't numeric in addition (+) at /root/bin/pfm line 793
 #        test pfm with -w
+#        outdent file size 1 char to have the K stand out in "10203K"
 #        handlechmod() does not use history correctly <- reproduce?
 #        \5 should work in multiple copy/rename
 # next:  clean up configuration options (yes/no,1/0,true/false)
-#        F command (alias / ): jump to file (entering $position_at)
 #        validate_position should not replace $baseline when not necessary
 #        stat_entry() must *not* rebuild the selected_nr and total_nr lists:
 #            this fucks up with e.g. cOmmand -> cp \2 /somewhere/else
@@ -39,6 +40,7 @@
 #        cOmmand -> rm \2 will have to delete the entry from @dircontents;
 #            otherwise the mark count is not correct
 #
+#        siZe command?
 #        major/minor numbers on DU 4.0E are wrong
 #        tidy up multiple commands
 #        validate_position in SIG{WINCH}
@@ -76,13 +78,15 @@ use Term::ScreenColor;
 use Term::ReadLine;
 use Cwd;
 use strict;
-use vars qw($FIRSTREAD $REREAD);
+use vars qw($FIRSTREAD $REREAD $HILIGHT_OFF $HILIGHT_ON);
 #use diagnostics; # so we can switch it on in '@'
 #disable diagnostics;
 #$^W = 0;
 
 *FIRSTREAD = \0;
 *REREAD    = \1;
+*HILIGHT_OFF= \0;
+*HILIGHT_ON = \1;
 
 my $VERSION             = &getversion;
 my $configdirname       = "$ENV{HOME}/.pfm";
@@ -585,7 +589,7 @@ sub init_frame { # multiple_mode, swap_mode, uid_mode
 sub init_header { # "multiple"mode
     my $mode=shift;
     my @header=split(/\n/,<<_eoFirst_);
-Attrib Time Copy Delete Edit Print Rename Show Your cOmmands Quit View Uid More 
+Attr Time Copy Del Edit Find Print Rename Show Uid View Your cOmmand Quit More  
 Multiple Include eXclude Attribute Time Copy Delete Print Rename Your cOmmands  
 Include? Every, Oldmarks, User or Files only:                                   
 Config PFM Edit new file Make new dir Show dir Write history ESC to mainmenu    
@@ -848,6 +852,17 @@ sub handlequit { # key
 }
 
 sub handlefind {
+    my $findme;
+    $scr->at(0,0)->clreol()->cyan()->bold()->puts("File to find: ")->normal()
+        ->cooked()->at(0,14);
+    $findme = &readintohist(\@path_history);
+    $scr->raw();
+    if ($findme) {
+        $position_at = ($findme =~ /\//) ? basename($findme) : $findme;
+        return 1;
+    } else {
+        return 0;
+    }
 }
 
 sub handlefit {
@@ -1388,7 +1403,7 @@ sub handleselect {
         $file->{type} =~ /-/ and $selected_nr_of{bytes} += $file->{size};
     }
     %currentfile=%$file;
-    &highlightline(0);
+    &highlightline($HILIGHT_OFF);
     &mark_info(%selected_nr_of);
 }
 
@@ -1703,14 +1718,14 @@ sub browse {
                 &recalc_ptr and &printdircontents(@dircontents);
             }
             %currentfile=%{$dircontents[$currentline+$baseindex]};
-            &highlightline(1);
+            &highlightline($HILIGHT_ON);
             until ($scr->key_pressed(1)) {
                 if ($wasresized) { &resizehandler; }
                 &date_info($dateline,$screenwidth-$datecol);
                 $scr->at($currentline+$baseline,0);
             }
             $key = $scr->getch();
-            &highlightline(0);
+            &highlightline($HILIGHT_OFF);
             KEY: for ($key) {
                 /^q$/i and &handlequit($_)
                     ? do { $quitting=1, last STRIDE }
@@ -1788,8 +1803,11 @@ sub browse {
                         &init_header($multiple_mode),
                         last KEY;
                     };
-                /^[/f]$/i and
-                    &handlefind($_) ? redo DISPLAY : last KEY;
+                /^[\/f]$/i and
+                    &handlefind($_) ? redo DISPLAY : do {
+                        &init_header($multiple_mode);
+                        last KEY;
+                    };
                 /^[yo]$/i and
                     &handlecommand($_), redo DISPLAY;
                 /^m$/i and
@@ -2016,6 +2034,11 @@ current file and advance the cursor.
 =head1 COMMANDS
 
 =over
+
+=item B<@>
+
+Allows the user to enter a perl command to be executed in the context
+of C<pfm>. Primarily used for debugging.
 
 =item B<Attrib>
 
@@ -2308,13 +2331,13 @@ RenE<eacute> Uittenbogaard (ruittenbogaard@profuse.nl)
 
 =head1 SEE ALSO
 
-The documentation on PFM.COM . The mentioned man pages for
-C<chmod>(1), C<less>(1), C<lpr>(1), C<touch>(1). The manual page for
-C<Term::ScreenColor.pm>(3).
+The documentation on PFM.COM . The mentioned manual pages for
+C<chmod>(1), C<less>(1), C<lpr>(1), C<touch>(1). The manual pages for
+C<Term::ScreenColor>(3) and C<Term::ReadLine::Gnu>(3).
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.35.
+This manual pertains to C<pfm> version 1.36.
 
 =cut
 
