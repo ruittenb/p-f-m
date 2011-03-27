@@ -1,5 +1,4 @@
-1.56
+1.57
 
-* c(O)mmand may be aborted more user-friendly and consistent
-* unix shell now invoked through (M)ore->s(H)ell
+* support for CDPATH
 
