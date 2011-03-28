@@ -1,6 +1,7 @@
-1.65
+1.66
 
-* added support for coloring orphan symbolic links
-* small fixes and updates to documentation
-* small fixes to default config file
+* added tar(G)et command (change target of symlink)
+* more robust handling of file names containing quotes or spaces
+* fixed behavior of (R)ename command
+* preserve column view across Swap(F7)
 
