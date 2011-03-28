@@ -1,12 +1,12 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20021213 v1.64
+# @(#) pfm.pl 19990314-20021215 v1.65
 #
 # Name:        pfm.pl
-# Version:     1.64
+# Version:     1.65
 # Author:      Rene Uittenbogaard
-# Date:        2002-12-14
+# Date:        2002-12-15
 # Usage:       pfm.pl [directory]
 # Requires:    Term::ScreenColor
 #              Term::Screen
@@ -19,15 +19,13 @@
 #              vars
 # Description: Personal File Manager for Unix/Linux
 #
-# TO-DO:
-# first: test if handlecopyrename() handles double quotes etc. well
-#        double quote support by using system(@) for all commands
+# TODO:  double quote support by using system(@) for all commands
 #        use quotemeta() for quoting? (problem: \ in filenames)
 #        restat after rename?
 #        user-customizable columns
 #        more &$subptr; instead of eval $substring;
 #        config option: sortcurrent (sort current directory?)
-# next:  validate_position should not replace $baseindex when not necessary
+#        config option: dotdot mode? (sort directory with '.' and '..' first?)
 #        set ROWS en COLUMNS in environment for child processes; but see if
 #            this does not mess up with $scr->getrows etc. which use these
 #            variables internally; portability?
@@ -35,14 +33,9 @@
 #            this messes up with e.g. cOmmand -> cp \2 /somewhere/else
 #            (which is, therefore, still buggy). this is closely related to:
 #        sub countdircontents is not used
+#        command: W (toggle show/hide whiteout entries?)
 #        consistent use of gnu ornaments / cyan colored prompt
-#        cOmmand -> rm \2 should delete the entry from @dircontents;
-#            otherwise the mark count is not correct
-#
 #        major/minor numbers on DU 4.0E are wrong (does readline work there?)
-#        key response (flush_input)
-# terminal:
-#        intelligent restat (changes in current dir?)
 
 ##########################################################################
 # Main data structures:
@@ -141,7 +134,7 @@ my $CONFIGFILENAME      = '.pfmrc';
 my $LOSTMSG             = '';   # previously '(file lost)';
 my $CWDFILENAME         = 'cwd';
 my $MAJORMINORSEPARATOR = ',';
-my $NAMETOOLONGCHAR     = '=';
+my $NAMETOOLONGCHAR     = '+';
 my $MAXHISTSIZE         = 40;
 my $ERRORDELAY          = 1;    # seconds
 my $SLOWENTRIES         = 300;
@@ -493,9 +486,9 @@ sub findchangedir {
 }
 
 sub mychdir ($) {
-    my $target = $_[0];
+    my $goal = $_[0];
     my $result;
-    if ($result = &findchangedir($target) and $target ne $currentdir) {
+    if ($result = &findchangedir($goal) and $goal ne $currentdir) {
         $oldcurrentdir = $currentdir;
     }
     $currentdir = getcwd() || $ENV{HOME};
@@ -548,9 +541,12 @@ sub dirlookup {
 }
 
 sub copyback { # copy a changed entry from @showncontents back to @dircontents
-    my $somefilename = $_[0];
-    $dircontents[&dirlookup($somefilename, @dircontents)] =
+    $dircontents[&dirlookup($_[0], @dircontents)] =
         $showncontents[$currentline+$baseindex];
+}
+
+sub isorphan {
+    return ! -e $_[0];
 }
 
 ##########################################################################
@@ -558,18 +554,23 @@ sub copyback { # copy a changed entry from @showncontents back to @dircontents
 
 sub digestcolor {
     return unless defined $_[0];
-    foreach (split /;/,$_[0]) { $scr->color($_) }
+    foreach (split /;/, $_[0]) { $scr->color($_) }
 }
 
 sub decidecolor {
     my %file = @_;
     $file{type} eq 'd'       and &digestcolor($dircolors{di}), return;
-    $file{type} eq 'l'       and &digestcolor($dircolors{ln}), return;
+    $file{type} eq 'l'       and &digestcolor(
+        $dircolors{&isorphan($file{name}) ? 'or' : 'ln'}
+    ), return;
     $file{type} eq 'b'       and &digestcolor($dircolors{bd}), return;
     $file{type} eq 'c'       and &digestcolor($dircolors{cd}), return;
     $file{type} eq 'p'       and &digestcolor($dircolors{pi}), return;
     $file{type} eq 's'       and &digestcolor($dircolors{so}), return;
     $file{type} eq 'D'       and &digestcolor($dircolors{'do'}), return;
+    $file{type} eq 'n'       and &digestcolor($dircolors{nt}), return;
+    # will readdir() return whiteout entries? how can I find them?
+    $file{type} eq 'w'       and &digestcolor($dircolors{wh}), return;
     $file{mode} =~ /[xst]/   and &digestcolor($dircolors{ex}), return;
     $file{name} =~/(\.\w+)$/ and &digestcolor($dircolors{$1}), return;
 }
@@ -1327,19 +1328,18 @@ sub handleinclude { # include/exclude flag (from keypress)
 
 sub handleview {
     &markcurrentline('V'); # disregard multiple_mode
-    my $viewline = $currentfile{target};
-    my $removed = ($viewline =~ s/^ -> //);
-    # we are allowed to alter %currentfile because we will exit with
-    # at least $R_STRIDE; &browse will re-assign %currentfile
-    for ($currentfile{name}, $viewline) {
+    # we are allowed to alter %currentfile because
+    # when we exit with at least $R_STRIDE, %currentfile will be reassigned
+    for ($currentfile{name}, $currentfile{target}) {
         s/\\/\\\\/;
         # don't ask how this works
         s{([${trspace}\177[:cntrl:]]|[^[:ascii:]])}
-         {'\\'.sprintf($viewbase,unpack('C',$1))}eg;
+         {'\\' . sprintf($viewbase, unpack('C', $1))}eg;
     }
     $scr->at($currentline+$BASELINE,2)->bold()
         # erase char after name, under cursor
-        ->puts($currentfile{name} . ($removed?' -> ':'') . $viewline . " \cH");
+        ->puts($currentfile{name} . (length($currentfile{target}) ? ' -> ' : '')
+                                  . $currentfile{target} . " \cH");
     &applycolor($currentline+$BASELINE, $FILENAME_LONG, %currentfile);
     $scr->getch();
     if (length($currentfile{display}) > $screenwidth-$DATECOL-2) {
@@ -1983,9 +1983,13 @@ sub stat_entry { # path_of_entry, selected_flag
              blksize  => $blksize,       blocks   => $blocks,
              selected => $selected_flag
             };
-    $ptr->{type}     = substr($ptr->{mode},0,1);
-    $ptr->{target}   = $ptr->{type} eq 'l' ? ' -> '.readlink($ptr->{name}) : '';
-    $ptr->{display}  = $entry . $ptr->{target};
+    $ptr->{type} = substr($ptr->{mode},0,1);
+    if ($ptr->{type} eq 'l') {
+        $ptr->{target}  = readlink($ptr->{name});
+        $ptr->{display} = $entry . ' -> ' . $ptr->{target};
+    } else {
+        $ptr->{display} = $entry;
+    }
     $ptr->{too_long} = length($ptr->{display}) > $maxfilenamelength
                        ? $NAMETOOLONGCHAR : ' ';
     $total_nr_of{ $ptr->{type} }++; # this is wrong! e.g. after cOmmand
@@ -2102,7 +2106,7 @@ sub redisplayscreen {
     &dir_info(%total_nr_of);
     &mark_info(%selected_nr_of);
     &user_info;
-    &date_info($DATELINE,$screenwidth-$DATECOL);
+    &date_info($DATELINE, $screenwidth-$DATECOL);
 }
 
 ##########################################################################
@@ -2222,10 +2226,10 @@ sub browse {
     } until ($result > $R_DIRCONTENTS);
     # end DIRCONTENTS
     return $result == $R_QUIT;
-} # end sub browse
+} # end sub
 
 ##########################################################################
-# void main (void)
+# void main(char *path)
 
 &globalinit;
 until (&browse) { $multiple_mode = 0 };
@@ -2283,7 +2287,7 @@ clsonexit:no
 confirmquit:yes
 ## time to display copyright message at start (in seconds, fractions allowed)
 copyrightdelay:0.2
-## use very visible cursor (e.g. block cursor on 'linux' type terminal)
+## use very visible cursor (e.g. block cursor on Linux console)
 cursorveryvisible:yes
 ## hide dot files? (show them otherwise, toggle with . key)
 #dotmode:yes
@@ -2308,14 +2312,14 @@ viewbase:hex
 
 ## use color (yes,no,force)
 ## 'no'    = use no color at all
-## 'yes'   = use color for title bars, if your terminal supports it
+## 'yes'   = use color for title bars, if pfm thinks your terminal supports it
 ## 'force' = use color for title bars on any terminal
 ## your *files* will only be colored if you also define 'dircolors' below
 usecolor:force
 
 ## 'dircolors' defines the colors that will be used for your files.
-## for your files to become colored, you must set 'usecolor' to 1.
-## see also the manpages for ls(1) and dircolors(1L) (on Linux systems).
+## for your files to become colored, 'usecolor' must be set to 'yes' or 'force'.
+## see also the manpages for ls(1) and dircolors(1) (on Linux systems).
 ## you can also use $LS_COLORS or $LS_COLOURS to set this.
 
 ##-attribute codes:
@@ -2325,21 +2329,24 @@ usecolor:force
 ##-background color codes:
 ## 40=black 41=red 42=green 43=yellow 44=blue 45=magenta 46=cyan 47=white
 ##-file types:
-## no=normal fi=file di=directory ln=symlink pi=fifo so=socket bd=block special
-## cd=character special or=orphan link mi=missing link ex=executable
+## no=normal fi=file ex=executable di=directory ln=symlink or=orphan link
+## bd=block special cd=character special pi=fifo so=socket
+## do=door nt=network special (not implemented) wh=whiteout (not implemented)
 ## *.<ext> defines extension colors
 
-## you may specify the escape as a real escape, as \e or as ^[ (caret, bracket)
+## you may specify an escape as a real escape, as \e or as ^[ (caret, bracket)
 
-dircolors:no=00:fi=00:di=01;34:ln=01;36:pi=00;40;33:so=01;35:bd=40;33;01:\
-cd=40;33;01:or=01;05;37;41:mi=01;05;37;41:ex=00;32:lc=\e[:rc=m:\
-*.cmd=01;32:*.exe=01;32:*.com=01;32:*.btm=01;32:*.bat=01;32:*.pas=32:\
+dircolors:no=00:fi=00:ex=00;32:di=01;34:ln=01;36:or=01;37;41:\
+bd=01;33;40:cd=01;33;40:pi=00;33;40:so=01;35:\
+do=01;35:nt=01;35:wh=01;30;47:lc=\e[:rc=m:\
+*.cmd=01;32:*.exe=01;32:*.com=01;32:*.btm=01;32:*.bat=01;32:\
+*.pas=32:*.c=35:*.h=35:*.pm=36:*.pl=36:\
 *.tar=01;31:*.tgz=01;31:*.arj=01;31:*.taz=01;31:*.lzh=01;31:*.zip=01;31:\
-*.z=01;31:*.Z=01;31:*.gz=01;31:*.bz2=01;31:*.rpm=31:*.pm=00;36:*.pl=00;36:\
+*.z=01;31:*.Z=01;31:*.gz=01;31:*.bz2=01;31:*.deb=31:*.rpm=31:\
 *.jpg=01;35:*.gif=01;35:*.bmp=01;35:*.xbm=01;35:*.xpm=01;35:\
 *.mpg=01;37:*.avi=01;37:*.gl=01;37:*.dl=01;37:*.htm=01;33:*.html=01;33
 
-## use this if you want no colors for your files, but only for the title bars
+## use this if you don't want colors for your files, but only for the title bars
 #dircolors:-
 
 ## colors for header, title, footer
@@ -2669,9 +2676,7 @@ Jump back to the previous directory.
 
 =item B<F3>
 
-Fit the file list into the current window and refresh the display. C<pfm>
-attempts to refresh the display when the window size changes, but should
-this fail, then press B<F3>.
+Fit the file list into the current window and refresh the display.
 
 =item B<F4>
 
@@ -2727,7 +2732,7 @@ the following (example for C<bash>(1), add it to your F<.profile>
 or F<.bash_profile>):
 
  pfm () {
-     /usr/local/bin/pfm $*
+     /usr/local/bin/pfm "$@"
      if [ -s ~/.pfm/cwd ]; then
          cd "`cat ~/.pfm/cwd`" # double quotes for names with spaces
          rm -f ~/.pfm/cwd
@@ -2767,8 +2772,7 @@ May be used to specify a printer to print to using the B<P>rint command.
 
 =item B<SHELL>
 
-Your default login shell, spawned by cB<O>mmand when an empty line is
-entered.
+Your default login shell, spawned by B<M>ore - sB<H>ell.
 
 =back
 
@@ -2786,18 +2790,22 @@ In order to allow spaces in filenames, several commands assume they can
 safely surround filenames with double quotes. This prevents the correct
 processing of filenames containing double quotes.
 
-The F<readline> library does not allow a half-finished line to be
-aborted by pressing B<ESC>. For most commands, you will need to clear
-the half-finished line.
+The F<readline> library does not allow a half-finished line to be aborted by
+pressing B<ESC>. For most commands, you will need to clear the half-finished
+line. You may use the terminal kill character (usually B<CTRL-U>) for this
+(see C<stty>(1)).
 
 Sometimes when key repeat sets in, not all keypress events have been
 processed, although they have been registered. This can be dangerous when
 deleting files.  The author once almost pressed ENTER when logged in as
 root and with the cursor next to F</sbin/reboot> . You have been warned.
 
+The smallest terminal size supported is 80x24. The display will be messy
+if you resize your terminal window to a smaller size.
+
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.64 .
+This manual pertains to C<pfm> version 1.65 .
 
 =head1 SEE ALSO
 
