@@ -1,4 +1,5 @@
-1.71.1
+1.72
 
-* cursorcol patch
+* implemented user-customizable column layouts!
+* implemented environment $PFMRC for indicating other config file
 

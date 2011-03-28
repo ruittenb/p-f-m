@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20021220 v1.71.1
+# @(#) pfm.pl 19990314-20021220 v1.72
 #
 # Name:        pfm.pl
-# Version:     1.71.1 (belated patch to 1.72, was merged later)
+# Version:     1.72 - first version with user-defined column layouts
 # Author:      Rene Uittenbogaard
 # Date:        2002-12-20
 # Usage:       pfm.pl [directory]
@@ -29,13 +29,13 @@
 #        use perl symlink() ?
 #        make a sub restat() ?
 #        make a sub fileforall(sub) ?
+#        $ENV{PFMRC} ? location file?
 #        put more-header-message in a constant? at(0,76) resolved
 #        make R_SCREEN etc. bits in $do_a_refresh ?
 #        split dircolors in dircolorsdark and dircolorslight (switch with F4)
 #        command: < > to scroll line of commands?
 #        command (M)ore-> (R)estat? F11 = restat? F8 = restat+select?
 #        user-customizable columns
-#             $cursorcol = 4;
 #             handleview() wordt lastig - wat aan doen
 #        make multiple mode a bit in $multiple_mode ? bitwise-or?
 #        set ROWS en COLUMNS in environment for child processes; but see if
@@ -97,6 +97,10 @@ use vars qw(
     $HEADER_INCLUDE
     $HEADER_MORE
     $HEADER_SORT
+    $TITLE_DISKINFO
+    $TITLE_COMMAND
+    $TITLE_SIGNAL
+    $TITLE_SORT
     $R_KEY
     $R_HEADER
     $R_STRIDE
@@ -130,6 +134,10 @@ BEGIN {
 *HEADER_INCLUDE = \2;
 *HEADER_MORE    = \3;
 *HEADER_SORT    = \4;
+*TITLE_DISKINFO = \5;
+*TITLE_COMMAND  = \6;
+*TITLE_SIGNAL   = \7;
+*TITLE_SORT     = \8;
 *R_KEY          = \0;
 *R_HEADER       = \1;
 *R_STRIDE       = \2;
@@ -186,6 +194,13 @@ my %TIMEHINTS = (
     touch => 'MMDDhhmm[[CC]YY][.ss]'
 );
 
+my $TITLEVIRTFILE = {};
+@{$TITLEVIRTFILE}{
+    qw(name size size_num mode inode mtime atime ctime
+        display uid gid nlink rdev size_power name_too_long selected)
+} = qw(filename size size mode inode date/mtime date/atime date/ctime
+        filename userid groupid lnks dev);
+
 my $screenheight    = 20;    # inner height
 my $screenwidth     = 80;    # terminal width
 my $position_at     = '.';   # start with cursor here
@@ -206,16 +221,25 @@ my %HISTORIES = (
     history_perlcmd => \@perlcmd_history
 );
 
-my (%user, %group, %pfmrc, @signame, %dircolors, $maxfilenamelength,
-    $wasresized, $scr, $kbd,
-    $uidlineformat, $tdlineformat, $timeformat,
-    $sort_mode, $multiple_mode, $col_mode, $swap_mode, $dot_mode, $dotdot_mode,
+my (
+    # lookup tables
+    %user, %group, %pfmrc, @signame, %dircolors,
+    # screen- and keyboard objects, screen parameters
+    $scr, $kbd, $maxfilenamelength, $wasresized,
+    # modes
+    $sort_mode, $multiple_mode, $swap_mode, $dot_mode, $dotdot_mode,
+    # dir- and disk info
     $currentdir, $oldcurrentdir, @dircontents, @showncontents, %currentfile,
     %disk, $swap_state, %total_nr_of, %selected_nr_of,
-    $currentline, $baseindex,
+    # cursor position
+    $currentline, $baseindex, $cursorcol,
+    # misc config options
     $editor, $pager, $printcmd, $ducmd, $showlockchar, $autoexitmultiple,
     $clobber, $cursorveryvisible, $clsonexit, $autowritehistory, $viewbase,
-    $trspace, $swap_persistent, @colformats, $cursorcol,
+    $trspace, $swap_persistent, $timeformat,
+    # layouts and formatting
+    @columnlayouts, $currentlayout, @layoutfields, $currentformatline,
+    # coloring of screen
     $titlecolor, $footercolor, $headercolor, $swapcolor, $multicolor
 );
 
@@ -239,7 +263,7 @@ sub write_pfmrc {
 }
 
 sub read_pfmrc { # $readflag - show copyright only on startup (first read)
-    $col_mode = $sort_mode = $editor = $pager = '';
+#    $sort_mode = $editor = $pager = '';
     %dircolors = %pfmrc = ();
     local $_;
     unless (-r "$CONFIGDIRNAME/$CONFIGFILENAME") {
@@ -283,8 +307,9 @@ sub read_pfmrc { # $readflag - show copyright only on startup (first read)
     $ducmd             = $pfmrc{ducmd} || $DUCMDS{$^O} || $DUCMDS{default};
     $timeformat        = $pfmrc{timeformat} || 'pfm';
     $sort_mode         = $pfmrc{sortmode}   || 'n';
-    $col_mode          = 2*($pfmrc{colmode} eq 'atime')
-                         + ($pfmrc{colmode} eq 'uid');
+    $currentlayout     = $pfmrc{currentlayout} || 0; # not documented
+#    $col_mode          = 2*($pfmrc{colmode} eq 'atime')
+#                         + ($pfmrc{colmode} eq 'uid');
     $headercolor       = $pfmrc{headercolor} || '37;44';
     $multicolor        = $pfmrc{multicolor}  || '36;47';
     $titlecolor        = $pfmrc{titlecolor}  || '01;07;36;47';
@@ -293,11 +318,12 @@ sub read_pfmrc { # $readflag - show copyright only on startup (first read)
     $viewbase          = $pfmrc{viewbase} eq 'hex' ? "%#04lx" : "%03lo";
     $showlockchar      = ( $pfmrc{showlock} eq 'sun' && $^O =~ /sun|solaris/i
                              or &yesno($pfmrc{showlock}) ) ? 'l' : 'S';
-    @colformats        = split(/:/, ($pfmrc{colformats} ? $pfmrc{colformats} :
+    @columnlayouts     = split(/:/, (
+        $pfmrc{columnlayouts} ? $pfmrc{columnlayouts} :
             '* nnnnnnnnnnnnnnnnnnnnNsssssssS mmmmmmmmmmmmmmmiiiiiii pppppppppp:'
         .   '* nnnnnnnnnnnnnnnnnnnnNsssssssS aaaaaaaaaaaaaaaiiiiiii pppppppppp:'
         .   '* nnnnnnnnnnnnnnnnnnnnNsssssssS uuuuuuuu gggggggglllll pppppppppp'
-        ));
+    ));
     $editor            = $ENV{EDITOR} || $pfmrc{editor} || 'vi';
     $pager             = $ENV{PAGER}  || $pfmrc{pager}  ||
                              ($^O =~ /linux/i ? 'less' : 'more');
@@ -574,6 +600,13 @@ sub filterdir {
     return grep { !$dot_mode || $_->{name} =~ /^(\.\.?|[^\.].*)$/ } @_;
 }
 
+sub figuretoolong {
+    foreach (@dircontents) {
+        $_->{name_too_long} = length($_->{display}) > $maxfilenamelength
+                            ? $NAMETOOLONGCHAR : ' ';
+    }
+}
+
 sub dirlookup {
     my ($name, @array) = @_;
     my $found = $#array;
@@ -630,13 +663,6 @@ sub applycolor {
 ##########################################################################
 # small printing routines
 
-sub makeformatlines {
-    $uidlineformat ='@ @' . '<' x ($screenwidth - $RESERVEDSCREENWIDTH - 1)
-                   .'@@>>>>>>@ @<<<<<<< @<<<<<<<@###  @<<<<<<<<<';
-    $tdlineformat  ='@ @' . '<' x ($screenwidth - $RESERVEDSCREENWIDTH - 1)
-                   .'@@>>>>>>@ @<<<<<<<<<<<<<<@###### @<<<<<<<<<';
-}
-
 sub pathline {
     # pfff.. this has become very complicated since we wanted to handle
     # all those exceptions
@@ -680,40 +706,52 @@ sub pathline {
          . $overflow . "[$dev]";
 }
 
-sub uidline {
-    $^A = "";
-    formline($uidlineformat,@_);
-    return $^A;
-}
-
-sub tdline {
-    $^A = "";
-    formline($tdlineformat, @_[0..4], &time2str($_[5],$TIME_NARROW), @_[6,7]);
-    return $^A;
-}
-
-sub fileline {
-    my %specs = @_;
-    my ($size_num, $size_power) = &fit2limit($specs{size});
-    unless ($col_mode) {
-        return  &tdline( @specs{qw/selected display name_too_long/},
-                         $size_num, $size_power,
-                         @specs{qw/mtime inode mode/}        );
-    } elsif ($col_mode == 1) {
-        return &uidline( @specs{qw/selected display name_too_long/},
-                         $size_num, $size_power,
-                         @specs{qw/uid gid nlink mode/}      );
-    } else {
-        return  &tdline( @specs{qw/selected display name_too_long/},
-                         $size_num, $size_power,
-                         @specs{qw/atime inode mode/}        );
+sub makeformatlines {
+    my ($squeezedlayoutline, $prev, $letter, $trans);
+    my $currentlayoutline = $columnlayouts[$currentlayout];
+    ($squeezedlayoutline = $currentlayoutline) =~
+        tr/*nNsSugpacmdil /*nNsSugpacmdil/ds;
+    @layoutfields = map {
+        if    ($_ eq '*') { 'selected'      }
+        elsif ($_ eq 'n') { 'display'       }
+        elsif ($_ eq 'N') { 'name_too_long' }
+        elsif ($_ eq 's') { 'size_num'      }
+        elsif ($_ eq 'S') { 'size_power'    }
+        elsif ($_ eq 'u') { 'uid'           }
+        elsif ($_ eq 'g') { 'gid'           }
+        elsif ($_ eq 'p') { 'mode'          }
+        elsif ($_ eq 'a') { 'atime'         }
+        elsif ($_ eq 'c') { 'ctime'         }
+        elsif ($_ eq 'm') { 'mtime'         }
+        elsif ($_ eq 'l') { 'nlink'         }
+        elsif ($_ eq 'i') { 'inode'         }
+        elsif ($_ eq 'd') { 'rdev'          }
+    } (split //, $squeezedlayoutline);
+    $currentformatline = $prev = '';
+    foreach $letter (split //, $currentlayoutline) {
+        if ($letter eq ' ') {
+            $currentformatline .= ' ';
+        } elsif ($prev ne $letter) {
+            $currentformatline .= '@';
+        } else {
+            ($trans = $letter) =~ tr/*nNsSugpacmdilf/<<<><<<<<<<<>></;
+            $currentformatline .= $trans;
+        }
+        $prev = $letter;
     }
+}
+
+sub fileline { # $currentfile, @layoutfields
+    my ($currentfile, @fields) = @_;
+    $^A = '';
+    formline($currentformatline, @{$currentfile}{@fields});
+    return $^A;
 }
 
 sub highlightline { # true/false
     $scr->at($currentline + $BASELINE, 0);
     $scr->bold() if ($_[0] == $HIGHLIGHT_ON);
-    $scr->puts(&fileline(%currentfile));
+    $scr->puts(&fileline(\%currentfile, @layoutfields));
     &applycolor($currentline + $BASELINE, $FILENAME_SHORT, %currentfile);
     $scr->normal()->at($currentline + $BASELINE, $cursorcol);
 }
@@ -788,9 +826,9 @@ sub print_with_shortcuts {
     $scr->normal();
 }
 
-sub init_frame { # multiple_mode, swap_mode, col_mode
+sub init_frame { # multiple_mode, swap_mode
    &init_header($_[0]);
-   &init_title(@_[1,2]);
+   &init_title($_[1], $TITLE_DISKINFO, @layoutfields);
    &init_footer;
 }
 
@@ -799,11 +837,12 @@ sub init_frame { # multiple_mode, swap_mode, col_mode
 #Multiple Attribute Copy Delete Edit Print Rename Show Your.. cOmmands Quit >
 #Multiple < Find Include.. tarGet Link More.. Time User View eXclude.. siZe Quit
 
-#F1-Help F2-Back F3-Fit F4-Color F5-Read F6-Sort F7-Swap F8-Stat F9-Cols F10-Mult F11-Restat
+#F1-Help F2-Back F3-Fit F4-Color F5-Read F6-Sort F7-Swap F8-Stat F9-Cols F10-Mult
+#F1-Help F2-Back F3-Fit F4-Color F5-Read F6-Sort F7-Swap F8-Incl F9-Cols F10-Mult F11-Restat
 #F1-Help F2-Back F3-Redraw F4-Color F5-Reread F6-Sort F7-Swap F8-Restat F9-Cols F10-Mult
 
 sub init_header { # "multiple"mode
-    my $mode = $_[0];
+    my $multimode = $_[0];
     my @header = split(/\n/, <<"_eoFirst_");
 Attr Cpy Del Edit Find Lnk Prt Quit Ren Show Time Uid View Your cOmnd siZe More 
 Multiple Include eXclude Attribute Time Copy Delete Print Rename Your cOmmands  
@@ -813,36 +852,29 @@ Sort by: Name, Extension, Size, Date, Type, Inode (ignorecase, reverse):
 _eoFirst_
     $scr->at(0,0);
     # in earlier days, regex was [A-Z](?!FM |M E| Ed)
-    &print_with_shortcuts($header[$mode].' 'x($screenwidth - 80), "[A-Z]");
-    if ($mode == 1) {
+    &print_with_shortcuts($header[$multimode].' 'x($screenwidth - 80), "[A-Z]");
+    if ($multimode == 1) {
         &digestcolor($multicolor);
         $scr->reverse()->bold()->at(0,0)->puts("Multiple")->normal();
     }
 }
 
-sub init_title { # swap_mode, col_mode
-    my ($smode, $umode) = @_;
+sub init_title { # swap_mode, extra field, @layoutfields
+    my ($smode, $info, @fields) = @_;
     my $linecolor;
-    my @title = split(/\n/,<<_eoHead_);
-size  date      mtime  inode attrib          disk info
-size  userid   groupid lnks  attrib          disk info
-size  date      atime  inode attrib          disk info
-size  date      mtime  inode attrib     your commands 
-size  userid   groupid lnks  attrib     your commands 
-size  date      atime  inode attrib     your commands 
-size  date      mtime  inode attrib     sort mode     
-size  userid   groupid lnks  attrib     sort mode     
-size  date      atime  inode attrib     sort mode     
-size  date      mtime  inode attrib       nr signal   
-size  userid   groupid lnks  attrib       nr signal   
-size  date      atime  inode attrib       nr signal   
-_eoHead_
+    for ($info) {
+        $_ == $TITLE_DISKINFO and $info = '     disk info';
+        $_ == $TITLE_SORT     and $info = 'sort mode     ';
+        $_ == $TITLE_SIGNAL   and $info = '  nr signal   ';
+        $_ == $TITLE_COMMAND  and $info = 'your commands ';
+    }
     &digestcolor($linecolor = $smode ? $swapcolor : $titlecolor);
     $scr->reverse() if ($linecolor =~ /\b0?7\b/);
     $scr->bold()    if ($linecolor =~ /\b0?1\b/);
-    $scr->at(2,0)
-        ->puts('  filename.ext'.' 'x($screenwidth-$DATECOL-54).$title[$umode])
-        ->normal();
+    $^A = '';
+    formline($currentformatline . ' @>>>>>>>>>>>>>',
+        @{$TITLEVIRTFILE}{@fields}, $info);
+    $scr->at(2,0)->puts($^A)->normal();
 }
 
 sub init_footer {
@@ -882,7 +914,7 @@ sub globalinit {
     $baseindex = 0;
     &makeformatlines;
     # col_mode has been set from .pfmrc
-    &init_frame($multiple_mode, $swap_mode, $col_mode);
+    &init_frame($multiple_mode, $swap_mode);
     # now find starting directory
     $oldcurrentdir = $currentdir = getcwd();
     $ARGV[0] and &mychdir($ARGV[0]) || do {
@@ -1085,8 +1117,12 @@ sub handlemultiple {
 }
 
 sub handlecolumns {
-    triggle($col_mode);
-    &init_title($swap_mode,$col_mode);
+    if (++$currentlayout > $#columnlayouts) {
+        $currentlayout = 0;
+    }
+    &makeformatlines;
+    &figuretoolong;
+    &init_title($swap_mode, $TITLE_DISKINFO, @layoutfields);
     return $R_DIRLISTING;
 }
 
@@ -1106,7 +1142,7 @@ sub handleadvance {
 }
 
 sub handlesize {
-    my ($recursivesize, $command);
+    my ($recursivesize, $command, $tempfile);
     &markcurrentline('Z'); # disregard multiple_mode
     # du(1) is a bitch... that's why we have ppl specify their ducmd in .pfmrc
     # AIX,BSD,Tru64: gives blocks (), kbytes (-k)
@@ -1117,7 +1153,10 @@ sub handlesize {
     ($recursivesize = `$command`) =~ s/\D*(\d+).*/$1/;
 #    unless ($?) { # think about what to do when $? != 0 ?
         $scr->at($currentline + $BASELINE, 0);
-        $scr->puts(&fileline(%currentfile, size => $recursivesize));
+        $tempfile = { %currentfile };
+        @{$tempfile}{qw(size size_num size_power)} = ($recursivesize,
+            &fit2limit($recursivesize));
+        $scr->puts(&fileline($tempfile, @layoutfields));
         &markcurrentline('Z');
         &applycolor($currentline + $BASELINE, $FILENAME_SHORT, %currentfile);
         $scr->getch();
@@ -1186,10 +1225,7 @@ sub handlefit {
         $screenwidth  = $newwidth;
         $maxfilenamelength = $screenwidth - $RESERVEDSCREENWIDTH;
         &makeformatlines;
-        foreach (@dircontents) {
-            $_->{name_too_long} = length($_->{display}) > $maxfilenamelength
-                                ? $NAMETOOLONGCHAR : ' ';
-        }
+        &figuretoolong;
         return $R_CLEAR;
     }
 }
@@ -1288,7 +1324,7 @@ sub handlemorekill {
     my $printline   = $BASELINE;
     my $stateprompt = 'Signal to send to child processes: ';
     my $signal      = 'TERM';
-    &init_title($swap_mode, $col_mode+9);
+    &init_title($swap_mode, $TITLE_SIGNAL, @layoutfields);
     &clearcolumn;
     foreach (1 .. min($#signame, $screenheight)+1) {
         $^A = "";
@@ -1418,7 +1454,7 @@ sub handlesort {
     my $printline = $BASELINE;
     my %sortmodes = @SORTMODES;
     &init_header($HEADER_SORT);
-    &init_title($swap_mode, $col_mode+6);
+    &init_title($swap_mode, $TITLE_SORT, @layoutfields);
     &clearcolumn;
     # we can't use foreach (keys %SORTMODES) because we would lose ordering
     foreach (grep { ($i += 1) %= 2 } @SORTMODES) { # keep keys, skip values
@@ -1671,7 +1707,7 @@ sub handlecommand { # Y or O
     &markcurrentline(uc($_[0])) unless $multiple_mode;
     if ($_[0] =~ /y/i) { # Your
         &clearcolumn;
-        &init_title($swap_mode,$col_mode+3);
+        &init_title($swap_mode, $TITLE_COMMAND, @layoutfields);
         $printline = $BASELINE;
         foreach (sort keys %pfmrc) {
             if (/^[A-Z]$/ && $printline <= $BASELINE+$screenheight) {
@@ -2105,7 +2141,7 @@ sub handleswap {
             $multiple_mode  =   $swap_state->{multiple_mode};
             $sort_mode      =   $swap_state->{sort_mode};
             $dot_mode       =   $swap_state->{dot_mode};
-            $col_mode       =   $swap_state->{col_mode};
+            $currentlayout  =   $swap_state->{currentlayout};
             $0              =   $swap_state->{argvnull};
             $swap_mode = $swap_state = 0;
             $refresh = $R_SCREEN;
@@ -2113,18 +2149,19 @@ sub handleswap {
             $refresh = $R_KEY;
         }
     } elsif ($swap_state and $swap_persistent) { # swap persistent
-        $swap_state = { path          =>   $currentdir,
-                        contents      => [ @dircontents ],
-                        position      =>   $currentfile{name},
-                        disk          => { %disk },
-                        selected      => { %selected_nr_of },
-                        totals        => { %total_nr_of },
-                        multiple_mode =>   $multiple_mode,
-                        sort_mode     =>   $sort_mode,
-                        dot_mode      =>   $dot_mode,
-                        col_mode      =>   $col_mode,
-                        argvnull      =>   $0
-                       };
+        $swap_state = {
+            path          =>   $currentdir,
+            contents      => [ @dircontents ],
+            position      =>   $currentfile{name},
+            disk          => { %disk },
+            selected      => { %selected_nr_of },
+            totals        => { %total_nr_of },
+            multiple_mode =>   $multiple_mode,
+            sort_mode     =>   $sort_mode,
+            dot_mode      =>   $dot_mode,
+            currentlayout =>   $currentlayout,
+            argvnull      =>   $0
+        };
         $nextdir        =   $temp_state->{path};
         @dircontents    = @{$temp_state->{contents}};
         $position_at    =   $temp_state->{position};
@@ -2134,23 +2171,24 @@ sub handleswap {
         $multiple_mode  =   $temp_state->{multiple_mode};
         $sort_mode      =   $temp_state->{sort_mode};
         $dot_mode       =   $temp_state->{dot_mode};
-        $col_mode       =   $temp_state->{col_mode};
+        $currentlayout  =   $temp_state->{currentlayout};
         $0              =   $temp_state->{argvnull};
         toggle($swap_mode);
         $refresh = $R_SCREEN;
     } else { # $swap_state = 0; ask and swap forward
-        $swap_state = { path          =>   $currentdir,
-                        contents      => [ @dircontents ],
-                        position      =>   $currentfile{name},
-                        disk          => { %disk },
-                        selected      => { %selected_nr_of },
-                        totals        => { %total_nr_of },
-                        multiple_mode =>   $multiple_mode,
-                        sort_mode     =>   $sort_mode,
-                        dot_mode      =>   $dot_mode,
-                        col_mode      =>   $col_mode,
-                        argvnull      =>   $0
-                       };
+        $swap_state = {
+            path          =>   $currentdir,
+            contents      => [ @dircontents ],
+            position      =>   $currentfile{name},
+            disk          => { %disk },
+            selected      => { %selected_nr_of },
+            totals        => { %total_nr_of },
+            multiple_mode =>   $multiple_mode,
+            sort_mode     =>   $sort_mode,
+            dot_mode      =>   $dot_mode,
+            currentlayout =>   $currentlayout,
+            argvnull      =>   $0
+        };
         $swap_mode     = 1;
         $sort_mode     = $pfmrc{sortmode} || 'n';
         $multiple_mode = 0;
@@ -2168,7 +2206,7 @@ sub handleswap {
     } else {
         @showncontents = &filterdir(@dircontents);
     }
-    &init_title($swap_mode, $col_mode);
+    &init_title($swap_mode, $TITLE_DISKINFO, @layoutfields);
     return $refresh;
 }
 
@@ -2211,31 +2249,33 @@ sub stat_entry { # path_of_entry, selected_flag
     my ($entry, $selected_flag) = @_;
     my ($ptr, $name_too_long, $target);
     my ($device, $inode, $mode, $nlink, $uid, $gid, $rdev, $size,
-            $atime, $mtime, $ctime, $blksize, $blocks) = lstat $entry;
-    if (!defined $user{$uid})  {  $user{$uid} = $uid }
+        $atime, $mtime, $ctime, $blksize, $blocks) = lstat $entry;
+    if (!defined $user{$uid} ) {  $user{$uid} = $uid }
     if (!defined $group{$gid}) { $group{$gid} = $gid }
-    $ptr = { name     => $entry,         device   => $device,
-             inode    => $inode,         mode     => &mode2str($mode),
-             uid      => $user{$uid},    gid      => $group{$gid},
-             nlink    => $nlink,         rdev     => $rdev,
-             size     => $size,          atime    => $atime,
-             mtime    => $mtime,         ctime    => $ctime,
-             blksize  => $blksize,       blocks   => $blocks,
-             selected => $selected_flag
-            };
-    $ptr->{type} = substr($ptr->{mode},0,1);
+    $ptr = {
+        name     => $entry,         device   => $device,
+        inode    => $inode,         mode     => &mode2str($mode),
+        uid      => $user{$uid},    gid      => $group{$gid},
+        nlink    => $nlink,         rdev     => $rdev,
+        size     => $size,          atime    => $atime,
+        mtime    => $mtime,         ctime    => $ctime,
+        blksize  => $blksize,       blocks   => $blocks,
+        selected => $selected_flag
+    };
+    @{$ptr}{qw(size_num size_power)} = &fit2limit($size);
+    $ptr->{type} = substr($ptr->{mode}, 0, 1);
     if ($ptr->{type} eq 'l') {
         $ptr->{target}  = readlink($ptr->{name});
         $ptr->{display} = $entry . ' -> ' . $ptr->{target};
+    } elsif ($ptr->{type} =~ /[bc]/) {
+        $ptr->{size} = sprintf("%d",$rdev/256).$MAJORMINORSEPARATOR.($rdev%256);
+        $ptr->{display} = $entry;
     } else {
         $ptr->{display} = $entry;
     }
     $ptr->{name_too_long} = length($ptr->{display}) > $maxfilenamelength
                             ? $NAMETOOLONGCHAR : ' ';
     $total_nr_of{ $ptr->{type} }++; # this is wrong! e.g. after cOmmand
-    if ($ptr->{type} =~ /[bc]/) {
-        $ptr->{size} = sprintf("%d",$rdev/256).$MAJORMINORSEPARATOR.($rdev%256);
-    }
     return $ptr;
 }
 
@@ -2243,7 +2283,7 @@ sub getdircontents { # (current)directory
     my (@contents, $entry);
     my @allentries = ();
     &init_header($multiple_mode);
-    &init_title($swap_mode, $col_mode);
+    &init_title($swap_mode, $TITLE_DISKINFO, @layoutfields);
     if ( opendir CURRENT, "$_[0]" ) {
         @allentries = readdir CURRENT;
         closedir CURRENT;
@@ -2271,7 +2311,7 @@ sub getdircontents { # (current)directory
 sub printdircontents { # @contents
     foreach my $i ($baseindex .. $baseindex+$screenheight) {
         unless ($i > $#_) {
-            $scr->at($i+$BASELINE-$baseindex,0)->puts(&fileline(%{$_[$i]}));
+            $scr->at($i+$BASELINE-$baseindex,0)->puts(&fileline($_[$i], @layoutfields));
             &applycolor($i+$BASELINE-$baseindex, $FILENAME_SHORT, %{$_[$i]});
         } else {
             $scr->at($i+$BASELINE-$baseindex,0)
@@ -2340,7 +2380,7 @@ sub recalc_ptr {
 }
 
 sub redisplayscreen {
-    &init_frame($multiple_mode, $swap_mode, $col_mode);
+    &init_frame($multiple_mode, $swap_mode);
     &path_info;
     &disk_info(%disk);
     &dir_info(%total_nr_of);
@@ -2512,9 +2552,6 @@ clobber:no
 ## whether you want to have the screen cleared when pfm exits
 clsonexit:no
 
-## initial column mode (F9 command) (mtime,uid,atime) (default mtime)
-colmode:mtime
-
 ## have pfm ask for confirmation when you press 'q'uit? (yes,no,marked)
 ## 'marked' = ask only if there are any marked files in the current directory
 confirmquit:yes
@@ -2607,7 +2644,7 @@ do=01;35:nt=01;35:wh=01;30;47:lc=\e[:rc=m:\
 *.tar=01;31:*.tgz=01;31:*.arj=01;31:*.taz=01;31:*.lzh=01;31:*.zip=01;31:\
 *.z=01;31:*.Z=01;31:*.gz=01;31:*.bz2=01;31:*.deb=31:*.rpm=31:\
 *.jpg=01;35:*.gif=01;35:*.bmp=01;35:*.xbm=01;35:*.xpm=01;35:\
-*.mpg=01;37:*.avi=01;37:*.gl=01;37:*.dl=01;37:*.htm=01;33:*.html=01;33
+*.mpg=01;37:*.avi=01;37:*.gl=01;37:*.dl=01;37:*.htm=01;33:*.html=01;33:
 
 ## use this if you don't want colors for your files, but only for the title bars
 #dircolors:-
@@ -2622,27 +2659,28 @@ do=01;35:nt=01;35:wh=01;30;47:lc=\e[:rc=m:\
 #footercolor:07;34;47
 
 ##########################################################################
-## Column formats (not implemented)
+## Column layouts
 
 ## char name                    needed width if present
-## *    selection flag          1
+## *    selected flag           1
 ## n    name                    any(crops)
 ## N    name overflow flag      1
-## s    size                    >=7
+## s    size                    7
 ## S    size power (K, M, T..)  1
-## u    user                    >=8
-## g    group                   >=8
+## u    user                    >=8(dependent on system)
+## g    group                   >=8(dependent on system)
 ## p    permissions (mode)      9
 ## a    atime                   15
 ## c    ctime                   15
 ## m    mtime                   15
 ## d    device                  ?
 ## i    inode                   7
-## l    link count              >=5(crops)
+## l    link count              >=5(dependent on system)
 
-## the first three were the old defaults
-##----------- formats must not be wider than this! ------------## #- diskinfo -#
-colformats:\
+## the first three layouts were the old defaults.
+## if the terminal is resized, the name field will be stretched.
+#<----------- formats must not be wider than this! ------------># #<-diskinfo->#
+columnlayouts:\
 * nnnnnnnnnnnnnnnnnnnnNsssssssS mmmmmmmmmmmmmmmiiiiiii pppppppppp:\
 * nnnnnnnnnnnnnnnnnnnnNsssssssS aaaaaaaaaaaaaaaiiiiiii pppppppppp:\
 * nnnnnnnnnnnnnnnnnnnnNsssssssS uuuuuuuu gggggggglllll pppppppppp:\
@@ -3120,7 +3158,7 @@ if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.71.1 .
+This manual pertains to C<pfm> version 1.72 .
 
 =head1 SEE ALSO
 
