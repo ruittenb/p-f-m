@@ -1,10 +1,10 @@
 #!/usr/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20020402 v1.59
+# @(#) pfm.pl 19990314-20020402 v1.60
 #
 # Name:        pfm.pl
-# Version:     1.59
+# Version:     1.60
 # Author:      Rene Uittenbogaard
 # Date:        2002-04-02
 # Usage:       pfm.pl [directory]
@@ -1306,7 +1306,7 @@ sub handleinclude { # include/exclude flag (from keypress)
                 }
             };
             /prepared/ and do { # the criterion has been set
-                foreach $entry (@dircontents) {
+                foreach $entry (@showncontents) {
                     if (eval $criterion) {
 #                    if (&$criterion($wildfilename)) {
                         if ($entry->{selected} eq "*" && $exin eq " ") {
@@ -1863,6 +1863,7 @@ sub handleswap {
             %total_nr_of    = %{$swap_state->{totals}};
             $multiple_mode  =   $swap_state->{multiple_mode};
             $sort_mode      =   $swap_state->{sort_mode};
+            $dot_mode       =   $swap_state->{dot_mode};
             $0              =   $swap_state->{argvnull};
             $swap_mode = $swap_state = 0;
             $refresh = $R_SCREEN;
@@ -1878,6 +1879,7 @@ sub handleswap {
                         totals        => { %total_nr_of },
                         multiple_mode =>   $multiple_mode,
                         sort_mode     =>   $sort_mode,
+                        dot_mode      =>   $dot_mode,
                         argvnull      =>   $0
                        };
         $nextdir        =   $temp_state->{path};
@@ -1888,6 +1890,7 @@ sub handleswap {
         %total_nr_of    = %{$temp_state->{totals}};
         $multiple_mode  =   $temp_state->{multiple_mode};
         $sort_mode      =   $temp_state->{sort_mode};
+        $dot_mode       =   $temp_state->{dot_mode};
         $0              =   $temp_state->{argvnull};
         toggle($swap_mode);
         $refresh = $R_SCREEN;
@@ -1900,6 +1903,7 @@ sub handleswap {
                         totals        => { %total_nr_of },
                         multiple_mode =>   $multiple_mode,
                         sort_mode     =>   $sort_mode,
+                        dot_mode      =>   $dot_mode,
                         argvnull      =>   $0
                        };
         $swap_mode     = 1;
@@ -1925,7 +1929,7 @@ sub handleswap {
 sub handleentry {
     local $_ = $_[0];
     my ($tempptr, $nextdir, $success, $direction);
-    if ( /^kl|h|\e$/i ) {
+    if ( /^kl|[h\e\cH]$/i ) {
         $nextdir   = '..';
         $direction = 'up';
     } else {
@@ -2163,7 +2167,7 @@ sub browse {
                     } elsif ($scr->key_pressed() and $key = $scr->getch()) {
                         &highlightline($HIGHLIGHT_OFF);
                         KEY: for ($key) {
-                        /^(?:kr|kl|[hl\e])$/i
+                        /^(?:kr|kl|[hl\e\cH])$/i
                                    and $result = &handleentry($_),     last KEY;
                         /^[cr]$/i  and $result = &handlecopyrename($_),last KEY;
                         /^[yo]$/i  and $result = &handlecommand($_),   last KEY;
@@ -2189,7 +2193,8 @@ sub browse {
                         /^q$/i     and $result = &handlequit($_),      last KEY;
                         /^k6$/     and $result = &handlesort,          last KEY;
                         /^[\/f]$/i and $result = &handlefind,          last KEY;
-                        /^k1$/     and $result = &handlehelp,          last KEY;
+                        /^(?:k1|\?)$/
+                                   and $result = &handlehelp,          last KEY;
                         /^k2$/     and $result = &handlecdold,         last KEY;
                         /^\.$/     and $result = &handledot,           last KEY;
                         /^k9$/     and $result = &handlecolumns,       last KEY;
@@ -2378,12 +2383,12 @@ C<pfm [>I<directory>C<]>
 
 C<pfm> is a terminal-based file manager, based on PFMS<.>COM for MS-DOS.
 
-All C<pfm> commands are one- or two-letter commands (case-insensitive).
-C<pfm> can operate in single-file mode or multiple-file mode.
-In single-file mode, the command corresponding to the keypress will be
-executed on the file next to the cursor only. In multiple-file mode,
-the command will apply to all files which the user has previously marked.
-See FUNCTION KEYS below for the relevant commands.
+All C<pfm> commands are one- or two-letter commands (nearly all of
+which are case-insensitive).  C<pfm> can operate in single-file mode or
+multiple-file mode.  In single-file mode, the command corresponding to
+the keypress will be performed on the file next to the cursor only. In
+multiple-file mode, the command will apply to all files which the user
+has previously marked.  See FUNCTION KEYS below for the relevant commands.
 
 Note that throughout this manual page, I<file> can mean any type
 of file, not just plain regular files. These will be referred to as
@@ -2393,11 +2398,12 @@ I<regular files>.
 
 =over
 
-You may specify a starting directory on the command line when invoking
-C<pfm>. There are no command line options. Configuration is read from a
-file, F<$HOME/.pfm/.pfmrc> , which is created automatically the first
-time you start C<pfm>. The file is supposed to be self-explanatory.
-See also MORE COMMANDS below.
+You may specify a starting directory on the command line when
+invoking C<pfm>. The C<CDPATH> environment variable is taken into
+account C<pfm> tries to find this directory. There are no command line
+options. Configuration is read from a file, F<$HOME/.pfm/.pfmrc> , which
+is created automatically the first time you start C<pfm>. The file is
+supposed to be self-explanatory.  See also MORE COMMANDS below.
 
 =back
 
@@ -2405,13 +2411,13 @@ See also MORE COMMANDS below.
 
 =over
 
-Navigation through directories is done using the arrow keys, the
-C<vi>(1) cursor keys (B<hjkl>), B<->, B<+>, B<PgUp>, B<PgDn>, B<home>,
-B<end>, B<CTRL-F>, B<CTRL-B>, B<CTRL-U>, B<CTRL-D>, B<CTRL-Y> and
-B<CTRL-E>. Pressing B<ESC> will take you one directory level up (note:
-see BUGS below). Pressing B<ENTER> when the cursor is on a directory
-will take you into the directory. Pressing B<SPACE> will both mark the
-current file and advance the cursor.
+Navigation through directories is done using the arrow keys, the C<vi>(1)
+cursor keys (B<hjkl>), B<->, B<+>, B<PgUp>, B<PgDn>, B<home>, B<end>,
+and the C<vi>(1) control keys B<CTRL-F>, B<CTRL-B>, B<CTRL-U>, B<CTRL-D>,
+B<CTRL-Y> and B<CTRL-E>.  Pressing B<ESC> or B<BS> will take you one
+directory level up (note: see BUGS below). Pressing B<ENTER> when the
+cursor is on a directory will take you into the directory. Pressing
+B<SPACE> will both mark the current file and advance the cursor.
 
 =back
 
@@ -2425,14 +2431,18 @@ Toggle show/hide dot files.
 
 =item B</>
 
-Identical to B<F>ind I<(vide infra)>.
+Identical to B<F>ind (see below).
+
+=item B<?>
+
+Display help. Identical to B<F1>.
 
 =item B<@>
 
 Allows the user to enter a perl command to be executed in the context
 of C<pfm>. Primarily used for debugging.
 
-=item B<Attrib>
+=item B<Attr>
 
 Changes the mode of the file if you are the owner. Use a '+' to add
 a permission, a '-' to remove it, and a '=' specify the mode exactly,
@@ -2663,20 +2673,10 @@ or date, time, and inode number.
 
 Switch between single-file and multiple-file mode.
 
-=item B<SPACE>
-
-Toggles the include flag (mark) on an individual file and advances the
-cursor to the next directory entry.
-
 =item B<ENTER>
 
 Displays the contents of the current file or directory on the screen.
 If the current file is executable, the executable will be invoked.
-
-=item B<ESC>
-
-Shows the parent directory of the current one (go up in the directory
-tree).
 
 =back
 
@@ -2760,7 +2760,7 @@ root and with the cursor next to F</sbin/reboot> . You have been warned.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.59 .
+This manual pertains to C<pfm> version 1.60 .
 
 =head1 SEE ALSO
 
