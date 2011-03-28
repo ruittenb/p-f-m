@@ -1,12 +1,12 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20021222 v1.76
+# @(#) pfm.pl 19990314-20021223 v1.77
 #
 # Name:        pfm.pl
-# Version:     1.76
+# Version:     1.77 - first version with mouse support
 # Author:      Rene Uittenbogaard
-# Date:        2002-12-22
+# Date:        2002-12-23
 # Usage:       pfm.pl [directory]
 # Requires:    Term::ScreenColor
 #              Term::Screen
@@ -26,10 +26,13 @@
 #
 #        fix error handling in eval($do_this) and &display_error
 #           partly implemented in handlecopyrename
-#        more &$subptr; instead of eval $substring;
 #        make a sub fileforall(sub) ?
-#  consistent use do_a_refresh do_this
 #        implement push on @dircontents from (L)ink
+#
+#        implement default action for filetype? ENTER -> .jpg:xv \2 ?
+#        key additions for terminal? termdef:xterm:k2:\eOQ
+#       split footer in left/right part?
+#       propagate use of $PATHLINE
 #
 #        use the nameindexmap from handledelete() more globally?
 #           in handlecopyrename()? in handlefind() ?
@@ -51,7 +54,6 @@
 #        set ROWS en COLUMNS in environment for child processes; but see if
 #            this does not mess up with $scr->getrows etc. which use these
 #            variables internally; portability?
-#        mouse support? \e[?9h \e[M<Cb><Cx><Cy> \e[?9l
 #        stat_entry() must *not* rebuild the selected_nr and total_nr lists:
 #            this messes up with e.g. cOmmand -> cp \2 /somewhere/else
 #            (which is, therefore, still buggy). this is closely related to:
@@ -96,6 +98,8 @@ use vars qw(
     $TRUE
     $READ_FIRST
     $READ_AGAIN
+    $MOUSE_OFF
+    $MOUSE_ON
     $FILENAME_SHORT
     $FILENAME_LONG
     $HIGHLIGHT_OFF
@@ -135,6 +139,8 @@ BEGIN {
 *TRUE           = \1;
 *READ_FIRST     = \0;
 *READ_AGAIN     = \1;
+*MOUSE_OFF      = \0;
+*MOUSE_ON       = \1;
 *FILENAME_SHORT = \0;
 *FILENAME_LONG  = \1;
 *HIGHLIGHT_OFF  = \0;
@@ -172,6 +178,7 @@ my $NAMETOOLONGCHAR     = '+';
 my $MAXHISTSIZE         = 40;
 my $ERRORDELAY          = 1;    # seconds
 my $SLOWENTRIES         = 300;
+my $PATHLINE            = 1;
 my $BASELINE            = 3;
 my $USERLINE            = 21;
 my $DATELINE            = 22;
@@ -198,7 +205,7 @@ my %DUCMDS = (
     AIX     => q(du -sk "\2" | awk '{ printf "%d", 1024 * $1 }'),
     BSD     => q(du -sk "\2" | awk '{ printf "%d", 1024 * $1 }'),
     Tru64   => q(du -sk "\2" | awk '{ printf "%d", 1024 * $1 }'),
-    sunOS   => q(du -s  "\2" | awk '{ printf "%d", 1024 * $1 }'),
+    sunos   => q(du -s  "\2" | awk '{ printf "%d", 1024 * $1 }'),
     solaris => q(du -s  "\2" | awk '{ printf "%d", 1024 * $1 }'),
    'HP-UX'  => q(du -s  "\2" | awk '{ printf "%d", 512  * $1 }'),
     linux   => q(du -sb "\2"),
@@ -242,7 +249,7 @@ my (
     # lookup tables
     %user, %group, %pfmrc, @signame, %dircolors,
     # screen- and keyboard objects, screen parameters
-    $scr, $kbd, $wasresized,
+    $scr, $kbd, $wasresized, $mouse_mode,
     # modes
     $sort_mode, $multiple_mode, $cont_mode, $swap_mode, $dot_mode, $dotdot_mode,
     # dir- and disk info
@@ -285,7 +292,6 @@ sub write_pfmrc {
 }
 
 sub read_pfmrc { # $readflag - show copyright only on startup (first read)
-#    $sort_mode = $editor = $pager = '';
     %dircolors = %pfmrc = ();
     local $_;
     unless (-r &whichconfigfile) {
@@ -329,16 +335,21 @@ sub read_pfmrc { # $readflag - show copyright only on startup (first read)
     $trspace           = &yesno($pfmrc{translatespace}) ? ' ' : '';
     ($printcmd)        = ($pfmrc{printcmd}) ||
                              ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER}" : 'lpr');
-    $ducmd             = $pfmrc{ducmd} || $DUCMDS{$^O} || $DUCMDS{default};
-    $timeformat        = $pfmrc{timeformat} || 'pfm';
+    # don't change sort_mode and currentlayout through the config file:
+    # the config file just specifies the _defaults_ for globalinit()
+    # at runtime use (F6) and (F9)
 #    $sort_mode         = $pfmrc{sortmode}   || 'n';
 #    $currentlayout     = $pfmrc{currentlayout} || 0;
+    $ducmd             = $pfmrc{ducmd} || $DUCMDS{$^O} || $DUCMDS{default};
+    $timeformat        = $pfmrc{timeformat} || 'pfm';
     $headercolor       = $pfmrc{headercolor} || '37;44';
     $multicolor        = $pfmrc{multicolor}  || '36;47';
     $titlecolor        = $pfmrc{titlecolor}  || '01;07;36;47';
     $swapcolor         = $pfmrc{swapcolor}   || '07;36;40';
     $footercolor       = $pfmrc{footercolor} || '07;34;47';
     $viewbase          = $pfmrc{viewbase} eq 'hex' ? "%#04lx" : "%03lo";
+    $mouse_mode        = ($pfmrc{mousemode} eq 'xterm' && $ENV{TERM} eq 'xterm')
+                             || &yesno($pfmrc{mousemode});
     $showlockchar      = ( $pfmrc{showlock} eq 'sun' && $^O =~ /sun|solaris/i
                              or &yesno($pfmrc{showlock}) ) ? 'l' : 'S';
     @columnlayouts     = split(/:/, (
@@ -488,7 +499,7 @@ sub mode2str {
 }
 
 sub fit2limit {
-    my $size_power = '';
+    my $size_power = ' ';
     # size_num might be uninitialized or major/minor
     my ($size_num, $limit) = @_;
     while ( $size_num > $limit ) {
@@ -649,6 +660,22 @@ sub isorphan {
     return ! -e $_[0];
 }
 
+sub mouseenable {
+    if ($_[0]) {
+        $scr->puts("\e[?9h");
+        $scr->def_key("mdown", "\e[M");
+    } else {
+        $scr->puts("\e[?9l");
+    }
+}
+
+sub followmode {
+    my %currentfile = %{$_[0]};
+    return $currentfile{type} ne 'l'
+           ? $currentfile{mode}
+           : &mode2str((stat $currentfile{name})[2]);
+}
+
 ##########################################################################
 # apply color
 
@@ -697,6 +724,7 @@ sub makeformatlines {
     # find out the length of the filename and filesize fields
     $maxfilenamelength =       ($currentlayoutline =~ tr/n//) +$screenwidth -80;
     $maxfilesizelength = 10 ** ($currentlayoutline =~ tr/s// -1) -1;
+    if ($maxfilesizelength < 2) { $maxfilesizelength = 2 }
     # layouts are all based on a screenwidth of 80
     # elongate filename field
     $currentlayoutline =~ s/n/'n' x ($screenwidth - 79)/e;
@@ -875,9 +903,8 @@ sub init_frame {
    &init_footer;
 }
 
-#F1-Help F2-Back F3-Fit F4-Color F5-Read F6-Sort F7-Swap F8-Stat F9-Cols F10-Mult
-#F1-Help F2-Back F3-Fit F4-Color F5-Read F6-Sort F7-Swap F8-Incl F9-Cols F10-Mult F11-Restat
-#F1-Help F2-Back F3-Redraw F4-Color F5-Reread F6-Sort F7-Swap F8-Restat F9-Cols F10-Mult
+#F1-Help F2-Back F3-Redraw F4-Color F5-Reread F6-Sort F7-Swap F8-Include >
+#< F9-Columns F10-Multiple F11-Restat F12-Mouse
 
 sub init_header { # <special header mode>
     my $mode = $_[0] || ($multiple_mode | $cont_mode * $HEADER_CONT);
@@ -964,6 +991,7 @@ sub globalinit {
     if ($scr->getcols()) { $screenwidth  = $scr->getcols() }
     &makeformatlines;
     &init_frame;
+    &mouseenable($mouse_mode);
     # now find starting directory
     $oldcurrentdir = $currentdir = getcwd();
     $ARGV[0] and &mychdir($ARGV[0]) || do {
@@ -976,6 +1004,7 @@ sub globalinit {
 
 sub goodbye {
     my $bye = 'Goodbye from your Personal File Manager!';
+    &mouseenable($MOUSE_OFF);
     if ($clsonexit) {
         $scr->cooked()->clrscr();
     } else {
@@ -1082,10 +1111,11 @@ sub mark_info {
     my $startline = 15;
     my $total = 0;
     $values[0] = join ('', &fit2limit($values[0], 9_999_999));
+    $values[0] =~ s/ $//;
     $scr->at($startline-1, $screenwidth-$DATECOL+2)->puts('Marked files');
     foreach (0..4) {
         $scr->at($startline+$_, $screenwidth-$DATECOL+1)
-            ->puts(&infoline($values[$_],$desc[$_]));
+            ->puts(&infoline($values[$_], $desc[$_]));
         $total += $values[$_] if $_;
     }
     return $total;
@@ -1182,6 +1212,56 @@ sub handlecolor {
     return $R_CLEAR;
 }
 
+sub handlemousetoggle {
+    &mouseenable(toggle $mouse_mode);
+    return $R_KEY;
+}
+
+sub handlemousedown {
+    my ($stashline, %stashfile, $mbutton, $mousecol, $mouserow, $on_name);
+    my $do_a_refresh = $R_KEY;
+    $scr->noecho();
+    $mbutton  = ord($scr->getch()) - 040;
+    $mousecol = ord($scr->getch()) - 041;
+    $mouserow = ord($scr->getch()) - 041;
+    $scr->echo();
+    $stashline = $currentline;
+    %stashfile = %currentfile;
+    # clicked on pathline?
+    if ($mouserow == $PATHLINE and $mbutton) {
+        $do_a_refresh = &handlecommand('o');
+    } elsif ($mouserow == $PATHLINE and !$mbutton) {
+        $do_a_refresh = &handlemoreshow;
+    } else {
+        # return now if no clicked file, or clicked on diskinfo
+        return $do_a_refresh if ($mouserow < $BASELINE
+            or $mouserow > $screenheight + $BASELINE
+            or !defined $showncontents[$mouserow - $BASELINE + $baseindex]
+            or $mousecol >= $screenwidth - $DATECOL);
+        $currentline  = $mouserow - $BASELINE;
+        %currentfile  = %{$showncontents[$currentline+$baseindex]};
+        # button:   on pathline:    on filename:    elsewhere on file:
+        # left      More - Show     Show            F8
+        # middle    cOmmand         ENTER           Show
+        # right     cOmmand         ENTER           Show
+        $on_name = ($mousecol >= $filenamecol
+                and $mousecol <= $filenamecol + $maxfilenamelength);
+        if ($on_name and $mbutton) {
+            $do_a_refresh = &handleshowenter("\r");
+        } elsif (!$on_name and !$mbutton) {
+            $do_a_refresh = &handleselect;
+        } else {
+            $do_a_refresh = &handleshowenter('s');
+        }
+        # restore currentfile unless we did a chdir()
+        if ($do_a_refresh < $R_CHDIR) {
+            $currentline = $stashline;
+            %currentfile = %stashfile;
+        }
+    }
+    return $do_a_refresh;
+}
+
 sub handleadvance {
     &handleselect;
     # this automatically passes the " " key in $_[0] to &handlemove
@@ -1220,9 +1300,7 @@ sub handledot {
 }
 
 sub handleshowenter {
-    my $followmode  = $currentfile{type} ne 'l'
-                    ? $currentfile{mode}
-                    : &mode2str((stat $currentfile{name})[2]);
+    my $followmode  = &followmode(\%currentfile);
     if ($followmode =~ /^d/) {
         goto &handleentry;
     } elsif ($_[0] =~ /\r/ and $followmode =~ /x/) {
@@ -1343,6 +1421,7 @@ sub handlemoreconfig {
         &display_error($!);
     } else {
         &read_pfmrc($READ_AGAIN);
+        &mouseenable($mouse_mode);
         if ($olddotdot != $dotdot_mode) {
             # allowed to switch dotdot mode (no key), but not sortmode (use F6)
             $sort_mode = $oldsort;
@@ -2156,23 +2235,23 @@ sub handleselect {
 
 sub validate_position {
     # requirement: $showncontents[$currentline+$baseindex] is defined
-    my $redraw = $R_KEY;
+    my $do_a_refresh = $R_KEY;
     if ( $currentline < 0 ) {
         $baseindex += $currentline;
         $baseindex   < 0 and $baseindex = 0;
         $currentline = 0;
-        $redraw = $R_DIRLISTING;
+        $do_a_refresh = $R_DIRLISTING;
     }
     if ( $currentline > $screenheight ) {
         $baseindex  += $currentline - $screenheight;
         $currentline = $screenheight;
-        $redraw = $R_DIRLISTING;
+        $do_a_refresh = $R_DIRLISTING;
     }
     if ( $currentline + $baseindex > $#showncontents ) {
         $currentline = $#showncontents - $baseindex;
-        $redraw = $R_DIRLISTING;
+        $do_a_refresh = $R_DIRLISTING;
     }
-    return $redraw;
+    return $do_a_refresh;
 }
 
 sub handlescroll {
@@ -2211,9 +2290,9 @@ sub handleenter {
 }
 
 sub handleswap {
-    my $refresh     = $R_KEY;
-    my $temp_state  = $swap_state;
-    my $stateprompt = 'Directory Pathname: ';
+    my $do_a_refresh = $R_KEY;
+    my $temp_state   = $swap_state;
+    my $stateprompt  = 'Directory Pathname: ';
     my $nextdir;
     if ($swap_state and !$swap_persistent) { # swap back if ok_to_remove_marks
         if (&ok_to_remove_marks) {
@@ -2229,9 +2308,9 @@ sub handleswap {
 #            $currentlayout     =   $swap_state->{currentlayout};
             $0                 =   $swap_state->{argvnull};
             $swap_mode = $swap_state = 0;
-            $refresh = $R_SCREEN;
+            $do_a_refresh = $R_SCREEN;
         } else { # not ok to remove marks
-            $refresh = $R_KEY;
+            $do_a_refresh = $R_KEY;
         }
     } elsif ($swap_state and $swap_persistent) { # swap persistent
         $swap_state = {
@@ -2259,7 +2338,7 @@ sub handleswap {
 #        $currentlayout     =   $temp_state->{currentlayout};
         $0                 =   $temp_state->{argvnull};
         toggle($swap_mode);
-        $refresh = $R_SCREEN;
+        $do_a_refresh = $R_SCREEN;
     } else { # $swap_state = 0; ask and swap forward
         $swap_state = {
             path              =>   $currentdir,
@@ -2282,24 +2361,24 @@ sub handleswap {
         &expand_escapes($nextdir, \%currentfile);
         $scr->raw();
         $position_at = '.';
-        $refresh = $R_CHDIR;
+        $do_a_refresh = $R_CHDIR;
     }
     if ( !&mychdir($nextdir) ) {
         $scr->at(1,0);
         &display_error("$nextdir: $!");
-        $refresh = $R_CHDIR;
+        $do_a_refresh = $R_CHDIR;
     } else {
         @showncontents = &filterdir(@dircontents);
     }
 #    &makeformatlines;
     &init_title($swap_mode, $TITLE_DISKINFO, @layoutfields);
-    return $refresh;
+    return $do_a_refresh;
 }
 
 sub handleentry {
-    local $_ = $_[0];
+    my $key = shift;
     my ($tempptr, $nextdir, $success, $direction);
-    if ( /^kl|[h\e\cH]$/i ) {
+    if ( $key =~ /^kl|[h\e\cH]$/i ) {
         $nextdir   = '..';
         $direction = 'up';
     } else {
@@ -2549,6 +2628,7 @@ sub browse {
                     # the next line contains an assignment on purpose
                     } elsif ($scr->key_pressed() and $key = $scr->getch()) {
                         &highlightline($HIGHLIGHT_OFF);
+                        &mouseenable($MOUSE_OFF);
                         KEY: for ($key) {
                         # order is determined by (supposed) frequency of use
                         /^(?:kr|kl|[h\e\cH])$/i
@@ -2565,6 +2645,7 @@ sub browse {
                         /^d$/i     and $result = &handledelete,        last KEY;
                         /^[ix]$/i  and $result = &handleinclude($_),   last KEY;
                         /^[s\r]$/i and $result = &handleshowenter($_), last KEY;
+                        /^mdown$/  and $result = &handlemousedown,     last KEY;
                         /^k7$/     and $result = &handleswap,          last KEY;
                         /^k5$/     and $result = &handlerefresh,       last KEY;
                         /^k10$/    and $result = &handlemultiple,      last KEY;
@@ -2591,7 +2672,9 @@ sub browse {
                         /^u$/i     and $result = &handlechown,         last KEY;
                         /^z$/i     and $result = &handlesize,          last KEY;
                         /^g$/i     and $result = &handletarget,        last KEY;
+                        /^k12$/    and $result = &handlemousetoggle,   last KEY;
                         } # end KEY
+                        &mouseenable($mouse_mode);
                     } # end if $key
                     if ($result == $R_HEADER) { &init_header }
                 } until ($result > $R_STRIDE);
@@ -2636,7 +2719,7 @@ __DATA__
 ## your environment settings override the options in this file.
 
 ##########################################################################
-## General
+## general
 
 ## should we exit from multiple file mode after executing a command?
 autoexitmultiple:yes
@@ -2710,7 +2793,7 @@ translatespace:no
 viewbase:hex
 
 ##########################################################################
-## Colors
+## colors
 
 ## use color (yes,no,force)
 ## 'no'    = use no color at all
@@ -2761,7 +2844,7 @@ do=01;35:nt=01;35:wh=01;30;47:lc=\e[:rc=m:\
 #footercolor:07;34;47
 
 ##########################################################################
-## Column layouts
+## column layouts
 
 ## char name                    needed width if present
 ## *    selected flag           1
@@ -2795,7 +2878,7 @@ pppppppppp  uuuuuuuu gggggggg sssssss* nnnnnnnnnnnnnnnnnnnnnnnnnn:\
 pppppppppp  mmmmmmmmmmmmmmm  ssssssss* nnnnnnnnnnnnnnnnnnnnnnnnnn:
 
 ##########################################################################
-## Your commands
+## your commands
 
 ## these assume you do not have filenames with double quotes in them.
 ## in these commands, \1=filename without extension, \2=filename complete,
@@ -2830,7 +2913,7 @@ Z:gzip "\2"
 __END__
 
 ##########################################################################
-# Pod Documentation
+# pod documentation
 
 =pod
 
@@ -2846,12 +2929,12 @@ C<pfm [>I<directory>C<]>
 
 C<pfm> is a terminal-based file manager, based on PFMS<.>COM for MS-DOS.
 
-All C<pfm> commands are one- or two-letter commands (most of
-which are case-insensitive).  C<pfm> can operate in single-file mode or
-multiple-file mode.  In single-file mode, the command corresponding to
-the keypress will be performed on the file next to the cursor only. In
-multiple-file mode, the command will apply to all files which the user
-has previously marked.  See FUNCTION KEYS below for the relevant commands.
+All C<pfm> commands are accessible through one or two keystrokes, and a few
+are accessible with the mouse. Most command keys are case-insensitive. C<pfm>
+can operate in single-file mode or multiple-file mode. In single-file mode,
+the command corresponding to the keypress will be performed on the current
+(highlighted) file only. In multiple-file mode, the command will apply to
+a selection of files.
 
 Note that throughout this manual page, I<file> can mean any type
 of file, not just plain regular files. These will be referred to as
@@ -2972,8 +3055,8 @@ become relative if you are creating it in the current directory, otherwise
 it will contain an absolute path.
 
 Note that if the current file is a directory, the B<l> key, being one of
-the vi(1) cursor keys, will chdir() you into the directory.  You may force
-C<pfm> into making a symlink to a directory by pressing capital B<L>.
+the vi(1) cursor keys, will chdir() you into the directory. The capital
+B<L> command will I<always> make a symlink.
 
 =item B<More>
 
@@ -3003,7 +3086,7 @@ F<$HOME/.pfm/.pfmrc> (see below).
 
 Exit C<pfm>. You may specify in your F<$HOME/.pfm/.pfmrc> whether
 C<pfm> should ask for confirmation (option 'confirmquit'). Note that
-by pressing a capital Q (quick quit), you will I<never> be asked for
+by pressing a capital B<Q> (quick quit), you will I<never> be asked for
 confirmation.
 
 =item B<Rename>
@@ -3012,7 +3095,7 @@ Change the name of the file to the path- and filename specified. Depending
 on your Unix implementation, a different path- and filename on another
 filesystem may or may not be allowed. In multiple-file mode, the new
 name I<must> be a directoryname or a name containing a B<\1> or B<\2>
-escape (see cB<O>mmand above). If the option I<clobber> is set to I<no>
+escape (see cB<O>mmand above). If the option 'clobber' is set to I<no>
 in F<$HOME/.pfm/.pfmrc>, existing files will not be overwritten unless
 the action is confirmed by the user.
 
@@ -3059,8 +3142,8 @@ Like cB<O>mmand (see above), except that it uses commands that have
 been preconfigured in F<$HOME/.pfm/.pfmrc> by a I<letter>B<:>I<command>
 line. Commands may use B<\1>-B<\5> escapes just as in cB<O>mmand, e.g.
 
- C:tar cvf - \2 | gzip > \2.tar.gz
- W:what \2
+    C:tar cvf - \2 | gzip > \2.tar.gz
+    W:what \2
 
 =item B<siZe>
 
@@ -3068,9 +3151,9 @@ For directories, reports the grand total (in bytes) of the directory
 and its contents.
 
 For other file types, reports the total number of bytes in allocated
-data blocks. For regular files, this is often more than the reported file
-size. For special files and so-called I<fast symbolic links>, the number
-is 0, as no data blocks are allocated for these file types.
+data blocks. For regular files, this is often more than the reported
+file size. For special files and I<fast symbolic links>, the number is 0,
+as no data blocks are allocated for these file types.
 
 Note: since du(1) is not portable, you will have to specify the C<du>
 command (or C<du | awk> combination) applicable for your Unix version in
@@ -3084,27 +3167,14 @@ the F<.pfmrc> file. Examples are provided.
 
 =item B<Config PFM>
 
-This option will open the F<$HOME/.pfm/.pfmrc> configuration file with
-your preferred editor. The file is re-read by C<pfm> after you exit
+This command will open the F<$HOME/.pfm/.pfmrc> configuration file with
+your preferred editor. The file will be re-read by C<pfm> after you exit
 your editor.
 
 =item B<Edit new file>
 
 You will be prompted for the new filename, then your editor will
 be spawned.
-
-=item B<Make new directory>
-
-Specify a new directory name and C<pfm> will create it for you.
-Furthermore, if you don't have any files marked, your current
-directory will be set to the newly created directory.
-
-=item B<Show new directory>
-
-You will have to enter the new directory you want to view. Just pressing
-B<ENTER> will take you to your home directory. Be aware that this option
-is different from B<F7> because this will not change your current swap
-directory status.
 
 =item B<sHell>
 
@@ -3115,6 +3185,18 @@ Spawns your default login shell until you exit from it, then resumes.
 Lists available signals. After selection of a signal, sends this signal
 to all child processes of C<pfm> (more accurately: all processes in the
 same process group).
+
+=item B<Make new directory>
+
+Specify a new directory name and C<pfm> will create it for you.
+Furthermore, if you don't have any files marked, your current
+directory will be set to the newly created directory.
+
+=item B<Show directory>
+
+You will be asked for the directory you want to view. Just pressing B<ENTER>
+will take you to your home directory. Be aware that this command is different
+from B<F7> because this will not change your current swap directory status.
 
 =item B<Write history>
 
@@ -3172,8 +3254,9 @@ Toggles the include flag (mark) on an individual file.
 
 =item B<F9>
 
-Toggle the column layout. Layouts are defined in your F<.pfmrc>. See the
-configuration file for information on changing the column layout.
+Toggle the column layout. Layouts are defined in your F<.pfmrc>, through
+the 'defaultlayout' and 'columnlayouts' options. See the configuration
+file for information on changing the column layout.
 
 =item B<F10>
 
@@ -3183,12 +3266,31 @@ Switch between single-file and multiple-file mode.
 
 Refresh (using lstat(2)) the displayed file data for the current file.
 
+=item B<F12>
+
+Toggle mouse use. See MOUSE COMMANDS below.
+
 =item B<ENTER>
 
-Displays the contents of the current file or directory on the screen.
-If the current file is executable, the executable will be invoked.
+Displays the contents of the current file or directory on the screen (like
+B<S>how). If the current file is executable, the executable will be invoked.
 
 =back
+
+=head1 MOUSE COMMANDS
+
+When C<pfm> is run in an xterm, mouse use may be turned on (either through
+the B<F12> key, or with the 'mousemode' option in the config file), which
+will give mouse access to the following commands:
+
+    button:   on pathline:   on filename:   elsewhere on file:
+
+    left      More - Show    Show           F8
+    middle    cOmmand        ENTER          Show
+    right     cOmmand        ENTER          Show
+
+These commands will I<not> move the cursor, except when entering a directory.
+Mouse use will be turned off during the execution of commands.
 
 =head1 WORKING DIRECTORY INHERITANCE
 
@@ -3196,8 +3298,8 @@ If the current file is executable, the executable will be invoked.
 
 Upon exit, C<pfm> will save its current working directory in a file
 F<$HOME/.pfm/cwd> . In order to have this directory "inherited" by the
-calling process (shell), you may call C<pfm> using a function like
-the following (example for bash(1), add it to your F<.profile>
+calling process (shell), you may call C<pfm> using a function like the
+following (example for ksh(1) and bash(1), add it to your F<.profile>
 or F<.bash_profile>):
 
  pfm () {
@@ -3271,7 +3373,7 @@ line. You may use the terminal kill character (usually B<CTRL-U>) for this
 
 Sometimes when key repeat sets in, not all keypress events have been
 processed, although they have been registered. This can be dangerous when
-deleting files.  The author once almost pressed ENTER when logged in as
+deleting files.  The author once almost pressed B<ENTER> when logged in as
 root and with the cursor next to F</sbin/reboot> . You have been warned.
 
 The smallest terminal size supported is 80x24. The display will be messed
@@ -3279,12 +3381,12 @@ up if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.76 .
+This manual pertains to C<pfm> version 1.77 .
 
 =head1 SEE ALSO
 
 The documentation on PFMS<.>COM . The mentioned manual pages for
-chmod(1), less(1), lpr(1), touch(1). The manual pages for
+chmod(1), less(1), lpr(1), touch(1), vi(1). The manual pages for
 Term::ScreenColor(3) and Term::ReadLine::Gnu(3).
 
 =head1 AUTHOR
