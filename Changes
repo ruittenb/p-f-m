@@ -1,4 +1,6 @@
-1.76
+1.77
 
-* code cleanup
+* added mouse support!
+* fixed severe bug (pfm hangs) for column formats that have no 'size' column
+* updated documentation
 
