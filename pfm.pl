@@ -1,12 +1,12 @@
 #!/usr/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20020401 v1.57
+# @(#) pfm.pl 19990314-20020402 v1.58
 #
 # Name:        pfm.pl
-# Version:     1.57
+# Version:     1.58
 # Author:      Rene Uittenbogaard
-# Date:        2002-04-01
+# Date:        2002-04-02
 # Usage:       pfm.pl [directory]
 # Requires:    Term::ScreenColor
 #              Term::Screen
@@ -29,7 +29,7 @@
 #        restat after rename?
 #        use quotemeta() for quoting?
 #        show/hide dot files : handledelete() URGENT! debugging required
-#        customizable columns
+#        user-customizable columns
 # next:  validate_position should not replace $baseindex when not necessary
 #        handleinclude can become faster with &$bla; instead of eval $bla;
 #        set ROWS en COLUMNS in environment for child processes; but see if
@@ -538,6 +538,15 @@ sub include { # $entry
 
 sub filterdir {
     return grep { $dot_mode || $_->{name} =~ /^(\.\.?|[^\.].*)$/ } @_;
+}
+
+sub dirlookup {
+    my ($name, @array) = @_;
+    my $found = $#array;
+    while ($found >= 0 and $array[$found]{name} ne $name) {
+        $found--;
+    }
+    return $found;
 }
 
 sub copyback { # copy a changed entry from @showncontents back to @dircontents
@@ -1513,7 +1522,8 @@ _eoPrompt_
 }
 
 sub handledelete {
-    my ($loopfile, $do_this, $index, $success, $msg);
+    my ($loopfile, $do_this, $index, $success, $msg, $oldpos, %nameindexmap);
+    my $count = 0;
     &markcurrentline('D') unless $multiple_mode;
     $scr->at(0,0)->clreol()->cyan()->bold()
         ->puts("Are you sure you want to delete [Y/N]? ")->normal();
@@ -1536,32 +1546,47 @@ sub handledelete {
                  if ($success) {
                      $total_nr_of{$loopfile->{type}}--;
                      &exclude($loopfile) if $loopfile->{selected} eq '*';
-                     if ($currentline+$baseindex >= $#showncontents) {
-                         $currentline--; # note: see below
-                     }
-                     @dircontents = (
-                         $index>0             ? @dircontents[0..$index-1]             : (),
-                         $index<$#dircontents ? @dircontents[$index+1..$#dircontents] : ()
-                     ); # splice doesn't work for me
                  } else { # not success
                      &display_error($msg || $!);
                  }
                  ";
     if ($multiple_mode) {
+        # build nameindexmap on showncontents, not dircontents
+        %nameindexmap = map { $_->{name}, $count++ } @showncontents;
+        $oldpos = $currentfile{name};
         # we must delete in reverse order because the number of directory
-        # entries will decrease by deleting
+        # entries will decrease by deleting. This invalidates the %nameindexmap
+        # for entries with index > current index.
         for $index (reverse(0..$#dircontents)) {
             $loopfile = $dircontents[$index];
             if ($loopfile->{selected} eq '*') {
                 $scr->at(1,0)->clreol()->puts($loopfile->{name});
                 eval($do_this);
+                if ($success) {
+                    splice @dircontents, $index, 1;
+                    splice @showncontents, $nameindexmap{$loopfile->{name}}, 1;
+                }
             }
+        }
+#        # this is slow :( find a better way for a reverse lookup.
+#        $count = 0;
+#        %nameindexmap = map { $_->{name}, $count++ } @showncontents;
+#        if (defined $showncontents[$nameindexmap{$oldpos}]) {
+        if (defined $showncontents[&dirlookup($oldpos, @showncontents)]) {
+            $position_at = $oldpos;
         }
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
         $loopfile = \%currentfile;
-        $index = $currentline+$baseindex;
         eval($do_this);
+        if ($success) {
+            %nameindexmap = map { $_->{name}, $count++ } @dircontents;
+            splice @dircontents, $nameindexmap{$loopfile->{name}}, 1;
+            splice @showncontents, $currentline+$baseindex, 1;
+        }
+    }
+    if (!$position_at and $currentline+$baseindex > $#showncontents) {
+        $currentline--; # note: see below
     }
     &validate_position;
     return $R_SCREEN;
@@ -2669,7 +2694,7 @@ following (example for C<bash>(1), add it to your F<.profile>):
 
  pfm () {
      /usr/local/bin/pfm $*
-     if [ -n ~/.pfm/cwd ]; then
+     if [ -s ~/.pfm/cwd ]; then
          cd "`cat ~/.pfm/cwd`" # double quotes for names with spaces
          rm -f ~/.pfm/cwd
      fi
@@ -2684,9 +2709,9 @@ following (example for C<bash>(1), add it to your F<.profile>):
 =item B<CDPATH>
 
 A colon-separated list of directories specifying the search path when
-changing directories. There is an implicit '.' entry at the start of
-this search path. Make sure the variable is exported if you want to use
-this feature.
+changing directories. There is an implicit 'B<.>' entry at the start of
+this search path. Make sure the variable is exported into the environment
+if you want to use this feature.
 
 =item B<EDITOR>
 
@@ -2738,7 +2763,7 @@ root and with the cursor next to F</sbin/reboot> . You have been warned.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.57 .
+This manual pertains to C<pfm> version 1.58 .
 
 =head1 SEE ALSO
 
