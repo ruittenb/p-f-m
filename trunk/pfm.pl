@@ -1,12 +1,12 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20020406 v1.62
+# @(#) pfm.pl 19990314-20021213 v1.63
 #
 # Name:        pfm.pl
-# Version:     1.62
+# Version:     1.63
 # Author:      Rene Uittenbogaard
-# Date:        2002-04-06
+# Date:        2002-12-13
 # Usage:       pfm.pl [directory]
 # Requires:    Term::ScreenColor
 #              Term::Screen
@@ -27,7 +27,6 @@
 #        user-customizable columns
 #        more &$subptr; instead of eval $substring;
 #        config option: sortcurrent (sort current directory?)
-#        set $position_at after resorting
 #        siZe command
 # next:  validate_position should not replace $baseindex when not necessary
 #        set ROWS en COLUMNS in environment for child processes; but see if
@@ -140,11 +139,11 @@ BEGIN {
 my $VERSION             = &getversion;
 my $CONFIGDIRNAME       = "$ENV{HOME}/.pfm";
 my $CONFIGFILENAME      = '.pfmrc';
-my $LOSTMSG             = ''; '(file lost)';
+my $LOSTMSG             = '';   # previously '(file lost)';
 my $CWDFILENAME         = 'cwd';
 my $MAJORMINORSEPARATOR = ',';
 my $MAXHISTSIZE         = 40;
-my $ERRORDELAY          = 1;     # seconds
+my $ERRORDELAY          = 1;    # seconds
 my $SLOWENTRIES         = 300;
 my $BASELINE            = 3;
 my $USERLINE            = 21;
@@ -1076,7 +1075,9 @@ sub handledot {
 }
 
 sub handleshowenter {
-    my $followmode = &mode2str((stat $currentfile{name})[2]);
+    my $followmode  = $currentfile{mode} !~ /^l/
+                    ? $currentfile{mode}
+                    : &mode2str((stat $currentfile{name})[2]);
     if ($followmode =~ /^d/) {
         goto &handleentry;
     } else {
@@ -1365,7 +1366,9 @@ sub handlesort {
     if ($sortmodes{$key}) {
         $sort_mode   = $key;
         $position_at = $currentfile{name};
-        @dircontents = sort as_requested @dircontents;
+        @showncontents = &filterdir(
+            @dircontents = sort as_requested @dircontents
+        );
     }
     return $R_SCREEN; # the column with sort modes should be restored anyway
 }
@@ -2451,10 +2454,11 @@ of C<pfm>. Primarily used for debugging.
 
 =item B<Attr>
 
-Changes the mode of the file if you are the owner. Use a '+' to add
-a permission, a '-' to remove it, and a '=' specify the mode exactly,
-or specify the mode numerically. Note that the mode on a symbolic link
-cannot be set. Read the C<chmod>(1) page for more details.
+Changes the mode of the file if you are the owner. Use a '+' to add a
+permission, a '-' to remove it, and a '=' specify the mode exactly, or
+specify the mode numerically. Note that the mode on a symbolic link cannot
+be set. Read the C<chmod>(1) page for more details.  Note: the name B<Attr>
+for this command is a reminiscence of the DOS version.
 
 =item B<Copy>
 
@@ -2776,7 +2780,7 @@ root and with the cursor next to F</sbin/reboot> . You have been warned.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.62 .
+This manual pertains to C<pfm> version 1.63 .
 
 =head1 SEE ALSO
 
