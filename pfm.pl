@@ -1,12 +1,12 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20021220 v1.72.1
+# @(#) pfm.pl 19990314-20021221 v1.73
 #
 # Name:        pfm.pl
-# Version:     1.72.1
+# Version:     1.73
 # Author:      Rene Uittenbogaard
-# Date:        2002-12-20
+# Date:        2002-12-21
 # Usage:       pfm.pl [directory]
 # Requires:    Term::ScreenColor
 #              Term::Screen
@@ -26,18 +26,17 @@
 #           partly implemented in handlecopyrename
 #        more &$subptr; instead of eval $substring;
 #        get rid of backticks around 'df' in siZe?
+#    at which value does fit3limit overflow?
+#    what happens when pfmrc is reread and @colformats does not contain the layout any more?
 #        use perl symlink() ?
 #        make a sub restat() ?
 #        make a sub fileforall(sub) ?
-#        $ENV{PFMRC} ? $ENV{PFMDIR} ? file location ?
 #        put more-header-message in a constant? at(0,76) resolved
 #        make R_SCREEN etc. bits in $do_a_refresh ?
 #        split dircolors in dircolorsdark and dircolorslight (switch with F4)
 #        command: < > to scroll line of commands?
 #        command (M)ore-> (R)estat? F11 = restat? F8 = restat+select?
-#        handleview() difficulties - do something about them
-#        handlecopyrename: push new file on @dircontents?
-#        time2str is not in use any more, but we need it
+#        handlecopyrename: push new file on @dircontents? does it exist already?
 #        make multiple mode a bit in $multiple_mode ? bitwise-or?
 #        set ROWS en COLUMNS in environment for child processes; but see if
 #            this does not mess up with $scr->getrows etc. which use these
@@ -163,7 +162,6 @@ my $BASELINE            = 3;
 my $USERLINE            = 21;
 my $DATELINE            = 22;
 my $DATECOL             = 14;
-my $RESERVEDSCREENWIDTH = 60;
 my $CONFIGFILEMODE      = 0777;
 
 my @SORTMODES = (
@@ -228,7 +226,7 @@ my (
     # lookup tables
     %user, %group, %pfmrc, @signame, %dircolors,
     # screen- and keyboard objects, screen parameters
-    $scr, $kbd, $maxfilenamelength, $wasresized,
+    $scr, $kbd, $wasresized,
     # modes
     $sort_mode, $multiple_mode, $swap_mode, $dot_mode, $dotdot_mode,
     # dir- and disk info
@@ -242,6 +240,7 @@ my (
     $trspace, $swap_persistent, $timeformat,
     # layouts and formatting
     @columnlayouts, $currentlayout, @layoutfields, $currentformatline,
+    $maxfilenamelength, $maxfilesizelength,
     # coloring of screen
     $titlecolor, $footercolor, $headercolor, $swapcolor, $multicolor
 );
@@ -249,10 +248,14 @@ my (
 ##########################################################################
 # read/write resource file and history file
 
+sub whichconfigfile {
+    return $ENV{PFMRC} ? $ENV{PFMRC} : "$CONFIGDIRNAME/$CONFIGFILENAME";
+}
+
 sub write_pfmrc {
     local $_;
     my @resourcefile;
-    if (open MKPFMRC, ">$CONFIGDIRNAME/$CONFIGFILENAME") {
+    if (open MKPFMRC, '>'.&whichconfigfile) {
         # both __DATA__ and __END__ markers are used at the same time
         push (@resourcefile, $_) while (($_ = <DATA>) !~ /^__END__$/);
         close DATA;
@@ -269,11 +272,14 @@ sub read_pfmrc { # $readflag - show copyright only on startup (first read)
 #    $sort_mode = $editor = $pager = '';
     %dircolors = %pfmrc = ();
     local $_;
-    unless (-r "$CONFIGDIRNAME/$CONFIGFILENAME") {
-        mkdir $CONFIGDIRNAME, $CONFIGFILEMODE unless -d $CONFIGDIRNAME;
+    unless (-r &whichconfigfile) {
+        unless ($ENV{PFMRC} || -d $CONFIGDIRNAME) {
+            # only make directory for default location ($ENV{PFMRC} unset)
+            mkdir $CONFIGDIRNAME, $CONFIGFILEMODE;
+        }
         &write_pfmrc;
     }
-    if (open PFMRC, "<$CONFIGDIRNAME/$CONFIGFILENAME") {
+    if (open PFMRC, &whichconfigfile) {
         while (<PFMRC>) {
             s/#.*//;
             if (s/\\\n?$//) { $_ .= <PFMRC>; redo; }
@@ -309,8 +315,8 @@ sub read_pfmrc { # $readflag - show copyright only on startup (first read)
                              ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER}" : 'lpr');
     $ducmd             = $pfmrc{ducmd} || $DUCMDS{$^O} || $DUCMDS{default};
     $timeformat        = $pfmrc{timeformat} || 'pfm';
-    $sort_mode         = $pfmrc{sortmode}   || 'n';
-    $currentlayout     = $pfmrc{currentlayout} || 0;
+#    $sort_mode         = $pfmrc{sortmode}   || 'n';
+#    $currentlayout     = $pfmrc{currentlayout} || 0;
 #    $col_mode          = 2*($pfmrc{colmode} eq 'atime')
 #                         + ($pfmrc{colmode} eq 'uid');
     $headercolor       = $pfmrc{headercolor} || '37;44';
@@ -470,12 +476,12 @@ sub mode2str {
 
 sub fit2limit {
     my $size_power = '';
-    my $size_num = $_[0]; # might be uninitialized or major/minor
-    my $LIMIT = 9_999_999;
-    while ( $size_num > $LIMIT ) {
+    # size_num might be uninitialized or major/minor
+    my ($size_num, $limit) = @_;
+    while ( $size_num > $limit ) {
         $size_num = int($size_num/1024);
         $size_power =~ tr/KMGTP/MGTPE/ || do { $size_power = 'K' };
-#        $LIMIT = 999_999;
+#        $limit = 999_999;
     }
     return ($size_num, $size_power);
 }
@@ -604,7 +610,7 @@ sub filterdir {
 
 sub figuretoolong {
     foreach (@dircontents) {
-        $_->{name_too_long} = length($_->{display}) > $maxfilenamelength
+        $_->{name_too_long} = length($_->{display}) > $maxfilenamelength-1
                             ? $NAMETOOLONGCHAR : ' ';
     }
 }
@@ -656,7 +662,7 @@ sub decidecolor {
 sub applycolor {
     if ($scr->colorizable()) {
         my ($line, $length, %file) = (shift, shift, @_);
-        $length = $length ? 255 : $maxfilenamelength;
+        $length = $length ? 255 : $maxfilenamelength-1;
         &decidecolor(%file);
         $scr->at($line, $filenamecol)
             ->puts(substr($file{name}, 0, $length))->normal();
@@ -667,20 +673,19 @@ sub applycolor {
 # small printing routines
 
 sub makeformatlines {
-    my ($squeezedlayoutline, $prev, $letter, $trans, $count);
+    my ($squeezedlayoutline, $prev, $letter, $trans);
     my $currentlayoutline = $columnlayouts[$currentlayout];
-    # find out how much the filename field must be elongated
-    $count = $currentlayoutline =~ tr/n//;
-    $maxfilenamelength = $count + $screenwidth - 80;
+    # find out the length of the filename and filesize fields
+    $maxfilenamelength =       ($currentlayoutline =~ tr/n//) +$screenwidth -80;
+    $maxfilesizelength = 10 ** ($currentlayoutline =~ tr/s// -1) -1;
     # layouts are all based on a screenwidth of 80
-    if ($screenwidth > 80) {
-        # elongate filename field
-        $currentlayoutline =~ s/n/'n' x ($screenwidth - 79)/e;
-    }
+    # elongate filename field
+    $currentlayoutline =~ s/n/'n' x ($screenwidth - 79)/e;
+    # provide N and S fields
     $currentlayoutline =~ s/n(?!n)/N/i;
     $currentlayoutline =~ s/s(?!s)/S/i;
-    $cursorcol   = index($currentlayoutline, '*');
-    $filenamecol = index($currentlayoutline, 'n');
+    $cursorcol         = index ($currentlayoutline, '*');
+    $filenamecol       = index ($currentlayoutline, 'n');
     foreach ($cursorcol, $filenamecol) {
         if ($_ < 0) { $_ = 0 }
     }
@@ -758,12 +763,6 @@ sub pathline {
     return $disppath . ' 'x max($maxpathlen -length($disppath), 0)
          . $overflow . "[$dev]";
 }
-
-#sub tdline {
-#    $^A = "";
-#    formline($tdlineformat, @_[0..4], &time2str($_[5],$TIME_NARROW), @_[6,7]);
-#    return $^A;
-#}
 
 sub fileline { # $currentfile, @layoutfields
     my ($currentfile, @fields) = @_;
@@ -913,6 +912,8 @@ _eoFunction_
 }
 
 sub copyright {
+    return unless $_[0];
+    # lookalike to DOS version :)
     $scr->cyan() ->puts("PFM $VERSION for Unix computers and compatibles.")
         ->at(1,0)->puts("Copyright (c) 1999-2002 Rene Uittenbogaard")
         ->at(2,0)->puts("This software comes with no warranty: see the file "
@@ -927,16 +928,17 @@ sub globalinit {
     $kbd = Term::ReadLine->new('Pfm', \*STDIN, \*STDOUT);
     &read_pfmrc($READ_FIRST);
     &read_history;
-    %user    = &init_uids;
-    %group   = &init_gids;
-    @signame = &init_signames;
+    %user           = &init_uids;
+    %group          = &init_gids;
+    @signame        = &init_signames;
     %selected_nr_of = %total_nr_of = ();
-    $swap_state = $swap_mode = $multiple_mode = 0;
+    $swap_state     = $swap_mode = $multiple_mode = 0;
+    $sort_mode      = $pfmrc{defaultsortmode} || 'n';
+    $currentlayout  = $pfmrc{defaultlayout}   || 0;
+    $baseindex      = 0;
     if ($scr->getrows()) { $screenheight = $scr->getrows()-$BASELINE-2 }
     if ($scr->getcols()) { $screenwidth  = $scr->getcols() }
-    $baseindex = 0;
     &makeformatlines;
-    # col_mode has been set from .pfmrc
     &init_frame($multiple_mode, $swap_mode);
     # now find starting directory
     $oldcurrentdir = $currentdir = getcwd();
@@ -1015,11 +1017,11 @@ sub disk_info { # %disk{ total, used, avail }
     my @desc      = ('K tot','K usd','K avl');
     my @values    = @disk{qw/total used avail/};
     my $startline = 4;
-    # I played with vt100 boxes once,      lqqk
-    # but I hated it.                      x  x
-    # In case someone wants to try:        mqqj
+    # I played with vt100 boxes once,      lqqqqk
+    # but I hated it.                      x    x
+    # In case someone wants to try:        mqqqqj
 #    $scr->at($startline-1,$screenwidth-$DATECOL)
-#        ->puts("\cNlq\cODisk space\cNqk\cO");
+#        ->puts("\cNlqq\cO Disk space");
     $scr->at($startline-1, $screenwidth-$DATECOL+4)->puts('Disk space');
     foreach (0..2) {
         while ( $values[$_] > 99_999 ) {
@@ -1055,7 +1057,7 @@ sub mark_info {
                + $selected_nr_of{'D'};
     my $startline = 15;
     my $total = 0;
-    $values[0] = join ('', &fit2limit($values[0]));
+    $values[0] = join ('', &fit2limit($values[0], $maxfilesizelength));
     $scr->at($startline-1, $screenwidth-$DATECOL+2)->puts('Marked files');
     foreach (0..4) {
         $scr->at($startline+$_, $screenwidth-$DATECOL+1)
@@ -1178,7 +1180,7 @@ sub handlesize {
         $scr->at($currentline + $BASELINE, 0);
         $tempfile = { %currentfile };
         @{$tempfile}{qw(size size_num size_power)} = ($recursivesize,
-            &fit2limit($recursivesize));
+            &fit2limit($recursivesize, $maxfilesizelength));
         $scr->puts(&fileline($tempfile, @layoutfields));
         &markcurrentline('Z');
         &applycolor($currentline + $BASELINE, $FILENAME_SHORT, %currentfile);
@@ -1363,7 +1365,8 @@ sub handlemorekill {
         $signal = $signame[$signal];
     }
     local $SIG{$signal} = 'IGNORE';
-    kill -$signal, $$;
+    # the "only portable" way from perlfunc(1) doesn't seem to work for me
+    kill $signal, -$$;
     return $R_SCREEN;
 }
 
@@ -1465,11 +1468,11 @@ sub handleview {
                                   . $currentfile{target} . " \cH");
     &applycolor($currentline+$BASELINE, $FILENAME_LONG, %currentfile);
     $scr->getch();
-    if (length($currentfile{display}) > $screenwidth-$DATECOL-2) {
+#    if (length($currentfile{display}) > $screenwidth-$DATECOL-2) {
         return $R_CLEAR;
-    } else {
-        return $R_STRIDE;
-    }
+#    } else {
+#        return $R_STRIDE;
+#    }
 }
 
 sub handlesort {
@@ -2286,7 +2289,7 @@ sub stat_entry { # path_of_entry, selected_flag
         selected => $selected_flag
     };
     @{$ptr}{qw(size_num size_power atimestring ctimestring mtimestring)} = (
-        &fit2limit($size),
+        &fit2limit($size, $maxfilesizelength),
         &time2str($atime, $TIME_NARROW),
         &time2str($ctime, $TIME_NARROW),
         &time2str($mtime, $TIME_NARROW)
@@ -2301,7 +2304,7 @@ sub stat_entry { # path_of_entry, selected_flag
     } else {
         $ptr->{display} = $entry;
     }
-    $ptr->{name_too_long} = length($ptr->{display}) > $maxfilenamelength
+    $ptr->{name_too_long} = length($ptr->{display}) > $maxfilenamelength-1
                             ? $NAMETOOLONGCHAR : ' ';
     $total_nr_of{ $ptr->{type} }++; # this is wrong! e.g. after cOmmand
     return $ptr;
@@ -2586,10 +2589,17 @@ clsonexit:no
 confirmquit:yes
 
 ## time to display copyright message at start (in seconds, fractions allowed)
+## make pfm a lookalike to the DOS version :)
 copyrightdelay:0.2
 
 ## use very visible cursor (e.g. block cursor on Linux console)
 cursorveryvisible:yes
+
+## initial layout from the array 'columnlayouts' (see below) (F9)
+defaultlayout:0
+
+## initial sort mode (see F6 command) (nNmMeEfFsSiItTdDaA) (default n)
+defaultsortmode:n
 
 ## hide dot files? (show them otherwise, toggle with . key)
 #dotmode:yes
@@ -2623,9 +2633,6 @@ persistentswap:yes
 ## show whether mandatory locking is enabled (e.g. -rw-r-lr-- ) (yes,no,sun)
 ## 'sun' = show locking only on sunos/solaris
 showlock:sun
-
-## initial sort mode (see F6 command) (nNmMeEfFsSiItTdDaA) (default n)
-sortmode:n
 
 ## format for time: touch MMDDhhmm[[CC]YY][.ss] or pfm [[CC]YY]MMDDhhmm[.ss]
 timeformat:pfm
@@ -2692,8 +2699,8 @@ do=01;35:nt=01;35:wh=01;30;47:lc=\e[:rc=m:\
 
 ## char name                    needed width if present
 ## *    selected flag           1
-## n    filename                is cropped/elongated; last char == overflow flag
-## s    size                    7
+## n    filename                variable length; last char == overflow flag
+## s    size                    7; last char == power of 1024 (K, M, G..)
 ## u    user                    >=8 (system-dependent)
 ## g    group                   >=8 (system-dependent)
 ## p    permissions (mode)      9
@@ -2706,7 +2713,7 @@ do=01;35:nt=01;35:wh=01;30;47:lc=\e[:rc=m:\
 
 ## the first three layouts were the old defaults.
 ## if the terminal is resized, the filename field will be stretched.
-#<----------- formats must not be wider than this! ------------># #<-diskinfo->#
+#<----------- layouts must not be wider than this! ------------># #<-diskinfo->#
 columnlayouts:\
 * nnnnnnnnnnnnnnnnnnnnnssssssss mmmmmmmmmmmmmmmiiiiiii pppppppppp:\
 * nnnnnnnnnnnnnnnnnnnnnssssssss aaaaaaaaaaaaaaaiiiiiii pppppppppp:\
@@ -2717,8 +2724,8 @@ columnlayouts:\
 * nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss mmmmmmmmmmmmmmm:\
 * nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnmmmmmmmmmmmmmmm:\
 * nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss:\
-ppppppppp  uuuuuuuu gggggggg ssssssss * nnnnnnnnnnnnnnnnnnnnnnnnn:\
-pppppppppp  mmmmmmmmmmmmmmm  ssssssss * nnnnnnnnnnnnnnnnnnnnnnnnn:\
+pppppppppp  uuuuuuuu gggggggg ssssssss* nnnnnnnnnnnnnnnnnnnnnnnnn:\
+pppppppppp  mmmmmmmmmmmmmmm  ssssssss* nnnnnnnnnnnnnnnnnnnnnnnnnn:
 
 ##########################################################################
 ## Your commands
@@ -3147,6 +3154,11 @@ will take you if you don't specify a new directory.
 Identifies the pager with which to view text files. Defaults to less(1)
 for Linux systems or more(1) for Unix systems.
 
+=item B<PFMRC>
+
+Specify a location of an alternate F<.pfmrc> file. The cwd- and history-
+files cannot be displaced in this manner.
+
 =item B<PRINTER>
 
 May be used to specify a printer to print to using the B<P>rint command.
@@ -3186,7 +3198,7 @@ if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.72.1 .
+This manual pertains to C<pfm> version 1.73 .
 
 =head1 SEE ALSO
 

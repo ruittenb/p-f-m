@@ -1,3 +1,6 @@
-1.72.1
+1.73
 
-* more work on user-configurable layouts
+* fixed multiple small problems with column layouts
+* fixed bug in (M)ore -> (K)ill command
+* updated documentation 
+
