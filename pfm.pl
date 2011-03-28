@@ -1,12 +1,12 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20021216 v1.68
+# @(#) pfm.pl 19990314-20021217 v1.69
 #
 # Name:        pfm.pl
-# Version:     1.68
+# Version:     1.69
 # Author:      Rene Uittenbogaard
-# Date:        2002-12-16
+# Date:        2002-12-17
 # Usage:       pfm.pl [directory]
 # Requires:    Term::ScreenColor
 #              Term::Screen
@@ -22,20 +22,20 @@
 # TODO:  use quotemeta() for quoting? (problem: \ in filenames)
 #        double quote support by using system(@) for all commands
 #        make multiple mode a bit in $multiple_mode ? bitwise-or?
+#        select default ducmd based on $^O
+#        command (M)ore-> (R)estat? F11 = restat?
+#        make a sub restat() ?
 #        make R_SCREEN etc. bits in $do_a_refresh ?
-#        put symlink target in path_history in tarGet
+#        split dircolors in dircolorsdark and dircolorslight (switch with F4)
+#        config option: dotdot mode? (sort directory with '.' and '..' first?)
 #        fix error handling in eval($do_this) and &display_error
 #           partly implemented in handlecopyrename
-#        command: (L)ink (make symlink)?
 #        command: < > to scroll line of commands?
 #        user-customizable columns
 #        double quote and space support in handleedit, handleprint, handleshow
 #           we cannot assume that $pager or $editor do not contain spaces :(
-#        handleedit should restat.. and prolly a lot more
-#        make a sub restat() ?
 #        more &$subptr; instead of eval $substring;
 #        get rid of backticks around 'df' in siZe?
-#        config option: dotdot mode? (sort directory with '.' and '..' first?)
 #        set ROWS en COLUMNS in environment for child processes; but see if
 #            this does not mess up with $scr->getrows etc. which use these
 #            variables internally; portability?
@@ -340,7 +340,7 @@ sub getversion {
     my $ver = '?';
     if ( open (SELF, $0) || open (SELF, `which $0`) ) {
         foreach (grep /^#+ Version:/, <SELF>) {
-            /([\d\.]+)/ and $ver = "$1";
+            /([\d\.]+\w)/ and $ver = "$1";
         }
         close SELF;
     }
@@ -575,20 +575,21 @@ sub digestcolor {
 
 sub decidecolor {
     my %file = @_;
-    $file{type} eq 'd'       and &digestcolor($dircolors{di}), return;
-    $file{type} eq 'l'       and &digestcolor(
+    $file{nlink} ==  0        and &digestcolor($dircolors{lo}), return;
+    $file{type}  eq 'd'       and &digestcolor($dircolors{di}), return;
+    $file{type}  eq 'l'       and &digestcolor(
         $dircolors{&isorphan($file{name}) ? 'or' : 'ln'}
     ), return;
-    $file{type} eq 'b'       and &digestcolor($dircolors{bd}), return;
-    $file{type} eq 'c'       and &digestcolor($dircolors{cd}), return;
-    $file{type} eq 'p'       and &digestcolor($dircolors{pi}), return;
-    $file{type} eq 's'       and &digestcolor($dircolors{so}), return;
-    $file{type} eq 'D'       and &digestcolor($dircolors{'do'}), return;
-    $file{type} eq 'n'       and &digestcolor($dircolors{nt}), return;
+    $file{type}  eq 'b'       and &digestcolor($dircolors{bd}), return;
+    $file{type}  eq 'c'       and &digestcolor($dircolors{cd}), return;
+    $file{type}  eq 'p'       and &digestcolor($dircolors{pi}), return;
+    $file{type}  eq 's'       and &digestcolor($dircolors{so}), return;
+    $file{type}  eq 'D'       and &digestcolor($dircolors{'do'}), return;
+    $file{type}  eq 'n'       and &digestcolor($dircolors{nt}), return;
     # will readdir() return whiteout entries? how can I find them?
-    $file{type} eq 'w'       and &digestcolor($dircolors{wh}), return;
-    $file{mode} =~ /[xst]/   and &digestcolor($dircolors{ex}), return;
-    $file{name} =~/(\.\w+)$/ and &digestcolor($dircolors{$1}), return;
+    $file{type}  eq 'w'       and &digestcolor($dircolors{wh}), return;
+    $file{mode}  =~ /[xst]/   and &digestcolor($dircolors{ex}), return;
+    $file{name}  =~/(\.\w+)$/ and &digestcolor($dircolors{$1}), return;
 }
 
 sub applycolor {
@@ -772,10 +773,13 @@ sub init_frame { # multiple_mode, swap_mode, col_mode
 #Multiple Attribute Copy Delete Edit Print Rename Show Your.. cOmmands Quit >
 #Multiple < Find Include.. tarGet Link More.. Time User View eXclude.. siZe Quit
 
+#F1-Help F2-Back F3-Fit F4-Color F5-Read F6-Sort F7-Swap F8-Stat F9-Cols F10-Mult F11-Restat
+#F1-Help F2-Back F3-Redraw F4-Color F5-Reread F6-Sort F7-Swap F8-Restat F9-Cols F10-Mult
+
 sub init_header { # "multiple"mode
     my $mode = $_[0];
     my @header = split(/\n/, <<"_eoFirst_");
-Attr Copy Del Edit Find Link Prnt Quit Ren Show Time Uid View Your cOmmand More 
+Attr Copy Del Edit Find Link Prnt Quit Ren Show Time Uid View Your cOmmand siZe More 
 Multiple Include eXclude Attribute Time Copy Delete Print Rename Your cOmmands  
 Include? Every, Oldmarks, User or Files only:                                   
 Config pfm Edit new file Make new dir Show dir sHell Kill Write history ESC     
@@ -1064,7 +1068,8 @@ sub handlecolor {
 
 sub handleadvance {
     &handleselect;
-    goto &handlemove; # this autopasses the " " key in $_[0] to &handlemove
+    # this automatically passes the " " key in $_[0] to &handlemove
+    goto &handlemove;
 }
 
 sub handlesize {
@@ -1096,7 +1101,7 @@ sub handledot {
 }
 
 sub handleshowenter {
-    my $followmode  = $currentfile{mode} !~ /^l/
+    my $followmode  = $currentfile{type} ne 'l'
                     ? $currentfile{mode}
                     : &mode2str((stat $currentfile{name})[2]);
     if ($followmode =~ /^d/) {
@@ -1390,6 +1395,16 @@ sub handlesort {
     return $R_SCREEN; # the column with sort modes should be restored anyway
 }
 
+sub handlekeyell {
+    # small l only
+    if ($currentfile{type} eq 'd') {
+        # this automatically passes the 'l' key in $_[0] to &handleentry
+        goto &handleentry;
+    } else {
+        goto &handlesymlink;
+    }
+}
+
 sub handlesymlink {
     my ($newname, $loopfile, $do_this, $index, $newnameexpanded, $targetstring);
     my $prompt = 'New symbolic link: ';
@@ -1400,13 +1415,12 @@ sub handlesymlink {
     $scr->raw();
     return $R_HEADER if ($newname eq '');
     $do_this = sub {
-#        if (-d $newnameexpanded or $newnameexpanded =~ m!^[^/].*/!) {
-#            $targetstring = $currentdir . "/" . $loopfile->{name};
-#        } else {
+        if (-d $newnameexpanded or $newnameexpanded =~ m!^[^/].*/!) {
+            $targetstring = $currentdir . "/" . $loopfile->{name};
+        } else {
             $targetstring = $loopfile->{name};
-#        }
-        $scr->puts("ln -s $targetstring $newnameexpanded"); sleep 2;
-        if (system qw(ln -s), ($clobber ? "-f" : ""),
+        }
+        if (system 'ln', ($clobber ? '-sf' : '-s'),
             $targetstring, $newnameexpanded
         ) {
             $scr->at(0,0)->clreol();
@@ -1448,7 +1462,11 @@ sub handletarget {
     my $do_a_refresh = $multiple_mode ? $R_SCREEN : $R_HEADER;
     &markcurrentline('G') unless $multiple_mode;
     $scr->at(0,0)->clreol()->cooked();
+    push (@path_history, $currentfile{target}) unless $multiple_mode;
     chomp($newtarget = &readintohist(\@path_history, $prompt));
+    if ($#path_history > 0 and $path_history[-1] eq $path_history[-2]) {
+        pop @path_history;
+    }
     $scr->raw();
     return $R_HEADER if ($newtarget eq '');
     $do_this = '
@@ -1885,7 +1903,7 @@ sub handlecopyrename {
     $scr->at(0,0)->clreol()->cooked();
 #    $scr->bold()->cyan()->puts($stateprompt)->normal();
     push (@path_history, $currentfile{name}) unless $multiple_mode;
-    $scr->at(0,0);
+#    $scr->at(0,0);
     $newname = &readintohist(\@path_history, $stateprompt);     # ornaments
     if ($#path_history > 0 and $path_history[-1] eq $path_history[-2]) {
         pop @path_history;
@@ -2023,7 +2041,8 @@ sub handlemove {
 
 sub handleenter {
     $scr->cooked()->clrscr();
-    system "./$currentfile{name}" and &display_error($!);
+    # force inclusion of spaces in $0 by calling system(@)
+    system "./$currentfile{name}", '' and &display_error($!);
     &pressanykey;
     return $R_CLEAR;
 }
@@ -2361,7 +2380,7 @@ sub browse {
                         # order is determined by (supposed) frequency of use
                         /^(?:kr|kl|[h\e\cH])$/i
                                    and $result = &handleentry($_),     last KEY;
-                        /^l$/      and $result = &handlekeyell,        last KEY;
+                        /^l$/      and $result = &handlekeyell($_),    last KEY;
                         /^[cr]$/i  and $result = &handlecopyrename($_),last KEY;
                         /^[yo]$/i  and $result = &handlecommand($_),   last KEY;
                         /^e$/i     and $result = &handleedit,          last KEY;
@@ -2514,14 +2533,14 @@ usecolor:force
 ##-background color codes:
 ## 40=black 41=red 42=green 43=yellow 44=blue 45=magenta 46=cyan 47=white
 ##-file types:
-## no=normal fi=file ex=executable di=directory ln=symlink or=orphan link
+## no=normal fi=file ex=executable lo=lost file di=directory ln=symlink or=orphan link
 ## bd=block special cd=character special pi=fifo so=socket
 ## do=door nt=network special (not implemented) wh=whiteout (not implemented)
 ## *.<ext> defines extension colors
 
 ## you may specify an escape as a real escape, as \e or as ^[ (caret, bracket)
 
-dircolors:no=00:fi=00:ex=00;32:di=01;34:ln=01;36:or=01;37;41:\
+dircolors:no=00:fi=00:ex=00;32:lo=01;30:di=01;34:ln=01;36:or=01;37;41:\
 bd=01;33;40:cd=01;33;40:pi=00;33;40:so=01;35:\
 do=01;35:nt=01;35:wh=01;30;47:lc=\e[:rc=m:\
 *.cmd=01;32:*.exe=01;32:*.com=01;32:*.btm=01;32:*.bat=01;32:\
@@ -2592,7 +2611,7 @@ C<pfm [>I<directory>C<]>
 
 C<pfm> is a terminal-based file manager, based on PFMS<.>COM for MS-DOS.
 
-All C<pfm> commands are one- or two-letter commands (nearly all of
+All C<pfm> commands are one- or two-letter commands (most of
 which are case-insensitive).  C<pfm> can operate in single-file mode or
 multiple-file mode.  In single-file mode, the command corresponding to
 the keypress will be performed on the file next to the cursor only. In
@@ -2620,12 +2639,13 @@ supposed to be self-explanatory.  See also MORE COMMANDS below.
 
 =over
 
-Navigation through directories is done using the arrow keys, the C<vi>(1)
-cursor keys (B<hjkl>), B<->, B<+>, B<PgUp>, B<PgDn>, B<home>, B<end>,
-and the C<vi>(1) control keys B<CTRL-F>, B<CTRL-B>, B<CTRL-U>, B<CTRL-D>,
-B<CTRL-Y> and B<CTRL-E>.  Pressing B<ESC> or B<BS> will take you one
-directory level up (note: see BUGS below). Pressing B<ENTER> when the
-cursor is on a directory will take you into the directory. Pressing
+Navigation through directories is done using the arrow keys, the vi(1)
+cursor keys (B<hjkl>), B<->, B<+>, B<PgUp>, B<PgDn>, B<home>, B<end>, and the
+vi(1) control keys B<CTRL-F>, B<CTRL-B>, B<CTRL-U>, B<CTRL-D>, B<CTRL-Y>
+and B<CTRL-E>. Note that the B<l> key is also used for creating symbolic
+links (see the B<L>ink command below). Pressing B<ESC> or B<BS> will take
+you one directory level up (note: see BUGS below). Pressing B<ENTER> when
+the cursor is on a directory will take you into the directory. Pressing
 B<SPACE> will both mark the current file and advance the cursor.
 
 =back
@@ -2657,7 +2677,7 @@ Changes the mode of the file if you are the owner. Use a '+' to add a
 permission, a '-' to remove it, and a '=' specify the mode exactly, or
 specify the mode numerically.
 
-Note 1: the mode on a symbolic link cannot be set. Read the C<chmod>(1)
+Note 1: the mode on a symbolic link cannot be set. Read the chmod(1)
 page for more details.
 
 Note 2: the name B<Attr> for this command is a reminiscence of the DOS
@@ -2678,7 +2698,7 @@ Delete a file or directory.
 
 Edit a file with your external editor. You can specify an editor with
 the environment variable C<EDITOR> or in the F<$HOME/.pfm/.pfmrc> file,
-else C<vi>(1) is used.
+else vi(1) is used.
 
 =item B<Find>
 
@@ -2699,6 +2719,16 @@ files owned by you) or B<F>iles only (prompts for a regular expression
 used to do multifile operations on a group of files more than once. If
 you B<I>nclude B<E>very, dotfiles will be included as well, except for
 the B<.> and B<..> directory entries.
+
+=item B<Link>
+
+Create a symbolic link to the current file or directory. The symlink will
+become relative if you are creating it in the current directory, otherwise
+it will contain an absolute path.
+
+Note that if the current file is a directory, the B<l> key, being one of
+the vi(1) cursor keys, will chdir() you into the directory.  You may force
+C<pfm> into making a symlink to a directory by pressing capital B<L>.
 
 =item B<More>
 
@@ -2727,9 +2757,9 @@ F<$HOME/.pfm/.pfmrc> (see below).
 =item B<Quit>
 
 Exit C<pfm>. You may specify in your F<$HOME/.pfm/.pfmrc> whether
-C<pfm> should ask for confirmation (option 'confirmquit').  Note that
+C<pfm> should ask for confirmation (option 'confirmquit'). Note that
 by pressing a capital Q (quick quit), you will I<never> be asked for
-confirmation. This is in fact the one case-sensitive command.
+confirmation.
 
 =item B<Rename>
 
@@ -2750,7 +2780,7 @@ variable C<PAGER>, or in the F<$HOME/.pfm/.pfmrc> file.
 =item B<Time>
 
 Change mtime (modification date/time) of the file. The format used is
-converted to a format which C<touch>(1) can use. Enter B<.> to set the
+converted to a format which touch(1) can use. Enter B<.> to set the
 mtime to the current date and time.
 
 =item B<Uid>
@@ -2797,7 +2827,7 @@ data blocks. For regular files, this is often more than the reported file
 size. For special files and so-called I<fast symbolic links>, the number
 is 0, as no data blocks are allocated for these file types.
 
-Note: since C<du>(1) is not portable, you will have to specify the C<du>
+Note: since du(1) is not portable, you will have to specify the C<du>
 command (or C<du | awk> combination) applicable for your Unix version in
 the F<.pfmrc> file. Examples are provided.
 
@@ -2918,7 +2948,7 @@ If the current file is executable, the executable will be invoked.
 Upon exit, C<pfm> will save its current working directory in a file
 F<$HOME/.pfm/cwd> . In order to have this directory "inherited" by the
 calling process (shell), you may call C<pfm> using a function like
-the following (example for C<bash>(1), add it to your F<.profile>
+the following (example for bash(1), add it to your F<.profile>
 or F<.bash_profile>):
 
  pfm () {
@@ -2953,8 +2983,8 @@ will take you if you don't specify a new directory.
 
 =item B<PAGER>
 
-Identifies the pager with which to view text files. Defaults to C<less>(1)
-for Linux systems or C<more>(1) for Unix systems.
+Identifies the pager with which to view text files. Defaults to less(1)
+for Linux systems or more(1) for Unix systems.
 
 =item B<PRINTER>
 
@@ -2983,7 +3013,7 @@ This prevents the correct processing of filenames containing double quotes.
 The F<readline> library does not allow a half-finished line to be aborted by
 pressing B<ESC>. For most commands, you will need to clear the half-finished
 line. You may use the terminal kill character (usually B<CTRL-U>) for this
-(see C<stty>(1)).
+(see stty(1)).
 
 Sometimes when key repeat sets in, not all keypress events have been
 processed, although they have been registered. This can be dangerous when
@@ -2995,13 +3025,13 @@ if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.68 .
+This manual pertains to C<pfm> version 1.69 .
 
 =head1 SEE ALSO
 
 The documentation on PFMS<.>COM . The mentioned manual pages for
-C<chmod>(1), C<less>(1), C<lpr>(1), C<touch>(1). The manual pages for
-C<Term::ScreenColor>(3) and C<Term::ReadLine::Gnu>(3).
+chmod(1), less(1), lpr(1), touch(1). The manual pages for
+Term::ScreenColor(3) and Term::ReadLine::Gnu(3).
 
 =head1 AUTHOR
 
