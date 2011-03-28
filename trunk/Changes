@@ -1,5 +1,3 @@
-1.72
+1.72.1
 
-* implemented user-customizable column layouts!
-* implemented environment $PFMRC for indicating other config file
-
+* more work on user-configurable layouts
