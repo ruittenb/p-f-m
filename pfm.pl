@@ -1,12 +1,12 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20021213 v1.63
+# @(#) pfm.pl 19990314-20021213 v1.64
 #
 # Name:        pfm.pl
-# Version:     1.63
+# Version:     1.64
 # Author:      Rene Uittenbogaard
-# Date:        2002-12-13
+# Date:        2002-12-14
 # Usage:       pfm.pl [directory]
 # Requires:    Term::ScreenColor
 #              Term::Screen
@@ -27,7 +27,6 @@
 #        user-customizable columns
 #        more &$subptr; instead of eval $substring;
 #        config option: sortcurrent (sort current directory?)
-#        siZe command
 # next:  validate_position should not replace $baseindex when not necessary
 #        set ROWS en COLUMNS in environment for child processes; but see if
 #            this does not mess up with $scr->getrows etc. which use these
@@ -37,7 +36,7 @@
 #            (which is, therefore, still buggy). this is closely related to:
 #        sub countdircontents is not used
 #        consistent use of gnu ornaments / cyan colored prompt
-#        cOmmand -> rm \2 will have to delete the entry from @dircontents;
+#        cOmmand -> rm \2 should delete the entry from @dircontents;
 #            otherwise the mark count is not correct
 #
 #        major/minor numbers on DU 4.0E are wrong (does readline work there?)
@@ -49,8 +48,8 @@
 # Main data structures:
 #
 # @dircontents   : array (current directory data) of references (to file data)
-# $dircontents[$index]      : reference (to file data) to hash (file data)
-# %{ $dircontents[$index] } : hash (file data)
+# $dircontents[$index]      : reference to hash (=file data)
+# %{ $dircontents[$index] } : hash (=file data)
 # $dircontents[$index]{name}
 #                     {selected}
 #                     {size}
@@ -78,21 +77,21 @@ use strict;
 #$^W = 0;
 
 use vars qw(
-    $FIRSTREAD
-    $REREAD
-    $SHOWSHORT
-    $SHOWLONG
-    $HIGHLIGHT_OFF
-    $HIGHLIGHT_ON
     $FALSE
     $TRUE
-    $NARROWTIME
-    $WIDETIME
-    $SINGLEHEADER
-    $MULTIHEADER
-    $INCLUDEHEADER
-    $MOREHEADER
-    $SORTHEADER
+    $READ_FIRST
+    $READ_AGAIN
+    $FILENAME_SHORT
+    $FILENAME_LONG
+    $HIGHLIGHT_OFF
+    $HIGHLIGHT_ON
+    $TIME_NARROW
+    $TIME_WIDE
+    $HEADER_SINGLE
+    $HEADER_MULTI
+    $HEADER_INCLUDE
+    $HEADER_MORE
+    $HEADER_SORT
     $R_KEY
     $R_HEADER
     $R_STRIDE
@@ -111,30 +110,30 @@ BEGIN {
 ##########################################################################
 # declarations and initialization
 
-*FIRSTREAD     = \0;
-*REREAD        = \1;
-*SHOWSHORT     = \0;
-*SHOWLONG      = \1;
-*HIGHLIGHT_OFF = \0;
-*HIGHLIGHT_ON  = \1;
-*FALSE         = \0;
-*TRUE          = \1;
-*NARROWTIME    = \0;
-*WIDETIME      = \1;
-*SINGLEHEADER  = \0;
-*MULTIHEADER   = \1;
-*INCLUDEHEADER = \2;
-*MOREHEADER    = \3;
-*SORTHEADER    = \4;
-*R_KEY         = \0;
-*R_HEADER      = \1;
-*R_STRIDE      = \2;
-*R_DIRLISTING  = \3;
-*R_SCREEN      = \4;
-*R_CLEAR       = \5;
-*R_DIRCONTENTS = \6;
-*R_CHDIR       = \7;
-*R_QUIT        = \255;
+*FALSE          = \0;
+*TRUE           = \1;
+*READ_FIRST     = \0;
+*READ_AGAIN     = \1;
+*FILENAME_SHORT = \0;
+*FILENAME_LONG  = \1;
+*HIGHLIGHT_OFF  = \0;
+*HIGHLIGHT_ON   = \1;
+*TIME_NARROW    = \0;
+*TIME_WIDE      = \1;
+*HEADER_SINGLE  = \0;
+*HEADER_MULTI   = \1;
+*HEADER_INCLUDE = \2;
+*HEADER_MORE    = \3;
+*HEADER_SORT    = \4;
+*R_KEY          = \0;
+*R_HEADER       = \1;
+*R_STRIDE       = \2;
+*R_DIRLISTING   = \3;
+*R_SCREEN       = \4;
+*R_CLEAR        = \5;
+*R_DIRCONTENTS  = \6;
+*R_CHDIR        = \7;
+*R_QUIT         = \255;
 
 my $VERSION             = &getversion;
 my $CONFIGDIRNAME       = "$ENV{HOME}/.pfm";
@@ -142,6 +141,7 @@ my $CONFIGFILENAME      = '.pfmrc';
 my $LOSTMSG             = '';   # previously '(file lost)';
 my $CWDFILENAME         = 'cwd';
 my $MAJORMINORSEPARATOR = ',';
+my $NAMETOOLONGCHAR     = '=';
 my $MAXHISTSIZE         = 40;
 my $ERRORDELAY          = 1;    # seconds
 my $SLOWENTRIES         = 300;
@@ -173,7 +173,7 @@ my $screenheight    = 20;    # inner height
 my $screenwidth     = 80;    # terminal width
 my $position_at     = '.';   # start with cursor here
 
-my @command_history = ('du -ks *', 'true');
+my @command_history = ('du -ks *', 'man "\1"');
 my @mode_history    = qw(755 644);
 my @path_history    = ('/',$ENV{HOME});
 my @regex_history   = qw(.*\.jpg);
@@ -221,7 +221,7 @@ sub write_pfmrc {
     } # no success? well, that's just too bad
 }
 
-sub read_pfmrc { # $rereadflag - 0=firstread 1=reread (for copyright message)
+sub read_pfmrc { # $readflag - show copyright only on startup (first read)
     $uid_mode = $sort_mode = $editor = $pager = '';
     %dircolors = %pfmrc = ();
     local $_;
@@ -246,7 +246,7 @@ sub read_pfmrc { # $rereadflag - 0=firstread 1=reread (for copyright message)
     } elsif (defined($pfmrc{usecolor}) && ! &yesno($pfmrc{usecolor})) {
         $scr->colorizable($FALSE);
     }
-    &copyright($pfmrc{copyrightdelay}) unless ($_[0]);
+    &copyright($pfmrc{copyrightdelay}) unless $_[0];
     $cursorveryvisible = &yesno($pfmrc{cursorveryvisible});
     system ('tput', $cursorveryvisible ? 'cvvis' : 'cnorm');
     system ('stty', 'erase', $pfmrc{erase}) if defined($pfmrc{erase});
@@ -263,7 +263,7 @@ sub read_pfmrc { # $rereadflag - 0=firstread 1=reread (for copyright message)
     ($printcmd)        = ($pfmrc{printcmd}) ||
                              ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER}" : 'lpr');
     $ducmd             = $pfmrc{ducmd} ||
-                             q(du -sk | awk '{printf "%d", 1024 * $1}');
+                             q(du -sk "\2" | awk '{ printf "%d", 1024 * $1 }');
     $timeformat        = $pfmrc{timeformat} || 'pfm';
     $sort_mode         = $pfmrc{sortmode}   || 'n';
     $uid_mode          = 2*($pfmrc{uidmode} eq 'atime')
@@ -375,7 +375,7 @@ sub time2str {
             $val = "0$val";
         }
     }
-    if ($_[1] == $WIDETIME) {
+    if ($_[1] == $TIME_WIDE) {
         $min = "$min:$sec";
         $year += 1900;
     } else {
@@ -598,7 +598,7 @@ sub pathline {
     # all those exceptions
     my ($path, $dev) = @_;
     my $overflow     = ' ';
-    my $ELISION      = '..';
+    my $ELLIPSIS     = '..';
     my $normaldevlen = 12;
     my $actualdevlen = max($normaldevlen, length($dev));
     # the three in the next exp is the length of the overflow char plus the '[]'
@@ -609,25 +609,27 @@ sub pathline {
         # the next line is supposed to contain an assignment
         unless (length($path) <= $maxpathlen and $disppath = $path) {
             # no fit: try to replace (part of) the name with ..
+            # we will try to keep the first part e.g. /usr1/ because this often
+            # shows the filesystem we're on; and as much as possible of the end
             unless ($path =~ /^(\/[^\/]+?\/)(.+)/) {
                 # impossible to replace; just truncate
                 # this is the case for e.g. /some_insanely_long_directoryname
                 $disppath = substr($path, 0, $maxpathlen);
-                $overflow = '+';
+                $overflow = $NAMETOOLONGCHAR;
                 last FIT;
             }
             ($disppath, $path) = ($1, $2);
             # the one being subtracted is for the '/' char in the next match
-            $restpathlen = $maxpathlen -length($disppath) -length($ELISION) -1;
+            $restpathlen = $maxpathlen -length($disppath) -length($ELLIPSIS) -1;
             unless ($path =~ /(\/.{1,$restpathlen})$/) {
                 # impossible to replace; just truncate
                 # this is the case for e.g. /usr/someinsanelylongdirectoryname
                 $disppath = substr($disppath.$path, 0, $maxpathlen);
-                $overflow = '+';
+                $overflow = $NAMETOOLONGCHAR;
                 last FIT;
             }
             # pathname component candidate for replacement found; name will fit
-            $disppath .= $ELISION . $1;
+            $disppath .= $ELLIPSIS . $1;
         }
     }
     return $disppath . ' 'x max($maxpathlen -length($disppath), 0)
@@ -642,7 +644,7 @@ sub uidline {
 
 sub tdline {
     $^A = "";
-    formline($tdlineformat, @_[0..4], &time2str($_[5],$NARROWTIME), @_[6,7]);
+    formline($tdlineformat, @_[0..4], &time2str($_[5],$TIME_NARROW), @_[6,7]);
     return $^A;
 }
 
@@ -668,7 +670,7 @@ sub highlightline { # true/false
     $scr->at($currentline + $BASELINE, 0);
     $scr->bold() if ($_[0] == $HIGHLIGHT_ON);
     $scr->puts(&fileline(%currentfile));
-    &applycolor($currentline + $BASELINE, $SHOWSHORT, %currentfile);
+    &applycolor($currentline + $BASELINE, $FILENAME_SHORT, %currentfile);
     $scr->normal()->at($currentline + $BASELINE, 0);
 }
 
@@ -815,7 +817,7 @@ sub globalinit {
     $scr = Term::ScreenColor->new();
     $scr->clrscr();
     $kbd = Term::ReadLine->new('Pfm', \*STDIN, \*STDOUT);
-    &read_pfmrc($FIRSTREAD);
+    &read_pfmrc($READ_FIRST);
     &read_history;
     %user    = &init_uids;
     %group   = &init_gids;
@@ -835,7 +837,7 @@ sub globalinit {
         $scr->at(0,0)->clreol();
         &display_error("$ARGV[0]: $! - using .");
         $scr->key_pressed(1); # add another second error delay
-        &init_header($SINGLEHEADER);
+        &init_header($HEADER_SINGLE);
     };
 }
 
@@ -959,7 +961,7 @@ sub mark_info {
 sub date_info {
     my ($line, $col) = @_;
     my ($datetime, $date, $time);
-    $datetime = &time2str(time, $WIDETIME);
+    $datetime = &time2str(time, $TIME_WIDE);
     ($date, $time) = ($datetime =~ /(.*)\s+(.*)/);
     $scr->at($line++, $col+3)->puts($date) if ($scr->getrows() > 24);
     $scr->at($line++, $col+6)->puts($time);
@@ -1057,7 +1059,7 @@ sub handlesize {
         $scr->at($currentline + $BASELINE, 0);
         $scr->puts(&fileline(%currentfile, size => $recursivesize));
         &markcurrentline('Z');
-        &applycolor($currentline + $BASELINE, $SHOWSHORT, %currentfile);
+        &applycolor($currentline + $BASELINE, $FILENAME_SHORT, %currentfile);
         $scr->getch();
 #    }
     return $R_KEY;
@@ -1131,8 +1133,8 @@ sub handlefit {
         $maxfilenamelength = $screenwidth - $RESERVEDSCREENWIDTH;
         &makeformatlines;
         foreach (@dircontents) {
-            $_->{too_long} = length($_->{display}) > $maxfilenamelength ? '+'
-                                                                        : ' ';
+            $_->{too_long} = length($_->{display}) > $maxfilenamelength
+                           ? $NAMETOOLONGCHAR : ' ';
         }
         return $R_CLEAR;
     }
@@ -1200,7 +1202,7 @@ sub handlemoreconfig {
     if (system $editor, "$CONFIGDIRNAME/$CONFIGFILENAME") {
         &display_error($!);
     } else {
-        &read_pfmrc($REREAD);
+        &read_pfmrc($READ_AGAIN);
     }
     $scr->clrscr();
     return $R_CLEAR;
@@ -1255,7 +1257,7 @@ sub handlemore {
     local $_;
     my $do_a_refresh = $R_SCREEN;
     my ($newname, $stateprompt);
-    &init_header($MOREHEADER);
+    &init_header($HEADER_MORE);
     my $key = $scr->at(0,79)->getch();
     MOREKEY: for ($key) {
         /^s$/i and $do_a_refresh = &handlemoreshow,   last MOREKEY;
@@ -1278,7 +1280,7 @@ sub handleinclude { # include/exclude flag (from keypress)
     our ($wildfilename, $entry);
     # $wildfilename could have been declared using my(), but that will prevent
     # changes in its value to be noticed by the anonymous sub
-    &init_header($INCLUDEHEADER);
+    &init_header($HEADER_INCLUDE);
     # modify header to say "exclude" when 'x' was pressed
     if ($exin =~ /x/i) { $scr->at(0,0)->on_blue()->puts('Ex')->normal(); }
     $exin =~ tr/ix/* /;
@@ -1338,7 +1340,7 @@ sub handleview {
     $scr->at($currentline+$BASELINE,2)->bold()
         # erase char after name, under cursor
         ->puts($currentfile{name} . ($removed?' -> ':'') . $viewline . " \cH");
-    &applycolor($currentline+$BASELINE, $SHOWLONG, %currentfile);
+    &applycolor($currentline+$BASELINE, $FILENAME_LONG, %currentfile);
     $scr->getch();
     if (length($currentfile{display}) > $screenwidth-$DATECOL-2) {
         return $R_CLEAR;
@@ -1351,7 +1353,7 @@ sub handlesort {
     my ($i, $key);
     my $printline = $BASELINE;
     my %sortmodes = @SORTMODES;
-    &init_header($SORTHEADER);
+    &init_header($HEADER_SORT);
     &init_title($swap_mode, $uid_mode+6);
     &clearcolumn;
     # we can't use foreach (keys %SORTMODES) because we would lose ordering
@@ -1768,8 +1770,9 @@ sub handlecopyrename {
                 $scr->raw()->at(0,0)->clreol();
                 &display_error($!);
                 &path_info;
-                $do_a_refresh = $R_HEADER;
         };
+        # if ! $clobber, we might have gotten an 'Overwrite?' question
+        $do_a_refresh = $clobber ? $R_HEADER : $R_SCREEN;
         $scr->raw() unless $clobber;
     }
     return $do_a_refresh;
@@ -1983,7 +1986,8 @@ sub stat_entry { # path_of_entry, selected_flag
     $ptr->{type}     = substr($ptr->{mode},0,1);
     $ptr->{target}   = $ptr->{type} eq 'l' ? ' -> '.readlink($ptr->{name}) : '';
     $ptr->{display}  = $entry . $ptr->{target};
-    $ptr->{too_long} = length($ptr->{display})>$maxfilenamelength ? '+' : ' ';
+    $ptr->{too_long} = length($ptr->{display}) > $maxfilenamelength
+                       ? $NAMETOOLONGCHAR : ' ';
     $total_nr_of{ $ptr->{type} }++; # this is wrong! e.g. after cOmmand
     if ($ptr->{type} =~ /[bc]/) {
         $ptr->{size} = sprintf("%d",$rdev/256).$MAJORMINORSEPARATOR.($rdev%256);
@@ -2024,7 +2028,7 @@ sub printdircontents { # @contents
     foreach my $i ($baseindex .. $baseindex+$screenheight) {
         unless ($i > $#_) {
             $scr->at($i+$BASELINE-$baseindex,0)->puts(&fileline(%{$_[$i]}));
-            &applycolor($i+$BASELINE-$baseindex, $SHOWSHORT, %{$_[$i]});
+            &applycolor($i+$BASELINE-$baseindex, $FILENAME_SHORT, %{$_[$i]});
         } else {
             $scr->at($i+$BASELINE-$baseindex,0)
                 ->puts(' 'x($screenwidth-$DATECOL-1));
@@ -2254,11 +2258,12 @@ editor:vi
 ## your system's print command. Specify if the default 'lpr' does not work.
 #printcmd:lp -d$ENV{PRINTER}
 ## your system's du(1) command. Specify so that the outcome is in bytes, e.g.:
-## AIX,BSD,Tru64: du -sk | awk '{printf "%d", 1024 * $1}'
-## Sun          : du -s  | awk '{printf "%d", 1024 * $1}'
-## HP-UX        : du -s  | awk '{printf "%d", 512  * $1}' # assume bs=512 :(
-## Linux        : du -sb
-ducmd:du -sk | awk '{printf "%d", 1024*$1}'
+## AIX,BSD,Tru64: du -sk "\2" | awk '{ printf "%d", 1024 * $1 }'
+## Sun          : du -s  "\2" | awk '{ printf "%d", 1024 * $1 }'
+## HP-UX        : du -s  "\2" | awk '{ printf "%d", 512  * $1 }' # assume bs=512
+## Linux        : du -sb "\2"
+## "\2" is the name of the current file.
+ducmd:du -sk "\2" | awk '{ printf "%d", 1024 * $1 }'
 
 ## the erase character for your terminal (default: don't set)
 #erase:^H
@@ -2283,7 +2288,7 @@ cursorveryvisible:yes
 ## hide dot files? (show them otherwise, toggle with . key)
 #dotmode:yes
 ## F7 key swap path method is persistent? (default no)
-#persistentswap:yes
+persistentswap:yes
 ## show whether mandatory locking is enabled (e.g. -rw-r-lr-- ) (yes,no,sun)
 ## 'sun' = show locking only on sunos/solaris
 showlock:sun
@@ -2327,7 +2332,7 @@ usecolor:force
 ## you may specify the escape as a real escape, as \e or as ^[ (caret, bracket)
 
 dircolors:no=00:fi=00:di=01;34:ln=01;36:pi=00;40;33:so=01;35:bd=40;33;01:\
-cd=40;33;01:or=01;05;37;41:mi=01;05;37;41:ex=00;32:lc=^[[:rc=m:\
+cd=40;33;01:or=01;05;37;41:mi=01;05;37;41:ex=00;32:lc=\e[:rc=m:\
 *.cmd=01;32:*.exe=01;32:*.com=01;32:*.btm=01;32:*.bat=01;32:*.pas=32:\
 *.tar=01;31:*.tgz=01;31:*.arj=01;31:*.taz=01;31:*.lzh=01;31:*.zip=01;31:\
 *.z=01;31:*.Z=01;31:*.gz=01;31:*.bz2=01;31:*.rpm=31:*.pm=00;36:*.pl=00;36:\
@@ -2351,6 +2356,7 @@ cd=40;33;01:or=01;05;37;41:mi=01;05;37;41:ex=00;32:lc=^[[:rc=m:\
 
 ## these assume you do not have filenames with double quotes in them
 
+A:acroread "\2" &
 B:xv -root +noresetroot +smooth -maxpect -quit "\2"
 C:tar cvf - "\2" | gzip > "\2".tar.gz
 D:uudecode "\2"
@@ -2359,11 +2365,12 @@ F:file "\2"
 G:gvim "\2"
 I:rpm -qpi "\2"
 J:mpg123 "\2" &
-L:mv -i "\2" "`echo \"\2\" | tr A-Z a-z`"
+K:esdplay "\2"
+L:mv -i "\2" "$(echo "\2" | tr A-Z a-z)"
 N:nroff -man "\2" | more
 P:perl -cw "\2"
 Q:unzip -l "\2" | more
-R:rpm -qp -l "\2" | more
+R:rpm -qpl "\2" | more
 S:strings "\2" | more
 T:gunzip < "\2" | tar tvf - | more
 U:gunzip "\2"
@@ -2456,9 +2463,13 @@ of C<pfm>. Primarily used for debugging.
 
 Changes the mode of the file if you are the owner. Use a '+' to add a
 permission, a '-' to remove it, and a '=' specify the mode exactly, or
-specify the mode numerically. Note that the mode on a symbolic link cannot
-be set. Read the C<chmod>(1) page for more details.  Note: the name B<Attr>
-for this command is a reminiscence of the DOS version.
+specify the mode numerically.
+
+Note 1: the mode on a symbolic link cannot be set. Read the C<chmod>(1)
+page for more details.
+
+Note 2: the name B<Attr> for this command is a reminiscence of the DOS
+version.
 
 =item B<Copy>
 
@@ -2581,11 +2592,17 @@ line. Commands may use B<\1>-B<\5> escapes just as in cB<O>mmand, e.g.
 
 =item B<siZe>
 
-Displays the size (in bytes) of the file, or the grand total of the
-directory and its contents.  Note that since C<du>(1) is not portable,
-you will have to specify the C<du> command (or C<du | awk> combination)
-applicable for your Unix version in the F<.pfmrc> file. Examples are
-provided.
+For directories, reports the grand total (in bytes) of the directory
+and its contents.
+
+For other file types, reports the total number of bytes in allocated
+data blocks. For regular files, this is often more than the reported file
+size. For special files and so-called I<fast symbolic links>, the number
+is 0, as no data blocks are allocated for these file types.
+
+Note: since C<du>(1) is not portable, you will have to specify the C<du>
+command (or C<du | awk> combination) applicable for your Unix version in
+the F<.pfmrc> file. Examples are provided.
 
 =back
 
@@ -2780,7 +2797,7 @@ root and with the cursor next to F</sbin/reboot> . You have been warned.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.63 .
+This manual pertains to C<pfm> version 1.64 .
 
 =head1 SEE ALSO
 
@@ -2793,7 +2810,7 @@ C<Term::ScreenColor>(3) and C<Term::ReadLine::Gnu>(3).
 Written by RenE<eacute> Uittenbogaard (ruittenb@users.sourceforge.net).
 This program was based on PFMS<.>COM version 2.32, originally written
 for MS-DOS by Paul R. Culley and Henk de Heer. Permission to use the
-name 'pfm' was granted by Henk de Heer.
+name 'pfm' was kindly granted by Henk de Heer.
 
 =head1 COPYRIGHT
 

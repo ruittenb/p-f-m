@@ -1,5 +1,4 @@
-1.63
+1.64
 
-* code optimization in handleentry()
-* fixed nasty cursor positioning bug in F6(Sort)
+* fixed bug in default config file regarding si(Z)e
 
