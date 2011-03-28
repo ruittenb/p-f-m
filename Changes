@@ -1,4 +1,6 @@
-1.64
+1.65
 
-* fixed bug in default config file regarding si(Z)e
+* added support for coloring orphan symbolic links
+* small fixes and updates to documentation
+* small fixes to default config file
 
