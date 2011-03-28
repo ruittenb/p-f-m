@@ -1,12 +1,12 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20021221 v1.73
+# @(#) pfm.pl 19990314-20021222 v1.74
 #
 # Name:        pfm.pl
-# Version:     1.73
+# Version:     1.74
 # Author:      Rene Uittenbogaard
-# Date:        2002-12-21
+# Date:        2002-12-22
 # Usage:       pfm.pl [directory]
 # Requires:    Term::ScreenColor
 #              Term::Screen
@@ -26,18 +26,17 @@
 #           partly implemented in handlecopyrename
 #        more &$subptr; instead of eval $substring;
 #        get rid of backticks around 'df' in siZe?
-#    at which value does fit3limit overflow?
-#    what happens when pfmrc is reread and @colformats does not contain the layout any more?
 #        use perl symlink() ?
 #        make a sub restat() ?
 #        make a sub fileforall(sub) ?
-#        put more-header-message in a constant? at(0,76) resolved
+#        change date display to 2002 Dec 16 01:32 ? or use:
+#            use POSIX qw(strftime);
+#            $now_string = strftime "%a %b %e %H:%M:%S %Y", localtime;
+#        do something about at(0,76) calls - store as constants? length()?
 #        make R_SCREEN etc. bits in $do_a_refresh ?
 #        split dircolors in dircolorsdark and dircolorslight (switch with F4)
-#        command: < > to scroll line of commands?
-#        command (M)ore-> (R)estat? F11 = restat? F8 = restat+select?
+#        command (M)ore-> (R)estat? F11 = restat?
 #        handlecopyrename: push new file on @dircontents? does it exist already?
-#        make multiple mode a bit in $multiple_mode ? bitwise-or?
 #        set ROWS en COLUMNS in environment for child processes; but see if
 #            this does not mess up with $scr->getrows etc. which use these
 #            variables internally; portability?
@@ -94,9 +93,10 @@ use vars qw(
     $TIME_WIDE
     $HEADER_SINGLE
     $HEADER_MULTI
-    $HEADER_INCLUDE
+    $HEADER_CONT
     $HEADER_MORE
     $HEADER_SORT
+    $HEADER_INCLUDE
     $TITLE_DISKINFO
     $TITLE_COMMAND
     $TITLE_SIGNAL
@@ -131,21 +131,22 @@ BEGIN {
 *TIME_WIDE      = \1;
 *HEADER_SINGLE  = \0;
 *HEADER_MULTI   = \1;
-*HEADER_INCLUDE = \2;
-*HEADER_MORE    = \3;
-*HEADER_SORT    = \4;
-*TITLE_DISKINFO = \5;
-*TITLE_COMMAND  = \6;
-*TITLE_SIGNAL   = \7;
-*TITLE_SORT     = \8;
+*HEADER_CONT    = \2;
+*HEADER_MORE    = \4;
+*HEADER_SORT    = \8;
+*HEADER_INCLUDE = \16;
+*TITLE_DISKINFO = \0;
+*TITLE_COMMAND  = \1;
+*TITLE_SIGNAL   = \2;
+*TITLE_SORT     = \3;
 *R_KEY          = \0;
-*R_HEADER       = \1;
-*R_STRIDE       = \2;
-*R_DIRLISTING   = \3;
-*R_SCREEN       = \4;
-*R_CLEAR        = \5;
-*R_DIRCONTENTS  = \6;
-*R_CHDIR        = \7;
+*R_HEADER       = \10;
+*R_STRIDE       = \20;
+*R_DIRLISTING   = \30;
+*R_SCREEN       = \40;
+*R_CLEAR        = \50;
+*R_DIRCONTENTS  = \60;
+*R_CHDIR        = \70;
 *R_QUIT         = \255;
 
 my $VERSION             = &getversion;
@@ -175,6 +176,8 @@ my @SORTMODES = (
     t =>'Type',        T =>' reverse',
     i =>'Inode',       I =>' reverse'
 );
+
+my @SYMBOLIC_MODES = qw(--- --x -w- -wx r-- r-x rw- rwx);
 
 my %DUCMDS = (
     # can someone tell me how du(1) behaves on SCO and Irix?
@@ -208,7 +211,7 @@ my $position_at     = '.';   # start with cursor here
 
 my @command_history = ('du -ks *', 'man "\1"');
 my @mode_history    = qw(755 644);
-my @path_history    = ('/',$ENV{HOME});
+my @path_history    = ('/', $ENV{HOME});
 my @regex_history   = qw(.*\.jpg);
 my @time_history;
 my @perlcmd_history;
@@ -228,7 +231,7 @@ my (
     # screen- and keyboard objects, screen parameters
     $scr, $kbd, $wasresized,
     # modes
-    $sort_mode, $multiple_mode, $swap_mode, $dot_mode, $dotdot_mode,
+    $sort_mode, $multiple_mode, $cont_mode, $swap_mode, $dot_mode, $dotdot_mode,
     # dir- and disk info
     $currentdir, $oldcurrentdir, @dircontents, @showncontents, %currentfile,
     %disk, $swap_state, %total_nr_of, %selected_nr_of,
@@ -444,12 +447,11 @@ sub time2str {
 
 sub mode2str {
     my $strmode;
-    my $nummode  = shift; # || 0;
-    my $octmode  = sprintf("%lo", $nummode);
-    my @strmodes = (qw/--- --x -w- -wx r-- r-x rw- rwx/);
-    $octmode     =~ /(\d\d?)(\d)(\d)(\d)(\d)$/;
-    $strmode     = substr('-pc?d?b?-nl?sDw?', oct($1) & 017, 1)
-                 . $strmodes[$3] . $strmodes[$4] . $strmodes[$5];
+    my $nummode = shift; # || 0;
+    my $octmode = sprintf("%lo", $nummode);
+    $octmode    =~ /(\d\d?)(\d)(\d)(\d)(\d)$/;
+    $strmode    = substr('-pc?d?b?-nl?sDw?', oct($1) & 017, 1)
+             . $SYMBOLIC_MODES[$3] . $SYMBOLIC_MODES[$4] . $SYMBOLIC_MODES[$5];
     # 0000                000000  unused
     # 1000  S_IFIFO   p|  010000  fifo (named pipe)
     # 2000  S_IFCHR   c   020000  character special
@@ -481,8 +483,8 @@ sub fit2limit {
     while ( $size_num > $limit ) {
         $size_num = int($size_num/1024);
         $size_power =~ tr/KMGTP/MGTPE/ || do { $size_power = 'K' };
-#        $limit = 999_999;
     }
+#    system "xmessage 'num: $size_num, power: $size_power'";
     return ($size_num, $size_power);
 }
 
@@ -611,7 +613,8 @@ sub filterdir {
 sub figuretoolong {
     foreach (@dircontents) {
         $_->{name_too_long} = length($_->{display}) > $maxfilenamelength-1
-                            ? $NAMETOOLONGCHAR : ' ';
+            ? $NAMETOOLONGCHAR : ' ';
+        @{$_}{qw(size_num size_power)} = &fit2limit($_->{size}, $maxfilesizelength);
     }
 }
 
@@ -674,6 +677,9 @@ sub applycolor {
 
 sub makeformatlines {
     my ($squeezedlayoutline, $prev, $letter, $trans);
+    if ($currentlayout > $#columnlayouts) {
+        $currentlayout = 0;
+    }
     my $currentlayoutline = $columnlayouts[$currentlayout];
     # find out the length of the filename and filesize fields
     $maxfilenamelength =       ($currentlayoutline =~ tr/n//) +$screenwidth -80;
@@ -800,7 +806,7 @@ sub ok_to_remove_marks {
     if (&mark_info) {
         $sure = $scr->at(0,0)->clreol()->bold()->cyan()
                     ->puts("OK to remove marks [Y/N]? ")->normal()->getch();
-        &init_header($multiple_mode);
+        &init_header;
         return ($sure =~ /y/i);
     }
     1;
@@ -812,12 +818,13 @@ sub promptforwildfilename {
     $scr->at(0,0)->clreol()->cooked();
 #    $scr->bold()->cyan()->puts($prompt)->normal();
     $wildfilename = &readintohist(\@regex_history, $prompt); #### ornaments
-    $scr->raw();      # init_header is done in handleinclude
+    # init_header is done in handleinclude
+    $scr->raw();
     eval "/$wildfilename/";
     if ($@) {
         &display_error($@);
-        $scr->key_pressed(2);  # add two seconds
-        $wildfilename = '^$';  # clear illegal regexp
+        $scr->key_pressed(1.5); # add 1.5 seconds
+        $wildfilename = '^$';   # clear illegal regexp
     }
     return $wildfilename;
 }
@@ -849,34 +856,38 @@ sub print_with_shortcuts {
     $scr->normal();
 }
 
-sub init_frame { # multiple_mode, swap_mode
-   &init_header($_[0]);
-   &init_title($_[1], $TITLE_DISKINFO, @layoutfields);
+sub init_frame {
+   &init_header;
+   &init_title($swap_mode, $TITLE_DISKINFO, @layoutfields);
    &init_footer;
 }
-
-#Attribute Copy Delete Edit Print Rename Show Your.. cOmmands Quit >
-#< Find Include.. tarGet Link More.. Time User View eXclude.. siZe Quit
-#Multiple Attribute Copy Delete Edit Print Rename Show Your.. cOmmands Quit >
-#Multiple < Find Include.. tarGet Link More.. Time User View eXclude.. siZe Quit
 
 #F1-Help F2-Back F3-Fit F4-Color F5-Read F6-Sort F7-Swap F8-Stat F9-Cols F10-Mult
 #F1-Help F2-Back F3-Fit F4-Color F5-Read F6-Sort F7-Swap F8-Incl F9-Cols F10-Mult F11-Restat
 #F1-Help F2-Back F3-Redraw F4-Color F5-Reread F6-Sort F7-Swap F8-Restat F9-Cols F10-Mult
 
-sub init_header { # "multiple"mode
-    my $multimode = $_[0];
-    my @header = split(/\n/, <<"_eoFirst_");
-Attr Cpy Del Edit Find Lnk Prt Quit Ren Show Time Uid View Your cOmnd siZe More 
-Multiple Include eXclude Attribute Time Copy Delete Print Rename Your cOmmands  
-Include? Every, Oldmarks, User or Files only:                                   
-Config pfm Edit new file Make new dir Show dir sHell Kill Write history ESC     
-Sort by: Name, Extension, Size, Date, Type, Inode (ignorecase, reverse):        
-_eoFirst_
-    $scr->at(0,0);
+sub init_header { # <special header mode>
+    my $mode = $_[0] || ($multiple_mode | $cont_mode * $HEADER_CONT);
+    my $header;
+    if      ($mode & $HEADER_SORT) {
+        $header = 'Sort by: Name, Extension, Size, Date, Type, Inode (ignorecase, reverse):        ';
+    } elsif ($mode & $HEADER_MORE) {
+        $header = 'Config pfm Edit new file Make new dir Show dir sHell Kill Write history ESC     ';
+    } elsif ($mode & $HEADER_INCLUDE) {
+        $header = 'Include? Every, Oldmarks, User or Files only:                                   ';
+    } elsif ($mode & $HEADER_CONT     and not $mode & $HEADER_MULTI) {
+        $header = '< Print Quit Rename Show Time User View eXclude Your commands siZe              ';
+    } elsif ($mode & $HEADER_CONT     and $mode & $HEADER_MULTI) {
+        $header = 'Multiple < Print Quit Rename Show Time User View eXclude Your commands siZe     ';
+    } elsif ( !($mode & $HEADER_CONT) and not $mode & $HEADER_MULTI) {
+        $header = 'Attribute Copy Delete Edit Find Include tarGet Link More cOmmands >             ';
+    } elsif ( !($mode & $HEADER_CONT) and $mode & $HEADER_MULTI) {
+        $header = 'Multiple Attribute Copy Delete Edit Find Include tarGet Link More cOmmands >    ';
+    }
+    $scr->at(0, 0);
     # in earlier days, regex was [A-Z](?!FM |M E| Ed)
-    &print_with_shortcuts($header[$multimode].' 'x($screenwidth - 80), "[A-Z]");
-    if ($multimode == 1) {
+    &print_with_shortcuts($header . ' ' x ($screenwidth - 80), "[A-Z<>]");
+    if ($mode & $HEADER_MULTI) {
         &digestcolor($multicolor);
         $scr->reverse()->bold()->at(0,0)->puts("Multiple")->normal();
     }
@@ -939,14 +950,14 @@ sub globalinit {
     if ($scr->getrows()) { $screenheight = $scr->getrows()-$BASELINE-2 }
     if ($scr->getcols()) { $screenwidth  = $scr->getcols() }
     &makeformatlines;
-    &init_frame($multiple_mode, $swap_mode);
+    &init_frame;
     # now find starting directory
     $oldcurrentdir = $currentdir = getcwd();
     $ARGV[0] and &mychdir($ARGV[0]) || do {
         $scr->at(0,0)->clreol();
         &display_error("$ARGV[0]: $! - using .");
         $scr->key_pressed(1); # add another second error delay
-        &init_header($HEADER_SINGLE);
+        &init_header;
     };
 }
 
@@ -1057,7 +1068,7 @@ sub mark_info {
                + $selected_nr_of{'D'};
     my $startline = 15;
     my $total = 0;
-    $values[0] = join ('', &fit2limit($values[0], $maxfilesizelength));
+    $values[0] = join ('', &fit2limit($values[0], 9_999_999));
     $scr->at($startline-1, $screenwidth-$DATECOL+2)->puts('Marked files');
     foreach (0..4) {
         $scr->at($startline+$_, $screenwidth-$DATECOL+1)
@@ -1142,9 +1153,7 @@ sub handlemultiple {
 }
 
 sub handlecolumns {
-    if (++$currentlayout > $#columnlayouts) {
-        $currentlayout = 0;
-    }
+    ++$currentlayout;
     &makeformatlines;
     &figuretoolong;
     &init_title($swap_mode, $TITLE_DISKINFO, @layoutfields);
@@ -1217,6 +1226,13 @@ sub handlecdold {
     } else {
         return $R_KEY;
     }
+}
+
+sub handleheader {
+    $cont_mode = $cont_mode + ($_[0] =~ />/ and $cont_mode < 1)
+                            - ($_[0] =~ /</ and $cont_mode > 0);
+#    &toggle($cont_mode);
+    return $R_HEADER;
 }
 
 sub handlefind {
@@ -1490,7 +1506,7 @@ sub handlesort {
     }
     $key = $scr->at(0,73)->getch();
     &clearcolumn;
-    &init_header($multiple_mode);
+    &init_header;
     if ($sortmodes{$key}) {
         $sort_mode   = $key;
         $position_at = $currentfile{name};
@@ -1564,6 +1580,11 @@ sub handlesymlink {
 
 sub handletarget {
     my ($newtarget, $loopfile, $do_this, $index, $oldtargetok);
+    if ($currentfile{type} ne 'l' and !$multiple_mode) {
+        $scr->at(0,0)->clreol();
+        &display_error("Current file is not a symbolic link");
+        return $R_SCREEN;
+    }
     my $prompt = 'New symlink target: ';
     my $do_a_refresh = $multiple_mode ? $R_SCREEN : $R_HEADER;
     &markcurrentline('G') unless $multiple_mode;
@@ -2260,7 +2281,7 @@ sub handleentry {
     unless ($success) {
         $scr->at(0,0)->clreol();
         &display_error($!);
-        &init_header($multiple_mode);
+        &init_header;
     }
     return $success ? $R_CHDIR : $R_KEY;
 }
@@ -2313,7 +2334,7 @@ sub stat_entry { # path_of_entry, selected_flag
 sub getdircontents { # (current)directory
     my (@contents, $entry);
     my @allentries = ();
-    &init_header($multiple_mode);
+    &init_header;
     &init_title($swap_mode, $TITLE_DISKINFO, @layoutfields);
     if ( opendir CURRENT, "$_[0]" ) {
         @allentries = readdir CURRENT;
@@ -2321,7 +2342,7 @@ sub getdircontents { # (current)directory
     } else {
         $scr->at(0,0)->clreol();
         &display_error("Cannot read . : $!");
-        &init_header($multiple_mode);
+        &init_header;
     }
     # next lines also correct for directories with no entries at all
     # (this is sometimes the case on NTFS filesystems: why?)
@@ -2412,7 +2433,7 @@ sub recalc_ptr {
 }
 
 sub redisplayscreen {
-    &init_frame($multiple_mode, $swap_mode);
+    &init_frame;
     &path_info;
     &disk_info(%disk);
     &dir_info(%total_nr_of);
@@ -2514,7 +2535,7 @@ sub browse {
                         /^v$/i     and $result = &handleview,          last KEY;
                         /^k8$/     and $result = &handleselect,        last KEY;
                         /^[\/f]$/i and $result = &handlefind,          last KEY;
-                        /^[<>]$/i  and $result = &handleheaderscroll,  last KEY;
+                        /^[<>]$/i  and $result = &handleheader($_),    last KEY;
                         /^k3$/     and $result = &handlefit,           last KEY;
                         /^t$/i     and $result = &handletime,          last KEY;
                         /^a$/i     and $result = &handlechmod,         last KEY;
@@ -2532,7 +2553,7 @@ sub browse {
                         /^g$/i     and $result = &handletarget,        last KEY;
                         } # end KEY
                     } # end if $key
-                    if ($result == $R_HEADER) { &init_header($multiple_mode) }
+                    if ($result == $R_HEADER) { &init_header }
                 } until ($result > $R_STRIDE);
                 # end STRIDE
             } until ($result > $R_DIRLISTING);
@@ -2700,31 +2721,32 @@ do=01;35:nt=01;35:wh=01;30;47:lc=\e[:rc=m:\
 ## char name                    needed width if present
 ## *    selected flag           1
 ## n    filename                variable length; last char == overflow flag
-## s    size                    7; last char == power of 1024 (K, M, G..)
+## s    size                    >=4; last char == power of 1024 (K, M, G..)
 ## u    user                    >=8 (system-dependent)
 ## g    group                   >=8 (system-dependent)
 ## p    permissions (mode)      9
 ## a    access time             15
 ## c    change time             15
 ## m    modification time       15
-## d    device                  ?
+## d    device                  5?
 ## i    inode                   7
 ## l    link count              >=5 (system-dependent)
 
-## the first three layouts were the old defaults.
-## if the terminal is resized, the filename field will be stretched.
+## take care not to make the fields too small or values will be cropped!
+## if the terminal is resized, the filename field will be elongated.
+
+## the first three layouts were the old (pre-v1.72) defaults.
+
 #<----------- layouts must not be wider than this! ------------># #<-diskinfo->#
 columnlayouts:\
 * nnnnnnnnnnnnnnnnnnnnnssssssss mmmmmmmmmmmmmmmiiiiiii pppppppppp:\
 * nnnnnnnnnnnnnnnnnnnnnssssssss aaaaaaaaaaaaaaaiiiiiii pppppppppp:\
 * nnnnnnnnnnnnnnnnnnnnnssssssss uuuuuuuu gggggggglllll pppppppppp:\
-* nnnnnnnnnnnnnnnnnnnnnnnnnnssssssss uuuuuuuu gggggggg pppppppppp:\
+* nnnnnnnnnnnnnnnnnnnnnnnnnnnsssssss uuuuuuuu gggggggg pppppppppp:\
 * nnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss mmmmmmmmmmmmmmm  pppppppppp:\
 * nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnuuuuuuuu gggggggg pppppppppp:\
-* nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss mmmmmmmmmmmmmmm:\
-* nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnmmmmmmmmmmmmmmm:\
 * nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss:\
-pppppppppp  uuuuuuuu gggggggg ssssssss* nnnnnnnnnnnnnnnnnnnnnnnnn:\
+pppppppppp  uuuuuuuu gggggggg sssssss* nnnnnnnnnnnnnnnnnnnnnnnnnn:\
 pppppppppp  mmmmmmmmmmmmmmm  ssssssss* nnnnnnnnnnnnnnnnnnnnnnnnnn:
 
 ##########################################################################
@@ -2829,6 +2851,14 @@ Toggle show/hide dot files.
 =item B</>
 
 Identical to B<F>ind (see below).
+
+=item B<E<lt>>
+
+Display first part of header line with first set of available commands.
+
+=item B<E<gt>>
+
+Display second part of header with remaining available commands.
 
 =item B<?>
 
@@ -3042,11 +3072,11 @@ same process group).
 =item B<Write history>
 
 C<pfm> uses the readline library for keeping track of the Unix commands,
-pathnames, regular expressions, mtimes, and file modes entered. The
-history is read from individual files in F<$HOME/.pfm/> every time
-C<pfm> starts. The history is written only when this command is given,
-or when C<pfm> exits and the 'autowritehistory' option is set in
-F<$HOME/.pfm/.pfmrc> .
+pathnames, regular expressions, modification times, and file modes
+entered. The history is read from individual files in F<$HOME/.pfm/>
+every time C<pfm> starts. The history is written only when this command
+is given, or when C<pfm> exits and the 'autowritehistory' option is set
+in F<$HOME/.pfm/.pfmrc> .
 
 =back
 
@@ -3095,8 +3125,13 @@ Toggles the include flag (mark) on an individual file.
 
 =item B<F9>
 
-Toggle the display mode between either user id, group id, and link count,
-or date, time, and inode number.
+Toggle the column layout. Layouts are defined in your F<.pfmrc>. Example:
+
+ columnlayouts:\
+ * nnnnnnnnnnnnnnnnnnnsssssss uuuuuuuu gggggggglllll pppppppppp:\
+ * nnnnnnnnnnnnnnnnnnnnnnnnnsssssss mmmmmmmmmmmmmmm  pppppppppp:
+
+See the configuration file for information on changing the column layout.
 
 =item B<F10>
 
@@ -3198,7 +3233,7 @@ if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.73 .
+This manual pertains to C<pfm> version 1.74 .
 
 =head1 SEE ALSO
 
