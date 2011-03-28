@@ -1,4 +1,7 @@
-1.68
+1.69
 
- * small source code changes
+* fixed bug in executing (with ENTER) filenames containing spaces
+* fixed (L)ink command for making symlink in another directory
+* added support for coloring missing (e.g. renamed) files
+* updated documentation
 
