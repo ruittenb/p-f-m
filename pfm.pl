@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20021216 v1.67
+# @(#) pfm.pl 19990314-20021216 v1.68
 #
 # Name:        pfm.pl
-# Version:     1.67 - link command still buggy
+# Version:     1.68
 # Author:      Rene Uittenbogaard
 # Date:        2002-12-16
 # Usage:       pfm.pl [directory]
@@ -23,6 +23,7 @@
 #        double quote support by using system(@) for all commands
 #        make multiple mode a bit in $multiple_mode ? bitwise-or?
 #        make R_SCREEN etc. bits in $do_a_refresh ?
+#        put symlink target in path_history in tarGet
 #        fix error handling in eval($do_this) and &display_error
 #           partly implemented in handlecopyrename
 #        command: (L)ink (make symlink)?
@@ -2994,7 +2995,7 @@ if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.67 .
+This manual pertains to C<pfm> version 1.68 .
 
 =head1 SEE ALSO
 
@@ -3017,5 +3018,6 @@ License version 2.
 
 =cut
 
-# vi: set tabstop=4 shiftwidth=4 expandtab list foldmethod=indent nofoldenable:
+# vim:     set tabstop=4 shiftwidth=4 expandtab list:
+# vim>600: set foldmethod=indent nofoldenable:
 
