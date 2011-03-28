@@ -1,5 +1,4 @@
-1.75
+1.76
 
-* changed (C)opy and (R)ename behavior: add any new entries to the current dir
-* changed (D)elete behavior: will delete files with nlink == 0
+* code cleanup
 
