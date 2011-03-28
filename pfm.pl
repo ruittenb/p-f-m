@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20021220 v1.72
+# @(#) pfm.pl 19990314-20021220 v1.72.1
 #
 # Name:        pfm.pl
-# Version:     1.72 - first version with user-defined column layouts
+# Version:     1.72.1
 # Author:      Rene Uittenbogaard
 # Date:        2002-12-20
 # Usage:       pfm.pl [directory]
@@ -29,14 +29,15 @@
 #        use perl symlink() ?
 #        make a sub restat() ?
 #        make a sub fileforall(sub) ?
-#        $ENV{PFMRC} ? location file?
+#        $ENV{PFMRC} ? $ENV{PFMDIR} ? file location ?
 #        put more-header-message in a constant? at(0,76) resolved
 #        make R_SCREEN etc. bits in $do_a_refresh ?
 #        split dircolors in dircolorsdark and dircolorslight (switch with F4)
 #        command: < > to scroll line of commands?
 #        command (M)ore-> (R)estat? F11 = restat? F8 = restat+select?
-#        user-customizable columns
-#             handleview() wordt lastig - wat aan doen
+#        handleview() difficulties - do something about them
+#        handlecopyrename: push new file on @dircontents?
+#        time2str is not in use any more, but we need it
 #        make multiple mode a bit in $multiple_mode ? bitwise-or?
 #        set ROWS en COLUMNS in environment for child processes; but see if
 #            this does not mess up with $scr->getrows etc. which use these
@@ -196,9 +197,11 @@ my %TIMEHINTS = (
 
 my $TITLEVIRTFILE = {};
 @{$TITLEVIRTFILE}{
-    qw(name size size_num mode inode mtime atime ctime
+    qw(name size size_num mode inode atime ctime mtime
+        atimestring ctimestring mtimestring
         display uid gid nlink rdev size_power name_too_long selected)
-} = qw(filename size size mode inode date/mtime date/atime date/ctime
+} = qw(filename size size mode inode date/atime date/ctime date/mtime
+        date/atime date/ctime date/mtime
         filename userid groupid lnks dev);
 
 my $screenheight    = 20;    # inner height
@@ -232,7 +235,7 @@ my (
     $currentdir, $oldcurrentdir, @dircontents, @showncontents, %currentfile,
     %disk, $swap_state, %total_nr_of, %selected_nr_of,
     # cursor position
-    $currentline, $baseindex, $cursorcol,
+    $currentline, $baseindex, $cursorcol, $filenamecol,
     # misc config options
     $editor, $pager, $printcmd, $ducmd, $showlockchar, $autoexitmultiple,
     $clobber, $cursorveryvisible, $clsonexit, $autowritehistory, $viewbase,
@@ -307,7 +310,7 @@ sub read_pfmrc { # $readflag - show copyright only on startup (first read)
     $ducmd             = $pfmrc{ducmd} || $DUCMDS{$^O} || $DUCMDS{default};
     $timeformat        = $pfmrc{timeformat} || 'pfm';
     $sort_mode         = $pfmrc{sortmode}   || 'n';
-    $currentlayout     = $pfmrc{currentlayout} || 0; # not documented
+    $currentlayout     = $pfmrc{currentlayout} || 0;
 #    $col_mode          = 2*($pfmrc{colmode} eq 'atime')
 #                         + ($pfmrc{colmode} eq 'uid');
     $headercolor       = $pfmrc{headercolor} || '37;44';
@@ -441,7 +444,6 @@ sub mode2str {
     $octmode     =~ /(\d\d?)(\d)(\d)(\d)(\d)$/;
     $strmode     = substr('-pc?d?b?-nl?sDw?', oct($1) & 017, 1)
                  . $strmodes[$3] . $strmodes[$4] . $strmodes[$5];
-    # there is some confusion about which bit specifies the Door type.
     # 0000                000000  unused
     # 1000  S_IFIFO   p|  010000  fifo (named pipe)
     # 2000  S_IFCHR   c   020000  character special
@@ -654,14 +656,65 @@ sub decidecolor {
 sub applycolor {
     if ($scr->colorizable()) {
         my ($line, $length, %file) = (shift, shift, @_);
-        $length = $length ? 255 : $screenwidth - $RESERVEDSCREENWIDTH;
+        $length = $length ? 255 : $maxfilenamelength;
         &decidecolor(%file);
-        $scr->at($line,2)->puts(substr($file{name},0,$length))->normal();
+        $scr->at($line, $filenamecol)
+            ->puts(substr($file{name}, 0, $length))->normal();
     }
 }
 
 ##########################################################################
 # small printing routines
+
+sub makeformatlines {
+    my ($squeezedlayoutline, $prev, $letter, $trans, $count);
+    my $currentlayoutline = $columnlayouts[$currentlayout];
+    # find out how much the filename field must be elongated
+    $count = $currentlayoutline =~ tr/n//;
+    $maxfilenamelength = $count + $screenwidth - 80;
+    # layouts are all based on a screenwidth of 80
+    if ($screenwidth > 80) {
+        # elongate filename field
+        $currentlayoutline =~ s/n/'n' x ($screenwidth - 79)/e;
+    }
+    $currentlayoutline =~ s/n(?!n)/N/i;
+    $currentlayoutline =~ s/s(?!s)/S/i;
+    $cursorcol   = index($currentlayoutline, '*');
+    $filenamecol = index($currentlayoutline, 'n');
+    foreach ($cursorcol, $filenamecol) {
+        if ($_ < 0) { $_ = 0 }
+    }
+    ($squeezedlayoutline = $currentlayoutline) =~
+        tr/*nNsSugpacmdil /*nNsSugpacmdil/ds;
+    @layoutfields = map {
+        if    ($_ eq '*') { 'selected'      }
+        elsif ($_ eq 'n') { 'display'       }
+        elsif ($_ eq 'N') { 'name_too_long' }
+        elsif ($_ eq 's') { 'size_num'      }
+        elsif ($_ eq 'S') { 'size_power'    }
+        elsif ($_ eq 'u') { 'uid'           }
+        elsif ($_ eq 'g') { 'gid'           }
+        elsif ($_ eq 'p') { 'mode'          }
+        elsif ($_ eq 'a') { 'atimestring'   }
+        elsif ($_ eq 'c') { 'ctimestring'   }
+        elsif ($_ eq 'm') { 'mtimestring'   }
+        elsif ($_ eq 'l') { 'nlink'         }
+        elsif ($_ eq 'i') { 'inode'         }
+        elsif ($_ eq 'd') { 'rdev'          }
+    } (split //, $squeezedlayoutline);
+    $currentformatline = $prev = '';
+    foreach $letter (split //, $currentlayoutline) {
+        if ($letter eq ' ') {
+            $currentformatline .= ' ';
+        } elsif ($prev ne $letter) {
+            $currentformatline .= '@';
+        } else {
+            ($trans = $letter) =~ tr/*nNsSugpacmdilf/<<<><<<<<<<<>></;
+            $currentformatline .= $trans;
+        }
+        $prev = $letter;
+    }
+}
 
 sub pathline {
     # pfff.. this has become very complicated since we wanted to handle
@@ -706,40 +759,11 @@ sub pathline {
          . $overflow . "[$dev]";
 }
 
-sub makeformatlines {
-    my ($squeezedlayoutline, $prev, $letter, $trans);
-    my $currentlayoutline = $columnlayouts[$currentlayout];
-    ($squeezedlayoutline = $currentlayoutline) =~
-        tr/*nNsSugpacmdil /*nNsSugpacmdil/ds;
-    @layoutfields = map {
-        if    ($_ eq '*') { 'selected'      }
-        elsif ($_ eq 'n') { 'display'       }
-        elsif ($_ eq 'N') { 'name_too_long' }
-        elsif ($_ eq 's') { 'size_num'      }
-        elsif ($_ eq 'S') { 'size_power'    }
-        elsif ($_ eq 'u') { 'uid'           }
-        elsif ($_ eq 'g') { 'gid'           }
-        elsif ($_ eq 'p') { 'mode'          }
-        elsif ($_ eq 'a') { 'atime'         }
-        elsif ($_ eq 'c') { 'ctime'         }
-        elsif ($_ eq 'm') { 'mtime'         }
-        elsif ($_ eq 'l') { 'nlink'         }
-        elsif ($_ eq 'i') { 'inode'         }
-        elsif ($_ eq 'd') { 'rdev'          }
-    } (split //, $squeezedlayoutline);
-    $currentformatline = $prev = '';
-    foreach $letter (split //, $currentlayoutline) {
-        if ($letter eq ' ') {
-            $currentformatline .= ' ';
-        } elsif ($prev ne $letter) {
-            $currentformatline .= '@';
-        } else {
-            ($trans = $letter) =~ tr/*nNsSugpacmdilf/<<<><<<<<<<<>></;
-            $currentformatline .= $trans;
-        }
-        $prev = $letter;
-    }
-}
+#sub tdline {
+#    $^A = "";
+#    formline($tdlineformat, @_[0..4], &time2str($_[5],$TIME_NARROW), @_[6,7]);
+#    return $^A;
+#}
 
 sub fileline { # $currentfile, @layoutfields
     my ($currentfile, @fields) = @_;
@@ -910,7 +934,6 @@ sub globalinit {
     $swap_state = $swap_mode = $multiple_mode = 0;
     if ($scr->getrows()) { $screenheight = $scr->getrows()-$BASELINE-2 }
     if ($scr->getcols()) { $screenwidth  = $scr->getcols() }
-    $maxfilenamelength = $screenwidth - $RESERVEDSCREENWIDTH;
     $baseindex = 0;
     &makeformatlines;
     # col_mode has been set from .pfmrc
@@ -1223,7 +1246,6 @@ sub handlefit {
 #        $ENV{COLUMNS} = $newwidth;
         $screenheight = $newheight - $BASELINE - 2;
         $screenwidth  = $newwidth;
-        $maxfilenamelength = $screenwidth - $RESERVEDSCREENWIDTH;
         &makeformatlines;
         &figuretoolong;
         return $R_CLEAR;
@@ -1303,6 +1325,7 @@ sub handlemoreconfig {
                 @dircontents = sort as_requested @dircontents
             );
         }
+        &makeformatlines;
     }
 #    $scr->clrscr();
     return $R_CLEAR;
@@ -1436,7 +1459,7 @@ sub handleview {
         s{([${trspace}\177[:cntrl:]]|[^[:ascii:]])}
          {'\\' . sprintf($viewbase, unpack('C', $1))}eg;
     }
-    $scr->at($currentline+$BASELINE,2)->bold()
+    $scr->at($currentline+$BASELINE, $filenamecol)->bold()
         # erase char after name, under cursor
         ->puts($currentfile{name} . (length($currentfile{target}) ? ' -> ' : '')
                                   . $currentfile{target} . " \cH");
@@ -2262,7 +2285,12 @@ sub stat_entry { # path_of_entry, selected_flag
         blksize  => $blksize,       blocks   => $blocks,
         selected => $selected_flag
     };
-    @{$ptr}{qw(size_num size_power)} = &fit2limit($size);
+    @{$ptr}{qw(size_num size_power atimestring ctimestring mtimestring)} = (
+        &fit2limit($size),
+        &time2str($atime, $TIME_NARROW),
+        &time2str($ctime, $TIME_NARROW),
+        &time2str($mtime, $TIME_NARROW)
+    );
     $ptr->{type} = substr($ptr->{mode}, 0, 1);
     if ($ptr->{type} eq 'l') {
         $ptr->{target}  = readlink($ptr->{name});
@@ -2297,6 +2325,7 @@ sub getdircontents { # (current)directory
     if ($#allentries < 0) {
         @allentries = ('.', '..');
     }
+    local $SIG{INT} = sub { return @contents };
     if ($#allentries > $SLOWENTRIES) {
         # don't use display_error here because that would just cost more time
         $scr->at(0,0)->clreol()->cyan()->bold()->puts('Please Wait')->normal();
@@ -2663,34 +2692,33 @@ do=01;35:nt=01;35:wh=01;30;47:lc=\e[:rc=m:\
 
 ## char name                    needed width if present
 ## *    selected flag           1
-## n    name                    any(crops)
-## N    name overflow flag      1
+## n    filename                is cropped/elongated; last char == overflow flag
 ## s    size                    7
-## S    size power (K, M, T..)  1
-## u    user                    >=8(dependent on system)
-## g    group                   >=8(dependent on system)
+## u    user                    >=8 (system-dependent)
+## g    group                   >=8 (system-dependent)
 ## p    permissions (mode)      9
-## a    atime                   15
-## c    ctime                   15
-## m    mtime                   15
+## a    access time             15
+## c    change time             15
+## m    modification time       15
 ## d    device                  ?
 ## i    inode                   7
-## l    link count              >=5(dependent on system)
+## l    link count              >=5 (system-dependent)
 
 ## the first three layouts were the old defaults.
-## if the terminal is resized, the name field will be stretched.
+## if the terminal is resized, the filename field will be stretched.
 #<----------- formats must not be wider than this! ------------># #<-diskinfo->#
 columnlayouts:\
-* nnnnnnnnnnnnnnnnnnnnNsssssssS mmmmmmmmmmmmmmmiiiiiii pppppppppp:\
-* nnnnnnnnnnnnnnnnnnnnNsssssssS aaaaaaaaaaaaaaaiiiiiii pppppppppp:\
-* nnnnnnnnnnnnnnnnnnnnNsssssssS uuuuuuuu gggggggglllll pppppppppp:\
-* nnnnnnnnnnnnnnnnnnnnnnnnnNsssssssS uuuuuuuu gggggggg pppppppppp:\
-* nnnnnnnnnnnnnnnnnnnnnnnnnnnNsssssssS mmmmmmmmmmmmmmm pppppppppp:\
-* nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnNuuuuuuuu gggggggg pppppppppp:\
-* nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnNsssssssS mmmmmmmmmmmmmmm:\
-* nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnNmmmmmmmmmmmmmmm:\
-* nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnNsssssssS:\
-* nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnN
+* nnnnnnnnnnnnnnnnnnnnnssssssss mmmmmmmmmmmmmmmiiiiiii pppppppppp:\
+* nnnnnnnnnnnnnnnnnnnnnssssssss aaaaaaaaaaaaaaaiiiiiii pppppppppp:\
+* nnnnnnnnnnnnnnnnnnnnnssssssss uuuuuuuu gggggggglllll pppppppppp:\
+* nnnnnnnnnnnnnnnnnnnnnnnnnnssssssss uuuuuuuu gggggggg pppppppppp:\
+* nnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss mmmmmmmmmmmmmmm  pppppppppp:\
+* nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnuuuuuuuu gggggggg pppppppppp:\
+* nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss mmmmmmmmmmmmmmm:\
+* nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnmmmmmmmmmmmmmmm:\
+* nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss:\
+ppppppppp  uuuuuuuu gggggggg ssssssss * nnnnnnnnnnnnnnnnnnnnnnnnn:\
+pppppppppp  mmmmmmmmmmmmmmm  ssssssss * nnnnnnnnnnnnnnnnnnnnnnnnn:\
 
 ##########################################################################
 ## Your commands
@@ -3158,7 +3186,7 @@ if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.72 .
+This manual pertains to C<pfm> version 1.72.1 .
 
 =head1 SEE ALSO
 
