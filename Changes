@@ -1,7 +1,4 @@
-1.70
+1.71
 
-* small updates to default config file
-* guess correct du(1) command based on OS
-* implemented 'dotdot' mode where . and .. entries are not sorted
-* supported whiteout filetype
+* code optimization
 

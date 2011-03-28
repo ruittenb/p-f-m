@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20021217 v1.70
+# @(#) pfm.pl 19990314-20021217 v1.71
 #
 # Name:        pfm.pl
-# Version:     1.70
+# Version:     1.71
 # Author:      Rene Uittenbogaard
 # Date:        2002-12-17
 # Usage:       pfm.pl [directory]
@@ -31,7 +31,6 @@
 #        make a sub fileforall(sub) ?
 #        make R_SCREEN etc. bits in $do_a_refresh ?
 #        split dircolors in dircolorsdark and dircolorslight (switch with F4)
-#        headerline is too wide!!
 #        command: < > to scroll line of commands?
 #        command (M)ore-> (R)estat? F11 = restat? F8 = restat+select?
 #        user-customizable columns
@@ -439,15 +438,15 @@ sub mode2str {
 }
 
 sub fit2limit {
-    my $neatletter = '';
-    my $neatsize = $_[0]; # might be uninitialized or major/minor
+    my $size_power = '';
+    my $size_num = $_[0]; # might be uninitialized or major/minor
     my $LIMIT = 9_999_999;
-    while ( $neatsize > $LIMIT ) {
-        $neatsize = int($neatsize/1024);
-        $neatletter =~ tr/KMGT/MGTP/ || do { $neatletter = 'K' };
+    while ( $size_num > $LIMIT ) {
+        $size_num = int($size_num/1024);
+        $size_power =~ tr/KMGTP/MGTPE/ || do { $size_power = 'K' };
 #        $LIMIT = 999_999;
     }
-    return ($neatsize, $neatletter);
+    return ($size_num, $size_power);
 }
 
 sub expand_12_escapes {
@@ -692,18 +691,18 @@ sub tdline {
 
 sub fileline {
     my %specs = @_;
-    my ($neatsize, $ofchar) = &fit2limit($specs{size});
+    my ($size_num, $size_power) = &fit2limit($specs{size});
     unless ($col_mode) {
-        return  &tdline( @specs{qw/selected display too_long/},
-                         $neatsize, $ofchar,
+        return  &tdline( @specs{qw/selected display name_too_long/},
+                         $size_num, $size_power,
                          @specs{qw/mtime inode mode/}        );
     } elsif ($col_mode == 1) {
-        return &uidline( @specs{qw/selected display too_long/},
-                         $neatsize, $ofchar,
+        return &uidline( @specs{qw/selected display name_too_long/},
+                         $size_num, $size_power,
                          @specs{qw/uid gid nlink mode/}      );
     } else {
-        return  &tdline( @specs{qw/selected display too_long/},
-                         $neatsize, $ofchar,
+        return  &tdline( @specs{qw/selected display name_too_long/},
+                         $size_num, $size_power,
                          @specs{qw/atime inode mode/}        );
     }
 }
@@ -803,7 +802,7 @@ sub init_frame { # multiple_mode, swap_mode, col_mode
 sub init_header { # "multiple"mode
     my $mode = $_[0];
     my @header = split(/\n/, <<"_eoFirst_");
-Attr Copy Del Edit Find Link Prnt Quit Ren Show Time Uid View Your cOmmand siZe More 
+Attr Cpy Del Edit Find Lnk Prt Quit Ren Show Time Uid View Your cOmnd siZe More 
 Multiple Include eXclude Attribute Time Copy Delete Print Rename Your cOmmands  
 Include? Every, Oldmarks, User or Files only:                                   
 Config pfm Edit new file Make new dir Show dir sHell Kill Write history ESC     
@@ -967,7 +966,7 @@ sub disk_info { # %disk{ total, used, avail }
     foreach (0..2) {
         while ( $values[$_] > 99_999 ) {
                 $values[$_] /= 1024;
-                $desc[$_] =~ tr/KMGT/MGTP/;
+                $desc[$_] =~ tr/KMGTP/MGTPE/;
         }
         $scr->at($startline+$_,$screenwidth-$DATECOL+1)
             ->puts(&infoline(int($values[$_]),$desc[$_]));
@@ -1185,8 +1184,8 @@ sub handlefit {
         $maxfilenamelength = $screenwidth - $RESERVEDSCREENWIDTH;
         &makeformatlines;
         foreach (@dircontents) {
-            $_->{too_long} = length($_->{display}) > $maxfilenamelength
-                           ? $NAMETOOLONGCHAR : ' ';
+            $_->{name_too_long} = length($_->{display}) > $maxfilenamelength
+                                ? $NAMETOOLONGCHAR : ' ';
         }
         return $R_CLEAR;
     }
@@ -2209,7 +2208,7 @@ sub stat_entry { # path_of_entry, selected_flag
     # 'selected' field of the file info should be cleared (when reading
     # a new directory) or kept intact (when re-statting)
     my ($entry, $selected_flag) = @_;
-    my ($ptr, $too_long, $target);
+    my ($ptr, $name_too_long, $target);
     my ($device, $inode, $mode, $nlink, $uid, $gid, $rdev, $size,
             $atime, $mtime, $ctime, $blksize, $blocks) = lstat $entry;
     if (!defined $user{$uid})  {  $user{$uid} = $uid }
@@ -2230,8 +2229,8 @@ sub stat_entry { # path_of_entry, selected_flag
     } else {
         $ptr->{display} = $entry;
     }
-    $ptr->{too_long} = length($ptr->{display}) > $maxfilenamelength
-                       ? $NAMETOOLONGCHAR : ' ';
+    $ptr->{name_too_long} = length($ptr->{display}) > $maxfilenamelength
+                            ? $NAMETOOLONGCHAR : ' ';
     $total_nr_of{ $ptr->{type} }++; # this is wrong! e.g. after cOmmand
     if ($ptr->{type} =~ /[bc]/) {
         $ptr->{size} = sprintf("%d",$rdev/256).$MAJORMINORSEPARATOR.($rdev%256);
@@ -3120,7 +3119,7 @@ if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.70 .
+This manual pertains to C<pfm> version 1.71 .
 
 =head1 SEE ALSO
 
