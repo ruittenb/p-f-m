@@ -1,4 +1,5 @@
-1.62
+1.63
 
-* small fixes to documentation
+* code optimization in handleentry()
+* fixed nasty cursor positioning bug in F6(Sort)
 
