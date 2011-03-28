@@ -1,7 +1,4 @@
-1.66
+1.67
 
-* added tar(G)et command (change target of symlink)
-* more robust handling of file names containing quotes or spaces
-* fixed behavior of (R)ename command
-* preserve column view across Swap(F7)
+* added (L)ink command (make symlink)
 

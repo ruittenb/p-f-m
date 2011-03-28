@@ -1,12 +1,12 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20021215 v1.66
+# @(#) pfm.pl 19990314-20021216 v1.67
 #
 # Name:        pfm.pl
-# Version:     1.66
+# Version:     1.67 - link command still buggy
 # Author:      Rene Uittenbogaard
-# Date:        2002-12-15
+# Date:        2002-12-16
 # Usage:       pfm.pl [directory]
 # Requires:    Term::ScreenColor
 #              Term::Screen
@@ -141,7 +141,7 @@ BEGIN {
 my $VERSION             = &getversion;
 my $CONFIGDIRNAME       = "$ENV{HOME}/.pfm";
 my $CONFIGFILENAME      = '.pfmrc';
-my $LOSTMSG             = '(file lost)';
+my $LOSTMSG             = ''; # was '(file lost)';
 my $CWDFILENAME         = 'cwd';
 my $MAJORMINORSEPARATOR = ',';
 my $NAMETOOLONGCHAR     = '+';
@@ -201,7 +201,7 @@ my (%user, %group, %pfmrc, @signame, %dircolors, $maxfilenamelength,
     $currentline, $baseindex,
     $editor, $pager, $printcmd, $ducmd, $showlockchar, $autoexitmultiple,
     $clobber, $cursorveryvisible, $clsonexit, $autowritehistory, $viewbase,
-    $trspace, $swap_persistent,
+    $trspace, $swap_persistent, @colformats,
     $titlecolor, $footercolor, $headercolor, $swapcolor, $multicolor
 );
 
@@ -273,12 +273,17 @@ sub read_pfmrc { # $readflag - show copyright only on startup (first read)
                          + ($pfmrc{colmode} eq 'uid');
     $headercolor       = $pfmrc{headercolor} || '37;44';
     $multicolor        = $pfmrc{multicolor}  || '36;47';
-    $titlecolor        = $pfmrc{titlecolor}  || '36;47;07;01';
-    $swapcolor         = $pfmrc{swapcolor}   || '36;40;07';
-    $footercolor       = $pfmrc{footercolor} || '34;47;07';
+    $titlecolor        = $pfmrc{titlecolor}  || '01;07;36;47';
+    $swapcolor         = $pfmrc{swapcolor}   || '07;36;40';
+    $footercolor       = $pfmrc{footercolor} || '07;34;47';
     $viewbase          = $pfmrc{viewbase} eq 'hex' ? "%#04lx" : "%03lo";
     $showlockchar      = ( $pfmrc{showlock} eq 'sun' && $^O =~ /sun|solaris/i
                              or &yesno($pfmrc{showlock}) ) ? 'l' : 'S';
+    @colformats        = split(/:/, ($pfmrc{colformats} ? $pfmrc{colformats} :
+            '* nnnnnnnnnnnnnnnnnnnnNsssssssS mmmmmmmmmmmmmmmiiiiiii pppppppppp:'
+        .   '* nnnnnnnnnnnnnnnnnnnnNsssssssS aaaaaaaaaaaaaaaiiiiiii pppppppppp:'
+        .   '* nnnnnnnnnnnnnnnnnnnnNsssssssS uuuuuuuu gggggggglllll pppppppppp'
+        ));
     $editor            = $ENV{EDITOR} || $pfmrc{editor} || 'vi';
     $pager             = $ENV{PAGER}  || $pfmrc{pager}  ||
                              ($^O =~ /linux/i ? 'less' : 'more');
@@ -1384,6 +1389,58 @@ sub handlesort {
     return $R_SCREEN; # the column with sort modes should be restored anyway
 }
 
+sub handlesymlink {
+    my ($newname, $loopfile, $do_this, $index, $newnameexpanded, $targetstring);
+    my $prompt = 'New symbolic link: ';
+    my $do_a_refresh = $multiple_mode ? $R_SCREEN : $R_HEADER;
+    &markcurrentline('L') unless $multiple_mode;
+    $scr->at(0,0)->clreol()->cooked();
+    chomp($newname = &readintohist(\@path_history, $prompt));
+    $scr->raw();
+    return $R_HEADER if ($newname eq '');
+    $do_this = sub {
+#        if (-d $newnameexpanded or $newnameexpanded =~ m!^[^/].*/!) {
+#            $targetstring = $currentdir . "/" . $loopfile->{name};
+#        } else {
+            $targetstring = $loopfile->{name};
+#        }
+        $scr->puts("ln -s $targetstring $newnameexpanded"); sleep 2;
+        if (system qw(ln -s), ($clobber ? "-f" : ""),
+            $targetstring, $newnameexpanded
+        ) {
+            $scr->at(0,0)->clreol();
+            &display_error($!);
+            if ($multiple_mode) {
+                &path_info;
+            } else {
+                $do_a_refresh = $R_SCREEN;
+            }
+        }
+    };
+    if ($multiple_mode) {
+        for $index (0..$#dircontents) {
+            $loopfile = $dircontents[$index];
+            &expand_escapes(($newnameexpanded = $newname), $loopfile);
+            if ($loopfile->{selected} eq '*') {
+                $scr->at(1,0)->clreol()->puts($loopfile->{name});
+                &exclude($loopfile,'.');
+                &$do_this;
+                $dircontents[$index] =
+                    &stat_entry($loopfile->{name}, $loopfile->{selected});
+            }
+        }
+        $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
+    } else {
+        $loopfile = \%currentfile;
+        &expand_escapes(($newnameexpanded = $newname), $loopfile);
+        &$do_this;
+        $showncontents[$currentline+$baseindex] =
+            &stat_entry($currentfile{name}, $currentfile{selected});
+        &copyback($currentfile{name});
+    }
+    return $do_a_refresh;
+}
+
 sub handletarget {
     my ($newtarget, $loopfile, $do_this, $index, $oldtargetok);
     my $prompt = 'New symlink target: ';
@@ -1396,7 +1453,7 @@ sub handletarget {
     $do_this = '
         if ($loopfile->{type} ne "l") {
             $scr->at(0,0)->clreol();
-            &display_error("Current file is not a symbolic link.");
+            &display_error("Current file is not a symbolic link");
             $do_a_refresh = $R_SCREEN;
         } else {
             $oldtargetok = 1;
@@ -1405,8 +1462,12 @@ sub handletarget {
                 # next line is an intentional assignment
                 unless ($oldtargetok = unlink $loopfile->{name}) {
                     $scr->at(0,0)->clreol();
-                    &display_error("$!");
-                    $do_a_refresh = $R_SCREEN;
+                    &display_error($!);
+                    if ($multiple_mode) {
+                        &path_info;
+                    } else {
+                        $do_a_refresh = $R_SCREEN;
+                    }
                 }
             }
             if ($oldtargetok and
@@ -1414,7 +1475,11 @@ sub handletarget {
             {
                 $scr->at(0,0)->clreol();
                 &display_error($!);
-                $do_a_refresh = $R_SCREEN;
+                if ($multiple_mode) {
+                    &path_info;
+                } else {
+                    $do_a_refresh = $R_SCREEN;
+                }
             }
         }
     ';
@@ -1424,7 +1489,7 @@ sub handletarget {
             if ($loopfile->{selected} eq '*') {
                 $scr->at(1,0)->clreol()->puts($loopfile->{name});
                 &exclude($loopfile,'.');
-                eval ($do_this);
+                eval $do_this;
                 $dircontents[$index] =
                     &stat_entry($loopfile->{name}, $loopfile->{selected});
             }
@@ -1432,7 +1497,7 @@ sub handletarget {
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
         $loopfile = \%currentfile;
-        eval($do_this);
+        eval $do_this;
         $showncontents[$currentline+$baseindex] =
             &stat_entry($currentfile{name}, $currentfile{selected});
         &copyback($currentfile{name});
@@ -1454,7 +1519,11 @@ sub handlechown {
         if (system ("chown", $newuid, $loopfile->{name})) {
             $scr->raw()->at(0,0)->clreol();
             &display_error($!);
-            $do_a_refresh = $R_SCREEN;
+            if ($multiple_mode) {
+                &path_info;
+            } else {
+                $do_a_refresh = $R_SCREEN;
+            }
         }
     ';
     if ($multiple_mode) {
@@ -1491,7 +1560,11 @@ sub handlechmod {
     if ($newmode =~ /^\s*(\d+)\s*$/) {
         $do_this = 'unless (    chmod '.oct($1).',$loopfile->{name}) {
             &display_error($!);
-            $do_a_refresh = $R_SCREEN;
+            if ($multiple_mode) {
+                &path_info;
+            } else {
+                $do_a_refresh = $R_SCREEN;
+            }
         }';
     } else {
         # sun will not accept this
@@ -1500,7 +1573,11 @@ sub handlechmod {
         $do_this = 'if (system "chmod", $newmode, $loopfile->{name}) {
             $scr->at(0,0)->clreol();
             &display_error($!);
-            $do_a_refresh = $R_SCREEN;
+            if ($multiple_mode) {
+                &path_info;
+            } else {
+                $do_a_refresh = $R_SCREEN;
+            }
         }';
     }
     if ($multiple_mode) {
@@ -1749,7 +1826,11 @@ sub handletime {
     $do_this = 'if (system qw(touch '.$newtime.'), $loopfile->{name}) {
             $scr->at(0,0)->clreol();
             &display_error($!);
-            $do_a_refresh = $R_SCREEN;
+            if ($multiple_mode) {
+                &path_info;
+            } else {
+                $do_a_refresh = $R_SCREEN;
+            }
         }';
     if ($multiple_mode) {
         for $index (0..$#dircontents) {
@@ -2277,8 +2358,9 @@ sub browse {
                         &highlightline($HIGHLIGHT_OFF);
                         KEY: for ($key) {
                         # order is determined by (supposed) frequency of use
-                        /^(?:kr|kl|[hl\e\cH])$/i
+                        /^(?:kr|kl|[h\e\cH])$/i
                                    and $result = &handleentry($_),     last KEY;
+                        /^l$/      and $result = &handlekeyell,        last KEY;
                         /^[cr]$/i  and $result = &handlecopyrename($_),last KEY;
                         /^[yo]$/i  and $result = &handlecommand($_),   last KEY;
                         /^e$/i     and $result = &handleedit,          last KEY;
@@ -2295,9 +2377,11 @@ sub browse {
                         /^k10$/    and $result = &handlemultiple,      last KEY;
                         /^m$/i     and $result = &handlemore,          last KEY;
                         /^p$/i     and $result = &handleprint,         last KEY;
+                        /^L$/      and $result = &handlesymlink,       last KEY;
                         /^v$/i     and $result = &handleview,          last KEY;
                         /^k8$/     and $result = &handleselect,        last KEY;
                         /^[\/f]$/i and $result = &handlefind,          last KEY;
+                        /^[<>]$/i  and $result = &handleheaderscroll,  last KEY;
                         /^k3$/     and $result = &handlefit,           last KEY;
                         /^t$/i     and $result = &handletime,          last KEY;
                         /^a$/i     and $result = &handlechmod,         last KEY;
@@ -2454,9 +2538,9 @@ do=01;35:nt=01;35:wh=01;30;47:lc=\e[:rc=m:\
 ## these are commented out because they are the defaults
 #headercolor:37;44
 #multicolor:36;47
-#titlecolor:36;47;07;01
-#swapcolor:36;40;07
-#footercolor:34;47;07
+#titlecolor:01;07;36;47
+#swapcolor:07;36;40
+#footercolor:07;34;47
 
 ##########################################################################
 ## Your commands
@@ -2910,7 +2994,7 @@ if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.66 .
+This manual pertains to C<pfm> version 1.67 .
 
 =head1 SEE ALSO
 
