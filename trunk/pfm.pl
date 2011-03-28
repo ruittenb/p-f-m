@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20021222 v1.74
+# @(#) pfm.pl 19990314-20021222 v1.75
 #
 # Name:        pfm.pl
-# Version:     1.74
+# Version:     1.75
 # Author:      Rene Uittenbogaard
 # Date:        2002-12-22
 # Usage:       pfm.pl [directory]
@@ -22,18 +22,29 @@
 # TODO:  use quotemeta() for quoting? (problem: \ in filenames)
 #        double quote support by using system(@) for all commands
 #        double quote and space support in (Y)our and c(O)mmands
+#        get rid of backticks around 'df' in si(Z)e?
+#
 #        fix error handling in eval($do_this) and &display_error
 #           partly implemented in handlecopyrename
 #        more &$subptr; instead of eval $substring;
-#        get rid of backticks around 'df' in siZe?
-#        use perl symlink() ?
-#        make a sub restat() ?
 #        make a sub fileforall(sub) ?
+#
+#        use the nameindexmap from handledelete() more globally?
+#           in handlecopyrename()?
+#
+#        use perl symlink()
+#        use mkdir -p if m!/! (all unix platforms?)
+#        implement 'logical' paths in addition to 'physical' paths?
+#            unless (chdir()) { getcwd() } otherwise no getcwd() ?
+#        mouse support?
+#
+#        flatten browse() ?
+#        make R_SCREEN etc. bits in $do_a_refresh ?
+#
 #        change date display to 2002 Dec 16 01:32 ? or use:
 #            use POSIX qw(strftime);
 #            $now_string = strftime "%a %b %e %H:%M:%S %Y", localtime;
 #        do something about at(0,76) calls - store as constants? length()?
-#        make R_SCREEN etc. bits in $do_a_refresh ?
 #        split dircolors in dircolorsdark and dircolorslight (switch with F4)
 #        command (M)ore-> (R)estat? F11 = restat?
 #        handlecopyrename: push new file on @dircontents? does it exist already?
@@ -105,6 +116,7 @@ use vars qw(
     $R_HEADER
     $R_STRIDE
     $R_DIRLISTING
+    $R_DIRSORT
     $R_SCREEN
     $R_CLEAR
     $R_DIRCONTENTS
@@ -144,6 +156,7 @@ BEGIN {
 *R_STRIDE       = \20;
 *R_DIRLISTING   = \30;
 *R_SCREEN       = \40;
+*R_DIRSORT      = \45;
 *R_CLEAR        = \50;
 *R_DIRCONTENTS  = \60;
 *R_CHDIR        = \70;
@@ -201,7 +214,7 @@ my $TITLEVIRTFILE = {};
     qw(name size size_num mode inode atime ctime mtime
         atimestring ctimestring mtimestring
         display uid gid nlink rdev size_power name_too_long selected)
-} = qw(filename size size mode inode date/atime date/ctime date/mtime
+} = qw(filename size size perm inode date/atime date/ctime date/mtime
         date/atime date/ctime date/mtime
         filename userid groupid lnks dev);
 
@@ -258,7 +271,7 @@ sub whichconfigfile {
 sub write_pfmrc {
     local $_;
     my @resourcefile;
-    if (open MKPFMRC, '>'.&whichconfigfile) {
+    if (open MKPFMRC, '>' . &whichconfigfile) {
         # both __DATA__ and __END__ markers are used at the same time
         push (@resourcefile, $_) while (($_ = <DATA>) !~ /^__END__$/);
         close DATA;
@@ -320,8 +333,6 @@ sub read_pfmrc { # $readflag - show copyright only on startup (first read)
     $timeformat        = $pfmrc{timeformat} || 'pfm';
 #    $sort_mode         = $pfmrc{sortmode}   || 'n';
 #    $currentlayout     = $pfmrc{currentlayout} || 0;
-#    $col_mode          = 2*($pfmrc{colmode} eq 'atime')
-#                         + ($pfmrc{colmode} eq 'uid');
     $headercolor       = $pfmrc{headercolor} || '37;44';
     $multicolor        = $pfmrc{multicolor}  || '36;47';
     $titlecolor        = $pfmrc{titlecolor}  || '01;07;36;47';
@@ -484,7 +495,6 @@ sub fit2limit {
         $size_num = int($size_num/1024);
         $size_power =~ tr/KMGTP/MGTPE/ || do { $size_power = 'K' };
     }
-#    system "xmessage 'num: $size_num, power: $size_power'";
     return ($size_num, $size_power);
 }
 
@@ -614,11 +624,13 @@ sub figuretoolong {
     foreach (@dircontents) {
         $_->{name_too_long} = length($_->{display}) > $maxfilenamelength-1
             ? $NAMETOOLONGCHAR : ' ';
-        @{$_}{qw(size_num size_power)} = &fit2limit($_->{size}, $maxfilesizelength);
+        @{$_}{qw(size_num size_power)} =
+            &fit2limit($_->{size}, $maxfilesizelength);
     }
 }
 
 sub dirlookup {
+    # this assumes that the entry will be found
     my ($name, @array) = @_;
     my $found = $#array;
     while ($found >= 0 and $array[$found]{name} ne $name) {
@@ -627,7 +639,8 @@ sub dirlookup {
     return $found;
 }
 
-sub copyback { # copy a changed entry from @showncontents back to @dircontents
+sub copyback {
+    # copy a changed entry from @showncontents back to @dircontents
     $dircontents[&dirlookup($_[0], @dircontents)] =
         $showncontents[$currentline+$baseindex];
 }
@@ -1288,7 +1301,6 @@ sub handlemoreshow {
     my $prompt  = 'Directory Pathname: ';
     return $R_HEADER unless &ok_to_remove_marks;
     $scr->at(0,0)->clreol()->cooked();
-#    $scr->bold()->cyan()->puts($prompt)->normal()->at(0,20);
     $newname = &readintohist(\@path_history, $prompt);
     $scr->raw();
     $position_at = '.';
@@ -1308,10 +1320,9 @@ sub handlemoremake {
     my $do_a_refresh = $R_SCREEN;
     my $prompt  = 'New Directory Pathname: ';
     $scr->at(0,0)->clreol()->cooked();
-#    $scr->bold()->cyan()->puts($prompt)->normal()->at(0,length($prompt));
     $newname = &readintohist(\@path_history, $prompt);
     $scr->raw();
-    if ( !mkdir $newname,0777 ) {
+    if ( !mkdir $newname, 0777 ) {
         &display_error("$newname: $!");
     } else {
 # could this be enough?
@@ -1321,7 +1332,6 @@ sub handlemoremake {
         if ( !&mychdir($newname) ) {
             &display_error("$newname: $!"); # e.g. by restrictive umask
         } else {
-#            ($oldcurrentdir, $currentdir) = ($currentdir, getcwd());
             $position_at = '.';
         }
     }
@@ -1830,23 +1840,24 @@ sub handledelete {
     # don't allow people to delete '.': normally, this would be allowed if it
     # is empty, but if that leaves the parent directory empty, then it can also
     # be removed, which causes a fatal pfm error.
-    $do_this = q"if ($loopfile->{type} eq 'd') {
-                     if ($loopfile->{name} eq '.') {
-                         $success = 0;
-                         $msg = 'Deleting current directory not allowed';
-                     } else {
-                         $success = rmdir $loopfile->{name};
-                     }
-                 } else {
-                     $success = unlink $loopfile->{name};
-                 }
-                 if ($success) {
-                     $total_nr_of{$loopfile->{type}}--;
-                     &exclude($loopfile) if $loopfile->{selected} eq '*';
-                 } else { # not success
-                     &display_error($msg || $!);
-                 }
-                 ";
+    $do_this = q"
+        if ($loopfile->{name} eq '.') {
+            $success = 0;
+            $msg = 'Deleting current directory not allowed';
+        } elsif ($loopfile->{nlink} == 0) {
+            $success = 1;
+        } elsif ($loopfile->{type} eq 'd') {
+            $success = rmdir $loopfile->{name};
+        } else {
+            $success = unlink $loopfile->{name};
+        }
+        if ($success) {
+            $total_nr_of{$loopfile->{type}}--;
+            &exclude($loopfile) if $loopfile->{selected} eq '*';
+        } else { # not success
+            &display_error($msg || $!);
+        }
+    ";
     if ($multiple_mode) {
         $oldpos = $currentfile{name};
         # build nameindexmap on showncontents, not dircontents.
@@ -2024,7 +2035,8 @@ sub handlecopyrename {
     my $state = "\u$_[0]";
     my $statecmd = ($state eq 'C' ? 'cp' : 'mv');
     my $stateprompt = $state eq 'C' ? 'Destination: ' : 'New name: ';
-    my ($loopfile, $index, $newname, $newnameexpanded, $command);
+    my ($loopfile, $index, $newname, $newnameexpanded, $command, $findindex,
+        @statecmd);
     my $do_a_refresh = $R_HEADER;
     &markcurrentline($state) unless $multiple_mode;
     $scr->at(0,0)->clreol()->cooked();
@@ -2047,18 +2059,28 @@ sub handlecopyrename {
         &path_info;
         return $R_HEADER;
     }
-    $command = '
-    if (system ($statecmd,' . ($clobber ? '' : "'-i',") .
-        '$loopfile->{name}, $newnameexpanded) )
-    {
-        $scr->raw()->at(0,0)->clreol();
-        &display_error($!);
-        if ($multiple_mode) {
-            &path_info;
-        } else {
-            $do_a_refresh = $R_SCREEN;
+    $command = sub {
+        @statecmd = ($statecmd, $loopfile->{name}, $newnameexpanded);
+        splice (@statecmd, 1, 0, '-i') unless $clobber;
+        if (system @statecmd) {
+            $scr->raw()->at(0,0)->clreol();
+            &display_error($!);
+            if ($multiple_mode) {
+                &path_info;
+            } else {
+                $do_a_refresh = max($R_SCREEN, $do_a_refresh);
+            }
+        } elsif ($newnameexpanded !~ m!/!) {
+            # is newname present in @dircontents? push otherwise
+            $findindex = 0;
+            $findindex++ while ($findindex <= $#dircontents and
+                            $newnameexpanded ne $dircontents[$findindex]{name});
+            if ($findindex > $#dircontents) {
+                $do_a_refresh = max($R_DIRSORT, $do_a_refresh);
+            }
+            $dircontents[$findindex] = &stat_entry($newnameexpanded, " ");
         }
-    }';
+    };
     if ($multiple_mode) {
         for $index (0..$#dircontents) {
             $loopfile = $dircontents[$index];
@@ -2067,14 +2089,14 @@ sub handlecopyrename {
                 &expand_escapes(($newnameexpanded = $newname), $loopfile);
                 $scr->at(1,0)->clreol()->puts($loopfile->{name});
                 $scr->cooked() unless $clobber;
-                eval $command;
+                &$command;
                 $dircontents[$index] =
                     &stat_entry($loopfile->{name},$loopfile->{selected});
                 if ($dircontents[$index]{nlink} == 0) {
                     $dircontents[$index]{display} .= " $LOSTMSG";
                 }
                 $scr->raw() unless $clobber;
-                $do_a_refresh = $R_SCREEN;
+                $do_a_refresh = max($R_SCREEN, $do_a_refresh);
             }
         }
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
@@ -2083,7 +2105,7 @@ sub handlecopyrename {
 #        &expand_escapes($command, $loopfile);
         &expand_escapes(($newnameexpanded = $newname), $loopfile);
         $scr->cooked() unless $clobber;
-        eval $command;
+        &$command;
         $showncontents[$currentline+$baseindex] =
             &stat_entry($currentfile{name}, $currentfile{selected});
         if ($showncontents[$currentline+$baseindex]{nlink} == 0) {
@@ -2091,10 +2113,22 @@ sub handlecopyrename {
         }
         &copyback($currentfile{name});
         # if ! $clobber, we might have gotten an 'Overwrite?' question
-        $do_a_refresh = $clobber ? $R_HEADER : $R_SCREEN;
+        $do_a_refresh = max($R_SCREEN, $do_a_refresh) unless $clobber;
         $scr->raw() unless $clobber;
     }
     return $do_a_refresh;
+}
+
+sub handlerestat {
+    # i have seen these commands somewhere before..
+    my $currentfile = $dircontents[$currentline+$baseindex];
+    $showncontents[$currentline+$baseindex] =
+        &stat_entry($currentfile{name}, $currentfile{selected});
+    if ($showncontents[$currentline+$baseindex]{nlink} == 0) {
+        $showncontents[$currentline+$baseindex]{display} .= " $LOSTMSG";
+    }
+    &copyback($currentfile{name});
+    return $R_STRIDE;
 }
 
 sub handleselect {
@@ -2397,20 +2431,19 @@ sub get_filesystem_info {
 sub position_cursor {
     $currentline = 0;
     $baseindex   = 0 if $position_at eq '..'; # descending into this dir
-    ANYENTRY: {
-        for (0..$#showncontents) {
-            if ($position_at eq $showncontents[$_]{name}) {
-                $currentline = $_ - $baseindex;
-                last ANYENTRY;
-            }
+    ANYENTRY: for (0..$#showncontents) {
+        if ($position_at eq $showncontents[$_]{name}) {
+            $currentline = $_ - $baseindex;
+            last ANYENTRY;
         }
-        $baseindex = 0;
     }
+    $baseindex = 0;
     $position_at = '';
     return &validate_position; # refresh flag
 }
 
 sub set_argv0 {
+    # this may be helpful for sysadmins trying to unmount a filesystem
     $0 = 'pfm [on ' . ( $disk{device} eq 'none' ? $disk{mountpoint}
                                                 : $disk{device} ) . ']';
 }
@@ -2467,14 +2500,15 @@ sub redisplayscreen {
 # and the more loops should be exited from.
 # the following are valid return values, in increasing order of severity:
 #
-# $R_KEY         == 0;   # no special action, wait for new key
-# $R_HEADER      == 1;   # just call init_header()
-# $R_STRIDE      == 2;   # wait for new keypress
-# $R_DIRLISTING  == 3;   # init @showncontents from @dircontents; redisplay list
-# $R_SCREEN      == 4;   # redraw entire screen
-# $R_CLEAR       == 5;   # like R_SCREEN, but clrscr() first
-# $R_DIRCONTENTS == 6;   # reread directory contents
-# $R_CHDIR       == 7;   # exit from directory
+# $R_KEY         == 0;   # no action was required, wait for new key
+# $R_HEADER      == 10;  # like R_KEY, but init_header() first
+# $R_STRIDE      == 20;  # an action was performed, wait for new command
+# $R_DIRLISTING  == 30;  # init @showncontents from @dircontents; redisplay list
+# $R_SCREEN      == 40;  # redraw entire screen
+# $R_DIRSORT     == 45;  # like R_SCREEN, but sort @dircontents first
+# $R_CLEAR       == 50;  # like R_SCREEN, but clrscr() first
+# $R_DIRCONTENTS == 60;  # reread directory contents
+# $R_CHDIR       == 70;  # exit from directory
 # $R_QUIT        == 255; # exit from program
 
 sub browse {
@@ -2534,6 +2568,7 @@ sub browse {
                         /^L$/      and $result = &handlesymlink,       last KEY;
                         /^v$/i     and $result = &handleview,          last KEY;
                         /^k8$/     and $result = &handleselect,        last KEY;
+                        /^k11$/    and $result = &handlerestat,        last KEY;
                         /^[\/f]$/i and $result = &handlefind,          last KEY;
                         /^[<>]$/i  and $result = &handleheader($_),    last KEY;
                         /^k3$/     and $result = &handlefit,           last KEY;
@@ -2558,7 +2593,12 @@ sub browse {
                 # end STRIDE
             } until ($result > $R_DIRLISTING);
             # end DIRLISTING
-            if ($result == $R_CLEAR) { $scr->clrscr }
+            if ($result == $R_DIRSORT) {
+                $position_at = $dircontents[$currentline+$baseindex]{name};
+                @dircontents = sort as_requested(@dircontents);
+            } elsif ($result == $R_CLEAR) {
+                $scr->clrscr;
+            }
         } until ($result > $R_CLEAR);
         # end SCREEN
     } until ($result > $R_DIRCONTENTS);
@@ -2734,6 +2774,7 @@ do=01;35:nt=01;35:wh=01;30;47:lc=\e[:rc=m:\
 
 ## take care not to make the fields too small or values will be cropped!
 ## if the terminal is resized, the filename field will be elongated.
+## it is allowed to provide a final : after the last layout.
 
 ## the first three layouts were the old (pre-v1.72) defaults.
 
@@ -2818,7 +2859,7 @@ I<regular files>.
 
 You may specify a starting directory on the command line when
 invoking C<pfm>. The C<CDPATH> environment variable is taken into
-account C<pfm> tries to find this directory. There are no command line
+account when C<pfm> tries to find this directory. There are no command line
 options. Configuration is read from a file, F<$HOME/.pfm/.pfmrc> , which
 is created automatically the first time you start C<pfm>. The file is
 supposed to be self-explanatory.  See also MORE COMMANDS below.
@@ -2854,11 +2895,13 @@ Identical to B<F>ind (see below).
 
 =item B<E<lt>>
 
-Display first part of header line with first set of available commands.
+Scroll the header line to the left, displaying the first part of the set
+of available commands.
 
 =item B<E<gt>>
 
-Display second part of header with remaining available commands.
+Scroll the header line to the right, displaying the second part of the
+set of available commands.
 
 =item B<?>
 
@@ -2869,7 +2912,7 @@ Display help. Identical to B<F1>.
 Allows the user to enter a perl command to be executed in the context
 of C<pfm>. Primarily used for debugging.
 
-=item B<Attr>
+=item B<Attrib>
 
 Changes the mode of the file if you are the owner. Use a '+' to add a
 permission, a '-' to remove it, and a '=' specify the mode exactly, or
@@ -2878,7 +2921,7 @@ specify the mode numerically.
 Note 1: the mode on a symbolic link cannot be set. Read the chmod(1)
 page for more details.
 
-Note 2: the name B<Attr> for this command is a reminiscence of the DOS
+Note 2: the name B<Attrib> for this command is a reminiscence of the DOS
 version.
 
 =item B<Copy>
@@ -3125,17 +3168,16 @@ Toggles the include flag (mark) on an individual file.
 
 =item B<F9>
 
-Toggle the column layout. Layouts are defined in your F<.pfmrc>. Example:
-
- columnlayouts:\
- * nnnnnnnnnnnnnnnnnnnsssssss uuuuuuuu gggggggglllll pppppppppp:\
- * nnnnnnnnnnnnnnnnnnnnnnnnnsssssss mmmmmmmmmmmmmmm  pppppppppp:
-
-See the configuration file for information on changing the column layout.
+Toggle the column layout. Layouts are defined in your F<.pfmrc>. See the
+configuration file for information on changing the column layout.
 
 =item B<F10>
 
 Switch between single-file and multiple-file mode.
+
+=item B<F11>
+
+Refresh (using lstat(2)) the displayed file data for the current file.
 
 =item B<ENTER>
 
@@ -3228,12 +3270,12 @@ processed, although they have been registered. This can be dangerous when
 deleting files.  The author once almost pressed ENTER when logged in as
 root and with the cursor next to F</sbin/reboot> . You have been warned.
 
-The smallest terminal size supported is 80x24. The display will be messy
-if you resize your terminal window to a smaller size.
+The smallest terminal size supported is 80x24. The display will be messed
+up if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.74 .
+This manual pertains to C<pfm> version 1.75 .
 
 =head1 SEE ALSO
 

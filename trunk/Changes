@@ -1,4 +1,5 @@
-1.74
+1.75
 
-* added < and > commands to give a better overview of available commands
+* changed (C)opy and (R)ename behavior: add any new entries to the current dir
+* changed (D)elete behavior: will delete files with nlink == 0
 
