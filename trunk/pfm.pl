@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20021222 v1.75
+# @(#) pfm.pl 19990314-20021222 v1.76
 #
 # Name:        pfm.pl
-# Version:     1.75
+# Version:     1.76
 # Author:      Rene Uittenbogaard
 # Date:        2002-12-22
 # Usage:       pfm.pl [directory]
@@ -28,34 +28,34 @@
 #           partly implemented in handlecopyrename
 #        more &$subptr; instead of eval $substring;
 #        make a sub fileforall(sub) ?
+#  consistent use do_a_refresh do_this
+#        implement push on @dircontents from (L)ink
 #
 #        use the nameindexmap from handledelete() more globally?
-#           in handlecopyrename()?
+#           in handlecopyrename()? in handlefind() ?
 #
 #        use perl symlink()
 #        use mkdir -p if m!/! (all unix platforms?)
 #        implement 'logical' paths in addition to 'physical' paths?
 #            unless (chdir()) { getcwd() } otherwise no getcwd() ?
-#        mouse support?
 #
 #        flatten browse() ?
 #        make R_SCREEN etc. bits in $do_a_refresh ?
+#        command: (W)hite (toggle show/hide whiteout entries)?
 #
 #        change date display to 2002 Dec 16 01:32 ? or use:
 #            use POSIX qw(strftime);
 #            $now_string = strftime "%a %b %e %H:%M:%S %Y", localtime;
 #        do something about at(0,76) calls - store as constants? length()?
 #        split dircolors in dircolorsdark and dircolorslight (switch with F4)
-#        command (M)ore-> (R)estat? F11 = restat?
-#        handlecopyrename: push new file on @dircontents? does it exist already?
 #        set ROWS en COLUMNS in environment for child processes; but see if
 #            this does not mess up with $scr->getrows etc. which use these
 #            variables internally; portability?
+#        mouse support? \e[?9h \e[M<Cb><Cx><Cy> \e[?9l
 #        stat_entry() must *not* rebuild the selected_nr and total_nr lists:
 #            this messes up with e.g. cOmmand -> cp \2 /somewhere/else
 #            (which is, therefore, still buggy). this is closely related to:
 #        sub countdircontents is not used
-#        command: (W)hite (toggle show/hide whiteout entries)?
 #        hierarchical sort? e.g. 'sen' (size,ext,name)
 #        major/minor numbers on DU 4.0E are wrong (does readline work there?)
 
@@ -1244,7 +1244,6 @@ sub handlecdold {
 sub handleheader {
     $cont_mode = $cont_mode + ($_[0] =~ />/ and $cont_mode < 1)
                             - ($_[0] =~ /</ and $cont_mode > 0);
-#    &toggle($cont_mode);
     return $R_HEADER;
 }
 
@@ -1252,7 +1251,6 @@ sub handlefind {
     my $findme;
     my $prompt = 'File to find: ';
     $scr->at(0,0)->clreol()->cooked();
-#    $scr->cyan()->bold()->puts($prompt)->normal()->at(0,14);
     ($findme = &readintohist(\@path_history, $prompt)) =~ s/\/$//;
     if ($findme =~ /\//) { $findme = basename($findme) };
     $scr->raw();
@@ -1606,7 +1604,7 @@ sub handletarget {
     }
     $scr->raw();
     return $R_HEADER if ($newtarget eq '');
-    $do_this = '
+    $do_this = sub {
         if ($loopfile->{type} ne "l") {
             $scr->at(0,0)->clreol();
             &display_error("Current file is not a symbolic link");
@@ -1638,14 +1636,14 @@ sub handletarget {
                 }
             }
         }
-    ';
+    };
     if ($multiple_mode) {
         for $index (0..$#dircontents) {
             $loopfile = $dircontents[$index];
             if ($loopfile->{selected} eq '*') {
                 $scr->at(1,0)->clreol()->puts($loopfile->{name});
                 &exclude($loopfile,'.');
-                eval $do_this;
+                &$do_this;
                 $dircontents[$index] =
                     &stat_entry($loopfile->{name}, $loopfile->{selected});
             }
@@ -1653,7 +1651,7 @@ sub handletarget {
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
         $loopfile = \%currentfile;
-        eval $do_this;
+        &$do_this;
         $showncontents[$currentline+$baseindex] =
             &stat_entry($currentfile{name}, $currentfile{selected});
         &copyback($currentfile{name});
@@ -1671,8 +1669,8 @@ sub handlechown {
 #    chop ($newuid = <STDIN>);
     $scr->raw();
     return $R_HEADER if ($newuid eq '');
-    $do_this = '
-        if (system ("chown", $newuid, $loopfile->{name})) {
+    $do_this = sub {
+        if (system ('chown', $newuid, $loopfile->{name})) {
             $scr->raw()->at(0,0)->clreol();
             &display_error($!);
             if ($multiple_mode) {
@@ -1681,14 +1679,14 @@ sub handlechown {
                 $do_a_refresh = $R_SCREEN;
             }
         }
-    ';
+    };
     if ($multiple_mode) {
         for $index (0..$#dircontents) {
             $loopfile = $dircontents[$index];
             if ($loopfile->{selected} eq '*') {
                 $scr->at(1,0)->clreol()->puts($loopfile->{name});
                 &exclude($loopfile, '.');
-                eval $do_this;
+                &$do_this;
                 $dircontents[$index] =
                     &stat_entry($loopfile->{name}, $loopfile->{selected});
             }
@@ -1696,7 +1694,7 @@ sub handlechown {
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
         $loopfile = \%currentfile;
-        eval $do_this;
+        &$do_this;
         $showncontents[$currentline+$baseindex] =
             &stat_entry($currentfile{name}, $currentfile{selected});
         &copyback($currentfile{name});
@@ -1713,28 +1711,29 @@ sub handlechmod {
     chomp($newmode = &readintohist(\@mode_history, $prompt)); # ornaments
     $scr->raw();
     return $R_HEADER if ($newmode eq '');
-    if ($newmode =~ /^\s*(\d+)\s*$/) {
-        $do_this = 'unless (    chmod '.oct($1).',$loopfile->{name}) {
-            &display_error($!);
-            if ($multiple_mode) {
-                &path_info;
-            } else {
-                $do_a_refresh = $R_SCREEN;
+    if ($newmode =~ s/^\s*(\d+)\s*$/oct($1)/e) {
+        $do_this = sub {
+            unless (chmod $newmode, $loopfile->{name}) {
+                &display_error($!);
+                if ($multiple_mode) {
+                    &path_info;
+                } else {
+                    $do_a_refresh = $R_SCREEN;
+                }
             }
-        }';
+        };
     } else {
-        # sun will not accept this
-#        $newmode =~ s/\+l/g+s,g-x/;
-#        $newmode =~ s/\-l/g-s,g+x/;
-        $do_this = 'if (system "chmod", $newmode, $loopfile->{name}) {
-            $scr->at(0,0)->clreol();
-            &display_error($!);
-            if ($multiple_mode) {
-                &path_info;
-            } else {
-                $do_a_refresh = $R_SCREEN;
+        $do_this = sub {
+            if (system 'chmod', $newmode, $loopfile->{name}) {
+                $scr->at(0,0)->clreol();
+                &display_error($!);
+                if ($multiple_mode) {
+                    &path_info;
+                } else {
+                    $do_a_refresh = $R_SCREEN;
+                }
             }
-        }';
+        };
     }
     if ($multiple_mode) {
         for $index (0..$#dircontents) {
@@ -1742,7 +1741,7 @@ sub handlechmod {
             if ($loopfile->{selected} eq '*') {
                 $scr->at(1,0)->clreol()->puts($loopfile->{name});
                 &exclude($loopfile,'.');
-                eval $do_this;
+                &$do_this;
                 $dircontents[$index] =
                     &stat_entry($loopfile->{name},$loopfile->{selected});
             }
@@ -1750,7 +1749,7 @@ sub handlechmod {
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
         $loopfile = \%currentfile;
-        eval $do_this;
+        &$do_this;
         $showncontents[$currentline+$baseindex] =
             &stat_entry($currentfile{name}, $currentfile{selected});
         &copyback($currentfile{name});
@@ -1837,11 +1836,11 @@ sub handledelete {
     my $sure = $scr->getch();
     return $R_HEADER if $sure !~ /y/i;
     $scr->at(1,0);
-    # don't allow people to delete '.': normally, this would be allowed if it
-    # is empty, but if that leaves the parent directory empty, then it can also
-    # be removed, which causes a fatal pfm error.
-    $do_this = q"
+    $do_this = sub {
         if ($loopfile->{name} eq '.') {
+            # don't allow people to delete '.': normally, this would be allowed
+            # if it is empty, but if that leaves the parent directory empty,
+            # then it can also be removed, which causes a fatal pfm error.
             $success = 0;
             $msg = 'Deleting current directory not allowed';
         } elsif ($loopfile->{nlink} == 0) {
@@ -1857,7 +1856,7 @@ sub handledelete {
         } else { # not success
             &display_error($msg || $!);
         }
-    ";
+    };
     if ($multiple_mode) {
         $oldpos = $currentfile{name};
         # build nameindexmap on showncontents, not dircontents.
@@ -1870,7 +1869,7 @@ sub handledelete {
             $loopfile = $dircontents[$index];
             if ($loopfile->{selected} eq '*') {
                 $scr->at(1,0)->clreol()->puts($loopfile->{name});
-                eval $do_this;
+                &$do_this;
                 if ($success) {
                     splice @dircontents, $index, 1;
                     splice @showncontents, $nameindexmap{$loopfile->{name}}, 1;
@@ -1884,7 +1883,7 @@ sub handledelete {
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
         $loopfile = \%currentfile;
-        eval $do_this;
+        &$do_this;
         if ($success) {
             splice @dircontents, &dirlookup($loopfile->{name}, @dircontents), 1;
             splice @showncontents, $currentline+$baseindex, 1;
@@ -1962,7 +1961,7 @@ sub handlehelp {
 }
 
 sub handletime {
-    my ($newtime, $loopfile, $do_this, $index, $do_a_refresh);
+    my ($newtime, $loopfile, $do_this, $index, $do_a_refresh, @cmdopts);
     my $prompt = "Put date/time $TIMEHINTS{$timeformat}: ";
     $do_a_refresh = $multiple_mode ? $R_SCREEN : $R_HEADER;
     &markcurrentline('T') unless $multiple_mode;
@@ -1976,11 +1975,12 @@ sub handletime {
         $newtime =~ s/^(\d{0,4})(\d{8})(\..*)?/$2$1$3/;
     }
     if ($newtime eq '.') {
-        $newtime = '';
+        @cmdopts = ();
     } else {
-        $newtime = "-t $newtime";
+        @cmdopts = ('-t', $newtime);
     }
-    $do_this = 'if (system qw(touch '.$newtime.'), $loopfile->{name}) {
+    $do_this = sub {
+        if (system ('touch', @cmdopts, $loopfile->{name})) {
             $scr->at(0,0)->clreol();
             &display_error($!);
             if ($multiple_mode) {
@@ -1988,14 +1988,15 @@ sub handletime {
             } else {
                 $do_a_refresh = $R_SCREEN;
             }
-        }';
+        }
+    };
     if ($multiple_mode) {
         for $index (0..$#dircontents) {
             $loopfile = $dircontents[$index];
             if ($loopfile->{selected} eq '*') {
                 $scr->at(1,0)->clreol()->puts($loopfile->{name});
                 &exclude($loopfile,'.');
-                eval $do_this;
+                &$do_this;
                 $dircontents[$index] =
                     &stat_entry($loopfile->{name},$loopfile->{selected});
             }
@@ -2003,7 +2004,7 @@ sub handletime {
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
         $loopfile = \%currentfile;
-        eval $do_this;
+        &$do_this;
         $showncontents[$currentline+$baseindex] =
             &stat_entry($currentfile{name}, $currentfile{selected});
         &copyback($currentfile{name});
@@ -2035,8 +2036,8 @@ sub handlecopyrename {
     my $state = "\u$_[0]";
     my $statecmd = ($state eq 'C' ? 'cp' : 'mv');
     my $stateprompt = $state eq 'C' ? 'Destination: ' : 'New name: ';
-    my ($loopfile, $index, $newname, $newnameexpanded, $command, $findindex,
-        @statecmd);
+    my ($loopfile, $index, $newname, $newnameexpanded, $do_this, $findindex,
+        @cmdopts);
     my $do_a_refresh = $R_HEADER;
     &markcurrentline($state) unless $multiple_mode;
     $scr->at(0,0)->clreol()->cooked();
@@ -2059,10 +2060,13 @@ sub handlecopyrename {
         &path_info;
         return $R_HEADER;
     }
-    $command = sub {
-        @statecmd = ($statecmd, $loopfile->{name}, $newnameexpanded);
-        splice (@statecmd, 1, 0, '-i') unless $clobber;
-        if (system @statecmd) {
+    if ($clobber) {
+        @cmdopts = ();
+    } else {
+        @cmdopts = qw(-i);
+    }
+    $do_this = sub {
+        if (system $statecmd, @cmdopts, $loopfile->{name}, $newnameexpanded) {
             $scr->raw()->at(0,0)->clreol();
             &display_error($!);
             if ($multiple_mode) {
@@ -2089,7 +2093,7 @@ sub handlecopyrename {
                 &expand_escapes(($newnameexpanded = $newname), $loopfile);
                 $scr->at(1,0)->clreol()->puts($loopfile->{name});
                 $scr->cooked() unless $clobber;
-                &$command;
+                &$do_this;
                 $dircontents[$index] =
                     &stat_entry($loopfile->{name},$loopfile->{selected});
                 if ($dircontents[$index]{nlink} == 0) {
@@ -2105,7 +2109,7 @@ sub handlecopyrename {
 #        &expand_escapes($command, $loopfile);
         &expand_escapes(($newnameexpanded = $newname), $loopfile);
         $scr->cooked() unless $clobber;
-        &$command;
+        &$do_this;
         $showncontents[$currentline+$baseindex] =
             &stat_entry($currentfile{name}, $currentfile{selected});
         if ($showncontents[$currentline+$baseindex]{nlink} == 0) {
@@ -2213,17 +2217,17 @@ sub handleswap {
     my $nextdir;
     if ($swap_state and !$swap_persistent) { # swap back if ok_to_remove_marks
         if (&ok_to_remove_marks) {
-            $nextdir        =   $swap_state->{path};
-            @dircontents    = @{$swap_state->{contents}};
-            $position_at    =   $swap_state->{position};
-            %disk           = %{$swap_state->{disk}};
-            %selected_nr_of = %{$swap_state->{selected}};
-            %total_nr_of    = %{$swap_state->{totals}};
-            $multiple_mode  =   $swap_state->{multiple_mode};
-            $sort_mode      =   $swap_state->{sort_mode};
-            $dot_mode       =   $swap_state->{dot_mode};
-            $currentlayout  =   $swap_state->{currentlayout};
-            $0              =   $swap_state->{argvnull};
+            $nextdir           =   $swap_state->{path};
+            @dircontents       = @{$swap_state->{contents}};
+            $position_at       =   $swap_state->{position};
+            %disk              = %{$swap_state->{disk}};
+            %selected_nr_of    = %{$swap_state->{selected}};
+            %total_nr_of       = %{$swap_state->{totals}};
+            $multiple_mode     =   $swap_state->{multiple_mode};
+            $sort_mode         =   $swap_state->{sort_mode};
+            $dot_mode          =   $swap_state->{dot_mode};
+#            $currentlayout     =   $swap_state->{currentlayout};
+            $0                 =   $swap_state->{argvnull};
             $swap_mode = $swap_state = 0;
             $refresh = $R_SCREEN;
         } else { # not ok to remove marks
@@ -2231,44 +2235,44 @@ sub handleswap {
         }
     } elsif ($swap_state and $swap_persistent) { # swap persistent
         $swap_state = {
-            path          =>   $currentdir,
-            contents      => [ @dircontents ],
-            position      =>   $currentfile{name},
-            disk          => { %disk },
-            selected      => { %selected_nr_of },
-            totals        => { %total_nr_of },
-            multiple_mode =>   $multiple_mode,
-            sort_mode     =>   $sort_mode,
-            dot_mode      =>   $dot_mode,
-            currentlayout =>   $currentlayout,
-            argvnull      =>   $0
+            path              =>   $currentdir,
+            contents          => [ @dircontents ],
+            position          =>   $currentfile{name},
+            disk              => { %disk },
+            selected          => { %selected_nr_of },
+            totals            => { %total_nr_of },
+            multiple_mode     =>   $multiple_mode,
+            sort_mode         =>   $sort_mode,
+            dot_mode          =>   $dot_mode,
+#            currentlayout     =>   $currentlayout,
+            argvnull          =>   $0
         };
-        $nextdir        =   $temp_state->{path};
-        @dircontents    = @{$temp_state->{contents}};
-        $position_at    =   $temp_state->{position};
-        %disk           = %{$temp_state->{disk}};
-        %selected_nr_of = %{$temp_state->{selected}};
-        %total_nr_of    = %{$temp_state->{totals}};
-        $multiple_mode  =   $temp_state->{multiple_mode};
-        $sort_mode      =   $temp_state->{sort_mode};
-        $dot_mode       =   $temp_state->{dot_mode};
-        $currentlayout  =   $temp_state->{currentlayout};
-        $0              =   $temp_state->{argvnull};
+        $nextdir           =   $temp_state->{path};
+        @dircontents       = @{$temp_state->{contents}};
+        $position_at       =   $temp_state->{position};
+        %disk              = %{$temp_state->{disk}};
+        %selected_nr_of    = %{$temp_state->{selected}};
+        %total_nr_of       = %{$temp_state->{totals}};
+        $multiple_mode     =   $temp_state->{multiple_mode};
+        $sort_mode         =   $temp_state->{sort_mode};
+        $dot_mode          =   $temp_state->{dot_mode};
+#        $currentlayout     =   $temp_state->{currentlayout};
+        $0                 =   $temp_state->{argvnull};
         toggle($swap_mode);
         $refresh = $R_SCREEN;
     } else { # $swap_state = 0; ask and swap forward
         $swap_state = {
-            path          =>   $currentdir,
-            contents      => [ @dircontents ],
-            position      =>   $currentfile{name},
-            disk          => { %disk },
-            selected      => { %selected_nr_of },
-            totals        => { %total_nr_of },
-            multiple_mode =>   $multiple_mode,
-            sort_mode     =>   $sort_mode,
-            dot_mode      =>   $dot_mode,
-            currentlayout =>   $currentlayout,
-            argvnull      =>   $0
+            path              =>   $currentdir,
+            contents          => [ @dircontents ],
+            position          =>   $currentfile{name},
+            disk              => { %disk },
+            selected          => { %selected_nr_of },
+            totals            => { %total_nr_of },
+            multiple_mode     =>   $multiple_mode,
+            sort_mode         =>   $sort_mode,
+            dot_mode          =>   $dot_mode,
+#            currentlayout     =>   $currentlayout,
+            argvnull          =>   $0
         };
         $swap_mode     = 1;
         $sort_mode     = $pfmrc{sortmode} || 'n';
@@ -2287,6 +2291,7 @@ sub handleswap {
     } else {
         @showncontents = &filterdir(@dircontents);
     }
+#    &makeformatlines;
     &init_title($swap_mode, $TITLE_DISKINFO, @layoutfields);
     return $refresh;
 }
@@ -2656,7 +2661,7 @@ copyrightdelay:0.2
 ## use very visible cursor (e.g. block cursor on Linux console)
 cursorveryvisible:yes
 
-## initial layout from the array 'columnlayouts' (see below) (F9)
+## initial layout to pick from the array 'columnlayouts' (see below) (F9)
 defaultlayout:0
 
 ## initial sort mode (see F6 command) (nNmMeEfFsSiItTdDaA) (default n)
@@ -2774,8 +2779,7 @@ do=01;35:nt=01;35:wh=01;30;47:lc=\e[:rc=m:\
 
 ## take care not to make the fields too small or values will be cropped!
 ## if the terminal is resized, the filename field will be elongated.
-## it is allowed to provide a final : after the last layout.
-
+## a final : after the last layout is allowed.
 ## the first three layouts were the old (pre-v1.72) defaults.
 
 #<----------- layouts must not be wider than this! ------------># #<-diskinfo->#
@@ -3275,7 +3279,7 @@ up if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.75 .
+This manual pertains to C<pfm> version 1.76 .
 
 =head1 SEE ALSO
 
