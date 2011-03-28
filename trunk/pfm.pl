@@ -1,12 +1,12 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20021217 v1.71
+# @(#) pfm.pl 19990314-20021220 v1.71.1
 #
 # Name:        pfm.pl
-# Version:     1.71
+# Version:     1.71.1 (belated patch to 1.72, was merged later)
 # Author:      Rene Uittenbogaard
-# Date:        2002-12-17
+# Date:        2002-12-20
 # Usage:       pfm.pl [directory]
 # Requires:    Term::ScreenColor
 #              Term::Screen
@@ -29,11 +29,14 @@
 #        use perl symlink() ?
 #        make a sub restat() ?
 #        make a sub fileforall(sub) ?
+#        put more-header-message in a constant? at(0,76) resolved
 #        make R_SCREEN etc. bits in $do_a_refresh ?
 #        split dircolors in dircolorsdark and dircolorslight (switch with F4)
 #        command: < > to scroll line of commands?
 #        command (M)ore-> (R)estat? F11 = restat? F8 = restat+select?
 #        user-customizable columns
+#             $cursorcol = 4;
+#             handleview() wordt lastig - wat aan doen
 #        make multiple mode a bit in $multiple_mode ? bitwise-or?
 #        set ROWS en COLUMNS in environment for child processes; but see if
 #            this does not mess up with $scr->getrows etc. which use these
@@ -212,7 +215,7 @@ my (%user, %group, %pfmrc, @signame, %dircolors, $maxfilenamelength,
     $currentline, $baseindex,
     $editor, $pager, $printcmd, $ducmd, $showlockchar, $autoexitmultiple,
     $clobber, $cursorveryvisible, $clsonexit, $autowritehistory, $viewbase,
-    $trspace, $swap_persistent, @colformats,
+    $trspace, $swap_persistent, @colformats, $cursorcol,
     $titlecolor, $footercolor, $headercolor, $swapcolor, $multicolor
 );
 
@@ -712,11 +715,11 @@ sub highlightline { # true/false
     $scr->bold() if ($_[0] == $HIGHLIGHT_ON);
     $scr->puts(&fileline(%currentfile));
     &applycolor($currentline + $BASELINE, $FILENAME_SHORT, %currentfile);
-    $scr->normal()->at($currentline + $BASELINE, 0);
+    $scr->normal()->at($currentline + $BASELINE, $cursorcol);
 }
 
 sub markcurrentline { # letter
-    $scr->at($currentline + $BASELINE, 0)->puts($_[0]);
+    $scr->at($currentline + $BASELINE, $cursorcol)->puts($_[0]);
 }
 
 sub pressanykey {
@@ -962,14 +965,14 @@ sub disk_info { # %disk{ total, used, avail }
     # In case someone wants to try:        mqqj
 #    $scr->at($startline-1,$screenwidth-$DATECOL)
 #        ->puts("\cNlq\cODisk space\cNqk\cO");
-    $scr->at($startline-1,$screenwidth-$DATECOL+4)->puts('Disk space');
+    $scr->at($startline-1, $screenwidth-$DATECOL+4)->puts('Disk space');
     foreach (0..2) {
         while ( $values[$_] > 99_999 ) {
                 $values[$_] /= 1024;
                 $desc[$_] =~ tr/KMGTP/MGTPE/;
         }
-        $scr->at($startline+$_,$screenwidth-$DATECOL+1)
-            ->puts(&infoline(int($values[$_]),$desc[$_]));
+        $scr->at($startline+$_, $screenwidth-$DATECOL+1)
+            ->puts(&infoline(int($values[$_]), $desc[$_]));
     }
 }
 
@@ -1318,6 +1321,7 @@ sub handlemore {
     my $do_a_refresh = $R_SCREEN;
     &init_header($HEADER_MORE);
     $scr->noecho();
+    # put the message in a constant?
     my $key = $scr->at(0,76)->getch();
     MOREKEY: for ($key) {
         /^s$/i and $do_a_refresh = &handlemoreshow,   last MOREKEY;
@@ -1941,10 +1945,8 @@ sub handlecopyrename {
     my $do_a_refresh = $R_HEADER;
     &markcurrentline($state) unless $multiple_mode;
     $scr->at(0,0)->clreol()->cooked();
-#    $scr->bold()->cyan()->puts($stateprompt)->normal();
     push (@path_history, $currentfile{name}) unless $multiple_mode;
-#    $scr->at(0,0);
-    $newname = &readintohist(\@path_history, $stateprompt);     # ornaments
+    $newname = &readintohist(\@path_history, $stateprompt);
     if ($#path_history > 0 and $path_history[-1] eq $path_history[-2]) {
         pop @path_history;
     }
@@ -2153,7 +2155,6 @@ sub handleswap {
         $sort_mode     = $pfmrc{sortmode} || 'n';
         $multiple_mode = 0;
         $scr->at(0,0)->clreol()->cooked();
-#        $scr->bold()->cyan()->puts($stateprompt)->normal(); # ornaments
         $nextdir = &readintohist(\@path_history, $stateprompt);
         &expand_escapes($nextdir, \%currentfile);
         $scr->raw();
@@ -2409,7 +2410,7 @@ sub browse {
                     $result = $R_KEY;
                     until ($scr->key_pressed(1) || $wasresized) {
                         &date_info($DATELINE, $screenwidth-$DATECOL);
-                        $scr->at($currentline+$BASELINE, 0);
+                        $scr->at($currentline+$BASELINE, $cursorcol);
                     }
                     if ($wasresized) { # the terminal was resized
                         $result = &resizehandler;
@@ -3119,7 +3120,7 @@ if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.71 .
+This manual pertains to C<pfm> version 1.71.1 .
 
 =head1 SEE ALSO
 
