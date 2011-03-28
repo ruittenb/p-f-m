@@ -1,5 +1,7 @@
-1.59
+1.60
 
-* implemented toggle show/hide dotfiles
-* small fixes and updates to documentation
+* code cleanup and optimization
+* added (?) and <BS> commands
+* preserve dotmode across F7(Swap)
+* updated documentation
 
