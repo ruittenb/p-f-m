@@ -1,12 +1,12 @@
 #!/usr/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20020402 v1.60
+# @(#) pfm.pl 19990314-20020406 v1.61
 #
 # Name:        pfm.pl
-# Version:     1.60
+# Version:     1.61
 # Author:      Rene Uittenbogaard
-# Date:        2002-04-02
+# Date:        2002-04-06
 # Usage:       pfm.pl [directory]
 # Requires:    Term::ScreenColor
 #              Term::Screen
@@ -17,20 +17,18 @@
 #              Cwd
 #              strict
 #              vars
-#              (warnings)
-#              (diagnostics)
 # Description: Personal File Manager for Unix/Linux
 #
 # TO-DO:
-# first: test jump back with F2: test for F7 and > $#dircontents
-#        test if every command picks up \[12345] escapes correctly
-#        test if handlecopyrename() handles double quotes etc. well
+# first: test if handlecopyrename() handles double quotes etc. well
 #        double quote support by using system(@) for all commands
-#        restat after rename?
 #        use quotemeta() for quoting?
+#        restat after rename?
 #        user-customizable columns
+#        more &$subptr; instead of eval $substring;
+#        config option: sortcurrent (sort current directory?)
+#        siZe command
 # next:  validate_position should not replace $baseindex when not necessary
-#        handleinclude can become faster with &$bla; instead of eval $bla;
 #        set ROWS en COLUMNS in environment for child processes; but see if
 #            this does not mess up with $scr->getrows etc. which use these
 #            variables internally; portability?
@@ -42,7 +40,6 @@
 #        cOmmand -> rm \2 will have to delete the entry from @dircontents;
 #            otherwise the mark count is not correct
 #
-#        siZe command?
 #        major/minor numbers on DU 4.0E are wrong (does readline work there?)
 #        key response (flush_input)
 # terminal:
@@ -104,7 +101,7 @@ use vars qw(
     $R_CLEAR
     $R_DIRCONTENTS
     $R_CHDIR
-    $R_QUITTING
+    $R_QUIT
 );
 
 BEGIN {
@@ -137,7 +134,7 @@ BEGIN {
 *R_CLEAR       = \5;
 *R_DIRCONTENTS = \6;
 *R_CHDIR       = \7;
-*R_QUITTING    = \255;
+*R_QUIT        = \255;
 
 my $VERSION             = &getversion;
 my $CONFIGDIRNAME       = "$ENV{HOME}/.pfm";
@@ -199,9 +196,9 @@ my (%user, %group, %pfmrc, @signame, %dircolors, $maxfilenamelength,
     $currentdir, $oldcurrentdir, @dircontents, @showncontents, %currentfile,
     %disk, $swap_state, %total_nr_of, %selected_nr_of,
     $currentline, $baseindex,
-    $editor, $pager, $printcmd, $showlockchar, $autoexitmultiple, $clobber,
-    $cursorveryvisible, $clsonexit, $autowritehistory, $viewbase, $trspace,
-    $swap_persistent,
+    $editor, $pager, $printcmd, $ducmd, $showlockchar, $autoexitmultiple,
+    $clobber, $cursorveryvisible, $clsonexit, $autowritehistory, $viewbase,
+    $trspace, $swap_persistent,
     $titlecolor, $footercolor, $headercolor, $swapcolor, $multicolor
 );
 
@@ -265,6 +262,8 @@ sub read_pfmrc { # $rereadflag - 0=firstread 1=reread (for copyright message)
     $trspace           = &yesno($pfmrc{translatespace}) ? ' ' : '';
     ($printcmd)        = ($pfmrc{printcmd}) ||
                              ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER}" : 'lpr');
+    $ducmd             = $pfmrc{ducmd} ||
+                             q(du -sk | awk '{printf "%d", 1024 * $1}');
     $timeformat        = $pfmrc{timeformat} || 'pfm';
     $sort_mode         = $pfmrc{sortmode}   || 'n';
     $uid_mode          = 2*($pfmrc{uidmode} eq 'atime')
@@ -752,7 +751,7 @@ sub init_frame { # multiple_mode, swap_mode, uid_mode
 sub init_header { # "multiple"mode
     my $mode = $_[0];
     my @header = split(/\n/,<<_eoFirst_);
-Attr Time Copy Del Edit Find Print Rename Show Uid View Your cOmmand Quit More  
+Attr Time Copy Del Edit Find Print Ren Show Uid View Your cOmmand Quit siZe More
 Multiple Include eXclude Attribute Time Copy Delete Print Rename Your cOmmands  
 Include? Every, Oldmarks, User or Files only:                                   
 Config PFM Edit new file Make new dir Show new dir sHell Kill Write history ESC 
@@ -1010,13 +1009,13 @@ sub by_name {
 # user commands
 
 sub handlequit { # key
-    return $R_QUITTING if $pfmrc{confirmquit} =~ /^(never|no|false|0)$/i;
-    return $R_QUITTING if $_[0] eq 'Q'; # quick quit
-    return $R_QUITTING if ($pfmrc{confirmquit} =~ /marked/i and !&mark_info);
+    return $R_QUIT if $pfmrc{confirmquit} =~ /^(never|no|false|0)$/i;
+    return $R_QUIT if $_[0] eq 'Q'; # quick quit
+    return $R_QUIT if ($pfmrc{confirmquit} =~ /marked/i and !&mark_info);
     $scr->at(0,0)->clreol()->bold()->cyan();
     $scr->puts("Are you sure you want to quit [Y/N]? ")->normal();
     my $sure = $scr->getch();
-    return +($sure =~ /y/i) ? $R_QUITTING : $R_HEADER;
+    return +($sure =~ /y/i) ? $R_QUIT : $R_HEADER;
 }
 
 sub handlemultiple {
@@ -1042,6 +1041,25 @@ sub handlecolor {
 sub handleadvance {
     &handleselect;
     goto &handlemove; # this autopasses the " " key in $_[0] to &handlemove
+}
+
+sub handlesize {
+    my $recursivesize;
+    &markcurrentline('Z'); # disregard multiple_mode
+    # du(1) is a bitch... that's why we have ppl specify their ducmd in .pfmrc
+    # AIX,BSD,Tru64: gives blocks (), kbytes (-k)
+    # Solaris      : gives kbytes ()
+    # HP           : gives blocks (), something unwanted (-b)
+    # Linux        : gives blocks (), kbytes (-k), bytes (-b)
+    ($recursivesize = `$ducmd \Q$currentfile{name}`) =~ s/\D*(\d+).*/$1/;
+#    unless ($?) { # think about what to do when $? != 0 ?
+        $scr->at($currentline + $BASELINE, 0);
+        $scr->puts(&fileline(%currentfile, size => $recursivesize));
+        &markcurrentline('Z');
+        &applycolor($currentline + $BASELINE, $SHOWSHORT, %currentfile);
+        $scr->getch();
+#    }
+    return $R_KEY;
 }
 
 sub handledot {
@@ -1176,7 +1194,7 @@ sub handlemoremake {
 }
 
 sub handlemoreconfig {
-    if (system "$editor $CONFIGDIRNAME/$CONFIGFILENAME") {
+    if (system $editor, "$CONFIGDIRNAME/$CONFIGFILENAME") {
         &display_error($!);
     } else {
         &read_pfmrc($REREAD);
@@ -1192,7 +1210,7 @@ sub handlemoreedit {
     $scr->at(0,0)->clreol()->cooked();
 #    $scr->bold()->cyan()->puts($stateprompt)->normal()->at(0,10);
     $newname = &readintohist(\@path_history, $stateprompt); #ornaments
-    system "$editor $newname" and &display_error($!);
+    system ($editor, $newname) and &display_error($!);
     $scr->raw();
     return $R_CLEAR;
 }
@@ -1217,7 +1235,6 @@ sub handlemorekill {
         $signal = $signame[$signal];
     }
     local $SIG{$signal} = 'IGNORE';
-#    kill $signal, -$$; # kill proc groups: not portable, see perlfunc
     kill -$signal, $$;
     return $R_SCREEN;
 }
@@ -1253,80 +1270,58 @@ sub handlemore {
 sub handleinclude { # include/exclude flag (from keypress)
     local $_;
     my $do_a_refresh = $R_HEADER;
-    my ($wildfilename, $criterion, $entry);
     my $exin = $_[0];
+    my $criterion;
+    our ($wildfilename, $entry);
+    # $wildfilename could have been declared using my(), but that will prevent
+    # changes in its value to be noticed by the anonymous sub
     &init_header($INCLUDEHEADER);
     # modify header to say "exclude" when 'x' was pressed
     if ($exin =~ /x/i) { $scr->at(0,0)->on_blue()->puts('Ex')->normal(); }
     $exin =~ tr/ix/* /;
     my $key = $scr->at(0,46)->getch();
-    PARSEINCLUDE: {
-        # hey Rene, look at this:
-#       %age = ( bear => 56, dog => 15, snake => 4, cat => 10, horse => 70);
-#       $crit = sub { $bla =~ /a/ and println $bla }
-#       foreach $bla (keys %age) { &$crit; }
-# cat
-# snake
-# bear
-        for ($key) {
-            /^e$/i and do {    # include every
-                $criterion = '$entry->{name} !~ /^\.\.?$/';
-#                $criterion = sub { $entry->{name} !~ /^\.\.?$/ };
-                $key       = "prepared";
-                redo PARSEINCLUDE;
-            };
-            /^f$/i and do {    # include files
-                $wildfilename = &promptforwildfilename;
-                $criterion    = '$entry->{name} =~ /$wildfilename/'
-                              . ' and $entry->{type} eq "-" ';
-#                $criterion    = sub {
-#                                    my $wildfname = shift;
-#                                    $entry->{name} =~ /$wildfname/
-#                                    and $entry->{type} eq "-";
-#                                };
-                $key          = "prepared";
-                redo PARSEINCLUDE;
-            };
-            /^u$/i and do { # user only
-                $criterion = '$entry->{uid}' . " =~ /$ENV{USER}/";
-#                $criterion = sub {
-#                                 $entry->{uid} =~ /$ENV{USER}/;
-#                             };
-                $key       = "prepared";
-                redo PARSEINCLUDE;
-            };
-            /^o$/i and do {   # include oldmarks
-                foreach $entry (@dircontents) {
-                    if ($entry->{selected} eq "." && $exin eq " ") {
-                        $entry->{selected} = $exin;
-                    } elsif ($entry->{selected} eq "." && $exin eq "*") {
-                        &include($entry);
-                    }
-                    $do_a_refresh = $R_SCREEN;
+    if ($key =~ /^o$/i) {   # include oldmarks
+        foreach $entry (@showncontents) {
+            if ($entry->{selected} eq '.' && $exin eq ' ') {
+                $entry->{selected} = $exin;
+            } elsif ($entry->{selected} eq '.' && $exin eq '*') {
+                &include($entry);
+            }
+            $do_a_refresh = $R_SCREEN;
+        }
+    };
+    if ($key =~ /^[efu]$/i) {
+        if ($key =~ /^e$/i) { # include every
+            $criterion = sub { $entry->{name} !~ /^\.\.?$/ };
+        };
+        if ($key =~ /^u$/i) { # user only
+            $criterion = sub { $entry->{uid} =~ /$ENV{USER}/ };
+        };
+        if ($key =~ /^f$/i) { # include files
+            $wildfilename = &promptforwildfilename;
+            $criterion    = sub {
+                                $entry->{name} =~ /$wildfilename/
+                                and $entry->{type} eq '-';
+                            };
+        };
+        foreach $entry (@showncontents) {
+            if (&$criterion) {
+                if ($entry->{selected} eq '*' && $exin eq ' ') {
+                    &exclude($entry);
+                } elsif ($entry->{selected} eq '.' && $exin eq ' ') {
+                    $entry->{selected} = $exin;
+                } elsif ($entry->{selected} ne '*' && $exin eq '*') {
+                    &include($entry);
                 }
-            };
-            /prepared/ and do { # the criterion has been set
-                foreach $entry (@showncontents) {
-                    if (eval $criterion) {
-#                    if (&$criterion($wildfilename)) {
-                        if ($entry->{selected} eq "*" && $exin eq " ") {
-                            &exclude($entry);
-                        } elsif ($entry->{selected} eq "." && $exin eq " ") {
-                            $entry->{selected} = $exin;
-                        } elsif ($entry->{selected} ne "*" && $exin eq "*") {
-                            &include($entry);
-                        }
-                        $do_a_refresh = $R_SCREEN;
-                    }
-                }
-            };
-        } # for
-    } # PARSEINCLUDE
+                $do_a_refresh = $R_SCREEN;
+            }
+        }
+    } # if $key =~ /[efu]/
     return $do_a_refresh;
 }
 
 sub handleview {
-    &markcurrentline('V');
+    &markcurrentline('V'); # disregard multiple_mode
     my $viewline = $currentfile{target};
     my $removed = ($viewline =~ s/^ -> //);
     # we are allowed to alter %currentfile because we will exit with
@@ -1500,7 +1495,7 @@ _eoPrompt_
                 }
             }
             $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
-        } else {
+        } else { # single-file mode
             $loopfile = \%currentfile;
             &expand_escapes($command, \%currentfile);
             $scr->clrscr()->at(0,0)->puts($command);
@@ -1592,7 +1587,8 @@ sub handleprint {
     my ($loopfile, $do_this, $index);
     &markcurrentline('P') unless $multiple_mode;
 #    $scr->at(0,0)->clreol();
-    $scr->at(0,0)->clreol()->bold()->cyan()->puts('Enter print command: ')->normal()
+    $scr->at(0,0)->clreol()
+        ->bold()->cyan()->puts('Enter print command: ')->normal()
         ->at(1,0)->clreol()->cooked();
     # don't use readintohist : special case with command_history
     $kbd->SetHistory(@command_history);
@@ -1921,6 +1917,8 @@ sub handleswap {
         $scr->at(1,0);
         &display_error("$nextdir: $!");
         $refresh = $R_CHDIR;
+    } else {
+        @showncontents = &filterdir(@dircontents);
     }
     &init_title($swap_mode, $uid_mode);
     return $refresh;
@@ -2105,33 +2103,33 @@ sub redisplayscreen {
 # it is the heart of pfm. it has the following structure:
 #
 # sub {
-#                                 get filesystem info;
-# DIRCONTENTS   (R_DIRCONTENTS):  read directory contents;
-# SCREEN        (R_SCREEN):       show title, footer and stats;
-# DIRLISTING    (R_DIRLISTING):   display directory contents;
-# STRIDE        (R_STRIDE):       wait for key;
-# KEY           ():               call key command handling subroutine;
-#                                 jump to redo point (using R_*);
-#               (R_CHDIR):
-#               (R_QUITTING):
+#                  get filesystem info;
+#   DIRCONTENTS :  read directory contents;
+#   SCREEN      :  show title, footer and stats;
+#   DIRLISTING  :  display directory contents;
+#   STRIDE      :  wait for key;
+#   KEY         :  call key command handling subroutine;
+#                  jump to redo point (using R_*);
+#   (R_CHDIR)   :
+#   (R_QUIT)    :
 # }
 #
-# actually, jumps have been implemented using do..until loops.
-# redo points are jumped to according to the result of the sub that handles
-# the key command. these subs are supposed to return a value which reports
-# the "severity" of the result. the higher the value, the more redrawing
-# should be done on-screen, and the more loops should be exited from.
+# jumps to redo points have been implemented using do..until loops.
+# when a key command handling sub exits, browse() uses its return value to
+# decide which redo point to jump to.
+# the higher the return value, the more redrawing should be done on-screen,
+# and the more loops should be exited from.
 # the following are valid return values, in increasing order of severity:
 #
-# $R_KEY         == 0;
-# $R_HEADER      == 1; # just call init_header()
-# $R_STRIDE      == 2; # in previous versions: last KEY (= redo STRIDE)
-# $R_DIRLISTING  == 3; # reinit @showncontents from @dircontents; redisplay list
-# $R_SCREEN      == 4; # in previous versions: redo DISPLAY
-# $R_CLEAR       == 5; # like R_SCREEN, but clrscr() first
-# $R_DIRCONTENTS == 6;
-# $R_CHDIR       == 7; # in previous versions: last STRIDE
-# $R_QUITTING    == 255;
+# $R_KEY         == 0;   # no special action, wait for new key
+# $R_HEADER      == 1;   # just call init_header()
+# $R_STRIDE      == 2;   # wait for new keypress
+# $R_DIRLISTING  == 3;   # init @showncontents from @dircontents; redisplay list
+# $R_SCREEN      == 4;   # redraw entire screen
+# $R_CLEAR       == 5;   # like R_SCREEN, but clrscr() first
+# $R_DIRCONTENTS == 6;   # reread directory contents
+# $R_CHDIR       == 7;   # exit from directory
+# $R_QUIT        == 255; # exit from program
 
 sub browse {
     my ($key, $result);
@@ -2201,6 +2199,7 @@ sub browse {
                         /^k4$/     and $result = &handlecolor,         last KEY;
                         /^\@$/     and $result = &handleperlcommand,   last KEY;
                         /^u$/i     and $result = &handlechown,         last KEY;
+                        /^z$/i     and $result = &handlesize,          last KEY;
                         } # end KEY
                     } # end if $key
                     if ($result == $R_HEADER) { &init_header($multiple_mode) }
@@ -2213,7 +2212,7 @@ sub browse {
         # end SCREEN
     } until ($result > $R_DIRCONTENTS);
     # end DIRCONTENTS
-    return $result == $R_QUITTING;
+    return $result == $R_QUIT;
 } # end sub browse
 
 ##########################################################################
@@ -2249,13 +2248,19 @@ editor:vi
 #pager:less
 ## your system's print command. Specify if the default 'lpr' does not work.
 #printcmd:lp -d$ENV{PRINTER}
+## your system's du(1) command. Specify so that the outcome is in bytes, e.g.:
+## AIX,BSD,Tru64: du -sk | awk '{printf "%d", 1024 * $1}'
+## Sun          : du -s  | awk '{printf "%d", 1024 * $1}'
+## HP-UX        : du -s  | awk '{printf "%d", 512  * $1}' # assume bs=512 :(
+## Linux        : du -sb
+ducmd:du -sk | awk '{printf "%d", 1024*$1}'
 
 ## the erase character for your terminal (default: don't set)
 #erase:^H
 ## the keymap to use in readline (vi,emacs). (default emacs)
 #keymap:vi
 
-## whether multiple file mode should be exited after executing a multiple command
+## should we exit from multiple file mode after executing a command?
 autoexitmultiple:yes
 ## write history files automatically upon exit
 autowritehistory:no
@@ -2568,6 +2573,14 @@ line. Commands may use B<\1>-B<\5> escapes just as in cB<O>mmand, e.g.
  C:tar cvf - \2 | gzip > \2.tar.gz
  W:what \2
 
+=item B<siZe>
+
+Displays the size (in bytes) of the file, or the grand total of the
+directory and its contents.  Note that since C<du>(1) is not portable,
+you will have to specify the C<du> command (or C<du | awk> combination)
+applicable for your Unix version in the F<.pfmrc> file. Examples are
+provided.
+
 =back
 
 =head1 MORE COMMANDS
@@ -2760,7 +2773,7 @@ root and with the cursor next to F</sbin/reboot> . You have been warned.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.60 .
+This manual pertains to C<pfm> version 1.61 .
 
 =head1 SEE ALSO
 

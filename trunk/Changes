@@ -1,7 +1,6 @@
-1.60
+1.61
 
-* code cleanup and optimization
-* added (?) and <BS> commands
-* preserve dotmode across F7(Swap)
-* updated documentation
+* code optimization in handleinclude()
+* implemented si(Z)e command
+* fixed some small bugs
 
