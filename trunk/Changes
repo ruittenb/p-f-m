@@ -1,7 +1,7 @@
-1.69
+1.70
 
-* fixed bug in executing (with ENTER) filenames containing spaces
-* fixed (L)ink command for making symlink in another directory
-* added support for coloring missing (e.g. renamed) files
-* updated documentation
+* small updates to default config file
+* guess correct du(1) command based on OS
+* implemented 'dotdot' mode where . and .. entries are not sorted
+* supported whiteout filetype
 

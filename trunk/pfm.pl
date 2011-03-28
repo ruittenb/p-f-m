@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20021217 v1.69
+# @(#) pfm.pl 19990314-20021217 v1.70
 #
 # Name:        pfm.pl
-# Version:     1.69
+# Version:     1.70
 # Author:      Rene Uittenbogaard
 # Date:        2002-12-17
 # Usage:       pfm.pl [directory]
@@ -21,21 +21,21 @@
 #
 # TODO:  use quotemeta() for quoting? (problem: \ in filenames)
 #        double quote support by using system(@) for all commands
-#        make multiple mode a bit in $multiple_mode ? bitwise-or?
-#        select default ducmd based on $^O
-#        command (M)ore-> (R)estat? F11 = restat?
-#        make a sub restat() ?
-#        make R_SCREEN etc. bits in $do_a_refresh ?
-#        split dircolors in dircolorsdark and dircolorslight (switch with F4)
-#        config option: dotdot mode? (sort directory with '.' and '..' first?)
+#        double quote and space support in (Y)our and c(O)mmands
 #        fix error handling in eval($do_this) and &display_error
 #           partly implemented in handlecopyrename
-#        command: < > to scroll line of commands?
-#        user-customizable columns
-#        double quote and space support in handleedit, handleprint, handleshow
-#           we cannot assume that $pager or $editor do not contain spaces :(
 #        more &$subptr; instead of eval $substring;
 #        get rid of backticks around 'df' in siZe?
+#        use perl symlink() ?
+#        make a sub restat() ?
+#        make a sub fileforall(sub) ?
+#        make R_SCREEN etc. bits in $do_a_refresh ?
+#        split dircolors in dircolorsdark and dircolorslight (switch with F4)
+#        headerline is too wide!!
+#        command: < > to scroll line of commands?
+#        command (M)ore-> (R)estat? F11 = restat? F8 = restat+select?
+#        user-customizable columns
+#        make multiple mode a bit in $multiple_mode ? bitwise-or?
 #        set ROWS en COLUMNS in environment for child processes; but see if
 #            this does not mess up with $scr->getrows etc. which use these
 #            variables internally; portability?
@@ -44,8 +44,7 @@
 #            (which is, therefore, still buggy). this is closely related to:
 #        sub countdircontents is not used
 #        command: (W)hite (toggle show/hide whiteout entries)?
-#        config option: sortcurrent (hierarchical e.g. sen (size,ext,name))
-#        consistent use of gnu ornaments / cyan colored prompt (readline issue?)
+#        hierarchical sort? e.g. 'sen' (size,ext,name)
 #        major/minor numbers on DU 4.0E are wrong (does readline work there?)
 
 ##########################################################################
@@ -168,6 +167,18 @@ my @SORTMODES = (
     i =>'Inode',       I =>' reverse'
 );
 
+my %DUCMDS = (
+    # can someone tell me how du(1) behaves on SCO and Irix?
+    default => q(du -sk "\2" | awk '{ printf "%d", 1024 * $1 }'),
+    AIX     => q(du -sk "\2" | awk '{ printf "%d", 1024 * $1 }'),
+    BSD     => q(du -sk "\2" | awk '{ printf "%d", 1024 * $1 }'),
+    Tru64   => q(du -sk "\2" | awk '{ printf "%d", 1024 * $1 }'),
+    sunOS   => q(du -s  "\2" | awk '{ printf "%d", 1024 * $1 }'),
+    solaris => q(du -s  "\2" | awk '{ printf "%d", 1024 * $1 }'),
+   'HP-UX'  => q(du -s  "\2" | awk '{ printf "%d", 512  * $1 }'),
+    linux   => q(du -sb "\2"),
+);
+
 my %TIMEHINTS = (
     pfm   => '[[CC]YY]MMDDhhmm[.ss]',
     touch => 'MMDDhhmm[[CC]YY][.ss]'
@@ -196,7 +207,7 @@ my %HISTORIES = (
 my (%user, %group, %pfmrc, @signame, %dircolors, $maxfilenamelength,
     $wasresized, $scr, $kbd,
     $uidlineformat, $tdlineformat, $timeformat,
-    $sort_mode, $multiple_mode, $col_mode, $swap_mode, $dot_mode,
+    $sort_mode, $multiple_mode, $col_mode, $swap_mode, $dot_mode, $dotdot_mode,
     $currentdir, $oldcurrentdir, @dircontents, @showncontents, %currentfile,
     %disk, $swap_state, %total_nr_of, %selected_nr_of,
     $currentline, $baseindex,
@@ -260,14 +271,14 @@ sub read_pfmrc { # $readflag - show copyright only on startup (first read)
     $clsonexit         = &yesno($pfmrc{clsonexit});
     $clobber           = &yesno($pfmrc{clobber});
     $dot_mode          = &yesno($pfmrc{dotmode});
+    $dotdot_mode       = &yesno($pfmrc{dotdotmode});
     $autowritehistory  = &yesno($pfmrc{autowritehistory});
     $autoexitmultiple  = &yesno($pfmrc{autoexitmultiple});
     $swap_persistent   = &yesno($pfmrc{persistentswap});
     $trspace           = &yesno($pfmrc{translatespace}) ? ' ' : '';
     ($printcmd)        = ($pfmrc{printcmd}) ||
                              ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER}" : 'lpr');
-    $ducmd             = $pfmrc{ducmd} ||
-                             q(du -sk "\2" | awk '{ printf "%d", 1024 * $1 }');
+    $ducmd             = $pfmrc{ducmd} || $DUCMDS{$^O} || $DUCMDS{default};
     $timeformat        = $pfmrc{timeformat} || 'pfm';
     $sort_mode         = $pfmrc{sortmode}   || 'n';
     $col_mode          = 2*($pfmrc{colmode} eq 'atime')
@@ -400,13 +411,27 @@ sub mode2str {
     my $octmode  = sprintf("%lo", $nummode);
     my @strmodes = (qw/--- --x -w- -wx r-- r-x rw- rwx/);
     $octmode     =~ /(\d\d?)(\d)(\d)(\d)(\d)$/;
-    $strmode     = substr('-pc?d?b?-nl?s?wD', oct($1) & 017, 1)
+    $strmode     = substr('-pc?d?b?-nl?sDw?', oct($1) & 017, 1)
                  . $strmodes[$3] . $strmodes[$4] . $strmodes[$5];
-                 # first  - is continuation inode for ext2,
-                 # second - is regular file
-                 # D is door (Solaris)
-                 # w is whiteout (NetBSD)
-                 # n is network special (HP-UX)
+    # there is some confusion about which bit specifies the Door type.
+    # 0000                000000  unused
+    # 1000  S_IFIFO   p|  010000  fifo (named pipe)
+    # 2000  S_IFCHR   c   020000  character special
+    # 3000  S_IFMPC       030000  multiplexed character special (V7)
+    # 4000  S_IFDIR   d/  040000  directory
+    # 5000  S_IFNAM       050000  XENIX named special file with two subtypes,
+    #                             distinguished by st_rdev values 1, 2:
+    # 0001  S_INSEM   s   000001  semaphore
+    # 0002  S_INSHD   m   000002  shared data
+    # 6000  S_IFBLK   b   060000  block special
+    # 7000  S_IFMPB       070000  multiplexed block special (V7)
+    # 8000  S_IFREG   -   100000  regular
+    # 9000  S_IFNWK   n   110000  network special (HP-UX)
+    # a000  S_IFLNK   l@  120000  symbolic link
+    # b000  S_IFSHAD      130000  Solaris ACL shadow inode,not seen by userspace
+    # c000  S_IFSOCK  s=  140000  socket
+    # d000  S_IFDOOR  D>  150000  Solaris door
+    # e000  S_IFWHT   w%  160000  BSD whiteout
     if ($2 & 4) {       substr( $strmode,3,1) =~ tr/-x/Ss/ }
     if ($2 & 2) { eval "substr(\$strmode,6,1) =~ tr/-x/${showlockchar}s/" }
     if ($2 & 1) {       substr( $strmode,9,1) =~ tr/-x/Tt/ }
@@ -578,15 +603,14 @@ sub decidecolor {
     $file{nlink} ==  0        and &digestcolor($dircolors{lo}), return;
     $file{type}  eq 'd'       and &digestcolor($dircolors{di}), return;
     $file{type}  eq 'l'       and &digestcolor(
-        $dircolors{&isorphan($file{name}) ? 'or' : 'ln'}
-    ), return;
+                                  $dircolors{&isorphan($file{name}) ?'or':'ln'}
+                              ), return;
     $file{type}  eq 'b'       and &digestcolor($dircolors{bd}), return;
     $file{type}  eq 'c'       and &digestcolor($dircolors{cd}), return;
     $file{type}  eq 'p'       and &digestcolor($dircolors{pi}), return;
     $file{type}  eq 's'       and &digestcolor($dircolors{so}), return;
     $file{type}  eq 'D'       and &digestcolor($dircolors{'do'}), return;
     $file{type}  eq 'n'       and &digestcolor($dircolors{nt}), return;
-    # will readdir() return whiteout entries? how can I find them?
     $file{type}  eq 'w'       and &digestcolor($dircolors{wh}), return;
     $file{mode}  =~ /[xst]/   and &digestcolor($dircolors{ex}), return;
     $file{name}  =~/(\.\w+)$/ and &digestcolor($dircolors{$1}), return;
@@ -998,6 +1022,13 @@ sub date_info {
 
 sub as_requested {
     my ($exta, $extb);
+    if ($dotdot_mode) {
+        # Oleg Bartunov wanted to have . and .. unsorted (always at the top)
+        if    ($a->{name} eq '.' ) { return -1 }
+        elsif ($b->{name} eq '.' ) { return  1 }
+        elsif ($a->{name} eq '..') { return -1 }
+        elsif ($b->{name} eq '..') { return  1 }
+    }
     SWITCH:
     for ($sort_mode) {
         /n/ and return    $a->{name}  cmp    $b->{name},    last SWITCH;
@@ -1220,12 +1251,22 @@ sub handlemoremake {
 }
 
 sub handlemoreconfig {
+    my $olddotdot = $dotdot_mode;
+    my $oldsort   = $sort_mode;
     if (system $editor, "$CONFIGDIRNAME/$CONFIGFILENAME") {
         &display_error($!);
     } else {
         &read_pfmrc($READ_AGAIN);
+        if ($olddotdot != $dotdot_mode) {
+            # allowed to switch dotdot mode (no key), but not sortmode (use F6)
+            $sort_mode = $oldsort;
+            $position_at = $currentfile{name};
+            @showncontents = &filterdir(
+                @dircontents = sort as_requested @dircontents
+            );
+        }
     }
-    $scr->clrscr();
+#    $scr->clrscr();
     return $R_CLEAR;
 }
 
@@ -1786,12 +1827,12 @@ sub handleprint {
             if ($loopfile->{selected} eq '*') {
                 $scr->at(1,0)->clreol()->puts($loopfile->{name});
                 &exclude($loopfile, '.');
-                system qq/$do_this "$loopfile->{name}"/ and &display_error($!);
+                system "$do_this \Q$loopfile->{name}" and &display_error($!);
             }
         }
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
-        system qq/$do_this "$currentfile{name}"/ and &display_error($!);
+        system "$do_this \Q$currentfile{name}" and &display_error($!);
     }
     return $R_SCREEN;
 }
@@ -1805,12 +1846,12 @@ sub handleshow {
             if ($loopfile->{selected} eq '*') {
                 $scr->puts($loopfile->{name});
                 &exclude($loopfile,'.');
-                system (qq/$pager "$loopfile->{name}"/) and &display_error($!);
+                system "$pager \Q$loopfile->{name}" and &display_error($!);
             }
         }
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
-        system qq/$pager "$currentfile{name}"/ and &display_error($!);
+        system "$pager \Q$currentfile{name}" and &display_error($!);
     }
     $scr->raw();
     return $R_CLEAR;
@@ -1882,12 +1923,12 @@ sub handleedit {
             if ($loopfile->{selected} eq '*') {
                 $scr->puts($loopfile->{name});
                 &exclude($loopfile, '.');
-                system qq/$editor "$loopfile->{name}"/ and &display_error($!);
+                system "$editor \Q$loopfile->{name}" and &display_error($!);
             }
         }
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
-        system qq/$editor "$currentfile{name}"/ and &display_error($!);
+        system "$editor \Q$currentfile{name}" and &display_error($!);
     }
     $scr->clrscr()->raw();
     return $R_SCREEN;
@@ -2459,55 +2500,73 @@ __DATA__
 ##########################################################################
 ## General
 
-## specify your favorite editor. you can also use $EDITOR for this
-editor:vi
-## your pager. you can also use $PAGER
-#pager:less
-## your system's print command. Specify if the default 'lpr' does not work.
-#printcmd:lp -d$ENV{PRINTER}
-## your system's du(1) command. Specify so that the outcome is in bytes, e.g.:
-## AIX,BSD,Tru64: du -sk "\2" | awk '{ printf "%d", 1024 * $1 }'
-## Sun          : du -s  "\2" | awk '{ printf "%d", 1024 * $1 }'
-## HP-UX        : du -s  "\2" | awk '{ printf "%d", 512  * $1 }' # assume bs=512
-## Linux        : du -sb "\2"
-## "\2" is the name of the current file.
-ducmd:du -sk "\2" | awk '{ printf "%d", 1024 * $1 }'
-
-## the erase character for your terminal (default: don't set)
-#erase:^H
-## the keymap to use in readline (vi,emacs). (default emacs)
-#keymap:vi
-
 ## should we exit from multiple file mode after executing a command?
 autoexitmultiple:yes
+
 ## write history files automatically upon exit
 autowritehistory:no
+
 ## automatically clobber existing files
 clobber:no
+
 ## whether you want to have the screen cleared when pfm exits
 clsonexit:no
+
 ## initial column mode (F9 command) (mtime,uid,atime) (default mtime)
 colmode:mtime
+
 ## have pfm ask for confirmation when you press 'q'uit? (yes,no,marked)
 ## 'marked' = ask only if there are any marked files in the current directory
 confirmquit:yes
+
 ## time to display copyright message at start (in seconds, fractions allowed)
 copyrightdelay:0.2
+
 ## use very visible cursor (e.g. block cursor on Linux console)
 cursorveryvisible:yes
+
 ## hide dot files? (show them otherwise, toggle with . key)
 #dotmode:yes
+
+## '.' and '..' entries always at the top of the dirlisting? (default no)
+#dotdotmode:no
+
+## your system's du(1) command. Specify so that the outcome is in bytes.
+## you need to specify "\2" for the name of the current file.
+## this is commented out because pfm makes a clever guess for your OS.
+#ducmd:du -sk "\2" | awk '{ printf "%d", 1024 * $1 }'
+
+## specify your favorite editor. you can also use $EDITOR for this
+editor:vi
+
+## the erase character for your terminal (default: don't set)
+#erase:^H
+
+## the keymap to use in readline (vi,emacs). (default emacs)
+#keymap:vi
+
+## your pager. you can also use $PAGER
+#pager:less
+
 ## F7 key swap path method is persistent? (default no)
 persistentswap:yes
+
+## your system's print command. Specify if the default 'lpr' does not work.
+#printcmd:lp -d$ENV{PRINTER}
+
 ## show whether mandatory locking is enabled (e.g. -rw-r-lr-- ) (yes,no,sun)
 ## 'sun' = show locking only on sunos/solaris
 showlock:sun
+
 ## initial sort mode (see F6 command) (nNmMeEfFsSiItTdDaA) (default n)
 sortmode:n
+
 ## format for time: touch MMDDhhmm[[CC]YY][.ss] or pfm [[CC]YY]MMDDhhmm[.ss]
 timeformat:pfm
+
 ## translate spaces when Viewing
 translatespace:no
+
 ## base number system to View non-ascii characters with (hex,oct)
 viewbase:hex
 
@@ -2533,14 +2592,14 @@ usecolor:force
 ##-background color codes:
 ## 40=black 41=red 42=green 43=yellow 44=blue 45=magenta 46=cyan 47=white
 ##-file types:
-## no=normal fi=file ex=executable lo=lost file di=directory ln=symlink or=orphan link
-## bd=block special cd=character special pi=fifo so=socket
-## do=door nt=network special (not implemented) wh=whiteout (not implemented)
+## no=normal fi=file ex=executable lo=lost file ln=symlink or=orphan link
+## di=directory bd=block special cd=character special pi=fifo so=socket
+## do=door nt=network special (not implemented) wh=whiteout
 ## *.<ext> defines extension colors
 
 ## you may specify an escape as a real escape, as \e or as ^[ (caret, bracket)
 
-dircolors:no=00:fi=00:ex=00;32:lo=01;30:di=01;34:ln=01;36:or=01;37;41:\
+dircolors:no=00:fi=00:ex=00;32:lo=01;30:di=01;34:ln=01;36:or=37;41:\
 bd=01;33;40:cd=01;33;40:pi=00;33;40:so=01;35:\
 do=01;35:nt=01;35:wh=01;30;47:lc=\e[:rc=m:\
 *.cmd=01;32:*.exe=01;32:*.com=01;32:*.btm=01;32:*.bat=01;32:\
@@ -2563,9 +2622,44 @@ do=01;35:nt=01;35:wh=01;30;47:lc=\e[:rc=m:\
 #footercolor:07;34;47
 
 ##########################################################################
+## Column formats (not implemented)
+
+## char name                    needed width if present
+## *    selection flag          1
+## n    name                    any(crops)
+## N    name overflow flag      1
+## s    size                    >=7
+## S    size power (K, M, T..)  1
+## u    user                    >=8
+## g    group                   >=8
+## p    permissions (mode)      9
+## a    atime                   15
+## c    ctime                   15
+## m    mtime                   15
+## d    device                  ?
+## i    inode                   7
+## l    link count              >=5(crops)
+
+## the first three were the old defaults
+##----------- formats must not be wider than this! ------------## #- diskinfo -#
+colformats:\
+* nnnnnnnnnnnnnnnnnnnnNsssssssS mmmmmmmmmmmmmmmiiiiiii pppppppppp:\
+* nnnnnnnnnnnnnnnnnnnnNsssssssS aaaaaaaaaaaaaaaiiiiiii pppppppppp:\
+* nnnnnnnnnnnnnnnnnnnnNsssssssS uuuuuuuu gggggggglllll pppppppppp:\
+* nnnnnnnnnnnnnnnnnnnnnnnnnNsssssssS uuuuuuuu gggggggg pppppppppp:\
+* nnnnnnnnnnnnnnnnnnnnnnnnnnnNsssssssS mmmmmmmmmmmmmmm pppppppppp:\
+* nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnNuuuuuuuu gggggggg pppppppppp:\
+* nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnNsssssssS mmmmmmmmmmmmmmm:\
+* nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnNmmmmmmmmmmmmmmm:\
+* nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnNsssssssS:\
+* nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnN
+
+##########################################################################
 ## Your commands
 
-## these assume you do not have filenames with double quotes in them
+## these assume you do not have filenames with double quotes in them.
+## in these commands, \1=filename without extension, \2=filename complete,
+## \3=current directory path, \4=current mountpoint, \5=swap path (F7)
 
 A:acroread "\2" &
 B:xv -root +noresetroot +smooth -maxpect -quit "\2"
@@ -2579,6 +2673,7 @@ J:mpg123 "\2" &
 K:esdplay "\2"
 L:mv -i "\2" "$(echo "\2" | tr A-Z a-z)"
 N:nroff -man "\2" | more
+O:cp "\2" "\2.$(date +"%Y%m%d")"; touch -r "\2" "\2.$(date +"%Y%m%d")"
 P:perl -cw "\2"
 Q:unzip -l "\2" | more
 R:rpm -qpl "\2" | more
@@ -3025,7 +3120,7 @@ if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.69 .
+This manual pertains to C<pfm> version 1.70 .
 
 =head1 SEE ALSO
 
