@@ -1,10 +1,10 @@
 #!/usr/bin/perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20020402 v1.58
+# @(#) pfm.pl 19990314-20020402 v1.59
 #
 # Name:        pfm.pl
-# Version:     1.58
+# Version:     1.59
 # Author:      Rene Uittenbogaard
 # Date:        2002-04-02
 # Usage:       pfm.pl [directory]
@@ -28,7 +28,6 @@
 #        double quote support by using system(@) for all commands
 #        restat after rename?
 #        use quotemeta() for quoting?
-#        show/hide dot files : handledelete() URGENT! debugging required
 #        user-customizable columns
 # next:  validate_position should not replace $baseindex when not necessary
 #        handleinclude can become faster with &$bla; instead of eval $bla;
@@ -537,7 +536,7 @@ sub include { # $entry
 }
 
 sub filterdir {
-    return grep { $dot_mode || $_->{name} =~ /^(\.\.?|[^\.].*)$/ } @_;
+    return grep { !$dot_mode || $_->{name} =~ /^(\.\.?|[^\.].*)$/ } @_;
 }
 
 sub dirlookup {
@@ -551,9 +550,7 @@ sub dirlookup {
 
 sub copyback { # copy a changed entry from @showncontents back to @dircontents
     my $somefilename = $_[0];
-    my $count = 0;
-    my %nameindexmap = map { $_->{name}, $count++ } @dircontents;
-    $dircontents[$nameindexmap{$somefilename}] =
+    $dircontents[&dirlookup($somefilename, @dircontents)] =
         $showncontents[$currentline+$baseindex];
 }
 
@@ -934,8 +931,8 @@ sub dir_info {
                + $total_nr_of{'p'} + $total_nr_of{'s'}
                + $total_nr_of{'D'};
     my $startline = 9;
-    $scr->at($startline-1, $screenwidth - $DATECOL + $dot_mode)
-        ->puts(" Directory($sort_mode" . ($dot_mode ? '' : '.') . ")");
+    $scr->at($startline-1, $screenwidth - $DATECOL + !$dot_mode)
+        ->puts(" Directory($sort_mode" . ($dot_mode ? '.' : '') . ")");
     foreach (0..3) {
         $scr->at($startline+$_,$screenwidth-$DATECOL+1)
             ->puts(&infoline($values[$_],$desc[$_]));
@@ -1551,9 +1548,10 @@ sub handledelete {
                  }
                  ";
     if ($multiple_mode) {
-        # build nameindexmap on showncontents, not dircontents
-        %nameindexmap = map { $_->{name}, $count++ } @showncontents;
         $oldpos = $currentfile{name};
+        # build nameindexmap on showncontents, not dircontents.
+        # this is faster than doing a dirlookup() every iteration
+        %nameindexmap = map { $_->{name}, $count++ } @showncontents;
         # we must delete in reverse order because the number of directory
         # entries will decrease by deleting. This invalidates the %nameindexmap
         # for entries with index > current index.
@@ -1568,11 +1566,8 @@ sub handledelete {
                 }
             }
         }
-#        # this is slow :( find a better way for a reverse lookup.
-#        $count = 0;
-#        %nameindexmap = map { $_->{name}, $count++ } @showncontents;
-#        if (defined $showncontents[$nameindexmap{$oldpos}]) {
-        if (defined $showncontents[&dirlookup($oldpos, @showncontents)]) {
+        # %nameindexmap may be completely invalid at this point. use dirlookup()
+        if (&dirlookup($oldpos, @showncontents) > 0) {
             $position_at = $oldpos;
         }
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
@@ -1580,13 +1575,14 @@ sub handledelete {
         $loopfile = \%currentfile;
         eval($do_this);
         if ($success) {
-            %nameindexmap = map { $_->{name}, $count++ } @dircontents;
-            splice @dircontents, $nameindexmap{$loopfile->{name}}, 1;
+            splice @dircontents, &dirlookup($loopfile->{name}, @dircontents), 1;
             splice @showncontents, $currentline+$baseindex, 1;
         }
     }
-    if (!$position_at and $currentline+$baseindex > $#showncontents) {
-        $currentline--; # note: see below
+    # this prevents the cursor from running out of @showncontents;
+    # otherwise, the validate_position() call is pointless
+    while (!$position_at and $currentline+$baseindex > $#showncontents) {
+        $currentline--;
     }
     &validate_position;
     return $R_SCREEN;
@@ -1798,6 +1794,7 @@ sub handleselect {
 }
 
 sub validate_position {
+    # requirement: $showncontents[$currentline+$baseindex] is defined
     my $redraw = $R_KEY;
     if ( $currentline < 0 ) {
         $baseindex += $currentline;
@@ -2268,7 +2265,7 @@ confirmquit:yes
 copyrightdelay:0.2
 ## use very visible cursor (e.g. block cursor on 'linux' type terminal)
 cursorveryvisible:yes
-## show dot files? (hide them otherwise, toggle with . key)
+## hide dot files? (show them otherwise, toggle with . key)
 #dotmode:yes
 ## F7 key swap path method is persistent? (default no)
 #persistentswap:yes
@@ -2763,7 +2760,7 @@ root and with the cursor next to F</sbin/reboot> . You have been warned.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.58 .
+This manual pertains to C<pfm> version 1.59 .
 
 =head1 SEE ALSO
 
