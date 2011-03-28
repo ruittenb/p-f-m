@@ -1,6 +1,4 @@
-1.73
+1.74
 
-* fixed multiple small problems with column layouts
-* fixed bug in (M)ore -> (K)ill command
-* updated documentation 
+* added < and > commands to give a better overview of available commands
 
