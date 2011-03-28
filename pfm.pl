@@ -1,10 +1,10 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20020406 v1.61
+# @(#) pfm.pl 19990314-20020406 v1.62
 #
 # Name:        pfm.pl
-# Version:     1.61
+# Version:     1.62
 # Author:      Rene Uittenbogaard
 # Date:        2002-04-06
 # Usage:       pfm.pl [directory]
@@ -22,11 +22,12 @@
 # TO-DO:
 # first: test if handlecopyrename() handles double quotes etc. well
 #        double quote support by using system(@) for all commands
-#        use quotemeta() for quoting?
+#        use quotemeta() for quoting? (problem: \ in filenames)
 #        restat after rename?
 #        user-customizable columns
 #        more &$subptr; instead of eval $substring;
 #        config option: sortcurrent (sort current directory?)
+#        set $position_at after resorting
 #        siZe command
 # next:  validate_position should not replace $baseindex when not necessary
 #        set ROWS en COLUMNS in environment for child processes; but see if
@@ -139,7 +140,7 @@ BEGIN {
 my $VERSION             = &getversion;
 my $CONFIGDIRNAME       = "$ENV{HOME}/.pfm";
 my $CONFIGFILENAME      = '.pfmrc';
-my $LOSTMSG             = '(file lost)';
+my $LOSTMSG             = ''; '(file lost)';
 my $CWDFILENAME         = 'cwd';
 my $MAJORMINORSEPARATOR = ',';
 my $MAXHISTSIZE         = 40;
@@ -154,9 +155,9 @@ my $CONFIGFILEMODE      = 0777;
 
 my @SORTMODES = (
     n =>'Name',        N =>' reverse',
-   'm'=>' ignorecase', M =>' rev+ignorec',
+   'm'=>' ignorecase', M =>' rev+igncase',
     e =>'Extension',   E =>' reverse',
-    f =>' ignorecase', F =>' rev+ignorec',
+    f =>' ignorecase', F =>' rev+igncase',
     d =>'Date/mtime',  D =>' reverse',
     a =>'date/Atime',  A =>' reverse',
    's'=>'Size',        S =>' reverse',
@@ -208,7 +209,7 @@ my (%user, %group, %pfmrc, @signame, %dircolors, $maxfilenamelength,
 sub write_pfmrc {
     local $_;
     my @resourcefile;
-    if (open MKPFMRC,">$CONFIGDIRNAME/$CONFIGFILENAME") {
+    if (open MKPFMRC, ">$CONFIGDIRNAME/$CONFIGFILENAME") {
         # both __DATA__ and __END__ markers are used at the same time
         push (@resourcefile, $_) while (($_ = <DATA>) !~ /^__END__$/);
         close DATA;
@@ -229,7 +230,7 @@ sub read_pfmrc { # $rereadflag - 0=firstread 1=reread (for copyright message)
         mkdir $CONFIGDIRNAME, $CONFIGFILEMODE unless -d $CONFIGDIRNAME;
         &write_pfmrc;
     }
-    if (open PFMRC,"<$CONFIGDIRNAME/$CONFIGFILENAME") {
+    if (open PFMRC, "<$CONFIGDIRNAME/$CONFIGFILENAME") {
         while (<PFMRC>) {
             s/#.*//;
             if (s/\\\n?$//) { $_ .= <PFMRC>; redo; }
@@ -391,12 +392,13 @@ sub mode2str {
     my $octmode  = sprintf("%lo", $nummode);
     my @strmodes = (qw/--- --x -w- -wx r-- r-x rw- rwx/);
     $octmode     =~ /(\d\d?)(\d)(\d)(\d)(\d)$/;
-    $strmode     = substr('-pc?d?b?-?l?s?=D=?=?d', oct($1), 1)
+    $strmode     = substr('-pc?d?b?-nl?s?wD', oct($1) & 017, 1)
                  . $strmodes[$3] . $strmodes[$4] . $strmodes[$5];
                  # first  - is continuation inode for ext2,
                  # second - is regular file
-                 # first  d for Linux, OSF1, Solaris
-                 # second d for AIX
+                 # D is door (Solaris)
+                 # w is whiteout (NetBSD)
+                 # n is network special (HP-UX)
     if ($2 & 4) {       substr( $strmode,3,1) =~ tr/-x/Ss/ }
     if ($2 & 2) { eval "substr(\$strmode,6,1) =~ tr/-x/${showlockchar}s/" }
     if ($2 & 1) {       substr( $strmode,9,1) =~ tr/-x/Tt/ }
@@ -421,7 +423,6 @@ sub expand_12_escapes {
         $thisfile{name} =~ /^(.*)\.([^\.]+)$/ ? $1 : $thisfile{name};
     # there must be an odd nr. of backslashes before the digit
     # because \\ must be interpreted as an escaped backslash
-#    $_[0] =~ s/((?:[^\\]|^)(?:\\\\)*)\\1/$1$namenoext/g;
     $_[0] =~ s/((?<!\\)(?:\\\\)*)\\1/$1$namenoext/g;
     $_[0] =~ s/((?<!\\)(?:\\\\)*)\\2/$1$thisfile{name}/g;
 }
@@ -1044,14 +1045,15 @@ sub handleadvance {
 }
 
 sub handlesize {
-    my $recursivesize;
+    my ($recursivesize, $command);
     &markcurrentline('Z'); # disregard multiple_mode
     # du(1) is a bitch... that's why we have ppl specify their ducmd in .pfmrc
     # AIX,BSD,Tru64: gives blocks (), kbytes (-k)
     # Solaris      : gives kbytes ()
     # HP           : gives blocks (), something unwanted (-b)
     # Linux        : gives blocks (), kbytes (-k), bytes (-b)
-    ($recursivesize = `$ducmd \Q$currentfile{name}`) =~ s/\D*(\d+).*/$1/;
+    &expand_escapes($command = $ducmd, \%currentfile);
+    ($recursivesize = `$command`) =~ s/\D*(\d+).*/$1/;
 #    unless ($?) { # think about what to do when $? != 0 ?
         $scr->at($currentline + $BASELINE, 0);
         $scr->puts(&fileline(%currentfile, size => $recursivesize));
@@ -2699,8 +2701,9 @@ If the current file is executable, the executable will be invoked.
 
 Upon exit, C<pfm> will save its current working directory in a file
 F<$HOME/.pfm/cwd> . In order to have this directory "inherited" by the
-calling process (shell), you may call C<pfm> using a function like the
-following (example for C<bash>(1), add it to your F<.profile>):
+calling process (shell), you may call C<pfm> using a function like
+the following (example for C<bash>(1), add it to your F<.profile>
+or F<.bash_profile>):
 
  pfm () {
      /usr/local/bin/pfm $*
@@ -2773,7 +2776,7 @@ root and with the cursor next to F</sbin/reboot> . You have been warned.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.61 .
+This manual pertains to C<pfm> version 1.62 .
 
 =head1 SEE ALSO
 

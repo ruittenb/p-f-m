@@ -1,6 +1,4 @@
-1.61
+1.62
 
-* code optimization in handleinclude()
-* implemented si(Z)e command
-* fixed some small bugs
+* small fixes to documentation
 
