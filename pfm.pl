@@ -1,12 +1,12 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20021227 v1.82
+# @(#) pfm.pl 19990314-20021229 v1.83
 #
 # Name:         pfm.pl
-# Version:      1.82
+# Version:      1.83
 # Author:       Rene Uittenbogaard
-# Date:         2002-12-27
+# Date:         2002-12-29
 # Usage:        pfm.pl [directory]
 # Requires:     Term::ScreenColor
 #               Term::Screen
@@ -16,6 +16,7 @@
 #               POSIX
 #               Config
 #               Cwd
+#               locale
 #               strict
 #               vars
 # Description:  Personal File Manager for Unix/Linux
@@ -33,12 +34,8 @@
 #       sub readintohistwithdefault() ?
 #
 #       implement cached_header and cached_footer ?
-#       implement pfmrc version check?
 #       implement include Before/After
 #       make siZe command work in multiple mode
-#       make color of pfm sysmessages customizable?
-#       split dircolors in dircolorsdark and dircolorslight (switch with F4)
-#           this also needs $headercolor etc in 2 modes
 #
 #       use the nameindexmap from handledelete() more globally?
 #         in handlecopyrename()? in handlefind() in handlesymlink? in dirlookup?
@@ -84,9 +81,10 @@ require 5.005; # for negative lookbehind in re
 
 use Term::ScreenColor;
 use Term::ReadLine;
-use POSIX 'strftime';
+use POSIX qw(strftime);
 use Config;
 use Cwd;
+use locale;
 use strict;
 #use warnings;
 #use diagnostics;
@@ -187,12 +185,13 @@ my $R_CHDIR     = $R_NEWDIR | $R_DIRCONTENTS | $R_DIRSORT | $R_SCREEN
 my $VERSION             = &getversion;
 my $CONFIGDIRNAME       = "$ENV{HOME}/.pfm";
 my $CONFIGFILENAME      = '.pfmrc';
-my $LOSTMSG             = ''; # was '(file lost)';
+my $LOSTMSG             = '';   # was '(file lost)';
 my $CWDFILENAME         = 'cwd';
 my $MAJORMINORSEPARATOR = ',';
 my $NAMETOOLONGCHAR     = '+';
 my $MAXHISTSIZE         = 40;
-my $ERRORDELAY          = 1;    # seconds
+my $ERRORDELAY          = 1;    # in seconds (fractions allowed)
+my $IMPORTANTDELAY      = 2;    # extra time for important errors
 my $SLOWENTRIES         = 300;
 my $PATHLINE            = 1;
 my $BASELINE            = 3;
@@ -202,13 +201,21 @@ my $DATECOL             = 14;
 my $CONFIGFILEMODE      = 0777;
 my $DFCMD               = ($^O eq 'hpux') ? 'bdf' : 'df -k';
 
-my @SYMBOLIC_MODES = qw(--- --x -w- -wx r-- r-x rw- rwx);
+my %ONOFF               = ('' => 'off', 0 => 'off', 1 => 'on');
+my @SYMBOLIC_MODES      = qw(--- --x -w- -wx r-- r-x rw- rwx);
 
-my %ONOFF = ('' => 'off', 0 => 'off', 1 => 'on');
+my %FILETYPEFLAGS       = (
+    x => '*',
+    d => '/',
+    l => '@',
+   's'=> '=',
+    p => '|',
+    w => '%',
+);
 
 my %TIMEHINTS = (
     pfm   => '[[CC]YY]MMDDhhmm[.ss]',
-    touch => 'MMDDhhmm[[CC]YY][.ss]'
+    touch => 'MMDDhhmm[[CC]YY][.ss]',
 );
 
 my @SORTMODES = (
@@ -220,7 +227,7 @@ my @SORTMODES = (
     a =>'date/Atime',  A =>' reverse',
    's'=>'Size',        S =>' reverse',
     t =>'Type',        T =>' reverse',
-    i =>'Inode',       I =>' reverse'
+    i =>'Inode',       I =>' reverse',
 );
 
 # AIX,BSD,Tru64: du gives blocks, du -k kbytes
@@ -265,7 +272,7 @@ my $TITLEVIRTFILE = {
     uid           => 'userid',
     gid           => 'groupid',
     nlink         => 'lnks',
-    rdev          => 'dev'
+    rdev          => 'dev',
 };
 
 my $screenheight    = 20;    # inner height
@@ -291,12 +298,12 @@ my %HISTORIES = (
 
 my (
     # lookup tables
-    %user, %group, %pfmrc, @signame, %dircolors,
+    %user, %group, %pfmrc, @signame, %dircolors, %framecolors,
     # screen- and keyboard objects, screen parameters
     $scr, $kbd, $wasresized, $mouse_mode,
     # modes
     $sort_mode, $multiple_mode, $swap_mode, $dot_mode, $dotdot_mode,
-    $currentpan,
+    $currentpan, $color_mode,
     # dir- and disk info
     $currentdir, $oldcurrentdir, @dircontents, @showncontents, %currentfile,
     %disk, $swap_state, %total_nr_of, %selected_nr_of,
@@ -306,11 +313,10 @@ my (
     $editor, $pager, $printcmd, $ducmd, $showlockchar, $autoexitmultiple,
     $clobber, $cursorveryvisible, $clsonexit, $autowritehistory, $viewbase,
     $trspace, $swap_persistent, $timeformat, $timestampformat, $mouseturnoff,
+    @colorsetnames, %filetypeflags,
     # layouts and formatting
     @columnlayouts, $currentlayout, @layoutfields, $currentformatline,
     $maxfilenamelength, $maxfilesizelength, $maxgrandtotallength,
-    # coloring of screen
-    $titlecolor, $footercolor, $headercolor, $swapcolor, $multicolor
 );
 
 ##########################################################################
@@ -329,7 +335,7 @@ sub write_pfmrc {
         close DATA;
         print MKPFMRC map {
             s/^(##? Version )x$/$1$VERSION/m;
-            s/^([A-Z]:\w+.*?\s+)more(\s*)$/$1less$2/mg if $^O =~ /linux/i;
+            s/^([[:alpha:]]:\w+.*?\s+)more(\s*)$/$1less$2/mg if $^O =~ /linux/i;
             $_;
         } @resourcefile;
         close MKPFMRC;
@@ -337,9 +343,9 @@ sub write_pfmrc {
 }
 
 sub read_pfmrc { # $readflag - show copyright only on startup (first read)
-    %dircolors = %pfmrc = ();
     local $_;
     my $termkeys;
+    %dircolors = %framecolors = %filetypeflags = %pfmrc = ();
     unless (-r &whichconfigfile) {
         unless ($ENV{PFMRC} || -d $CONFIGDIRNAME) {
             # only make directory for default location ($ENV{PFMRC} unset)
@@ -349,6 +355,11 @@ sub read_pfmrc { # $readflag - show copyright only on startup (first read)
     }
     if (open PFMRC, &whichconfigfile) {
         while (<PFMRC>) {
+            if (/# Version ([\w.]+)$/ and $1 < $VERSION) {
+                # will not be in message color: usecolor not yet parsed
+                &neat_error("Warning: your $CONFIGFILENAME version $1 may be outdated.");
+                $scr->key_pressed($IMPORTANTDELAY);
+            }
             s/#.*//;
             if (s/\\\n?$//) { $_ .= <PFMRC>; redo; }
             if (/^\s*       # whitespace at beginning
@@ -388,19 +399,14 @@ sub read_pfmrc { # $readflag - show copyright only on startup (first read)
     # don't change sort_mode and currentlayout through the config file:
     # the config file just specifies the _defaults_ for globalinit();
     # at runtime use (F6) and (F9)
-#    $sort_mode         = $pfmrc{sortmode}   || 'n';
+#    $sort_mode         = $pfmrc{sortmode}      || 'n';
 #    $currentlayout     = $pfmrc{currentlayout} || 0;
     $ducmd             = $pfmrc{ducmd} || $DUCMDS{$^O} || $DUCMDS{default};
     $viewbase          = $pfmrc{viewbase} eq 'hex' ? "%#04lx" : "%03lo";
     $timestampformat   = $pfmrc{timestampformat}  || '%y %b %d %H:%M';
     $timeformat        = $pfmrc{timeformat}       || 'pfm';
-    $headercolor       = $pfmrc{headercolor}      || '37;44';
-    $multicolor        = $pfmrc{multicolor}       || '36;47';
-    $titlecolor        = $pfmrc{titlecolor}       || '01;07;36;47';
-    $swapcolor         = $pfmrc{swapcolor}        || '07;36;40';
-    $footercolor       = $pfmrc{footercolor}      || '07;34;47';
     $mouse_mode        = $pfmrc{mousemode}        || 'xterm';
-    $mouse_mode        = ($mouse_mode eq 'xterm' && $ENV{TERM} eq 'xterm')
+    $mouse_mode        = ($mouse_mode eq 'xterm' && $ENV{TERM} =~ /xterm/)
                              || &yesno($mouse_mode);
     ($printcmd)        = ($pfmrc{printcmd}) ||
                              ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER}" : 'lpr');
@@ -409,6 +415,14 @@ sub read_pfmrc { # $readflag - show copyright only on startup (first read)
     $editor            = $ENV{EDITOR} || $pfmrc{editor} || 'vi';
     $pager             = $ENV{PAGER}  || $pfmrc{pager}  ||
                              ($^O =~ /linux/i ? 'less' : 'more');
+    # flags
+    if ($pfmrc{filetypeflags} eq 'dirs') {
+        %filetypeflags = ( d => $FILETYPEFLAGS{d} );
+    } elsif (&yesno($pfmrc{filetypeflags})) {
+        %filetypeflags = %FILETYPEFLAGS;
+    } else {
+        %filetypeflags = ();
+    }
     # split 'columnlayouts'
     @columnlayouts     = split(/:/, ( $pfmrc{columnlayouts}
         ? $pfmrc{columnlayouts}
@@ -416,15 +430,32 @@ sub read_pfmrc { # $readflag - show copyright only on startup (first read)
         .   '* nnnnnnnnnnnnnnnnnnnnNsssssssS aaaaaaaaaaaaaaaiiiiiii pppppppppp:'
         .   '* nnnnnnnnnnnnnnnnnnnnNsssssssS uuuuuuuu gggggggglllll pppppppppp'
     ));
-    # parse 'dircolors'
-    $pfmrc{dircolors} ||= $ENV{LS_COLORS} || $ENV{LS_COLOURS};
-    if ($pfmrc{dircolors}) {
-        while ($pfmrc{dircolors} =~ /([^:=*]+)=([^:=]+)/g ) {
-            $dircolors{$1} = $2;
+    # parse colorsets
+    if ($ENV{LS_COLORS} || $ENV{LS_COLOURS}) {
+        $pfmrc{'dircolors[ls_colors]'} = $ENV{LS_COLORS} || $ENV{LS_COLOURS};
+    }
+    $pfmrc{'framecolors[off]'} = 'title=07:swap=07:footer=07:highlight=01:';
+    # this %{{ }} construct keeps values unique
+    @colorsetnames = keys %{{
+        map { /\[(\w+)\]/; $1, '' }
+        grep { /^(dir|frame)colors\[/ } keys(%pfmrc),
+    }};
+    foreach (@colorsetnames) {
+        # should there be no dircolors[thisname], leave it undefined
+        if (defined $pfmrc{"dircolors[$_]"}) {
+            while ($pfmrc{"dircolors[$_]"} =~ /([^:=*]+)=([^:=]+)/g ) {
+                $dircolors{$_}{$1} = $2;
+            }
+        }
+        # should there be no framecolors[thisname], provide a default
+        $pfmrc{"framecolors[$_]"} ||= 'header=37;44:multi=36;47:swap=07;36;40:'
+        .   'title=01;07;36;47:footer=01;07;34;47:message=01;36:highlight=01:';
+        while ($pfmrc{"framecolors[$_]"} =~ /([^:=*]+)=([^:=]+)/g ) {
+            $framecolors{$_}{$1} = $2;
         }
     }
     # additional key definitions 'keydef'
-    if ($termkeys = $pfmrc{"keydef_$ENV{TERM}"}) {
+    if ($termkeys = $pfmrc{"keydef[$ENV{TERM}]"}) {
         $termkeys =~ s/(\\e|\^\[)/\e/gi;
         # this does not allow : chars to appear in escape sequences!
         foreach (split /:/, $termkeys) {
@@ -436,17 +467,21 @@ sub read_pfmrc { # $readflag - show copyright only on startup (first read)
 
 sub write_history {
     my $failed;
+    $scr->at(0,0)->clreol();
+    &digestcolor($framecolors{$color_mode}{message});
     foreach (keys(%HISTORIES)) {
         if (open (HISTFILE, ">$CONFIGDIRNAME/$_")) {
-            print HISTFILE join "\n",@{$HISTORIES{$_}},'';
+            print HISTFILE join "\n", @{$HISTORIES{$_}}, '';
             close HISTFILE;
         } elsif (!$failed) {
-            $scr->bold()->cyan()->puts("Unable to save (part of) history: $!\n")
-                ->normal();
-            # wait? refresh?
+            $scr->puts("Unable to save (part of) history: $!");
             $failed++; # warn only once
         }
     }
+    $scr->puts('History written successfully') unless $failed;
+    &scr->key_pressed($ERRORDELAY)->normal();
+    $scr->key_pressed($IMPORTANTDELAY) if $failed;
+    return $R_HEADER;
 }
 
 sub read_history {
@@ -465,8 +500,8 @@ sub write_cwd {
         print CWDFILE getcwd();
         close CWDFILE;
     } else {
-        $scr->bold()->cyan()
-            ->puts("Unable to create $CONFIGDIRNAME/$CWDFILENAME: $!\n")
+        &digestcolor($framecolors{$color_mode}{message});
+        $scr->puts("Unable to create $CONFIGDIRNAME/$CWDFILENAME: $!\n")
             ->normal();
     }
 }
@@ -786,20 +821,22 @@ sub digestcolor {
 
 sub decidecolor {
     my %file = @_;
-    $file{nlink} ==  0        and &digestcolor($dircolors{lo}), return;
-    $file{type}  eq 'd'       and &digestcolor($dircolors{di}), return;
-    $file{type}  eq 'l'       and &digestcolor(
-                                  $dircolors{&isorphan($file{name}) ?'or':'ln'}
-                              ), return;
-    $file{type}  eq 'b'       and &digestcolor($dircolors{bd}), return;
-    $file{type}  eq 'c'       and &digestcolor($dircolors{cd}), return;
-    $file{type}  eq 'p'       and &digestcolor($dircolors{pi}), return;
-    $file{type}  eq 's'       and &digestcolor($dircolors{so}), return;
-    $file{type}  eq 'D'       and &digestcolor($dircolors{'do'}), return;
-    $file{type}  eq 'n'       and &digestcolor($dircolors{nt}), return;
-    $file{type}  eq 'w'       and &digestcolor($dircolors{wh}), return;
-    $file{mode}  =~ /[xst]/   and &digestcolor($dircolors{ex}), return;
-    $file{name}  =~/(\.\w+)$/ and &digestcolor($dircolors{$1}), return;
+    $file{nlink} ==  0  and &digestcolor($dircolors{$color_mode}{lo}), return;
+    $file{type}  eq 'd' and &digestcolor($dircolors{$color_mode}{di}), return;
+    $file{type}  eq 'l' and &digestcolor($dircolors{$color_mode}
+                                {&isorphan($file{name})?'or':'ln'}
+                            ), return;
+    $file{type}  eq 'b' and &digestcolor($dircolors{$color_mode}{bd}), return;
+    $file{type}  eq 'c' and &digestcolor($dircolors{$color_mode}{cd}), return;
+    $file{type}  eq 'p' and &digestcolor($dircolors{$color_mode}{pi}), return;
+    $file{type}  eq 's' and &digestcolor($dircolors{$color_mode}{so}), return;
+    $file{type}  eq 'D' and &digestcolor($dircolors{$color_mode}{'do'}), return;
+    $file{type}  eq 'n' and &digestcolor($dircolors{$color_mode}{nt}), return;
+    $file{type}  eq 'w' and &digestcolor($dircolors{$color_mode}{wh}), return;
+    $file{mode}  =~ /[xst]/
+                        and &digestcolor($dircolors{$color_mode}{ex}), return;
+    $file{name}  =~/(\.\w+)$/
+                        and &digestcolor($dircolors{$color_mode}{$1}), return;
 }
 
 sub applycolor {
@@ -924,8 +961,14 @@ sub fileline { # $currentfile, @layoutfields
 }
 
 sub highlightline { # true/false
+    my $linecolor;
     $scr->at($currentline + $BASELINE, 0);
-    $scr->bold() if ($_[0] == $HIGHLIGHT_ON);
+    if ($_[0] == $HIGHLIGHT_ON) {
+        &digestcolor($linecolor = $framecolors{$color_mode}{highlight});
+        $scr->bold()        if ($linecolor =~ /\b0?1\b/);
+        $scr->underline()   if ($linecolor =~ /\b0?4\b/);
+        $scr->reverse()     if ($linecolor =~ /\b0?7\b/);
+    }
     $scr->puts(&fileline(\%currentfile, @layoutfields));
     &applycolor($currentline + $BASELINE, $FILENAME_SHORT, %currentfile);
     $scr->normal()->at($currentline + $BASELINE, $cursorcol);
@@ -936,20 +979,21 @@ sub markcurrentline { # letter
 }
 
 sub pressanykey {
-    $scr->cyan();
+    &digestcolor($framecolors{$color_mode}{message}); # previously just cyan()
     print "\n*** Hit any key to continue ***";
     &stty_raw($TERM_RAW);
     $scr->normal()->getch();
 }
 
 sub display_error {
-    $scr->cyan()->bold()->puts($_[0])->normal();
+    &digestcolor($framecolors{$color_mode}{message});
+    $scr->puts($_[0])->normal();
     return $scr->key_pressed($ERRORDELAY); # return value not actually used
 }
 
 sub neat_error {
     $scr->at(0,0)->clreol();
-    &display_error($!);
+    &display_error($_[0]);
     if ($multiple_mode) {
         return $R_PATHINFO;
     } else {
@@ -960,7 +1004,8 @@ sub neat_error {
 sub ok_to_remove_marks {
     my $sure;
     if (&mark_info) {
-        $sure = $scr->at(0,0)->clreol()->bold()->cyan()
+        &digestcolor($framecolors{$color_mode}{message});
+        $sure = $scr->at(0,0)->clreol()
                     ->puts("OK to remove marks [Y/N]? ")->normal()->getch();
         &init_header;
         return ($sure =~ /y/i);
@@ -979,7 +1024,7 @@ sub promptforwildfilename {
     eval "/$wildfilename/";
     if ($@) {
         &display_error($@);
-        $scr->key_pressed(1.5); # add 1.5 seconds
+        $scr->key_pressed($IMPORTANTDELAY);
         $wildfilename = '^$';   # clear illegal regexp
     }
     return $wildfilename;
@@ -1030,9 +1075,11 @@ sub init_title { # swap_mode, extra field, @layoutfields
         $_ == $TITLE_SIGNAL   and $info = '  nr signal   ';
         $_ == $TITLE_COMMAND  and $info = 'your commands ';
     }
-    &digestcolor($linecolor = $smode ? $swapcolor : $titlecolor);
-    $scr->reverse() if ($linecolor =~ /\b0?7\b/);
-    $scr->bold()    if ($linecolor =~ /\b0?1\b/);
+    &digestcolor($linecolor = $smode ? $framecolors{$color_mode}{swap}
+                                     : $framecolors{$color_mode}{title});
+    $scr->bold()        if ($linecolor =~ /\b0?1\b/);
+    $scr->underline()   if ($linecolor =~ /\b0?4\b/);
+    $scr->reverse()     if ($linecolor =~ /\b0?7\b/);
     $^A = '';
     formline($currentformatline . ' @>>>>>>>>>>>>>',
         @{$TITLEVIRTFILE}{@fields}, $info);
@@ -1046,8 +1093,7 @@ sub header {
         return 'Sort by: Name, Extension, Size, Date, Type, Inode'
         .     ' (ignorecase, reverse):';
     } elsif ($mode & $HEADER_MORE) {
-        return 'Config pfm Edit new file Make new dir Show dir sHell Kill'
-        .     ' Write history ESC';
+        return 'Config Edit-new sHell Kill-chld Make-dir Show-dir Write-hist ESC';
     } elsif ($mode & $HEADER_INCLUDE) {
         return 'Include? Every, Oldmarks, User or Files only:';
     } else {
@@ -1068,13 +1114,13 @@ sub init_header { # <special header mode>
     }
     $scr->at(0,0);
     if ($mode & $HEADER_MULTI) {
-        &digestcolor($multicolor);
-        $scr->reverse()->bold()->puts('Multiple')->normal();
+        &digestcolor($framecolors{$color_mode}{multi});
+        $scr->puts('Multiple')->normal();
     }
-    &digestcolor($headercolor);
+    &digestcolor($framecolors{$color_mode}{header});
     $scr->puts(' ' x $multiple_mode)->puts($header)->bold();
     # in earlier days, regex was [A-Z](?!FM |M E| Ed)
-    while ($header =~ /[A-Z<>]/g) {
+    while ($header =~ /[[:upper:]<>]/g) {
         $pos = pos($header) -1;
         $scr->at(0, $pos + 9*$multiple_mode)->puts(substr($header, $pos, 1));
     }
@@ -1083,7 +1129,7 @@ sub init_header { # <special header mode>
 }
 
 sub footer {
-    return "F1-Help F2-Back F3-Redraw F4-Color[$ONOFF{$scr->colorizable()}]"
+    return "F1-Help F2-Back F3-Redraw F4-Color[$color_mode]"
     .     " F5-Reread F6-Sort[$sort_mode] F7-Swap[$ONOFF{$swap_mode}]"
     .     " F8-Include F9-Columns[$currentlayout]"
     .     " F10-Multiple[$ONOFF{$multiple_mode}] F11-Restat"
@@ -1092,16 +1138,20 @@ sub footer {
 
 sub init_footer {
     my $footer = &fitbanner(&footer, $screenwidth);
-    &digestcolor($footercolor);
-    $scr->reverse() if ($footercolor =~ /\b0?7\b/);
-    $scr->bold()->at($BASELINE+$screenheight+1,0) ->puts($footer)
+    my $linecolor;
+    &digestcolor($linecolor = $framecolors{$color_mode}{footer});
+    $scr->bold()        if ($linecolor =~ /\b0?1\b/);
+    $scr->underline()   if ($linecolor =~ /\b0?4\b/);
+    $scr->reverse()     if ($linecolor =~ /\b0?7\b/);
+    $scr->at($BASELINE+$screenheight+1,0) ->puts($footer)
         ->puts(' ' x ($screenwidth - length $footer))->normal();
 }
 
 sub copyright {
     return unless $_[0];
     # lookalike to DOS version :)
-    $scr->cyan() ->puts("PFM $VERSION for Unix computers and compatibles.")
+    $scr->at(0,0)->clreol()->cyan() # %dircolors has not been set yet
+                 ->puts("PFM $VERSION for Unix computers and compatibles.")
         ->at(1,0)->puts("Copyright (c) 1999-2002 Rene Uittenbogaard")
         ->at(2,0)->puts("This software comes with no warranty: see the file "
                        ."COPYING for details.")->normal();
@@ -1121,10 +1171,13 @@ sub globalinit {
     @signame        = &init_signames;
     %selected_nr_of = %total_nr_of = ();
     $swap_mode      = $multiple_mode = 0;
-    $swap_state     = $currentpan = 0;
+    $swap_state     = 0;
+    $currentpan     = 0;
     $baseindex      = 0;
     $sort_mode      = $pfmrc{defaultsortmode} || 'n';
     $currentlayout  = $pfmrc{defaultlayout}   || 0;
+    $color_mode     = $pfmrc{defaultcolorset} ||
+        (defined $dircolors{ls_colors} ? 'ls_colors' : $colorsetnames[0]);
     if ($scr->rows()) { $screenheight = $scr->rows()-$BASELINE-2 }
     if ($scr->cols()) { $screenwidth  = $scr->cols() }
     &makeformatlines;
@@ -1135,7 +1188,7 @@ sub globalinit {
     $startingdir and &mychdir($startingdir) || do {
         $scr->at(0,0)->clreol();
         &display_error("$startingdir: $! - using .");
-        $scr->key_pressed(1); # add another second error delay
+        $scr->key_pressed($IMPORTANTDELAY);
         &init_header;
     };
 }
@@ -1321,6 +1374,10 @@ sub by_name {
     return $a->{name} cmp $b->{name};
 }
 
+sub alphabetically {
+    return uc($a) cmp uc($b) || $a cmp $b;
+}
+
 ##########################################################################
 # user commands
 
@@ -1328,7 +1385,8 @@ sub handlequit { # key
     return $R_QUIT if $pfmrc{confirmquit} =~ /^(never|no|0|false|off)$/i;
     return $R_QUIT if $_[0] eq 'Q'; # quick quit
     return $R_QUIT if ($pfmrc{confirmquit} =~ /marked/i and !&mark_info);
-    $scr->at(0,0)->clreol()->bold()->cyan();
+    &digestcolor($framecolors{$color_mode}{message});
+    $scr->at(0,0)->clreol();
     $scr->puts("Are you sure you want to quit [Y/N]? ")->normal();
     my $sure = $scr->getch();
     return +($sure =~ /y/i) ? $R_QUIT : $R_HEADER;
@@ -1352,7 +1410,13 @@ sub handlerefresh {
 }
 
 sub handlecolor {
-    $scr->colorizable(!$scr->colorizable());
+    my $index = $#colorsetnames;
+    while ($color_mode ne $colorsetnames[$index] and $index > 0) {
+        --$index;
+    }
+    if (--$index < 0) { $index = $#colorsetnames }
+    $color_mode = $colorsetnames[$index];
+#    $scr->colorizable(!$scr->colorizable());
     return $R_SCREEN;
 }
 
@@ -1433,18 +1497,19 @@ sub handlesize {
             {qw(grand grand_num grand_power)} = ($recursivesize,
             &fit2limit($recursivesize, $maxgrandtotallength));
         if (join('', @layoutfields) =~ /grand/) {
+            # use grand total field
             $scr->puts(&fileline($showncontents[$currentline+$baseindex],
                 @layoutfields));
         } else {
-            # use size field
+            # use filesize field
             $tempfile = { %currentfile };
             @{$tempfile}{qw(size size_num size_power)} = ($recursivesize,
                 &fit2limit($recursivesize, $maxfilesizelength));
             $scr->puts(&fileline($tempfile, @layoutfields));
+            &markcurrentline('Z');
+            &applycolor($currentline + $BASELINE, $FILENAME_SHORT, %currentfile);
+            $scr->getch();
         }
-        &markcurrentline('Z');
-        &applycolor($currentline + $BASELINE, $FILENAME_SHORT, %currentfile);
-        $scr->getch();
 #    }
     return $R_NOP;
 }
@@ -1461,7 +1526,7 @@ sub handleshowenter {
     my $followmode  = &followmode(\%currentfile);
     if ($followmode =~ /^d/) {
         goto &handleentry;
-    } elsif ($_[0] =~ /\r/ and $followmode =~ /x/) {
+    } elsif ($_[0] =~ /\r/ and $followmode =~ /[xst]/) {
         goto &handleenter;
     } else {
         goto &handleshow;
@@ -1523,8 +1588,8 @@ sub handlefit {
 
 sub handleperlcommand {
     my $perlcmd;
-    my $prompt = 'Enter Perl command:';
-    $scr->at(0,0)->clreol()->cyan()->bold()->puts($prompt)->normal()
+    &digestcolor($framecolors{$color_mode}{message});
+    $scr->at(0,0)->clreol()->puts('Enter Perl command:')->normal()
         ->at($PATHLINE,0)->clreol();
     &stty_raw($TERM_COOKED);
     $perlcmd = &readintohist(\@perlcmd_history);
@@ -1609,6 +1674,15 @@ sub handlemoreedit {
     return $R_CLEAR;
 }
 
+sub handlemoreshell {
+    $scr->clrscr();
+    &stty_raw($TERM_COOKED);
+#    @ENV{qw(ROWS COLUMNS)} = ($screenheight + $BASELINE + 2, $screenwidth);
+    system ($ENV{SHELL} ? $ENV{SHELL} : 'sh'); # most portable
+    &pressanykey; # will also put the screen back in raw mode
+    return $R_CLEAR;
+}
+
 sub handlemorekill {
     my $printline   = $BASELINE;
     my $stateprompt = 'Signal to send to child processes: ';
@@ -1636,14 +1710,12 @@ sub handlemorekill {
     return $R_HEADER | $R_PATHINFO | $R_TITLE | $R_DISKINFO;
 }
 
-sub handlemoreshell {
-    $scr->clrscr();
-    &stty_raw($TERM_COOKED);
-#    @ENV{qw(ROWS COLUMNS)} = ($screenheight + $BASELINE + 2, $screenwidth);
-    system ($ENV{SHELL} ? $ENV{SHELL} : 'sh'); # most portable
-    &pressanykey; # will also put the screen back in raw mode
-    return $R_CLEAR;
-}
+#sub handlemoreprocgroup {
+#    $scr->at(0,0)->clreol();
+#    &display_error(setpgrp(0,0) ? "Started new process group ".getpgrp
+#                                : "Changing process group failed: $!");
+#    return $R_HEADER;
+#}
 
 sub handlemore {
     local $_;
@@ -1798,14 +1870,7 @@ sub handlesymlink {
         if (system 'ln', ($clobber ? '-sf' : '-s'),
             $targetstring, $newnameexpanded
         ) {
-            $do_a_refresh |= &neat_error;
-#            $scr->at(0,0)->clreol();
-#            &display_error($!);
-#            if ($multiple_mode) {
-#                &path_info;
-#            } else {
-#                $do_a_refresh |= $R_FRAME;
-#            }
+            $do_a_refresh |= &neat_error($!);
         } elsif ($newnameexpanded !~ m!/!) {
             # is newname present in @dircontents? push otherwise
             $findindex = 0;
@@ -1866,34 +1931,19 @@ sub handletarget {
         if ($loopfile->{type} ne "l") {
             $scr->at(0,0)->clreol();
             &display_error($nosymlinkerror);
-#            $do_a_refresh |= $R_HEADER;
         } else {
             $oldtargetok = 1;
             if (-d $loopfile->{name}) {
                 # if it points to a dir, the symlink must be removed first
                 # next line is an intentional assignment
                 unless ($oldtargetok = unlink $loopfile->{name}) {
-                    $do_a_refresh |= &neat_error;
-#                    $scr->at(0,0)->clreol();
-#                    &display_error($!);
-#                    if ($multiple_mode) {
-#                        &path_info;
-#                    } else {
-#                        $do_a_refresh |= $R_FRAME;
-#                    }
+                    $do_a_refresh |= &neat_error($!);
                 }
             }
             if ($oldtargetok and
                 system qw(ln -sf), $newtarget, $loopfile->{name})
             {
-                $do_a_refresh |= &neat_error;
-#                $scr->at(0,0)->clreol();
-#                &display_error($!);
-#                if ($multiple_mode) {
-#                    &path_info;
-#                } else {
-#                    $do_a_refresh |= $R_FRAME;
-#                }
+                $do_a_refresh |= &neat_error($!);
             }
         }
     };
@@ -1931,14 +1981,7 @@ sub handlechown {
     return $R_HEADER if ($newuid eq '');
     $do_this = sub {
         if (system ('chown', $newuid, $loopfile->{name})) {
-            $do_a_refresh |= &neat_error;
-#            $scr->at(0,0)->clreol();
-#            &display_error($!);
-#            if ($multiple_mode) {
-#                &path_info;
-#            } else {
-#                $do_a_refresh |= $R_FRAME;
-#            }
+            $do_a_refresh |= &neat_error($!);
         }
     };
     if ($multiple_mode) {
@@ -1976,26 +2019,13 @@ sub handlechmod {
     if ($newmode =~ s/^\s*(\d+)\s*$/oct($1)/e) {
         $do_this = sub {
             unless (chmod $newmode, $loopfile->{name}) {
-                $do_a_refresh |= &neat_error;
-#                &display_error($!);
-#                if ($multiple_mode) {
-#                    &path_info;
-#                } else {
-#                    $do_a_refresh |= $R_FRAME;
-#                }
+                $do_a_refresh |= &neat_error($!);
             }
         };
     } else {
         $do_this = sub {
             if (system 'chmod', $newmode, $loopfile->{name}) {
-                $do_a_refresh |= &neat_error;
-#                $scr->at(0,0)->clreol();
-#                &display_error($!);
-#                if ($multiple_mode) {
-#                    &path_info;
-#                } else {
-#                    $do_a_refresh |= $R_FRAME;
-#                }
+                $do_a_refresh |= &neat_error($!);
             }
         };
     }
@@ -2024,13 +2054,15 @@ sub handlechmod {
 sub handlecommand { # Y or O
     local $_;
     my ($key, $command, $do_this, $printstr, $printline, $loopfile, $index);
+    my $prompt;
     &markcurrentline(uc($_[0])) unless $multiple_mode;
+    &digestcolor($framecolors{$color_mode}{message});
     if ($_[0] =~ /y/i) { # Your
         &clearcolumn;
         &init_title($swap_mode, $TITLE_COMMAND, @layoutfields);
         $printline = $BASELINE;
-        foreach (sort keys %pfmrc) {
-            if (/^[A-Z]$/ && $printline <= $BASELINE+$screenheight) {
+        foreach (sort alphabetically keys %pfmrc) {
+            if (/^[[:alpha:]]$/ && $printline <= $BASELINE+$screenheight) {
                 $printstr = $pfmrc{$_};
                 $printstr =~ s/\e/^[/g;
                 $^A = "";
@@ -2038,18 +2070,17 @@ sub handlecommand { # Y or O
                 $scr->at($printline++,$screenwidth-$DATECOL)->puts($^A);
             }
         }
-        $key = $scr->at(0,0)->clreol()->cyan()->bold()
-                   ->puts('Enter one of the highlighted chars at right:')
-                   ->at(0,45)->normal()->getch();
+        $prompt = 'Enter one of the highlighted chars at right: ';
+        $key = $scr->at(0,0)->clreol()->puts($prompt)->normal()->getch();
         &clearcolumn;
         # this line is supposed to be an assignment
-        return $R_DISKINFO | $R_FRAME unless ($command = $pfmrc{uc($key)});
+        return $R_DISKINFO | $R_FRAME unless ($command = $pfmrc{$key});
         &stty_raw($TERM_COOKED);
     } else { # cOmmand
-        $printstr = <<'_eoPrompt_';
+        $prompt = <<'_eoCommandPrompt_';
 Enter Unix command (\1=name, \2=name.ext, \3=path, \4=mountpoint, \5=swap path):
-_eoPrompt_
-        $scr->at(0,0)->clreol()->bold()->cyan()->puts($printstr)->normal()
+_eoCommandPrompt_
+        $scr->at(0,0)->clreol()->puts($prompt)->normal()
             ->at($PATHLINE,0)->clreol();
         &stty_raw($TERM_COOKED);
         $command = &readintohist(\@command_history);
@@ -2097,14 +2128,15 @@ sub handledelete {
     my ($loopfile, $do_this, $index, $success, $msg, $oldpos, %nameindexmap);
     my $count = 0;
     &markcurrentline('D') unless $multiple_mode;
-    $scr->at(0,0)->clreol()->cyan()->bold()
+    &digestcolor($framecolors{$color_mode}{message});
+    $scr->at(0,0)->clreol()
         ->puts("Are you sure you want to delete [Y/N]? ")->normal();
     my $sure = $scr->getch();
     return $R_HEADER if $sure !~ /y/i;
     $scr->at($PATHLINE,0);
     $do_this = sub {
         if ($loopfile->{name} eq '.') {
-            # don't allow people to delete '.': normally, this would be allowed
+            # don't allow people to delete '.'; normally, this would be allowed
             # if it is empty, but if that leaves the parent directory empty,
             # then it can also be removed, which causes a fatal pfm error.
             $success = 0;
@@ -2167,8 +2199,8 @@ sub handledelete {
 sub handleprint {
     my ($loopfile, $do_this, $index);
     &markcurrentline('P') unless $multiple_mode;
-    $scr->at(0,0)->clreol()
-        ->bold()->cyan()->puts('Enter print command: ')->normal()
+    &digestcolor($framecolors{$color_mode}{message});
+    $scr->at(0,0)->clreol()->puts('Enter print command: ')->normal()
         ->at($PATHLINE,0)->clreol();
     &stty_raw($TERM_COOKED);
     # don't use readintohist : special case with command_history
@@ -2248,14 +2280,7 @@ sub handletime {
     }
     $do_this = sub {
         if (system ('touch', @cmdopts, $loopfile->{name})) {
-            $do_a_refresh |= &neat_error;
-#            $scr->at(0,0)->clreol();
-#            &display_error($!);
-#            if ($multiple_mode) {
-#                &path_info;
-#            } else {
-#                $do_a_refresh |= $R_FRAME;
-#            }
+            $do_a_refresh |= &neat_error($!);
         }
     };
     if ($multiple_mode) {
@@ -2306,7 +2331,7 @@ sub handlecopyrename {
     my $statecmd = ($state eq 'C' ? 'cp' : 'mv');
     my $stateprompt = $state eq 'C' ? 'Destination: ' : 'New name: ';
     my ($loopfile, $index, $newname, $newnameexpanded, $do_this, $findindex,
-        @cmdopts);
+        @cmdopts, $err);
     my $do_a_refresh = $R_HEADER;
     &markcurrentline($state) unless $multiple_mode;
     $scr->at(0,0)->clreol();
@@ -2323,9 +2348,9 @@ sub handlecopyrename {
     if ($multiple_mode and $newname !~ /(?<!\\)(?:\\\\)*\\[12]/
                        and !-d($newname) )
     {
-        $scr->at(0,0)->cyan()->bold()
-        ->puts("Cannot do multifile operation when destination is single file.")
-        ->normal()->at(0,0);
+        $err = 'Cannot do multifile operation when destination is single file.';
+        &digestcolor($framecolors{$color_mode}{message});
+        $scr->at(0,0)->puts($err)->normal()->at(0,0);
         &pressanykey;
         &path_info;
         return $R_HEADER;
@@ -2333,14 +2358,7 @@ sub handlecopyrename {
     @cmdopts = $clobber ? () : qw(-i);
     $do_this = sub {
         if (system $statecmd, @cmdopts, $loopfile->{name}, $newnameexpanded) {
-            $do_a_refresh |= &neat_error;
-#            $scr->at(0,0)->clreol();
-#            &display_error($!);
-#            if ($multiple_mode) {
-#                $do_a_refresh |= $R_PATHINFO;
-#            } else {
-#                $do_a_refresh |= $R_FRAME;
-#            }
+            $do_a_refresh |= &neat_error($!);
         } elsif ($newnameexpanded !~ m!/!) {
             # is newname present in @dircontents? push otherwise
             $findindex = 0;
@@ -2615,12 +2633,15 @@ sub stat_entry { # path_of_entry, selected_flag
     $ptr->{type} = substr($ptr->{mode}, 0, 1);
     if ($ptr->{type} eq 'l') {
         $ptr->{target}  = readlink($ptr->{name});
-        $ptr->{display} = $entry . ' -> ' . $ptr->{target};
+        $ptr->{display} = $entry . $filetypeflags{'l'}
+                        . ' -> ' . $ptr->{target};
+    } elsif ($ptr->{type} eq '-' and $mode =~ /[xst]/) {
+        $ptr->{display} = $entry . $filetypeflags{'x'};
     } elsif ($ptr->{type} =~ /[bc]/) {
         $ptr->{size} = sprintf("%d",$rdev/256).$MAJORMINORSEPARATOR.($rdev%256);
-        $ptr->{display} = $entry;
+        $ptr->{display} = $entry . $filetypeflags{$ptr->{type}};
     } else {
-        $ptr->{display} = $entry;
+        $ptr->{display} = $entry . $filetypeflags{$ptr->{type}};
     }
     $ptr->{name_too_long} = length($ptr->{display}) > $maxfilenamelength-1
                             ? $NAMETOOLONGCHAR : ' ';
@@ -2647,7 +2668,8 @@ sub getdircontents { # (current)directory
     local $SIG{INT} = sub { return @contents };
     if ($#allentries > $SLOWENTRIES) {
         # don't use display_error here because that would just cost more time
-        $scr->at(0,0)->clreol()->cyan()->bold()->puts('Please Wait')->normal();
+        &digestcolor($framecolors{$color_mode}{message});
+        $scr->at(0,0)->clreol()->puts('Please Wait')->normal();
     }
     foreach $entry (@allentries) {
         # have the mark cleared on first stat with ' '
@@ -2914,6 +2936,7 @@ __DATA__
 ## (whitespace is optional)
 ## in other words: /^\s*([^:\s]+)\s*:\s*(.*)$/
 ## everything following a # is regarded as a comment.
+## escape may be entered as a real escape, as \e or as ^[ (caret, bracket)
 ## lines may be continued on the next line by ending them in \
 
 ## binary options may have yes/no, true/false, on/off, or 0/1 values.
@@ -2946,6 +2969,9 @@ copyrightdelay:0.2
 ## use very visible cursor (e.g. block cursor on Linux console)
 cursorveryvisible:yes
 
+## initial colorset to pick from the various colorsets defined below (F4)
+defaultcolorset:dark
+
 ## initial layout to pick from the array 'columnlayouts' (see below) (F9)
 defaultlayout:0
 
@@ -2969,13 +2995,18 @@ editor:vi
 ## the erase character for your terminal (default: don't set)
 #erase:^H
 
+## display file type flags (yes, no, dirs)
+## yes: 'ls -F' type, dirs: 'ls -p' type
+filetypeflags:yes
+
 ## additional key definitions for Term::Screen.
 ## definitely look in the Term::Screen(3pm) manpage for details.
-## specify these by-terminal (make the option name 'keydef_$TERM')
+## specify these by-terminal (make the option name 'keydef[$TERM]')
 ## if some (function) keys do not seem to work, add their escape sequences here.
 ## also check 'kmous' from terminfo if your mouse is malfunctioning.
-keydef_linux:home=\e[1~:end=\e[4~
-keydef_xterm:home=\e[H:end=\e[F:kmous=\e[M
+keydef[linux]:home=\e[1~:end=\e[4~
+keydef[xterm]:home=\e[H:end=\e[F:kmous=\e[M
+keydef[xterm-color]:home=\e[H:end=\e[F:kmous=\e[M
 
 ## the keymap to use in readline (vi,emacs). (default emacs)
 #keymap:vi
@@ -3006,7 +3037,7 @@ showlock:sun
 timeformat:pfm
 
 ## format for displaying timestamps: see strftime(3).
-## Take care that the time fields in the layouts defined below
+## take care that the time fields in the layouts defined below
 ## should be wide enough for this string.
 timestampformat:%y %b %d %H:%M
 #timestampformat:%Y-%m-%d %H:%M:%S
@@ -3024,15 +3055,19 @@ viewbase:hex
 
 ## use color (yes,no,force)
 ## 'no'    = use no color at all
-## 'yes'   = use color for title bars, if pfm thinks your terminal supports it
-## 'force' = use color for title bars on any terminal
+## 'yes'   = use color for the frame, if your terminal is thought to support it
+## 'force' = use color for the frame on any terminal
 ## your *files* will only be colored if you also define 'dircolors' below
 usecolor:force
 
-## 'dircolors' defines the colors that will be used for your files.
-## for your files to become colored, 'usecolor' must be set to 'yes' or 'force'.
-## see also the manpages for ls(1) and dircolors(1) (on Linux systems).
-## you can also use $LS_COLORS or $LS_COLOURS to set this.
+## you may define different colorsets using the notation
+## 'framecolors[setname]' and 'dircolors[setname]'.
+## the F4 key will cycle through these colorsets.
+## the special setname 'off' is used for no coloring.
+
+## 'framecolors' defines the colors for header, header in multiple mode,
+## title, title in swap mode, footer, messages, and the highlighted file.
+## for the frame to become colored, 'usecolor' must be set to 'yes' or 'force'.
 
 ##-attribute codes:
 ## 00=none 01=bold 04=underscore 05=blink 07=reverse 08=concealed(?)
@@ -3040,15 +3075,31 @@ usecolor:force
 ## 30=black 31=red 32=green 33=yellow 34=blue 35=magenta 36=cyan 37=white
 ##-background color codes:
 ## 40=black 41=red 42=green 43=yellow 44=blue 45=magenta 46=cyan 47=white
+
+framecolors[dark]:header=37;44:multi=01;07;36;47:title=01;07;36;47:swap=07;36;40:\
+footer=01;07;34;47:message=01;36:highlight=01:
+framecolors[light]:header=37;44:multi=07;36;40:title=07;36;40:swap=07;30;46:\
+footer=07;34;47:message=34:highlight=01:
+
+## these are a suggestion
+#framecolors[dark]:header=37;44:multi=36;47:title=07;36;40:swap=07;33;40:\
+#footer=07;34;47:message=01;36:
+
+## 'dircolors' defines the colors that will be used for your files.
+## for the files to become colored, 'usecolor' must be set to 'yes' or 'force'.
+## see also the manpages for ls(1) and dircolors(1) (on Linux systems).
+## if you have $LS_COLORS or $LS_COLOURS set,
+## an additional colorset called 'framecolors[ls_colors]' will be added.
+## however, the initial colorset will still be the one from 'defaultcolorset'.
+## the special name 'framecolors[off]' is used for no coloring
+
 ##-file types:
 ## no=normal fi=file ex=executable lo=lost file ln=symlink or=orphan link
 ## di=directory bd=block special cd=character special pi=fifo so=socket
 ## do=door nt=network special (not implemented) wh=whiteout (not implemented)
 ## *.<ext> defines extension colors
 
-## you may specify an escape as a real escape, as \e or as ^[ (caret, bracket)
-
-dircolors:no=00:fi=00:ex=00;32:lo=01;30:di=01;34:ln=01;36:or=37;41:\
+dircolors[dark]:no=00:fi=00:ex=00;32:lo=01;30:di=01;34:ln=01;36:or=37;41:\
 bd=01;33;40:cd=01;33;40:pi=00;33;40:so=01;35:\
 do=01;35:nt=01;35:wh=01;30;47:lc=\e[:rc=m:\
 *.cmd=01;32:*.exe=01;32:*.com=01;32:*.btm=01;32:*.bat=01;32:\
@@ -3058,21 +3109,15 @@ do=01;35:nt=01;35:wh=01;30;47:lc=\e[:rc=m:\
 *.jpg=01;35:*.gif=01;35:*.bmp=01;35:*.xbm=01;35:*.xpm=01;35:\
 *.mpg=01;37:*.avi=01;37:*.gl=01;37:*.dl=01;37:*.htm=01;33:*.html=01;33:
 
-## use this if you don't want colors for your files, but only for the title bars
-#dircolors:-
-
-## colors for header, title, footer
-## regardless of these settings, the footer will always be bold
-## these are commented out because they are the defaults
-#headercolor:37;44
-#multicolor:36;47
-#titlecolor:01;07;36;47
-#swapcolor:07;36;40
-#footercolor:07;34;47
-
-## these are some suggestions
-#titlecolor:07;36;40
-#swapcolor:07;33;40
+dircolors[light]:no=00:fi=00:ex=00;32:lo=01;30:di=01;34:ln=04;34:or=37;41:\
+bd=01;33;40:cd=01;33;40:pi=00;33;40:so=01;35:\
+do=01;35:nt=01;35:wh=01;37;40:lc=\e[:rc=m:\
+*.cmd=01;32:*.exe=01;32:*.com=01;32:*.btm=01;32:*.bat=01;32:\
+*.pas=32:*.c=35:*.h=35:*.pm=46:*.pl=46:\
+*.tar=01;31:*.tgz=01;31:*.arj=01;31:*.taz=01;31:*.lzh=01;31:*.zip=01;31:\
+*.z=01;31:*.Z=01;31:*.gz=01;31:*.bz2=01;31:*.deb=31:*.rpm=31:\
+*.jpg=01;35:*.gif=01;35:*.bmp=01;35:*.xbm=01;35:*.xpm=01;35:\
+*.mpg=01;37:*.avi=01;37:*.gl=01;37:*.dl=01;37:*.htm=30;43:*.html=30;43:
 
 ##########################################################################
 ## column layouts
@@ -3118,30 +3163,34 @@ ppppppppppllll uuuuuuuu ggggggggssssssss mmmmmmmmmmmmmmm *nnnnnnn:
 ## in these commands, \1=filename without extension, \2=filename complete,
 ## \3=current directory path, \4=current mountpoint, \5=swap path (F7)
 
-A:acroread "\2" &
-B:xv -root +noresetroot +smooth -maxpect -quit "\2"
-C:tar cvf - "\2" | gzip > "\2".tar.gz
-D:uudecode "\2"
-E:unarj l "\2" | more
-F:file "\2"
-G:gvim "\2"
-I:rpm -qpi "\2"
-J:mpg123 "\2" &
-K:esdplay "\2"
-L:mv -i "\2" "$(echo "\2" | tr A-Z a-z)"
-N:nroff -man "\2" | more
-O:cp "\2" "\2.$(date +"%Y%m%d")"; touch -r "\2" "\2.$(date +"%Y%m%d")"
-P:perl -cw "\2"
-Q:unzip -l "\2" | more
-R:rpm -qpl "\2" | more
-S:strings "\2" | more
-T:gunzip < "\2" | tar tvf - | more
-U:gunzip "\2"
-V:xv "\2" &
-W:what "\2"
-X:gunzip < "\2" | tar xvf -
-Y:lynx "\2"
-Z:gzip "\2"
+a:acroread "\2" &
+B:bunzip2 "\2"
+b:xv -root +noresetroot +smooth -maxpect -quit "\2"
+c:tar cvf - "\2" | gzip > "\2".tar.gz
+d:uudecode "\2"
+e:unarj l "\2" | more
+f:file "\2"
+G:gimp "\2"
+g:gvim "\2"
+i:rpm -qpi "\2"
+j:mpg123 "\2" &
+k:esdplay "\2"
+l:mv -i "\2" "$(echo "\2" | tr '[:upper:]' '[:lower:]')"
+n:nroff -man "\2" | more
+o:cp "\2" "\2.$(date +"%Y%m%d")"; touch -r "\2" "\2.$(date +"%Y%m%d")"
+p:perl -cw "\2"
+q:unzip -l "\2" | more
+r:rpm -qpl "\2" | more
+s:strings "\2" | more
+t:gunzip < "\2" | tar tvf - | more
+U:unzip "\2"
+u:gunzip "\2"
+v:xv "\2" &
+w:what "\2"
+x:gunzip < "\2" | tar xvf -
+y:lynx "\2"
+Z:bzip2 "\2"
+z:gzip "\2"
 
 ## vi: set filetype=xdefaults: # close enough, just not for multiline strings
 __END__
@@ -3394,7 +3443,7 @@ that column will be used. Otherwise, the 'filesize' column will temporarily
 be (ab)used. A 'grand total' column in the layout will never be filled by
 default.
 
-Note: since du(1) is not portable, you will have to specify the C<du>
+Note: since du(1) is not portable, you might have to specify the C<du>
 command (or C<du | awk> combination) applicable for your Unix version in
 the F<.pfmrc> file. Examples are provided.
 
@@ -3634,13 +3683,13 @@ memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.82 .
+This manual pertains to C<pfm> version 1.83 .
 
 =head1 SEE ALSO
 
 The documentation on PFMS<.>COM . The mentioned manual pages for
 chmod(1), less(1), lpr(1), touch(1), vi(1). The manual pages for
-Term::ScreenColor(3) and Term::ReadLine::Gnu(3).
+Term::ScreenColor(3), Term::Screen(3) and Term::ReadLine::Gnu(3).
 
 =head1 AUTHOR
 
