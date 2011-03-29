@@ -1,6 +1,5 @@
-1.77
+1.78
 
-* added mouse support!
-* fixed severe bug (pfm hangs) for column formats that have no 'size' column
-* updated documentation
+* split footer in left/right part, added to < and > commands
+* implemented user-formatted timestamp strings ('timestampformat')
 
