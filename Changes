@@ -1,5 +1,7 @@
-1.78
+1.79
 
-* split footer in left/right part, added to < and > commands
-* implemented user-formatted timestamp strings ('timestampformat')
+* major code change (concerning browse() routine)
+* fixed bug that rendered 'autoexitmultiple' useless
+* added 'mouseturnoff' config option
+* updated documentation
 
