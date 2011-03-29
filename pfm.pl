@@ -1,13 +1,14 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20030103 v1.85
+# @(#) pfm.pl 19990314-20030103 v1.86
 #
 # Name:         pfm.pl
-# Version:      1.85
+# Version:      1.86
 # Author:       Rene Uittenbogaard
 # Date:         2003-01-03
 # Usage:        pfm.pl [ <directory> ] [ -s, --swap <directory> ]
+#                      [ -v, --version | -h, --help ]
 # Requires:     Term::ScreenColor
 #               Term::Screen
 #               Term::Cap
@@ -37,12 +38,15 @@
 #       implement cached_header and cached_footer ?
 #       implement include Before/After
 #       (M)ore - (E)dit should expand ~ and \5 ? make this more consistent
+#       print cmd should expand \2 (for psnup etc)
+#       consistent use of 'prim/sec' or 'main/swap' terminology in doc
 #       implement ENTER -> launch action for filetype?
 #       cache converted formatlines - store formatlines and maxfilesizelength
 #           etc in hash; column_mode in swap_state
 #
+#       global keydef[*] in config file?
+#
 #       use perl symlink()
-#       what to do if du(1) says "permission denied" ?
 #       implement 'logical' paths in addition to 'physical' paths?
 #           unless (chdir()) { getcwd() } otherwise no getcwd() ?
 #       set ROWS en COLUMNS in environment for child processes; but see if
@@ -82,7 +86,7 @@ require 5.005; # for negative lookbehind in re
 
 use Term::ScreenColor;
 use Term::ReadLine;
-use Getopt::Long qw(:config bundling);
+use Getopt::Long;
 use POSIX qw(strftime);
 use Config;
 use Cwd;
@@ -622,12 +626,13 @@ sub expand_12_escapes {
     $_[0] =~ s/((?<!\\)(?:\\\\)*)\\2/$1$thisfile{name}/g;
 }
 
-sub expand_345_escapes {
+sub expand_3456_escapes {
     # there must be an odd nr. of backslashes before the digit
     # because \\ must be interpreted as an escaped backslash
     $_[0] =~ s/((?<!\\)(?:\\\\)*)\\3/$1$currentdir/g;
     $_[0] =~ s/((?<!\\)(?:\\\\)*)\\4/$1$disk{mountpoint}/g;
     $_[0] =~ s/((?<!\\)(?:\\\\)*)\\5/$1$swap_state->{path}/g if $swap_state;
+    $_[0] =~ s/((?<!\\)(?:\\\\)*)\\6/$1.&basename($currentdir)/ge;
     # readline understands ~ notation; now we understand it too
     # ~user is not replaced if it is not in the passwd file
     $_[0] =~ s/^~(\/|$)/$ENV{HOME}\//;
@@ -636,7 +641,7 @@ sub expand_345_escapes {
 
 sub expand_escapes {
     &expand_12_escapes(@_);
-    &expand_345_escapes(@_);
+    &expand_3456_escapes(@_);
     $_[0] =~ s/\\\\/\\/g;
 }
 
@@ -826,10 +831,14 @@ sub stty_raw {
 }
 
 sub globalinit {
-    my $startingdir;
-    unless (GetOptions ('s|swap=s' => \$swapstartdir)) {
-        sleep $ERRORDELAY;
-    }
+    my ($startingdir, $opt_version, $opt_help);
+    &Getopt::Long::Configure('bundling');
+    GetOptions ('s|swap=s'  => \$swapstartdir,
+                'h|help'    => \$opt_help,
+                'v|version' => \$opt_version) || sleep $ERRORDELAY;
+    &usage if $opt_help;
+    &printversion if $opt_version;
+    if ($opt_help or $opt_version) { exit 0 }
     $startingdir = shift @ARGV;
     $SIG{WINCH}  = \&resizecatcher;
     $kbd = Term::ReadLine->new('pfm', \*STDIN, \*STDOUT);
@@ -1225,12 +1234,24 @@ sub init_footer {
         ->puts(' ' x ($screenwidth - length $footer))->normal();
 }
 
+sub usage {
+    print "Usage:\n";
+    print "pfm [ directory ] [ -s, --swap directory ]\n"
+    ,     "pfm { -v, --version | -h, --help }\n";
+#    $scr->puts('pfm [ ')->underline()->puts('directory')->normal()
+#        ->puts(' ] [ -s, --swap ')->underline()->puts('directory')->normal()
+#        ->puts(" ]\n")->puts('pfm { -v, --version | -h, --help }');
+}
+
+sub printversion {
+    print "pfm $VERSION\n";
+}
+
 sub copyright {
-    return unless $_[0];
     # lookalike to DOS version :)
     $scr->at(0,0)->clreol()->cyan() # %dircolors has not been set yet
                  ->puts("PFM $VERSION for Unix computers and compatibles.")
-        ->at(1,0)->puts("Copyright (c) 1999-2002 Rene Uittenbogaard")
+        ->at(1,0)->puts("Copyright (c) 1999-2003 Rene Uittenbogaard")
         ->at(2,0)->puts("This software comes with no warranty: see the file "
                        ."COPYING for details.")->normal();
     return $scr->key_pressed($_[0]);
@@ -1262,7 +1283,7 @@ sub credits {
 
              PFM for Unix computers and compatibles.  Version $VERSION
              Original idea/design: Paul R. Culley and Henk de Heer
-             Author and Copyright (c) 1999-2002 Rene Uittenbogaard
+             Author and Copyright (c) 1999-2003 Rene Uittenbogaard
 
 
        PFM is distributed under the GNU General Public License version 2.
@@ -1529,7 +1550,8 @@ sub handleadvance {
 sub handlesize {
     my ($recursivesize, $command, $tempfile, $do_this);
     my ($index, $loopfile);
-    my $do_a_refresh = ($R_DIRLIST | $R_HEADER | $R_PATHINFO) * $multiple_mode;
+    my $do_a_refresh = ($R_DIRFILTER | $R_DIRLIST | $R_HEADER | $R_PATHINFO)
+                        * $multiple_mode;
     &markcurrentline('Z') unless $multiple_mode;
     $do_this = sub {
         $loopfile = shift;
@@ -1567,7 +1589,7 @@ sub handlesize {
                 $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
                 &exclude($loopfile, '.');
                 $loopfile = &$do_this($loopfile);
-                $showncontents[$currentline+$baseindex] = $loopfile;
+                $dircontents[$index] = $loopfile;
             }
         }
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
@@ -2073,7 +2095,8 @@ sub handlechown {
 sub handlechmod {
     my ($newmode, $loopfile, $do_this, $index);
     my $prompt = 'Permissions [ugoa][-=+][rwxslt] or octal: ';
-    my $do_a_refresh = $multiple_mode ? $R_DIRLIST | $R_HEADER : $R_HEADER;
+    my $do_a_refresh = $multiple_mode ? $R_DIRFILTER | $R_DIRLIST | $R_HEADER
+                                      : $R_HEADER;
     &markcurrentline('A') unless $multiple_mode;
     $scr->at(0,0)->clreol();
     &stty_raw($TERM_COOKED);
@@ -2142,7 +2165,7 @@ sub handlecommand { # Y or O
         &stty_raw($TERM_COOKED);
     } else { # cOmmand
         $prompt = <<'_eoCommandPrompt_';
-Enter Unix command (\1=name, \2=name.ext, \3=path, \4=mountpoint, \5=swap path):
+Enter Unix cmd (\1=name \2=name.ext \3=path \4=mountpt \5=swappath \6=basepath):
 _eoCommandPrompt_
         &digestcolor($framecolors{$color_mode}{message});
         $scr->at(0,0)->clreol()->puts($prompt)->normal()
@@ -2408,8 +2431,8 @@ sub handlecopyrename {
     }
     &stty_raw($TERM_RAW);
     return $R_HEADER if ($newname eq '');
-    # expand \[345] at this point, but not yet \[12]
-    &expand_345_escapes($newname, \%currentfile);
+    # expand \[3456] at this point, but not yet \[12]
+    &expand_3456_escapes($newname, \%currentfile);
     if ($multiple_mode and $newname !~ /(?<!\\)(?:\\\\)*\\[12]/
                        and !-d($newname) )
     {
@@ -3256,7 +3279,8 @@ ppppppppppllll uuuuuuuu ggggggggssssssss mmmmmmmmmmmmmmm *nnnnnnn:
 
 ## these assume you do not have filenames with double quotes in them.
 ## in these commands, \1=filename without extension, \2=filename complete,
-## \3=current directory path, \4=current mountpoint, \5=swap path (F7)
+## \3=current directory path, \4=current mountpoint, \5=swap path (F7),
+## \6=current directory basename
 
 your[a]:acroread "\2" &
 your[B]:bunzip2 "\2"
@@ -3287,44 +3311,6 @@ your[y]:lynx "\2"
 your[Z]:bzip2 "\2"
 your[z]:gzip "\2"
 
-##########################################################################
-## launch commands (not implemented)
-
-extension[*.jpg] : image/jpeg
-extension[*.jpeg]: image/jpeg
-extension[*.gif] : image/gif
-extension[*.png] : image/png
-extension[*.tif] : image/tiff
-extension[*.tiff]: image/tiff
-extension[*.txt] : text/plain
-extension[*.htm] : text/html
-extension[*.html]: text/html
-extension[*.css] : text/css
-extension[*.ps]  : application/postscript
-extension[*.eps] : application/postscript
-extension[*.pdf] : application/pdf
-extension[*.tar] : application/x-tar
-extension[*.rpm] : application/x-rpm
-extension[*.zip] : application/zip
-extension[*.mp3] : audio/mpeg
-extension[*.mp2] : audio/mpeg
-extension[*.mid] : audio/midi
-extension[*.midi]: audio/midi
-extension[*.au]  : audio/basic
-extension[*.wav] : audio/x-wav
-extension[*.ram] : audio/x-pn-realaudio
-extension[*.ra]  : audio/x-realaudio
-extension[*.mpg] : video/mpeg
-extension[*.mpeg]: video/mpeg
-extension[*.qt]  : video/quicktime
-extension[*.mov] : video/quicktime
-extension[*.avi] : video/x-msvideo
-
-magic[JPEG image]:image/jpeg
-magic[PostScript document]:application/postscript
-
-launch[image/jpeg]:xv \2
-
 ## vi: set filetype=xdefaults: # fairly close
 __END__
 
@@ -3340,6 +3326,8 @@ C<pfm> - Personal File Manager for Linux/Unix
 =head1 SYNOPSIS
 
 C<pfm [ >I<directory>C< ] [ -s, --swap >I<directory>C< ]>
+
+C<pfm { -v, --version | -h, --help }>
 
 =head1 DESCRIPTION
 
@@ -3392,44 +3380,20 @@ if 'persistentswap' is turned on.
 =over
 
 Navigation through directories is done using the arrow keys, the vi(1)
-cursor keys (B<hjkl>), B<->, B<+>, B<PgUp>, B<PgDn>, B<home>, B<end>, and the
-vi(1) control keys B<CTRL-F>, B<CTRL-B>, B<CTRL-U>, B<CTRL-D>, B<CTRL-Y>
-and B<CTRL-E>. Note that the B<l> key is also used for creating symbolic
-links (see the B<L>ink command below). Pressing B<ESC> or B<BS> will take
-you one directory level up (note: see BUGS below). Pressing B<ENTER> when
-the cursor is on a directory will take you into the directory. Pressing
-B<SPACE> will both mark the current file and advance the cursor.
+cursor keys (B<hjkl>), B<->, B<+>, B<PgUp>, B<PgDn>, B<home>, B<end>,
+and the vi(1) control keys B<CTRL-F>, B<CTRL-B>, B<CTRL-U>, B<CTRL-D>,
+B<CTRL-Y> and B<CTRL-E>. Note that the B<l> key is also used for creating
+symbolic links (see the B<L>ink command below). Pressing B<ESC> or B<BS>
+will take you one directory level up (note: see BUGS below on the functioning
+of B<ESC>). Pressing B<ENTER> when the cursor is on a directory will take
+you into the directory. Pressing B<SPACE> will both mark the current file
+and advance the cursor.
 
 =back
 
 =head1 COMMANDS
 
 =over
-
-=item B<.>
-
-Toggle show/hide dot files.
-
-=item B</>
-
-Identical to B<F>ind (see below).
-
-=item B<E<lt>>
-
-Scroll the header and footer, in order to view all available commands.
-
-=item B<E<gt>>
-
-Scroll the header and footer, in order to view all available commands.
-
-=item B<?>
-
-Display help. Identical to B<F1>.
-
-=item B<@>
-
-Allows the user to enter a perl command to be executed in the context
-of C<pfm>. Primarily used for debugging.
 
 =item B<Attrib>
 
@@ -3500,12 +3464,40 @@ will take you back to the main menu.
 
 =item B<cOmmand>
 
-Allows execution of a shell command on the current files. After the
-command completes, C<pfm> will resume. You may abbreviate the current
-filename as B<\2>, the current filename without extension as B<\1>,
-the current directory path as B<\3>, the mount point of the current
-filesystem as B<\4> and the swap directory path (see B<F7> command)
-as B<\5>. To enter a backslash, use B<\\>.
+Allows execution of a shell command on the current files. After the command
+completes, C<pfm> will resume. You may use the following abbreviations:
+
+=over
+
+=item B<\1>
+
+the current filename without extension
+
+=item B<\2>
+
+the current filename, complete
+
+=item B<\3>
+
+the full current directory path
+
+=item B<\4>
+
+the mountpoint of the current filesystem
+
+=item B<\5>
+
+the full swap directory path (see B<F7> command)
+
+=item B<\6>
+
+the basename of the current directory
+
+=item B<\\>
+
+a literal backslash
+
+=back
 
 =item B<Print>
 
@@ -3569,8 +3561,9 @@ criterion. See B<I>nclude for details.
 
 =item B<Your command>
 
-Like cB<O>mmand (see above), except that it uses commands that have been
-preconfigured in the F<.pfmrc> file. These commands may use B<\1>-B<\5>
+Like cB<O>mmand (see above), except that it uses one-letter commands that
+have been preconfigured in the F<.pfmrc> file. Since version 1.84, these
+command keys are case-sensitive.  B<Y>our commands may use B<\1>-B<\6>
 escapes just as in cB<O>mmand, e.g.
 
     your[c]:tar cvf - \2 | gzip > \2.tar.gz
@@ -3648,6 +3641,37 @@ in F<.pfmrc> .
 
 =over
 
+=item B<ENTER>
+
+If the current file is executable, the executable will be invoked, otherwise,
+the contents of the current file or directory are displayed on the screen
+(like B<S>how).
+
+=item B<.>
+
+Toggle show/hide dot files.
+
+=item B</>
+
+Identical to B<F>ind (see above).
+
+=item B<E<lt>>
+
+Scroll the header and footer, in order to view all available commands.
+
+=item B<E<gt>>
+
+Scroll the header and footer, in order to view all available commands.
+
+=item B<?>
+
+Display help. Identical to B<F1>.
+
+=item B<@>
+
+Allows the user to enter a perl command to be executed in the context
+of C<pfm>. Primarily used for debugging.
+
 =item B<F1>
 
 Display help, version number and license information.
@@ -3662,7 +3686,8 @@ Fit the file list into the current window and refresh the display.
 
 =item B<F4>
 
-Toggle the use of color.
+Change the current colorset. Multiple colorsets may be defined,
+see in the F<.pfmrc> file for details.
 
 =item B<F5>
 
@@ -3707,11 +3732,6 @@ Refresh (using lstat(2)) the displayed file data for the current file.
 =item B<F12>
 
 Toggle mouse use. See MOUSE COMMANDS below.
-
-=item B<ENTER>
-
-Displays the contents of the current file or directory on the screen (like
-B<S>how). If the current file is executable, the executable will be invoked.
 
 =back
 
@@ -3834,7 +3854,7 @@ memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.85 .
+This manual pertains to C<pfm> version 1.86 .
 
 =head1 SEE ALSO
 
