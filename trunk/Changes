@@ -1,6 +1,9 @@
-1.82
+1.83
 
-* added 'keydef' config option
-* added grand total column to column layouts
-* several small changes and bugfixes
+* added locale support
+* added colorset support
+* added a colorset for black-on-white terminals
+* added lowercase (Y)our commands
+* added filetype markers
+* changes to config file layout
 
