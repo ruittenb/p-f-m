@@ -1,12 +1,12 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20030101 v1.84
+# @(#) pfm.pl 19990314-20030103 v1.85
 #
 # Name:         pfm.pl
-# Version:      1.84 - size command still buggy
+# Version:      1.85
 # Author:       Rene Uittenbogaard
-# Date:         2003-01-01
+# Date:         2003-01-03
 # Usage:        pfm.pl [ <directory> ] [ -s, --swap <directory> ]
 # Requires:     Term::ScreenColor
 #               Term::Screen
@@ -37,7 +37,7 @@
 #       implement cached_header and cached_footer ?
 #       implement include Before/After
 #       (M)ore - (E)dit should expand ~ and \5 ? make this more consistent
-#       make siZe command work in multiple mode
+#       implement ENTER -> launch action for filetype?
 #       cache converted formatlines - store formatlines and maxfilesizelength
 #           etc in hash; column_mode in swap_state
 #
@@ -45,7 +45,6 @@
 #       what to do if du(1) says "permission denied" ?
 #       implement 'logical' paths in addition to 'physical' paths?
 #           unless (chdir()) { getcwd() } otherwise no getcwd() ?
-#       implement launch action for filetype? ENTER -> .jpg:xv \2 ?
 #       set ROWS en COLUMNS in environment for child processes; but see if
 #           this does not mess up with $scr->rows etc. which use these
 #           variables internally; portability?
@@ -1533,21 +1532,19 @@ sub handlesize {
     my $do_a_refresh = ($R_DIRLIST | $R_HEADER | $R_PATHINFO) * $multiple_mode;
     &markcurrentline('Z') unless $multiple_mode;
     $do_this = sub {
-        my $loopfile = shift;
+        $loopfile = shift;
         &expand_escapes($command = $ducmd, $loopfile);
         ($recursivesize = `$command`) =~ s/\D*(\d+).*/$1/;
         chomp $recursivesize;
         if ($?) {
             $? >>= 8;
             &neat_error('Could not read all directories');
+            $recursivesize ||= 0;
             $do_a_refresh |= $R_SCREEN;
         }
         @{$loopfile}{qw(grand grand_num grand_power)} =
             ($recursivesize, &fit2limit($recursivesize, $maxgrandtotallength));
         if (join('', @layoutfields) =~ /grand/) {
-#            $scr->at($currentline + $BASELINE, 0);
-#            $scr->puts(&fileline($showncontents[$currentline+$baseindex],
-#                @layoutfields));
             $do_a_refresh |= $multiple_mode * $R_DIRLIST;
         } elsif (!$multiple_mode) {
             # use filesize field
@@ -1570,21 +1567,13 @@ sub handlesize {
                 $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
                 &exclude($loopfile, '.');
                 $loopfile = &$do_this($loopfile);
-                system "echo '".join ("\n", "\nZ ---",  map { "$_ = $loopfile->{$_}" } sort keys %$loopfile), "' > /dev/pts/3";
-#                if ($statflag) {
-#                    $dircontents[$index] =
-#                        &stat_entry($loopfile->{name}, $loopfile->{selected});
-#                }
+                $showncontents[$currentline+$baseindex] = $loopfile;
             }
         }
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
         %currentfile = %{ &$do_this(\%currentfile) };
-        system "echo '".join ("\n", "\nZ ---", map { "$_ = $currentfile{$_}" } sort keys %currentfile). "' > /dev/pts/3";
-#        if ($statflag) {
-#            $showncontents[$currentline+$baseindex] =
-#                &stat_entry($currentfile{name}, $currentfile{selected});
-#        }
+        $showncontents[$currentline+$baseindex] = { %currentfile };
         &copyback($currentfile{name});
     }
     return $do_a_refresh;
@@ -3298,6 +3287,44 @@ your[y]:lynx "\2"
 your[Z]:bzip2 "\2"
 your[z]:gzip "\2"
 
+##########################################################################
+## launch commands (not implemented)
+
+extension[*.jpg] : image/jpeg
+extension[*.jpeg]: image/jpeg
+extension[*.gif] : image/gif
+extension[*.png] : image/png
+extension[*.tif] : image/tiff
+extension[*.tiff]: image/tiff
+extension[*.txt] : text/plain
+extension[*.htm] : text/html
+extension[*.html]: text/html
+extension[*.css] : text/css
+extension[*.ps]  : application/postscript
+extension[*.eps] : application/postscript
+extension[*.pdf] : application/pdf
+extension[*.tar] : application/x-tar
+extension[*.rpm] : application/x-rpm
+extension[*.zip] : application/zip
+extension[*.mp3] : audio/mpeg
+extension[*.mp2] : audio/mpeg
+extension[*.mid] : audio/midi
+extension[*.midi]: audio/midi
+extension[*.au]  : audio/basic
+extension[*.wav] : audio/x-wav
+extension[*.ram] : audio/x-pn-realaudio
+extension[*.ra]  : audio/x-realaudio
+extension[*.mpg] : video/mpeg
+extension[*.mpeg]: video/mpeg
+extension[*.qt]  : video/quicktime
+extension[*.mov] : video/quicktime
+extension[*.avi] : video/x-msvideo
+
+magic[JPEG image]:image/jpeg
+magic[PostScript document]:application/postscript
+
+launch[image/jpeg]:xv \2
+
 ## vi: set filetype=xdefaults: # fairly close
 __END__
 
@@ -3807,7 +3834,7 @@ memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.84 .
+This manual pertains to C<pfm> version 1.85 .
 
 =head1 SEE ALSO
 

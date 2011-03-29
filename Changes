@@ -1,8 +1,4 @@
-1.84
+1.85 
 
-* fixed bug that didn't refresh the dirlisting after (L)ink
-* fixed bug that messed up header line in Multiple - (I)nclude
-* added -s (--swap) commandline option
-* changes to config file layout - see (Y)our commands
-* updated manual
+* fixed bug that displayed grand total wrong in si(Z)e
 
