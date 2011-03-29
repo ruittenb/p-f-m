@@ -1,7 +1,7 @@
-1.86
+1.87
 
-* fixed bug that made wrong updates in si(Z)e command in multiple mode
-* added \6 escape for basename cwd
-* added --help and --version options
-* updated manual
+* fixed bug in header coloring in e(X)clude
+* optimized (I)n-/e(X)clude routine
+* implemented (I)n-/e(X)clude (A)fter/(B)efore
+* updated documentation
 

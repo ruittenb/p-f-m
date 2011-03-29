@@ -1,12 +1,12 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20030103 v1.86
+# @(#) pfm.pl 19990314-20030113 v1.87
 #
 # Name:         pfm.pl
-# Version:      1.86
+# Version:      1.87
 # Author:       Rene Uittenbogaard
-# Date:         2003-01-03
+# Date:         2003-01-13
 # Usage:        pfm.pl [ <directory> ] [ -s, --swap <directory> ]
 #                      [ -v, --version | -h, --help ]
 # Requires:     Term::ScreenColor
@@ -36,15 +36,12 @@
 #       sub fileforall(sub) ?
 #
 #       implement cached_header and cached_footer ?
-#       implement include Before/After
 #       (M)ore - (E)dit should expand ~ and \5 ? make this more consistent
-#       print cmd should expand \2 (for psnup etc)
-#       consistent use of 'prim/sec' or 'main/swap' terminology in doc
+#       print cmd should expand \2 (for psnup etc) - or use from pipe?
+#           cat <filename> | psnup -2 | lp -d ve1pbd3
 #       implement ENTER -> launch action for filetype?
 #       cache converted formatlines - store formatlines and maxfilesizelength
 #           etc in hash; column_mode in swap_state
-#
-#       global keydef[*] in config file?
 #
 #       use perl symlink()
 #       implement 'logical' paths in addition to 'physical' paths?
@@ -87,7 +84,7 @@ require 5.005; # for negative lookbehind in re
 use Term::ScreenColor;
 use Term::ReadLine;
 use Getopt::Long;
-use POSIX qw(strftime);
+use POSIX qw(strftime mktime);
 use Config;
 use Cwd;
 use locale;
@@ -223,6 +220,7 @@ my %FILETYPEFLAGS       = (
 );
 
 my %TIMEHINTS = (
+    bound => 'CCYYMMDDhhmm[.ss]',
     pfm   => '[[CC]YY]MMDDhhmm[.ss]',
     touch => 'MMDDhhmm[[CC]YY][.ss]',
 );
@@ -468,7 +466,7 @@ sub read_pfmrc { # $readflag - show copyright only on startup (first read)
         }
     }
     # additional key definitions 'keydef'
-    if ($termkeys = $pfmrc{"keydef[$ENV{TERM}]"}) {
+    if ($termkeys = $pfmrc{'keydef[*]'} .':'. $pfmrc{"keydef[$ENV{TERM}]"}) {
         $termkeys =~ s/(\\e|\^\[)/\e/gi;
         # this does not allow : chars to appear in escape sequences!
         foreach (split /:/, $termkeys) {
@@ -1099,6 +1097,22 @@ sub ok_to_remove_marks {
     1;
 }
 
+sub promptforboundtime {
+    my $prompt = ($_[0] eq 'a' ? 'After' : 'Before')
+               . " modification time $TIMEHINTS{bound}: ";
+    my $boundtime;
+    $scr->at(0,0)->clreol();
+    &stty_raw($TERM_COOKED);
+    $boundtime = &readintohist(\@time_history, $prompt);
+    # init_header is done in handleinclude
+    &stty_raw($TERM_RAW);
+    $boundtime =~ /(....)(..)(..)(..)(..)(\...)?$/;
+    # this seems to be one hour off - is this a time zone problem?
+    $boundtime = mktime($6, $5, $4, $3, $2-1, $1-1900, 0, 0, 0);
+#    system "xmessage '$boundtime ~~ ".POSIX::ctime($boundtime)."'";
+    return $boundtime;
+}
+
 sub promptforwildfilename {
     my $prompt = 'Wild filename (regular expression): ';
     my $wildfilename;
@@ -1182,7 +1196,7 @@ sub header {
         return 'Config Edit-new sHell Kill-chld Make-dir Show-dir'
         .     ' Write-hist ESC';
     } elsif ($mode & $HEADER_INCLUDE) {
-        return 'Include? Every, Oldmarks, User or Files only:';
+        return 'Include? Every, Oldmarks, After, Before, User or Files only:';
     } else {
         return 'Attribute Copy Delete Edit Find Include tarGet Link More'
         .     ' cOmmands Print Quit Rename Show Time User View eXclude'
@@ -1828,37 +1842,48 @@ sub handleinclude { # include/exclude flag (from keypress)
     my $exin = shift;
     my $do_a_refresh = $R_HEADER;
     my ($criterion, $headerlength);
-    our ($wildfilename, $entry);
+    our ($wildfilename, $boundtime, $entry);
     # $wildfilename could have been declared using my(), but that will prevent
     # changes in its value to be noticed by the anonymous sub
     $headerlength = &init_header($HEADER_INCLUDE);
     # modify header to say "exclude" when 'x' was pressed
-    if ($exin =~ /x/i) { $scr->at(0,0)->on_blue()->puts('Ex')->normal(); }
+    if ($exin =~ /x/i) {
+        &digestcolor($framecolors{$color_mode}{header});
+        $scr->at(0,0)->puts('Ex')->normal();
+    }
     $exin =~ tr/ix/* /;
-    my $key = $scr->at(0, $headerlength+1)->getch();
-    if ($key =~ /^o$/i) {   # include oldmarks
-        foreach $entry (@showncontents) {
-            if ($entry->{selected} eq '.' && $exin eq ' ') {
-                $entry->{selected} = $exin;
-            } elsif ($entry->{selected} eq '.' && $exin eq '*') {
-                &include($entry);
-            }
-            $do_a_refresh |= $R_SCREEN;
-        }
-    } elsif ($key =~ /^[efu]$/i) {
-        if ($key =~ /^e$/i) { # include every
-            $criterion = sub { $entry->{name} !~ /^\.\.?$/ };
-        };
-        if ($key =~ /^u$/i) { # user only
-            $criterion = sub { $entry->{uid} =~ /$ENV{USER}/ };
-        };
-        if ($key =~ /^f$/i) { # include files
+    my $key = lc($scr->at(0, $headerlength+1)->getch());
+    if      ($key eq 'o') { # oldmarks
+        $criterion = sub { $entry->{selected} eq '.' };
+    } elsif ($key eq 'e') { # every
+        $criterion = sub { $entry->{name} !~ /^\.\.?$/ };
+    } elsif ($key eq 'u') { # user only
+        $criterion = sub { $entry->{uid} =~ /$ENV{USER}/ };
+    } elsif ($key =~ /^[ab]$/) { # after/before mtime
+        if ($boundtime = &promptforboundtime($key)) {
+            # this was the behavior of PFM.COM, IIRC
             $wildfilename = &promptforwildfilename;
-            $criterion    = sub {
+            if ($key eq 'a') {
+                $criterion = sub {
                                 $entry->{name} =~ /$wildfilename/
-                                and $entry->{type} eq '-';
+                                and $entry->{mtime} > $boundtime;
                             };
-        };
+            } else {
+                $criterion = sub {
+                                $entry->{name} =~ /$wildfilename/
+                                and $entry->{mtime} < $boundtime;
+                            };
+            }
+        } # if $boundtime
+    } elsif ($key eq 'f') { # regular files
+        $wildfilename = &promptforwildfilename;
+        # it seems that ("a" =~ //) == false, that comes in handy
+        $criterion    = sub {
+                            $entry->{name} =~ /$wildfilename/
+                            and $entry->{type} eq '-';
+                        };
+    }
+    if ($criterion) {
         foreach $entry (@showncontents) {
             if (&$criterion) {
                 if ($entry->{selected} eq '*' && $exin eq ' ') {
@@ -1871,7 +1896,7 @@ sub handleinclude { # include/exclude flag (from keypress)
                 $do_a_refresh |= $R_SCREEN;
             }
         }
-    } # if $key =~ /[efu]/
+    }
     return $do_a_refresh;
 }
 
@@ -3113,12 +3138,14 @@ filetypeflags:yes
 
 ## additional key definitions for Term::Screen.
 ## definitely look in the Term::Screen(3pm) manpage for details.
-## specify these by-terminal (make the option name 'keydef[$TERM]')
+## you may specify these by-terminal (make the option name 'keydef[$TERM]')
+## or global ('keydef[*]')
 ## if some (function) keys do not seem to work, add their escape sequences here.
 ## also check 'kmous' from terminfo if your mouse is malfunctioning.
+keydef[*]:kmous=\e[M
 keydef[linux]:home=\e[1~:end=\e[4~
-keydef[xterm]:home=\e[H:end=\e[F:kmous=\e[M
-keydef[xterm-color]:home=\e[H:end=\e[F:kmous=\e[M
+keydef[xterm]:home=\e[H:end=\e[F
+keydef[xterm-color]:home=\e[H:end=\e[F
 
 ## the keymap to use in readline (vi,emacs). (default emacs)
 #keymap:vi
@@ -3311,6 +3338,47 @@ your[y]:lynx "\2"
 your[Z]:bzip2 "\2"
 your[z]:gzip "\2"
 
+##########################################################################
+## launch commands (not implemented)
+
+extension[*.jpg] : image/jpeg
+extension[*.jpeg]: image/jpeg
+extension[*.gif] : image/gif
+extension[*.png] : image/png
+extension[*.tif] : image/tiff
+extension[*.tiff]: image/tiff
+extension[*.txt] : text/plain
+extension[*.htm] : text/html
+extension[*.html]: text/html
+extension[*.css] : text/css
+extension[*.ps]  : application/postscript
+extension[*.eps] : application/postscript
+extension[*.pdf] : application/pdf
+extension[*.tar] : application/x-tar
+extension[*.rpm] : application/x-rpm
+extension[*.zip] : application/zip
+extension[*.mp3] : audio/mpeg
+extension[*.mp2] : audio/mpeg
+extension[*.mid] : audio/midi
+extension[*.midi]: audio/midi
+extension[*.au]  : audio/basic
+extension[*.wav] : audio/x-wav
+extension[*.ram] : audio/x-pn-realaudio
+extension[*.ra]  : audio/x-realaudio
+extension[*.mpg] : video/mpeg
+extension[*.mpeg]: video/mpeg
+extension[*.qt]  : video/quicktime
+extension[*.mov] : video/quicktime
+extension[*.avi] : video/x-msvideo
+
+magic[JPEG image]:image/jpeg
+magic[PostScript document]:application/postscript
+
+launch[image/jpeg]:xv \2
+launch[image/tiff]:xv \2
+launch[image/png]:xv \2
+launch[image/gif]:xv \2
+
 ## vi: set filetype=xdefaults: # fairly close
 __END__
 
@@ -3364,6 +3432,10 @@ tries to find these directories.
 The directory that C<pfm> should initially use as its main directory. If
 unspecified, the current directory is used.
 
+=item -h, --help
+
+Print usage information, then exit.
+
 =item -s, --swap I<directory>
 
 The directory that C<pfm> should initially use as swap directory.
@@ -3372,6 +3444,10 @@ There would be no point in setting the swap directory and subsequently
 returning to the main directory if 'persistentswap' is turned off in your
 config file. Therefore, C<pfm> will swap back to the main directory I<only>
 if 'persistentswap' is turned on.
+
+=item -v, --version
+
+Print current version, then exit.
 
 =back
 
@@ -3436,13 +3512,36 @@ permission to remove the current symbolic link.
 =item B<Include>
 
 Allows you to mark a group of files which meet a certain criterion:
-B<E>very file, B<O>ldmarks (reselects any files which were previously
-marked and are now denoted with an I<oldmark> B<.> ), B<U>ser (only
-files owned by you) or B<F>iles only (prompts for a regular expression
-(not a glob pattern) which the filename must match). Oldmarks may be
-used to do multifile operations on a group of files more than once. If
-you B<I>nclude B<E>very, dotfiles will be included as well, except for
-the B<.> and B<..> directory entries.
+
+=over
+
+=item B<E>very file
+
+Dotfiles will be included as well, except for the B<.> and B<..> directory
+entries.
+
+=item B<O>ldmarks
+
+Reselects any files which were previously marked and are now denoted with
+an I<oldmark> B<.>
+
+=item B<A>fter / B<B>efore
+
+Files newer/older than a specified date/time
+
+=item B<U>ser
+
+Only files owned by the current user
+
+=item B<F>iles only
+
+Selects regular files whose filenames match a specified regular expression
+(not a glob pattern!)
+
+=back
+
+Oldmarks may be used to do multifile operations on a group of files more
+than once.
 
 =item B<Link>
 
@@ -3701,12 +3800,14 @@ a number of sort modes.
 
 =item B<F7>
 
-Swaps the display between primary and secondary screen. When switching
-from primary to secondary, you are prompted for a path to show.
-When switching back by pressing B<F7> again, the original contents are
-displayed unchanged. Header text changes color when in secondary screen.
-While in the secondary screen, the swap directory from the first screen
-may be referred to in commands as B<\5>.
+Alternates the display between two directories. When switching for the
+first time, you are prompted for a directory path to show. When switching
+back by pressing B<F7> again, the contents of the alternate directory are
+displayed unchanged. Header text changes color when in swap screen.
+The directory path from the alternate screen may be referred to in
+commands as B<\5>. If the 'persistentswap' option has been set in the
+config file, then leaving the swap mode will store the main directory
+path as swap path again.
 
 =item B<F8>
 
@@ -3854,7 +3955,7 @@ memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.86 .
+This manual pertains to C<pfm> version 1.87 .
 
 =head1 SEE ALSO
 
