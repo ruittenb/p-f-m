@@ -1,65 +1,60 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20021223 v1.77
+# @(#) pfm.pl 19990314-20021223 v1.78
 #
-# Name:        pfm.pl
-# Version:     1.77 - first version with mouse support
-# Author:      Rene Uittenbogaard
-# Date:        2002-12-23
-# Usage:       pfm.pl [directory]
-# Requires:    Term::ScreenColor
-#              Term::Screen
-#              Term::Cap
-#              Term::ReadLine::Gnu
-#              Term::ReadLine
-#              Config
-#              Cwd
-#              strict
-#              vars
-# Description: Personal File Manager for Unix/Linux
+# Name:         pfm.pl
+# Version:      1.78
+# Author:       Rene Uittenbogaard
+# Date:         2002-12-23
+# Usage:        pfm.pl [directory]
+# Requires:     Term::ScreenColor
+#               Term::Screen
+#               Term::Cap
+#               Term::ReadLine::Gnu
+#               Term::ReadLine
+#               POSIX
+#               Config
+#               Cwd
+#               strict
+#               vars
+# Description:  Personal File Manager for Unix/Linux
 #
-# TODO:  use quotemeta() for quoting? (problem: \ in filenames)
-#        double quote support by using system(@) for all commands
-#        double quote and space support in (Y)our and c(O)mmands
-#        get rid of backticks around 'df' in si(Z)e?
+# TODO: use quotemeta() for quoting? (problem: \ in filenames)
+#       double quote support by using system(@) for all commands
+#       double quote and space support in (Y)our and c(O)mmands
+#       get rid of `` around 'du' in si(Z)e and 'df' in get_filesystem_info?
 #
-#        fix error handling in eval($do_this) and &display_error
-#           partly implemented in handlecopyrename
-#        make a sub fileforall(sub) ?
-#        implement push on @dircontents from (L)ink
+#       flatten browse() ?
+#       make R_SCREEN etc. bits in $do_a_refresh ?
+#       fix error handling in eval($do_this) and &display_error
+#          partly implemented in handlecopyrename
+#       make a sub fileforall(sub) ?
 #
-#        implement default action for filetype? ENTER -> .jpg:xv \2 ?
-#        key additions for terminal? termdef:xterm:k2:\eOQ
-#       split footer in left/right part?
-#       propagate use of $PATHLINE
+#       use the nameindexmap from handledelete() more globally?
+#          in handlecopyrename()? in handlefind() in handlesymlink?
 #
-#        use the nameindexmap from handledelete() more globally?
-#           in handlecopyrename()? in handlefind() ?
+#       how is cursor positioning after inserting the new entry in
+#           handlecopyrename and handlesymlink?
+#       use perl symlink()
+#       implement 'logical' paths in addition to 'physical' paths?
+#           unless (chdir()) { getcwd() } otherwise no getcwd() ?
 #
-#        use perl symlink()
-#        use mkdir -p if m!/! (all unix platforms?)
-#        implement 'logical' paths in addition to 'physical' paths?
-#            unless (chdir()) { getcwd() } otherwise no getcwd() ?
+#       split dircolors in dircolorsdark and dircolorslight (switch with F4)
+#       use mkdir -p if m!/! (all unix platforms?)
+#       implement default action for filetype? ENTER -> .jpg:xv \2 ?
 #
-#        flatten browse() ?
-#        make R_SCREEN etc. bits in $do_a_refresh ?
-#        command: (W)hite (toggle show/hide whiteout entries)?
-#
-#        change date display to 2002 Dec 16 01:32 ? or use:
-#            use POSIX qw(strftime);
-#            $now_string = strftime "%a %b %e %H:%M:%S %Y", localtime;
-#        do something about at(0,76) calls - store as constants? length()?
-#        split dircolors in dircolorsdark and dircolorslight (switch with F4)
-#        set ROWS en COLUMNS in environment for child processes; but see if
-#            this does not mess up with $scr->getrows etc. which use these
-#            variables internally; portability?
-#        stat_entry() must *not* rebuild the selected_nr and total_nr lists:
-#            this messes up with e.g. cOmmand -> cp \2 /somewhere/else
-#            (which is, therefore, still buggy). this is closely related to:
-#        sub countdircontents is not used
-#        hierarchical sort? e.g. 'sen' (size,ext,name)
-#        major/minor numbers on DU 4.0E are wrong (does readline work there?)
+#       do something about at(0,76) calls - store as constants? length()?
+#       key additions for terminal? termdef:xterm:k2:\eOQ
+#       set ROWS en COLUMNS in environment for child processes; but see if
+#           this does not mess up with $scr->getrows etc. which use these
+#           variables internally; portability?
+#       stat_entry() must *not* rebuild the selected_nr and total_nr lists:
+#           this messes up with e.g. cOmmand -> cp \2 /somewhere/else
+#           (which is, therefore, still buggy). this is closely related to:
+#       sub countdircontents is not used
+#       hierarchical sort? e.g. 'sen' (size,ext,name)
+#       major/minor numbers on DU 4.0E are wrong (does readline work there?)
 
 ##########################################################################
 # Main data structures:
@@ -85,6 +80,7 @@ require 5.005; # for negative lookbehind in re
 
 use Term::ScreenColor;
 use Term::ReadLine;
+use POSIX 'strftime';
 use Config;
 use Cwd;
 use strict;
@@ -104,8 +100,8 @@ use vars qw(
     $FILENAME_LONG
     $HIGHLIGHT_OFF
     $HIGHLIGHT_ON
-    $TIME_NARROW
-    $TIME_WIDE
+    $TIME_FILE
+    $TIME_CLOCK
     $HEADER_SINGLE
     $HEADER_MULTI
     $HEADER_CONT
@@ -145,8 +141,8 @@ BEGIN {
 *FILENAME_LONG  = \1;
 *HIGHLIGHT_OFF  = \0;
 *HIGHLIGHT_ON   = \1;
-*TIME_NARROW    = \0;
-*TIME_WIDE      = \1;
+*TIME_FILE      = \0;
+*TIME_CLOCK     = \1;
 *HEADER_SINGLE  = \0;
 *HEADER_MULTI   = \1;
 *HEADER_CONT    = \2;
@@ -184,6 +180,7 @@ my $USERLINE            = 21;
 my $DATELINE            = 22;
 my $DATECOL             = 14;
 my $CONFIGFILEMODE      = 0777;
+my $DFCMD               = ($^O eq 'hpux') ? 'bdf' : 'df -k';
 
 my @SORTMODES = (
     n =>'Name',        N =>' reverse',
@@ -200,15 +197,20 @@ my @SORTMODES = (
 my @SYMBOLIC_MODES = qw(--- --x -w- -wx r-- r-x rw- rwx);
 
 my %DUCMDS = (
-    # can someone tell me how du(1) behaves on SCO and Irix?
     default => q(du -sk "\2" | awk '{ printf "%d", 1024 * $1 }'),
-    AIX     => q(du -sk "\2" | awk '{ printf "%d", 1024 * $1 }'),
-    BSD     => q(du -sk "\2" | awk '{ printf "%d", 1024 * $1 }'),
-    Tru64   => q(du -sk "\2" | awk '{ printf "%d", 1024 * $1 }'),
-    sunos   => q(du -s  "\2" | awk '{ printf "%d", 1024 * $1 }'),
     solaris => q(du -s  "\2" | awk '{ printf "%d", 1024 * $1 }'),
-   'HP-UX'  => q(du -s  "\2" | awk '{ printf "%d", 512  * $1 }'),
+    sunos   => q(du -s  "\2" | awk '{ printf "%d", 1024 * $1 }'),
+    hpux    => q(du -s  "\2" | awk '{ printf "%d", 512  * $1 }'),
+    aix     => q(du -sk "\2" | awk '{ printf "%d", 1024 * $1 }'),
+    freebsd => q(du -sk "\2" | awk '{ printf "%d", 1024 * $1 }'),
     linux   => q(du -sb "\2"),
+    # these can use the default unless proven otherwise
+#    netbsd  => q(),
+#    dec_osf => q(),
+#    beos    => q(),
+#    irix    => q(),
+#    sco     => q(),
+    # MSWin32, macos, os390 etc. not supported
 );
 
 my %TIMEHINTS = (
@@ -221,14 +223,15 @@ my $TITLEVIRTFILE = {};
     qw(name size size_num mode inode atime ctime mtime
         atimestring ctimestring mtimestring
         display uid gid nlink rdev size_power name_too_long selected)
-} = qw(filename size size perm inode date/atime date/ctime date/mtime
+} = (qw(filename size size),' perm', qw(inode date/atime date/ctime date/mtime
         date/atime date/ctime date/mtime
-        filename userid groupid lnks dev);
+        filename userid groupid lnks dev));
 
 my $screenheight    = 20;    # inner height
 my $screenwidth     = 80;    # terminal width
 my $position_at     = '.';   # start with cursor here
 
+# some examples as defaults
 my @command_history = ('du -ks *', 'man "\1"');
 my @mode_history    = qw(755 644);
 my @path_history    = ('/', $ENV{HOME});
@@ -260,7 +263,7 @@ my (
     # misc config options
     $editor, $pager, $printcmd, $ducmd, $showlockchar, $autoexitmultiple,
     $clobber, $cursorveryvisible, $clsonexit, $autowritehistory, $viewbase,
-    $trspace, $swap_persistent, $timeformat,
+    $trspace, $swap_persistent, $timeformat, $timestampformat,
     # layouts and formatting
     @columnlayouts, $currentlayout, @layoutfields, $currentformatline,
     $maxfilenamelength, $maxfilesizelength,
@@ -336,25 +339,27 @@ sub read_pfmrc { # $readflag - show copyright only on startup (first read)
     ($printcmd)        = ($pfmrc{printcmd}) ||
                              ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER}" : 'lpr');
     # don't change sort_mode and currentlayout through the config file:
-    # the config file just specifies the _defaults_ for globalinit()
+    # the config file just specifies the _defaults_ for globalinit();
     # at runtime use (F6) and (F9)
 #    $sort_mode         = $pfmrc{sortmode}   || 'n';
 #    $currentlayout     = $pfmrc{currentlayout} || 0;
     $ducmd             = $pfmrc{ducmd} || $DUCMDS{$^O} || $DUCMDS{default};
-    $timeformat        = $pfmrc{timeformat} || 'pfm';
-    $headercolor       = $pfmrc{headercolor} || '37;44';
-    $multicolor        = $pfmrc{multicolor}  || '36;47';
-    $titlecolor        = $pfmrc{titlecolor}  || '01;07;36;47';
-    $swapcolor         = $pfmrc{swapcolor}   || '07;36;40';
-    $footercolor       = $pfmrc{footercolor} || '07;34;47';
     $viewbase          = $pfmrc{viewbase} eq 'hex' ? "%#04lx" : "%03lo";
-    $mouse_mode        = ($pfmrc{mousemode} eq 'xterm' && $ENV{TERM} eq 'xterm')
-                             || &yesno($pfmrc{mousemode});
+    $timestampformat   = $pfmrc{timestampformat}  || '%y %b %d %H:%M';
+    $timeformat        = $pfmrc{timeformat}       || 'pfm';
+    $headercolor       = $pfmrc{headercolor}      || '37;44';
+    $multicolor        = $pfmrc{multicolor}       || '36;47';
+    $titlecolor        = $pfmrc{titlecolor}       || '01;07;36;47';
+    $swapcolor         = $pfmrc{swapcolor}        || '07;36;40';
+    $footercolor       = $pfmrc{footercolor}      || '07;34;47';
+    $mouse_mode        = $pfmrc{mousemode}        || 'xterm';
+    $mouse_mode        = ($mouse_mode eq 'xterm' && $ENV{TERM} eq 'xterm')
+                             || &yesno($mouse_mode);
     $showlockchar      = ( $pfmrc{showlock} eq 'sun' && $^O =~ /sun|solaris/i
                              or &yesno($pfmrc{showlock}) ) ? 'l' : 'S';
-    @columnlayouts     = split(/:/, (
-        $pfmrc{columnlayouts} ? $pfmrc{columnlayouts} :
-            '* nnnnnnnnnnnnnnnnnnnnNsssssssS mmmmmmmmmmmmmmmiiiiiii pppppppppp:'
+    @columnlayouts     = split(/:/, ( $pfmrc{columnlayouts}
+        ? $pfmrc{columnlayouts}
+        :   '* nnnnnnnnnnnnnnnnnnnnNsssssssS mmmmmmmmmmmmmmmiiiiiii pppppppppp:'
         .   '* nnnnnnnnnnnnnnnnnnnnNsssssssS aaaaaaaaaaaaaaaiiiiiii pppppppppp:'
         .   '* nnnnnnnnnnnnnnnnnnnnNsssssssS uuuuuuuu gggggggglllll pppppppppp'
     ));
@@ -449,22 +454,27 @@ sub init_signames {
 }
 
 sub time2str {
-    my ($monname,$val);
-    my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime($_[0]);
-    $monname =(qw/Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec/)[$mon];
-    foreach $val ($mday, $hour, $min, $sec) {
-        if ($val < 10) {
-            $val = "0$val";
-        }
-    }
-    if ($_[1] == $TIME_WIDE) {
-        $min = "$min:$sec";
-        $year += 1900;
+    my ($time, $flag) = @_;
+#    my ($monname,$val);
+#    my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime($_[0]);
+#    $monname =(qw/Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec/)[$mon];
+#    foreach $val ($mday, $hour, $min, $sec) {
+#        if ($val < 10) {
+#            $val = "0$val";
+#        }
+#    }
+#    if ($_[1] == $TIME_CLOCK) {
+#        $min = "$min:$sec";
+#        $year += 1900;
+#    } else {
+#        $year %= 100;
+#    }
+#    if ($year<10) { $year = "0$year" }
+    if ($flag == $TIME_FILE) {
+        return strftime ($timestampformat, localtime $time);
     } else {
-        $year %= 100;
+        return strftime ("%Y %a %d %H:%M:%S", localtime $time);
     }
-    if ($year<10) { $year = "0$year" }
-    return "$year $monname $mday $hour:$min";
 }
 
 sub mode2str {
@@ -492,6 +502,10 @@ sub mode2str {
     # c000  S_IFSOCK  s=  140000  socket
     # d000  S_IFDOOR  D>  150000  Solaris door
     # e000  S_IFWHT   w%  160000  BSD whiteout
+    #
+    # whiteout support is broken: readdir does not return the names of w-entries
+    # furthermore, the link count (0) on w-entries will pose problems too
+    #
     if ($2 & 4) {       substr( $strmode,3,1) =~ tr/-x/Ss/ }
     if ($2 & 2) { eval "substr(\$strmode,6,1) =~ tr/-x/${showlockchar}s/" }
     if ($2 & 1) {       substr( $strmode,9,1) =~ tr/-x/Tt/ }
@@ -650,6 +664,13 @@ sub dirlookup {
     return $found;
 }
 
+sub followmode {
+    my %currentfile = %{$_[0]};
+    return $currentfile{type} ne 'l'
+           ? $currentfile{mode}
+           : &mode2str((stat $currentfile{name})[2]);
+}
+
 sub copyback {
     # copy a changed entry from @showncontents back to @dircontents
     $dircontents[&dirlookup($_[0], @dircontents)] =
@@ -663,17 +684,9 @@ sub isorphan {
 sub mouseenable {
     if ($_[0]) {
         $scr->puts("\e[?9h");
-        $scr->def_key("mdown", "\e[M");
     } else {
         $scr->puts("\e[?9l");
     }
-}
-
-sub followmode {
-    my %currentfile = %{$_[0]};
-    return $currentfile{type} ne 'l'
-           ? $currentfile{mode}
-           : &mode2str((stat $currentfile{name})[2]);
 }
 
 ##########################################################################
@@ -879,7 +892,7 @@ sub clearcolumn {
 }
 
 sub path_info {
-    $scr->at(1,0)->puts(&pathline($currentdir,$disk{'device'}));
+    $scr->at($PATHLINE, 0)->puts(&pathline($currentdir, $disk{'device'}));
 }
 
 ##########################################################################
@@ -902,9 +915,6 @@ sub init_frame {
    &init_title($swap_mode, $TITLE_DISKINFO, @layoutfields);
    &init_footer;
 }
-
-#F1-Help F2-Back F3-Redraw F4-Color F5-Reread F6-Sort F7-Swap F8-Include >
-#< F9-Columns F10-Multiple F11-Restat F12-Mouse
 
 sub init_header { # <special header mode>
     my $mode = $_[0] || ($multiple_mode | $cont_mode * $HEADER_CONT);
@@ -953,9 +963,11 @@ sub init_title { # swap_mode, extra field, @layoutfields
 
 sub init_footer {
     my $footer;
-    chop($footer = <<_eoFunction_);
-F1-Help F2-Back F3-Fit F4-Color F5-Read F6-Sort F7-Swap F8-Incl F9-Cols F10-Mult
-_eoFunction_
+    unless ($cont_mode) {
+        $footer = 'F1-Help F3-Redraw F4-Color F5-Reread F6-Sort F7-Swap F9-Columns F10-Multiple >  ';
+    } else {
+        $footer = '< F2-Back F8-Include F10-Multiple F11-Restat F12-Mouse                          ';
+    }
     &digestcolor($footercolor);
     $scr->reverse() if ($footercolor =~ /\b0?7\b/);
     $scr->bold()->at($BASELINE+$screenheight+1,0)
@@ -974,9 +986,10 @@ sub copyright {
 
 sub globalinit {
     $SIG{WINCH} = \&resizecatcher;
+    $kbd = Term::ReadLine->new('Pfm', \*STDIN, \*STDOUT);
     $scr = Term::ScreenColor->new();
     $scr->clrscr();
-    $kbd = Term::ReadLine->new('Pfm', \*STDIN, \*STDOUT);
+    $scr->def_key("mdown", "\e[M");
     &read_pfmrc($READ_FIRST);
     &read_history;
     %user           = &init_uids;
@@ -1009,7 +1022,7 @@ sub goodbye {
         $scr->cooked()->clrscr();
     } else {
         $scr->at(0,0)->puts(' 'x(($screenwidth-length $bye)/2).$bye)->clreol()
-            ->cooked()->normal()->at(1,0);
+            ->cooked()->normal()->at($PATHLINE,0);
     }
     &write_cwd;
     &write_history if $autowritehistory;
@@ -1124,8 +1137,9 @@ sub mark_info {
 sub date_info {
     my ($line, $col) = @_;
     my ($datetime, $date, $time);
-    $datetime = &time2str(time, $TIME_WIDE);
+    $datetime = &time2str(time, $TIME_CLOCK);
     ($date, $time) = ($datetime =~ /(.*)\s+(.*)/);
+    # it might be better to do this with formline and $^A
     $scr->at($line++, $col+3)->puts($date) if ($scr->getrows() > 24);
     $scr->at($line++, $col+6)->puts($time);
 }
@@ -1225,25 +1239,26 @@ sub handlemousedown {
     $mousecol = ord($scr->getch()) - 041;
     $mouserow = ord($scr->getch()) - 041;
     $scr->echo();
-    $stashline = $currentline;
-    %stashfile = %currentfile;
-    # clicked on pathline?
-    if ($mouserow == $PATHLINE and $mbutton) {
-        $do_a_refresh = &handlecommand('o');
-    } elsif ($mouserow == $PATHLINE and !$mbutton) {
-        $do_a_refresh = &handlemoreshow;
+    # button:  on pathline:  on title/footer:  on file:  on filename:
+    # left     More - Show   ctrl-U/ctrl-D     F8        Show
+    # middle   cOmmand       pgup/pgdn         Show      ENTER
+    # right    cOmmand       pgup/pgdn         Show      ENTER
+    if ($mouserow == $PATHLINE) {
+        $do_a_refresh = $mbutton ? &handlecommand('o') : &handlemoreshow;
+    } elsif ($mouserow < $BASELINE) {
+        $do_a_refresh = $mbutton ? &handlemove('pgup') : &handlemove("\cU");
+    } elsif ($mouserow > $screenheight + $BASELINE) {
+        $do_a_refresh = $mbutton ? &handlemove('pgdn') : &handlemove("\cD");
+    } elsif ($mousecol >= $screenwidth - $DATECOL
+            or !defined $showncontents[$mouserow - $BASELINE + $baseindex]) {
+        # return now if clicked on diskinfo or empty line
+        return $do_a_refresh;
     } else {
-        # return now if no clicked file, or clicked on diskinfo
-        return $do_a_refresh if ($mouserow < $BASELINE
-            or $mouserow > $screenheight + $BASELINE
-            or !defined $showncontents[$mouserow - $BASELINE + $baseindex]
-            or $mousecol >= $screenwidth - $DATECOL);
+        # clicked on an existing file
+        $stashline = $currentline;
+        %stashfile = %currentfile;
         $currentline  = $mouserow - $BASELINE;
         %currentfile  = %{$showncontents[$currentline+$baseindex]};
-        # button:   on pathline:    on filename:    elsewhere on file:
-        # left      More - Show     Show            F8
-        # middle    cOmmand         ENTER           Show
-        # right     cOmmand         ENTER           Show
         $on_name = ($mousecol >= $filenamecol
                 and $mousecol <= $filenamecol + $maxfilenamelength);
         if ($on_name and $mbutton) {
@@ -1320,8 +1335,10 @@ sub handlecdold {
 }
 
 sub handleheader {
+    # "een mens moet _wat_"
     $cont_mode = $cont_mode + ($_[0] =~ />/ and $cont_mode < 1)
                             - ($_[0] =~ /</ and $cont_mode > 0);
+    &init_footer;
     return $R_HEADER;
 }
 
@@ -1363,7 +1380,7 @@ sub handleperlcommand {
     my $perlcmd;
     my $prompt = 'Enter Perl command:';
     $scr->at(0,0)->clreol()->cyan()->bold()->puts($prompt)->normal()
-        ->at(1,0)->clreol()->cooked();
+        ->at($PATHLINE,0)->clreol()->cooked();
     $perlcmd = &readintohist(\@perlcmd_history);
     $scr->raw();
     eval $perlcmd;
@@ -1615,7 +1632,8 @@ sub handlekeyell {
 }
 
 sub handlesymlink {
-    my ($newname, $loopfile, $do_this, $index, $newnameexpanded, $targetstring);
+    my ($newname, $loopfile, $do_this, $index, $newnameexpanded, $targetstring,
+        $findindex);
     my $prompt = 'New symbolic link: ';
     my $do_a_refresh = $multiple_mode ? $R_SCREEN : $R_HEADER;
     &markcurrentline('L') unless $multiple_mode;
@@ -1624,7 +1642,7 @@ sub handlesymlink {
     $scr->raw();
     return $R_HEADER if ($newname eq '');
     $do_this = sub {
-        if (-d $newnameexpanded or $newnameexpanded =~ m!^[^/].*/!) {
+        if (-d $newnameexpanded or $newnameexpanded =~ m!^[^/]/!) {
             $targetstring = $currentdir . "/" . $loopfile->{name};
         } else {
             $targetstring = $loopfile->{name};
@@ -1639,6 +1657,16 @@ sub handlesymlink {
             } else {
                 $do_a_refresh = $R_SCREEN;
             }
+        } elsif ($newnameexpanded !~ m!/!) {
+            # is newname present in @dircontents? push otherwise
+            $findindex = 0;
+            $findindex++ while ($findindex <= $#dircontents and
+                            $newnameexpanded ne $dircontents[$findindex]{name});
+            if ($findindex > $#dircontents) {
+                $do_a_refresh = max($R_DIRSORT, $do_a_refresh);
+            }
+            $dircontents[$findindex] = &stat_entry($newnameexpanded,
+                $dircontents[$findindex]{selected} || " ");
         }
     };
     if ($multiple_mode) {
@@ -1646,7 +1674,7 @@ sub handlesymlink {
             $loopfile = $dircontents[$index];
             &expand_escapes(($newnameexpanded = $newname), $loopfile);
             if ($loopfile->{selected} eq '*') {
-                $scr->at(1,0)->clreol()->puts($loopfile->{name});
+                $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
                 &exclude($loopfile,'.');
                 &$do_this;
                 $dircontents[$index] =
@@ -1720,7 +1748,7 @@ sub handletarget {
         for $index (0..$#dircontents) {
             $loopfile = $dircontents[$index];
             if ($loopfile->{selected} eq '*') {
-                $scr->at(1,0)->clreol()->puts($loopfile->{name});
+                $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
                 &exclude($loopfile,'.');
                 &$do_this;
                 $dircontents[$index] =
@@ -1763,7 +1791,7 @@ sub handlechown {
         for $index (0..$#dircontents) {
             $loopfile = $dircontents[$index];
             if ($loopfile->{selected} eq '*') {
-                $scr->at(1,0)->clreol()->puts($loopfile->{name});
+                $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
                 &exclude($loopfile, '.');
                 &$do_this;
                 $dircontents[$index] =
@@ -1818,7 +1846,7 @@ sub handlechmod {
         for $index (0..$#dircontents) {
             $loopfile = $dircontents[$index];
             if ($loopfile->{selected} eq '*') {
-                $scr->at(1,0)->clreol()->puts($loopfile->{name});
+                $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
                 &exclude($loopfile,'.');
                 &$do_this;
                 $dircontents[$index] =
@@ -1864,7 +1892,7 @@ sub handlecommand { # Y or O
 Enter Unix command (\1=name, \2=name.ext, \3=path, \4=mountpoint, \5=swap path):
 _eoPrompt_
         $scr->at(0,0)->clreol()->bold()->cyan()->puts($printstr)->normal()
-            ->at(1,0)->clreol()->cooked();
+            ->at($PATHLINE,0)->clreol()->cooked();
         $command = &readintohist(\@command_history);
     }
 #    $command =~ s/^\s*\n?$/$ENV{'SHELL'}/;
@@ -1914,7 +1942,7 @@ sub handledelete {
         ->puts("Are you sure you want to delete [Y/N]? ")->normal();
     my $sure = $scr->getch();
     return $R_HEADER if $sure !~ /y/i;
-    $scr->at(1,0);
+    $scr->at($PATHLINE,0);
     $do_this = sub {
         if ($loopfile->{name} eq '.') {
             # don't allow people to delete '.': normally, this would be allowed
@@ -1947,7 +1975,7 @@ sub handledelete {
         for $index (reverse(0..$#dircontents)) {
             $loopfile = $dircontents[$index];
             if ($loopfile->{selected} eq '*') {
-                $scr->at(1,0)->clreol()->puts($loopfile->{name});
+                $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
                 &$do_this;
                 if ($success) {
                     splice @dircontents, $index, 1;
@@ -1983,7 +2011,7 @@ sub handleprint {
 #    $scr->at(0,0)->clreol();
     $scr->at(0,0)->clreol()
         ->bold()->cyan()->puts('Enter print command: ')->normal()
-        ->at(1,0)->clreol()->cooked();
+        ->at($PATHLINE,0)->clreol()->cooked();
     # don't use readintohist : special case with command_history
     $kbd->SetHistory(@command_history);
     $do_this = $kbd->readline('',$printcmd);
@@ -2000,7 +2028,7 @@ sub handleprint {
         for $index (0..$#dircontents) {
             $loopfile = $dircontents[$index];
             if ($loopfile->{selected} eq '*') {
-                $scr->at(1,0)->clreol()->puts($loopfile->{name});
+                $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
                 &exclude($loopfile, '.');
                 system "$do_this \Q$loopfile->{name}" and &display_error($!);
             }
@@ -2073,7 +2101,7 @@ sub handletime {
         for $index (0..$#dircontents) {
             $loopfile = $dircontents[$index];
             if ($loopfile->{selected} eq '*') {
-                $scr->at(1,0)->clreol()->puts($loopfile->{name});
+                $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
                 &exclude($loopfile,'.');
                 &$do_this;
                 $dircontents[$index] =
@@ -2161,7 +2189,8 @@ sub handlecopyrename {
             if ($findindex > $#dircontents) {
                 $do_a_refresh = max($R_DIRSORT, $do_a_refresh);
             }
-            $dircontents[$findindex] = &stat_entry($newnameexpanded, " ");
+            $dircontents[$findindex] = &stat_entry($newnameexpanded,
+                $dircontents[$findindex]{selected} || " ");
         }
     };
     if ($multiple_mode) {
@@ -2170,7 +2199,7 @@ sub handlecopyrename {
             if ($loopfile->{selected} eq '*') {
                 &exclude($loopfile, '.');
                 &expand_escapes(($newnameexpanded = $newname), $loopfile);
-                $scr->at(1,0)->clreol()->puts($loopfile->{name});
+                $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
                 $scr->cooked() unless $clobber;
                 &$do_this;
                 $dircontents[$index] =
@@ -2284,7 +2313,7 @@ sub handlemove {
 sub handleenter {
     $scr->cooked()->clrscr();
     # force inclusion of spaces in $0 by calling system(@)
-    system "./$currentfile{name}", '' and &display_error($!);
+    system "./$currentfile{name}" and &display_error($!);
     &pressanykey;
     return $R_CLEAR;
 }
@@ -2364,7 +2393,7 @@ sub handleswap {
         $do_a_refresh = $R_CHDIR;
     }
     if ( !&mychdir($nextdir) ) {
-        $scr->at(1,0);
+        $scr->at($PATHLINE,0);
         &display_error("$nextdir: $!");
         $do_a_refresh = $R_CHDIR;
     } else {
@@ -2429,9 +2458,9 @@ sub stat_entry { # path_of_entry, selected_flag
     };
     @{$ptr}{qw(size_num size_power atimestring ctimestring mtimestring)} = (
         &fit2limit($size, $maxfilesizelength),
-        &time2str($atime, $TIME_NARROW),
-        &time2str($ctime, $TIME_NARROW),
-        &time2str($mtime, $TIME_NARROW)
+        &time2str($atime, $TIME_FILE),
+        &time2str($ctime, $TIME_FILE),
+        &time2str($mtime, $TIME_FILE)
     );
     $ptr->{type} = substr($ptr->{mode}, 0, 1);
     if ($ptr->{type} eq 'l') {
@@ -2503,8 +2532,7 @@ sub countdircontents {
 
 sub get_filesystem_info {
     my (@dflist, %tdisk);
-    # maybe this should sometime be altered to run "bdf" on HP-UX
-    chop( (undef, @dflist) = (`df -k .`, '') ); # undef to swallow header
+    chop( (undef, @dflist) = (`$DFCMD .`, '') ); # undef to swallow header
     $dflist[0] .= $dflist[1]; # in case filesystem info wraps onto next line
     @tdisk{qw/device total used avail/} = split ( /\s+/, $dflist[0] );
     $tdisk{avail} = $tdisk{total} - $tdisk{used} if $tdisk{avail} =~ /%/;
@@ -2751,10 +2779,10 @@ defaultlayout:0
 defaultsortmode:n
 
 ## hide dot files? (show them otherwise, toggle with . key)
-#dotmode:yes
+dotmode:no
 
-## '.' and '..' entries always at the top of the dirlisting? (default no)
-#dotdotmode:no
+## '.' and '..' entries always at the top of the dirlisting?
+dotdotmode:no
 
 ## your system's du(1) command. Specify so that the outcome is in bytes.
 ## you need to specify "\2" for the name of the current file.
@@ -2770,6 +2798,9 @@ editor:vi
 ## the keymap to use in readline (vi,emacs). (default emacs)
 #keymap:vi
 
+## turn on mouse support? (yes,no,xterm) (default: only in xterm)
+mousemode:xterm
+
 ## your pager. you can also use $PAGER
 #pager:less
 
@@ -2783,8 +2814,17 @@ persistentswap:yes
 ## 'sun' = show locking only on sunos/solaris
 showlock:sun
 
-## format for time: touch MMDDhhmm[[CC]YY][.ss] or pfm [[CC]YY]MMDDhhmm[.ss]
+## format for entering time:
+## touch MMDDhhmm[[CC]YY][.ss] or pfm [[CC]YY]MMDDhhmm[.ss]
 timeformat:pfm
+
+## format for displaying timestamps: see strftime(3).
+## Take care that the time fields in the layouts defined below
+## should be wide enough for this string.
+timestampformat:%y %b %d %H:%M
+#timestampformat:%Y-%m-%d %H:%M:%S
+#timestampformat:%b %d %H:%M
+#timestampformat:%Y %V %a
 
 ## translate spaces when Viewing
 translatespace:no
@@ -2816,7 +2856,7 @@ usecolor:force
 ##-file types:
 ## no=normal fi=file ex=executable lo=lost file ln=symlink or=orphan link
 ## di=directory bd=block special cd=character special pi=fifo so=socket
-## do=door nt=network special (not implemented) wh=whiteout
+## do=door nt=network special (not implemented) wh=whiteout (not implemented)
 ## *.<ext> defines extension colors
 
 ## you may specify an escape as a real escape, as \e or as ^[ (caret, bracket)
@@ -2852,7 +2892,7 @@ do=01;35:nt=01;35:wh=01;30;47:lc=\e[:rc=m:\
 ## s    size                    >=4; last char == power of 1024 (K, M, G..)
 ## u    user                    >=8 (system-dependent)
 ## g    group                   >=8 (system-dependent)
-## p    permissions (mode)      9
+## p    permissions (mode)      10
 ## a    access time             15
 ## c    change time             15
 ## m    modification time       15
@@ -2875,7 +2915,9 @@ columnlayouts:\
 * nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnuuuuuuuu gggggggg pppppppppp:\
 * nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss:\
 pppppppppp  uuuuuuuu gggggggg sssssss* nnnnnnnnnnnnnnnnnnnnnnnnnn:\
-pppppppppp  mmmmmmmmmmmmmmm  ssssssss* nnnnnnnnnnnnnnnnnnnnnnnnnn:
+pppppppppp  mmmmmmmmmmmmmmm  ssssssss* nnnnnnnnnnnnnnnnnnnnnnnnnn:\
+ppppppppppllll uuuuuuuu ggggggggssssssss mmmmmmmmmmmmmmm *nnnnnnn:
+
 
 ##########################################################################
 ## your commands
@@ -2982,13 +3024,13 @@ Identical to B<F>ind (see below).
 
 =item B<E<lt>>
 
-Scroll the header line to the left, displaying the first part of the set
+Scroll the header and footer, displaying the left part of the set
 of available commands.
 
 =item B<E<gt>>
 
-Scroll the header line to the right, displaying the second part of the
-set of available commands.
+Scroll the header and footer, displaying the right part of the set of
+available commands.
 
 =item B<?>
 
@@ -3283,14 +3325,14 @@ When C<pfm> is run in an xterm, mouse use may be turned on (either through
 the B<F12> key, or with the 'mousemode' option in the config file), which
 will give mouse access to the following commands:
 
-    button:   on pathline:   on filename:   elsewhere on file:
+    button:   pathline:     title:   footer:   file:   filename:
 
-    left      More - Show    Show           F8
-    middle    cOmmand        ENTER          Show
-    right     cOmmand        ENTER          Show
+    left      More - Show   ctrl-U   ctrl-D    F8      Show
+    middle    cOmmand       PgUp     PgDn      Show    ENTER
+    right     cOmmand       PgUp     PgDn      Show    ENTER
 
-These commands will I<not> move the cursor, except when entering a directory.
-Mouse use will be turned off during the execution of commands.
+The cursor will I<only> be moved on B<PgUp>/B<PgDn>, or when changing
+directory. Mouse use will be turned off during the execution of commands.
 
 =head1 WORKING DIRECTORY INHERITANCE
 
@@ -3371,17 +3413,22 @@ pressing B<ESC>. For most commands, you will need to clear the half-finished
 line. You may use the terminal kill character (usually B<CTRL-U>) for this
 (see stty(1)).
 
+The smallest terminal size supported is 80x24. The display will be messed
+up if you resize your terminal window to a smaller size.
+
+Whiteout support, broken in previous versions, has been removed.
+
 Sometimes when key repeat sets in, not all keypress events have been
 processed, although they have been registered. This can be dangerous when
 deleting files.  The author once almost pressed B<ENTER> when logged in as
 root and with the cursor next to F</sbin/reboot> . You have been warned.
 
-The smallest terminal size supported is 80x24. The display will be messed
-up if you resize your terminal window to a smaller size.
+C<pfm> uses up too much memory. But then again, everybody has tons of
+memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.77 .
+This manual pertains to C<pfm> version 1.78 .
 
 =head1 SEE ALSO
 
