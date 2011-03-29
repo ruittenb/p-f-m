@@ -1,4 +1,6 @@
-1.81
+1.82
 
-* fixed several bugs concerning new browse()
+* added 'keydef' config option
+* added grand total column to column layouts
+* several small changes and bugfixes
 
