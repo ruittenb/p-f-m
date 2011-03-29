@@ -1,4 +1,7 @@
-1.85 
+1.86
 
-* fixed bug that displayed grand total wrong in si(Z)e
+* fixed bug that made wrong updates in si(Z)e command in multiple mode
+* added \6 escape for basename cwd
+* added --help and --version options
+* updated manual
 
