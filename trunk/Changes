@@ -1,7 +1,5 @@
-1.79
+1.80
 
-* major code change (concerning browse() routine)
-* fixed bug that rendered 'autoexitmultiple' useless
-* added 'mouseturnoff' config option
-* updated documentation
+* fixed several bugs concerning new browse()
+* changed header/footer scroll mechanism
 

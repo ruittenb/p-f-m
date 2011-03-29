@@ -1,12 +1,12 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20021224 v1.79
+# @(#) pfm.pl 19990314-20021225 v1.80
 #
 # Name:         pfm.pl
-# Version:      1.79 - first version with flattened browse() - still buggy
+# Version:      1.80
 # Author:       Rene Uittenbogaard
-# Date:         2002-12-24
+# Date:         2002-12-25
 # Usage:        pfm.pl [directory]
 # Requires:     Term::ScreenColor
 #               Term::Screen
@@ -29,40 +29,36 @@
 #          partly implemented in handlecopyrename
 #       make a sub fileforall(sub) ?
 #
-#       cursor positioning_at is not correct after (L)ink
-#       problems in browse concerning position_at ?
-#       include a flag for R_PATHINFO?
-#
-# after select with " " or mouse, the include flag is not shown
-#
-#       (M)ore - (E)dit does not expand ~
-#
 #    sub neat_error {
 #        $scr->at(0,0)->clreol();
 #        &display_error($!);
 #        if ($multiple_mode) {
-#            &path_info;
-#            return 0;
+#            return $R_PATHINFO;
 #        } else {
 #            return $R_FRAME;
 #        }
 #    }
 #
-#       make commands in header and footer clickable buttons
+#       DEBUG NEW ARCHITECHTURE !!!!!!!! FOUND BUGS:
+#       cursor positioning_at is not correct after (L)ink, and (C)opy
+#       (M)ore - (E)dit does not expand ~
+#       entering dotmode loses position_at value
+#       swapping with F7 loses selection information
+#       na enkele keren F2: Modification of a read-only value attempted at /home/rene/bin/pfm line 1191
+#       F10 - F7 - F7 - F7: lose multiple_mode.
+#       F5 does not set cursor at same line (sortmode D)
+#
+#       implement cached_header and cached_footer !!!!!!
 #
 #       use the nameindexmap from handledelete() more globally?
-#          in handlecopyrename()? in handlefind() in handlesymlink?
-#
-#       how is cursor positioning after inserting the new entry in
-#           handlecopyrename and handlesymlink?
+#          in handlecopyrename()? in handlefind() in handlesymlink? in dirlookup?
 #       use perl symlink()
+#       make a $currentfile{grandtotal} ?
 #       implement 'logical' paths in addition to 'physical' paths?
 #           unless (chdir()) { getcwd() } otherwise no getcwd() ?
-#
 #       split dircolors in dircolorsdark and dircolorslight (switch with F4)
 #       use mkdir -p if m!/! (all unix platforms?)
 #       implement default action for filetype? ENTER -> .jpg:xv \2 ?
-#
 #       do something about at(0,76) calls - store as constants? length()?
 #       key additions for terminal? termdef:xterm:k2:\eOQ
 #       set ROWS en COLUMNS in environment for child processes; but see if
@@ -72,6 +68,7 @@
 #           this messes up with e.g. cOmmand -> cp \2 /somewhere/else
 #           (which is, therefore, still buggy). this is closely related to:
 #       sub countdircontents is not used
+#       make commands in header and footer clickable buttons?
 #       hierarchical sort? e.g. 'sen' (size,ext,name)
 #       major/minor numbers on DU 4.0E are wrong (does readline work there?)
 
@@ -123,7 +120,6 @@ use vars qw(
     $TIME_CLOCK
     $HEADER_SINGLE
     $HEADER_MULTI
-    $HEADER_CONT
     $HEADER_MORE
     $HEADER_SORT
     $HEADER_INCLUDE
@@ -134,8 +130,9 @@ use vars qw(
     $R_NOP
     $R_STRIDE
     $R_HEADER
-    $R_FOOTER
+    $R_PATHINFO
     $R_TITLE
+    $R_FOOTER
     $R_DIRFILTER
     $R_DIRLIST
     $R_DISKINFO
@@ -167,7 +164,7 @@ BEGIN {
 *TIME_CLOCK     = \1;
 *HEADER_SINGLE  = \0;
 *HEADER_MULTI   = \1;
-*HEADER_CONT    = \2;
+#*HEADER_CONT    = \2;
 *HEADER_MORE    = \4;
 *HEADER_SORT    = \8;
 *HEADER_INCLUDE = \16;
@@ -178,18 +175,19 @@ BEGIN {
 *R_NOP          = \0;
 *R_STRIDE       = \1;
 *R_HEADER       = \2;
-*R_FOOTER       = \4;
+*R_PATHINFO     = \4;
 *R_TITLE        = \8;
-*R_DIRFILTER    = \16;
-*R_DIRLIST      = \32;
-*R_DISKINFO     = \64;
-*R_DIRSORT      = \128;
-*R_CLS          = \256;
-*R_DIRCONTENTS  = \512;
-*R_NEWDIR       = \1024;
+*R_FOOTER       = \16;
+*R_DIRFILTER    = \32;
+*R_DIRLIST      = \64;
+*R_DISKINFO     = \128;
+*R_DIRSORT      = \256;
+*R_CLS          = \512;
+*R_DIRCONTENTS  = \1024;
+*R_NEWDIR       = \2048;
 *R_QUIT         = \1048576;
 
-my $R_FRAME     = $R_HEADER | $R_TITLE | $R_FOOTER;
+my $R_FRAME     = $R_HEADER | $R_PATHINFO | $R_TITLE | $R_FOOTER;
 my $R_SCREEN    = $R_DIRFILTER | $R_DIRLIST | $R_DISKINFO | $R_FRAME;
 my $R_CLEAR     = $R_CLS | $R_SCREEN;
 my $R_CHDIR     = $R_NEWDIR | $R_DIRCONTENTS | $R_DIRSORT | $R_SCREEN | $R_STRIDE;
@@ -212,6 +210,15 @@ my $DATECOL             = 14;
 my $CONFIGFILEMODE      = 0777;
 my $DFCMD               = ($^O eq 'hpux') ? 'bdf' : 'df -k';
 
+my @SYMBOLIC_MODES = qw(--- --x -w- -wx r-- r-x rw- rwx);
+
+my %ONOFF = ('' => 'off', 0 => 'off', 1 => 'on');
+
+my %TIMEHINTS = (
+    pfm   => '[[CC]YY]MMDDhhmm[.ss]',
+    touch => 'MMDDhhmm[[CC]YY][.ss]'
+);
+
 my @SORTMODES = (
     n =>'Name',        N =>' reverse',
    'm'=>' ignorecase', M =>' rev+igncase',
@@ -223,8 +230,6 @@ my @SORTMODES = (
     t =>'Type',        T =>' reverse',
     i =>'Inode',       I =>' reverse'
 );
-
-my @SYMBOLIC_MODES = qw(--- --x -w- -wx r-- r-x rw- rwx);
 
 # AIX,BSD,Tru64: du gives blocks, du -k kbytes
 # Solaris      : du gives kbytes
@@ -246,19 +251,27 @@ my %DUCMDS = (
     # MSWin32, macos, os390 etc. not supported
 );
 
-my %TIMEHINTS = (
-    pfm   => '[[CC]YY]MMDDhhmm[.ss]',
-    touch => 'MMDDhhmm[[CC]YY][.ss]'
-);
-
-my $TITLEVIRTFILE = {};
-@{$TITLEVIRTFILE}{
-    qw(name size size_num mode inode atime ctime mtime
-        atimestring ctimestring mtimestring
-        display uid gid nlink rdev size_power name_too_long selected)
-} = (qw(filename size size),' perm', qw(inode date/atime date/ctime date/mtime
-        date/atime date/ctime date/mtime
-        filename userid groupid lnks dev));
+my $TITLEVIRTFILE = {
+    selected      => '',
+    name          => 'filename',
+    display       => 'filename',
+    name_too_long => '',
+    size          => 'size',
+    size_num      => 'size',
+    size_power    => ' ',
+    inode         => 'inode',
+    mode          => ' perm',
+    atime         => 'date/atime',
+    mtime         => 'date/mtime',
+    ctime         => 'date/ctime',
+    atimestring   => 'date/atime',
+    mtimestring   => 'date/mtime',
+    ctimestring   => 'date/ctime',
+    uid           => 'userid',
+    gid           => 'groupid',
+    nlink         => 'lnks',
+    rdev          => 'dev'
+};
 
 my $screenheight    = 20;    # inner height
 my $screenwidth     = 80;    # terminal width
@@ -632,8 +645,22 @@ sub toggle ($) {
 }
 
 sub basename {
-    $_[0] =~ /\/([^\/]*)$/; # ok, it is LTS but this looks better in vim
+    $_[0] =~ /\/([^\/]*)$/; # ok, it has LTS but this looks better in vim
     return $1;
+}
+
+sub maxcontmode {
+    my $temp = shift;
+    my $panspace;
+    # this is supposed to be an assignment
+    if ($panspace = 2 * (length($temp) > $screenwidth)) {
+        eval "
+            \$temp =~ s/^((?:\\S+ )+?).{1,".($screenwidth-$panspace)."}\$/\$1/;
+        ";
+        return $temp =~ tr/ //;
+    } else {
+        return 0;
+    };
 }
 
 sub exclude { # $entry,$oldmark
@@ -704,7 +731,10 @@ sub mouseenable {
     }
 }
 
-sub dumprefreshflags { # for debugging
+##########################################################################
+# debugging helper commands
+
+sub dumprefreshflags {
     my $res;
     $res .= "R_QUIT\n"        if $_[0] & $R_QUIT;
     $res .= "R_NEWDIR\n"      if $_[0] & $R_NEWDIR;
@@ -716,6 +746,7 @@ sub dumprefreshflags { # for debugging
     $res .= "R_DISKINFO\n"    if $_[0] & $R_DISKINFO;
     $res .= "R_FOOTER\n"      if $_[0] & $R_FOOTER;
     $res .= "R_TITLE\n"       if $_[0] & $R_TITLE;
+    $res .= "R_PATHINFO\n"    if $_[0] & $R_PATHINFO;
     $res .= "R_HEADER\n"      if $_[0] & $R_HEADER;
     $res .= "R_STRIDE\n"      if $_[0] & $R_STRIDE;
     $res .= "R_NOP\n"         if $_[0] & $R_NOP;
@@ -930,49 +961,26 @@ sub path_info {
 ##########################################################################
 # headers, footers
 
-sub print_with_shortcuts {
-    my ($printme, $pattern) = @_;
-    my $pos;
-    &digestcolor($headercolor);
-    $scr->puts($printme)->bold();
-    while ($printme =~ /$pattern/g) {
-        $pos = pos($printme) -1;
-        $scr->at(0, $pos)->puts(substr($printme, $pos, 1));
+sub fitbanner { # $header/footer, $screenwidth
+    my ($banner, $virtwidth) = @_;
+    my ($maxwidth, $spcount);
+    if (length($banner) > $virtwidth) {
+        $spcount = &maxcontmode($banner);
+        $maxwidth = $virtwidth -2*($cont_mode > 0) -2*($cont_mode < $spcount);
+        $banner .= ' ';
+        eval "
+            \$banner =~ s/^(?:\\S+ ){$cont_mode,}?(.{1,$maxwidth}) .*/\$1/;
+        ";
+        if ($cont_mode > 0       ) { $banner  = '< ' . $banner; }
+        if ($cont_mode < $spcount) { $banner .= ' >'; }
     }
-    $scr->normal();
+    return $banner;
 }
 
 sub init_frame {
    &init_header;
    &init_title($swap_mode, $TITLE_DISKINFO, @layoutfields);
    &init_footer;
-}
-
-sub init_header { # <special header mode>
-    my $mode = $_[0] || ($multiple_mode | $cont_mode * $HEADER_CONT);
-    my $header;
-    if      ($mode & $HEADER_SORT) {
-        $header = 'Sort by: Name, Extension, Size, Date, Type, Inode (ignorecase, reverse):        ';
-    } elsif ($mode & $HEADER_MORE) {
-        $header = 'Config pfm Edit new file Make new dir Show dir sHell Kill Write history ESC     ';
-    } elsif ($mode & $HEADER_INCLUDE) {
-        $header = 'Include? Every, Oldmarks, User or Files only:                                   ';
-    } elsif ($mode & $HEADER_CONT     and not $mode & $HEADER_MULTI) {
-        $header = '< Print Quit Rename Show Time User View eXclude Your commands siZe              ';
-    } elsif ($mode & $HEADER_CONT     and $mode & $HEADER_MULTI) {
-        $header = 'Multiple < Print Quit Rename Show Time User View eXclude Your commands siZe     ';
-    } elsif ( !($mode & $HEADER_CONT) and not $mode & $HEADER_MULTI) {
-        $header = 'Attribute Copy Delete Edit Find Include tarGet Link More cOmmands >             ';
-    } elsif ( !($mode & $HEADER_CONT) and $mode & $HEADER_MULTI) {
-        $header = 'Multiple Attribute Copy Delete Edit Find Include tarGet Link More cOmmands >    ';
-    }
-    $scr->at(0, 0);
-    # in earlier days, regex was [A-Z](?!FM |M E| Ed)
-    &print_with_shortcuts($header . ' ' x ($screenwidth - 80), "[A-Z<>]");
-    if ($mode & $HEADER_MULTI) {
-        &digestcolor($multicolor);
-        $scr->reverse()->bold()->at(0,0)->puts("Multiple")->normal();
-    }
 }
 
 sub init_title { # swap_mode, extra field, @layoutfields
@@ -993,17 +1001,57 @@ sub init_title { # swap_mode, extra field, @layoutfields
     $scr->at(2,0)->puts($^A)->normal();
 }
 
-sub init_footer {
-    my $footer;
-    unless ($cont_mode) {
-        $footer = 'F1-Help F3-Redraw F4-Color F5-Reread F6-Sort F7-Swap F9-Columns F10-Multiple >  ';
+sub header {
+    # do not take multiple mode into account at all
+    my $mode = $_[0] & ~$HEADER_MULTI;
+    if      ($mode & $HEADER_SORT) {
+        return 'Sort by: Name, Extension, Size, Date, Type, Inode (ignorecase, reverse):        ';
+    } elsif ($mode & $HEADER_MORE) {
+        return 'Config pfm Edit new file Make new dir Show dir sHell Kill Write history ESC     ';
+    } elsif ($mode & $HEADER_INCLUDE) {
+        return 'Include? Every, Oldmarks, User or Files only:                                   ';
     } else {
-        $footer = '< F2-Back F8-Include F10-Multiple F11-Restat F12-Mouse                          ';
+        return 'Attribute Copy Delete Edit Find Include tarGet Link More cOmmands Print Quit Rename Show Time User View eXclude Your-commands siZe';
     }
+}
+
+sub init_header { # <special header mode>
+    my $mode = $_[0] || ($multiple_mode * $HEADER_MULTI);
+    my $pos;
+    my $vscreenwidth = $screenwidth - 9*$multiple_mode;
+    my $header = &fitbanner(&header($mode), $vscreenwidth);
+    if (length($header) < $vscreenwidth) {
+        $header .= ' ' x ($vscreenwidth - length($header));
+    }
+    $scr->at(0,0);
+    if ($mode & $HEADER_MULTI) {
+        &digestcolor($multicolor);
+        $scr->reverse()->bold()->puts('Multiple')->normal();
+    }
+    &digestcolor($headercolor);
+    $scr->puts(' ' x $multiple_mode)->puts($header)->bold();
+    # in earlier days, regex was [A-Z](?!FM |M E| Ed)
+    while ($header =~ /[A-Z<>]/g) {
+        $pos = pos($header) -1;
+        $scr->at(0, $pos + 9*$multiple_mode)->puts(substr($header, $pos, 1));
+    }
+    $scr->normal();
+}
+
+sub footer {
+    return "F1-Help F2-Back F3-Redraw F4-Color[$ONOFF{$scr->colorizable()}]"
+        . " F5-Reread F6-Sort[$sort_mode] F7-Swap[$ONOFF{$swap_mode}]"
+        . " F8-Include F9-Columns[$currentlayout]"
+        . " F10-Multiple[$ONOFF{$multiple_mode}] F11-Restat"
+        . " F12-Mouse[$ONOFF{$mouse_mode}]";
+}
+
+sub init_footer {
+    my $footer = &fitbanner(&footer, $screenwidth);
     &digestcolor($footercolor);
     $scr->reverse() if ($footercolor =~ /\b0?7\b/);
-    $scr->bold()->at($BASELINE+$screenheight+1,0)
-        ->puts($footer.' 'x($screenwidth-80))->normal();
+    $scr->bold()->at($BASELINE+$screenheight+1,0) ->puts($footer)
+        ->puts(' ' x ($screenwidth - length $footer))->normal();
 }
 
 sub copyright {
@@ -1029,7 +1077,7 @@ sub globalinit {
     %group          = &init_gids;
     @signame        = &init_signames;
     %selected_nr_of = %total_nr_of = ();
-    $swap_state     = $swap_mode = $multiple_mode = 0;
+    $swap_state     = $swap_mode = $multiple_mode = $cont_mode = 0;
     $sort_mode      = $pfmrc{defaultsortmode} || 'n';
     $currentlayout  = $pfmrc{defaultlayout}   || 0;
     $baseindex      = 0;
@@ -1258,12 +1306,12 @@ sub handlerefresh {
 
 sub handlecolor {
     $scr->colorizable(!$scr->colorizable());
-    return $R_CLEAR;
+    return $R_SCREEN;
 }
 
 sub handlemousetoggle {
     &mouseenable(toggle $mouse_mode);
-    return $R_NOP; # must become $R_FOOTER when we show mousemode in footer
+    return $R_FOOTER;
 }
 
 sub handleresize {
@@ -1299,6 +1347,7 @@ sub handlemousedown {
         # clicked on an existing file
         $stashline   = $currentline;
         %stashfile   = %currentfile;
+        # put cursor temporarily on another file
         $currentline = $mouserow - $BASELINE;
         %currentfile = %{$showncontents[$currentline+$baseindex]};
         $on_name = ($mousecol >= $filenamecol
@@ -1322,6 +1371,7 @@ sub handlemousedown {
 sub handleadvance {
     &handleselect;
     # this automatically passes the " " key in $_[0] to &handlemove
+    # ..and loses the return value from &handleselect. solve this in handlemove
     goto &handlemove;
 }
 
@@ -1348,7 +1398,7 @@ sub handledot {
     $position_at = $currentfile{name};
 #    @showncontents = &filterdir(@dircontents);
 #    &validate_position;
-    return $R_DIRLIST | $R_DIRFILTER;
+    return $R_DIRLIST | $R_DIRFILTER | $R_DISKINFO;
 }
 
 sub handleshowenter {
@@ -1371,9 +1421,10 @@ sub handlecdold {
     }
 }
 
-sub handleheader {
-    $cont_mode = $cont_mode + ($_[0] =~ />/ and $cont_mode < 1)
-                            - ($_[0] =~ /</ and $cont_mode > 0);
+sub handlepan {
+    my $count = &maxcontmode(&header);
+    $cont_mode = $cont_mode - ($_[0] =~ /</ and $cont_mode > 0)
+                            + ($_[0] =~ />/ and $cont_mode < $count);
     return $R_HEADER | $R_FOOTER;
 }
 
@@ -1509,7 +1560,7 @@ sub handlemorekill {
     $signal = $kbd->readline($stateprompt, $signal); # special case
     $scr->raw();
     &clearcolumn;
-    return $R_HEADER | $R_TITLE | $R_DISKINFO unless $signal;
+    return $R_HEADER | $R_TITLE | $R_DISKINFO if $signal eq '';
     if ($signal !~ /\D/) {
         $signal = $signame[$signal];
     }
@@ -1517,7 +1568,7 @@ sub handlemorekill {
     # the "only portable" way from perlfunc(1) doesn't seem to work for me
 #   kill -$signal, $$;
     kill $signal, -$$;
-    return $R_HEADER | $R_TITLE | $R_DISKINFO;
+    return $R_HEADER | $R_PATHINFO | $R_TITLE | $R_DISKINFO;
 }
 
 sub handlemoreshell {
@@ -1554,8 +1605,8 @@ sub handleinclude { # include/exclude flag (from keypress)
     my $do_a_refresh = $R_HEADER;
     my $exin = $_[0];
     my $criterion;
-#    our ($wildfilename, $entry);
-    my ($wildfilename, $entry);
+    our ($wildfilename, $entry);
+#    my ($wildfilename, $entry);
     # $wildfilename could have been declared using my(), but that will prevent
     # changes in its value to be noticed by the anonymous sub
     &init_header($HEADER_INCLUDE);
@@ -1619,7 +1670,9 @@ sub handleview {
                                   . $currentfile{target} . " \cH");
     &applycolor($currentline+$BASELINE, $FILENAME_LONG, %currentfile);
     $scr->getch();
-    if (length($currentfile{display})+ $filenamecol > $screenwidth - $DATECOL) {
+    if (length($currentfile{name}) + length($currentfile{target}) + $filenamecol
+        > $screenwidth - $DATECOL
+    ) {
         return $R_CLEAR;
     } else {
         return $R_STRIDE;
@@ -2279,8 +2332,8 @@ sub handleselect {
         $selected_nr_of{$file->{type}}++;
         $file->{type} =~ /-/ and $selected_nr_of{bytes} += $file->{size};
     }
-    # %currentfile will be updated automatically
-#    %currentfile = %$file;
+    # we need %currentfile set, so &highlightline can show the 'selected' status
+    %currentfile = %$file;
     &copyback($file->{name});
     &highlightline($HIGHLIGHT_OFF);
 #    &mark_info(%selected_nr_of);
@@ -2332,7 +2385,7 @@ sub handlemove {
                        -($currentline    +$baseindex)              *(/^home$/)
                        +($#showncontents -$currentline -$baseindex)*(/^end$/ );
     $currentline += $displacement;
-    return &validate_position;
+    return &validate_position | ($_ eq ' ' ? $R_DISKINFO : $R_NOP);
 }
 
 sub handleenter {
@@ -2501,15 +2554,13 @@ sub stat_entry { # path_of_entry, selected_flag
 sub getdircontents { # (current)directory
     my (@contents, $entry);
     my @allentries = ();
-    &init_header;
-    &init_title($swap_mode, $TITLE_DISKINFO, @layoutfields);
+#    &init_title($swap_mode, $TITLE_DISKINFO, @layoutfields);
     if ( opendir CURRENT, "$_[0]" ) {
         @allentries = readdir CURRENT;
         closedir CURRENT;
     } else {
         $scr->at(0,0)->clreol();
         &display_error("Cannot read . : $!");
-#        &init_header;
     }
     # next lines also correct for directories with no entries at all
     # (this is sometimes the case on NTFS filesystems: why?)
@@ -2525,6 +2576,7 @@ sub getdircontents { # (current)directory
         # have the mark cleared on first stat with ' '
         push @contents, &stat_entry($entry, ' ');
     }
+    &init_header();
     return @contents;
 }
 
@@ -2586,7 +2638,6 @@ sub recalc_ptr {
 }
 
 sub showdiskinfo {
-    &path_info;
     &disk_info(%disk);
     &dir_info(%total_nr_of);
     &mark_info(%selected_nr_of);
@@ -2601,7 +2652,7 @@ sub showdiskinfo {
 #
 # repeat {
 #       refresh everything flagged for refreshing;
-#       wait for key- or resize-event;
+#       wait for keypress-, mousedown- or resize-event;
 #       handle the request;
 # } until quit;
 #
@@ -2612,11 +2663,12 @@ sub showdiskinfo {
 #
 # $R_NOP    (=0) : no action was required, wait for new key
 # $R_STRIDE      : refresh %currentfile, validate cursor position (always done)
-# $R_HEADER      : redraw the header
-# $R_TITLE       : redraw the title
-# $R_FOOTER      : redraw the footer
-# $R_FRAME       : combination of R_HEADER, R_TITLE and R_FOOTER
-# $R_DISKINFO    : redraw the disk info column
+# $R_HEADER      : reprint the header
+# $R_PATHINFO    : reprint the pathinfo
+# $R_TITLE       : reprint the title
+# $R_FOOTER      : reprint the footer
+# $R_FRAME       : combination of R_HEADER, R_PATHINFO, R_TITLE and R_FOOTER
+# $R_DISKINFO    : reprint the disk- and directory info column
 # $R_DIRLIST     : redisplay directory listing
 # $R_DIRFILTER   : decide which entries to display (init @showncontents)
 # $R_SCREEN      : combination of R_DIRFILTER, R_DIRLIST, R_DISKINFO and R_FRAME
@@ -2631,17 +2683,15 @@ sub showdiskinfo {
 sub browse {
     my $wantrefresh = shift;
     my $key;
-    # collect info
     STRIDE: do {
 #        system "xmessage '" . &dumprefreshflags($wantrefresh) . "'";
         # draw frame as soon as possible: this looks better on slower terminals
-        # note that R_FRAME is composed of R_HEADER | R_TITLE | R_FOOTER
         if ($wantrefresh & $R_CLS) {
             $wantrefresh &= ~$R_CLS;
             $scr->clrscr();
         }
         if ($wantrefresh & $R_FRAME) {
-            $wantrefresh &= ~$R_FRAME;
+            $wantrefresh &= ~($R_TITLE | $R_HEADER | $R_FOOTER);
             &init_frame;
         }
         # now in order of severity
@@ -2688,6 +2738,10 @@ sub browse {
             $wantrefresh &= ~$R_HEADER;
             &init_header;
         }
+        if ($wantrefresh & $R_PATHINFO) {
+            $wantrefresh &= ~$R_PATHINFO;
+            &path_info;
+        }
         if ($wantrefresh & $R_TITLE) {
             $wantrefresh &= ~$R_TITLE;
             &init_title($swap_mode, $TITLE_DISKINFO, @layoutfields);
@@ -2716,47 +2770,46 @@ sub browse {
             KEY: for ($key) {
                 # order is determined by (supposed) frequency of use
                 /^(?:kr|kl|[h\e\cH])$/i
-                           and $wantrefresh |= &handleentry($_),     last KEY;
-                /^l$/      and $wantrefresh |= &handlekeyell($_),    last KEY;
-                /^[cr]$/i  and $wantrefresh |= &handlecopyrename($_),last KEY;
-                /^[yo]$/i  and $wantrefresh |= &handlecommand($_),   last KEY;
-                /^e$/i     and $wantrefresh |= &handleedit,          last KEY;
+                             and $wantrefresh |= &handleentry($_),     last KEY;
+                /^l$/        and $wantrefresh |= &handlekeyell($_),    last KEY;
+                /^[cr]$/i    and $wantrefresh |= &handlecopyrename($_),last KEY;
+                /^[yo]$/i    and $wantrefresh |= &handlecommand($_),   last KEY;
+                /^e$/i       and $wantrefresh |= &handleedit,          last KEY;
                 /^(?:ku|kd|pgup|pgdn|[-+jk\cF\cB\cD\cU]|home|end)$/i
-                           and $wantrefresh |= &handlemove($_),      last KEY;
-                /^[\cE\cY]$/
-                           and $wantrefresh |= &handlescroll($_),    last KEY;
-                /^ $/      and $wantrefresh |= &handleadvance($_),   last KEY;
-                /^d$/i     and $wantrefresh |= &handledelete,        last KEY;
-                /^[ix]$/i  and $wantrefresh |= &handleinclude($_),   last KEY;
-                /^[s\r]$/i and $wantrefresh |= &handleshowenter($_), last KEY;
-                /^mdown$/  and $wantrefresh |= &handlemousedown,     last KEY;
-                /^k7$/     and $wantrefresh |= &handleswap,          last KEY;
-                /^k5$/     and $wantrefresh |= &handlerefresh,       last KEY;
-                /^k10$/    and $wantrefresh |= &handlemultiple,      last KEY;
-                /^m$/i     and $wantrefresh |= &handlemore,          last KEY;
-                /^p$/i     and $wantrefresh |= &handleprint,         last KEY;
-                /^L$/      and $wantrefresh |= &handlesymlink,       last KEY;
-                /^v$/i     and $wantrefresh |= &handleview,          last KEY;
-                /^k8$/     and $wantrefresh |= &handleselect,        last KEY;
-                /^k11$/    and $wantrefresh |= &handlerestat,        last KEY;
-                /^[\/f]$/i and $wantrefresh |= &handlefind,          last KEY;
-                /^[<>]$/i  and $wantrefresh |= &handleheader($_),    last KEY;
-                /^k3$/     and $wantrefresh |= &handlefit,           last KEY;
-                /^t$/i     and $wantrefresh |= &handletime,          last KEY;
-                /^a$/i     and $wantrefresh |= &handlechmod,         last KEY;
-                /^q$/i     and $wantrefresh |= &handlequit($_),      last KEY;
-                /^k6$/     and $wantrefresh |= &handlesort,          last KEY;
+                             and $wantrefresh |= &handlemove($_),      last KEY;
+                /^[\cE\cY]$/ and $wantrefresh |= &handlescroll($_),    last KEY;
+                /^ $/        and $wantrefresh |= &handleadvance($_),   last KEY;
+                /^d$/i       and $wantrefresh |= &handledelete,        last KEY;
+                /^[ix]$/i    and $wantrefresh |= &handleinclude($_),   last KEY;
+                /^[s\r]$/i   and $wantrefresh |= &handleshowenter($_), last KEY;
+                /^mdown$/    and $wantrefresh |= &handlemousedown,     last KEY;
+                /^k7$/       and $wantrefresh |= &handleswap,          last KEY;
+                /^k5$/       and $wantrefresh |= &handlerefresh,       last KEY;
+                /^k10$/      and $wantrefresh |= &handlemultiple,      last KEY;
+                /^m$/i       and $wantrefresh |= &handlemore,          last KEY;
+                /^p$/i       and $wantrefresh |= &handleprint,         last KEY;
+                /^L$/        and $wantrefresh |= &handlesymlink,       last KEY;
+                /^v$/i       and $wantrefresh |= &handleview,          last KEY;
+                /^k8$/       and $wantrefresh |= &handleselect,        last KEY;
+                /^k11$/      and $wantrefresh |= &handlerestat,        last KEY;
+                /^[\/f]$/i   and $wantrefresh |= &handlefind,          last KEY;
+                /^[<>]$/i    and $wantrefresh |= &handlepan($_),       last KEY;
+                /^k3$/       and $wantrefresh |= &handlefit,           last KEY;
+                /^t$/i       and $wantrefresh |= &handletime,          last KEY;
+                /^a$/i       and $wantrefresh |= &handlechmod,         last KEY;
+                /^q$/i       and $wantrefresh |= &handlequit($_),      last KEY;
+                /^k6$/       and $wantrefresh |= &handlesort,          last KEY;
                 /^(?:k1|\?)$/
-                           and $wantrefresh |= &handlehelp,          last KEY;
-                /^k2$/     and $wantrefresh |= &handlecdold,         last KEY;
-                /^\.$/     and $wantrefresh |= &handledot,           last KEY;
-                /^k9$/     and $wantrefresh |= &handlecolumns,       last KEY;
-                /^k4$/     and $wantrefresh |= &handlecolor,         last KEY;
-                /^\@$/     and $wantrefresh |= &handleperlcommand,   last KEY;
-                /^u$/i     and $wantrefresh |= &handlechown,         last KEY;
-                /^z$/i     and $wantrefresh |= &handlesize,          last KEY;
-                /^g$/i     and $wantrefresh |= &handletarget,        last KEY;
-                /^k12$/    and $wantrefresh |= &handlemousetoggle,   last KEY;
+                             and $wantrefresh |= &handlehelp,          last KEY;
+                /^k2$/       and $wantrefresh |= &handlecdold,         last KEY;
+                /^\.$/       and $wantrefresh |= &handledot,           last KEY;
+                /^k9$/       and $wantrefresh |= &handlecolumns,       last KEY;
+                /^k4$/       and $wantrefresh |= &handlecolor,         last KEY;
+                /^\@$/       and $wantrefresh |= &handleperlcommand,   last KEY;
+                /^u$/i       and $wantrefresh |= &handlechown,         last KEY;
+                /^z$/i       and $wantrefresh |= &handlesize,          last KEY;
+                /^g$/i       and $wantrefresh |= &handletarget,        last KEY;
+                /^k12$/      and $wantrefresh |= &handlemousetoggle,   last KEY;
                 # invalid keypress: cursor position needs no checking
                 $wantrefresh &= ~$R_STRIDE;
             } # end switch KEY
@@ -3378,9 +3431,13 @@ will give mouse access to the following commands:
     middle    cOmmand       PgUp     PgDn      Show    ENTER
     right     cOmmand       PgUp     PgDn      Show    ENTER
 
-The cursor will I<only> be moved on B<PgUp>/B<PgDn>, or when changing
-directory. Mouse use will be turned off during the execution of commands,
-unless 'mouseturnoff' is set to 'no' in F<.pfmrc> .
+The cursor will I<only> be moved when the title or footer is clicked, or
+when changing directory.
+
+Mouse use will be turned off during the execution of commands, unless
+'mouseturnoff' is set to 'no' in F<.pfmrc> . Note that setting this to
+'no' means that your (external) commands (like your pager and editor)
+will receive escape codes when the mouse is clicked.
 
 =head1 WORKING DIRECTORY INHERITANCE
 
@@ -3453,31 +3510,31 @@ are saved to this directory.
 When typed by itself, the B<ESC> key needs to be pressed twice. This is
 due to the lack of a proper timeout in C<Term::Screen>.
 
-Commands that are started from a shell (e.g. with B<Y>our or cB<O>mmand)
-enclose the filename in double quotes to allow names with spaces.
-This prevents the correct processing of filenames containing double quotes.
-
 The F<readline> library does not allow a half-finished line to be aborted by
 pressing B<ESC>. For most commands, you will need to clear the half-finished
 line. You may use the terminal kill character (usually B<CTRL-U>) for this
 (see stty(1)).
+
+When key repeat sets in, some of the registered keypresses may not be
+processed before another key is pressed. This can be dangerous when
+deleting files. The author once almost pressed B<ENTER> when logged in
+as root and with the cursor next to F</sbin/reboot> . You have been warned.
+
+Commands that are started from a shell (e.g. with B<Y>our or cB<O>mmand)
+enclose the filename in double quotes to allow names with spaces.
+This prevents the correct processing of filenames containing double quotes.
 
 The smallest terminal size supported is 80x24. The display will be messed
 up if you resize your terminal window to a smaller size.
 
 Whiteout support, broken in previous versions, has been removed.
 
-Sometimes when key repeat sets in, not all keypress events have been
-processed, although they have been registered. This can be dangerous when
-deleting files.  The author once almost pressed B<ENTER> when logged in as
-root and with the cursor next to F</sbin/reboot> . You have been warned.
-
 C<pfm> uses up too much memory. But then again, everybody has tons of
 memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.79 .
+This manual pertains to C<pfm> version 1.80 .
 
 =head1 SEE ALSO
 
