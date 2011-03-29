@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20021229 v1.83
+# @(#) pfm.pl 19990314-20030101 v1.84
 #
 # Name:         pfm.pl
-# Version:      1.83
+# Version:      1.84 - size command still buggy
 # Author:       Rene Uittenbogaard
-# Date:         2002-12-29
-# Usage:        pfm.pl [directory]
+# Date:         2003-01-01
+# Usage:        pfm.pl [ <directory> ] [ -s, --swap <directory> ]
 # Requires:     Term::ScreenColor
 #               Term::Screen
 #               Term::Cap
@@ -28,23 +28,24 @@
 #
 #       fix error handling in eval($do_this) and &display_error
 #          partly implemented in handlecopyrename
-#       make a sub fileforall(sub) ?
-#
-#       (M)ore - (E)dit should expand ~ and \5 ? make this more consistent
-#       sub readintohistwithdefault() ?
+#       sub readintohistwithdefault() ? add functionality to readintohist?
+#       sub restat_copyback ?
+#       use the nameindexmap from handledelete() more globally?
+#         in handlecopyrename()? in handlefind() in handlesymlink? in dirlookup?
+#       sub fileforall(sub) ?
 #
 #       implement cached_header and cached_footer ?
 #       implement include Before/After
+#       (M)ore - (E)dit should expand ~ and \5 ? make this more consistent
 #       make siZe command work in multiple mode
+#       cache converted formatlines - store formatlines and maxfilesizelength
+#           etc in hash; column_mode in swap_state
 #
-#       use the nameindexmap from handledelete() more globally?
-#         in handlecopyrename()? in handlefind() in handlesymlink? in dirlookup?
 #       use perl symlink()
 #       what to do if du(1) says "permission denied" ?
 #       implement 'logical' paths in addition to 'physical' paths?
 #           unless (chdir()) { getcwd() } otherwise no getcwd() ?
-#       use mkdir -p if m!/! (all unix platforms?)
-#       implement default action for filetype? ENTER -> .jpg:xv \2 ?
+#       implement launch action for filetype? ENTER -> .jpg:xv \2 ?
 #       set ROWS en COLUMNS in environment for child processes; but see if
 #           this does not mess up with $scr->rows etc. which use these
 #           variables internally; portability?
@@ -53,6 +54,7 @@
 #           (which is, therefore, still buggy). this is closely related to:
 #       sub countdircontents is not used
 #       make commands in header and footer clickable buttons?
+#       use mkdir -p if m!/! (all unix platforms?)
 #       hierarchical sort? e.g. 'sen' (size,ext,name)
 #       incremental search (search entry while entering filename)?
 #       major/minor numbers on DU 4.0E are wrong (have they got readline?)
@@ -81,6 +83,7 @@ require 5.005; # for negative lookbehind in re
 
 use Term::ScreenColor;
 use Term::ReadLine;
+use Getopt::Long qw(:config bundling);
 use POSIX qw(strftime);
 use Config;
 use Cwd;
@@ -128,6 +131,7 @@ use vars qw(
     $R_CLS
     $R_DIRCONTENTS
     $R_NEWDIR
+    $R_INIT_SWAP
     $R_QUIT
 );
 
@@ -174,6 +178,7 @@ BEGIN {
 *R_CLS          = \512;
 *R_DIRCONTENTS  = \1024;
 *R_NEWDIR       = \2048;
+*R_INIT_SWAP    = \4096;
 *R_QUIT         = \1048576;
 
 my $R_FRAME     = $R_HEADER | $R_PATHINFO | $R_TITLE | $R_FOOTER;
@@ -208,8 +213,9 @@ my %FILETYPEFLAGS       = (
     x => '*',
     d => '/',
     l => '@',
-   's'=> '=',
     p => '|',
+   's'=> '=',
+    D => '>',
     w => '%',
 );
 
@@ -313,7 +319,7 @@ my (
     $editor, $pager, $printcmd, $ducmd, $showlockchar, $autoexitmultiple,
     $clobber, $cursorveryvisible, $clsonexit, $autowritehistory, $viewbase,
     $trspace, $swap_persistent, $timeformat, $timestampformat, $mouseturnoff,
-    @colorsetnames, %filetypeflags,
+    @colorsetnames, %filetypeflags, $swapstartdir,
     # layouts and formatting
     @columnlayouts, $currentlayout, @layoutfields, $currentformatline,
     $maxfilenamelength, $maxfilesizelength, $maxgrandtotallength,
@@ -357,7 +363,8 @@ sub read_pfmrc { # $readflag - show copyright only on startup (first read)
         while (<PFMRC>) {
             if (/# Version ([\w.]+)$/ and $1 < $VERSION) {
                 # will not be in message color: usecolor not yet parsed
-                &neat_error("Warning: your $CONFIGFILENAME version $1 may be outdated.");
+                &neat_error("Warning: your $CONFIGFILENAME version $1 "
+                .           'may be outdated.');
                 $scr->key_pressed($IMPORTANTDELAY);
             }
             s/#.*//;
@@ -440,7 +447,11 @@ sub read_pfmrc { # $readflag - show copyright only on startup (first read)
         map { /\[(\w+)\]/; $1, '' }
         grep { /^(dir|frame)colors\[/ } keys(%pfmrc),
     }};
-    foreach (@colorsetnames) {
+    # keep the default outside of @colorsetnames if not in config file
+    $pfmrc{'framecolors[default]'} ||=
+        'header=37;44:multi=01;07;36;47:title=01;07;36;47:swap=07;36;40:'
+    .   'footer=01;07;34;47:message=01;36:highlight=01:';
+    foreach (@colorsetnames, 'default') {
         # should there be no dircolors[thisname], leave it undefined
         if (defined $pfmrc{"dircolors[$_]"}) {
             while ($pfmrc{"dircolors[$_]"} =~ /([^:=*]+)=([^:=]+)/g ) {
@@ -448,8 +459,7 @@ sub read_pfmrc { # $readflag - show copyright only on startup (first read)
             }
         }
         # should there be no framecolors[thisname], provide a default
-        $pfmrc{"framecolors[$_]"} ||= 'header=37;44:multi=36;47:swap=07;36;40:'
-        .   'title=01;07;36;47:footer=01;07;34;47:message=01;36:highlight=01:';
+        $pfmrc{"framecolors[$_]"} ||= $pfmrc{'framecolors[default]'};
         while ($pfmrc{"framecolors[$_]"} =~ /([^:=*]+)=([^:=]+)/g ) {
             $framecolors{$_}{$1} = $2;
         }
@@ -631,21 +641,6 @@ sub expand_escapes {
     $_[0] =~ s/\\\\/\\/g;
 }
 
-sub readintohist { # \@history, $prompt, [$default_input]
-    local $SIG{INT} = 'IGNORE'; # do not interrupt pfm
-#    local $^W       = 0;        # Term::Readline::Gnu is not -w proof
-    my $history     = shift;
-    my $prompt      = shift || '';
-    my $input       = shift || '';
-    $kbd->SetHistory(@$history);
-    $input = $kbd->readline($prompt,$input);
-    if ($input =~ /\S/ and $input ne ${$history}[$#$history]) {
-        push (@$history, $input);
-        shift (@$history) if ($#$history > $MAXHISTSIZE);
-    }
-    return $input;
-}
-
 sub yesno {
     return $_[0] =~ /^(always|yes|1|true|on)$/i;
 }
@@ -656,6 +651,36 @@ sub min ($$) {
 
 sub max ($$) {
     return +($_[1] > $_[0]) ? $_[1] : $_[0];
+}
+
+sub inhibit ($$) {
+    return !$_[0] && $_[1];
+}
+
+sub toggle ($) {
+    $_[0] = !$_[0];
+}
+
+sub basename {
+    $_[0] =~ /\/([^\/]*)$/; # ok, it has LTS but this looks better in vim
+    return $1;
+}
+
+##########################################################################
+# some translations
+
+sub readintohist { # \@history, $prompt, [$default_input]
+    local $SIG{INT} = 'IGNORE'; # do not interrupt pfm
+    my $history     = shift;
+    my $prompt      = shift || '';
+    my $input       = shift || '';
+    $kbd->SetHistory(@$history);
+    $input = $kbd->readline($prompt, $input);
+    if ($input =~ /\S/ and $input ne ${$history}[-1]) {
+        push (@$history, $input);
+        shift (@$history) if ($#$history > $MAXHISTSIZE);
+    }
+    return $input;
 }
 
 sub findchangedir {
@@ -684,26 +709,40 @@ sub mychdir ($) {
     return $result;
 }
 
-sub inhibit ($$) {
-    return !$_[0] && $_[1];
-}
-
-sub toggle ($) {
-    $_[0] = !$_[0];
-}
-
-sub basename {
-    $_[0] =~ /\/([^\/]*)$/; # ok, it has LTS but this looks better in vim
-    return $1;
+sub fileforall {
+    my ($index, $loopfile);
+    my ($do_this, $statflag) = @_;
+    if ($multiple_mode) {
+        for $index (0..$#dircontents) {
+            $loopfile = $dircontents[$index];
+            if ($loopfile->{selected} eq '*') {
+                $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
+                &exclude($loopfile, '.');
+                $loopfile = &$do_this($loopfile);
+                if ($statflag) {
+                    $dircontents[$index] =
+                        &stat_entry($loopfile->{name}, $loopfile->{selected});
+                }
+            }
+        }
+        $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
+    } else {
+        %currentfile = %{ &$do_this(\%currentfile) };
+        if ($statflag) {
+            $showncontents[$currentline+$baseindex] =
+                &stat_entry($currentfile{name}, $currentfile{selected});
+        }
+        &copyback($currentfile{name});
+    }
 }
 
 sub maxpan {
-    my $temp = shift;
+    my ($temp, $width) = @_;
     my $panspace;
     # this is an assignment on purpose
-    if ($panspace = 2 * (length($temp) > $screenwidth)) {
+    if ($panspace = 2 * (length($temp) > $width)) {
         eval "
-            \$temp =~ s/^((?:\\S+ )+?).{1,".($screenwidth-$panspace)."}\$/\$1/;
+            \$temp =~ s/^((?:\\S+ )+?).{1,".($width - $panspace)."}\$/\$1/;
         ";
         return $temp =~ tr/ //;
     } else {
@@ -726,18 +765,16 @@ sub include { # $entry
     $entry->{type} =~ /-/ and $selected_nr_of{bytes} += $entry->{size};
 }
 
-sub filterdir {
-    return grep { !$dot_mode || $_->{name} =~ /^(\.\.?|[^\.].*)$/ } @_;
-}
-
-sub figuretoolong {
+sub reformat {
     foreach (@dircontents) {
         $_->{name_too_long} = length($_->{display}) > $maxfilenamelength-1
             ? $NAMETOOLONGCHAR : ' ';
         @{$_}{qw(size_num size_power)} =
             &fit2limit($_->{size}, $maxfilesizelength);
-        @{$_}{qw(grand_num grand_power)} =                  ####### ? #######
-            &fit2limit($_->{grand}, $maxgrandtotallength);  ####### ? #######
+        @{$_}{qw(grand_num grand_power)} =
+            &fit2limit($_->{grand}, $maxgrandtotallength);
+        @{$_}{qw(atimestr ctimestr mtimestr)} =
+            map { &time2str($_, $TIME_FILE) } @{$_}{qw(atime ctime mtime)};
     }
 }
 
@@ -789,12 +826,53 @@ sub stty_raw {
     }
 }
 
+sub globalinit {
+    my $startingdir;
+    unless (GetOptions ('s|swap=s' => \$swapstartdir)) {
+        sleep $ERRORDELAY;
+    }
+    $startingdir = shift @ARGV;
+    $SIG{WINCH}  = \&resizecatcher;
+    $kbd = Term::ReadLine->new('pfm', \*STDIN, \*STDOUT);
+    $scr = Term::ScreenColor->new();
+    $scr->clrscr();
+    &read_pfmrc($READ_FIRST);
+    &read_history;
+    %user           = &init_uids;
+    %group          = &init_gids;
+    @signame        = &init_signames;
+    %selected_nr_of = %total_nr_of   = ();
+    $swap_mode      = $multiple_mode = 0;
+    $swap_state     = 0;
+    $currentpan     = 0;
+    $baseindex      = 0;
+    $sort_mode      = $pfmrc{defaultsortmode} || 'n';
+    $currentlayout  = $pfmrc{defaultlayout}   || 0;
+    $color_mode     = $pfmrc{defaultcolorset} ||
+        (defined $dircolors{ls_colors} ? 'ls_colors' : $colorsetnames[0]);
+    if ($scr->rows()) { $screenheight = $scr->rows()-$BASELINE-2 }
+    if ($scr->cols()) { $screenwidth  = $scr->cols() }
+    &makeformatlines;
+    &init_frame;
+    &mouseenable($mouse_mode);
+    # now find starting directory
+    $oldcurrentdir = $currentdir = getcwd();
+    if ($startingdir ne '') {
+        unless (&mychdir($startingdir)) {
+            $scr->at(0,0)->clreol();
+            &display_error("$startingdir: $! - using .");
+            $scr->key_pressed($IMPORTANTDELAY);
+        }
+    }
+}
+
 ##########################################################################
 # debugging helper commands
 
 sub dumprefreshflags {
     my $res;
     $res .= "R_QUIT\n"        if $_[0] & $R_QUIT;
+    $res .= "R_INIT_SWAP\n"   if $_[0] & $R_INIT_SWAP;
     $res .= "R_NEWDIR\n"      if $_[0] & $R_NEWDIR;
     $res .= "R_DIRCONTENTS\n" if $_[0] & $R_DIRCONTENTS;
     $res .= "R_DIRSORT\n"     if $_[0] & $R_DIRSORT;
@@ -859,7 +937,7 @@ sub makeformatlines {
     }
     my $currentlayoutline = $columnlayouts[$currentlayout];
     # find out the length of the filename and filesize fields
-    $maxfilenamelength   =       ($currentlayoutline =~ tr/n//) +$screenwidth -80;
+    $maxfilenamelength   =       ($currentlayoutline =~ tr/n//)+$screenwidth-80;
     $maxfilesizelength   = 10 ** ($currentlayoutline =~ tr/s// -1) -1;
     if ($maxfilesizelength < 2) { $maxfilesizelength = 2 }
     $maxgrandtotallength = 10 ** ($currentlayoutline =~ tr/z// -1) -1;
@@ -1048,7 +1126,7 @@ sub fitbanner { # $header/footer, $screenwidth
     my ($banner, $virtwidth) = @_;
     my ($maxwidth, $spcount);
     if (length($banner) > $virtwidth) {
-        $spcount  = &maxpan($banner);
+        $spcount  = &maxpan($banner, $virtwidth);
         $maxwidth = $virtwidth -2*($currentpan > 0) -2*($currentpan < $spcount);
         $banner  .= ' ';
         eval "
@@ -1088,12 +1166,13 @@ sub init_title { # swap_mode, extra field, @layoutfields
 
 sub header {
     # do not take multiple mode into account at all
-    my $mode = $_[0] & ~$HEADER_MULTI;
+    my $mode = $_[0];
     if      ($mode & $HEADER_SORT) {
         return 'Sort by: Name, Extension, Size, Date, Type, Inode'
         .     ' (ignorecase, reverse):';
     } elsif ($mode & $HEADER_MORE) {
-        return 'Config Edit-new sHell Kill-chld Make-dir Show-dir Write-hist ESC';
+        return 'Config Edit-new sHell Kill-chld Make-dir Show-dir'
+        .     ' Write-hist ESC';
     } elsif ($mode & $HEADER_INCLUDE) {
         return 'Include? Every, Oldmarks, User or Files only:';
     } else {
@@ -1104,25 +1183,25 @@ sub header {
 }
 
 sub init_header { # <special header mode>
-    my $mode = $_[0] || ($multiple_mode * $HEADER_MULTI);
+    my $mode    = $_[0] || ($multiple_mode * $HEADER_MULTI);
+    my $domulti = $mode & $HEADER_MULTI;
     my ($pos, $header, $headerlength, $vscreenwidth);
-    $vscreenwidth = $screenwidth - 9*$multiple_mode;
+    $vscreenwidth = $screenwidth - 9 * $domulti;
     $header       = &fitbanner(&header($mode), $vscreenwidth);
     $headerlength = length($header);
     if ($headerlength < $vscreenwidth) {
         $header .= ' ' x ($vscreenwidth - $headerlength);
     }
     $scr->at(0,0);
-    if ($mode & $HEADER_MULTI) {
+    if ($domulti) {
         &digestcolor($framecolors{$color_mode}{multi});
         $scr->puts('Multiple')->normal();
     }
     &digestcolor($framecolors{$color_mode}{header});
-    $scr->puts(' ' x $multiple_mode)->puts($header)->bold();
-    # in earlier days, regex was [A-Z](?!FM |M E| Ed)
-    while ($header =~ /[[:upper:]<>]/g) {
+    $scr->puts(' ' x $domulti)->puts($header)->bold();
+    while ($header =~ /[[:upper:]<>](?!nclude\?)/g) {
         $pos = pos($header) -1;
-        $scr->at(0, $pos + 9*$multiple_mode)->puts(substr($header, $pos, 1));
+        $scr->at(0, $pos + 9 * $domulti)->puts(substr($header, $pos, 1));
     }
     $scr->normal();
     return $headerlength;
@@ -1156,41 +1235,6 @@ sub copyright {
         ->at(2,0)->puts("This software comes with no warranty: see the file "
                        ."COPYING for details.")->normal();
     return $scr->key_pressed($_[0]);
-}
-
-sub globalinit {
-    my $startingdir = shift;
-    $SIG{WINCH} = \&resizecatcher;
-    $kbd = Term::ReadLine->new('Pfm', \*STDIN, \*STDOUT);
-    $scr = Term::ScreenColor->new();
-    $scr->clrscr();
-    &read_pfmrc($READ_FIRST);
-    &read_history;
-    %user           = &init_uids;
-    %group          = &init_gids;
-    @signame        = &init_signames;
-    %selected_nr_of = %total_nr_of = ();
-    $swap_mode      = $multiple_mode = 0;
-    $swap_state     = 0;
-    $currentpan     = 0;
-    $baseindex      = 0;
-    $sort_mode      = $pfmrc{defaultsortmode} || 'n';
-    $currentlayout  = $pfmrc{defaultlayout}   || 0;
-    $color_mode     = $pfmrc{defaultcolorset} ||
-        (defined $dircolors{ls_colors} ? 'ls_colors' : $colorsetnames[0]);
-    if ($scr->rows()) { $screenheight = $scr->rows()-$BASELINE-2 }
-    if ($scr->cols()) { $screenwidth  = $scr->cols() }
-    &makeformatlines;
-    &init_frame;
-    &mouseenable($mouse_mode);
-    # now find starting directory
-    $oldcurrentdir = $currentdir = getcwd();
-    $startingdir and &mychdir($startingdir) || do {
-        $scr->at(0,0)->clreol();
-        &display_error("$startingdir: $! - using .");
-        $scr->key_pressed($IMPORTANTDELAY);
-        &init_header;
-    };
 }
 
 sub goodbye {
@@ -1400,7 +1444,7 @@ sub handlemultiple {
 sub handlecolumns {
     ++$currentlayout;
     &makeformatlines;
-    &figuretoolong;
+    &reformat;
     return $R_DIRLIST | $R_TITLE;
 }
 
@@ -1416,7 +1460,6 @@ sub handlecolor {
     }
     if (--$index < 0) { $index = $#colorsetnames }
     $color_mode = $colorsetnames[$index];
-#    $scr->colorizable(!$scr->colorizable());
     return $R_SCREEN;
 }
 
@@ -1480,45 +1523,76 @@ sub handlemousedown {
 }
 
 sub handleadvance {
-    &handleselect;
-    # this automatically passes the " " key in $_[0] to &handlemove
-    # ..and loses the return value from &handleselect. solve this in handlemove
-    goto &handlemove;
+    my     $do_a_refresh = &handleselect;
+    return $do_a_refresh | &handlemove(@_); # pass ' ' key on
 }
 
 sub handlesize {
-    my ($recursivesize, $command, $tempfile);
-    &markcurrentline('Z'); # disregard multiple_mode
-    &expand_escapes($command = $ducmd, \%currentfile);
-    ($recursivesize = `$command`) =~ s/\D*(\d+).*/$1/;
-#    unless ($?) { # think about what to do when $? != 0 ?
-        $scr->at($currentline + $BASELINE, 0);
-        @{$showncontents[$currentline+$baseindex]}
-            {qw(grand grand_num grand_power)} = ($recursivesize,
-            &fit2limit($recursivesize, $maxgrandtotallength));
+    my ($recursivesize, $command, $tempfile, $do_this);
+    my ($index, $loopfile);
+    my $do_a_refresh = ($R_DIRLIST | $R_HEADER | $R_PATHINFO) * $multiple_mode;
+    &markcurrentline('Z') unless $multiple_mode;
+    $do_this = sub {
+        my $loopfile = shift;
+        &expand_escapes($command = $ducmd, $loopfile);
+        ($recursivesize = `$command`) =~ s/\D*(\d+).*/$1/;
+        chomp $recursivesize;
+        if ($?) {
+            $? >>= 8;
+            &neat_error('Could not read all directories');
+            $do_a_refresh |= $R_SCREEN;
+        }
+        @{$loopfile}{qw(grand grand_num grand_power)} =
+            ($recursivesize, &fit2limit($recursivesize, $maxgrandtotallength));
         if (join('', @layoutfields) =~ /grand/) {
-            # use grand total field
-            $scr->puts(&fileline($showncontents[$currentline+$baseindex],
-                @layoutfields));
-        } else {
+#            $scr->at($currentline + $BASELINE, 0);
+#            $scr->puts(&fileline($showncontents[$currentline+$baseindex],
+#                @layoutfields));
+            $do_a_refresh |= $multiple_mode * $R_DIRLIST;
+        } elsif (!$multiple_mode) {
             # use filesize field
-            $tempfile = { %currentfile };
+            $tempfile = { %$loopfile };
             @{$tempfile}{qw(size size_num size_power)} = ($recursivesize,
                 &fit2limit($recursivesize, $maxfilesizelength));
-            $scr->puts(&fileline($tempfile, @layoutfields));
+            $scr->at($currentline + $BASELINE, 0)
+                ->puts(&fileline($tempfile, @layoutfields));
             &markcurrentline('Z');
-            &applycolor($currentline + $BASELINE, $FILENAME_SHORT, %currentfile);
+            &applycolor($currentline + $BASELINE, $FILENAME_SHORT,
+                        %currentfile);
             $scr->getch();
         }
-#    }
-    return $R_NOP;
+        return $loopfile;
+    };
+    if ($multiple_mode) {
+        for $index (0..$#dircontents) {
+            $loopfile = $dircontents[$index];
+            if ($loopfile->{selected} eq '*') {
+                $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
+                &exclude($loopfile, '.');
+                $loopfile = &$do_this($loopfile);
+                system "echo '".join ("\n", "\nZ ---",  map { "$_ = $loopfile->{$_}" } sort keys %$loopfile), "' > /dev/pts/3";
+#                if ($statflag) {
+#                    $dircontents[$index] =
+#                        &stat_entry($loopfile->{name}, $loopfile->{selected});
+#                }
+            }
+        }
+        $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
+    } else {
+        %currentfile = %{ &$do_this(\%currentfile) };
+        system "echo '".join ("\n", "\nZ ---", map { "$_ = $currentfile{$_}" } sort keys %currentfile). "' > /dev/pts/3";
+#        if ($statflag) {
+#            $showncontents[$currentline+$baseindex] =
+#                &stat_entry($currentfile{name}, $currentfile{selected});
+#        }
+        &copyback($currentfile{name});
+    }
+    return $do_a_refresh;
 }
 
 sub handledot {
     &toggle($dot_mode);
     $position_at = $currentfile{name};
-#    @showncontents = &filterdir(@dircontents);
-#    &validate_position;
     return $R_DIRLIST | $R_DIRFILTER | $R_DISKINFO;
 }
 
@@ -1543,7 +1617,8 @@ sub handlecdold {
 }
 
 sub handlepan {
-    my $count   = max(&maxpan(&header), &maxpan(&footer));
+    my $width = $screenwidth - 9 * $multiple_mode;
+    my $count   = max(&maxpan(&header, $width), &maxpan(&footer, $width));
 #    # add 2 for safety, because header and footer are of unequal length
 #    my $count   = 2 + &maxpan(&header);
     $currentpan = $currentpan - ($_[0] =~ /</ and $currentpan > 0)
@@ -1582,7 +1657,7 @@ sub handlefit {
         $screenwidth  = $newwidth;
     }
     &makeformatlines;
-    &figuretoolong;
+    &reformat;
     return $R_CLEAR;
 }
 
@@ -1877,10 +1952,10 @@ sub handlesymlink {
             $findindex++ while ($findindex <= $#dircontents and
                           $newnameexpanded ne $dircontents[$findindex]{name});
             if ($findindex > $#dircontents) {
-                $do_a_refresh |= $R_DIRSORT | $R_DIRFILTER;
+                $do_a_refresh |= $R_DIRSORT | $R_DIRFILTER | $R_DIRLIST;
             }
             $dircontents[$findindex] = &stat_entry($newnameexpanded,
-                $dircontents[$findindex]{selected} || " ");
+                $dircontents[$findindex]{selected} || ' ');
         }
     };
     if ($multiple_mode) {
@@ -2056,30 +2131,31 @@ sub handlecommand { # Y or O
     my ($key, $command, $do_this, $printstr, $printline, $loopfile, $index);
     my $prompt;
     &markcurrentline(uc($_[0])) unless $multiple_mode;
-    &digestcolor($framecolors{$color_mode}{message});
     if ($_[0] =~ /y/i) { # Your
         &clearcolumn;
         &init_title($swap_mode, $TITLE_COMMAND, @layoutfields);
         $printline = $BASELINE;
         foreach (sort alphabetically keys %pfmrc) {
-            if (/^[[:alpha:]]$/ && $printline <= $BASELINE+$screenheight) {
+            if (/^your\[[[:alpha:]]\]$/ && $printline <= $BASELINE+$screenheight) {
                 $printstr = $pfmrc{$_};
                 $printstr =~ s/\e/^[/g;
                 $^A = "";
-                formline('@ @<<<<<<<<<<<',$_,$printstr);
+                formline('@ @<<<<<<<<<<<', substr($_,5,1), $printstr);
                 $scr->at($printline++,$screenwidth-$DATECOL)->puts($^A);
             }
         }
+        &digestcolor($framecolors{$color_mode}{message});
         $prompt = 'Enter one of the highlighted chars at right: ';
         $key = $scr->at(0,0)->clreol()->puts($prompt)->normal()->getch();
         &clearcolumn;
-        # this line is supposed to be an assignment
-        return $R_DISKINFO | $R_FRAME unless ($command = $pfmrc{$key});
+        # this line is supposed to contain an assignment
+        return $R_DISKINFO | $R_FRAME unless $command = $pfmrc{"your[$key]"};
         &stty_raw($TERM_COOKED);
     } else { # cOmmand
         $prompt = <<'_eoCommandPrompt_';
 Enter Unix command (\1=name, \2=name.ext, \3=path, \4=mountpoint, \5=swap path):
 _eoCommandPrompt_
+        &digestcolor($framecolors{$color_mode}{message});
         $scr->at(0,0)->clreol()->puts($prompt)->normal()
             ->at($PATHLINE,0)->clreol();
         &stty_raw($TERM_COOKED);
@@ -2368,7 +2444,7 @@ sub handlecopyrename {
                 $do_a_refresh |= $R_DIRSORT;
             }
             $dircontents[$findindex] = &stat_entry($newnameexpanded,
-                $dircontents[$findindex]{selected} || " ");
+                $dircontents[$findindex]{selected} || ' ');
         }
     };
     &stty_raw($TERM_COOKED) unless $clobber;
@@ -2379,14 +2455,12 @@ sub handlecopyrename {
                 &exclude($loopfile, '.');
                 &expand_escapes(($newnameexpanded = $newname), $loopfile);
                 $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
-#                &stty_raw($TERM_COOKED) unless $clobber;
                 &$do_this;
                 $dircontents[$index] =
                     &stat_entry($loopfile->{name},$loopfile->{selected});
                 if ($dircontents[$index]{nlink} == 0) {
                     $dircontents[$index]{display} .= " $LOSTMSG";
                 }
-#                &stty_raw($TERM_RAW) unless $clobber;
                 $do_a_refresh |= $R_SCREEN;
             }
         }
@@ -2486,7 +2560,7 @@ sub handlemove {
                        -($currentline    +$baseindex)              *(/^home$/)
                        +($#showncontents -$currentline -$baseindex)*(/^end$/ );
     $currentline += $displacement;
-    return &validate_position | ($_ eq ' ' ? $R_DISKINFO : $R_NOP);
+    return &validate_position;
 }
 
 sub handleenter {
@@ -2497,79 +2571,74 @@ sub handleenter {
     return $R_CLEAR;
 }
 
+sub swap_stash {
+    return {
+        path              =>   $currentdir,
+        contents          => [ @dircontents ],
+        position          =>   $currentfile{name},
+        disk              => { %disk },
+        selected          => { %selected_nr_of },
+        totals            => { %total_nr_of },
+        multiple_mode     =>   $multiple_mode,
+        sort_mode         =>   $sort_mode,
+        dot_mode          =>   $dot_mode,
+        argvnull          =>   $0
+    };
+}
+
+sub swap_fetch {
+    my $state = shift;
+    @dircontents    = @{$state->{contents}};
+    $position_at    =   $state->{position};
+    %disk           = %{$state->{disk}};
+    %selected_nr_of = %{$state->{selected}};
+    %total_nr_of    = %{$state->{totals}};
+    $multiple_mode  =   $state->{multiple_mode};
+    $sort_mode      =   $state->{sort_mode};
+    $dot_mode       =   $state->{dot_mode};
+    $0              =   $state->{argvnull};
+    return $state->{path};
+}
+
 sub handleswap {
     my $do_a_refresh = $R_TITLE | $R_HEADER;
-    my $temp_state   = $swap_state;
     my $stateprompt  = 'Directory Pathname: ';
-    my $nextdir;
+    my ($temp_state, $nextdir);
     if ($swap_state and !$swap_persistent) { # swap back if ok_to_remove_marks
         if (&ok_to_remove_marks) {
-            $nextdir           =   $swap_state->{path};
-            @dircontents       = @{$swap_state->{contents}};
-            $position_at       =   $swap_state->{position};
-            %disk              = %{$swap_state->{disk}};
-            %selected_nr_of    = %{$swap_state->{selected}};
-            %total_nr_of       = %{$swap_state->{totals}};
-            $multiple_mode     =   $swap_state->{multiple_mode};
-            $sort_mode         =   $swap_state->{sort_mode};
-            $dot_mode          =   $swap_state->{dot_mode};
-            $0                 =   $swap_state->{argvnull};
+            $nextdir   = &swap_fetch($swap_state);
             $swap_mode = $swap_state = 0;
             $do_a_refresh |= $R_SCREEN;
         } else { # not ok to remove marks
             $do_a_refresh |= $R_HEADER;
         }
     } elsif ($swap_state and $swap_persistent) { # swap persistent
-        $swap_state = {
-            path              =>   $currentdir,
-            contents          => [ @dircontents ],
-            position          =>   $currentfile{name},
-            disk              => { %disk },
-            selected          => { %selected_nr_of },
-            totals            => { %total_nr_of },
-            multiple_mode     =>   $multiple_mode,
-            sort_mode         =>   $sort_mode,
-            dot_mode          =>   $dot_mode,
-            argvnull          =>   $0
-        };
-        $nextdir           =   $temp_state->{path};
-        @dircontents       = @{$temp_state->{contents}};
-        $position_at       =   $temp_state->{position};
-        %disk              = %{$temp_state->{disk}};
-        %selected_nr_of    = %{$temp_state->{selected}};
-        %total_nr_of       = %{$temp_state->{totals}};
-        $multiple_mode     =   $temp_state->{multiple_mode};
-        $sort_mode         =   $temp_state->{sort_mode};
-        $dot_mode          =   $temp_state->{dot_mode};
-        $0                 =   $temp_state->{argvnull};
+        $temp_state = $swap_state;
+        $swap_state = &swap_stash;
+        $nextdir    = &swap_fetch($temp_state);
         toggle($swap_mode);
         $do_a_refresh |= $R_SCREEN;
     } else { # $swap_state = 0; ask and swap forward
-        $swap_state = {
-            path              =>   $currentdir,
-            contents          => [ @dircontents ],
-            position          =>   $currentfile{name},
-            disk              => { %disk },
-            selected          => { %selected_nr_of },
-            totals            => { %total_nr_of },
-            multiple_mode     =>   $multiple_mode,
-            sort_mode         =>   $sort_mode,
-            dot_mode          =>   $dot_mode,
-            argvnull          =>   $0
-        };
+        $swap_state    = &swap_stash;
         $swap_mode     = 1;
         $sort_mode     = $pfmrc{sortmode} || 'n';
         $multiple_mode = 0;
-        $scr->at(0,0)->clreol();
-        &stty_raw($TERM_COOKED);
-        $nextdir = &readintohist(\@path_history, $stateprompt);
+        if (defined $swapstartdir) {
+            $nextdir = $swapstartdir;
+            undef $swapstartdir;
+            $do_a_refresh |= $swap_persistent * $R_INIT_SWAP;
+        } else {
+            $scr->at(0,0)->clreol();
+            &stty_raw($TERM_COOKED);
+            $nextdir = &readintohist(\@path_history, $stateprompt);
+            &stty_raw($TERM_RAW);
+        }
         &expand_escapes($nextdir, \%currentfile);
-        &stty_raw($TERM_RAW);
         $position_at   = '.';
         $do_a_refresh |= $R_CHDIR;
     }
     if (!&mychdir($nextdir)) {
-        $scr->at($PATHLINE,0);
+        $scr->at($PATHLINE,0)->clreol();
         &display_error("$nextdir: $!");
         $do_a_refresh |= $R_CHDIR; # dan maar de lucht in
     }
@@ -2692,10 +2761,18 @@ sub printdircontents { # @contents
     }
 }
 
-sub countdircontents {
+sub filterdir {
+    return grep { !$dot_mode || $_->{name} =~ /^(\.\.?|[^\.].*)$/ } @_;
+}
+
+sub init_dircount {
     %selected_nr_of =
     %total_nr_of    = ( d=>0, l=>0, '-'=>0, c=>0, b=>0,
                         D=>0, p=>0, 's'=>0, n=>0, w=>0, bytes => 0);
+}
+
+sub countdircontents {
+    &init_dircount;
     foreach my $i (0..$#_) {
         $total_nr_of   {$_[$i]{type}}++;
         $selected_nr_of{$_[$i]{type}}++ if ($_[$i]{selected} eq '*');
@@ -2752,11 +2829,11 @@ sub showdiskinfo {
 #
 # this sub is the heart of pfm. it has the following structure:
 #
-# repeat {
-#       refresh everything flagged for refreshing;
-#       wait for keypress-, mousedown- or resize-event;
-#       handle the request;
-# } until quit;
+# until quit {
+#     refresh everything flagged for refreshing;
+#     wait for keypress-, mousedown- or resize-event;
+#     handle the request;
+# }
 #
 # when a key command handling sub exits, browse() uses its return value
 # to decide which elements should be redrawn on-screen, and what else
@@ -2780,12 +2857,13 @@ sub showdiskinfo {
 # $R_DIRCONTENTS : reread directory contents
 # $R_NEWDIR      : re-init directory-specific vars
 # $R_CHDIR       : combination of R_NEWDIR, R_DIRCONTENTS, R_DIRSORT, R_SCREEN
+# $R_INIT_SWAP   : after reading the directory, we should be swapped immediately
 # $R_QUIT        : exit from program
 
 sub browse {
     my $wantrefresh = shift;
     my $key;
-    STRIDE: do {
+    STRIDE: until ($wantrefresh & $R_QUIT) {
 #        system "xmessage '" . &dumprefreshflags($wantrefresh) . "'";
         if ($wantrefresh & $R_NEWDIR) {
             $wantrefresh &= ~$R_NEWDIR;
@@ -2795,6 +2873,30 @@ sub browse {
             $currentdir    = getcwd();
             %disk          = &get_filesystem_info;
             &set_argv0;
+            # this test is nested so that it does not get executed every time
+            if ($wantrefresh & $R_INIT_SWAP) {
+                $wantrefresh &= ~$R_INIT_SWAP;
+                # if $swapstartdir is set, we will make a first pass through
+                # this then{} construct: it reads the main dircontents
+                # and calls handleswap(), which detects $swapstartdir and
+                # swaps forward, and subsequently erases $swapstartdir.
+                # if 'persistentswap' is on, R_INIT_SWAP will be set again,
+                # which will take us on a second pass through this
+                # then{} construct, and we will be swapped back.
+                # the swapback does not set R_INIT_SWAP again.
+                &init_dircount;
+                # first pass, read main dir.
+                # second pass, read swap dir.
+                @dircontents  = sort as_requested &getdircontents($currentdir);
+                %currentfile  = %{$dircontents[$currentline+$baseindex]};
+                $wantrefresh |= &handleswap;
+                unless ($swap_mode) {
+                    # on second pass, flag that the main dir
+                    # does not need reading any more
+                    $wantrefresh &= ~($R_DIRCONTENTS | $R_DIRSORT);
+                }
+                redo STRIDE;
+            }
         }
         # draw frame as soon as possible: this looks better on slower terminals
         if ($wantrefresh & $R_CLS) {
@@ -2808,9 +2910,7 @@ sub browse {
         # now in order of severity
         if ($wantrefresh   & $R_DIRCONTENTS) {
             $wantrefresh   &= ~$R_DIRCONTENTS;
-            %selected_nr_of =
-            %total_nr_of    = ( d=>0, l=>0, '-'=>0, c=>0, b=>0,
-                                D=>0, p=>0, 's'=>0, n=>0, w=>0, bytes => 0);
+            &init_dircount;
             $position_at  ||= $showncontents[$currentline+$baseindex]{name};
             @dircontents    = &getdircontents($currentdir);
         }
@@ -2913,16 +3013,16 @@ sub browse {
                 /^k12$/      and $wantrefresh |= &handlemousetoggle,   last KEY;
                 # invalid keypress: cursor position needs no checking
                 $wantrefresh &= ~$R_STRIDE;
-            } # end switch KEY
-        } # end if key_pressed
-    } until $wantrefresh & $R_QUIT;
+            } # switch KEY
+        } # if key_pressed
+    } # until QUIT
 }
 
 ##########################################################################
 # void main(char *path)
 
-&globalinit(@ARGV);
-&browse($R_CHDIR);
+&globalinit;
+&browse($R_CHDIR | ($R_INIT_SWAP * defined $swapstartdir));
 &goodbye;
 exit 0;
 
@@ -3060,8 +3160,8 @@ viewbase:hex
 ## your *files* will only be colored if you also define 'dircolors' below
 usecolor:force
 
-## you may define different colorsets using the notation
-## 'framecolors[setname]' and 'dircolors[setname]'.
+## you may define as many different colorsets as you like.
+## use the notation 'framecolors[setname]' and 'dircolors[setname]'.
 ## the F4 key will cycle through these colorsets.
 ## the special setname 'off' is used for no coloring.
 
@@ -3076,14 +3176,19 @@ usecolor:force
 ##-background color codes:
 ## 40=black 41=red 42=green 43=yellow 44=blue 45=magenta 46=cyan 47=white
 
-framecolors[dark]:header=37;44:multi=01;07;36;47:title=01;07;36;47:swap=07;36;40:\
-footer=01;07;34;47:message=01;36:highlight=01:
-framecolors[light]:header=37;44:multi=07;36;40:title=07;36;40:swap=07;30;46:\
-footer=07;34;47:message=34:highlight=01:
+framecolors[dark]:header=37;44:multi=01;07;36;47:title=01;07;36;47:\
+swap=07;36;40:footer=01;07;34;47:message=01;36:highlight=01:
+
+framecolors[light]:header=37;44:multi=07;36;40:title=07;36;40:\
+swap=07;30;46:footer=07;34;47:message=34:highlight=01:
+
+## these are the defaults
+#framecolors[default]:header=37;44:multi=01;07;36;47:title=01;07;36;47:\
+#swap=07;36;40:footer=01;07;34;47:message=01;36:highlight=01:
 
 ## these are a suggestion
-#framecolors[dark]:header=37;44:multi=36;47:title=07;36;40:swap=07;33;40:\
-#footer=07;34;47:message=01;36:
+#framecolors[dark]:header=37;44:multi=07;36;40:title=07;36;40:\
+#swap=07;33;40:footer=01;07;34;47:message=01;36:highlight=01:
 
 ## 'dircolors' defines the colors that will be used for your files.
 ## for the files to become colored, 'usecolor' must be set to 'yes' or 'force'.
@@ -3103,26 +3208,27 @@ dircolors[dark]:no=00:fi=00:ex=00;32:lo=01;30:di=01;34:ln=01;36:or=37;41:\
 bd=01;33;40:cd=01;33;40:pi=00;33;40:so=01;35:\
 do=01;35:nt=01;35:wh=01;30;47:lc=\e[:rc=m:\
 *.cmd=01;32:*.exe=01;32:*.com=01;32:*.btm=01;32:*.bat=01;32:\
-*.pas=32:*.c=35:*.h=35:*.pm=36:*.pl=36:\
+*.pas=32:*.c=35:*.h=35:*.pm=36:*.pl=36:*.htm=01;33:*.html=01;33:\
 *.tar=01;31:*.tgz=01;31:*.arj=01;31:*.taz=01;31:*.lzh=01;31:*.zip=01;31:\
-*.z=01;31:*.Z=01;31:*.gz=01;31:*.bz2=01;31:*.deb=31:*.rpm=31:\
-*.jpg=01;35:*.gif=01;35:*.bmp=01;35:*.xbm=01;35:*.xpm=01;35:\
-*.mpg=01;37:*.avi=01;37:*.gl=01;37:*.dl=01;37:*.htm=01;33:*.html=01;33:
+*.z=01;31:*.Z=01;31:*.gz=01;31:*.bz2=01;31:*.deb=31:*.rpm=31:*.pkg=31:\
+*.jpg=01;35:*.gif=01;35:*.bmp=01;35:*.xbm=01;35:*.xpm=01;35:*.png=01;35:\
+*.mpg=01;37:*.avi=01;37:*.gl=01;37:*.dl=01;37:
 
 dircolors[light]:no=00:fi=00:ex=00;32:lo=01;30:di=01;34:ln=04;34:or=37;41:\
 bd=01;33;40:cd=01;33;40:pi=00;33;40:so=01;35:\
 do=01;35:nt=01;35:wh=01;37;40:lc=\e[:rc=m:\
 *.cmd=01;32:*.exe=01;32:*.com=01;32:*.btm=01;32:*.bat=01;32:\
-*.pas=32:*.c=35:*.h=35:*.pm=46:*.pl=46:\
+*.pas=32:*.c=35:*.h=35:*.pm=46:*.pl=46:*.htm=30;43:*.html=30;43:\
 *.tar=01;31:*.tgz=01;31:*.arj=01;31:*.taz=01;31:*.lzh=01;31:*.zip=01;31:\
-*.z=01;31:*.Z=01;31:*.gz=01;31:*.bz2=01;31:*.deb=31:*.rpm=31:\
-*.jpg=01;35:*.gif=01;35:*.bmp=01;35:*.xbm=01;35:*.xpm=01;35:\
-*.mpg=01;37:*.avi=01;37:*.gl=01;37:*.dl=01;37:*.htm=30;43:*.html=30;43:
+*.z=01;31:*.Z=01;31:*.gz=01;31:*.bz2=01;31:*.deb=31:*.rpm=31:*.pkg=31:\
+*.jpg=01;35:*.gif=01;35:*.bmp=01;35:*.xbm=01;35:*.xpm=01;35:*.png=01;35:\
+*.mpg=01;37;44:*.avi=01;37;44:*.gl=01;37;44:*.dl=01;37;44:
 
 ##########################################################################
 ## column layouts
 
-## char name                    needed width if present
+## char column name             needed character width if column present
+## ---- ----------------------- -----------------------------------------------
 ## *    selected flag           1
 ## n    filename                variable length; last char == overflow flag
 ## s    filesize                >=4; last char == power of 1024 (K, M, G..)
@@ -3163,36 +3269,36 @@ ppppppppppllll uuuuuuuu ggggggggssssssss mmmmmmmmmmmmmmm *nnnnnnn:
 ## in these commands, \1=filename without extension, \2=filename complete,
 ## \3=current directory path, \4=current mountpoint, \5=swap path (F7)
 
-a:acroread "\2" &
-B:bunzip2 "\2"
-b:xv -root +noresetroot +smooth -maxpect -quit "\2"
-c:tar cvf - "\2" | gzip > "\2".tar.gz
-d:uudecode "\2"
-e:unarj l "\2" | more
-f:file "\2"
-G:gimp "\2"
-g:gvim "\2"
-i:rpm -qpi "\2"
-j:mpg123 "\2" &
-k:esdplay "\2"
-l:mv -i "\2" "$(echo "\2" | tr '[:upper:]' '[:lower:]')"
-n:nroff -man "\2" | more
-o:cp "\2" "\2.$(date +"%Y%m%d")"; touch -r "\2" "\2.$(date +"%Y%m%d")"
-p:perl -cw "\2"
-q:unzip -l "\2" | more
-r:rpm -qpl "\2" | more
-s:strings "\2" | more
-t:gunzip < "\2" | tar tvf - | more
-U:unzip "\2"
-u:gunzip "\2"
-v:xv "\2" &
-w:what "\2"
-x:gunzip < "\2" | tar xvf -
-y:lynx "\2"
-Z:bzip2 "\2"
-z:gzip "\2"
+your[a]:acroread "\2" &
+your[B]:bunzip2 "\2"
+your[b]:xv -root +noresetroot +smooth -maxpect -quit "\2"
+your[c]:tar cvf - "\2" | gzip > "\2".tar.gz
+your[d]:uudecode "\2"
+your[e]:unarj l "\2" | more
+your[f]:file "\2"
+your[G]:gimp "\2"
+your[g]:gvim "\2"
+your[i]:rpm -qpi "\2"
+your[j]:mpg123 "\2" &
+your[k]:esdplay "\2"
+your[l]:mv -i "\2" "$(echo "\2" | tr '[:upper:]' '[:lower:]')"
+your[n]:nroff -man "\2" | more
+your[o]:cp "\2" "\2.$(date +"%Y%m%d")"; touch -r "\2" "\2.$(date +"%Y%m%d")"
+your[p]:perl -cw "\2"
+your[q]:unzip -l "\2" | more
+your[r]:rpm -qpl "\2" | more
+your[s]:strings "\2" | more
+your[t]:gunzip < "\2" | tar tvf - | more
+your[U]:unzip "\2"
+your[u]:gunzip "\2"
+your[v]:xv "\2" &
+your[w]:what "\2"
+your[x]:gunzip < "\2" | tar xvf -
+your[y]:lynx "\2"
+your[Z]:bzip2 "\2"
+your[z]:gzip "\2"
 
-## vi: set filetype=xdefaults: # close enough, just not for multiline strings
+## vi: set filetype=xdefaults: # fairly close
 __END__
 
 ##########################################################################
@@ -3206,7 +3312,7 @@ C<pfm> - Personal File Manager for Linux/Unix
 
 =head1 SYNOPSIS
 
-C<pfm [>I<directory>C<]>
+C<pfm [ >I<directory>C< ] [ -s, --swap >I<directory>C< ]>
 
 =head1 DESCRIPTION
 
@@ -3225,14 +3331,32 @@ I<regular files>.
 
 =head1 OPTIONS
 
+Most of C<pfm>'s configuration is read from a config file. The default
+location for this file is F<$HOME/.pfm/.pfmrc> , but an alternative location
+may be specified with the environment variable $PFMRC . If there is no
+config file present at startup, one will be created. The file contains
+many comments on the available options, and is therefore supposed to be
+self-explanatory. See also the B<C>onfig command under MORE COMMANDS below.
+
+There are two commandline options that specify starting directories.
+The C<CDPATH> environment variable is taken into account when C<pfm>
+tries to find these directories.
+
 =over
 
-You may specify a starting directory on the command line when
-invoking C<pfm>. The C<CDPATH> environment variable is taken into
-account when C<pfm> tries to find this directory. There are no command line
-options. Configuration is read from a file, F<$HOME/.pfm/.pfmrc> , which
-is created automatically the first time you start C<pfm>. The file is
-supposed to be self-explanatory.  See also MORE COMMANDS below.
+=item I<directory>
+
+The directory that C<pfm> should initially use as its main directory. If
+unspecified, the current directory is used.
+
+=item -s, --swap I<directory>
+
+The directory that C<pfm> should initially use as swap directory.
+
+There would be no point in setting the swap directory and subsequently
+returning to the main directory if 'persistentswap' is turned off in your
+config file. Therefore, C<pfm> will swap back to the main directory I<only>
+if 'persistentswap' is turned on.
 
 =back
 
@@ -3265,13 +3389,11 @@ Identical to B<F>ind (see below).
 
 =item B<E<lt>>
 
-Scroll the header and footer, displaying the left part of the set
-of available commands.
+Scroll the header and footer, in order to view all available commands.
 
 =item B<E<gt>>
 
-Scroll the header and footer, displaying the right part of the set of
-available commands.
+Scroll the header and footer, in order to view all available commands.
 
 =item B<?>
 
@@ -3307,9 +3429,9 @@ Delete a file or directory.
 
 =item B<Edit>
 
-Edit a file with your external editor. You can specify an editor with
-the environment variable C<EDITOR> or in the F<$HOME/.pfm/.pfmrc> file,
-else vi(1) is used.
+Edit a file with your external editor. You can specify an editor with the
+environment variable C<EDITOR> or with the 'editor' option in the F<.pfmrc>
+file, otherwise vi(1) is used.
 
 =item B<Find>
 
@@ -3351,8 +3473,8 @@ will take you back to the main menu.
 
 =item B<cOmmand>
 
-Allows execution of a shell command on the current files.  After the
-command completes, C<pfm> will resume.  You may abbreviate the current
+Allows execution of a shell command on the current files. After the
+command completes, C<pfm> will resume. You may abbreviate the current
 filename as B<\2>, the current filename without extension as B<\1>,
 the current directory path as B<\3>, the mount point of the current
 filesystem as B<\4> and the swap directory path (see B<F7> command)
@@ -3361,16 +3483,15 @@ as B<\5>. To enter a backslash, use B<\\>.
 =item B<Print>
 
 Will prompt for a print command (default C<lpr -P$PRINTER>, or C<lpr>
-if C<PRINTER> is unset) and will pipe the current file through
-it. No formatting is done. You may specify a print command in your
-F<$HOME/.pfm/.pfmrc> (see below).
+if C<PRINTER> is unset) and will pipe the current file through it. No
+formatting is done. You may specify a print command with the 'printcmd'
+option in the F<.pfmrc> file.
 
 =item B<Quit>
 
-Exit C<pfm>. You may specify in your F<$HOME/.pfm/.pfmrc> whether
-C<pfm> should ask for confirmation (option 'confirmquit'). Note that
-by pressing a capital B<Q> (quick quit), you will I<never> be asked for
-confirmation.
+Exit C<pfm>. The option 'confirmquit' in the F<.pfmrc> file specifies
+whether C<pfm> should ask for confirmation. Note that by pressing a capital
+B<Q> (quick quit), you will I<never> be asked for confirmation.
 
 =item B<Rename>
 
@@ -3379,14 +3500,14 @@ on your Unix implementation, a different path- and filename on another
 filesystem may or may not be allowed. In multiple-file mode, the new
 name I<must> be a directoryname or a name containing a B<\1> or B<\2>
 escape (see cB<O>mmand above). If the option 'clobber' is set to I<no>
-in F<$HOME/.pfm/.pfmrc>, existing files will not be overwritten unless
+in the F<.pfmrc> file, existing files will not be overwritten unless
 the action is confirmed by the user.
 
 =item B<Show>
 
 Displays the contents of the current file or directory on the screen.
 You can choose which pager to use for file viewing with the environment
-variable C<PAGER>, or in the F<$HOME/.pfm/.pfmrc> file.
+variable C<PAGER>, or with the 'pager' option in the F<.pfmrc> file.
 
 =item B<Time>
 
@@ -3405,7 +3526,7 @@ View the complete long filename. For a symbolic link, also displays the
 target of the symbolic link. Non-ASCII characters, control characters
 and (optionally) spaces will be displayed in octal or hexadecimal
 (configurable through the 'viewbase' and 'translatespace' options in
-F<$HOME/.pfm/.pfmrc>), formatted like the following examples:
+the F<.pfmrc> file), formatted like the following examples:
 
     octal:                     hexadecimal:
 
@@ -3421,12 +3542,12 @@ criterion. See B<I>nclude for details.
 
 =item B<Your command>
 
-Like cB<O>mmand (see above), except that it uses commands that have
-been preconfigured in F<$HOME/.pfm/.pfmrc> by a I<letter>B<:>I<command>
-line. Commands may use B<\1>-B<\5> escapes just as in cB<O>mmand, e.g.
+Like cB<O>mmand (see above), except that it uses commands that have been
+preconfigured in the F<.pfmrc> file. These commands may use B<\1>-B<\5>
+escapes just as in cB<O>mmand, e.g.
 
-    C:tar cvf - \2 | gzip > \2.tar.gz
-    W:what \2
+    your[c]:tar cvf - \2 | gzip > \2.tar.gz
+    your[w]:what \2
 
 =item B<siZe>
 
@@ -3440,8 +3561,8 @@ as no data blocks are allocated for these file types.
 
 If the screen layout (selected with B<F9>) contains a 'grand total' column,
 that column will be used. Otherwise, the 'filesize' column will temporarily
-be (ab)used. A 'grand total' column in the layout will never be filled by
-default.
+be (ab)used. A 'grand total' column in the layout will never be filled when
+entering the directory.
 
 Note: since du(1) is not portable, you might have to specify the C<du>
 command (or C<du | awk> combination) applicable for your Unix version in
@@ -3455,9 +3576,8 @@ the F<.pfmrc> file. Examples are provided.
 
 =item B<Config PFM>
 
-This command will open the F<$HOME/.pfm/.pfmrc> configuration file with
-your preferred editor. The file will be re-read by C<pfm> after you exit
-your editor.
+This command will open the F<.pfmrc> config file with your preferred
+editor. The file will be re-read by C<pfm> after you exit your editor.
 
 =item B<Edit new file>
 
@@ -3493,7 +3613,7 @@ pathnames, regular expressions, modification times, and file modes
 entered. The history is read from individual files in F<$HOME/.pfm/>
 every time C<pfm> starts. The history is written only when this command
 is given, or when C<pfm> exits and the 'autowritehistory' option is set
-in F<$HOME/.pfm/.pfmrc> .
+in F<.pfmrc> .
 
 =back
 
@@ -3543,8 +3663,8 @@ Toggles the include flag (mark) on an individual file.
 =item B<F9>
 
 Toggle the column layout. Layouts are defined in your F<.pfmrc>, through
-the 'defaultlayout' and 'columnlayouts' options. See the configuration
-file for information on changing the column layout.
+the 'defaultlayout' and 'columnlayouts' options. See the config file for
+information on changing the column layout.
 
 Note that a 'grand total' column in the layout will only be filled when
 the siB<Z>e command is issued.
@@ -3571,7 +3691,7 @@ B<S>how). If the current file is executable, the executable will be invoked.
 =head1 MOUSE COMMANDS
 
 When C<pfm> is run in an xterm, mouse use may be turned on (either through
-the B<F12> key, or with the 'mousemode' option in the config file), which
+the B<F12> key, or with the 'mousemode' option in the F<.pfmrc> file), which
 will give mouse access to the following commands:
 
     button:   pathline:     title:   footer:   file:   filename:
@@ -3636,8 +3756,10 @@ for Linux systems or more(1) for Unix systems.
 
 =item B<PFMRC>
 
-Specify a location of an alternate F<.pfmrc> file. The cwd- and history-
-files cannot be displaced in this manner.
+Specify a location of an alternate F<.pfmrc> file. If unset, the default
+location F<$HOME/.pfm/.pfmrc> is used. The cwd- and history-files cannot
+be displaced in this manner, and will always be located in the directory
+F<$HOME/.pfm/>.
 
 =item B<PRINTER>
 
@@ -3651,8 +3773,10 @@ Your default login shell, spawned by B<M>ore - sB<H>ell.
 
 =head1 FILES
 
-The directory F<$HOME/.pfm/> and files therein. Several input histories
-are saved to this directory.
+The directory F<$HOME/.pfm/> and files therein. The current working
+directory on exit and several input histories are saved to this directory.
+
+The default location for the config file is F<$HOME/.pfm/.pfmrc>.
 
 =head1 BUGS and WARNINGS
 
@@ -3683,7 +3807,7 @@ memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.83 .
+This manual pertains to C<pfm> version 1.84 .
 
 =head1 SEE ALSO
 

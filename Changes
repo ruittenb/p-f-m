@@ -1,9 +1,8 @@
-1.83
+1.84
 
-* added locale support
-* added colorset support
-* added a colorset for black-on-white terminals
-* added lowercase (Y)our commands
-* added filetype markers
-* changes to config file layout
+* fixed bug that didn't refresh the dirlisting after (L)ink
+* fixed bug that messed up header line in Multiple - (I)nclude
+* added -s (--swap) commandline option
+* changes to config file layout - see (Y)our commands
+* updated manual
 
