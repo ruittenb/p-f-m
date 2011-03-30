@@ -1,5 +1,4 @@
-1.91.1 (Term::ANSIScreen)
+1.91.2 (Term::ANSIScreen)
 
-* work-in-progress on (L)ink command
-* corrected documentation
+* finished (L)ink command
 
