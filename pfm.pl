@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20030123 v1.90.2
+# @(#) pfm.pl 19990314-20030123 v1.90.3
 #
 # Name:         pfm.pl
-# Version:      1.90.2
+# Version:      1.90.3
 # Author:       Rene Uittenbogaard
 # Date:         2003-01-23
 # Usage:        pfm.pl [ <directory> ] [ -s, --swap <directory> ]
@@ -34,8 +34,8 @@
 #       use the nameindexmap from handledelete() more globally?
 #         in handlecopyrename()? in handlefind() in handlesymlink? in dirlookup?
 #       sub fileforall(sub) ?
-#       hostname instead of username?
 #
+#       don't let pfm mess with ANSI_COLORS_DISABLED
 #       solve timezone bug in (I)nclude (B)efore/(A)fter
 #       implement ENTER -> launch action for filetype?
 #       cache converted formatlines - store formatlines and maxfilesizelength
@@ -212,8 +212,9 @@ my $DATECOL             = 14;
 my $CONFIGDIRMODE       = 0700;
 my $DFCMD               = ($^O eq 'hpux') ? 'bdf' : 'df -k';
 
-my %ONOFF               = ('' => 'off', 0 => 'off', 1 => 'on');
 my @SYMBOLIC_MODES      = qw(--- --x -w- -wx r-- r-x rw- rwx);
+my %ONOFF               = ('' => 'off', 0 => 'off', 1 => 'on');
+my %IDENTMODES          = ( user => 0, host => 1, 'user@host' => 2);
 
 my %FILETYPEFLAGS       = (
     x => '*',
@@ -329,7 +330,7 @@ my (
     $scr, $kbd, $wasresized, $mouse_mode,
     # modes
     $sort_mode, $multiple_mode, $swap_mode, $dot_mode, $dotdot_mode,
-    $currentpan, $color_mode,
+    $currentpan, $color_mode, $ident_mode,
     # dir- and disk info
     $currentdir, $oldcurrentdir, @dircontents, @showncontents, %currentfile,
     %disk, $swap_state, %total_nr_of, %selected_nr_of, $ident,
@@ -369,10 +370,8 @@ sub write_pfmrc {
     } # no success? well, that's just too bad
 }
 
-sub read_pfmrc { # $readflag - show copyright only on startup (first read)
-    local $_;
-    my ($termkeys, $oldkey);
-    %dircolors = %framecolors = %filetypeflags = %pfmrc = ();
+sub read_pfmrc {
+    %pfmrc = ();
     unless (-r &whichconfigfile) {
         unless ($ENV{PFMRC} || -d $CONFIGDIRNAME) {
             # only make directory for default location ($ENV{PFMRC} unset)
@@ -402,6 +401,13 @@ sub read_pfmrc { # $readflag - show copyright only on startup (first read)
         }
         close PFMRC;
     }
+    goto &parse_pfmrc;
+}
+
+sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
+    local $_;
+    my ($termkeys, $oldkey);
+    %dircolors = %framecolors = %filetypeflags = ();
     # 'usecolor'
     if ($pfmrc{usecolor} eq 'force') {
         delete $ENV{ANSI_COLORS_DISABLED};
@@ -410,40 +416,39 @@ sub read_pfmrc { # $readflag - show copyright only on startup (first read)
     } elsif (!exists $ENV{ANSI_COLORS_DISABLED}) {
         $ENV{ANSI_COLORS_DISABLED} = $ENV{TERM} =~ /(^linux$|color)/;
     }
-    # 'copyrightdelay', 'cursorveryvisible'
+    # 'copyrightdelay', 'cursorveryvisible', 'erase', 'keymap'
     &copyright($pfmrc{copyrightdelay}) unless $_[0];
     $cursorveryvisible = &yesno($pfmrc{cursorveryvisible});
     system ('tput', $cursorveryvisible ? 'cvvis' : 'cnorm');
-    # 'erase', 'keymap'
     system ('stty', 'erase', $pfmrc{erase}) if defined($pfmrc{erase});
     $kbd->set_keymap($pfmrc{keymap})        if $pfmrc{keymap};
     # some configuration options are NOT fetched into common scalars
     # (e.g. confirmquit) - however, they remain accessable in %pfmrc
+    # don't change initialized settings that are modifiable by key commands
     $clsonexit         = &yesno($pfmrc{clsonexit});
     $clobber           = &yesno($pfmrc{clobber});
-    $dot_mode          = &yesno($pfmrc{dotmode});
-    $dotdot_mode       = &yesno($pfmrc{dotdotmode});
     $autowritehistory  = &yesno($pfmrc{autowritehistory});
     $autoexitmultiple  = &yesno($pfmrc{autoexitmultiple});
     $mouseturnoff      = &yesno($pfmrc{mouseturnoff});
     $swap_persistent   = &yesno($pfmrc{persistentswap});
     $trspace           = &yesno($pfmrc{translatespace}) ? ' ' : '';
-    # don't change sort_mode and currentlayout through the config file:
-    # the config file just specifies the _defaults_ for globalinit();
-    # at runtime use (F6) and (F9)
-#    $sort_mode         = $pfmrc{sortmode}      || 'n';
-#    $currentlayout     = $pfmrc{currentlayout} || 0;
+    $dotdot_mode       = &yesno($pfmrc{dotdotmode});
+    $dot_mode          = &yesno($pfmrc{defaultdotmode}) if !defined $dot_mode;
+    $sort_mode         = $pfmrc{defaultsortmode} || 'n' if !defined $sort_mode;
+    $currentlayout     = $pfmrc{defaultlayout} || 0 if !defined $currentlayout;
     $ducmd             = $pfmrc{ducmd} || $DUCMDS{$^O} || $DUCMDS{default};
     $viewbase          = $pfmrc{viewbase} eq 'hex' ? "%#04lx" : "%03lo";
-    $timestampformat   = $pfmrc{timestampformat}  || '%y %b %d %H:%M';
-    $timeformat        = $pfmrc{timeformat}       || 'pfm';
-    $mouse_mode        = $pfmrc{mousemode}        || 'xterm';
+    $timestampformat   = $pfmrc{timestampformat} || '%y %b %d %H:%M';
+    $timeformat        = $pfmrc{timeformat} || 'pfm';
+    $mouse_mode        = $pfmrc{mousemode}  || 'xterm' if !defined $mouse_mode;
     $mouse_mode        = ($mouse_mode eq 'xterm' && $ENV{TERM} =~ /xterm/)
                              || &yesno($mouse_mode);
     ($printcmd)        = ($pfmrc{printcmd}) ||
                          ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER} \\2" : 'lpr \2');
     $showlockchar      = ( $pfmrc{showlock} eq 'sun' && $^O =~ /sun|solaris/i
                              or &yesno($pfmrc{showlock}) ) ? 'l' : 'S';
+    $ident_mode        = $IDENTMODES{$pfmrc{defaultident}} || 0
+                             if !defined $ident_mode;
     $viewer            = $pfmrc{viewer} || 'xv';
     $editor            = $ENV{VISUAL} || $ENV{EDITOR} || $pfmrc{editor} || 'vi';
     $pager             = $ENV{PAGER}  || $pfmrc{pager}  ||
@@ -482,7 +487,7 @@ sub read_pfmrc { # $readflag - show copyright only on startup (first read)
         'header=white on blue:multi=bold reverse cyan on white:'
     .   'title=bold reverse cyan on white:swap=reverse black on cyan:'
     .   'footer=bold reverse blue on white:message=bold cyan:highlight=bold:';
-    foreach (@colorsetnames, 'default') {
+    foreach (@colorsetnames) {
         # should there be no dircolors[thisname], use the default
         defined($pfmrc{"dircolors[$_]"})
             or $pfmrc{"dircolors[$_]"} = $pfmrc{'dircolors[*]'};
@@ -496,8 +501,9 @@ sub read_pfmrc { # $readflag - show copyright only on startup (first read)
             $framecolors{$_}{$1} = &colornum2name($2);
         }
     }
-    # set color_mode if unset; adjust ornaments
-    &setornaments;
+    # now set color_mode if unset
+    $color_mode  = $color_mode || $pfmrc{defaultcolorset} ||
+        (defined $dircolors{ls_colors} ? 'ls_colors' : $colorsetnames[0]);
     # repair pre-1.84 style (Y)our commands
     foreach (grep /^.$/, keys %pfmrc) {
         $oldkey = $_;
@@ -515,6 +521,11 @@ sub read_pfmrc { # $readflag - show copyright only on startup (first read)
             $scr->def_key($1, $2);
         }
     }
+    # init ornaments, ident, formatlines
+    &setornaments;
+    &initident;
+    &makeformatlines;
+    &mouseenable($mouse_mode);
 }
 
 sub write_history {
@@ -610,17 +621,16 @@ sub colornum2name {
 }
 
 sub setornaments {
-    $color_mode  = $color_mode || $pfmrc{defaultcolorset} ||
-        (defined $dircolors{ls_colors} ? 'ls_colors' : $colorsetnames[0]);
     my $messcolor = $framecolors{$color_mode}{message};
     my @cols;
     unless (exists $ENV{PERL_RL}) {
-        # this would have been nice but does not work at all
+        # this would have been nice, however,
+        # readline processes only the first (=most important) capability
         push @cols, 'mr' if ($messcolor =~ /reverse/);
         push @cols, 'md' if ($messcolor =~ /bold/);
         push @cols, 'us' if ($messcolor =~ /under(line|score)/);
-        # this processes only the first (=most important) capability
-        $kbd->ornaments(join(';', @cols) . ',me,,');
+#        $kbd->ornaments(join(';', @cols) . ',me,,');
+        $kbd->ornaments($cols[0] . ',me,,');
     }
 }
 
@@ -742,6 +752,11 @@ sub max ($$) {
 
 sub inhibit ($$) {
     return !$_[0] && $_[1];
+}
+
+sub triggle ($) {
+    ++$_[0] > 2 and $_[0] = 0;
+    return $_[0];
 }
 
 sub toggle ($) {
@@ -930,6 +945,8 @@ sub globalinit {
     $kbd = Term::ReadLine->new('pfm');
     $scr = Term::Screen->new();
     $scr->clrscr();
+    if ($scr->rows()) { $screenheight = $scr->rows()-$BASELINE-2 }
+    if ($scr->cols()) { $screenwidth  = $scr->cols() }
     &read_pfmrc($READ_FIRST);
     &read_history;
     %user           = &init_uids;
@@ -940,16 +957,7 @@ sub globalinit {
     $swap_state     = 0;
     $currentpan     = 0;
     $baseindex      = 0;
-    chomp ($ident   = $user{$>});
-#    $ident         .= '@'.`hostname`;
-    $sort_mode      = $pfmrc{defaultsortmode} || 'n';
-    $currentlayout  = $pfmrc{defaultlayout}   || 0;
-    # color_mode has been set in setornaments (called from read_pfmrc)
-    if ($scr->rows()) { $screenheight = $scr->rows()-$BASELINE-2 }
-    if ($scr->cols()) { $screenwidth  = $scr->cols() }
-    &makeformatlines;
     &init_frame;
-    &mouseenable($mouse_mode);
     # now find starting directory
     $oldcurrentdir = $currentdir = getcwd();
     if ($startingdir ne '') {
@@ -1604,7 +1612,19 @@ sub handlecolor {
     return $R_SCREEN;
 }
 
-sub handlemousetoggle {
+sub initident {
+    chomp ($ident  = $user{$>} ) unless $ident_mode == 1;
+    chomp ($ident  = `hostname`)     if $ident_mode == 1;
+    chomp ($ident .= '@'.`hostname`) if $ident_mode == 2;
+    return $R_DISKINFO;
+}
+
+sub handleident {
+    triggle($ident_mode);
+    goto &initident;
+}
+
+sub handlemouse {
     &mouseenable(toggle $mouse_mode);
     return $R_FOOTER;
 }
@@ -1860,7 +1880,6 @@ sub handlemoreconfig {
             $position_at   = $currentfile{name};
             $do_a_refresh |= $R_DIRSORT;
         }
-        &makeformatlines;
     }
     return $do_a_refresh;
 }
@@ -2767,7 +2786,7 @@ sub handleswap {
     } else { # $swap_state = 0; ask and swap forward
         $swap_state    = &swap_stash;
         $swap_mode     = 1;
-        $sort_mode     = $pfmrc{sortmode} || 'n';
+        $sort_mode     = $pfmrc{defaultsortmode} || 'n';
         $multiple_mode = 0;
         if (defined $swapstartdir) {
             $nextdir = $swapstartdir;
@@ -3155,7 +3174,8 @@ sub browse {
                 /^u$/i       and $wantrefresh |= &handlechown,         last KEY;
                 /^z$/i       and $wantrefresh |= &handlesize,          last KEY;
                 /^g$/i       and $wantrefresh |= &handletarget,        last KEY;
-                /^k12$/      and $wantrefresh |= &handlemousetoggle,   last KEY;
+                /^k12$/      and $wantrefresh |= &handlemouse,         last KEY;
+                /^=$/        and $wantrefresh |= &handleident,         last KEY;
                 # invalid keypress: cursor position needs no checking
                 $wantrefresh &= ~$R_STRIDE;
             } # switch KEY
@@ -3217,14 +3237,17 @@ cursorveryvisible:yes
 ## initial colorset to pick from the various colorsets defined below (for F4)
 defaultcolorset:dark
 
+## hide dot files initially? (show them otherwise, toggle with . key)
+defaultdotmode:no
+
+## initial ident mode (user, host, or user@host, cycle with = key)
+defaultident:user
+
 ## initial layout to pick from the array 'columnlayouts' (see below) (for F9)
 defaultlayout:0
 
 ## initial sort mode (nNmMeEfFsSiItTdDaA) (default n) (for F6)
 defaultsortmode:n
-
-## hide dot files? (show them otherwise, toggle with . key)
-dotmode:no
 
 ## '.' and '..' entries always at the top of the dirlisting?
 dotdotmode:no
@@ -3861,6 +3884,9 @@ These commands are accessible through the main-screen B<M>ore command.
 
 This command will open the F<.pfmrc> config file with your preferred
 editor. The file will be re-read by C<pfm> after you exit your editor.
+Options that are only modifiable through the config file (like
+'columnlayouts') will be reinitialized immediately, options that may be
+altered by key commands (like 'sortmode') will not.
 
 =item B<Edit new file>
 
@@ -3921,6 +3947,10 @@ Identical to B<F>ind (see above).
 =item B<E<lt>>
 
 Scroll the header and footer, in order to view all available commands.
+
+=item B<=>
+
+Switch between displaying the username, the hostname, or username@hostname.
 
 =item B<E<gt>>
 
@@ -4101,7 +4131,8 @@ for Linux systems or more(1) for Unix systems.
 =item B<PERL_RL>
 
 Indicate whether and how the C<readline> prompts should be highlighted.
-See Term::ReadLine(3pm)
+See Term::ReadLine(3pm) . If unset, a good guess is made based on your
+config file 'framecolors[]' setting.
 
 =item B<PFMRC>
 
@@ -4169,7 +4200,7 @@ memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.90.2 .
+This manual pertains to C<pfm> version 1.90.3 .
 
 =head1 SEE ALSO
 
