@@ -1,9 +1,8 @@
-1.90.4 (Term::ANSIScreen)
+1.90.5 (Term::ANSIScreen)
 
-* continued fixing quoting problems
-* changed (M)ore - (M)ake dir: mkdir -p
-* changed (V)iew to (N)ame, this is less confusing with \v and (S)how
-* changed config option 'viewbase' to 'defaultnumbase'
-* added '*' command to change numbase
-* updated documentation
+* finished fixing quoting problems
+* fixed bug in (L)ink concerning relative paths
+* fixed bug in (L)ink (multifile operations when destination is a single file)
+* changed footer to display numbase ('*' command)
+* updated documentation with quoting rules
 
