@@ -1,14 +1,14 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20030123 v1.90.3
+# @(#) pfm.pl 19990314-20030125 v1.90.4
 #
-# Name:         pfm.pl
-# Version:      1.90.3
+# Name:         pfm
+# Version:      1.90.4
 # Author:       Rene Uittenbogaard
-# Date:         2003-01-23
-# Usage:        pfm.pl [ <directory> ] [ -s, --swap <directory> ]
-#                      [ -v, --version | -h, --help ]
+# Date:         2003-01-25
+# Usage:        pfm [ <directory> ] [ -s, --swap <directory> ]
+#               pfm { -v, --version | -h, --help }
 # Requires:     Term::ANSIScreen
 #               Term::ReadLine
 #               Term::Screen
@@ -22,26 +22,28 @@
 #
 # TODO: use quotemeta() for quoting? (problem: \ in filenames)
 #       double quote support by using system(@) for all commands
-#       get rid of `` around 'du' in si(Z)e and 'df' in get_filesystem_info?
 #       tar(G)et: fails to expand \5
 #       (L)ink fails at \5
 #       (M)ore - (E)dit should expand ~ and \5 ? make this more consistent
+#       (M)ore - (M)ake dir expands \5 maar mychdir() verslikt zich
+#       quoting rules: any \. is quotemeta()d;
+#
+#       touch command -t has changed format?
+#       make F11 respect multiple mode? (marked+oldmarked, not removing marks)
 #
 #       fix error handling in eval($do_this) and &display_error
 #          partly implemented in handlecopyrename
-#       sub readintohistwithdefault() ? add functionality to readintohist?
-#       sub restat_copyback ?
 #       use the nameindexmap from handledelete() more globally?
 #         in handlecopyrename()? in handlefind() in handlesymlink? in dirlookup?
+#       sub readintohistwithdefault() ? add functionality to readintohist?
+#       sub restat_copyback ?
 #       sub fileforall(sub) ?
 #
-#       don't let pfm mess with ANSI_COLORS_DISABLED
-#       solve timezone bug in (I)nclude (B)efore/(A)fter
 #       implement ENTER -> launch action for filetype?
 #       cache converted formatlines - store formatlines and maxfilesizelength
 #           etc in hash; column_mode in swap_state
 #
-#       use perl symlink()
+#       '*' command works inside 'N' routine?
 #       implement 'logical' paths in addition to 'physical' paths?
 #           unless (chdir()) { getcwd() } otherwise no getcwd() ?
 #       set ROWS en COLUMNS in environment for child processes; but see if
@@ -52,23 +54,21 @@
 #           (which is, therefore, still buggy). this is closely related to:
 #       sub countdircontents is not used
 #       make commands in header and footer clickable buttons?
-#       use mkdir -p if m!/! (all unix platforms?)
 #       hierarchical sort? e.g. 'sen' (size,ext,name)
 #       incremental search (search entry while entering filename)?
 #       major/minor numbers on DU 4.0E are wrong
 
 ##########################################################################
-# Main data structures:
+# main data structures:
 #
 # @dircontents   : array (current directory data) of references (to file data)
 # $dircontents[$index]      : reference to hash (=file data)
-# %{ $dircontents[$index] } : hash (=file data)
 # $dircontents[$index]{name}
 #                     {selected}
 #                     {size}
 #                     {type}
 #
-# %currentfile = %{ $dircontents[$currentfile+$baseindex] } (current file data)
+# %currentfile = %{ $dircontents[$currentline+$baseindex] } (current file data)
 # $currentfile{name}
 #             {selected}
 #             {size}
@@ -77,7 +77,7 @@
 ##########################################################################
 # requirements
 
-require 5.005; # for negative lookbehind in re
+require 5.005; # for negative lookbehind in re (in handlecopyrename())
 
 use Term::ANSIScreen;
 use Term::ReadLine;
@@ -330,7 +330,7 @@ my (
     $scr, $kbd, $wasresized, $mouse_mode,
     # modes
     $sort_mode, $multiple_mode, $swap_mode, $dot_mode, $dotdot_mode,
-    $currentpan, $color_mode, $ident_mode,
+    $currentpan, $color_mode, $ident_mode, $numbase_mode,
     # dir- and disk info
     $currentdir, $oldcurrentdir, @dircontents, @showncontents, %currentfile,
     %disk, $swap_state, %total_nr_of, %selected_nr_of, $ident,
@@ -339,7 +339,7 @@ my (
     # misc config options
     $editor, $pager, $viewer, $printcmd, $ducmd, $showlockchar,
     $autoexitmultiple, $clobber, $cursorveryvisible, $clsonexit,
-    $autowritehistory, $viewbase, $trspace, $swap_persistent, $timeformat,
+    $autowritehistory, $trspace, $swap_persistent, $timeformat,
     $timestampformat, $mouseturnoff,
     @colorsetnames, %filetypeflags, $swapstartdir,
     # layouts and formatting
@@ -436,10 +436,9 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
     $dot_mode          = &yesno($pfmrc{defaultdotmode}) if !defined $dot_mode;
     $sort_mode         = $pfmrc{defaultsortmode} || 'n' if !defined $sort_mode;
     $currentlayout     = $pfmrc{defaultlayout} || 0 if !defined $currentlayout;
-    $ducmd             = $pfmrc{ducmd} || $DUCMDS{$^O} || $DUCMDS{default};
-    $viewbase          = $pfmrc{viewbase} eq 'hex' ? "%#04lx" : "%03lo";
     $timestampformat   = $pfmrc{timestampformat} || '%y %b %d %H:%M';
     $timeformat        = $pfmrc{timeformat} || 'pfm';
+    $ducmd             = $pfmrc{ducmd} || $DUCMDS{$^O} || $DUCMDS{default};
     $mouse_mode        = $pfmrc{mousemode}  || 'xterm' if !defined $mouse_mode;
     $mouse_mode        = ($mouse_mode eq 'xterm' && $ENV{TERM} =~ /xterm/)
                              || &yesno($mouse_mode);
@@ -447,6 +446,8 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
                          ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER} \\2" : 'lpr \2');
     $showlockchar      = ( $pfmrc{showlock} eq 'sun' && $^O =~ /sun|solaris/i
                              or &yesno($pfmrc{showlock}) ) ? 'l' : 'S';
+    $numbase_mode      = $pfmrc{defaultnumbase} || $pfmrc{viewbase} || 'hex'
+                             if !defined $numbase_mode;
     $ident_mode        = $IDENTMODES{$pfmrc{defaultident}} || 0
                              if !defined $ident_mode;
     $viewer            = $pfmrc{viewer} || 'xv';
@@ -689,22 +690,31 @@ sub fit2limit {
     return ($size_num, $size_power);
 }
 
-sub quotemeta_if { # condition, string
+sub unquotemeta {
+    local $1;
+#    return map { s/\\(.)/$1/g; $_ } @_;
+    $_[0] =~ s/\\(.)/$1/g;
+    return $_[0];
+}
+
+sub condquotemeta { # condition, string
+#    return shift() ? map { quotemeta } @_ : @_;
     return $_[0] ? quotemeta($_[1]) : $_[1];
 }
 
 sub expand_replace { # esc-category, namenoext, name
+    my $qif = shift;
     for ($_[0]) {
-        /1/ and return $_[1];
-        /2/ and return $_[2];
-        /3/ and return $currentdir;
-        /4/ and return $disk{mountpoint};
-        /5/ and return $swap_state->{path} if $swap_state;
-        /6/ and return &basename($currentdir);
-        /e/ and return $editor;
-        /p/ and return $pager;
-        /v/ and return $viewer;
-        # this also handles the special \\ case
+        /1/ and return &condquotemeta($qif, $_[1]);
+        /2/ and return &condquotemeta($qif, $_[2]);
+        /3/ and return &condquotemeta($qif, $currentdir);
+        /4/ and return &condquotemeta($qif, $disk{mountpoint});
+        /5/ and return &condquotemeta($qif, $swap_state->{path}) if $swap_state;
+        /6/ and return &condquotemeta($qif, &basename($currentdir));
+        /e/ and return &condquotemeta($qif, $editor);
+        /p/ and return &condquotemeta($qif, $pager);
+        /v/ and return &condquotemeta($qif, $viewer);
+        # this also handles the special \\ case - don't quotemeta() this!
         return $_;
     }
 }
@@ -712,17 +722,12 @@ sub expand_replace { # esc-category, namenoext, name
 sub expand_3456_escapes { # quoteif, command, whatever
     my $qif = $_[0];
     # readline understands ~ notation; now we understand it too
-    # ~user is not replaced if it is not in the passwd file
     $_[1] =~ s/^~(\/|$)/$ENV{HOME}\//;
+    # ~user is not replaced if it is not in the passwd file
+    # the format of passwd(5) dictates that a username cannot contain colons
     $_[1] =~ s/^~([^:\/]+)/(getpwnam $1)[7] || "~$1"/e;
-    # the next generation
-    $_[1] =~ s/\\(.)/&quotemeta_if($qif, &expand_replace($1, '\\1', '\\2'))/ge;
-    # there must be an odd nr. of backslashes before the digit
-    # because \\ must be interpreted as an escaped backslash
-#    $_[0] =~ s/((?<!\\)(?:\\\\)*)\\3/$1$currentdir/g;
-#    $_[0] =~ s/((?<!\\)(?:\\\\)*)\\4/$1$disk{mountpoint}/g;
-#    $_[0] =~ s/((?<!\\)(?:\\\\)*)\\5/$1$swap_state->{path}/g if $swap_state;
-#    $_[0] =~ s/((?<!\\)(?:\\\\)*)\\6/$1.&basename($currentdir)/ge;
+    # the next generation in quoting
+    $_[1] =~ s/\\(.)/&expand_replace($qif, $1, '\\1', '\\2')/ge;
 }
 
 sub expand_escapes { # quoteif, command, \%currentfile
@@ -730,12 +735,12 @@ sub expand_escapes { # quoteif, command, \%currentfile
     my $name      = $_[2]{name};
     my $namenoext = $name =~ /^(.*)\.([^\.]+)$/ ? $1 : $name;
     # readline understands ~ notation; now we understand it too
-    # ~user is not replaced if it is not in the passwd file
     $_[1] =~ s/^~(\/|$)/$ENV{HOME}\//;
+    # ~user is not replaced if it is not in the passwd file
+    # the format of passwd(5) dictates that a username cannot contain colons
     $_[1] =~ s/^~([^:\/]+)/(getpwnam $1)[7] || "~$1"/e;
-    # the next generation
-    $_[1] =~ s/\\(.)/
-        &quotemeta_if($qif, &expand_replace($1, $namenoext, $name))/ge;
+    # the next generation in quoting
+    $_[1] =~ s/\\(.)/&expand_replace($qif, $1, $namenoext, $name)/ge;
 }
 
 sub yesno {
@@ -947,8 +952,6 @@ sub globalinit {
     $scr->clrscr();
     if ($scr->rows()) { $screenheight = $scr->rows()-$BASELINE-2 }
     if ($scr->cols()) { $screenwidth  = $scr->cols() }
-    &read_pfmrc($READ_FIRST);
-    &read_history;
     %user           = &init_uids;
     %group          = &init_gids;
     @signame        = &init_signames;
@@ -957,6 +960,8 @@ sub globalinit {
     $swap_state     = 0;
     $currentpan     = 0;
     $baseindex      = 0;
+    &read_pfmrc($READ_FIRST);
+    &read_history;
     &init_frame;
     # now find starting directory
     $oldcurrentdir = $currentdir = getcwd();
@@ -1198,9 +1203,7 @@ sub promptforboundtime {
     # init_header is done in handleinclude
     &stty_raw($TERM_RAW);
     $boundtime =~ /(....)(..)(..)(..)(..)(\...)?$/;
-    # this seems to be one hour off - is this a time zone problem?
     $boundtime = mktime($6, $5, $4, $3, $2-1, $1-1900, 0, 0, 0);
-#    system "xmessage '$boundtime ~~ ".POSIX::ctime($boundtime)."'";
     return $boundtime;
 }
 
@@ -1293,8 +1296,8 @@ sub header {
     } elsif ($mode & $HEADER_INCLUDE) {
         return 'Include? Every, Oldmarks, After, Before, User or Files only:';
     } else {
-        return 'Attribute Copy Delete Edit Find Include tarGet Link More'
-        .     ' cOmmands Print Quit Rename Show Time User View eXclude'
+        return 'Attribute Copy Delete Edit Find Include tarGet Link More Name'
+        .     ' cOmmands Print Quit Rename Show Time User eXclude'
         .     ' Your-commands siZe';
     }
 }
@@ -1564,8 +1567,11 @@ sub alphabetically {
 }
 
 sub backslash_middle {
-    if ($a eq '\\' && $b =~ /\d/ or $b eq '\\' && $a =~ /\d/) {
-        return -($a cmp $b);
+    # the sorting of the backslash appears to be locale-dependant
+    if ($a eq '\\\\' && $b =~ /\d/) {
+        return 1;
+    } elsif ($b eq '\\\\' && $a =~ /\d/) {
+        return -1;
     } else {
         return $a cmp $b;
     }
@@ -1622,6 +1628,10 @@ sub initident {
 sub handleident {
     triggle($ident_mode);
     goto &initident;
+}
+
+sub handlenumbase {
+    $numbase_mode = $numbase_mode eq 'hex' ? 'oct' : 'hex';
 }
 
 sub handlemouse {
@@ -1851,9 +1861,11 @@ sub handlemoremake {
     $scr->at(0,0)->clreol();
     &stty_raw($TERM_COOKED);
     $newname = &readintohist(\@path_history, $prompt);
+    &expand_escapes($QUOTE_ON, $newname, \%currentfile);
     &stty_raw($TERM_RAW);
     return $R_HEADER if $newname eq '';
-    if (!mkdir $newname, 0777) {
+#    if (!mkdir $newname, 0777) {
+    if (system "mkdir -p $newname") {
         &display_error("$newname: $!");
         $do_a_refresh |= $R_SCREEN;
     } elsif (!&ok_to_remove_marks) {
@@ -1891,8 +1903,8 @@ sub handlemoreedit {
     $scr->at(0,0)->clreol();
     &stty_raw($TERM_COOKED);
     $newname = &readintohist(\@path_history, $stateprompt);
-    &expand_escapes($QUOTE_OFF, $newname, \%currentfile);
-    system ($editor, $newname) and &display_error($!);
+    &expand_escapes($QUOTE_ON, $newname, \%currentfile);
+    system "$editor $newname" and &display_error($!);
     &stty_raw($TERM_RAW);
     return $R_CLEAR;
 }
@@ -2023,14 +2035,15 @@ sub handleinclude { # include/exclude flag (from keypress)
 }
 
 sub handleview {
-    &markcurrentline('V'); # disregard multiple_mode
+    &markcurrentline(uc($_[0])); # disregard multiple_mode
+    my $numformat = $numbase_mode eq 'hex' ? "%#04lx" : "%03lo";
     # we are allowed to alter %currentfile because
     # when we exit with at least $R_STRIDE, %currentfile will be reassigned
     for ($currentfile{name}, $currentfile{target}) {
         s/\\/\\\\/;
         # don't ask how this works
         s{([${trspace}\177[:cntrl:]]|[^[:ascii:]])}
-         {'\\' . sprintf($viewbase, unpack('C', $1))}eg;
+         {'\\' . sprintf($numformat, unpack('C', $1))}eg;
     }
 #    color $framecolors{$color_mode}{highlight};
     $scr->at($currentline+$BASELINE, $filenamecol)
@@ -2038,7 +2051,9 @@ sub handleview {
         ->puts($currentfile{name} . (length($currentfile{target}) ? ' -> ' : '')
                                   . $currentfile{target} . " \cH");
     &applycolor($currentline+$BASELINE, $FILENAME_LONG, %currentfile);
-    $scr->getch();
+    if ($scr->getch() eq '*') {
+#        &handlenumbase;
+    }
     if (length($currentfile{name}) + length($currentfile{target}) + $filenamecol
         > $screenwidth - $DATECOL
     ) {
@@ -2319,7 +2334,7 @@ sub handlecommand { # Y or O
                 $scr->at($printline++,$screenwidth-$DATECOL)->puts($^A);
             }
         }
-        $prompt= 'Enter Unix command (for \[1-6] or \[epv] escapes see right):';
+        $prompt= 'Enter Unix command (\1-\6 or \e,\p,\v escapes see right):';
         $scr->at(0,0)->clreol()->puts(&mcolored($prompt))
             ->at($PATHLINE,0)->clreol();
         &stty_raw($TERM_COOKED);
@@ -3154,7 +3169,7 @@ sub browse {
                 /^m$/i       and $wantrefresh |= &handlemore,          last KEY;
                 /^p$/i       and $wantrefresh |= &handleprint,         last KEY;
                 /^L$/        and $wantrefresh |= &handlesymlink,       last KEY;
-                /^v$/i       and $wantrefresh |= &handleview,          last KEY;
+                /^[nv]$/i    and $wantrefresh |= &handleview($_),      last KEY;
                 /^k8$/       and $wantrefresh |= &handleselect,        last KEY;
                 /^k11$/      and $wantrefresh |= &handlerestat,        last KEY;
                 /^[\/f]$/i   and $wantrefresh |= &handlefind,          last KEY;
@@ -3176,6 +3191,7 @@ sub browse {
                 /^g$/i       and $wantrefresh |= &handletarget,        last KEY;
                 /^k12$/      and $wantrefresh |= &handlemouse,         last KEY;
                 /^=$/        and $wantrefresh |= &handleident,         last KEY;
+                /^\*$/       and $wantrefresh |= &handlenumbase,       last KEY;
                 # invalid keypress: cursor position needs no checking
                 $wantrefresh &= ~$R_STRIDE;
             } # switch KEY
@@ -3233,6 +3249,9 @@ copyrightdelay:0.2
 
 ## use very visible cursor (e.g. block cursor on Linux console)
 cursorveryvisible:yes
+
+## base number system what Name will display non-ascii chars in (hex,oct)
+defaultnumbase:hex
 
 ## initial colorset to pick from the various colorsets defined below (for F4)
 defaultcolorset:dark
@@ -3321,11 +3340,8 @@ timestampformat:%y %b %d %H:%M
 #timestampformat:%b %d %H:%M
 #timestampformat:%Y %V %a
 
-## translate spaces when Viewing
+## translate spaces when viewing Name
 translatespace:no
-
-## base number system to View non-ascii characters with (hex,oct)
-viewbase:hex
 
 ## preferred image editor/viewer (does not need \2)
 viewer:xv
@@ -3424,7 +3440,7 @@ di=bold:ln=underscore:
 
 ## char column name             needed character width if column present
 ## ---- ----------------------- -----------------------------------------------
-## *    selected flag           1
+## *    mark                    1
 ## n    filename                variable length; last char == overflow flag
 ## s    filesize                >=4; last char == power of 1024 (K, M, G..)
 ## z    grand total             >=4; last char == power of 1024 (K, M, G..)
@@ -3734,6 +3750,21 @@ directory, show a different directory, kill all child processes, or
 write the history files to disk. See MORE COMMANDS below. Pressing B<ESC>
 will take you back to the main menu.
 
+=item B<Name>
+
+View the complete long filename. For a symbolic link, also displays the
+target of the symbolic link. Non-ASCII characters, control characters
+and (optionally) spaces will be displayed in octal or hexadecimal
+(configurable through the 'defaultnumbase' and 'translatespace' options in
+the F<.pfmrc> file), formatted like the following examples:
+
+    octal:                     hexadecimal:
+
+    control-A : \001           control-A : \0x01
+    space     : \040           space     : \0x20
+    c-cedilla : \347           c-cedilla : \0xe7
+    backslash : \\             backslash : \\
+
 =item B<cOmmand>
 
 Allows execution of a shell command on the current files. After the command
@@ -3771,15 +3802,15 @@ a literal backslash
 
 =item B<\e>
 
-the editor selected with the 'editor' option in the config file
+the editor specified with the 'editor' option in the config file
 
 =item B<\p>
 
-the pager selected with the 'pager' option in the config file
+the pager specified with the 'pager' option in the config file
 
 =item B<\v>
 
-the image viewer selected with the 'viewer' option in the config file
+the image viewer specified with the 'viewer' option in the config file
 
 =back
 
@@ -3825,18 +3856,7 @@ normal (non-C<root>) users to change ownership.
 
 =item B<View>
 
-View the complete long filename. For a symbolic link, also displays the
-target of the symbolic link. Non-ASCII characters, control characters
-and (optionally) spaces will be displayed in octal or hexadecimal
-(configurable through the 'viewbase' and 'translatespace' options in
-the F<.pfmrc> file), formatted like the following examples:
-
-    octal:                     hexadecimal:
-
-    control-A : \001           control-A : \0x01
-    space     : \040           space     : \0x20
-    c-cedilla : \347           c-cedilla : \0xe7
-    backslash : \\             backslash : \\
+(deprecated) Identical to B<N>ame.
 
 =item B<eXclude>
 
@@ -3851,7 +3871,7 @@ B<Y>our commands may use B<\1>-B<\6> and B<\e>,B<\p>,B<\v> escapes just
 as in cB<O>mmand, e.g.
 
     your[c]:tar cvf - \2 | gzip > \2.tar.gz
-    your[w]:what \2
+    your[t]:tar tvf \2 | \p
 
 =item B<siZe>
 
@@ -3865,8 +3885,8 @@ as no data blocks are allocated for these file types.
 
 If the screen layout (selected with B<F9>) contains a 'grand total' column,
 that column will be used. Otherwise, the 'filesize' column will temporarily
-be (ab)used. A 'grand total' column in the layout will never be filled when
-entering the directory.
+be (ab)used. A 'grand total' column in the layout will never be filled in
+when entering the directory.
 
 Note: since du(1) is not portable, you might have to specify the C<du>
 command (or C<du | awk> combination) applicable for your Unix version in
@@ -3935,6 +3955,10 @@ in F<.pfmrc> .
 If the current file is executable, the executable will be invoked, otherwise,
 the contents of the current file or directory are displayed on the screen
 (like B<S>how).
+
+=item B<*>
+
+Toggle the number base used for the B<N>ame command.
 
 =item B<.>
 
@@ -4005,7 +4029,7 @@ path as swap path again.
 
 =item B<F8>
 
-Toggles the include flag (mark) on an individual file.
+Toggles the mark (include flag) on an individual file.
 
 =item B<F9>
 
@@ -4200,7 +4224,7 @@ memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.90.3 .
+This manual pertains to C<pfm> version 1.90.4 .
 
 =head1 SEE ALSO
 
