@@ -1,12 +1,12 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20030125 v1.90.4
+# @(#) pfm.pl 19990314-20030126 v1.90.5
 #
 # Name:         pfm
-# Version:      1.90.4
+# Version:      1.90.5
 # Author:       Rene Uittenbogaard
-# Date:         2003-01-25
+# Date:         2003-01-26
 # Usage:        pfm [ <directory> ] [ -s, --swap <directory> ]
 #               pfm { -v, --version | -h, --help }
 # Requires:     Term::ANSIScreen
@@ -20,30 +20,23 @@
 #               vars
 # Description:  Personal File Manager for Unix/Linux
 #
-# TODO: use quotemeta() for quoting? (problem: \ in filenames)
-#       double quote support by using system(@) for all commands
-#       tar(G)et: fails to expand \5
-#       (L)ink fails at \5
-#       (M)ore - (E)dit should expand ~ and \5 ? make this more consistent
-#       (M)ore - (M)ake dir expands \5 maar mychdir() verslikt zich
-#       quoting rules: any \. is quotemeta()d;
-#
-#       touch command -t has changed format?
-#       make F11 respect multiple mode? (marked+oldmarked, not removing marks)
-#
-#       fix error handling in eval($do_this) and &display_error
+# TODO: fix error handling in eval($do_this) and &display_error
 #          partly implemented in handlecopyrename
 #       use the nameindexmap from handledelete() more globally?
 #         in handlecopyrename()? in handlefind() in handlesymlink? in dirlookup?
+#       cache converted formatlines - store formatlines and maxfilesizelength
+#           etc in hash; column_mode in swap_state
 #       sub readintohistwithdefault() ? add functionality to readintohist?
 #       sub restat_copyback ?
 #       sub fileforall(sub) ?
 #
-#       implement ENTER -> launch action for filetype?
-#       cache converted formatlines - store formatlines and maxfilesizelength
-#           etc in hash; column_mode in swap_state
-#
+#       touch command -t has changed format? tr/0-9//dc ?
+#       make intelligent (relative) symlink creator
+#       make F11 respect multiple mode? (marked+oldmarked, not removing marks)
 #       '*' command works inside 'N' routine?
+#       implement ENTER -> launch action for filetype?
+#
+#       beautify source: forget stupid 80-col limit; use tabs instead of spaces
 #       implement 'logical' paths in addition to 'physical' paths?
 #           unless (chdir()) { getcwd() } otherwise no getcwd() ?
 #       set ROWS en COLUMNS in environment for child processes; but see if
@@ -56,7 +49,7 @@
 #       make commands in header and footer clickable buttons?
 #       hierarchical sort? e.g. 'sen' (size,ext,name)
 #       incremental search (search entry while entering filename)?
-#       major/minor numbers on DU 4.0E are wrong
+#       major/minor numbers on DU 4.0E are wrong (cannot test)
 
 ##########################################################################
 # main data structures:
@@ -196,7 +189,7 @@ my $R_CHDIR     = $R_NEWDIR | $R_DIRCONTENTS | $R_DIRSORT | $R_SCREEN
 my $VERSION             = &getversion;
 my $CONFIGDIRNAME       = "$ENV{HOME}/.pfm";
 my $CONFIGFILENAME      = '.pfmrc';
-my $LOSTMSG             = '';   # was '(file lost)';
+my $LOSTMSG             = '';   # was ' (file lost)'; # now shown with coloring
 my $CWDFILENAME         = 'cwd';
 my $MAJORMINORSEPARATOR = ',';
 my $NAMETOOLONGCHAR     = '+';
@@ -381,7 +374,7 @@ sub read_pfmrc {
     }
     if (open PFMRC, &whichconfigfile) {
         while (<PFMRC>) {
-            if (/# Version ([\w.]+)$/ and $1 < $VERSION) {
+            if (/# Version ([\w.]+)$/ and $1 lt $VERSION) {
                 # will not be in message color: usecolor not yet parsed
                 &neat_error(
                   "Warning: your $CONFIGFILENAME version $1 may be outdated."
@@ -727,7 +720,7 @@ sub expand_3456_escapes { # quoteif, command, whatever
     # the format of passwd(5) dictates that a username cannot contain colons
     $_[1] =~ s/^~([^:\/]+)/(getpwnam $1)[7] || "~$1"/e;
     # the next generation in quoting
-    $_[1] =~ s/\\(.)/&expand_replace($qif, $1, '\\1', '\\2')/ge;
+    $_[1] =~ s/\\([^12])/&expand_replace($qif, $1)/ge;
 }
 
 sub expand_escapes { # quoteif, command, \%currentfile
@@ -1332,7 +1325,9 @@ sub footer {
     .     " F5-Reread F6-Sort[$sort_mode] F7-Swap[$ONOFF{$swap_mode}]"
     .     " F8-Include F9-Columns[$currentlayout]"
     .     " F10-Multiple[$ONOFF{$multiple_mode}] F11-Restat"
-    .     " F12-Mouse[$ONOFF{$mouse_mode}]";
+    .     " F12-Mouse[$ONOFF{$mouse_mode}] *-Numbase[$numbase_mode]"
+#    .     " .-Dotmode[$dot_mode] =-Ident[$ident_mode]"
+    ;
 }
 
 sub init_footer {
@@ -1632,6 +1627,7 @@ sub handleident {
 
 sub handlenumbase {
     $numbase_mode = $numbase_mode eq 'hex' ? 'oct' : 'hex';
+    return $R_FOOTER;
 }
 
 sub handlemouse {
@@ -1861,11 +1857,11 @@ sub handlemoremake {
     $scr->at(0,0)->clreol();
     &stty_raw($TERM_COOKED);
     $newname = &readintohist(\@path_history, $prompt);
-    &expand_escapes($QUOTE_ON, $newname, \%currentfile);
+    &expand_escapes($QUOTE_OFF, $newname, \%currentfile);
     &stty_raw($TERM_RAW);
     return $R_HEADER if $newname eq '';
 #    if (!mkdir $newname, 0777) {
-    if (system "mkdir -p $newname") {
+    if (system "mkdir -p \Q$newname\E") {
         &display_error("$newname: $!");
         $do_a_refresh |= $R_SCREEN;
     } elsif (!&ok_to_remove_marks) {
@@ -1899,12 +1895,12 @@ sub handlemoreconfig {
 
 sub handlemoreedit {
     my $newname;
-    my $stateprompt  = 'New name: ';
+    my $prompt  = 'New name: ';
     $scr->at(0,0)->clreol();
     &stty_raw($TERM_COOKED);
-    $newname = &readintohist(\@path_history, $stateprompt);
-    &expand_escapes($QUOTE_ON, $newname, \%currentfile);
-    system "$editor $newname" and &display_error($!);
+    $newname = &readintohist(\@path_history, $prompt);
+    &expand_escapes($QUOTE_OFF, $newname, \%currentfile);
+    system "$editor \Q$newname\E" and &display_error($!);
     &stty_raw($TERM_RAW);
     return $R_CLEAR;
 }
@@ -1919,9 +1915,9 @@ sub handlemoreshell {
 }
 
 sub handlemorekill {
-    my $printline   = $BASELINE;
-    my $stateprompt = 'Signal to send to child processes: ';
-    my $signal      = 'TERM';
+    my $printline = $BASELINE;
+    my $prompt    = 'Signal to send to child processes: ';
+    my $signal    = 'TERM';
     &init_title($swap_mode, $TITLE_SIGNAL, @layoutfields);
     &clearcolumn;
     foreach (1 .. min($#signame, $screenheight)+1) {
@@ -1931,7 +1927,7 @@ sub handlemorekill {
     }
     $scr->at(0,0)->clreol();
     &stty_raw($TERM_COOKED);
-    $signal = $kbd->readline($stateprompt, $signal); # special case
+    $signal = $kbd->readline($prompt, $signal); # special case
     &stty_raw($TERM_RAW);
     &clearcolumn;
     return $R_HEADER | $R_TITLE | $R_DISKINFO if $signal eq '';
@@ -2097,8 +2093,9 @@ sub handlekeyell {
 
 sub handlesymlink {
     my ($newname, $loopfile, $do_this, $index, $newnameexpanded, $targetstring,
-        $findindex);
+        $findindex, $testname, $err);
     my $prompt = 'New symbolic link: ';
+    my @lncmd = $clobber ? qw(ln -sf) : qw(ln -s);
     my $do_a_refresh = $multiple_mode ? $R_DIRLIST | $R_HEADER : $R_HEADER;
     &markcurrentline('L') unless $multiple_mode;
     $scr->at(0,0)->clreol();
@@ -2110,15 +2107,23 @@ sub handlesymlink {
     }
     &stty_raw($TERM_RAW);
     return $R_HEADER if ($newname eq '');
+    &expand_3456_escapes($QUOTE_OFF, ($testname = $newname), \%currentfile);
+    if ($multiple_mode and $testname !~ /(?<!\\)(?:\\\\)*\\[12]/
+                       and !-d($testname) )
+    {
+        $err = 'Cannot do multifile operation when destination is single file.';
+        $scr->at(0,0)->puts(&mcolored($err))->at(0,0);
+        &pressanykey;
+        &path_info;
+        return $R_HEADER;
+    }
     $do_this = sub {
-        if (-d $newnameexpanded or $newnameexpanded =~ m!^[^/]/!) {
+        if (-d $newnameexpanded or $newnameexpanded =~ m!^[^/]+/!) {
             $targetstring = $currentdir . "/" . $loopfile->{name};
         } else {
             $targetstring = $loopfile->{name};
         }
-        if (system 'ln', ($clobber ? '-sf' : '-s'),
-            $targetstring, $newnameexpanded
-        ) {
+        if (system @lncmd, $targetstring, $newnameexpanded) {
             $do_a_refresh |= &neat_error($!);
         } elsif ($newnameexpanded !~ m!/!) {
             # is newname present in @dircontents? push otherwise
@@ -2135,7 +2140,7 @@ sub handlesymlink {
     if ($multiple_mode) {
         for $index (0..$#dircontents) {
             $loopfile = $dircontents[$index];
-            &expand_escapes($QUOTE_ON,($newnameexpanded = $newname), $loopfile);
+            &expand_escapes($QUOTE_OFF,($newnameexpanded = $newname),$loopfile);
             if ($loopfile->{selected} eq '*') {
                 $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
                 &exclude($loopfile,'.');
@@ -2147,7 +2152,7 @@ sub handlesymlink {
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
         $loopfile = \%currentfile;
-        &expand_escapes($QUOTE_ON, ($newnameexpanded = $newname), $loopfile);
+        &expand_escapes($QUOTE_OFF, ($newnameexpanded = $newname), $loopfile);
         &$do_this;
         $showncontents[$currentline+$baseindex] =
             &stat_entry($currentfile{name}, $currentfile{selected});
@@ -2157,8 +2162,9 @@ sub handlesymlink {
 }
 
 sub handletarget {
-    my ($newtarget, $loopfile, $do_this, $index, $oldtargetok);
-    my $nosymlinkerror = "Current file is not a symbolic link";
+    my ($newtarget, $newtargetexpanded, $oldtargetok, $loopfile, $do_this,
+        $index);
+    my $nosymlinkerror = 'Current file is not a symbolic link';
     if ($currentfile{type} ne 'l' and !$multiple_mode) {
         $scr->at(0,0)->clreol();
         &display_error($nosymlinkerror);
@@ -2190,7 +2196,7 @@ sub handletarget {
                 }
             }
             if ($oldtargetok and
-                system qw(ln -sf), $newtarget, $loopfile->{name})
+                system qw(ln -sf), $newtargetexpanded, $loopfile->{name})
             {
                 $do_a_refresh |= &neat_error($!);
             }
@@ -2201,6 +2207,8 @@ sub handletarget {
             $loopfile = $dircontents[$index];
             if ($loopfile->{selected} eq '*') {
                 $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
+                &expand_escapes($QUOTE_OFF, ($newtargetexpanded = $newtarget),
+                    $loopfile);
                 &exclude($loopfile,'.');
                 &$do_this;
                 $dircontents[$index] =
@@ -2210,6 +2218,7 @@ sub handletarget {
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
         $loopfile = \%currentfile;
+        &expand_escapes($QUOTE_OFF,($newtargetexpanded = $newtarget),$loopfile);
         &$do_this;
         $showncontents[$currentline+$baseindex] =
             &stat_entry($currentfile{name}, $currentfile{selected});
@@ -2258,8 +2267,9 @@ sub handlechown {
 sub handlechmod {
     my ($newmode, $loopfile, $do_this, $index);
     my $prompt = 'Permissions [ugoa][-=+][rwxslt] or octal: ';
-    my $do_a_refresh = $multiple_mode ? $R_DIRFILTER | $R_DIRLIST | $R_HEADER
-                                      : $R_HEADER;
+    my $do_a_refresh = $multiple_mode
+                     ? $R_DIRFILTER | $R_DIRLIST | $R_HEADER | $R_PATHINFO
+                     : $R_HEADER;
     &markcurrentline('A') unless $multiple_mode;
     $scr->at(0,0)->clreol();
     &stty_raw($TERM_COOKED);
@@ -2357,7 +2367,7 @@ sub handlecommand { # Y or O
                     $dircontents[$index] =
                         &stat_entry($loopfile->{name},$loopfile->{selected});
                     if ($dircontents[$index]{nlink} == 0) {
-                        $dircontents[$index]{display} .= " $LOSTMSG";
+                        $dircontents[$index]{display} .= $LOSTMSG;
                     }
                 }
             }
@@ -2370,7 +2380,7 @@ sub handlecommand { # Y or O
             $showncontents[$currentline+$baseindex] =
                 &stat_entry($currentfile{name}, $currentfile{selected});
             if ($showncontents[$currentline+$baseindex]{nlink} == 0) {
-                $showncontents[$currentline+$baseindex]{display} .= " $LOSTMSG";
+                $showncontents[$currentline+$baseindex]{display} .= $LOSTMSG;
             }
             &copyback($currentfile{name});
         }
@@ -2530,11 +2540,7 @@ sub handletime {
     if ($timeformat eq 'pfm') {
         $newtime =~ s/^(\d{0,4})(\d{8})(\..*)?/$2$1$3/;
     }
-    if ($newtime eq '.') {
-        @cmdopts = ();
-    } else {
-        @cmdopts = ('-t', $newtime);
-    }
+    @cmdopts = ($newtime eq '.') ? () : ('-t', $newtime);
     $do_this = sub {
         if (system ('touch', @cmdopts, $loopfile->{name})) {
             $do_a_refresh |= &neat_error($!);
@@ -2584,24 +2590,24 @@ sub handleedit {
 }
 
 sub handlecopyrename {
-    my $state = "\u$_[0]";
-    my $statecmd = ($state eq 'C' ? 'cp' : 'mv');
-    my $stateprompt = $state eq 'C' ? 'Destination: ' : 'New name: ';
+    my $state    = "\u$_[0]";
+    my @statecmd = ($state eq 'C' ? 'cp' : 'mv', $clobber ? () : qw(-i));
+    my $prompt   = $state eq 'C' ? 'Destination: ' : 'New name: ';
     my ($loopfile, $index, $testname, $newname, $newnameexpanded, $do_this,
-        $findindex, @cmdopts, $err);
+        $findindex, $err);
     my $do_a_refresh = $R_HEADER;
     &markcurrentline($state) unless $multiple_mode;
     $scr->at(0,0)->clreol();
     &stty_raw($TERM_COOKED);
     push (@path_history, $currentfile{name}) unless $multiple_mode;
-    $newname = &readintohist(\@path_history, $stateprompt);
+    $newname = &readintohist(\@path_history, $prompt);
     if ($#path_history > 0 and $path_history[-1] eq $path_history[-2]) {
         pop @path_history;
     }
     &stty_raw($TERM_RAW);
     return $R_HEADER if ($newname eq '');
-    # expand \[3456] at this point as a test, but not yet \[12]
-    &expand_3456_escapes($QUOTE_ON, ($testname = $newname), \%currentfile);
+    # expand \[3456] at this point as a test, but not \[12]
+    &expand_3456_escapes($QUOTE_OFF, ($testname = $newname), \%currentfile);
     if ($multiple_mode and $testname !~ /(?<!\\)(?:\\\\)*\\[12]/
                        and !-d($testname) )
     {
@@ -2611,9 +2617,8 @@ sub handlecopyrename {
         &path_info;
         return $R_HEADER;
     }
-    @cmdopts = $clobber ? () : qw(-i);
     $do_this = sub {
-        if (system $statecmd, @cmdopts, $loopfile->{name}, $newnameexpanded) {
+        if (system @statecmd, $loopfile->{name}, $newnameexpanded) {
             $do_a_refresh |= &neat_error($!);
         } elsif ($newnameexpanded !~ m!/!) {
             # is newname present in @dircontents? push otherwise
@@ -2632,15 +2637,15 @@ sub handlecopyrename {
         for $index (0..$#dircontents) {
             $loopfile = $dircontents[$index];
             if ($loopfile->{selected} eq '*') {
-                &exclude($loopfile, '.');
-                &expand_escapes($QUOTE_ON, ($newnameexpanded = $newname),
-                    $loopfile);
                 $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
+                &exclude($loopfile, '.');
+                &expand_escapes($QUOTE_OFF, ($newnameexpanded = $newname),
+                    $loopfile);
                 &$do_this;
                 $dircontents[$index] =
                     &stat_entry($loopfile->{name},$loopfile->{selected});
                 if ($dircontents[$index]{nlink} == 0) {
-                    $dircontents[$index]{display} .= " $LOSTMSG";
+                    $dircontents[$index]{display} .= $LOSTMSG;
                 }
                 $do_a_refresh |= $R_SCREEN;
             }
@@ -2648,12 +2653,12 @@ sub handlecopyrename {
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
         $loopfile = \%currentfile;
-        &expand_escapes($QUOTE_ON, ($newnameexpanded = $newname), $loopfile);
+        &expand_escapes($QUOTE_OFF, ($newnameexpanded = $newname), $loopfile);
         &$do_this;
         $showncontents[$currentline+$baseindex] =
             &stat_entry($currentfile{name}, $currentfile{selected});
         if ($showncontents[$currentline+$baseindex]{nlink} == 0) {
-            $showncontents[$currentline+$baseindex]{display} .= " $LOSTMSG";
+            $showncontents[$currentline+$baseindex]{display} .= $LOSTMSG;
         }
         &copyback($currentfile{name});
         # if ! $clobber, we might have gotten an 'Overwrite?' question
@@ -2669,7 +2674,7 @@ sub handlerestat {
     $showncontents[$currentline+$baseindex] =
         &stat_entry($currentfile{name}, $currentfile{selected});
     if ($showncontents[$currentline+$baseindex]{nlink} == 0) {
-        $showncontents[$currentline+$baseindex]{display} .= " $LOSTMSG";
+        $showncontents[$currentline+$baseindex]{display} .= $LOSTMSG;
     }
     &copyback($currentfile{name});
     return $R_STRIDE;
@@ -2782,7 +2787,7 @@ sub swap_fetch {
 
 sub handleswap {
     my $do_a_refresh = $R_TITLE | $R_HEADER;
-    my $stateprompt  = 'Directory Pathname: ';
+    my $prompt       = 'Directory Pathname: ';
     my ($temp_state, $nextdir);
     if ($swap_state and !$swap_persistent) { # swap back if ok_to_remove_marks
         if (&ok_to_remove_marks) {
@@ -2810,7 +2815,7 @@ sub handleswap {
         } else {
             $scr->at(0,0)->clreol();
             &stty_raw($TERM_COOKED);
-            $nextdir = &readintohist(\@path_history, $stateprompt);
+            $nextdir = &readintohist(\@path_history, $prompt);
             &stty_raw($TERM_RAW);
         }
         &expand_escapes($QUOTE_OFF, $nextdir, \%currentfile);
@@ -2887,7 +2892,8 @@ sub stat_entry { # path_of_entry, selected_flag
     } elsif ($ptr->{type} eq '-' and $mode =~ /[xst]/) {
         $ptr->{display} = $entry . $filetypeflags{'x'};
     } elsif ($ptr->{type} =~ /[bc]/) {
-        $ptr->{size_num} = sprintf("%d",$rdev/256).$MAJORMINORSEPARATOR.($rdev%256);
+        $ptr->{size_num} = sprintf("%d", $rdev/256) . $MAJORMINORSEPARATOR
+                           . ($rdev%256);
         $ptr->{display} = $entry . $filetypeflags{$ptr->{type}};
     } else {
         $ptr->{display} = $entry . $filetypeflags{$ptr->{type}};
@@ -3602,7 +3608,7 @@ I<regular files>.
 
 Most of C<pfm>'s configuration is read from a config file. The default
 location for this file is F<$HOME/.pfm/.pfmrc> , but an alternative location
-may be specified with the environment variable $PFMRC . If there is no
+may be specified with the environment variable C<PFMRC> . If there is no
 config file present at startup, one will be created. The file contains
 many comments on the available options, and is therefore supposed to be
 self-explanatory. C<pfm> will issue a warning if the config file version
@@ -3628,7 +3634,8 @@ Print usage information, then exit.
 
 =item -s, --swap I<directory>
 
-The directory that C<pfm> should initially use as swap directory.
+The directory that C<pfm> should initially use as swap directory. (See
+the B<F7> command below).
 
 There would be no point in setting the swap directory and subsequently
 returning to the main directory if 'persistentswap' is turned off in your
@@ -3813,6 +3820,8 @@ the pager specified with the 'pager' option in the config file
 the image viewer specified with the 'viewer' option in the config file
 
 =back
+
+Also see QUOTING RULES below.
 
 =item B<Print>
 
@@ -4054,6 +4063,65 @@ Toggle mouse use. See MOUSE COMMANDS below.
 
 =back
 
+=head1 QUOTING RULES
+
+C<pfm> adds an extra layer of parsing to filenames and shell commands. It is
+important to take notice of the rules that C<pfm> uses. We can distinguish
+the following five types of input:
+
+=over
+
+=item B<a regular expression> (only the B<I>nclude / eB<X>clude commands)
+
+The input is parsed as a regular expression.
+
+=item B<a literal pattern> (only the B<F>ind command)
+
+The input is taken literally.
+
+=item B<not a filename or command> (e.g. in B<A>ttribute or B<T>ime)
+
+The input is taken literally.
+
+=item B<a filename> (e.g. in B<C>opy or tarB<G>et).
+
+First of all, tilde expansion is performed.
+
+Next, any backslashed C<[1-6evp]> character is expanded to the corresponding
+value.
+
+At the same time, any backslashed non-C<[1-6evp]> character is just replaced
+with the character itself.
+
+Finally, if the filename is to be processed by C<pfm>, it is taken literally;
+if it is to be handed to a shell, all metacharacters are escaped.
+
+=item B<a command> (e.g. in cB<O>mmand or B<P>rint)
+
+First of all, tilde expansion is performed.
+
+Next, any backslashed C<[1-6evp]> character is expanded to the corresponding
+value, I<with shell metacharacters escaped>.
+
+At the same time, any backslashed non-C<[1-6evp]> character is just replaced
+with the character itself.
+
+=back
+
+I<Ergo>, the difference between a filename and a command lies in the number
+of backslashes necessary for non-C<[1-6evp]> characters.
+
+The result of this is that C<\\> used in a filename will result in a
+filename containing one C<\> . This would be handed to the shell as C<\\> .
+
+In a shell command, C<\\> will also expand to one C<\> , which is probably
+not what you want. You may want to enter C<\\\\> which is handed to the
+shell as C<\\> which the shell interprets as one quoted C<\> .
+
+Similarly, the command C<echo "Hello\n"> will have to be entered as
+C<echo "Hello\\n">, but C<echo "This file is called \2"> works as
+expected.
+
 =head1 MOUSE COMMANDS
 
 When C<pfm> is run in an xterm, mouse use may be turned on (either through
@@ -4129,22 +4197,15 @@ The directory where the B<F7> commans will take you if you don't specify
 a new directory. Also the directory that initial B<~/> characters in a
 filename will expand to.
 
+=for skipping
 =item B<LC_ALL>
-
 =item B<LC_COLLATE>
-
 =item B<LC_CTYPE>
-
 =item B<LC_MESSAGES>
-
-=for skipping B<LC_MONETARY>
-
+=for skipping =item B<LC_MONETARY>
 =item B<LC_NUMERIC>
-
 =item B<LC_TIME>
-
 =item B<LANG>
-
 Determine locale settings. See locale(7).
 
 =item B<PAGER>
@@ -4224,7 +4285,7 @@ memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.90.4 .
+This manual pertains to C<pfm> version 1.90.5 .
 
 =head1 SEE ALSO
 
