@@ -1,12 +1,12 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20030131 v1.91.2
+# @(#) pfm.pl 19990314-20030206 v1.91.3
 #
 # Name:         pfm
-# Version:      1.91.2
+# Version:      1.91.3
 # Author:       Rene Uittenbogaard
-# Date:         2003-01-31
+# Date:         2003-02-06
 # Usage:        pfm [ <directory> ] [ -s, --swap <directory> ]
 #               pfm { -v, --version | -h, --help }
 # Requires:     Term::ANSIScreen
@@ -24,18 +24,12 @@
 #          partly implemented in handlecopyrename
 #       use the nameindexmap from handledelete() more globally?
 #         in handlecopyrename()? in handlefind() in handlesymlink? in dirlookup?
-#       cache converted formatlines - store formatlines and maxfilesizelength
-#           etc in hash; column_mode in swap_state
 #       sub readintohistwithdefault() ? add functionality to readintohist?
 #       sub restat_copyback ?
 #       sub fileforall(sub) ?
+#       cache color codes?
 #
-#       debug (relative) symlink creator
-#
-#       touch command -t has changed format? tr/0-9//dc ?
 #       make F11 respect multiple mode? (marked+oldmarked, not removing marks)
-#       '*' command works inside 'N' routine?
-#       print flags in (N)ame
 #       implement ENTER -> launch action for filetype?
 #
 #       beautify source: forget stupid 80-col limit; use tabs instead of spaces
@@ -44,6 +38,8 @@
 #       set ROWS en COLUMNS in environment for child processes; but see if
 #           this does not mess up with $scr->rows etc. which use these
 #           variables internally; portability?
+#       cache converted formatlines - store formatlines and maxfilesizelength
+#           etc in hash; column_mode in swap_state
 #       stat_entry() must *not* rebuild the selected_nr and total_nr lists:
 #           this messes up with e.g. cOmmand -> cp \2 /somewhere/else
 #           (which is, therefore, still buggy). this is closely related to:
@@ -51,7 +47,7 @@
 #       make commands in header and footer clickable buttons?
 #       hierarchical sort? e.g. 'sen' (size,ext,name)
 #       incremental search (search entry while entering filename)?
-#       major/minor numbers on DU 4.0E are wrong (cannot test)
+#       major/minor numbers on DU 4.0E are wrong (cannot test: no system available)
 
 ##########################################################################
 # main data structures:
@@ -212,6 +208,7 @@ my $DFCMD               = ($^O eq 'hpux') ? 'bdf' : 'df -k';
 my @SYMBOLIC_MODES      = qw(--- --x -w- -wx r-- r-x rw- rwx);
 my %ONOFF               = ('' => 'off', 0 => 'off', 1 => 'on');
 my %IDENTMODES          = ( user => 0, host => 1, 'user@host' => 2);
+my %NUMFORMATS          = ( 'hex' => '%#04lx', 'oct' => '%03lo');
 
 my %FILETYPEFLAGS       = (
     x => '*',
@@ -221,12 +218,6 @@ my %FILETYPEFLAGS       = (
    's'=> '=',
     D => '>',
     w => '%',
-);
-
-my %TIMEHINTS = (
-    bound => 'CCYYMMDDhhmm[.ss]',
-    pfm   => '[[CC]YY]MMDDhhmm[.ss]',
-    touch => 'MMDDhhmm[[CC]YY][.ss]',
 );
 
 my @SORTMODES = (
@@ -336,7 +327,7 @@ my (
     # misc config options
     $editor, $pager, $viewer, $printcmd, $ducmd, $showlockchar,
     $autoexitmultiple, $clobber, $cursorveryvisible, $clsonexit,
-    $autowritehistory, $trspace, $swap_persistent, $timeformat,
+    $autowritehistory, $trspace, $swap_persistent,
     $timestampformat, $mouseturnoff,
     @colorsetnames, %filetypeflags, $swapstartdir,
     # layouts and formatting
@@ -435,7 +426,6 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
     $sort_mode         = $pfmrc{defaultsortmode} || 'n' if !defined $sort_mode;
     $currentlayout     = $pfmrc{defaultlayout} || 0 if !defined $currentlayout;
     $timestampformat   = $pfmrc{timestampformat} || '%y %b %d %H:%M';
-    $timeformat        = $pfmrc{timeformat} || 'pfm';
     $ducmd             = $pfmrc{ducmd} || $DUCMDS{$^O} || $DUCMDS{default};
     $mouse_mode        = $pfmrc{mousemode}  || 'xterm' if !defined $mouse_mode;
     $mouse_mode        = ($mouse_mode eq 'xterm' && $ENV{TERM} =~ /xterm/)
@@ -516,8 +506,7 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
         $termkeys =~ s/(\\e|\^\[)/\e/gi;
         # this does not allow : chars to appear in escape sequences!
         foreach (split /:/, $termkeys) {
-            /^(\w+)=(.*)/;
-            $scr->def_key($1, $2);
+            /^(\w+)=(.*)/ and $scr->def_key($1, $2);
         }
     }
     # init ornaments, ident, formatlines
@@ -746,7 +735,7 @@ sub isyes {
 }
 
 sub isno {
-    return $_[0] =~ /^(no|0|false|off)$/;
+    return $_[0] =~ /^(no|0|false|off|never)$/;
 }
 
 sub min ($$) {
@@ -1269,13 +1258,14 @@ sub ok_to_remove_marks {
 
 sub promptforboundtime {
     my $prompt = ($_[0] eq 'a' ? 'After' : 'Before')
-               . " modification time $TIMEHINTS{bound}: ";
+               . " modification time CCYY-MM-DD hh:mm[.ss]: ";
     my $boundtime;
     $scr->at(0,0)->clreol();
     &stty_raw($TERM_COOKED);
     $boundtime = &readintohist(\@time_history, $prompt);
     # init_header is done in handleinclude
     &stty_raw($TERM_RAW);
+    $boundtime =~ tr/0-9.//dc;
     $boundtime =~ /(....)(..)(..)(..)(..)(\...)?$/;
     $boundtime = mktime($6, $5, $4, $3, $2-1, $1-1900, 0, 0, 0);
     return $boundtime;
@@ -1659,7 +1649,7 @@ sub backslash_middle {
 # user commands
 
 sub handlequit { # key
-    return $R_QUIT if $pfmrc{confirmquit} =~ /^(never|no|0|false|off)$/i;
+    return $R_QUIT if &isno($pfmrc{confirmquit});
     return $R_QUIT if $_[0] eq 'Q'; # quick quit
     return $R_QUIT if ($pfmrc{confirmquit} =~ /marked/i and !&mark_info);
     $scr->at(0,0)->clreol();
@@ -2115,27 +2105,26 @@ sub handleinclude { # include/exclude flag (from keypress)
 
 sub handlename {
     &markcurrentline(uc($_[0])); # disregard multiple_mode
-    my $numformat = $numbase_mode eq 'hex' ? "%#04lx" : "%03lo";
-    # we are allowed to alter %currentfile because
-    # when we exit with at least $R_STRIDE, %currentfile will be reassigned
-    for ($currentfile{name}, $currentfile{target}) {
+    my $numformat = $NUMFORMATS{$numbase_mode};
+    my %otherfile = %currentfile;
+    my $line;
+    for ($otherfile{name}, $otherfile{target}) {
         s/\\/\\\\/;
         # don't ask how this works
         s{([${trspace}\177[:cntrl:]]|[^[:ascii:]])}
          {'\\' . sprintf($numformat, unpack('C', $1))}eg;
     }
-#    color $framecolors{$color_mode}{highlight};
-    $scr->at($currentline+$BASELINE, $filenamecol)
-        # erase char after name, under cursor
-        ->puts($currentfile{name} . (length($currentfile{target}) ? ' -> ' : '')
-                                  . $currentfile{target} . " \cH");
-    &applycolor($currentline+$BASELINE, $FILENAME_LONG, %currentfile);
+    color $framecolors{$color_mode}{highlight};
+    $line = $otherfile{name} . &filetypeflag(\%otherfile) . (length($otherfile{target}) ? ' -> ' . $otherfile{target} : '');
+    $scr->at($currentline+$BASELINE, $filenamecol)->puts($line . " \cH");
+    &applycolor($currentline+$BASELINE, $FILENAME_LONG, %otherfile);
     if ($scr->getch() eq '*') {
-#        &handlenumbase;
+        &handlenumbase;
+        &init_footer;
+        $scr->at($currentline+$BASELINE, $filenamecol)->puts(' ' x length $line);
+        goto &handlename;
     }
-    if (length($currentfile{name}) + length($currentfile{target}) + $filenamecol
-        > $screenwidth - $DATECOL
-    ) {
+    if (length($line) > $screenwidth - $DATECOL) {
         return $R_CLEAR;
     } else {
         return $R_STRIDE;
@@ -2636,18 +2625,18 @@ sub handlehelp {
 
 sub handletime {
     my ($newtime, $loopfile, $do_this, $index, $do_a_refresh, @cmdopts);
-    my $prompt = "Put date/time $TIMEHINTS{$timeformat}: ";
+    my $prompt = "Put date/time [[CC]YY]-MM-DD hh:mm[.ss]: ";
     $do_a_refresh = $multiple_mode ? $R_DIRLIST | $R_HEADER : $R_HEADER;
     &markcurrentline('T') unless $multiple_mode;
     $scr->at(0,0)->clreol();
     &stty_raw($TERM_COOKED);
-    $newtime = &readintohist(\@time_history, $prompt);
-    &stty_raw($TERM_RAW);
-    return $R_HEADER if ($newtime eq '');
-    # convert date/time to touch format if necessary
-    if ($timeformat eq 'pfm') {
-        $newtime =~ s/^(\d{0,4})(\d{8})(\..*)?/$2$1$3/;
+    $newtime = &readintohist(\@time_history, $prompt, strftime ("%Y-%m-%d %H:%M.%S", localtime time));
+    if ($#time_history > 0 and $time_history[-1] eq $time_history[-2]) {
+        pop @time_history;
     }
+    &stty_raw($TERM_RAW);
+    $newtime =~ tr/0-9.//cd;
+    return $R_HEADER if ($newtime eq '');
     @cmdopts = ($newtime eq '.') ? () : ('-t', $newtime);
     $do_this = sub {
         if (system ('touch', @cmdopts, $loopfile->{name})) {
@@ -2661,16 +2650,14 @@ sub handletime {
                 $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
                 &exclude($loopfile,'.');
                 &$do_this;
-                $dircontents[$index] =
-                    &stat_entry($loopfile->{name},$loopfile->{selected});
+                $dircontents[$index] = &stat_entry($loopfile->{name},$loopfile->{selected});
             }
         }
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
         $loopfile = \%currentfile;
         &$do_this;
-        $showncontents[$currentline+$baseindex] =
-            &stat_entry($currentfile{name}, $currentfile{selected});
+        $showncontents[$currentline+$baseindex] = &stat_entry($currentfile{name}, $currentfile{selected});
         &copyback($currentfile{name});
     }
     return $do_a_refresh;
@@ -2716,9 +2703,7 @@ sub handlecopyrename {
     return $R_HEADER if ($newname eq '');
     # expand \[3456] at this point as a test, but not \[12]
     &expand_3456_escapes($QUOTE_OFF, ($testname = $newname), \%currentfile);
-    if ($multiple_mode and $testname !~ /(?<!\\)(?:\\\\)*\\[12]/
-                       and !-d($testname) )
-    {
+    if ($multiple_mode and $testname !~ /(?<!\\)(?:\\\\)*\\[12]/ and !-d($testname) ) {
         $err = 'Cannot do multifile operation when destination is single file.';
         $scr->at(0,0)->puts(&mcolored($err))->at(0,0);
         &pressanykey;
@@ -2747,11 +2732,9 @@ sub handlecopyrename {
             if ($loopfile->{selected} eq '*') {
                 $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
                 &exclude($loopfile, '.');
-                &expand_escapes($QUOTE_OFF, ($newnameexpanded = $newname),
-                    $loopfile);
+                &expand_escapes($QUOTE_OFF, ($newnameexpanded = $newname), $loopfile);
                 &$do_this;
-                $dircontents[$index] =
-                    &stat_entry($loopfile->{name},$loopfile->{selected});
+                $dircontents[$index] = &stat_entry($loopfile->{name},$loopfile->{selected});
                 if ($dircontents[$index]{nlink} == 0) {
                     $dircontents[$index]{display} .= $LOSTMSG;
                 }
@@ -2763,8 +2746,7 @@ sub handlecopyrename {
         $loopfile = \%currentfile;
         &expand_escapes($QUOTE_OFF, ($newnameexpanded = $newname), $loopfile);
         &$do_this;
-        $showncontents[$currentline+$baseindex] =
-            &stat_entry($currentfile{name}, $currentfile{selected});
+        $showncontents[$currentline+$baseindex] = &stat_entry($currentfile{name}, $currentfile{selected});
         if ($showncontents[$currentline+$baseindex]{nlink} == 0) {
             $showncontents[$currentline+$baseindex]{display} .= $LOSTMSG;
         }
@@ -2997,7 +2979,7 @@ sub stat_entry { # path_of_entry, selected_flag
         $ptr->{target}  = readlink($ptr->{name});
         $ptr->{display} = $entry . $filetypeflags{'l'}
                         . ' -> ' . $ptr->{target};
-    } elsif ($ptr->{type} eq '-' and $mode =~ /[xst]/) {
+    } elsif ($ptr->{type} eq '-' and $mode =~ /.[xst]/) {
         $ptr->{display} = $entry . $filetypeflags{'x'};
     } elsif ($ptr->{type} =~ /[bc]/) {
         $ptr->{size_num} = sprintf("%d", $rdev/256) . $MAJORMINORSEPARATOR
@@ -3010,6 +2992,15 @@ sub stat_entry { # path_of_entry, selected_flag
                             ? $NAMETOOLONGCHAR : ' ';
     $total_nr_of{ $ptr->{type} }++; # this is wrong! e.g. after cOmmand
     return $ptr;
+}
+
+sub filetypeflag {
+    my $file = shift;
+    if ($file->{type} eq '-' and $file->{mode} =~ /.[xst]/) {
+        return $filetypeflags{'x'};
+    } else {
+        return $filetypeflags{$file->{type}};
+    }
 }
 
 sub getdircontents { # (current)directory
@@ -3410,10 +3401,13 @@ importlscolors:yes
 ## or global ('keydef[*]')
 ## if some (function) keys do not seem to work, add their escape sequences here.
 ## also check 'kmous' from terminfo if your mouse is malfunctioning.
-keydef[*]:kmous=\e[M
-keydef[linux]:home=\e[1~:end=\e[4~
-keydef[xterm]:home=\e[H:end=\e[F
-keydef[xterm-color]:home=\e[H:end=\e[F
+keydef[*]:kmous=\e[M:
+#keydef[*]:kl=\eOD:kd=\eOB:ku=\eOA:kr=\eOC:home=\e[1~:end=\e[4~:end=\e[F:k1=\eOP:k2=\eOQ:k3=\eOR:k4=\e[OS:
+## some people always set TERM to 'vt100'
+keydef[vt100]:kl=\eOD:kd=\eOB:ku=\eOA:kr=\eOC:home=\e[1~:end=\e[4~:end=\e[F:k1=\eOP:k2=\eOQ:k3=\eOR:k4=\e[OS:
+keydef[linux]:home=\e[1~:end=\e[4~:
+keydef[xterm]:home=\e[1~:end=\e[4~:end=\e[F:
+keydef[xterm-color]:home=\e[1~:end=\e[4~:end=\e[F:
 
 ## the keymap to use in readline (vi,emacs). (default emacs)
 #keymap:vi
@@ -3436,15 +3430,11 @@ persistentswap:yes
 ## if unspecified, the default is:
 ## if $PRINTER is set:   'lpr -P$PRINTER \2'
 ## if $PRINTER is unset: 'lpr \2'
-#printcmd:lp -d$ENV{PRINTER} \2
+#printcmd:lp -d$PRINTER \2
 
 ## show whether mandatory locking is enabled (e.g. -rw-r-lr-- ) (yes,no,sun)
 ## 'sun' = show locking only on sunos/solaris
 showlock:sun
-
-## format for entering time:
-## touch MMDDhhmm[[CC]YY][.ss] or pfm [[CC]YY]MMDDhhmm[.ss]
-timeformat:pfm
 
 ## format for displaying timestamps: see strftime(3).
 ## take care that the time fields in the layouts defined below
@@ -3641,13 +3631,11 @@ your[z]:gzip \2
 launchby:extension,magic
 
 ## the file type names do not have to be valid MIME types
-extension[*.3i]  : application/x-intercal
 extension[*.Z]   : application/x-compress
 extension[*.arj] : application/x-arj
 extension[*.au]  : audio/basic
 extension[*.avi] : video/x-msvideo
 extension[*.bat] : application/x-msdos-batch
-extension[*.bf]  : application/x-befunge
 extension[*.bin] : application/octet-stream
 extension[*.bmp] : image/x-ms-bitmap
 extension[*.bz2] : application/x-bzip2
@@ -3664,7 +3652,6 @@ extension[*.gif] : image/gif
 extension[*.gz]  : application/x-gzip
 extension[*.htm] : text/html
 extension[*.html]: text/html
-extension[*.i]   : application/x-intercal
 extension[*.jpeg]: image/jpeg
 extension[*.jpg] : image/jpeg
 extension[*.lzh] : application/x-lha
@@ -3720,26 +3707,28 @@ magic[tar archive]          : application/x-tar
 
 launch[application/octet-stream]  : \p \2
 launch[application/pdf]           : acroread \2 &
-launch[application/postscript]    : ggv \2 &
+launch[application/postscript]    : gv \2 &
 launch[application/x-arj]         : unarj x \2
-launch[application/x-befunge]     : mtfi \2
 launch[application/x-bzip2]       : bunzip2 \2
 launch[application/x-c]           : gcc -o \1 \2
 launch[application/x-compress]    : uncompress \2
 #launch[application/x-deb]         :
 launch[application/x-executable]  : wine \2 &
 launch[application/x-gzip]        : gunzip \2
-launch[application/x-intercal]    : ick \2
 #launch[application/x-lha]         :
-#launch[application/x-msdos-batch] :
+launch[application/x-msdos-batch] : \e \2
 launch[application/x-ms-office]   : \e \2
 launch[application/x-pascal]      : \e \2
 launch[application/x-perl-module] : \e \2
 launch[application/x-perl]        : \2
-launch[application/x-rpm]         : rpm -Uvh \2
-launch[application/x-tar-compress]: uncompress < \2 | tar xvf -
-launch[application/x-tar-gzip]    : gunzip < \2 | tar xvf -
-launch[application/x-tar]         : tar xvf \2
+#launch[application/x-rpm]         : rpm -Uvh \2
+launch[application/x-rpm]         : rpm -qpl \2
+#launch[application/x-tar-compress]: uncompress < \2 | tar xvf -
+launch[application/x-tar-compress]: uncompress < \2 | tar tvf -
+#launch[application/x-tar-gzip]    : gunzip < \2 | tar xvf -
+launch[application/x-tar-gzip]    : gunzip < \2 | tar tvf -
+#launch[application/x-tar]         : tar xvf \2
+launch[application/x-tar]         : tar tvf \2
 launch[application/zip]           : unzip \2
 launch[audio/basic]               : esdplay \2 &
 launch[audio/midi]                : timidity \2 &
@@ -3825,7 +3814,7 @@ Print usage information, then exit.
 =item -s, --swap I<directory>
 
 The directory that C<pfm> should initially use as swap directory. (See
-the B<F7> command below).
+also the B<F7> command below).
 
 There would be no point in setting the swap directory and subsequently
 returning to the main directory if 'persistentswap' is turned off in your
@@ -3846,7 +3835,7 @@ Navigation through directories is done using the arrow keys, the vi(1)
 cursor keys (B<hjkl>), B<->, B<+>, B<PgUp>, B<PgDn>, B<home>, B<end>,
 and the vi(1) control keys B<CTRL-F>, B<CTRL-B>, B<CTRL-U>, B<CTRL-D>,
 B<CTRL-Y> and B<CTRL-E>. Note that the B<l> key is also used for creating
-symbolic links (see the B<L>ink command below). Pressing B<ESC> or B<BS>
+symbolic links (see also the B<L>ink command below). Pressing B<ESC> or B<BS>
 will take you one directory level up (note: see below under BUGS on the
 functioning of B<ESC>). Pressing B<ENTER> when the cursor is on a directory
 will open the directory. Pressing B<SPACE> will both mark the current file
@@ -3929,29 +3918,49 @@ Oldmarks may be used to perform more than one command on a group of files.
 
 =item B<Link>
 
-Create a symbolic or hard link to the current file or directory. You will
-be given the option of creating a symlink with a relative or an absolute
-pathname to the target, or a hard link. It is irrelevant whether you
-specify a symlink name with an absolute or relative path, because C<pfm>
-will make sure the symlink target will have a pathname of the requested type.
+Gives the option to create either:
+
+=over
+
+=item an B<A>bsolute symlink
+
+This will create a symlink containing an absolute path to the target,
+irrespective of whether you enter a relative or an absolute symlink name.
 
 Example: when the cursor is on the file F</home/rene/incoming/.profile>,
-and you request a relative symlink to be made with either the name
-F<../.profile> or F<~/.profile>, the actual symlink will become:
+and you request an absolute symlink to be made with either the name
+F<../.profile> or F</home/rene/.profile>, the actual symlink will become:
+
+    /home/rene/.profile -> /home/rene/incoming/.profile
+
+=item a B<R>elative symlink
+
+This will create a symlink containing a relative path to the target,
+irrespective of whether you enter a relative or an absolute symlink name.
+
+In the previous example, this option would have created the symlink as
+follows:
 
     /home/rene/.profile -> incoming/.profile
 
+=item a B<H>ard link
+
+This will create an additional hard link to the current file with the
+specified name, which must be on the same filesystem.
+
+=back
+
 Note that if the current file is a directory, the B<l> key, being one of
-the vi(1) cursor keys, will chdir() you into the directory. The capital
-B<L> command will I<always> make a symlink.
+the vi(1) cursor keys, will chdir() you into the directory. The capital B<L>
+command will I<always> make a symlink.
 
 =item B<More>
 
 Presents you with a choice of operations not related to the current
-files. Use this to configure C<pfm>, edit a new file, make a new
-directory, show a different directory, kill all child processes, or
-write the history files to disk. See MORE COMMANDS below. Pressing B<ESC>
-will take you back to the main menu.
+files. Use this to configure C<pfm>, edit a new file, make a new directory,
+show a different directory, kill all child processes, or write the history
+files to disk. See below under MORE COMMANDS. Pressing B<ESC> will take
+you back to the main menu.
 
 =item B<Name>
 
@@ -3961,7 +3970,7 @@ control characters and (optionally) spaces will be displayed in octal or
 hexadecimal (configurable using the 'defaultnumbase' and 'translatespace'
 options in the F<.pfmrc> file), formatted like the following examples:
 
-    octal:                     hexadecimal:
+    octal                      hexadecimal
 
     control-A : \001           control-A : \0x01
     space     : \040           space     : \0x20
@@ -4017,7 +4026,7 @@ the image viewer specified with the 'viewer' option in the config file
 
 =back
 
-Also see QUOTING RULES below.
+Also see below under QUOTING RULES.
 
 =item B<Print>
 
@@ -4050,9 +4059,10 @@ variable C<PAGER>, or with the 'pager' option in the F<.pfmrc> file.
 
 =item B<Time>
 
-Change mtime (modification date/time) of the file. The format used is
-converted to a format which touch(1) can use. Enter B<.> to set the
-mtime to the current date and time.
+Change mtime (modification date/time) of the file. The time may be entered
+either with or without clarifying interpunction (e.g. 2003-02-04 08:42.12)
+as it will be converted to a format which touch(1) can use. Enter B<.>
+to set the mtime to the current date and time.
 
 =item B<Uid>
 
@@ -4256,7 +4266,7 @@ Refresh (using lstat(2)) the displayed file data for the current file.
 
 =item B<F12>
 
-Toggle mouse use. See MOUSE COMMANDS below.
+Toggle mouse use. See below under MOUSE COMMANDS.
 
 =back
 
@@ -4264,19 +4274,23 @@ Toggle mouse use. See MOUSE COMMANDS below.
 
 C<pfm> adds an extra layer of parsing to filenames and shell commands. It
 is important to take notice of the rules that C<pfm> uses. The following
-five types of input can be distinguished:
+six types of input can be distinguished:
 
 =over
 
-=item B<a regular expression> (only the B<I>nclude / eB<X>clude commands)
+=item B<a regular expression> (only the B<I>nclude and eB<X>clude commands)
 
 The input is parsed as a regular expression.
+
+=item B<a time> (e.g. the B<T>ime or B<I>nclude - B<B>efore commands)
+
+Characters not in the set C<[0-9.]> are removed from the input.
 
 =item B<a literal pattern> (only the B<F>ind command)
 
 The input is taken literally.
 
-=item B<not a filename or shell command> (e.g. in B<A>ttribute or B<T>ime)
+=item B<not a filename or shell command> (e.g. in B<A>ttribute)
 
 The input is taken literally.
 
@@ -4305,19 +4319,93 @@ with the character itself.
 
 =back
 
-I<Ergo>, the difference between a filename and a command lies in the number
-of backslashes necessary for non-C<[1-6evp]> characters.
+In short:
 
-The result of this is that C<\\> used in a filename will result in a filename
-containing one C<\>. This would be handed to the shell as C<\\>.
+=over
 
-In a shell command, C<\\> will also expand to one C<\>, which is
-probably not what you want. You may want to enter C<\\\\> which is handed
-to the shell as C<\\> which the shell interprets as one quoted C<\>.
+=item
 
-Similarly, the command C<echo "Hello\n"> will have to be entered as
-C<echo "Hello\\n">, but C<echo "This file is called \2"> works as
-expected.
+C<pfm> always escapes shell metacharacters in expanded B<\2>
+I<etc.> constructs.
+
+=item
+
+In filenames entered, shell metacharacters are preserved, but they may
+also be escaped.
+
+=item
+
+In shell commands entered, metacharacters that you want to be taken
+literally must be escaped one extra time.
+
+=back
+
+Examples:
+
+=begin html
+
+<table border=0 cellspacing=2 cellpadding=2>
+<tr>
+<td>char(s) wanted in filename</td>
+<td>char(s) to type in filename</td>
+<td>char(s) to type in shell command</td>
+</tr>
+<tr><td colspan=3><hr><td></tr>
+<tr>
+<td><i>any non-metachar</i></td>
+<td><i>that char</i></td>
+<td><i>that char</i></td>
+</tr>
+<tr>
+<td>\</td>
+<td>\\</td>
+<td>\\\\</td>
+</tr>
+<tr>
+<td>&quot;</td>
+<td>&quot; <b>or</b> \&quot;</td>
+<td>\\&quot; <b>or</b> '&quot;'</td>
+</tr>
+<tr>
+<td><i>space</i></td>
+<td><i>space</i> <b>or</b> \<i>space</i></td>
+<td>\\<i>space</i>  <b>or</b> '<i>space</i>'</td>
+</tr>
+<tr>
+<td><i>filename</i></td>
+<td>\2</td>
+<td>\2</td>
+</tr>
+<tr>
+<td>\2</td>
+<td>\\2</td>
+<td>\\\\2 <b>or</b> '\\2'</td>
+</tr>
+</table>
+
+=end html
+
+=begin roff
+
+.in +4
+.TS
+l l l
+l l l
+- - -
+l l l.
+.\" great. *roff wants even more backslashes.
+char(s) wanted	char(s) to type	char(s) to type
+in filename	in filename	in shell command
+\fIany non-metachar\fP	\fIthat char\fP	\fIthat char\fP
+\\	\\\\	\\\\\\\\\0 \fBor\fR '\\\\'
+"	" \fBor\fP \\"	\\\\" \fBor\fR '"'
+\fIspace\fP	\fIspace\fP \fBor\fP \\\fIspace\fP	\\\\\fIspace\fP \fBor\fR '\fIspace\fP'
+\fIfilename\fP	\\2	\\2
+\\2	\\\\2	\\\\\\\\2 \fBor\fR '\\\\2'
+.TE
+.in -4
+
+=end roff
 
 =head1 MOUSE COMMANDS
 
@@ -4325,11 +4413,11 @@ When C<pfm> is run in an xterm, mouse use may be turned on (either through
 the B<F12> key, or with the 'mousemode' option in the F<.pfmrc> file), which
 will give mouse access to the following commands:
 
-    button:   pathline:     title:   footer:   file:   filename:
+    button   pathline      title    footer    file    filename
 
-    left      More - Show   ctrl-U   ctrl-D    F8      Show
-    middle    cOmmand       PgUp     PgDn      Show    ENTER
-    right     cOmmand       PgUp     PgDn      Show    ENTER
+    1        More - Show   ctrl-U   ctrl-D    F8      Show
+    2        cOmmand       PgUp     PgDn      Show    ENTER
+    3        cOmmand       PgUp     PgDn      Show    ENTER
 
 The cursor will I<only> be moved when the title or footer is clicked, or
 when changing directory.
@@ -4390,12 +4478,12 @@ The directory where the B<F7> command will take you if you don't specify
 a new directory. Also the directory that initial B<~/> characters in a
 filename will expand to.
 
-=for skipping
+=for comment
 =item B<LC_ALL>
 =item B<LC_COLLATE>
 =item B<LC_CTYPE>
 =item B<LC_MESSAGES>
-=for skipping =item B<LC_MONETARY>
+=for comment =item B<LC_MONETARY>
 =item B<LC_NUMERIC>
 =item B<LC_TIME>
 =item B<LANG>
@@ -4435,8 +4523,8 @@ The editor to be used for the B<E>dit command. Overrides C<EDITOR>.
 
 =head1 FILES
 
-The directory F<$HOME/.pfm/> and files therein. The current working
-directory on exit and several input histories are saved to this directory.
+The directory F<$HOME/.pfm/> and files therein. A number of input histories
+and the current working directory on exit are saved to this directory.
 
 The default location for the config file is F<$HOME/.pfm/.pfmrc>.
 
@@ -4474,7 +4562,7 @@ memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.91.2.
+This manual pertains to C<pfm> version 1.91.3.
 
 =head1 SEE ALSO
 

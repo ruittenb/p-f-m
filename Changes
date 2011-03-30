@@ -1,4 +1,7 @@
-1.91.2 (Term::ANSIScreen)
+1.91.3 (Term::ANSIScreen)
 
-* finished (L)ink command
+* obsoleted 'timeformat' option
+* changed (N)ame to display filetypeflags
+* changed (N)ame to allow direct numbase switching
+* updated documentation
 
