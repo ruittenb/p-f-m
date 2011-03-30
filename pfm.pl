@@ -1,12 +1,12 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20030129 v1.91.1
+# @(#) pfm.pl 19990314-20030131 v1.91.2
 #
 # Name:         pfm
-# Version:      1.91.1 - link buggy
+# Version:      1.91.2
 # Author:       Rene Uittenbogaard
-# Date:         2003-01-29
+# Date:         2003-01-31
 # Usage:        pfm [ <directory> ] [ -s, --swap <directory> ]
 #               pfm { -v, --version | -h, --help }
 # Requires:     Term::ANSIScreen
@@ -826,10 +826,22 @@ sub basename {
 }
 
 sub reversepath {
+    # reverses the path from target to symlink, returns the path from symlink to target
     my ($symlink_target_abs, $symlink_name_rel) = map { &canonicalize_path($_) } @_;
+    # $result ultimately is named as requested
     my $result = &basename($symlink_target_abs);
+    if ($symlink_name_rel !~ m!/!) {
+        # in same dir: reversed path == rel_path
+        return $result;
+    }
+    # lose the filename from the symlink_target_abs and symlink_name_rel, keep the directory
     $symlink_target_abs = &dirname($symlink_target_abs);
     $symlink_name_rel   = &dirname($symlink_name_rel);
+    # reverse this path as follows:
+    # foreach_left_to_right pathname element of symlink_name_rel {
+    #   case '..' : prepend basename target to result
+    #   case else : prepend '..' to result
+    # }
     foreach (split (m!/!, $symlink_name_rel)) {
         if ($_ eq '..') {
             $result = &basename($symlink_target_abs) .'/'. $result;
@@ -843,6 +855,7 @@ sub reversepath {
 }
 
 sub canonicalize_path {
+    # works like realpath() but does not resolve symlinks
     my $path = shift;
     1 while $path =~ s!/\./!/!g;
     1 while $path =~ s!^\./+!!g;
@@ -863,14 +876,17 @@ sub canonicalize_path {
 }
 
 sub reducepaths {
+    # remove identical prefix from path
     my ($symlink_target_abs, $symlink_name_abs) = @_;
     my $subpath;
-    while (($subpath) = ($symlink_target_abs =~ m!^(/[^/]+)(/|$)!)
-    and index($symlink_name_abs, $subpath) != -1)
+    while (($subpath) = ($symlink_target_abs =~ m!^(/[^/]+)(?:/|$)!)
+    and index($symlink_name_abs, $subpath) == 0)
     {
         $symlink_target_abs =~ s!^/[^/]+!!;
         $symlink_name_abs   =~ s!^/[^/]+!!;
     }
+    # one of these could be empty now.
+    # i'm beginning to feel that all this manipulation might be easier with VMS pathnames
     return $symlink_target_abs, $symlink_name_abs;
 }
 
@@ -2199,20 +2215,17 @@ sub handlesymlink {
         }
         if ($absrel eq 'r') {
             if ($newnameexpanded =~ m!^/!) {
-                # make absolute path relative
-                ######################################################################## BUGGY
-                ($simpletarget, $simplename) = &reducepaths(
-                    $currentdir.'/'.$loopfile->{name}, $newnameexpanded);
-                $simplename =~ s!^/!!;
-                $targetstring = &reversepath($simpletarget, $simplename);
-            } elsif ($newnameexpanded !~ m!/!) {
-                # relative in same dir: ok
-                $targetstring = $loopfile->{name};
+                # absolute: first eliminate identical pathname prefix
+                ($simpletarget, $simplename) = &reducepaths($currentdir.'/'.$loopfile->{name}, $newnameexpanded);
+                # now make absolute path relative
+                $simpletarget =~ s!^/!!;
+                $simpletarget =~ s![^/]+!..!g;
+                $simpletarget = &dirname($simpletarget);
+                # and reverse it
+                $targetstring = &reversepath($currentdir.'/'.$loopfile->{name}, $simpletarget.'/'.$simplename);
             } else {
-                # relative in another dir: revert path
-                ######################################################################## BUGGY
-                $targetstring = &reversepath($currentdir.'/'.$loopfile->{name},
-                                            $newnameexpanded);
+                # relative: reverse path
+                $targetstring = &reversepath($currentdir.'/'.$loopfile->{name}, $newnameexpanded);
             }
         } elsif ($targetstring !~ m!^/!) {
             # make relative path absolute
@@ -3787,7 +3800,7 @@ Most of C<pfm>'s configuration is read from a config file. The default
 location for this file is F<$HOME/.pfm/.pfmrc>, but an alternative location
 may be specified using the environment variable C<PFMRC>. If there is no
 config file present at startup, one will be created. The file contains
-a lot of comments on the available options, and is therefore supposed to be
+many comments on the available options, and is therefore supposed to be
 self-explanatory. C<pfm> will issue a warning if the config file version
 is older than the version of C<pfm> you are running. In this case,
 please let C<pfm> create a new default config file and compare the changes
@@ -4461,7 +4474,7 @@ memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.91.1.
+This manual pertains to C<pfm> version 1.91.2.
 
 =head1 SEE ALSO
 
