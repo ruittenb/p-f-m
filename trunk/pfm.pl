@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20030113 v1.88
+# @(#) pfm.pl 19990314-20030113 v1.89
 #
 # Name:         pfm.pl
-# Version:      1.88
+# Version:      1.89 - quoting revised - still buggy
 # Author:       Rene Uittenbogaard
 # Date:         2003-01-13
 # Usage:        pfm.pl [ <directory> ] [ -s, --swap <directory> ]
@@ -24,8 +24,10 @@
 #
 # TODO: use quotemeta() for quoting? (problem: \ in filenames)
 #       double quote support by using system(@) for all commands
-#       double quote and space support in (Y)our and c(O)mmands
 #       get rid of `` around 'du' in si(Z)e and 'df' in get_filesystem_info?
+#       tar(G)et: fails to expand \5
+#       (L)ink fails at \5
+#       (M)ore - (E)dit should expand ~ and \5 ? make this more consistent
 #
 #       fix error handling in eval($do_this) and &display_error
 #          partly implemented in handlecopyrename
@@ -35,10 +37,7 @@
 #         in handlecopyrename()? in handlefind() in handlesymlink? in dirlookup?
 #       sub fileforall(sub) ?
 #
-#       implement cached_header and cached_footer ?
-#       (M)ore - (E)dit should expand ~ and \5 ? make this more consistent
-#       print cmd should expand \2 (for psnup etc) - or use from pipe?
-#           cat <filename> | psnup -2 | lp -d ve1pbd3
+#       solve timezone bug in (I)nclude (B)efore/(A)fter
 #       implement ENTER -> launch action for filetype?
 #       cache converted formatlines - store formatlines and maxfilesizelength
 #           etc in hash; column_mode in swap_state
@@ -57,7 +56,7 @@
 #       use mkdir -p if m!/! (all unix platforms?)
 #       hierarchical sort? e.g. 'sen' (size,ext,name)
 #       incremental search (search entry while entering filename)?
-#       major/minor numbers on DU 4.0E are wrong (have they got readline?)
+#       major/minor numbers on DU 4.0E are wrong
 
 ##########################################################################
 # Main data structures:
@@ -100,6 +99,8 @@ use vars qw(
     $TRUE
     $READ_FIRST
     $READ_AGAIN
+    $QUOTE_OFF
+    $QUOTE_ON
     $MOUSE_OFF
     $MOUSE_ON
     $TERM_RAW
@@ -140,6 +141,11 @@ BEGIN {
     $ENV{PERL_RL} = 'Gnu ornaments=1';
 }
 
+END {
+    # in case something goes wrong
+    system qw(stty echo -raw);
+}
+
 ##########################################################################
 # declarations and initialization
 
@@ -147,6 +153,8 @@ BEGIN {
 *TRUE           = \1;
 *READ_FIRST     = \0;
 *READ_AGAIN     = \1;
+*QUOTE_OFF      = \0;
+*QUOTE_ON       = \1;
 *MOUSE_OFF      = \0;
 *MOUSE_ON       = \1;
 *TERM_RAW       = \0;
@@ -243,11 +251,11 @@ my @SORTMODES = (
 # HP           : du gives blocks,               du -b something unwanted
 # Linux        : du gives blocks, du -k kbytes, du -b bytes
 my %DUCMDS = (
-    default => q(du -sk "\2" | awk '{ printf "%d", 1024 * $1 }'),
-    solaris => q(du -s  "\2" | awk '{ printf "%d", 1024 * $1 }'),
-    sunos   => q(du -s  "\2" | awk '{ printf "%d", 1024 * $1 }'),
-    hpux    => q(du -s  "\2" | awk '{ printf "%d",  512 * $1 }'),
-    linux   => q(du -sb "\2"),
+    default => q(du -sk \2 | awk '{ printf "%d", 1024 * $1 }'),
+    solaris => q(du -s  \2 | awk '{ printf "%d", 1024 * $1 }'),
+    sunos   => q(du -s  \2 | awk '{ printf "%d", 1024 * $1 }'),
+    hpux    => q(du -s  \2 | awk '{ printf "%d",  512 * $1 }'),
+    linux   => q(du -sb \2),
 #    aix     => can use the default
 #    freebsd => can use the default
 #    netbsd  => can use the default unless proven otherwise
@@ -352,7 +360,7 @@ sub write_pfmrc {
 
 sub read_pfmrc { # $readflag - show copyright only on startup (first read)
     local $_;
-    my ($termkeys, %attributes);
+    my ($termkeys, $oldkey);
     %dircolors = %framecolors = %filetypeflags = %pfmrc = ();
     unless (-r &whichconfigfile) {
         unless ($ENV{PFMRC} || -d $CONFIGDIRNAME) {
@@ -365,8 +373,10 @@ sub read_pfmrc { # $readflag - show copyright only on startup (first read)
         while (<PFMRC>) {
             if (/# Version ([\w.]+)$/ and $1 < $VERSION) {
                 # will not be in message color: usecolor not yet parsed
-                &neat_error("Warning: your $CONFIGFILENAME version $1 "
-                .           'may be outdated.');
+                &neat_error(
+                  "Warning: your $CONFIGFILENAME version $1 may be outdated."
+                . "\r\nPlease see pfm(1), under DIAGNOSIS."
+                ) unless $_[0];
                 $scr->key_pressed($IMPORTANTDELAY);
             }
             s/#.*//;
@@ -420,10 +430,10 @@ sub read_pfmrc { # $readflag - show copyright only on startup (first read)
     $mouse_mode        = ($mouse_mode eq 'xterm' && $ENV{TERM} =~ /xterm/)
                              || &yesno($mouse_mode);
     ($printcmd)        = ($pfmrc{printcmd}) ||
-                             ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER}" : 'lpr');
+                         ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER} \\2" : 'lpr \2');
     $showlockchar      = ( $pfmrc{showlock} eq 'sun' && $^O =~ /sun|solaris/i
                              or &yesno($pfmrc{showlock}) ) ? 'l' : 'S';
-    $editor            = $ENV{EDITOR} || $pfmrc{editor} || 'vi';
+    $editor            = $ENV{VISUAL} || $ENV{EDITOR} || $pfmrc{editor} || 'vi';
     $pager             = $ENV{PAGER}  || $pfmrc{pager}  ||
                              ($^O =~ /linux/i ? 'less' : 'more');
     # flags
@@ -437,12 +447,12 @@ sub read_pfmrc { # $readflag - show copyright only on startup (first read)
     # split 'columnlayouts'
     @columnlayouts     = split(/:/, ( $pfmrc{columnlayouts}
         ? $pfmrc{columnlayouts}
-        :   '* nnnnnnnnnnnnnnnnnnnnnssssssss mmmmmmmmmmmmmmmiiiiiii pppppppppp:'
-        .   '* nnnnnnnnnnnnnnnnnnnnnssssssss aaaaaaaaaaaaaaaiiiiiii pppppppppp:'
-        .   '* nnnnnnnnnnnnnnnnnnnnnssssssss uuuuuuuu gggggggglllll pppppppppp'
+        :   '* nnnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss mmmmmmmmmmmmmmm pppppppppp:'
+        .   '* nnnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss aaaaaaaaaaaaaaa pppppppppp:'
+        .   '* nnnnnnnnnnnnnnnnnnnnnssssssss uuuuuuuu gggggggglllll pppppppppp:'
     ));
     # parse colorsets
-    if ($ENV{LS_COLORS} || $ENV{LS_COLOURS}) {
+    if (&yesno($pfmrc{importlscolors}) and $ENV{LS_COLORS} || $ENV{LS_COLOURS}){
         $pfmrc{'dircolors[ls_colors]'} =
             &colornum2name($ENV{LS_COLORS} || $ENV{LS_COLOURS});
     }
@@ -470,6 +480,14 @@ sub read_pfmrc { # $readflag - show copyright only on startup (first read)
         while ($pfmrc{"framecolors[$_]"} =~ /([^:=*]+)=([^:=]+)/g ) {
             $framecolors{$_}{$1} = &colornum2name($2);
         }
+    }
+    # repair pre-1.84 style (Y)our commands
+    foreach (grep /^.$/, keys %pfmrc) {
+        $oldkey = $_;
+        s/^([[:upper:]])\b/your[\l$1]/;
+        s/^([[:lower:]])\b/your[\u$1]/;
+        $pfmrc{$_} = $pfmrc{$oldkey};
+        delete $pfmrc{$oldkey};
     }
     # additional key definitions 'keydef'
     if ($termkeys = $pfmrc{'keydef[*]'} .':'. $pfmrc{"keydef[$ENV{TERM}]"}) {
@@ -566,10 +584,10 @@ sub init_signames {
 }
 
 sub colornum2name {
-    my %attributes = map { s/^(.)$/0$1/; $_ }
+    my %attributes_r = map { s/^(.)$/0$1/; $_ }
                      reverse %Term::ANSIScreen::attributes;
     my $intermittent = shift;
-    $intermittent =~ s/\b([034]\d)\b/$attributes{$1}/g;
+    $intermittent =~ s/\b([034]\d)\b/$attributes_r{$1}/g;
     $intermittent =~ tr/;/ /;
     return $intermittent;
 }
@@ -629,33 +647,49 @@ sub fit2limit {
     return ($size_num, $size_power);
 }
 
-sub expand_12_escapes {
-    my %thisfile = %{$_[1]};
-    my $namenoext =
-        $thisfile{name} =~ /^(.*)\.([^\.]+)$/ ? $1 : $thisfile{name};
-    # there must be an odd nr. of backslashes before the digit
-    # because \\ must be interpreted as an escaped backslash
-    $_[0] =~ s/((?<!\\)(?:\\\\)*)\\1/$1$namenoext/g;
-    $_[0] =~ s/((?<!\\)(?:\\\\)*)\\2/$1$thisfile{name}/g;
+sub quotemeta_if { # condition, string
+    return $_[0] ? quotemeta($_[1]) : $_[1];
 }
 
-sub expand_3456_escapes {
-    # there must be an odd nr. of backslashes before the digit
-    # because \\ must be interpreted as an escaped backslash
-    $_[0] =~ s/((?<!\\)(?:\\\\)*)\\3/$1$currentdir/g;
-    $_[0] =~ s/((?<!\\)(?:\\\\)*)\\4/$1$disk{mountpoint}/g;
-    $_[0] =~ s/((?<!\\)(?:\\\\)*)\\5/$1$swap_state->{path}/g if $swap_state;
-    $_[0] =~ s/((?<!\\)(?:\\\\)*)\\6/$1.&basename($currentdir)/ge;
+sub expand_replace { # esc-category, namenoext, name
+    for ($_[0]) {
+        /1/ and return $_[1];
+        /2/ and return $_[2];
+        /3/ and return $currentdir;
+        /4/ and return $disk{mountpoint};
+        /5/ and return $swap_state->{path} if $swap_state;
+        /6/ and return &basename($currentdir);
+        return $_;
+    }
+}
+
+sub expand_3456_escapes { # quoteif, command, whatever
+    my $qif = $_[0];
     # readline understands ~ notation; now we understand it too
     # ~user is not replaced if it is not in the passwd file
-    $_[0] =~ s/^~(\/|$)/$ENV{HOME}\//;
-    $_[0] =~ s/^~([^:\/]+)/(getpwnam $1)[7] || "~$1"/e;
+    $_[1] =~ s/^~(\/|$)/$ENV{HOME}\//;
+    $_[1] =~ s/^~([^:\/]+)/(getpwnam $1)[7] || "~$1"/e;
+    # the next generation
+    $_[1] =~ s/\\(.)/&quotemeta_if($qif, &expand_replace($1, '\\1', '\\2'))/ge;
+    # there must be an odd nr. of backslashes before the digit
+    # because \\ must be interpreted as an escaped backslash
+#    $_[0] =~ s/((?<!\\)(?:\\\\)*)\\3/$1$currentdir/g;
+#    $_[0] =~ s/((?<!\\)(?:\\\\)*)\\4/$1$disk{mountpoint}/g;
+#    $_[0] =~ s/((?<!\\)(?:\\\\)*)\\5/$1$swap_state->{path}/g if $swap_state;
+#    $_[0] =~ s/((?<!\\)(?:\\\\)*)\\6/$1.&basename($currentdir)/ge;
 }
 
-sub expand_escapes {
-    &expand_12_escapes(@_);
-    &expand_3456_escapes(@_);
-    $_[0] =~ s/\\\\/\\/g;
+sub expand_escapes { # quoteif, command, \%currentfile
+    my $qif       = $_[0];
+    my $name      = $_[2]{name};
+    my $namenoext = $name =~ /^(.*)\.([^\.]+)$/ ? $1 : $name;
+    # readline understands ~ notation; now we understand it too
+    # ~user is not replaced if it is not in the passwd file
+    $_[1] =~ s/^~(\/|$)/$ENV{HOME}\//;
+    $_[1] =~ s/^~([^:\/]+)/(getpwnam $1)[7] || "~$1"/e;
+    # the next generation
+    $_[1] =~ s/\\(.)/
+        &quotemeta_if($qif, &expand_replace($1, $namenoext, $name))/ge;
 }
 
 sub yesno {
@@ -919,31 +953,28 @@ sub mcolored {
 }
 
 sub decidecolor {
-    my $name = shift;
-    my %f = %{shift()};
-    $f{nlink} ==  0  and return colored($name, $dircolors{$color_mode}{lo});
-    $f{type}  eq 'd' and return colored($name, $dircolors{$color_mode}{di});
-    $f{type}  eq 'l' and return colored($name, $dircolors{$color_mode}
-                                    { &isorphan($f{name}) ? 'or' : 'ln' }
-                                );
-    $f{type}  eq 'b' and return colored($name, $dircolors{$color_mode}{bd});
-    $f{type}  eq 'c' and return colored($name, $dircolors{$color_mode}{cd});
-    $f{type}  eq 'p' and return colored($name, $dircolors{$color_mode}{pi});
-    $f{type}  eq 's' and return colored($name, $dircolors{$color_mode}{so});
-    $f{type}  eq 'D' and return colored($name, $dircolors{$color_mode}{'do'});
-    $f{type}  eq 'n' and return colored($name, $dircolors{$color_mode}{nt});
-    $f{type}  eq 'w' and return colored($name, $dircolors{$color_mode}{wh});
-    $f{mode}  =~ /[xst]/
-                     and return colored($name, $dircolors{$color_mode}{ex});
-    $f{name}  =~ /(\.\w+)$/
-                     and return colored($name, $dircolors{$color_mode}{$1});
+    my $f = shift;
+    $f->{nlink} ==  0         and return $dircolors{$color_mode}{lo};
+    $f->{type}  eq 'd'        and return $dircolors{$color_mode}{di};
+    $f->{type}  eq 'l'        and return $dircolors{$color_mode}
+                                        { &isorphan($f->{name}) ? 'or' : 'ln' };
+    $f->{type}  eq 'b'        and return $dircolors{$color_mode}{bd};
+    $f->{type}  eq 'c'        and return $dircolors{$color_mode}{cd};
+    $f->{type}  eq 'p'        and return $dircolors{$color_mode}{pi};
+    $f->{type}  eq 's'        and return $dircolors{$color_mode}{so};
+    $f->{type}  eq 'D'        and return $dircolors{$color_mode}{'do'};
+    $f->{type}  eq 'n'        and return $dircolors{$color_mode}{nt};
+    $f->{type}  eq 'w'        and return $dircolors{$color_mode}{wh};
+    $f->{mode}  =~ /[xst]/    and return $dircolors{$color_mode}{ex};
+    $f->{name}  =~ /(\.\w+)$/ and return $dircolors{$color_mode}{$1};
 }
 
 sub applycolor {
     my ($line, $length, %file) = @_;
     $length = $length ? 255 : $maxfilenamelength-1;
-    $scr->at($line, $filenamecol)
-        ->puts(&decidecolor(substr($file{name}, 0, $length), \%file));
+    $scr->at($line, $filenamecol)->puts(
+        colored(substr($file{name}, 0, $length), &decidecolor(\%file))
+    );
 }
 
 ##########################################################################
@@ -1063,8 +1094,10 @@ sub highlightline { # true/false
     if ($_[0] == $HIGHLIGHT_ON) {
         color($linecolor = $framecolors{$color_mode}{highlight});
         $scr->bold()        if ($linecolor =~ /bold/);
-        $scr->underline()   if ($linecolor =~ /under(line|score)/);
         $scr->reverse()     if ($linecolor =~ /reverse/);
+#        $scr->underline()   if ($linecolor =~ /under(line|score)/);
+        $scr->term()->Tputs('us', 1, *STDOUT)
+                            if ($linecolor =~ /under(line|score)/);
     }
     $scr->puts(&fileline(\%currentfile, @layoutfields));
     &applycolor($currentline + $BASELINE, $FILENAME_SHORT, %currentfile);
@@ -1189,8 +1222,10 @@ sub init_title { # swap_mode, extra field, @layoutfields
     color ($linecolor = $smode ? $framecolors{$color_mode}{swap}
                                : $framecolors{$color_mode}{title});
     $scr->bold()        if ($linecolor =~ /bold/);
-    $scr->underline()   if ($linecolor =~ /under(line|score)/);
     $scr->reverse()     if ($linecolor =~ /reverse/);
+#    $scr->underline()   if ($linecolor =~ /under(line|score)/);
+    $scr->term()->Tputs('us', 1, *STDOUT)
+                        if ($linecolor =~ /under(line|score)/);
     $^A = '';
     formline($currentformatline . ' @>>>>>>>>>>>>>',
         @{$TITLEVIRTFILE}{@fields}, $info);
@@ -1254,8 +1289,10 @@ sub init_footer {
     my $linecolor;
     color ($linecolor = $framecolors{$color_mode}{footer});
     $scr->bold()        if ($linecolor =~ /bold/);
-    $scr->underline()   if ($linecolor =~ /under(line|score)/);
     $scr->reverse()     if ($linecolor =~ /reverse/);
+#    $scr->underline()   if ($linecolor =~ /under(line|score)/);
+    $scr->term()->Tputs('us', 1, *STDOUT)
+                        if ($linecolor =~ /under(line|score)/);
     $scr->at($BASELINE+$screenheight+1,0) ->puts($footer)
         ->puts(' ' x ($screenwidth - length $footer));
     color 'reset';
@@ -1263,10 +1300,15 @@ sub init_footer {
 }
 
 sub usage {
-    print "Usage:\n";
-    print 'pfm [ ', colored('directory', 'underline'), ' ] [ -s, --swap ',
-        colored('directory', 'underline'), " ]\n",
-        "pfm { -v, --version | -h, --help }\n";
+    print "Usage: pfm [ ", colored('directory', 'underline'), " ] ",
+                     "[ -s, --swap ", colored('directory', 'underline'), " ]\n",
+          "       pfm { -h, --help | -v, --version }\n\n",
+          "    ",colored('directory', 'underline'),
+                       "            : specify starting directory\n",
+          "    -h, --help           : print this help and exit\n",
+          "    -s, --swap ", colored('directory', 'underline'),
+                                  " : specify swap directory\n",
+          "    -v, --version        : print version information and exit\n";
 }
 
 sub printversion {
@@ -1301,6 +1343,7 @@ sub goodbye {
         $scr->at($screenheight+$BASELINE+1,0)->clreol();
     }
     system qw(tput cnorm) if $cursorveryvisible;
+    # END {} block is also executed, although not necessary at normal exit.
 }
 
 sub credits {
@@ -1330,7 +1373,7 @@ sub credits {
                  send email to: ruittenb\@users.sourceforge.net
 
 
-                                                          any key to exit to $pfm
+                                                         any key to exit to $pfm
 _eoCredits_
     &stty_raw($TERM_RAW);
     $scr->getch();
@@ -1584,7 +1627,7 @@ sub handlesize {
     &markcurrentline('Z') unless $multiple_mode;
     $do_this = sub {
         $loopfile = shift;
-        &expand_escapes($command = $ducmd, $loopfile);
+        &expand_escapes($QUOTE_ON, ($command = $ducmd), $loopfile);
         ($recursivesize = `$command`) =~ s/\D*(\d+).*/$1/;
         chomp $recursivesize;
         if ($?) {
@@ -1677,7 +1720,7 @@ sub handlefind {
     return $R_HEADER if $findme eq '';
     FINDENTRY:
     foreach (sort by_name @showncontents) {
-        if ($_->{name} =~ /^$findme/) {
+        if (index($_->{name}, $findme) == 0) {
             $position_at = $_->{name};
             last FINDENTRY;
         }
@@ -1723,7 +1766,7 @@ sub handlemoreshow {
     &stty_raw($TERM_RAW);
     return $R_HEADER if $newname eq '';
     $position_at = '.';
-    &expand_escapes($newname, \%currentfile);
+    &expand_escapes($QUOTE_OFF, $newname, \%currentfile);
     if (&mychdir($newname)) {
         $do_a_refresh |= $R_CHDIR;
     } else {
@@ -1782,7 +1825,7 @@ sub handlemoreedit {
     $scr->at(0,0)->clreol();
     &stty_raw($TERM_COOKED);
     $newname = &readintohist(\@path_history, $stateprompt);
-#    &expand_escapes($newname, $currentfile);
+    &expand_escapes($QUOTE_OFF, $newname, \%currentfile);
     system ($editor, $newname) and &display_error($!);
     &stty_raw($TERM_RAW);
     return $R_CLEAR;
@@ -1854,7 +1897,7 @@ sub handlemore {
 sub handleinclude { # include/exclude flag (from keypress)
     local $_;
     my $exin = shift;
-    my $do_a_refresh = $R_HEADER;
+    my $do_a_refresh = $R_HEADER | $R_PATHINFO;
     my ($criterion, $headerlength);
     our ($wildfilename, $boundtime, $entry);
     # $wildfilename could have been declared using my(), but that will prevent
@@ -1923,6 +1966,7 @@ sub handleview {
         s{([${trspace}\177[:cntrl:]]|[^[:ascii:]])}
          {'\\' . sprintf($viewbase, unpack('C', $1))}eg;
     }
+#    color $framecolors{$color_mode}{highlight};
     $scr->at($currentline+$BASELINE, $filenamecol)
         # erase char after name, under cursor
         ->puts($currentfile{name} . (length($currentfile{target}) ? ' -> ' : '')
@@ -2010,7 +2054,7 @@ sub handlesymlink {
     if ($multiple_mode) {
         for $index (0..$#dircontents) {
             $loopfile = $dircontents[$index];
-            &expand_escapes(($newnameexpanded = $newname), $loopfile);
+            &expand_escapes($QUOTE_ON,($newnameexpanded = $newname), $loopfile);
             if ($loopfile->{selected} eq '*') {
                 $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
                 &exclude($loopfile,'.');
@@ -2022,7 +2066,7 @@ sub handlesymlink {
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
         $loopfile = \%currentfile;
-        &expand_escapes(($newnameexpanded = $newname), $loopfile);
+        &expand_escapes($QUOTE_ON, ($newnameexpanded = $newname), $loopfile);
         &$do_this;
         $showncontents[$currentline+$baseindex] =
             &stat_entry($currentfile{name}, $currentfile{selected});
@@ -2220,7 +2264,7 @@ _eoCommandPrompt_
                 if ($loopfile->{selected} eq '*') {
                     &exclude($loopfile,'.');
                     $do_this = $command;
-                    &expand_escapes($do_this,$loopfile);
+                    &expand_escapes($QUOTE_ON, $do_this, $loopfile);
                     $scr->puts($do_this);
                     system $do_this and &display_error($!);
                     $dircontents[$index] =
@@ -2233,7 +2277,7 @@ _eoCommandPrompt_
             $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
         } else { # single-file mode
             $loopfile = \%currentfile;
-            &expand_escapes($command, \%currentfile);
+            &expand_escapes($QUOTE_ON, $command, \%currentfile);
             $scr->clrscr()->at(0,0)->puts($command);
             system $command and &display_error($!);
             $showncontents[$currentline+$baseindex] =
@@ -2321,35 +2365,38 @@ sub handledelete {
 }
 
 sub handleprint {
-    my ($loopfile, $do_this, $index);
+    my ($loopfile, $do_this, $command, $index);
     &markcurrentline('P') unless $multiple_mode;
     $scr->at(0,0)->clreol()->puts(&mcolored('Enter print command: '))
         ->at($PATHLINE,0)->clreol();
     &stty_raw($TERM_COOKED);
     # don't use readintohist : special case with command_history
     $kbd->SetHistory(@command_history);
-    $do_this = $kbd->readline('',$printcmd);
-    if ($do_this =~ /\S/
-        and $do_this ne $printcmd
-        and $do_this ne $command_history[$#command_history]
+    $command = $kbd->readline('',$printcmd);
+    if ($command =~ /\S/
+        and $command ne $printcmd
+        and $command ne $command_history[$#command_history]
     ) {
-        push (@command_history, $do_this);
+        push (@command_history, $command);
         shift (@command_history) if ($#command_history > $MAXHISTSIZE);
     }
     &stty_raw($TERM_RAW);
-    return $R_FRAME | $R_DISKINFO if $do_this eq '';
+    return $R_FRAME | $R_DISKINFO if $command eq '';
     if ($multiple_mode) {
         for $index (0..$#dircontents) {
             $loopfile = $dircontents[$index];
+            $do_this = $command;
+            &expand_escapes($QUOTE_ON, $do_this, $loopfile);
             if ($loopfile->{selected} eq '*') {
                 $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
                 &exclude($loopfile, '.');
-                system "$do_this \Q$loopfile->{name}" and &display_error($!);
+                system $do_this and &display_error($!);
             }
         }
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
-        system "$do_this \Q$currentfile{name}" and &display_error($!);
+        &expand_escapes($QUOTE_ON, $command, \%currentfile);
+        system $command and &display_error($!);
     }
     return $R_SCREEN;
 }
@@ -2453,8 +2500,8 @@ sub handlecopyrename {
     my $state = "\u$_[0]";
     my $statecmd = ($state eq 'C' ? 'cp' : 'mv');
     my $stateprompt = $state eq 'C' ? 'Destination: ' : 'New name: ';
-    my ($loopfile, $index, $newname, $newnameexpanded, $do_this, $findindex,
-        @cmdopts, $err);
+    my ($loopfile, $index, $testname, $newname, $newnameexpanded, $do_this,
+        $findindex, @cmdopts, $err);
     my $do_a_refresh = $R_HEADER;
     &markcurrentline($state) unless $multiple_mode;
     $scr->at(0,0)->clreol();
@@ -2466,10 +2513,10 @@ sub handlecopyrename {
     }
     &stty_raw($TERM_RAW);
     return $R_HEADER if ($newname eq '');
-    # expand \[3456] at this point, but not yet \[12]
-    &expand_3456_escapes($newname, \%currentfile);
-    if ($multiple_mode and $newname !~ /(?<!\\)(?:\\\\)*\\[12]/
-                       and !-d($newname) )
+    # expand \[3456] at this point as a test, but not yet \[12]
+    &expand_3456_escapes($QUOTE_ON, ($testname = $newname), \%currentfile);
+    if ($multiple_mode and $testname !~ /(?<!\\)(?:\\\\)*\\[12]/
+                       and !-d($testname) )
     {
         $err = 'Cannot do multifile operation when destination is single file.';
         $scr->at(0,0)->puts(&mcolored($err))->at(0,0);
@@ -2499,7 +2546,8 @@ sub handlecopyrename {
             $loopfile = $dircontents[$index];
             if ($loopfile->{selected} eq '*') {
                 &exclude($loopfile, '.');
-                &expand_escapes(($newnameexpanded = $newname), $loopfile);
+                &expand_escapes($QUOTE_ON, ($newnameexpanded = $newname),
+                    $loopfile);
                 $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
                 &$do_this;
                 $dircontents[$index] =
@@ -2513,8 +2561,7 @@ sub handlecopyrename {
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
         $loopfile = \%currentfile;
-#        &expand_escapes($command, $loopfile);
-        &expand_escapes(($newnameexpanded = $newname), $loopfile);
+        &expand_escapes($QUOTE_ON, ($newnameexpanded = $newname), $loopfile);
         &$do_this;
         $showncontents[$currentline+$baseindex] =
             &stat_entry($currentfile{name}, $currentfile{selected});
@@ -2679,7 +2726,7 @@ sub handleswap {
             $nextdir = &readintohist(\@path_history, $stateprompt);
             &stty_raw($TERM_RAW);
         }
-        &expand_escapes($nextdir, \%currentfile);
+        &expand_escapes($QUOTE_OFF, $nextdir, \%currentfile);
         $position_at   = '.';
         $do_a_refresh |= $R_CHDIR;
     }
@@ -3114,13 +3161,13 @@ copyrightdelay:0.2
 ## use very visible cursor (e.g. block cursor on Linux console)
 cursorveryvisible:yes
 
-## initial colorset to pick from the various colorsets defined below (F4)
+## initial colorset to pick from the various colorsets defined below (for F4)
 defaultcolorset:dark
 
-## initial layout to pick from the array 'columnlayouts' (see below) (F9)
+## initial layout to pick from the array 'columnlayouts' (see below) (for F9)
 defaultlayout:0
 
-## initial sort mode (see F6 command) (nNmMeEfFsSiItTdDaA) (default n)
+## initial sort mode (nNmMeEfFsSiItTdDaA) (default n) (for F6)
 defaultsortmode:n
 
 ## hide dot files? (show them otherwise, toggle with . key)
@@ -3130,9 +3177,9 @@ dotmode:no
 dotdotmode:no
 
 ## your system's du(1) command. Specify so that the outcome is in bytes.
-## you need to specify "\2" for the name of the current file.
+## you need to specify '\2' for the name of the current file.
 ## this is commented out because pfm makes a clever guess for your OS.
-#ducmd:du -sk "\2" | awk '{ printf "%d", 1024 * $1 }'
+#ducmd:du -sk \2 | awk '{ printf "%d", 1024 * $1 }'
 
 ## specify your favorite editor. you can also use $EDITOR for this
 editor:vi
@@ -3143,6 +3190,9 @@ editor:vi
 ## display file type flags (yes, no, dirs)
 ## yes: 'ls -F' type, dirs: 'ls -p' type
 filetypeflags:yes
+
+## create an additional colorset for $LS_COLORS ?
+importlscolors:yes
 
 ## additional key definitions for Term::Screen.
 ## definitely look in the Term::Screen(3pm) manpage for details.
@@ -3172,8 +3222,10 @@ mouseturnoff:yes
 ## F7 key swap path method is persistent? (default no)
 persistentswap:yes
 
-## your system's print command. Specify if the default 'lpr' does not work.
-#printcmd:lp -d$ENV{PRINTER}
+## your system's print command.  Otherwise, the default is:
+## if $PRINTER is set:   'lpr -P$PRINTER \2'
+## if $PRINTER is unset: 'lpr \2'
+#printcmd:lp -d$ENV{PRINTER} \2
 
 ## show whether mandatory locking is enabled (e.g. -rw-r-lr-- ) (yes,no,sun)
 ## 'sun' = show locking only on sunos/solaris
@@ -3226,7 +3278,8 @@ header=white on blue:multi=bold reverse cyan on white:\
 title=bold reverse cyan on white:swap=reverse black on cyan:\
 footer=bold reverse blue on white:message=bold cyan:highlight=bold:
 
-## these are the defaults
+## these are the defaults that will be used
+## if framecolors[] is missing for a given dircolors[]
 #framecolors[default]:\
 #header=white on blue:multi=bold reverse cyan on white:\
 #title=bold reverse cyan on white:swap=reverse black on cyan:\
@@ -3322,43 +3375,48 @@ ppppppppppllll uuuuuuuu ggggggggssssssss mmmmmmmmmmmmmmm *nnnnnnn:
 ##########################################################################
 ## your commands
 
-## these assume you do not have filenames with double quotes in them.
-## in these commands, \1=filename without extension, \2=filename complete,
-## \3=current directory path, \4=current mountpoint, \5=swap path (F7),
-## \6=current directory basename
+## in the defined commands, you may use the following escapes.
+## these must NOT be quoted any more!
+##  \1 = filename without extension
+##  \2 = filename entirely
+##  \3 = current directory path
+##  \4 = current mountpoint
+##  \5 = swap path (F7)
+##  \6 = current directory basename
 
-your[a]:acroread "\2" &
-your[B]:bunzip2 "\2"
-your[b]:xv -root +noresetroot +smooth -maxpect -quit "\2"
-your[c]:tar cvf - "\2" | gzip > "\2".tar.gz
-your[d]:uudecode "\2"
-your[e]:unarj l "\2" | more
-your[f]:file "\2"
-your[G]:gimp "\2"
-your[g]:gvim "\2"
-your[i]:rpm -qpi "\2"
-your[j]:mpg123 "\2" &
-your[k]:esdplay "\2"
-your[l]:mv -i "\2" "$(echo "\2" | tr '[:upper:]' '[:lower:]')"
-your[n]:nroff -man "\2" | more
-your[o]:cp "\2" "\2.$(date +"%Y%m%d")"; touch -r "\2" "\2.$(date +"%Y%m%d")"
-your[p]:perl -cw "\2"
-your[q]:unzip -l "\2" | more
-your[r]:rpm -qpl "\2" | more
-your[s]:strings "\2" | more
-your[t]:gunzip < "\2" | tar tvf - | more
-your[U]:unzip "\2"
-your[u]:gunzip "\2"
-your[v]:xv "\2" &
-your[w]:what "\2"
-your[x]:gunzip < "\2" | tar xvf -
-your[y]:lynx "\2"
-your[Z]:bzip2 "\2"
-your[z]:gzip "\2"
+your[a]:acroread \2 &
+your[B]:bunzip2 \2
+your[b]:xv -root +noresetroot +smooth -maxpect -quit \2
+your[c]:tar cvf - \2 | gzip > \2.tar.gz
+your[d]:uudecode \2
+your[e]:unarj l \2 | more
+your[f]:file \2
+your[G]:gimp \2
+your[g]:gvim \2
+your[i]:rpm -qpi \2
+your[j]:mpg123 \2 &
+your[k]:esdplay \2
+your[l]:mv -i \2 $(echo \2 | tr '[:upper:]' '[:lower:]')
+your[n]:nroff -man \2 | more
+your[o]:cp \2 \2.$(date +"%Y%m%d"); touch -r \2 \2.$(date +"%Y%m%d")
+your[p]:perl -cw \2
+your[q]:unzip -l \2 | more
+your[r]:rpm -qpl \2 | more
+your[s]:strings \2 | more
+your[t]:gunzip < \2 | tar tvf - | more
+your[U]:unzip \2
+your[u]:gunzip \2
+your[v]:xv \2 &
+your[w]:what \2
+your[x]:gunzip < \2 | tar xvf -
+your[y]:lynx \2
+your[Z]:bzip2 \2
+your[z]:gzip \2
 
 ##########################################################################
 ## launch commands (not implemented)
 
+## the defined file types do not *have* to be valid MIME types
 extension[*.jpg] : image/jpeg
 extension[*.jpeg]: image/jpeg
 extension[*.gif] : image/gif
@@ -3388,18 +3446,20 @@ extension[*.mpeg]: video/mpeg
 extension[*.qt]  : video/quicktime
 extension[*.mov] : video/quicktime
 extension[*.avi] : video/x-msvideo
-
-## it does not *have* to be a MIME type
-extension[*.i]   : intercal
+extension[*.bf]  : application/x-befunge
+extension[*.i]   : application/x-intercal
+extension[*.3i]  : application/x-intercal
 
 magic[JPEG image]:image/jpeg
 magic[PostScript document]:application/postscript
 
-launch[image/jpeg]  :xv \2
-launch[image/tiff]  :xv \2
-launch[image/png]   :xv \2
-launch[image/gif]   :xv \2
-launch[intercal]    :ick \2 && ./\1
+## these can make use of $VIEWER, $EDITOR and $PAGER
+launch[image/jpeg] : $VIEWER \2
+launch[image/tiff] : $VIEWER \2
+launch[image/png]  : $VIEWER \2
+launch[image/gif]  : $VIEWER \2
+launch[application/x-intercal] : $EDITOR \2
+launch[application/x-befunge]  : mtfi \2
 
 ## vi: set filetype=xdefaults: # fairly close
 __END__
@@ -3523,8 +3583,8 @@ Delete a file or directory.
 =item B<Edit>
 
 Edit a file with your external editor. You can specify an editor with the
-environment variable C<EDITOR> or with the 'editor' option in the F<.pfmrc>
-file, otherwise vi(1) is used.
+environment variable C<VISUAL> or C<EDITOR> or with the 'editor' option
+in the F<.pfmrc> file, otherwise vi(1) is used.
 
 =item B<Find>
 
@@ -3553,7 +3613,7 @@ an I<oldmark> B<.>
 
 =item B<A>fter / B<B>efore
 
-Files newer/older than a specified date/time
+Files newer/older than a specified date and time
 
 =item B<U>ser
 
@@ -3626,10 +3686,10 @@ a literal backslash
 
 =item B<Print>
 
-Will prompt for a print command (default C<lpr -P$PRINTER>, or C<lpr>
-if C<PRINTER> is unset) and will pipe the current file through it. No
-formatting is done. You may specify a print command with the 'printcmd'
-option in the F<.pfmrc> file.
+Will prompt for a print command (default C<lpr -P$PRINTER \2>, or
+C<lpr \2> if C<PRINTER> is unset) and will pipe the current file through
+it. No formatting is done. You may specify a print command with the
+'printcmd' option in the F<.pfmrc> file.
 
 =item B<Quit>
 
@@ -3888,23 +3948,37 @@ will receive escape codes when the mouse is clicked.
 
 Upon exit, C<pfm> will save its current working directory in a file
 F<$HOME/.pfm/cwd> . In order to have this directory "inherited" by the
-calling process (shell), you may call C<pfm> using a function like the
-following (example for ksh(1) and bash(1), add it to your F<.profile>
-or F<.bash_profile>):
+calling process (shell), you may call C<pfm> using a function or alias
+like the following:
 
- pfm () {
-     /usr/local/bin/pfm "$@"
-     if [ -s ~/.pfm/cwd ]; then
-         cd "`cat ~/.pfm/cwd`" # double quotes for names with spaces
-         rm -f ~/.pfm/cwd
-     fi
- }
+Example for ksh(1), bash(1) and zsh(1):
+
+    pfm() {
+        /usr/local/bin/pfm "$@"
+        if [ -s ~/.pfm/cwd ]; then
+            cd "`cat ~/.pfm/cwd`"
+            rm -f ~/.pfm/cwd
+        fi
+    }
+
+Example for csh(1) and tcsh(1):
+
+    alias pfm '/usr/local/bin/pfm \!*   \
+    if (-s ~/.pfm/cwd) then             \
+            cd "`cat ~/.pfm/cwd`"       \
+            rm -f ~/.pfm/cwd            \
+    endif'
 
 =back
 
 =head1 ENVIRONMENT
 
 =over
+
+=item B<ANSI_COLORS_DISABLED>
+
+Detected by C<Term::ANSIScreen> as an indication that ANSI coloring should
+not be used.
 
 =item B<CDPATH>
 
@@ -3915,7 +3989,7 @@ if you want to use this feature.
 
 =item B<EDITOR>
 
-The editor to be used for the B<E>dit command.
+The editor to be used for the B<E>dit command. Overridden by C<VISUAL>.
 
 =item B<HOME>
 
@@ -3943,6 +4017,10 @@ May be used to specify a printer to print to using the B<P>rint command.
 
 Your default login shell, spawned by B<M>ore - sB<H>ell.
 
+=item B<VISUAL>
+
+The editor to be used for the B<E>dit command. Overrides C<EDITOR>.
+
 =back
 
 =head1 FILES
@@ -3951,6 +4029,17 @@ The directory F<$HOME/.pfm/> and files therein. The current working
 directory on exit and several input histories are saved to this directory.
 
 The default location for the config file is F<$HOME/.pfm/.pfmrc>.
+
+=head1 DIAGNOSIS
+
+If C<pfm> reports that your config file might be outdated, you might be
+missing some of the newer configuration options (or default values for
+these). Try the following command and compare the new config file with
+your original one:
+
+    env PFMRC=~/.pfm/.pfmrc-new pfm
+
+To prevent the warning from occurring again, update the '## Version' line.
 
 =head1 BUGS and WARNINGS
 
@@ -3974,20 +4063,18 @@ This prevents the correct processing of filenames containing double quotes.
 The smallest terminal size supported is 80x24. The display will be messed
 up if you resize your terminal window to a smaller size.
 
-Whiteout support, broken in previous versions, has been removed.
-
 C<pfm> uses up too much memory. But then again, everybody has tons of
 memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.88 .
+This manual pertains to C<pfm> version 1.89 .
 
 =head1 SEE ALSO
 
 The documentation on PFMS<.>COM . The mentioned manual pages for
 chmod(1), less(1), lpr(1), touch(1), vi(1). The manual pages for
-Term::ScreenColor(3), Term::Screen(3) and Term::ReadLine::Gnu(3).
+Term::ANSIScreen(3pm), Term::Screen(3pm) and Term::ReadLine::Gnu(3pm).
 
 =head1 AUTHOR
 
@@ -4004,6 +4091,6 @@ License version 2.
 
 =cut
 
-# vim:     set tabstop=4 shiftwidth=4 expandtab list:
-# vim>600: set foldmethod=indent nofoldenable:
+: vim:     set tabstop=4 shiftwidth=4 expandtab list:
+: vim>600: set foldmethod=indent nofoldenable:
 

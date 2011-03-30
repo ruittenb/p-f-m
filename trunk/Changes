@@ -1,4 +1,7 @@
-1.88 (Term::ANSIScreen)
+1.89 (Term::ANSIScreen)
 
-* ported to Term::ANSIScreen
+* started fixing quoting problems
+* fixed bug in (F)ind command concerning illegal regexps
+* added 'importlscolors' option
+* updated documentation
 
