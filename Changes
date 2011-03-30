@@ -1,8 +1,6 @@
-1.90.5 (Term::ANSIScreen)
+1.91 (Term::ANSIScreen)
 
-* finished fixing quoting problems
-* fixed bug in (L)ink concerning relative paths
-* fixed bug in (L)ink (multifile operations when destination is a single file)
-* changed footer to display numbase ('*' command)
-* updated documentation with quoting rules
+* added option to create hard links in (L)ink
+* fixed bug in read_pfmrc that delayed execution unnecessarily
+* updated documentation
 

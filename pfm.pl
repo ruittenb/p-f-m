@@ -1,12 +1,12 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20030126 v1.90.5
+# @(#) pfm.pl 19990314-20030129 v1.91
 #
 # Name:         pfm
-# Version:      1.90.5
+# Version:      1.91 - link buggy
 # Author:       Rene Uittenbogaard
-# Date:         2003-01-26
+# Date:         2003-01-29
 # Usage:        pfm [ <directory> ] [ -s, --swap <directory> ]
 #               pfm { -v, --version | -h, --help }
 # Requires:     Term::ANSIScreen
@@ -30,8 +30,9 @@
 #       sub restat_copyback ?
 #       sub fileforall(sub) ?
 #
+#       debug (relative) symlink creator
+#
 #       touch command -t has changed format? tr/0-9//dc ?
-#       make intelligent (relative) symlink creator
 #       make F11 respect multiple mode? (marked+oldmarked, not removing marks)
 #       '*' command works inside 'N' routine?
 #       implement ENTER -> launch action for filetype?
@@ -108,6 +109,7 @@ use vars qw(
     $HEADER_MORE
     $HEADER_SORT
     $HEADER_INCLUDE
+    $HEADER_LNKTYPE
     $TITLE_DISKINFO
     $TITLE_YCOMMAND
     $TITLE_SIGNAL
@@ -159,6 +161,7 @@ END {
 *HEADER_MORE    = \2;
 *HEADER_SORT    = \4;
 *HEADER_INCLUDE = \8;
+*HEADER_LNKTYPE = \16;
 *TITLE_DISKINFO = \0;
 *TITLE_YCOMMAND = \1;
 *TITLE_SIGNAL   = \2;
@@ -356,7 +359,8 @@ sub write_pfmrc {
         close DATA;
         print MKPFMRC map {
             s/^(##? Version )x$/$1$VERSION/m;
-            s/^([[:alpha:]]:\w+.*?\s+)more(\s*)$/$1less$2/mg if $^O =~ /linux/i;
+            s{^(\s*(?:your[[:alpha:]]|launch[^]:])\s*:\s*\w+.*?\s+)more(\s*)$}
+             {$1less$2}mg if $^O =~ /linux/i;
             $_;
         } @resourcefile;
         close MKPFMRC;
@@ -401,32 +405,32 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
     local $_;
     my ($termkeys, $oldkey);
     %dircolors = %framecolors = %filetypeflags = ();
-    # 'usecolor'
-    if ($pfmrc{usecolor} eq 'force') {
-        delete $ENV{ANSI_COLORS_DISABLED};
-    } elsif (defined($pfmrc{usecolor}) && ! &yesno($pfmrc{usecolor})) {
-        $ENV{ANSI_COLORS_DISABLED} = 1;
-    } elsif (!exists $ENV{ANSI_COLORS_DISABLED}) {
-        $ENV{ANSI_COLORS_DISABLED} = $ENV{TERM} =~ /(^linux$|color)/;
+    # 'usecolor' - find out when color must be turned _off_
+    unless (defined($ENV{ANSI_COLORS_DISABLED})) {
+        if (&isno($pfmrc{usecolor}) or
+            ($ENV{TERM} !~ /(^linux$|color)/ && $pfmrc{usecolor} ne 'force')
+        ) {
+            $ENV{ANSI_COLORS_DISABLED} = 1;
+        }
     }
     # 'copyrightdelay', 'cursorveryvisible', 'erase', 'keymap'
     &copyright($pfmrc{copyrightdelay}) unless $_[0];
-    $cursorveryvisible = &yesno($pfmrc{cursorveryvisible});
+    $cursorveryvisible = &isyes($pfmrc{cursorveryvisible});
     system ('tput', $cursorveryvisible ? 'cvvis' : 'cnorm');
     system ('stty', 'erase', $pfmrc{erase}) if defined($pfmrc{erase});
     $kbd->set_keymap($pfmrc{keymap})        if $pfmrc{keymap};
     # some configuration options are NOT fetched into common scalars
     # (e.g. confirmquit) - however, they remain accessable in %pfmrc
     # don't change initialized settings that are modifiable by key commands
-    $clsonexit         = &yesno($pfmrc{clsonexit});
-    $clobber           = &yesno($pfmrc{clobber});
-    $autowritehistory  = &yesno($pfmrc{autowritehistory});
-    $autoexitmultiple  = &yesno($pfmrc{autoexitmultiple});
-    $mouseturnoff      = &yesno($pfmrc{mouseturnoff});
-    $swap_persistent   = &yesno($pfmrc{persistentswap});
-    $trspace           = &yesno($pfmrc{translatespace}) ? ' ' : '';
-    $dotdot_mode       = &yesno($pfmrc{dotdotmode});
-    $dot_mode          = &yesno($pfmrc{defaultdotmode}) if !defined $dot_mode;
+    $clsonexit         = &isyes($pfmrc{clsonexit});
+    $clobber           = &isyes($pfmrc{clobber});
+    $autowritehistory  = &isyes($pfmrc{autowritehistory});
+    $autoexitmultiple  = &isyes($pfmrc{autoexitmultiple});
+    $mouseturnoff      = &isyes($pfmrc{mouseturnoff});
+    $swap_persistent   = &isyes($pfmrc{persistentswap});
+    $trspace           = &isyes($pfmrc{translatespace}) ? ' ' : '';
+    $dotdot_mode       = &isyes($pfmrc{dotdotmode});
+    $dot_mode          = &isyes($pfmrc{defaultdotmode}) if !defined $dot_mode;
     $sort_mode         = $pfmrc{defaultsortmode} || 'n' if !defined $sort_mode;
     $currentlayout     = $pfmrc{defaultlayout} || 0 if !defined $currentlayout;
     $timestampformat   = $pfmrc{timestampformat} || '%y %b %d %H:%M';
@@ -434,11 +438,11 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
     $ducmd             = $pfmrc{ducmd} || $DUCMDS{$^O} || $DUCMDS{default};
     $mouse_mode        = $pfmrc{mousemode}  || 'xterm' if !defined $mouse_mode;
     $mouse_mode        = ($mouse_mode eq 'xterm' && $ENV{TERM} =~ /xterm/)
-                             || &yesno($mouse_mode);
+                         or &isyes($mouse_mode);
     ($printcmd)        = ($pfmrc{printcmd}) ||
                          ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER} \\2" : 'lpr \2');
     $showlockchar      = ( $pfmrc{showlock} eq 'sun' && $^O =~ /sun|solaris/i
-                             or &yesno($pfmrc{showlock}) ) ? 'l' : 'S';
+                             or &isyes($pfmrc{showlock}) ) ? 'l' : 'S';
     $numbase_mode      = $pfmrc{defaultnumbase} || $pfmrc{viewbase} || 'hex'
                              if !defined $numbase_mode;
     $ident_mode        = $IDENTMODES{$pfmrc{defaultident}} || 0
@@ -450,7 +454,7 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
     # flags
     if ($pfmrc{filetypeflags} eq 'dirs') {
         %filetypeflags = ( d => $FILETYPEFLAGS{d} );
-    } elsif (&yesno($pfmrc{filetypeflags})) {
+    } elsif (&isyes($pfmrc{filetypeflags})) {
         %filetypeflags = %FILETYPEFLAGS;
     } else {
         %filetypeflags = ();
@@ -463,7 +467,7 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
         .   '* nnnnnnnnnnnnnnnnnnnnnssssssss uuuuuuuu gggggggglllll pppppppppp:'
     ));
     # parse colorsets
-    if (&yesno($pfmrc{importlscolors}) and $ENV{LS_COLORS} || $ENV{LS_COLOURS}){
+    if (&isyes($pfmrc{importlscolors}) and $ENV{LS_COLORS} || $ENV{LS_COLOURS}){
         $pfmrc{'dircolors[ls_colors]'} =
             &colornum2name($ENV{LS_COLORS} || $ENV{LS_COLOURS});
     }
@@ -736,8 +740,12 @@ sub expand_escapes { # quoteif, command, \%currentfile
     $_[1] =~ s/\\(.)/&expand_replace($qif, $1, $namenoext, $name)/ge;
 }
 
-sub yesno {
-    return $_[0] =~ /^(always|yes|1|true|on)$/i;
+sub isyes {
+    return $_[0] =~ /^(yes|1|true|on|always)$/i;
+}
+
+sub isno {
+    return $_[0] =~ /^(no|0|false|off)$/;
 }
 
 sub min ($$) {
@@ -761,9 +769,16 @@ sub toggle ($) {
     $_[0] = !$_[0];
 }
 
+sub dirname {
+    $_[0] =~ m!^(.*)/.+?!;
+    return length($1) ? $1
+                      : $_[0] =~ m!^/! ? '/'
+                                       : '.';
+}
+
 sub basename {
-    $_[0] =~ /\/([^\/]*)$/; # ok, it has LTS but this looks better in vim
-    return $1;
+    $_[0] =~ /\/([^\/]*)\/?$/; # ok, it has LTS but this looks better in vim
+    return length($1) ? $1 : $_[0];
 }
 
 ##########################################################################
@@ -807,6 +822,46 @@ sub mychdir ($) {
     }
     $currentdir = getcwd() || $ENV{HOME};
     return $result;
+}
+
+sub revertpath {
+    my ($symlink_target_abs, $symlink_name_rel) = @_;
+    # $result ultimately is named as requested
+    my $result  = &basename($symlink_target_abs);
+    # lose the filename from the symlink_target_abs, keep the directory
+    $symlink_target_abs = &dirname($symlink_target_abs);
+    # lose the filename from symlink_name_rel, keep the directory
+    $symlink_name_rel   = &dirname($symlink_name_rel);
+    # only directories in $symlink_name_rel and $symlink_target_abs
+    # revert this path using:
+    # foreach_left_to_right pathname element of symlink_name_rel {
+    #   case '..' : prepend basename target to result
+    #   case else : prepend '..' to result
+    # }
+    foreach (split(m!/!, $symlink_name_rel)) {
+        if ($_ eq '..') {
+            $result             = &basename($symlink_target_abs).'/'.$result;
+            $symlink_target_abs = &dirname($symlink_target_abs);
+        } else {
+            $result             = '../'.$result;
+            $symlink_target_abs.= '/'.$_;
+        }
+    }
+    # squeeze slashes
+    $result =~ tr/\///s;
+    return $result;
+}
+
+sub simplify_paths {
+    my ($symlink_target_abs, $symlink_name_abs) = @_;
+    my $subpath;
+    while (($subpath) = ($symlink_target_abs =~ m!^(/[^/]+)(/|$)!)
+    and index($symlink_name_abs, $subpath) != -1)
+    {
+        $symlink_target_abs =~ s!^/[^/]+!!;
+        $symlink_name_abs   =~ s!^/[^/]+!!;
+    }
+    return $symlink_target_abs, $symlink_name_abs;
 }
 
 sub fileforall {
@@ -1288,6 +1343,8 @@ sub header {
         .     ' Write-hist ESC';
     } elsif ($mode & $HEADER_INCLUDE) {
         return 'Include? Every, Oldmarks, After, Before, User or Files only:';
+    } elsif ($mode & $HEADER_LNKTYPE) {
+        return 'Absolute, Relative symlink or Hard link:';
     } else {
         return 'Attribute Copy Delete Edit Find Include tarGet Link More Name'
         .     ' cOmmands Print Quit Rename Show Time User eXclude'
@@ -2093,13 +2150,20 @@ sub handlekeyell {
 
 sub handlesymlink {
     my ($newname, $loopfile, $do_this, $index, $newnameexpanded, $targetstring,
-        $findindex, $testname, $err);
-    my $prompt = 'New symbolic link: ';
-    my @lncmd = $clobber ? qw(ln -sf) : qw(ln -s);
+        $findindex, $testname, $err, $headerlength, $absrel,
+        $simpletarget, $simplename);
+    my @lncmd = $clobber ? qw(ln -f) : qw(ln);
     my $do_a_refresh = $multiple_mode ? $R_DIRLIST | $R_HEADER : $R_HEADER;
     &markcurrentline('L') unless $multiple_mode;
+    $headerlength = &init_header($HEADER_LNKTYPE);
+    $absrel = lc($scr->at(0, $headerlength+1)->getch());
+    return $R_HEADER unless $absrel =~ /^[arh]$/;
+    push @lncmd, '-s' if $absrel =~ /h/;
     $scr->at(0,0)->clreol();
     &stty_raw($TERM_COOKED);
+    my $prompt = 'Name of new '.
+        ( $absrel eq 'r' ? 'relative symbolic'
+        : $absrel eq 'a' ? 'absolute symbolic' : 'hard') . ' link: ';
     push (@path_history, $currentfile{name}) unless $multiple_mode;
     $newname = &readintohist(\@path_history, $prompt);
     if ($#path_history > 0 and $path_history[-1] eq $path_history[-2]) {
@@ -2118,11 +2182,29 @@ sub handlesymlink {
         return $R_HEADER;
     }
     $do_this = sub {
-        if (-d $newnameexpanded or $newnameexpanded =~ m!^[^/]+/!) {
-            $targetstring = $currentdir . "/" . $loopfile->{name};
-        } else {
-            $targetstring = $loopfile->{name};
+        if (-d $newnameexpanded) {
+            # make sure $newname is a file (not a directory)
+            $newnameexpanded .= '/'.$loopfile->{name};
         }
+        if ($absrel eq 'r') {
+            if ($newnameexpanded =~ m!^/!) {
+                # make absolute path relative
+                ($simpletarget, $simplename) = &simplify_paths(
+                    $currentdir.'/'.$loopfile->{name}, $newnameexpanded);
+                $simplename =~ s!^/!!;
+                $targetstring = &revertpath($simpletarget, $simplename);
+            } elsif ($newnameexpanded !~ m!/!) {
+                # relative in same dir: ok
+                $targetstring = $loopfile->{name};
+            } else {
+                # relative in another dir: revert path
+                $targetstring = &revertpath($currentdir.'/'.$loopfile->{name},
+                                            $newnameexpanded);
+            }
+        } elsif ($targetstring !~ m!^/!) {
+            # make relative path absolute
+            $targetstring = $currentdir . "/" . $loopfile->{name};
+        } # else absolute path wanted and got, do nothing
         if (system @lncmd, $targetstring, $newnameexpanded) {
             $do_a_refresh |= &neat_error($!);
         } elsif ($newnameexpanded !~ m!/!) {
@@ -3349,21 +3431,21 @@ timestampformat:%y %b %d %H:%M
 ## translate spaces when viewing Name
 translatespace:no
 
+## use color (yes,no,force)
+## 'no'    = use no color at all
+## 'yes'   = use color if your terminal is thought to support it
+## 'force' = use color on any terminal
+## define your colors below ('framecolors' and 'dircolors')
+usecolor:force
+
 ## preferred image editor/viewer (does not need \2)
 viewer:xv
 
 ##########################################################################
 ## colors
 
-## use color (yes,no,force)
-## 'no'    = use no color at all
-## 'yes'   = use color for the frame, if your terminal is thought to support it
-## 'force' = use color for the frame on any terminal
-## your *files* will only be colored if you also define 'dircolors' below
-usecolor:force
-
 ## you may define as many different colorsets as you like.
-## use the notation 'framecolors[setname]' and 'dircolors[setname]'.
+## use the notation 'framecolors[colorsetname]' and 'dircolors[colorsetname]'.
 ## the F4 key will cycle through these colorsets.
 ## the special setname 'off' is used for no coloring.
 
@@ -3527,49 +3609,115 @@ your[z]:gzip \2
 ##########################################################################
 ## launch commands (not implemented)
 
-## the defined file types do not *have* to be valid MIME types
-extension[*.jpg] : image/jpeg
-extension[*.jpeg]: image/jpeg
+## should the filetype be determined by magic (file(1)), by extension,
+## or should we prefer one method and fallback on the other?
+## allowed values: 'extension' 'magic' 'extension,magic' 'magic,extension'
+launchby:extension,magic
+
+## the file type names do not have to be valid MIME types
+extension[*.3i]  : application/x-intercal
+extension[*.Z]   : application/x-compress
+extension[*.arj] : application/x-arj
+extension[*.au]  : audio/basic
+extension[*.avi] : video/x-msvideo
+extension[*.bat] : application/x-msdos-batch
+extension[*.bf]  : application/x-befunge
+extension[*.bin] : application/octet-stream
+extension[*.bmp] : image/x-ms-bitmap
+extension[*.bz2] : application/x-bzip2
+extension[*.c]   : application/x-c
+extension[*.cmd] : application/x-msdos-batch
+extension[*.com] : application/x-executable
+extension[*.css] : text/css
+extension[*.deb] : application/x-deb
+extension[*.doc] : application/x-ms-office
+extension[*.dll] : application/octet-stream
+extension[*.eps] : application/postscript
+extension[*.exe] : application/x-executable
 extension[*.gif] : image/gif
+extension[*.gz]  : application/x-gzip
+extension[*.htm] : text/html
+extension[*.html]: text/html
+extension[*.i]   : application/x-intercal
+extension[*.jpeg]: image/jpeg
+extension[*.jpg] : image/jpeg
+extension[*.lzh] : application/x-lha
+extension[*.mid] : audio/midi
+extension[*.midi]: audio/midi
+extension[*.mov] : video/quicktime
+extension[*.mp2] : audio/mpeg
+extension[*.mp3] : audio/mpeg
+extension[*.mpeg]: video/mpeg
+extension[*.mpg] : video/mpeg
+extension[*.pas] : application/x-pascal
+extension[*.pdf] : application/pdf
+extension[*.ppt] : application/x-ms-office
+extension[*.pl]  : application/x-perl
+extension[*.pm]  : application/x-perl-module
 extension[*.png] : image/png
+extension[*.ps]  : application/postscript
+extension[*.qt]  : video/quicktime
+extension[*.ra]  : audio/x-realaudio
+extension[*.ram] : audio/x-pn-realaudio
+extension[*.rpm] : application/x-rpm
+extension[*.tar] : application/x-tar
+extension[*.taz] : application/x-tar-compress
+extension[*.tgz] : application/x-tar-gzip
 extension[*.tif] : image/tiff
 extension[*.tiff]: image/tiff
 extension[*.txt] : text/plain
-extension[*.htm] : text/html
-extension[*.html]: text/html
-extension[*.css] : text/css
-extension[*.ps]  : application/postscript
-extension[*.eps] : application/postscript
-extension[*.pdf] : application/pdf
-extension[*.tar] : application/x-tar
-extension[*.rpm] : application/x-rpm
-extension[*.zip] : application/zip
-extension[*.mp3] : audio/mpeg
-extension[*.mp2] : audio/mpeg
-extension[*.mid] : audio/midi
-extension[*.midi]: audio/midi
-extension[*.au]  : audio/basic
 extension[*.wav] : audio/x-wav
-extension[*.ram] : audio/x-pn-realaudio
-extension[*.ra]  : audio/x-realaudio
-extension[*.mpg] : video/mpeg
-extension[*.mpeg]: video/mpeg
-extension[*.qt]  : video/quicktime
-extension[*.mov] : video/quicktime
-extension[*.avi] : video/x-msvideo
-extension[*.bf]  : application/x-befunge
-extension[*.i]   : application/x-intercal
-extension[*.3i]  : application/x-intercal
+extension[*.xbm] : image/x-xbitmap
+extension[*.xpm] : image/x-xpixmap
+extension[*.xls] : application/x-ms-office
+extension[*.z]   : application/x-compress
+extension[*.zip] : application/zip
 
 magic[JPEG image]:image/jpeg
 magic[PostScript document]:application/postscript
 
-launch[image/jpeg] : \v \2
-launch[image/tiff] : \v \2
-launch[image/png]  : \v \2
-launch[image/gif]  : \v \2
-launch[application/x-intercal] : \e \2
-launch[application/x-befunge]  : mtfi \2
+launch[application/octet-stream]  : \p \2
+launch[application/pdf]           : acroread \2 &
+launch[application/postscript]    : ggv \2 &
+launch[application/x-arj]         : unarj x \2
+launch[application/x-befunge]     : mtfi \2
+launch[application/x-bzip2]       : bunzip2 \2
+launch[application/x-c]           : gcc -o \1 \2
+launch[application/x-compress]    : uncompress \2
+#launch[application/x-deb]         :
+launch[application/x-executable]  : wine \2 &
+launch[application/x-gzip]        : gunzip \2
+launch[application/x-intercal]    : ick \2
+#launch[application/x-lha]         :
+#launch[application/x-msdos-batch] :
+launch[application/x-ms-office]   : \e \2
+launch[application/x-pascal]      : \e \2
+launch[application/x-perl-module] : \e \2
+launch[application/x-perl]        : \2
+launch[application/x-rpm]         : rpm -Uvh \2
+launch[application/x-tar-compress]: uncompress < \2 | tar xvf -
+launch[application/x-tar-gzip]    : gunzip < \2 | tar xvf -
+launch[application/x-tar]         : tar xvf \2
+launch[application/zip]           : unzip \2
+launch[audio/basic]               : esdplay \2 &
+launch[audio/midi]                : timidity \2 &
+launch[audio/mpeg]                : mpg123 \2 &
+launch[audio/x-pn-realaudio]      : realplay \2 &
+launch[audio/x-realaudio]         : realplay \2 &
+launch[audio/x-wav]               : esdplay \2 &
+launch[image/gif]                 : \v \2 &
+launch[image/jpeg]                : \v \2 &
+launch[image/png]                 : \v \2 &
+launch[image/tiff]                : \v \2 &
+launch[image/x-ms-bitmap]         : \v \2 &
+launch[image/x-xbitmap]           : \v \2 &
+launch[image/x-xpixmap]           : \v \2 &
+launch[text/css]                  : \e \2
+launch[text/html]                 : \e \2
+launch[text/plain]                : \e \2
+#launch[video/mpeg]                :
+#launch[video/quicktime]           :
+launch[video/x-msvideo]           : divxPlayer \2 &
 
 ## vi: set filetype=xdefaults: # fairly close
 __END__
@@ -3578,6 +3726,10 @@ __END__
 # pod documentation
 
 =pod
+
+=for remark put an extra S< > between:
+(1) a filename and interpunction;
+(2) a "quoted" punctuation character and interpunction.
 
 =head1 NAME
 
@@ -3607,8 +3759,8 @@ I<regular files>.
 =head1 OPTIONS
 
 Most of C<pfm>'s configuration is read from a config file. The default
-location for this file is F<$HOME/.pfm/.pfmrc> , but an alternative location
-may be specified with the environment variable C<PFMRC> . If there is no
+location for this file is F<$HOME/.pfm/.pfmrc>S< >, but an alternative location
+may be specified with the environment variable C<PFMRC>. If there is no
 config file present at startup, one will be created. The file contains
 many comments on the available options, and is therefore supposed to be
 self-explanatory. C<pfm> will issue a warning if the config file version
@@ -3728,7 +3880,7 @@ regular files whose filenames match a specified regular expression
 =item B<O>ldmarks
 
 files which were previously marked and are now denoted with
-an I<oldmark> B<.>
+an I<oldmark> (S< >B<.>S< >).
 
 =item B<U>ser
 
@@ -3736,14 +3888,21 @@ files owned by the current user
 
 =back
 
-Oldmarks may be used to do multifile operations on a group of files more
-than once.
+Oldmarks may be used to perform more than one command on a group of files.
 
 =item B<Link>
 
-Create a symbolic link to the current file or directory. The symlink will
-become relative if you are creating it in the current directory, otherwise
-it will contain an absolute path.
+Create a symbolic or hard link to the current file or directory. You will
+be given the option of creating a symlink with a relative or an absolute
+pathname to the target, or a hard link. It is irrelevant whether you
+specify a symlink name with an absolute or relative path, because C<pfm>
+will make sure the symlink target will have a pathname of the requested type.
+
+Example: when the cursor is on the file F</home/rene/incoming/.profile>S< >,
+and you request a relative symlink to be made with either the name
+F<../.profile> or F<~/.profile>S< >, the actual symlink will become:
+
+    /home/rene/.profile -> incoming/.profile
 
 Note that if the current file is a directory, the B<l> key, being one of
 the vi(1) cursor keys, will chdir() you into the directory. The capital
@@ -3825,7 +3984,7 @@ Also see QUOTING RULES below.
 
 =item B<Print>
 
-Will prompt for a print command (default C<lpr -P$PRINTER \2>, or
+Will prompt for a print command (default C<lpr -P$PRINTER \2>S< >, or
 C<lpr \2> if C<PRINTER> is unset) and will pipe the current file through
 it. No formatting is done. You may specify a print command with the
 'printcmd' option in the F<.pfmrc> file.
@@ -3876,8 +4035,8 @@ criterion. See B<I>nclude for details.
 
 Like cB<O>mmand (see above), except that it uses case-insensitive
 one-letter commands that have been preconfigured in the F<.pfmrc> file.
-B<Y>our commands may use B<\1>-B<\6> and B<\e>,B<\p>,B<\v> escapes just
-as in cB<O>mmand, e.g.
+B<Y>our commands may use B<\1>S< - >B<\6> and B<\e>S< , >B<\p>S< , >B<\v>
+escapes just as in cB<O>mmand, e.g.
 
     your[c]:tar cvf - \2 | gzip > \2.tar.gz
     your[t]:tar tvf \2 | \p
@@ -3897,9 +4056,12 @@ that column will be used. Otherwise, the 'filesize' column will temporarily
 be (ab)used. A 'grand total' column in the layout will never be filled in
 when entering the directory.
 
-Note: since du(1) is not portable, you might have to specify the C<du>
-command (or C<du | awk> combination) applicable for your Unix version in
-the F<.pfmrc> file. Examples are provided.
+Note: since du(1) commands are not portable, C<pfm> guesses how it can
+calculate the size according to the Unix variant that it runs on. If C<pfm>
+guesses this incorrectly, you might have to specify the C<du> command (or
+C<du | awk> combination) applicable for your Unix version in the F<.pfmrc>
+file. Examples are provided. Please notify the author if you know any
+corrections that should be made.
 
 =back
 
@@ -3914,8 +4076,8 @@ These commands are accessible through the main-screen B<M>ore command.
 This command will open the F<.pfmrc> config file with your preferred
 editor. The file will be re-read by C<pfm> after you exit your editor.
 Options that are only modifiable through the config file (like
-'columnlayouts') will be reinitialized immediately, options that may be
-altered by key commands (like 'sortmode') will not.
+'columnlayouts') will be reinitialized immediately, options that affect
+settings modifiable by key commands (like 'defaultsortmode') will not.
 
 =item B<Edit new file>
 
@@ -3951,7 +4113,7 @@ pathnames, regular expressions, modification times, and file modes
 entered. The history is read from individual files in F<$HOME/.pfm/>
 every time C<pfm> starts. The history is written only when this command
 is given, or when C<pfm> exits and the 'autowritehistory' option is set
-in F<.pfmrc> .
+in F<.pfmrc>S< >.
 
 =back
 
@@ -4032,7 +4194,7 @@ first time, you are prompted for a directory path to show. When switching
 back by pressing B<F7> again, the contents of the alternate directory are
 displayed unchanged. Header text changes color when in swap screen.
 The directory path from the alternate screen may be referred to in
-commands as B<\5>. If the 'persistentswap' option has been set in the
+commands as B<\5>S< >. If the 'persistentswap' option has been set in the
 config file, then leaving the swap mode will store the main directory
 path as swap path again.
 
@@ -4042,9 +4204,9 @@ Toggles the mark (include flag) on an individual file.
 
 =item B<F9>
 
-Toggle the column layout. Layouts are defined in your F<.pfmrc>, through
-the 'defaultlayout' and 'columnlayouts' options. See the config file for
-information on changing the column layout.
+Toggle the column layout. Layouts are defined in your F<.pfmrc>S< >,
+through the 'defaultlayout' and 'columnlayouts' options. See the config
+file for information on changing the column layout.
 
 Note that a 'grand total' column in the layout will only be filled when
 the siB<Z>e command is issued.
@@ -4111,15 +4273,15 @@ with the character itself.
 I<Ergo>, the difference between a filename and a command lies in the number
 of backslashes necessary for non-C<[1-6evp]> characters.
 
-The result of this is that C<\\> used in a filename will result in a
-filename containing one C<\> . This would be handed to the shell as C<\\> .
+The result of this is that C<\\> used in a filename will result in a filename
+containing one C<\>S< >. This would be handed to the shell as C<\\>S< >.
 
-In a shell command, C<\\> will also expand to one C<\> , which is probably
-not what you want. You may want to enter C<\\\\> which is handed to the
-shell as C<\\> which the shell interprets as one quoted C<\> .
+In a shell command, C<\\> will also expand to one C<\>S< >, which is
+probably not what you want. You may want to enter C<\\\\> which is handed
+to the shell as C<\\> which the shell interprets as one quoted C<\>S< >.
 
 Similarly, the command C<echo "Hello\n"> will have to be entered as
-C<echo "Hello\\n">, but C<echo "This file is called \2"> works as
+C<echo "Hello\\n">S< >, but C<echo "This file is called \2"> works as
 expected.
 
 =head1 MOUSE COMMANDS
@@ -4138,16 +4300,14 @@ The cursor will I<only> be moved when the title or footer is clicked, or
 when changing directory.
 
 Mouse use will be turned off during the execution of commands, unless
-'mouseturnoff' is set to 'no' in F<.pfmrc> . Note that setting this to
+'mouseturnoff' is set to 'no' in F<.pfmrc>S< >. Note that setting this to
 'no' means that your (external) commands (like your pager and editor)
 will receive escape codes when the mouse is clicked.
 
 =head1 WORKING DIRECTORY INHERITANCE
 
-=over
-
 Upon exit, C<pfm> will save its current working directory in a file
-F<$HOME/.pfm/cwd> . In order to have this directory "inherited" by the
+F<$HOME/.pfm/cwd>S< >. In order to have this directory "inherited" by the
 calling process (shell), you may call C<pfm> using a function or alias
 like the following:
 
@@ -4169,8 +4329,6 @@ Example for csh(1) and tcsh(1):
             rm -f ~/.pfm/cwd            \
     endif'
 
-=back
-
 =head1 ENVIRONMENT
 
 =over
@@ -4178,12 +4336,12 @@ Example for csh(1) and tcsh(1):
 =item B<ANSI_COLORS_DISABLED>
 
 Detected by C<Term::ANSIScreen> as an indication that ANSI coloring should
-not be used.
+not be used. Used internally to suppress color when 'usecolor' is turned off.
 
 =item B<CDPATH>
 
 A colon-separated list of directories specifying the search path when
-changing directories. There is an implicit 'B<.>' entry at the start of
+changing directories. There is an implicit B<.> entry at the start of
 this search path. Make sure the variable is exported into the environment
 if you want to use this feature.
 
@@ -4216,7 +4374,7 @@ for Linux systems or more(1) for Unix systems.
 =item B<PERL_RL>
 
 Indicate whether and how the C<readline> prompts should be highlighted.
-See Term::ReadLine(3pm) . If unset, a good guess is made based on your
+See Term::ReadLine(3pm)S< >. If unset, a good guess is made based on your
 config file 'framecolors[]' setting.
 
 =item B<PFMRC>
@@ -4224,7 +4382,7 @@ config file 'framecolors[]' setting.
 Specify a location of an alternate F<.pfmrc> file. If unset, the default
 location F<$HOME/.pfm/.pfmrc> is used. The cwd- and history-files cannot
 be displaced in this manner, and will always be located in the directory
-F<$HOME/.pfm/>.
+F<$HOME/.pfm/>S< >.
 
 =item B<PRINTER>
 
@@ -4245,7 +4403,7 @@ The editor to be used for the B<E>dit command. Overrides C<EDITOR>.
 The directory F<$HOME/.pfm/> and files therein. The current working
 directory on exit and several input histories are saved to this directory.
 
-The default location for the config file is F<$HOME/.pfm/.pfmrc>.
+The default location for the config file is F<$HOME/.pfm/.pfmrc>S< >.
 
 =head1 DIAGNOSIS
 
@@ -4268,14 +4426,10 @@ pressing B<ESC>. For most commands, you will need to clear the half-finished
 line. You may use the terminal kill character (usually B<CTRL-U>) for this
 (see stty(1)).
 
-When key repeat sets in, some of the registered keypresses may not be
-processed before another key is pressed. This can be dangerous when
-deleting files. The author once almost pressed B<ENTER> when logged in
-as root and with the cursor next to F</sbin/reboot> . You have been warned.
-
-Commands that are started from a shell (e.g. with B<Y>our or cB<O>mmand)
-enclose the filename in double quotes to allow names with spaces.
-This prevents the correct processing of filenames containing double quotes.
+When key repeat sets in, some of the registered keypresses may not
+be processed before another key is pressed. This can be dangerous when
+deleting files. The author once almost pressed B<ENTER> when logged in as
+root and with the cursor next to F</sbin/reboot>S< >. You have been warned.
 
 The smallest terminal size supported is 80x24. The display will be messed
 up if you resize your terminal window to a smaller size.
@@ -4285,11 +4439,11 @@ memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.90.5 .
+This manual pertains to C<pfm> version 1.91.
 
 =head1 SEE ALSO
 
-The documentation on PFMS<.>COM . The manual pages for chmod(1), less(1),
+The documentation on PFMS<.>COM. The manual pages for chmod(1), less(1),
 locale(7), lpr(1), touch(1), vi(1), Term::ANSIScreen(3pm), Term::ReadLine(3pm),
 and Term::Screen(3pm).
 
