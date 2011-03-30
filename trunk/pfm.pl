@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20030123 v1.90.1
+# @(#) pfm.pl 19990314-20030123 v1.90.2
 #
 # Name:         pfm.pl
-# Version:      1.90.1
+# Version:      1.90.2
 # Author:       Rene Uittenbogaard
 # Date:         2003-01-23
 # Usage:        pfm.pl [ <directory> ] [ -s, --swap <directory> ]
@@ -136,10 +136,6 @@ use vars qw(
     $R_INIT_SWAP
     $R_QUIT
 );
-
-BEGIN {
-    $ENV{PERL_RL} ||= ' ornaments=1';
-}
 
 END {
     # in case something goes wrong
@@ -336,7 +332,7 @@ my (
     $currentpan, $color_mode,
     # dir- and disk info
     $currentdir, $oldcurrentdir, @dircontents, @showncontents, %currentfile,
-    %disk, $swap_state, %total_nr_of, %selected_nr_of,
+    %disk, $swap_state, %total_nr_of, %selected_nr_of, $ident,
     # cursor position
     $currentline, $baseindex, $cursorcol, $filenamecol,
     # misc config options
@@ -478,9 +474,9 @@ sub read_pfmrc { # $readflag - show copyright only on startup (first read)
     # this %{{ }} construct keeps values unique
     @colorsetnames = keys %{{
         map { /\[(\w+)\]/; $1, '' }
-        grep { /^(dir|frame)colors\[/ } keys(%pfmrc),
+        grep { /^(dir|frame)colors\[[^*]/ } keys(%pfmrc)
     }};
-    # keep the default outside of @colorsetnames if not in config file
+    # keep the default outside of @colorsetnames
     defined($pfmrc{'dircolors[*]'})   or $pfmrc{'dircolors[*]'}   = '';
     defined($pfmrc{'framecolors[*]'}) or $pfmrc{'framecolors[*]'} =
         'header=white on blue:multi=bold reverse cyan on white:'
@@ -500,6 +496,8 @@ sub read_pfmrc { # $readflag - show copyright only on startup (first read)
             $framecolors{$_}{$1} = &colornum2name($2);
         }
     }
+    # set color_mode if unset; adjust ornaments
+    &setornaments;
     # repair pre-1.84 style (Y)our commands
     foreach (grep /^.$/, keys %pfmrc) {
         $oldkey = $_;
@@ -611,6 +609,21 @@ sub colornum2name {
     return $intermittent;
 }
 
+sub setornaments {
+    $color_mode  = $color_mode || $pfmrc{defaultcolorset} ||
+        (defined $dircolors{ls_colors} ? 'ls_colors' : $colorsetnames[0]);
+    my $messcolor = $framecolors{$color_mode}{message};
+    my @cols;
+    unless (exists $ENV{PERL_RL}) {
+        # this would have been nice but does not work at all
+        push @cols, 'mr' if ($messcolor =~ /reverse/);
+        push @cols, 'md' if ($messcolor =~ /bold/);
+        push @cols, 'us' if ($messcolor =~ /under(line|score)/);
+        # this processes only the first (=most important) capability
+        $kbd->ornaments(join(';', @cols) . ',me,,');
+    }
+}
+
 sub time2str {
     my ($time, $flag) = @_;
     if ($flag == $TIME_FILE) {
@@ -681,6 +694,7 @@ sub expand_replace { # esc-category, namenoext, name
         /e/ and return $editor;
         /p/ and return $pager;
         /v/ and return $viewer;
+        # this also handles the special \\ case
         return $_;
     }
 }
@@ -904,16 +918,18 @@ sub globalinit {
     &Getopt::Long::Configure('bundling');
     GetOptions ('s|swap=s'  => \$swapstartdir,
                 'h|help'    => \$opt_help,
-                'v|version' => \$opt_version) || sleep $ERRORDELAY;
-    &usage if $opt_help;
+                'v|version' => \$opt_version) or $opt_help = 2;
+    &usage        if $opt_help;
     &printversion if $opt_version;
-    if ($opt_help or $opt_version) { exit 0 }
+    exit 1        if $opt_help == 2;
+    exit 0        if $opt_help or $opt_version;
     $startingdir = shift @ARGV;
     $SIG{WINCH}  = \&resizecatcher;
-    $kbd = Term::ReadLine->new('pfm', \*STDIN, \*STDOUT);
+#    $Term::ANSIScreen::AUTORESET = 1;
+    # &read_pfmrc() needs $kbd for setting keymap and ornaments
+    $kbd = Term::ReadLine->new('pfm');
     $scr = Term::Screen->new();
     $scr->clrscr();
-#    $Term::ANSIScreen::AUTORESET = 1;
     &read_pfmrc($READ_FIRST);
     &read_history;
     %user           = &init_uids;
@@ -924,10 +940,11 @@ sub globalinit {
     $swap_state     = 0;
     $currentpan     = 0;
     $baseindex      = 0;
+    chomp ($ident   = $user{$>});
+#    $ident         .= '@'.`hostname`;
     $sort_mode      = $pfmrc{defaultsortmode} || 'n';
     $currentlayout  = $pfmrc{defaultlayout}   || 0;
-    $color_mode     = $pfmrc{defaultcolorset} ||
-        (defined $dircolors{ls_colors} ? 'ls_colors' : $colorsetnames[0]);
+    # color_mode has been set in setornaments (called from read_pfmrc)
     if ($scr->rows()) { $screenheight = $scr->rows()-$BASELINE-2 }
     if ($scr->cols()) { $screenwidth  = $scr->cols() }
     &makeformatlines;
@@ -1407,9 +1424,9 @@ _eoCredits_
 
 sub user_info {
     $^A = "";
-    formline('@>>>>>>>', $user{$>});
+    formline('@>>>>>>>>>>>>', $ident);
     color 'red' unless ($>); # red for root
-    $scr->at($USERLINE, $screenwidth-$DATECOL+6)->puts($^A);
+    $scr->at($USERLINE, $screenwidth-$DATECOL+1)->puts($^A);
     color 'reset';
 }
 
@@ -1583,6 +1600,7 @@ sub handlecolor {
     }
     if ($index-- <= 0) { $index = $#colorsetnames }
     $color_mode = $colorsetnames[$index];
+    &setornaments;
     return $R_SCREEN;
 }
 
@@ -1833,14 +1851,12 @@ sub handlemoremake {
 sub handlemoreconfig {
     my $do_a_refresh = $R_CLEAR;
     my $olddotdot    = $dotdot_mode;
-#    my $oldsort      = $sort_mode;
     if (system $editor, "$CONFIGDIRNAME/$CONFIGFILENAME") {
         &display_error($!);
     } else {
         &read_pfmrc($READ_AGAIN);
         if ($olddotdot != $dotdot_mode) {
             # allowed to switch dotdot mode (no key), but not sortmode (use F6)
-#            $sort_mode     = $oldsort;
             $position_at   = $currentfile{name};
             $do_a_refresh |= $R_DIRSORT;
         }
@@ -4082,6 +4098,11 @@ Determine locale settings. See locale(7).
 Identifies the pager with which to view text files. Defaults to less(1)
 for Linux systems or more(1) for Unix systems.
 
+=item B<PERL_RL>
+
+Indicate whether and how the C<readline> prompts should be highlighted.
+See Term::ReadLine(3pm)
+
 =item B<PFMRC>
 
 Specify a location of an alternate F<.pfmrc> file. If unset, the default
@@ -4126,7 +4147,7 @@ To prevent the warning from occurring again, update the '## Version' line.
 When typed by itself, the B<ESC> key needs to be pressed twice. This is
 due to the lack of a proper timeout in C<Term::Screen>.
 
-The F<readline> library does not allow a half-finished line to be aborted by
+C<Term::ReadLine::Gnu> does not allow a half-finished line to be aborted by
 pressing B<ESC>. For most commands, you will need to clear the half-finished
 line. You may use the terminal kill character (usually B<CTRL-U>) for this
 (see stty(1)).
@@ -4148,13 +4169,13 @@ memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.90.1 .
+This manual pertains to C<pfm> version 1.90.2 .
 
 =head1 SEE ALSO
 
-The documentation on PFMS<.>COM . The mentioned manual pages for chmod(1),
-less(1), lpr(1), touch(1), vi(1), and locale(7). The manual pages for
-Term::ANSIScreen(3pm), Term::ReadLine(3pm), and Term::Screen(3pm).
+The documentation on PFMS<.>COM . The manual pages for chmod(1), less(1),
+locale(7), lpr(1), touch(1), vi(1), Term::ANSIScreen(3pm), Term::ReadLine(3pm),
+and Term::Screen(3pm).
 
 =head1 AUTHOR
 
