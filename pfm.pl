@@ -1,19 +1,17 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20030113 v1.89
+# @(#) pfm.pl 19990314-20030123 v1.90.1
 #
 # Name:         pfm.pl
-# Version:      1.89 - quoting revised - still buggy
+# Version:      1.90.1
 # Author:       Rene Uittenbogaard
-# Date:         2003-01-13
+# Date:         2003-01-23
 # Usage:        pfm.pl [ <directory> ] [ -s, --swap <directory> ]
 #                      [ -v, --version | -h, --help ]
 # Requires:     Term::ANSIScreen
-#               Term::Screen
-#               Term::Cap
-#               Term::ReadLine::Gnu
 #               Term::ReadLine
+#               Term::Screen
 #               POSIX
 #               Config
 #               Cwd
@@ -36,6 +34,7 @@
 #       use the nameindexmap from handledelete() more globally?
 #         in handlecopyrename()? in handlefind() in handlesymlink? in dirlookup?
 #       sub fileforall(sub) ?
+#       hostname instead of username?
 #
 #       solve timezone bug in (I)nclude (B)efore/(A)fter
 #       implement ENTER -> launch action for filetype?
@@ -81,8 +80,8 @@
 require 5.005; # for negative lookbehind in re
 
 use Term::ANSIScreen;
-use Term::Screen;
 use Term::ReadLine;
+use Term::Screen;
 use Getopt::Long;
 use POSIX qw(strftime mktime);
 use Config;
@@ -117,9 +116,10 @@ use vars qw(
     $HEADER_SORT
     $HEADER_INCLUDE
     $TITLE_DISKINFO
-    $TITLE_COMMAND
+    $TITLE_YCOMMAND
     $TITLE_SIGNAL
     $TITLE_SORT
+    $TITLE_ESCAPE
     $R_NOP
     $R_STRIDE
     $R_HEADER
@@ -138,7 +138,7 @@ use vars qw(
 );
 
 BEGIN {
-    $ENV{PERL_RL} = 'Gnu ornaments=1';
+    $ENV{PERL_RL} ||= ' ornaments=1';
 }
 
 END {
@@ -171,9 +171,10 @@ END {
 *HEADER_SORT    = \4;
 *HEADER_INCLUDE = \8;
 *TITLE_DISKINFO = \0;
-*TITLE_COMMAND  = \1;
+*TITLE_YCOMMAND = \1;
 *TITLE_SIGNAL   = \2;
 *TITLE_SORT     = \3;
+*TITLE_ESCAPE   = \4;
 *R_NOP          = \0;
 *R_STRIDE       = \1;
 *R_HEADER       = \2;
@@ -212,7 +213,7 @@ my $BASELINE            = 3;
 my $USERLINE            = 21;
 my $DATELINE            = 22;
 my $DATECOL             = 14;
-my $CONFIGFILEMODE      = 0777;
+my $CONFIGDIRMODE       = 0700;
 my $DFCMD               = ($^O eq 'hpux') ? 'bdf' : 'df -k';
 
 my %ONOFF               = ('' => 'off', 0 => 'off', 1 => 'on');
@@ -244,6 +245,19 @@ my @SORTMODES = (
    's'=>'Size',        S =>' reverse',
     t =>'Type',        T =>' reverse',
     i =>'Inode',       I =>' reverse',
+);
+
+my %CMDESCAPES = (
+    '\1'   => 'name',
+    '\2'   => 'name.ext',
+    '\3'   => 'curr path',
+    '\4'   => 'mountpoint',
+    '\5'   => 'swap path',
+    '\6'   => 'base path',
+    '\\\\' => 'backslash',
+    '\e'   => 'editor',
+    '\p'   => 'pager',
+    '\v'   => 'viewer',
 );
 
 # AIX,BSD,Tru64: du gives blocks, du -k kbytes
@@ -326,9 +340,10 @@ my (
     # cursor position
     $currentline, $baseindex, $cursorcol, $filenamecol,
     # misc config options
-    $editor, $pager, $printcmd, $ducmd, $showlockchar, $autoexitmultiple,
-    $clobber, $cursorveryvisible, $clsonexit, $autowritehistory, $viewbase,
-    $trspace, $swap_persistent, $timeformat, $timestampformat, $mouseturnoff,
+    $editor, $pager, $viewer, $printcmd, $ducmd, $showlockchar,
+    $autoexitmultiple, $clobber, $cursorveryvisible, $clsonexit,
+    $autowritehistory, $viewbase, $trspace, $swap_persistent, $timeformat,
+    $timestampformat, $mouseturnoff,
     @colorsetnames, %filetypeflags, $swapstartdir,
     # layouts and formatting
     @columnlayouts, $currentlayout, @layoutfields, $currentformatline,
@@ -365,7 +380,7 @@ sub read_pfmrc { # $readflag - show copyright only on startup (first read)
     unless (-r &whichconfigfile) {
         unless ($ENV{PFMRC} || -d $CONFIGDIRNAME) {
             # only make directory for default location ($ENV{PFMRC} unset)
-            mkdir $CONFIGDIRNAME, $CONFIGFILEMODE;
+            mkdir $CONFIGDIRNAME, $CONFIGDIRMODE;
         }
         &write_pfmrc;
     }
@@ -433,6 +448,7 @@ sub read_pfmrc { # $readflag - show copyright only on startup (first read)
                          ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER} \\2" : 'lpr \2');
     $showlockchar      = ( $pfmrc{showlock} eq 'sun' && $^O =~ /sun|solaris/i
                              or &yesno($pfmrc{showlock}) ) ? 'l' : 'S';
+    $viewer            = $pfmrc{viewer} || 'xv';
     $editor            = $ENV{VISUAL} || $ENV{EDITOR} || $pfmrc{editor} || 'vi';
     $pager             = $ENV{PAGER}  || $pfmrc{pager}  ||
                              ($^O =~ /linux/i ? 'less' : 'more');
@@ -456,6 +472,7 @@ sub read_pfmrc { # $readflag - show copyright only on startup (first read)
         $pfmrc{'dircolors[ls_colors]'} =
             &colornum2name($ENV{LS_COLORS} || $ENV{LS_COLOURS});
     }
+    $pfmrc{'dircolors[off]'}   = '';
     $pfmrc{'framecolors[off]'} =
         'title=reverse:swap=reverse:footer=reverse:highlight=bold:';
     # this %{{ }} construct keeps values unique
@@ -464,19 +481,21 @@ sub read_pfmrc { # $readflag - show copyright only on startup (first read)
         grep { /^(dir|frame)colors\[/ } keys(%pfmrc),
     }};
     # keep the default outside of @colorsetnames if not in config file
-    $pfmrc{'framecolors[default]'} ||=
+    defined($pfmrc{'dircolors[*]'})   or $pfmrc{'dircolors[*]'}   = '';
+    defined($pfmrc{'framecolors[*]'}) or $pfmrc{'framecolors[*]'} =
         'header=white on blue:multi=bold reverse cyan on white:'
     .   'title=bold reverse cyan on white:swap=reverse black on cyan:'
     .   'footer=bold reverse blue on white:message=bold cyan:highlight=bold:';
     foreach (@colorsetnames, 'default') {
-        # should there be no dircolors[thisname], leave it undefined
-        if (defined $pfmrc{"dircolors[$_]"}) {
-            while ($pfmrc{"dircolors[$_]"} =~ /([^:=*]+)=([^:=]+)/g ) {
-                $dircolors{$_}{$1} = &colornum2name($2);
-            }
+        # should there be no dircolors[thisname], use the default
+        defined($pfmrc{"dircolors[$_]"})
+            or $pfmrc{"dircolors[$_]"} = $pfmrc{'dircolors[*]'};
+        while ($pfmrc{"dircolors[$_]"} =~ /([^:=*]+)=([^:=]+)/g ) {
+            $dircolors{$_}{$1} = &colornum2name($2);
         }
-        # should there be no framecolors[thisname], provide a default
-        $pfmrc{"framecolors[$_]"} ||= $pfmrc{'framecolors[default]'};
+        # should there be no framecolors[thisname], use the default
+        defined($pfmrc{"framecolors[$_]"})
+            or $pfmrc{"framecolors[$_]"} = $pfmrc{'framecolors[*]'};
         while ($pfmrc{"framecolors[$_]"} =~ /([^:=*]+)=([^:=]+)/g ) {
             $framecolors{$_}{$1} = &colornum2name($2);
         }
@@ -515,7 +534,7 @@ sub write_history {
     }
     $scr->puts('History written successfully') unless $failed;
     color 'reset';
-    &scr->key_pressed($ERRORDELAY);
+    $scr->key_pressed($ERRORDELAY);
     $scr->key_pressed($IMPORTANTDELAY) if $failed;
     return $R_HEADER;
 }
@@ -545,10 +564,10 @@ sub write_cwd {
 # some translations
 
 sub getversion {
-    my $ver = '?';
+    my $ver = 'unknown';
     if ( open (SELF, $0) || open (SELF, `which $0`) ) {
-        foreach (grep /^#+ Version:/, <SELF>) {
-            /([\d\.]+\w)/ and $ver = "$1";
+        while (<SELF>) {
+        /^#+ Version: +([\d\w\.]+)/ and $ver = "$1";
         }
         close SELF;
     }
@@ -597,7 +616,7 @@ sub time2str {
     if ($flag == $TIME_FILE) {
         return strftime ($timestampformat, localtime $time);
     } else {
-        return strftime ("%Y %a %d %H:%M:%S", localtime $time);
+        return strftime ("%Y %b %d %H:%M:%S", localtime $time);
     }
 }
 
@@ -659,6 +678,9 @@ sub expand_replace { # esc-category, namenoext, name
         /4/ and return $disk{mountpoint};
         /5/ and return $swap_state->{path} if $swap_state;
         /6/ and return &basename($currentdir);
+        /e/ and return $editor;
+        /p/ and return $pager;
+        /v/ and return $viewer;
         return $_;
     }
 }
@@ -1217,7 +1239,8 @@ sub init_title { # swap_mode, extra field, @layoutfields
         $_ == $TITLE_DISKINFO and $info = '     disk info';
         $_ == $TITLE_SORT     and $info = 'sort mode     ';
         $_ == $TITLE_SIGNAL   and $info = '  nr signal   ';
-        $_ == $TITLE_COMMAND  and $info = 'your commands ';
+        $_ == $TITLE_YCOMMAND and $info = 'your commands ';
+        $_ == $TITLE_ESCAPE   and $info = 'esc legend    ';
     }
     color ($linecolor = $smode ? $framecolors{$color_mode}{swap}
                                : $framecolors{$color_mode}{title});
@@ -1513,6 +1536,14 @@ sub by_name {
 
 sub alphabetically {
     return uc($a) cmp uc($b) || $a cmp $b;
+}
+
+sub backslash_middle {
+    if ($a eq '\\' && $b =~ /\d/ or $b eq '\\' && $a =~ /\d/) {
+        return -($a cmp $b);
+    } else {
+        return $a cmp $b;
+    }
 }
 
 ##########################################################################
@@ -2222,13 +2253,12 @@ sub handlechmod {
 
 sub handlecommand { # Y or O
     local $_;
-    my ($key, $command, $do_this, $printstr, $printline, $loopfile, $index);
-    my $prompt;
+    my ($key, $command, $do_this, $printstr, $prompt, $loopfile, $index);
+    my $printline = $BASELINE;
     &markcurrentline(uc($_[0])) unless $multiple_mode;
+    &clearcolumn;
     if ($_[0] =~ /y/i) { # Your
-        &clearcolumn;
-        &init_title($swap_mode, $TITLE_COMMAND, @layoutfields);
-        $printline = $BASELINE;
+        &init_title($swap_mode, $TITLE_YCOMMAND, @layoutfields);
         foreach (sort alphabetically keys %pfmrc) {
             if (/^your\[[[:alpha:]]\]$/
             && $printline <= $BASELINE+$screenheight) {
@@ -2246,13 +2276,20 @@ sub handlecommand { # Y or O
         return $R_DISKINFO | $R_FRAME unless $command = $pfmrc{"your[$key]"};
         &stty_raw($TERM_COOKED);
     } else { # cOmmand
-        $prompt = <<'_eoCommandPrompt_';
-Enter Unix cmd (\1=name \2=name.ext \3=path \4=mountpt \5=swappath \6=basepath):
-_eoCommandPrompt_
+        &init_title($swap_mode, $TITLE_ESCAPE, @layoutfields);
+        foreach (sort backslash_middle keys %CMDESCAPES) {
+            if ($printline <= $BASELINE+$screenheight) {
+                $^A = "";
+                formline('@< @<<<<<<<<<<', $_, $CMDESCAPES{$_});
+                $scr->at($printline++,$screenwidth-$DATECOL)->puts($^A);
+            }
+        }
+        $prompt= 'Enter Unix command (for \[1-6] or \[epv] escapes see right):';
         $scr->at(0,0)->clreol()->puts(&mcolored($prompt))
             ->at($PATHLINE,0)->clreol();
         &stty_raw($TERM_COOKED);
         $command = &readintohist(\@command_history);
+        &clearcolumn;
     }
 #    $command =~ s/^\s*\n?$/$ENV{'SHELL'}/; # PFM.COM behavior
     unless ($command =~ /^\s*\n?$/) {
@@ -2800,7 +2837,7 @@ sub stat_entry { # path_of_entry, selected_flag
     } elsif ($ptr->{type} eq '-' and $mode =~ /[xst]/) {
         $ptr->{display} = $entry . $filetypeflags{'x'};
     } elsif ($ptr->{type} =~ /[bc]/) {
-        $ptr->{size} = sprintf("%d",$rdev/256).$MAJORMINORSEPARATOR.($rdev%256);
+        $ptr->{size_num} = sprintf("%d",$rdev/256).$MAJORMINORSEPARATOR.($rdev%256);
         $ptr->{display} = $entry . $filetypeflags{$ptr->{type}};
     } else {
         $ptr->{display} = $entry . $filetypeflags{$ptr->{type}};
@@ -3176,12 +3213,13 @@ dotmode:no
 ## '.' and '..' entries always at the top of the dirlisting?
 dotdotmode:no
 
-## your system's du(1) command. Specify so that the outcome is in bytes.
-## you need to specify '\2' for the name of the current file.
+## your system's du(1) command (needs \2 for the current filename).
+## Specify so that the outcome is in bytes.
 ## this is commented out because pfm makes a clever guess for your OS.
 #ducmd:du -sk \2 | awk '{ printf "%d", 1024 * $1 }'
 
-## specify your favorite editor. you can also use $EDITOR for this
+## specify your favorite editor (does not need \2).
+## you can also use $EDITOR for this
 editor:vi
 
 ## the erase character for your terminal (default: don't set)
@@ -3216,13 +3254,14 @@ mousemode:xterm
 ## and $editor) will receive escape codes on mousedown events
 mouseturnoff:yes
 
-## your pager. you can also use $PAGER
+## your pager (does not need \2). you can also use $PAGER
 #pager:less
 
 ## F7 key swap path method is persistent? (default no)
 persistentswap:yes
 
-## your system's print command.  Otherwise, the default is:
+## your system's print command (needs \2 for current filename).
+## if unspecified, the default is:
 ## if $PRINTER is set:   'lpr -P$PRINTER \2'
 ## if $PRINTER is unset: 'lpr \2'
 #printcmd:lp -d$ENV{PRINTER} \2
@@ -3248,6 +3287,9 @@ translatespace:no
 
 ## base number system to View non-ascii characters with (hex,oct)
 viewbase:hex
+
+## preferred image editor/viewer (does not need \2)
+viewer:xv
 
 ##########################################################################
 ## colors
@@ -3278,13 +3320,6 @@ header=white on blue:multi=bold reverse cyan on white:\
 title=bold reverse cyan on white:swap=reverse black on cyan:\
 footer=bold reverse blue on white:message=bold cyan:highlight=bold:
 
-## these are the defaults that will be used
-## if framecolors[] is missing for a given dircolors[]
-#framecolors[default]:\
-#header=white on blue:multi=bold reverse cyan on white:\
-#title=bold reverse cyan on white:swap=reverse black on cyan:\
-#footer=bold reverse blue on white:message=bold cyan:highlight=bold:
-
 ## these are a suggestion
 #framecolors[dark]:\
 #header=white on blue:multi=reverse cyan on black:\
@@ -3294,9 +3329,8 @@ footer=bold reverse blue on white:message=bold cyan:highlight=bold:
 ## 'dircolors' defines the colors that will be used for your files.
 ## for the files to become colored, 'usecolor' must be set to 'yes' or 'force'.
 ## see also the manpages for ls(1) and dircolors(1) (on Linux systems).
-## if you have $LS_COLORS or $LS_COLOURS set,
+## if you have $LS_COLORS or $LS_COLOURS set, and 'importlscolors' above is set,
 ## an additional colorset called 'framecolors[ls_colors]' will be added.
-## however, the initial colorset will still be the one from 'defaultcolorset'.
 ## the special name 'framecolors[off]' is used for no coloring
 
 ##-file types:
@@ -3333,6 +3367,18 @@ do=bold magenta:nt=bold magenta:wh=bold white on black:\
 *.xbm=bold magenta:*.xpm=bold magenta:*.png=bold magenta:\
 *.mpg=bold white on blue:*.avi=bold white on blue:\
 *.gl=bold white on blue:*.dl=bold white on blue:
+
+## The special set 'framecolors[*]' will be used for every 'dircolors[x]'
+## for which there is no corresponding 'framecolors[x]' (like ls_colors)
+
+framecolors[*]:\
+title=reverse:swap=reverse:footer=reverse:highlight=bold:
+
+## The special set 'dircolors[*]' will be used for every 'framecolors[x]'
+## for which there is no corresponding 'dircolors[x]'
+
+dircolors[*]:\
+di=bold:ln=underscore:
 
 ##########################################################################
 ## column layouts
@@ -3381,29 +3427,33 @@ ppppppppppllll uuuuuuuu ggggggggssssssss mmmmmmmmmmmmmmm *nnnnnnn:
 ##  \2 = filename entirely
 ##  \3 = current directory path
 ##  \4 = current mountpoint
-##  \5 = swap path (F7)
+##  \5 = swap directory path (F7)
 ##  \6 = current directory basename
+##  \\ = a literal backslash
+##  \e = 'editor' (defined above)
+##  \p = 'pager'  (defined above)
+##  \v = 'viewer' (defined above)
 
 your[a]:acroread \2 &
 your[B]:bunzip2 \2
 your[b]:xv -root +noresetroot +smooth -maxpect -quit \2
 your[c]:tar cvf - \2 | gzip > \2.tar.gz
 your[d]:uudecode \2
-your[e]:unarj l \2 | more
+your[e]:unarj l \2 | \p
 your[f]:file \2
 your[G]:gimp \2
 your[g]:gvim \2
 your[i]:rpm -qpi \2
 your[j]:mpg123 \2 &
 your[k]:esdplay \2
-your[l]:mv -i \2 $(echo \2 | tr '[:upper:]' '[:lower:]')
-your[n]:nroff -man \2 | more
+your[l]:mv -i \2 "$(echo \2 | tr '[:upper:]' '[:lower:]')"
+your[n]:nroff -man \2 | \p
 your[o]:cp \2 \2.$(date +"%Y%m%d"); touch -r \2 \2.$(date +"%Y%m%d")
 your[p]:perl -cw \2
-your[q]:unzip -l \2 | more
-your[r]:rpm -qpl \2 | more
-your[s]:strings \2 | more
-your[t]:gunzip < \2 | tar tvf - | more
+your[q]:unzip -l \2 | \p
+your[r]:rpm -qpl \2 | \p
+your[s]:strings \2 | \p
+your[t]:gunzip < \2 | tar tvf - | \p
 your[U]:unzip \2
 your[u]:gunzip \2
 your[v]:xv \2 &
@@ -3453,12 +3503,11 @@ extension[*.3i]  : application/x-intercal
 magic[JPEG image]:image/jpeg
 magic[PostScript document]:application/postscript
 
-## these can make use of $VIEWER, $EDITOR and $PAGER
-launch[image/jpeg] : $VIEWER \2
-launch[image/tiff] : $VIEWER \2
-launch[image/png]  : $VIEWER \2
-launch[image/gif]  : $VIEWER \2
-launch[application/x-intercal] : $EDITOR \2
+launch[image/jpeg] : \v \2
+launch[image/tiff] : \v \2
+launch[image/png]  : \v \2
+launch[image/gif]  : \v \2
+launch[application/x-intercal] : \e \2
 launch[application/x-befunge]  : mtfi \2
 
 ## vi: set filetype=xdefaults: # fairly close
@@ -3601,28 +3650,27 @@ Allows you to mark a group of files which meet a certain criterion:
 
 =over
 
-=item B<E>very file
-
-Dotfiles will be included as well, except for the B<.> and B<..> directory
-entries.
-
-=item B<O>ldmarks
-
-Reselects any files which were previously marked and are now denoted with
-an I<oldmark> B<.>
-
 =item B<A>fter / B<B>efore
 
-Files newer/older than a specified date and time
+files newer/older than a specified date and time
 
-=item B<U>ser
+=item B<E>very file
 
-Only files owned by the current user
+all files, including dotfiles, except for the B<.> and B<..> entries
 
 =item B<F>iles only
 
-Selects regular files whose filenames match a specified regular expression
+regular files whose filenames match a specified regular expression
 (not a glob pattern!)
+
+=item B<O>ldmarks
+
+files which were previously marked and are now denoted with
+an I<oldmark> B<.>
+
+=item B<U>ser
+
+files owned by the current user
 
 =back
 
@@ -3681,6 +3729,18 @@ the basename of the current directory
 =item B<\\>
 
 a literal backslash
+
+=item B<\e>
+
+the editor selected with the 'editor' option in the config file
+
+=item B<\p>
+
+the pager selected with the 'pager' option in the config file
+
+=item B<\v>
+
+the image viewer selected with the 'viewer' option in the config file
 
 =back
 
@@ -3746,10 +3806,10 @@ criterion. See B<I>nclude for details.
 
 =item B<Your command>
 
-Like cB<O>mmand (see above), except that it uses one-letter commands that
-have been preconfigured in the F<.pfmrc> file. Since version 1.84, these
-command keys are case-sensitive.  B<Y>our commands may use B<\1>-B<\6>
-escapes just as in cB<O>mmand, e.g.
+Like cB<O>mmand (see above), except that it uses case-insensitive
+one-letter commands that have been preconfigured in the F<.pfmrc> file.
+B<Y>our commands may use B<\1>-B<\6> and B<\e>,B<\p>,B<\v> escapes just
+as in cB<O>mmand, e.g.
 
     your[c]:tar cvf - \2 | gzip > \2.tar.gz
     your[w]:what \2
@@ -3776,6 +3836,8 @@ the F<.pfmrc> file. Examples are provided.
 =back
 
 =head1 MORE COMMANDS
+
+These commands are accessible through the main-screen B<M>ore command.
 
 =over
 
@@ -3997,6 +4059,24 @@ The directory where the B<F7> commans will take you if you don't specify
 a new directory. Also the directory that initial B<~/> characters in a
 filename will expand to.
 
+=item B<LC_ALL>
+
+=item B<LC_COLLATE>
+
+=item B<LC_CTYPE>
+
+=item B<LC_MESSAGES>
+
+=for skipping B<LC_MONETARY>
+
+=item B<LC_NUMERIC>
+
+=item B<LC_TIME>
+
+=item B<LANG>
+
+Determine locale settings. See locale(7).
+
 =item B<PAGER>
 
 Identifies the pager with which to view text files. Defaults to less(1)
@@ -4068,13 +4148,13 @@ memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.89 .
+This manual pertains to C<pfm> version 1.90.1 .
 
 =head1 SEE ALSO
 
-The documentation on PFMS<.>COM . The mentioned manual pages for
-chmod(1), less(1), lpr(1), touch(1), vi(1). The manual pages for
-Term::ANSIScreen(3pm), Term::Screen(3pm) and Term::ReadLine::Gnu(3pm).
+The documentation on PFMS<.>COM . The mentioned manual pages for chmod(1),
+less(1), lpr(1), touch(1), vi(1), and locale(7). The manual pages for
+Term::ANSIScreen(3pm), Term::ReadLine(3pm), and Term::Screen(3pm).
 
 =head1 AUTHOR
 

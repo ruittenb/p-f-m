@@ -1,7 +1,12 @@
-1.89 (Term::ANSIScreen)
+1.90.1 (Term::ANSIScreen)
 
-* started fixing quoting problems
-* fixed bug in (F)ind command concerning illegal regexps
-* added 'importlscolors' option
-* updated documentation
+* continued fixing quoting problems
+* fixed bug in displaying major/minor numbers on device special files
+* fixed bug in displaying current date
+* fixed bug in (M)ore - (W)rite history
+* added support for Term::ReadLine::Perl in addition to Term::ReadLine::Gnu
+* added listing of escapes in c(O)mmand
+* added dir/framecolors[*] option
+* added 'viewer' option
+* added '\[epv]' escapes
 
