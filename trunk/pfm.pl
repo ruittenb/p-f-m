@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20030129 v1.91
+# @(#) pfm.pl 19990314-20030129 v1.91.1
 #
 # Name:         pfm
-# Version:      1.91 - link buggy
+# Version:      1.91.1 - link buggy
 # Author:       Rene Uittenbogaard
 # Date:         2003-01-29
 # Usage:        pfm [ <directory> ] [ -s, --swap <directory> ]
@@ -35,6 +35,7 @@
 #       touch command -t has changed format? tr/0-9//dc ?
 #       make F11 respect multiple mode? (marked+oldmarked, not removing marks)
 #       '*' command works inside 'N' routine?
+#       print flags in (N)ame
 #       implement ENTER -> launch action for filetype?
 #
 #       beautify source: forget stupid 80-col limit; use tabs instead of spaces
@@ -378,12 +379,12 @@ sub read_pfmrc {
     }
     if (open PFMRC, &whichconfigfile) {
         while (<PFMRC>) {
-            if (/# Version ([\w.]+)$/ and $1 lt $VERSION) {
+            if (/# Version ([\w.]+)$/ and $1 lt $VERSION and !$_[0]) {
                 # will not be in message color: usecolor not yet parsed
                 &neat_error(
                   "Warning: your $CONFIGFILENAME version $1 may be outdated."
                 . "\r\nPlease see pfm(1), under DIAGNOSIS."
-                ) unless $_[0];
+                );
                 $scr->key_pressed($IMPORTANTDELAY);
             }
             s/#.*//;
@@ -769,18 +770,6 @@ sub toggle ($) {
     $_[0] = !$_[0];
 }
 
-sub dirname {
-    $_[0] =~ m!^(.*)/.+?!;
-    return length($1) ? $1
-                      : $_[0] =~ m!^/! ? '/'
-                                       : '.';
-}
-
-sub basename {
-    $_[0] =~ /\/([^\/]*)\/?$/; # ok, it has LTS but this looks better in vim
-    return length($1) ? $1 : $_[0];
-}
-
 ##########################################################################
 # some translations
 
@@ -814,7 +803,7 @@ sub findchangedir {
     return chdir $goal;
 }
 
-sub mychdir ($) {
+sub mychdir {
     my $goal = $_[0];
     my $result;
     if ($result = &findchangedir($goal) and $goal ne $currentdir) {
@@ -824,35 +813,56 @@ sub mychdir ($) {
     return $result;
 }
 
-sub revertpath {
-    my ($symlink_target_abs, $symlink_name_rel) = @_;
-    # $result ultimately is named as requested
-    my $result  = &basename($symlink_target_abs);
-    # lose the filename from the symlink_target_abs, keep the directory
-    $symlink_target_abs = &dirname($symlink_target_abs);
-    # lose the filename from symlink_name_rel, keep the directory
-    $symlink_name_rel   = &dirname($symlink_name_rel);
-    # only directories in $symlink_name_rel and $symlink_target_abs
-    # revert this path using:
-    # foreach_left_to_right pathname element of symlink_name_rel {
-    #   case '..' : prepend basename target to result
-    #   case else : prepend '..' to result
-    # }
-    foreach (split(m!/!, $symlink_name_rel)) {
-        if ($_ eq '..') {
-            $result             = &basename($symlink_target_abs).'/'.$result;
-            $symlink_target_abs = &dirname($symlink_target_abs);
-        } else {
-            $result             = '../'.$result;
-            $symlink_target_abs.= '/'.$_;
-        }
-    }
-    # squeeze slashes
-    $result =~ tr/\///s;
-    return $result;
+sub dirname {
+    $_[0] =~ m!^(.*)/.+?!;
+    return length($1) ? $1
+                      : $_[0] =~ m!^/! ? '/'
+                                       : '.';
 }
 
-sub simplify_paths {
+sub basename {
+    $_[0] =~ /\/([^\/]*)\/?$/; # ok, it has LTS but this looks better in vim
+    return length($1) ? $1 : $_[0];
+}
+
+sub reversepath {
+    my ($symlink_target_abs, $symlink_name_rel) = map { &canonicalize_path($_) } @_;
+    my $result = &basename($symlink_target_abs);
+    $symlink_target_abs = &dirname($symlink_target_abs);
+    $symlink_name_rel   = &dirname($symlink_name_rel);
+    foreach (split (m!/!, $symlink_name_rel)) {
+        if ($_ eq '..') {
+            $result = &basename($symlink_target_abs) .'/'. $result;
+            $symlink_target_abs = &dirname($symlink_target_abs);
+        } else {
+            $result = '../'. $result;
+            $symlink_target_abs .= '/'.$_;
+        }
+    }
+    return &canonicalize_path($result);
+}
+
+sub canonicalize_path {
+    my $path = shift;
+    1 while $path =~ s!/\./!/!g;
+    1 while $path =~ s!^\./+!!g;
+    1 while $path =~ s!/\.$!!g; # keep vim happy with this !
+    1 while $path =~ s!
+        (^|/)                # start of string or following /
+        (\.?[^./][^/]*
+        |\.\.[^/]+)          # any filename except ..
+        /+                   # any number of slashes
+        \.\.                 # the name '..'
+        (?=/|$)              # followed by nothing or a slash
+        !$1!gx;
+    1 while $path =~ s!//!/!g;
+    1 while $path =~ s!^/\.\.(/|$)!/!g;
+    $path =~ s!(.)/$!$1!g; # keep vim happy with this !
+    length($path) or $path = '/';
+    return $path;
+}
+
+sub reducepaths {
     my ($symlink_target_abs, $symlink_name_abs) = @_;
     my $subpath;
     while (($subpath) = ($symlink_target_abs =~ m!^(/[^/]+)(/|$)!)
@@ -2087,7 +2097,7 @@ sub handleinclude { # include/exclude flag (from keypress)
     return $do_a_refresh;
 }
 
-sub handleview {
+sub handlename {
     &markcurrentline(uc($_[0])); # disregard multiple_mode
     my $numformat = $numbase_mode eq 'hex' ? "%#04lx" : "%03lo";
     # we are allowed to alter %currentfile because
@@ -2158,7 +2168,7 @@ sub handlesymlink {
     $headerlength = &init_header($HEADER_LNKTYPE);
     $absrel = lc($scr->at(0, $headerlength+1)->getch());
     return $R_HEADER unless $absrel =~ /^[arh]$/;
-    push @lncmd, '-s' if $absrel =~ /h/;
+    push @lncmd, '-s' if $absrel !~ /h/;
     $scr->at(0,0)->clreol();
     &stty_raw($TERM_COOKED);
     my $prompt = 'Name of new '.
@@ -2171,6 +2181,7 @@ sub handlesymlink {
     }
     &stty_raw($TERM_RAW);
     return $R_HEADER if ($newname eq '');
+    $newname = &canonicalize_path($newname);
     &expand_3456_escapes($QUOTE_OFF, ($testname = $newname), \%currentfile);
     if ($multiple_mode and $testname !~ /(?<!\\)(?:\\\\)*\\[12]/
                        and !-d($testname) )
@@ -2189,22 +2200,24 @@ sub handlesymlink {
         if ($absrel eq 'r') {
             if ($newnameexpanded =~ m!^/!) {
                 # make absolute path relative
-                ($simpletarget, $simplename) = &simplify_paths(
+                ######################################################################## BUGGY
+                ($simpletarget, $simplename) = &reducepaths(
                     $currentdir.'/'.$loopfile->{name}, $newnameexpanded);
                 $simplename =~ s!^/!!;
-                $targetstring = &revertpath($simpletarget, $simplename);
+                $targetstring = &reversepath($simpletarget, $simplename);
             } elsif ($newnameexpanded !~ m!/!) {
                 # relative in same dir: ok
                 $targetstring = $loopfile->{name};
             } else {
                 # relative in another dir: revert path
-                $targetstring = &revertpath($currentdir.'/'.$loopfile->{name},
+                ######################################################################## BUGGY
+                $targetstring = &reversepath($currentdir.'/'.$loopfile->{name},
                                             $newnameexpanded);
             }
         } elsif ($targetstring !~ m!^/!) {
             # make relative path absolute
             $targetstring = $currentdir . "/" . $loopfile->{name};
-        } # else absolute path wanted and got, do nothing
+        } # else absolute path wanted and got, or hard link wanted: do nothing
         if (system @lncmd, $targetstring, $newnameexpanded) {
             $do_a_refresh |= &neat_error($!);
         } elsif ($newnameexpanded !~ m!/!) {
@@ -3257,7 +3270,7 @@ sub browse {
                 /^m$/i       and $wantrefresh |= &handlemore,          last KEY;
                 /^p$/i       and $wantrefresh |= &handleprint,         last KEY;
                 /^L$/        and $wantrefresh |= &handlesymlink,       last KEY;
-                /^[nv]$/i    and $wantrefresh |= &handleview($_),      last KEY;
+                /^[nv]$/i    and $wantrefresh |= &handlename($_),      last KEY;
                 /^k8$/       and $wantrefresh |= &handleselect,        last KEY;
                 /^k11$/      and $wantrefresh |= &handlerestat,        last KEY;
                 /^[\/f]$/i   and $wantrefresh |= &handlefind,          last KEY;
@@ -3431,11 +3444,11 @@ timestampformat:%y %b %d %H:%M
 ## translate spaces when viewing Name
 translatespace:no
 
-## use color (yes,no,force)
+## use color (yes,no,force) (may be overridden by ANSI_COLORS_DISABLED)
 ## 'no'    = use no color at all
 ## 'yes'   = use color if your terminal is thought to support it
 ## 'force' = use color on any terminal
-## define your colors below ('framecolors' and 'dircolors')
+## define your colorsets below ('framecolors' and 'dircolors')
 usecolor:force
 
 ## preferred image editor/viewer (does not need \2)
@@ -3610,7 +3623,7 @@ your[z]:gzip \2
 ## launch commands (not implemented)
 
 ## should the filetype be determined by magic (file(1)), by extension,
-## or should we prefer one method and fallback on the other?
+## or should we prefer one method and fallback on the other one?
 ## allowed values: 'extension' 'magic' 'extension,magic' 'magic,extension'
 launchby:extension,magic
 
@@ -3673,8 +3686,24 @@ extension[*.xls] : application/x-ms-office
 extension[*.z]   : application/x-compress
 extension[*.zip] : application/zip
 
-magic[JPEG image]:image/jpeg
-magic[PostScript document]:application/postscript
+magic[ASCII English text]   : text/plain
+magic[C\+?\+? program text] : text/x-c
+magic[GIF image data]       : image/gif
+magic[HTML document text]   : text/html
+magic[JPEG image data]      : image/jpeg
+magic[PDF document]         : application/pdf
+magic[PNG image data]       : image/png
+magic[PostScript document]  : application/postscript
+magic[RPM]                  : application/x-rpm
+magic[Sun/NeXT audio data]  : audio/basic
+magic[TIFF image data]      : image/tiff
+magic[WAVE audio]           : audio/x-wav
+magic[X pixmap image]       : image/x-xpixmap
+magic[Zip archive data]     : application/zip
+magic[bzip2 compressed data]: application/x-bzip2
+magic[compress.d data]      : application/x-compress
+magic[gzip compressed data] : application/x-gzip
+magic[tar archive]          : application/x-tar
 
 launch[application/octet-stream]  : \p \2
 launch[application/pdf]           : acroread \2 &
@@ -3727,10 +3756,6 @@ __END__
 
 =pod
 
-=for remark put an extra S< > between:
-(1) a filename and interpunction;
-(2) a "quoted" punctuation character and interpunction.
-
 =head1 NAME
 
 C<pfm> - Personal File Manager for Linux/Unix
@@ -3748,7 +3773,7 @@ C<pfm> is a terminal-based file manager, based on PFMS<.>COM for MS-DOS.
 All C<pfm> commands are accessible through one or two keystrokes, and a few
 are accessible with the mouse. Most command keys are case-insensitive. C<pfm>
 can operate in single-file mode or multiple-file mode. In single-file mode,
-the command corresponding to the keypress will be performed on the current
+the command corresponding to the keystroke will be performed on the current
 (highlighted) file only. In multiple-file mode, the command will apply to
 a selection of files.
 
@@ -3759,14 +3784,14 @@ I<regular files>.
 =head1 OPTIONS
 
 Most of C<pfm>'s configuration is read from a config file. The default
-location for this file is F<$HOME/.pfm/.pfmrc>S< >, but an alternative location
-may be specified with the environment variable C<PFMRC>. If there is no
+location for this file is F<$HOME/.pfm/.pfmrc>, but an alternative location
+may be specified using the environment variable C<PFMRC>. If there is no
 config file present at startup, one will be created. The file contains
-many comments on the available options, and is therefore supposed to be
+a lot of comments on the available options, and is therefore supposed to be
 self-explanatory. C<pfm> will issue a warning if the config file version
-is older than the version of C<pfm> that you are running. In this case,
+is older than the version of C<pfm> you are running. In this case,
 please let C<pfm> create a new default config file and compare the changes
-with your own settings, so that you don't miss any new config options or
+with your own settings, so you do not miss any new config options or
 format changes. See also the B<C>onfig command under MORE COMMANDS below.
 
 There are two commandline options that specify starting directories.
@@ -3809,9 +3834,9 @@ cursor keys (B<hjkl>), B<->, B<+>, B<PgUp>, B<PgDn>, B<home>, B<end>,
 and the vi(1) control keys B<CTRL-F>, B<CTRL-B>, B<CTRL-U>, B<CTRL-D>,
 B<CTRL-Y> and B<CTRL-E>. Note that the B<l> key is also used for creating
 symbolic links (see the B<L>ink command below). Pressing B<ESC> or B<BS>
-will take you one directory level up (note: see BUGS below on the functioning
-of B<ESC>). Pressing B<ENTER> when the cursor is on a directory will take
-you into the directory. Pressing B<SPACE> will both mark the current file
+will take you one directory level up (note: see below under BUGS on the
+functioning of B<ESC>). Pressing B<ENTER> when the cursor is on a directory
+will open the directory. Pressing B<SPACE> will both mark the current file
 and advance the cursor.
 
 =back
@@ -3822,9 +3847,8 @@ and advance the cursor.
 
 =item B<Attrib>
 
-Changes the mode of the file if you are the owner. Use a '+' to add a
-permission, a '-' to remove it, and a '=' specify the mode exactly, or
-specify the mode numerically.
+Changes the mode of the file if you are the owner. The mode may be specified
+either symbolically or numerically, see chmod(1) for more details.
 
 Note 1: the mode on a symbolic link cannot be set. Read the chmod(1)
 page for more details.
@@ -3836,8 +3860,8 @@ version.
 
 Copy current file. You will be prompted for the destination filename.
 In multiple-file mode, it is not allowed to specify a regular file
-for a destination. Specify the destination name with B<\1> or B<\2>
-(see cB<O>mmand below), or use a directory as destination.
+as a destination. Specify the destination name with B<\1> or B<\2>
+(see below under cB<O>mmand), or use a directory as a destination.
 
 =item B<Delete>
 
@@ -3847,7 +3871,7 @@ Delete a file or directory.
 
 Edit a file with your external editor. You can specify an editor with the
 environment variable C<VISUAL> or C<EDITOR> or with the 'editor' option
-in the F<.pfmrc> file, otherwise vi(1) is used.
+in the F<.pfmrc> file. Otherwise vi(1) is used.
 
 =item B<Find>
 
@@ -3855,8 +3879,8 @@ Prompts for a filename, then positions the cursor on that file.
 
 =item B<tarGet>
 
-Allows to change the target that a symbolic link points to. You must have
-permission to remove the current symbolic link.
+Allows you to change the target that a symbolic link points to. You must
+have permission to remove the current symbolic link.
 
 =item B<Include>
 
@@ -3874,13 +3898,13 @@ all files, including dotfiles, except for the B<.> and B<..> entries
 
 =item B<F>iles only
 
-regular files whose filenames match a specified regular expression
+regular files of which the filenames match a specified regular expression
 (not a glob pattern!)
 
 =item B<O>ldmarks
 
 files which were previously marked and are now denoted with
-an I<oldmark> (S< >B<.>S< >).
+an I<oldmark> (B<.>).
 
 =item B<U>ser
 
@@ -3898,9 +3922,9 @@ pathname to the target, or a hard link. It is irrelevant whether you
 specify a symlink name with an absolute or relative path, because C<pfm>
 will make sure the symlink target will have a pathname of the requested type.
 
-Example: when the cursor is on the file F</home/rene/incoming/.profile>S< >,
+Example: when the cursor is on the file F</home/rene/incoming/.profile>,
 and you request a relative symlink to be made with either the name
-F<../.profile> or F<~/.profile>S< >, the actual symlink will become:
+F<../.profile> or F<~/.profile>, the actual symlink will become:
 
     /home/rene/.profile -> incoming/.profile
 
@@ -3918,11 +3942,11 @@ will take you back to the main menu.
 
 =item B<Name>
 
-View the complete long filename. For a symbolic link, also displays the
-target of the symbolic link. Non-ASCII characters, control characters
-and (optionally) spaces will be displayed in octal or hexadecimal
-(configurable through the 'defaultnumbase' and 'translatespace' options in
-the F<.pfmrc> file), formatted like the following examples:
+View the complete long filename. For a symbolic link, this command will
+also display the target of the symbolic link. Non-ASCII characters,
+control characters and (optionally) spaces will be displayed in octal or
+hexadecimal (configurable using the 'defaultnumbase' and 'translatespace'
+options in the F<.pfmrc> file), formatted like the following examples:
 
     octal:                     hexadecimal:
 
@@ -3984,7 +4008,7 @@ Also see QUOTING RULES below.
 
 =item B<Print>
 
-Will prompt for a print command (default C<lpr -P$PRINTER \2>S< >, or
+Will prompt for a print command (default C<lpr -P$PRINTER \2>, or
 C<lpr \2> if C<PRINTER> is unset) and will pipe the current file through
 it. No formatting is done. You may specify a print command with the
 'printcmd' option in the F<.pfmrc> file.
@@ -4007,7 +4031,7 @@ the action is confirmed by the user.
 
 =item B<Show>
 
-Displays the contents of the current file or directory on the screen.
+Displays the contents of the current file or directory on screen.
 You can choose which pager to use for file viewing with the environment
 variable C<PAGER>, or with the 'pager' option in the F<.pfmrc> file.
 
@@ -4035,7 +4059,7 @@ criterion. See B<I>nclude for details.
 
 Like cB<O>mmand (see above), except that it uses case-insensitive
 one-letter commands that have been preconfigured in the F<.pfmrc> file.
-B<Y>our commands may use B<\1>S< - >B<\6> and B<\e>S< , >B<\p>S< , >B<\v>
+B<Y>our commands may use B<\1>S< - >B<\6> and B<\e>, B<\p> and B<\v>
 escapes just as in cB<O>mmand, e.g.
 
     your[c]:tar cvf - \2 | gzip > \2.tar.gz
@@ -4067,7 +4091,7 @@ corrections that should be made.
 
 =head1 MORE COMMANDS
 
-These commands are accessible through the main-screen B<M>ore command.
+These commands are accessible through the main screen B<M>ore command.
 
 =over
 
@@ -4113,7 +4137,7 @@ pathnames, regular expressions, modification times, and file modes
 entered. The history is read from individual files in F<$HOME/.pfm/>
 every time C<pfm> starts. The history is written only when this command
 is given, or when C<pfm> exits and the 'autowritehistory' option is set
-in F<.pfmrc>S< >.
+in F<.pfmrc>.
 
 =back
 
@@ -4124,8 +4148,7 @@ in F<.pfmrc>S< >.
 =item B<ENTER>
 
 If the current file is executable, the executable will be invoked, otherwise,
-the contents of the current file or directory are displayed on the screen
-(like B<S>how).
+the contents of the current file or directory are displayed (like B<S>how).
 
 =item B<*>
 
@@ -4175,7 +4198,7 @@ Fit the file list into the current window and refresh the display.
 =item B<F4>
 
 Change the current colorset. Multiple colorsets may be defined,
-see in the F<.pfmrc> file for details.
+see the F<.pfmrc> file for details.
 
 =item B<F5>
 
@@ -4184,19 +4207,18 @@ directory have changed. This command will erase all marks.
 
 =item B<F6>
 
-Allows you to re-sort the directory listing. You will be presented by
+Allows you to re-sort the directory listing. You will be presented
 a number of sort modes.
 
 =item B<F7>
 
-Alternates the display between two directories. When switching for the
-first time, you are prompted for a directory path to show. When switching
-back by pressing B<F7> again, the contents of the alternate directory are
-displayed unchanged. Header text changes color when in swap screen.
-The directory path from the alternate screen may be referred to in
-commands as B<\5>S< >. If the 'persistentswap' option has been set in the
-config file, then leaving the swap mode will store the main directory
-path as swap path again.
+Alternates the display between two directories. When switching for the first
+time, you are prompted for a directory path to show. When you switch back by
+pressing B<F7> again, the contents of the alternate directory are displayed
+unchanged. Header text changes color when in swap screen. In shell commands,
+the directory path from the alternate screen may be referred to as B<\5>.
+If the 'persistentswap' option has been set in the config file, then
+leaving the swap mode will store the main directory path as swap path again.
 
 =item B<F8>
 
@@ -4204,8 +4226,8 @@ Toggles the mark (include flag) on an individual file.
 
 =item B<F9>
 
-Toggle the column layout. Layouts are defined in your F<.pfmrc>S< >,
-through the 'defaultlayout' and 'columnlayouts' options. See the config
+Toggle the column layout. Layouts are defined in your F<.pfmrc>,
+in the 'defaultlayout' and 'columnlayouts' options. See the config
 file for information on changing the column layout.
 
 Note that a 'grand total' column in the layout will only be filled when
@@ -4227,9 +4249,9 @@ Toggle mouse use. See MOUSE COMMANDS below.
 
 =head1 QUOTING RULES
 
-C<pfm> adds an extra layer of parsing to filenames and shell commands. It is
-important to take notice of the rules that C<pfm> uses. We can distinguish
-the following five types of input:
+C<pfm> adds an extra layer of parsing to filenames and shell commands. It
+is important to take notice of the rules that C<pfm> uses. The following
+five types of input can be distinguished:
 
 =over
 
@@ -4241,7 +4263,7 @@ The input is parsed as a regular expression.
 
 The input is taken literally.
 
-=item B<not a filename or command> (e.g. in B<A>ttribute or B<T>ime)
+=item B<not a filename or shell command> (e.g. in B<A>ttribute or B<T>ime)
 
 The input is taken literally.
 
@@ -4258,7 +4280,7 @@ with the character itself.
 Finally, if the filename is to be processed by C<pfm>, it is taken literally;
 if it is to be handed to a shell, all metacharacters are escaped.
 
-=item B<a command> (e.g. in cB<O>mmand or B<P>rint)
+=item B<a shell command> (e.g. in cB<O>mmand or B<P>rint)
 
 First of all, tilde expansion is performed.
 
@@ -4274,14 +4296,14 @@ I<Ergo>, the difference between a filename and a command lies in the number
 of backslashes necessary for non-C<[1-6evp]> characters.
 
 The result of this is that C<\\> used in a filename will result in a filename
-containing one C<\>S< >. This would be handed to the shell as C<\\>S< >.
+containing one C<\>. This would be handed to the shell as C<\\>.
 
-In a shell command, C<\\> will also expand to one C<\>S< >, which is
+In a shell command, C<\\> will also expand to one C<\>, which is
 probably not what you want. You may want to enter C<\\\\> which is handed
-to the shell as C<\\> which the shell interprets as one quoted C<\>S< >.
+to the shell as C<\\> which the shell interprets as one quoted C<\>.
 
 Similarly, the command C<echo "Hello\n"> will have to be entered as
-C<echo "Hello\\n">S< >, but C<echo "This file is called \2"> works as
+C<echo "Hello\\n">, but C<echo "This file is called \2"> works as
 expected.
 
 =head1 MOUSE COMMANDS
@@ -4300,14 +4322,14 @@ The cursor will I<only> be moved when the title or footer is clicked, or
 when changing directory.
 
 Mouse use will be turned off during the execution of commands, unless
-'mouseturnoff' is set to 'no' in F<.pfmrc>S< >. Note that setting this to
+'mouseturnoff' is set to 'no' in F<.pfmrc>. Note that setting this to
 'no' means that your (external) commands (like your pager and editor)
 will receive escape codes when the mouse is clicked.
 
 =head1 WORKING DIRECTORY INHERITANCE
 
 Upon exit, C<pfm> will save its current working directory in a file
-F<$HOME/.pfm/cwd>S< >. In order to have this directory "inherited" by the
+F<$HOME/.pfm/cwd>. In order to have this directory "inherited" by the
 calling process (shell), you may call C<pfm> using a function or alias
 like the following:
 
@@ -4351,7 +4373,7 @@ The editor to be used for the B<E>dit command. Overridden by C<VISUAL>.
 
 =item B<HOME>
 
-The directory where the B<F7> commans will take you if you don't specify
+The directory where the B<F7> command will take you if you don't specify
 a new directory. Also the directory that initial B<~/> characters in a
 filename will expand to.
 
@@ -4374,7 +4396,7 @@ for Linux systems or more(1) for Unix systems.
 =item B<PERL_RL>
 
 Indicate whether and how the C<readline> prompts should be highlighted.
-See Term::ReadLine(3pm)S< >. If unset, a good guess is made based on your
+See Term::ReadLine(3pm). If unset, a good guess is made based on your
 config file 'framecolors[]' setting.
 
 =item B<PFMRC>
@@ -4382,7 +4404,7 @@ config file 'framecolors[]' setting.
 Specify a location of an alternate F<.pfmrc> file. If unset, the default
 location F<$HOME/.pfm/.pfmrc> is used. The cwd- and history-files cannot
 be displaced in this manner, and will always be located in the directory
-F<$HOME/.pfm/>S< >.
+F<$HOME/.pfm/>.
 
 =item B<PRINTER>
 
@@ -4403,7 +4425,7 @@ The editor to be used for the B<E>dit command. Overrides C<EDITOR>.
 The directory F<$HOME/.pfm/> and files therein. The current working
 directory on exit and several input histories are saved to this directory.
 
-The default location for the config file is F<$HOME/.pfm/.pfmrc>S< >.
+The default location for the config file is F<$HOME/.pfm/.pfmrc>.
 
 =head1 DIAGNOSIS
 
@@ -4426,10 +4448,10 @@ pressing B<ESC>. For most commands, you will need to clear the half-finished
 line. You may use the terminal kill character (usually B<CTRL-U>) for this
 (see stty(1)).
 
-When key repeat sets in, some of the registered keypresses may not
+When key repeat sets in, some of the registered keystrokes may not
 be processed before another key is pressed. This can be dangerous when
 deleting files. The author once almost pressed B<ENTER> when logged in as
-root and with the cursor next to F</sbin/reboot>S< >. You have been warned.
+root and with the cursor next to F</sbin/reboot>. You have been warned.
 
 The smallest terminal size supported is 80x24. The display will be messed
 up if you resize your terminal window to a smaller size.
@@ -4439,7 +4461,7 @@ memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.91.
+This manual pertains to C<pfm> version 1.91.1.
 
 =head1 SEE ALSO
 
@@ -4450,9 +4472,9 @@ and Term::Screen(3pm).
 =head1 AUTHOR
 
 Written by RenE<eacute> Uittenbogaard (ruittenb@users.sourceforge.net).
-This program was based on PFMS<.>COM version 2.32, originally written
-for MS-DOS by Paul R. Culley and Henk de Heer. Permission to use the
-name 'pfm' was kindly granted by Henk de Heer.
+This program was based on PFMS<.>COM version 2.32, originally written for
+MS-DOS by Paul R. Culley and Henk de Heer. The name 'pfm' was adopted
+with kind permission of the original authors.
 
 =head1 COPYRIGHT
 

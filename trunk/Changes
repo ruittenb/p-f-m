@@ -1,6 +1,5 @@
-1.91 (Term::ANSIScreen)
+1.91.1 (Term::ANSIScreen)
 
-* added option to create hard links in (L)ink
-* fixed bug in read_pfmrc that delayed execution unnecessarily
-* updated documentation
+* work-in-progress on (L)ink command
+* corrected documentation
 
