@@ -1,6 +1,7 @@
-1.90.2 (Term::ANSIScreen)
+1.90.3 (Term::ANSIScreen)
 
 * continued fixing quoting problems
-* fixed bug: don't include dir/framecolors[*] in colorset cycle
-* changed readline ornaments to be configurable using the colorsets
+* fixed small bug concerning default sortmode after (F7)
+* added '=' command to display user and host
+* changed parsing of config file options: more consistent now
 
