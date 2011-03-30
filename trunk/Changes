@@ -1,7 +1,4 @@
-1.87
+1.88 (Term::ANSIScreen)
 
-* fixed bug in header coloring in e(X)clude
-* optimized (I)n-/e(X)clude routine
-* implemented (I)n-/e(X)clude (A)fter/(B)efore
-* updated documentation
+* ported to Term::ANSIScreen
 
