@@ -1,12 +1,12 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20030206 v1.91.3
+# @(#) pfm.pl 19990314-20030212 v1.91.4
 #
 # Name:         pfm
-# Version:      1.91.3
+# Version:      1.91.4
 # Author:       Rene Uittenbogaard
-# Date:         2003-02-06
+# Date:         2003-02-12
 # Usage:        pfm [ <directory> ] [ -s, --swap <directory> ]
 #               pfm { -v, --version | -h, --help }
 # Requires:     Term::ANSIScreen
@@ -20,17 +20,15 @@
 #               vars
 # Description:  Personal File Manager for Unix/Linux
 #
-# TODO: fix error handling in eval($do_this) and &display_error
+# TODO: implement ENTER -> launch action for filetype: in 2.00
+#       fix error handling in eval($do_this) and &display_error
 #          partly implemented in handlecopyrename
 #       use the nameindexmap from handledelete() more globally?
 #         in handlecopyrename()? in handlefind() in handlesymlink? in dirlookup?
-#       sub readintohistwithdefault() ? add functionality to readintohist?
 #       sub restat_copyback ?
 #       sub fileforall(sub) ?
 #       cache color codes?
-#
 #       make F11 respect multiple mode? (marked+oldmarked, not removing marks)
-#       implement ENTER -> launch action for filetype?
 #
 #       beautify source: forget stupid 80-col limit; use tabs instead of spaces
 #       implement 'logical' paths in addition to 'physical' paths?
@@ -218,6 +216,8 @@ my %FILETYPEFLAGS       = (
    's'=> '=',
     D => '>',
     w => '%',
+    b => '&',
+    c => '&',
 );
 
 my @SORTMODES = (
@@ -265,7 +265,26 @@ my %DUCMDS = (
     # MSWin32, macos, os390 etc. not supported
 );
 
-my $TITLEVIRTFILE = {
+my %LAYOUTFIELDS = (
+    '*' => 'selected',
+    'n' => 'display',
+    'N' => 'name_too_long',
+    's' => 'size_num',
+    'S' => 'size_power',
+    'z' => 'grand_num',
+    'Z' => 'grand_power',
+    'u' => 'uid',
+    'g' => 'gid',
+    'p' => 'mode',
+    'a' => 'atimestring',
+    'c' => 'ctimestring',
+    'm' => 'mtimestring',
+    'l' => 'nlink',
+    'i' => 'inode',
+    'd' => 'rdev',
+);
+
+my %FIELDHEADINGS = (
     selected      => '',
     name          => 'filename',
     display       => 'filename',
@@ -288,7 +307,7 @@ my $TITLEVIRTFILE = {
     gid           => 'groupid',
     nlink         => 'lnks',
     rdev          => 'dev',
-};
+);
 
 my $screenheight    = 20;    # inner height
 my $screenwidth     = 80;    # terminal width
@@ -318,7 +337,7 @@ my (
     $scr, $kbd, $wasresized, $mouse_mode,
     # modes
     $sort_mode, $multiple_mode, $swap_mode, $dot_mode, $dotdot_mode,
-    $currentpan, $color_mode, $ident_mode, $numbase_mode,
+    $currentpan, $color_mode, $ident_mode, $radix_mode,
     # dir- and disk info
     $currentdir, $oldcurrentdir, @dircontents, @showncontents, %currentfile,
     %disk, $swap_state, %total_nr_of, %selected_nr_of, $ident,
@@ -332,7 +351,7 @@ my (
     @colorsetnames, %filetypeflags, $swapstartdir,
     # layouts and formatting
     @columnlayouts, $currentlayout, @layoutfields, $currentformatline,
-    $maxfilenamelength, $maxfilesizelength, $maxgrandtotallength,
+    $maxfilenamelength, $maxfilesizelength, $maxgrandtotallength, $formatname,
 );
 
 ##########################################################################
@@ -428,20 +447,16 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
     $timestampformat   = $pfmrc{timestampformat} || '%y %b %d %H:%M';
     $ducmd             = $pfmrc{ducmd} || $DUCMDS{$^O} || $DUCMDS{default};
     $mouse_mode        = $pfmrc{mousemode}  || 'xterm' if !defined $mouse_mode;
-    $mouse_mode        = ($mouse_mode eq 'xterm' && $ENV{TERM} =~ /xterm/)
-                         or &isyes($mouse_mode);
+    $mouse_mode        = ($mouse_mode eq 'xterm' && $ENV{TERM} =~ /xterm/) or &isyes($mouse_mode);
     ($printcmd)        = ($pfmrc{printcmd}) ||
                          ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER} \\2" : 'lpr \2');
     $showlockchar      = ( $pfmrc{showlock} eq 'sun' && $^O =~ /sun|solaris/i
                              or &isyes($pfmrc{showlock}) ) ? 'l' : 'S';
-    $numbase_mode      = $pfmrc{defaultnumbase} || $pfmrc{viewbase} || 'hex'
-                             if !defined $numbase_mode;
-    $ident_mode        = $IDENTMODES{$pfmrc{defaultident}} || 0
-                             if !defined $ident_mode;
+    $radix_mode        = $pfmrc{defaultradix} || 'hex' if !defined $radix_mode;
+    $ident_mode        = $IDENTMODES{$pfmrc{defaultident}} || 0 if !defined $ident_mode;
     $viewer            = $pfmrc{viewer} || 'xv';
-    $editor            = $ENV{VISUAL} || $ENV{EDITOR} || $pfmrc{editor} || 'vi';
-    $pager             = $ENV{PAGER}  || $pfmrc{pager}  ||
-                             ($^O =~ /linux/i ? 'less' : 'more');
+    $editor            = $ENV{VISUAL} || $ENV{EDITOR}  || $pfmrc{editor} || 'vi';
+    $pager             = $ENV{PAGER}  || $pfmrc{pager} || ($^O =~ /linux/i ? 'less' : 'more');
     # flags
     if ($pfmrc{filetypeflags} eq 'dirs') {
         %filetypeflags = ( d => $FILETYPEFLAGS{d} );
@@ -552,8 +567,7 @@ sub write_cwd {
         print CWDFILE getcwd();
         close CWDFILE;
     } else {
-        $scr->puts(&mcolored("Unable to create $CONFIGDIRNAME/$CWDFILENAME:"
-           . " $!\n"));
+        $scr->puts(&mcolored("Unable to create $CONFIGDIRNAME/$CWDFILENAME: $!\n"));
     }
 }
 
@@ -677,12 +691,12 @@ sub fit2limit {
     return ($size_num, $size_power);
 }
 
-sub unquotemeta {
-    local $1;
-#    return map { s/\\(.)/$1/g; $_ } @_;
-    $_[0] =~ s/\\(.)/$1/g;
-    return $_[0];
-}
+#sub unquotemeta {
+#    local $1;
+##    return map { s/\\(.)/$1/g; $_ } @_;
+#    $_[0] =~ s/\\(.)/$1/g;
+#    return $_[0];
+#}
 
 sub condquotemeta { # condition, string
 #    return shift() ? map { quotemeta } @_ : @_;
@@ -1121,24 +1135,8 @@ sub makeformatlines {
     }
     ($squeezedlayoutline = $currentlayoutline) =~
         tr/*nNsSzZugpacmdil /*nNsSzZugpacmdil/ds;
-    @layoutfields = map {
-        if    ($_ eq '*') { 'selected'      }
-        elsif ($_ eq 'n') { 'display'       }
-        elsif ($_ eq 'N') { 'name_too_long' }
-        elsif ($_ eq 's') { 'size_num'      }
-        elsif ($_ eq 'S') { 'size_power'    }
-        elsif ($_ eq 'z') { 'grand_num'     }
-        elsif ($_ eq 'Z') { 'grand_power'   }
-        elsif ($_ eq 'u') { 'uid'           }
-        elsif ($_ eq 'g') { 'gid'           }
-        elsif ($_ eq 'p') { 'mode'          }
-        elsif ($_ eq 'a') { 'atimestring'   }
-        elsif ($_ eq 'c') { 'ctimestring'   }
-        elsif ($_ eq 'm') { 'mtimestring'   }
-        elsif ($_ eq 'l') { 'nlink'         }
-        elsif ($_ eq 'i') { 'inode'         }
-        elsif ($_ eq 'd') { 'rdev'          }
-    } (split //, $squeezedlayoutline);
+    ($formatname = $squeezedlayoutline) =~ s/[*SNZ]//g;
+    @layoutfields = map { $LAYOUTFIELDS{$_} } (split //, $squeezedlayoutline);
     $currentformatline = $prev = '';
     foreach $letter (split //, $currentlayoutline) {
         if ($letter eq ' ') {
@@ -1342,8 +1340,7 @@ sub init_title { # swap_mode, extra field, @layoutfields
     $scr->term()->Tputs('us', 1, *STDOUT)
                         if ($linecolor =~ /under(line|score)/);
     $^A = '';
-    formline($currentformatline . ' @>>>>>>>>>>>>>',
-        @{$TITLEVIRTFILE}{@fields}, $info);
+    formline($currentformatline . ' @>>>>>>>>>>>>>', @FIELDHEADINGS{@fields}, $info);
     $scr->at(2,0)->puts($^A)->normal();
     color 'reset';
 }
@@ -1352,19 +1349,16 @@ sub header {
     # do not take multiple mode into account at all
     my $mode = $_[0];
     if      ($mode & $HEADER_SORT) {
-        return 'Sort by: Name, Extension, Size, Date, Type, Inode'
-        .     ' (ignorecase, reverse):';
+        return 'Sort by: Name, Extension, Size, Date, Type, Inode (ignorecase, reverse):';
     } elsif ($mode & $HEADER_MORE) {
-        return 'Config-pfm Edit-new sHell Kill-chld Make-dir Show-dir'
-        .     ' Write-hist ESC';
+        return 'Config-pfm Edit-new sHell Kill-chld Make-dir Show-dir Write-hist ESC';
     } elsif ($mode & $HEADER_INCLUDE) {
         return 'Include? Every, Oldmarks, After, Before, User or Files only:';
     } elsif ($mode & $HEADER_LNKTYPE) {
         return 'Absolute, Relative symlink or Hard link:';
     } else {
         return 'Attribute Copy Delete Edit Find Include tarGet Link More Name'
-        .     ' cOmmands Print Quit Rename Show Time User eXclude'
-        .     ' Your-commands siZe';
+        .     ' cOmmands Print Quit Rename Show Time User eXclude Your-commands siZe';
     }
 }
 
@@ -1396,9 +1390,9 @@ sub init_header { # <special header mode>
 sub footer {
     return "F1-Help F2-Back F3-Redraw F4-Color[$color_mode]"
     .     " F5-Reread F6-Sort[$sort_mode] F7-Swap[$ONOFF{$swap_mode}]"
-    .     " F8-Include F9-Columns[$currentlayout]"
+    .     " F8-Include F9-Columns[$currentlayout]" # $formatname ?
     .     " F10-Multiple[$ONOFF{$multiple_mode}] F11-Restat"
-    .     " F12-Mouse[$ONOFF{$mouse_mode}] *-Numbase[$numbase_mode]"
+    .     " F12-Mouse[$ONOFF{$mouse_mode}] *-Radix[$radix_mode]"
 #    .     " .-Dotmode[$dot_mode] =-Ident[$ident_mode]"
     ;
 }
@@ -1413,14 +1407,12 @@ sub init_footer {
     $scr->term()->Tputs('us', 1, *STDOUT)
                         if ($linecolor =~ /under(line|score)/);
     $scr->at($BASELINE+$screenheight+1,0) ->puts($footer)
-        ->puts(' ' x ($screenwidth - length $footer));
+        ->puts(' ' x ($screenwidth - length $footer))->normal();
     color 'reset';
-    $scr->normal();
 }
 
 sub usage {
-    print "Usage: pfm [ ", colored('directory', 'underline'), " ] ",
-                     "[ -s, --swap ", colored('directory', 'underline'), " ]\n",
+    print "Usage: pfm [ ", colored('directory', 'underline'), " ] [ -s, --swap ", colored('directory', 'underline'), " ]\n",
           "       pfm { -h, --help | -v, --version }\n\n",
           "    ",colored('directory', 'underline'),
                        "            : specify starting directory\n",
@@ -1698,8 +1690,8 @@ sub handleident {
     goto &initident;
 }
 
-sub handlenumbase {
-    $numbase_mode = $numbase_mode eq 'hex' ? 'oct' : 'hex';
+sub handleradix {
+    $radix_mode = $radix_mode eq 'hex' ? 'oct' : 'hex';
     return $R_FOOTER;
 }
 
@@ -2105,7 +2097,7 @@ sub handleinclude { # include/exclude flag (from keypress)
 
 sub handlename {
     &markcurrentline(uc($_[0])); # disregard multiple_mode
-    my $numformat = $NUMFORMATS{$numbase_mode};
+    my $numformat = $NUMFORMATS{$radix_mode};
     my %otherfile = %currentfile;
     my $line;
     for ($otherfile{name}, $otherfile{target}) {
@@ -2119,7 +2111,7 @@ sub handlename {
     $scr->at($currentline+$BASELINE, $filenamecol)->puts($line . " \cH");
     &applycolor($currentline+$BASELINE, $FILENAME_LONG, %otherfile);
     if ($scr->getch() eq '*') {
-        &handlenumbase;
+        &handleradix;
         &init_footer;
         $scr->at($currentline+$BASELINE, $filenamecol)->puts(' ' x length $line);
         goto &handlename;
@@ -2259,8 +2251,7 @@ sub handlesymlink {
 }
 
 sub handletarget {
-    my ($newtarget, $newtargetexpanded, $oldtargetok, $loopfile, $do_this,
-        $index);
+    my ($newtarget, $newtargetexpanded, $oldtargetok, $loopfile, $do_this, $index);
     my $nosymlinkerror = 'Current file is not a symbolic link';
     if ($currentfile{type} ne 'l' and !$multiple_mode) {
         $scr->at(0,0)->clreol();
@@ -2304,8 +2295,7 @@ sub handletarget {
             $loopfile = $dircontents[$index];
             if ($loopfile->{selected} eq '*') {
                 $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
-                &expand_escapes($QUOTE_OFF, ($newtargetexpanded = $newtarget),
-                    $loopfile);
+                &expand_escapes($QUOTE_OFF, ($newtargetexpanded = $newtarget), $loopfile);
                 &exclude($loopfile,'.');
                 &$do_this;
                 $dircontents[$index] =
@@ -2417,8 +2407,7 @@ sub handlecommand { # Y or O
     if ($_[0] =~ /y/i) { # Your
         &init_title($swap_mode, $TITLE_YCOMMAND, @layoutfields);
         foreach (sort alphabetically keys %pfmrc) {
-            if (/^your\[[[:alpha:]]\]$/
-            && $printline <= $BASELINE+$screenheight) {
+            if (/^your\[[[:alpha:]]\]$/ && $printline <= $BASELINE+$screenheight) {
                 $printstr = $pfmrc{$_};
                 $printstr =~ s/\e/^[/g;
                 $^A = "";
@@ -2982,8 +2971,7 @@ sub stat_entry { # path_of_entry, selected_flag
     } elsif ($ptr->{type} eq '-' and $mode =~ /.[xst]/) {
         $ptr->{display} = $entry . $filetypeflags{'x'};
     } elsif ($ptr->{type} =~ /[bc]/) {
-        $ptr->{size_num} = sprintf("%d", $rdev/256) . $MAJORMINORSEPARATOR
-                           . ($rdev%256);
+        $ptr->{size_num} = sprintf("%d", $rdev/256) . $MAJORMINORSEPARATOR . ($rdev%256);
         $ptr->{display} = $entry . $filetypeflags{$ptr->{type}};
     } else {
         $ptr->{display} = $entry . $filetypeflags{$ptr->{type}};
@@ -3296,7 +3284,7 @@ sub browse {
                 /^g$/i       and $wantrefresh |= &handletarget,        last KEY;
                 /^k12$/      and $wantrefresh |= &handlemouse,         last KEY;
                 /^=$/        and $wantrefresh |= &handleident,         last KEY;
-                /^\*$/       and $wantrefresh |= &handlenumbase,       last KEY;
+                /^\*$/       and $wantrefresh |= &handleradix,         last KEY;
                 # invalid keypress: cursor position needs no checking
                 $wantrefresh &= ~$R_STRIDE;
             } # switch KEY
@@ -3355,9 +3343,6 @@ copyrightdelay:0.2
 ## use very visible cursor (e.g. block cursor on Linux console)
 cursorveryvisible:yes
 
-## base number system what Name will display non-ascii chars in (hex,oct)
-defaultnumbase:hex
-
 ## initial colorset to pick from the various colorsets defined below (for F4)
 defaultcolorset:dark
 
@@ -3369,6 +3354,9 @@ defaultident:user
 
 ## initial layout to pick from the array 'columnlayouts' (see below) (for F9)
 defaultlayout:0
+
+## initial radix that Name will use to display non-ascii chars with (hex,oct)
+defaultradix:hex
 
 ## initial sort mode (nNmMeEfFsSiItTdDaA) (default n) (for F6)
 defaultsortmode:n
@@ -3794,7 +3782,8 @@ self-explanatory. C<pfm> will issue a warning if the config file version
 is older than the version of C<pfm> you are running. In this case,
 please let C<pfm> create a new default config file and compare the changes
 with your own settings, so you do not miss any new config options or
-format changes. See also the B<C>onfig command under MORE COMMANDS below.
+format changes. See also the B<C>onfig command under MORE COMMANDS below,
+and DIAGNOSIS.
 
 There are two commandline options that specify starting directories.
 The C<CDPATH> environment variable is taken into account when C<pfm>
@@ -3829,8 +3818,6 @@ Print current version, then exit.
 
 =head1 NAVIGATION
 
-=over
-
 Navigation through directories is done using the arrow keys, the vi(1)
 cursor keys (B<hjkl>), B<->, B<+>, B<PgUp>, B<PgDn>, B<home>, B<end>,
 and the vi(1) control keys B<CTRL-F>, B<CTRL-B>, B<CTRL-U>, B<CTRL-D>,
@@ -3840,8 +3827,6 @@ will take you one directory level up (note: see below under BUGS on the
 functioning of B<ESC>). Pressing B<ENTER> when the cursor is on a directory
 will open the directory. Pressing B<SPACE> will both mark the current file
 and advance the cursor.
-
-=back
 
 =head1 COMMANDS
 
@@ -3927,11 +3912,16 @@ Gives the option to create either:
 This will create a symlink containing an absolute path to the target,
 irrespective of whether you enter a relative or an absolute symlink name.
 
-Example: when the cursor is on the file F</home/rene/incoming/.profile>,
+Example: when the cursor is on the file F</home/rene/incoming/.plan>,
 and you request an absolute symlink to be made with either the name
-F<../.profile> or F</home/rene/.profile>, the actual symlink will become:
+F<../.plan> or F</home/rene/.plan>, the actual symlink will become:
 
-    /home/rene/.profile -> /home/rene/incoming/.profile
+    /home/rene/.plan -> /home/rene/incoming/.plan
+
+=item a B<H>ard link
+
+This will create an additional hard link to the current file with the
+specified name, which must be on the same filesystem.
 
 =item a B<R>elative symlink
 
@@ -3941,18 +3931,13 @@ irrespective of whether you enter a relative or an absolute symlink name.
 In the previous example, this option would have created the symlink as
 follows:
 
-    /home/rene/.profile -> incoming/.profile
-
-=item a B<H>ard link
-
-This will create an additional hard link to the current file with the
-specified name, which must be on the same filesystem.
+    /home/rene/.plan -> incoming/.plan
 
 =back
 
 Note that if the current file is a directory, the B<l> key, being one of
 the vi(1) cursor keys, will chdir() you into the directory. The capital B<L>
-command will I<always> make a symlink.
+command will I<always> try to make a link.
 
 =item B<More>
 
@@ -3964,18 +3949,86 @@ you back to the main menu.
 
 =item B<Name>
 
-View the complete long filename. For a symbolic link, this command will
-also display the target of the symbolic link. Non-ASCII characters,
-control characters and (optionally) spaces will be displayed in octal or
-hexadecimal (configurable using the 'defaultnumbase' and 'translatespace'
-options in the F<.pfmrc> file), formatted like the following examples:
+Shows the complete long filename. For a symbolic link, this command
+will also show the target of the symbolic link. This is useful in case
+the terminal is not wide enough to display the entire name, or if the
+name contains non-printable characters.  Non-ASCII characters and control
+characters will be displayed as their octal or hexadecimal equivalents like
+the examples in the following table. Spaces will be converted as well, if
+the 'translatespace' option is turned on in the F<.pfmrc> file.  While the
+name is shown in its converted form, pressing B<*> will change the radix.
+The 'defaultradix' option specifies the initial radix that will be used.
 
-    octal                      hexadecimal
+Examples:
 
-    control-A : \001           control-A : \0x01
-    space     : \040           space     : \0x20
-    c-cedilla : \347           c-cedilla : \0xe7
-    backslash : \\             backslash : \\
+=begin html
+
+<table border=0 cellspacing=4 align=center width="50%">
+<tr><td colspan=3><hr></td></tr>
+<tr>
+	<td rowspan=3>character</td>
+	<td colspan=2>representation in radix</td>
+</tr>
+<tr>
+	<td colspan=2><hr></td>
+</tr>
+<tr>
+	<td>octal</td>
+	<td>hexadecimal</td>
+</tr>
+<tr><td colspan=3><hr></td></tr>
+<tr>
+	<td>CTRL-A</td>
+	<td>\001</td>
+	<td>\0x01</td>
+</tr>
+<tr>
+	<td>space</td>
+	<td>\040</td>
+	<td>\0x20</td>
+</tr>
+<tr>
+	<td>sz ligature (<b>&szlig;</b>)</td>
+	<td>\337</td>
+	<td>\0xdf</td>
+</tr>
+<tr>
+	<td>c cedilla (<b>&ccedil;</b>)</td>
+	<td>\347</td>
+	<td>\0xe7</td>
+</tr>
+<tr>
+	<td>backslash (<b>\</b>)</td>
+	<td>\\</td>
+	<td>\\</td>
+</tr>
+<tr><td colspan=3><hr></td></tr>
+</table>
+
+=end html
+
+=begin roff
+
+.in +4n
+.\" ooh, these *roff tables are neat
+.TS
+l  | c  s
+l6 | l8 l.
+_
+character	representation in radix
+_
+\^	octal	hexadecimal\0
+_
+CTRL-A	\\001	\\0x01
+space	\\040	\\0x20
+sz ligature (\fB\(ss\fP)	\\337	\\0xdf
+c cedilla (\fB\(,c\fP)	\\347	\\0xe7
+backslash (\fB\\\fP)	\\\\	\\\\\0
+_
+.TE
+.in
+
+=end roff
 
 =item B<cOmmand>
 
@@ -4030,10 +4083,9 @@ Also see below under QUOTING RULES.
 
 =item B<Print>
 
-Will prompt for a print command (default C<lpr -P$PRINTER \2>, or
-C<lpr \2> if C<PRINTER> is unset) and will pipe the current file through
-it. No formatting is done. You may specify a print command with the
-'printcmd' option in the F<.pfmrc> file.
+Will prompt for a print command (default C<lpr -P$PRINTER \2>, or C<lpr \2>
+if C<PRINTER> is unset) and will start it. No formatting is done. You may
+specify a print command with the 'printcmd' option in the F<.pfmrc> file.
 
 =item B<Quit>
 
@@ -4175,7 +4227,7 @@ the contents of the current file or directory are displayed (like B<S>how).
 
 =item B<*>
 
-Toggle the number base used for the B<N>ame command.
+Toggle the radix used by the B<N>ame command.
 
 =item B<.>
 
@@ -4221,7 +4273,7 @@ Fit the file list into the current window and refresh the display.
 =item B<F4>
 
 Change the current colorset. Multiple colorsets may be defined,
-see the F<.pfmrc> file for details.
+see the F<.pfmrc> file itself for details.
 
 =item B<F5>
 
@@ -4251,7 +4303,7 @@ Toggles the mark (include flag) on an individual file.
 
 Toggle the column layout. Layouts are defined in your F<.pfmrc>,
 in the 'defaultlayout' and 'columnlayouts' options. See the config
-file for information on changing the column layout.
+file itself for information on changing the column layout.
 
 Note that a 'grand total' column in the layout will only be filled when
 the siB<Z>e command is issued.
@@ -4305,7 +4357,7 @@ At the same time, any backslashed non-C<[1-6evp]> character is just replaced
 with the character itself.
 
 Finally, if the filename is to be processed by C<pfm>, it is taken literally;
-if it is to be handed to a shell, all metacharacters are escaped.
+if it is to be handed over to a shell, all metacharacters are escaped.
 
 =item B<a shell command> (e.g. in cB<O>mmand or B<P>rint)
 
@@ -4344,66 +4396,73 @@ Examples:
 
 =begin html
 
-<table border=0 cellspacing=2 cellpadding=2>
+<table border=0 cellspacing=4 align=center>
+<tr><td colspan=3><hr></td></tr>
 <tr>
-<td>char(s) wanted in filename</td>
-<td>char(s) to type in filename</td>
-<td>char(s) to type in shell command</td>
+	<td>char(s) wanted in filename&nbsp;&nbsp;&nbsp;</td>
+	<td>char(s) to type in filename&nbsp;&nbsp;&nbsp;</td>
+	<td>char(s) to type in shell command&nbsp;&nbsp;&nbsp;</td>
 </tr>
 <tr><td colspan=3><hr><td></tr>
 <tr>
-<td><i>any non-metachar</i></td>
-<td><i>that char</i></td>
-<td><i>that char</i></td>
+	<td><i>any non-metachar</i></td>
+	<td><i>that char</i></td>
+	<td><i>that char</i></td>
 </tr>
 <tr>
-<td>\</td>
-<td>\\</td>
-<td>\\\\</td>
+	<td>\</td>
+	<td>\\</td>
+	<td>\\\\</td>
 </tr>
 <tr>
-<td>&quot;</td>
-<td>&quot; <b>or</b> \&quot;</td>
-<td>\\&quot; <b>or</b> '&quot;'</td>
+	<td>&quot;</td>
+	<td>&quot; <b>or</b> \&quot;</td>
+	<td>\\&quot; <b>or</b> '&quot;'</td>
 </tr>
 <tr>
-<td><i>space</i></td>
-<td><i>space</i> <b>or</b> \<i>space</i></td>
-<td>\\<i>space</i>  <b>or</b> '<i>space</i>'</td>
+	<td><i>space</i></td>
+	<td><i>space</i> <b>or</b> \<i>space</i></td>
+	<td>\\<i>space</i>  <b>or</b> '<i>space</i>'</td>
 </tr>
 <tr>
-<td><i>filename</i></td>
-<td>\2</td>
-<td>\2</td>
+	<td><i>filename</i></td>
+	<td>\2</td>
+	<td>\2</td>
 </tr>
 <tr>
-<td>\2</td>
-<td>\\2</td>
-<td>\\\\2 <b>or</b> '\\2'</td>
+	<td>\2</td>
+	<td>\\2</td>
+	<td>\\\\2 <b>or</b> '\\2'</td>
 </tr>
+<tr><td colspan=3><hr><td></tr>
 </table>
 
 =end html
 
 =begin roff
 
-.in +4
+.in
 .TS
-l l l
-l l l
-- - -
 l l l.
-.\" great. *roff wants even more backslashes.
-char(s) wanted	char(s) to type	char(s) to type
-in filename	in filename	in shell command
+_
+T{
+char(s) wanted in filename
+T}	T{
+char(s) to type in filename
+T}	T{
+char(s) to type in shell command
+T}
+_
+.\" great. *roff wants even more backslashes. so much for clarity.
 \fIany non-metachar\fP	\fIthat char\fP	\fIthat char\fP
-\\	\\\\	\\\\\\\\\0 \fBor\fR '\\\\'
+\\	\\\\	\\\\\\\\ \fBor\fR '\\\\'
 "	" \fBor\fP \\"	\\\\" \fBor\fR '"'
 \fIspace\fP	\fIspace\fP \fBor\fP \\\fIspace\fP	\\\\\fIspace\fP \fBor\fR '\fIspace\fP'
 \fIfilename\fP	\\2	\\2
 \\2	\\\\2	\\\\\\\\2 \fBor\fR '\\\\2'
+_
 .TE
-.in -4
+.in
 
 =end roff
 
@@ -4413,14 +4472,75 @@ When C<pfm> is run in an xterm, mouse use may be turned on (either through
 the B<F12> key, or with the 'mousemode' option in the F<.pfmrc> file), which
 will give mouse access to the following commands:
 
-    button   pathline      title    footer    file    filename
+=begin html
 
-    1        More - Show   ctrl-U   ctrl-D    F8      Show
-    2        cOmmand       PgUp     PgDn      Show    ENTER
-    3        cOmmand       PgUp     PgDn      Show    ENTER
+<table border=0 cellspacing=4 align=center width="50%">
+<tr><td colspan=6><hr></td></tr>
+<tr>
+	<td rowspan=3>button</td>
+	<td colspan=5>location clicked</td>
+</tr>
+<tr><td colspan=5><hr></td></tr>
+<tr>
+	<td>pathline</td>
+	<td>title</td>
+	<td>header/footer</td>
+	<td>file</td>
+	<td>filename</td>
+</tr>
+<tr><td colspan=6><hr></td></tr>
+<tr>
+	<td>1</td>
+	<td><b>M</b>ore - <b>S</b>how</td>
+	<td>CTRL-U</td>
+	<td>CTRL-D</td>
+	<td>F8</td>
+	<td><b>S</b>how</td>
+</tr>
+<tr>
+	<td>2</td>
+	<td>c<b>O</b>mmand</td>
+	<td>PgUp</td>
+	<td>PgDn</td>
+	<td><b>S</b>how</td>
+	<td>ENTER</td>
+</tr>
+<tr>
+	<td>3</td>
+	<td>c<b>O</b>mmand</td>
+	<td>PgUp</td>
+	<td>PgDn</td>
+	<td><b>S</b>how</td>
+	<td>ENTER</td>
+</tr>
+<tr><td colspan=6><hr><td></tr>
+</table>
 
-The cursor will I<only> be moved when the title or footer is clicked, or
-when changing directory.
+=end html
+
+=begin roff
+
+.in +4n
+.TS
+c | c s s s s
+^ | l l l l l
+c | l l l l l.
+_
+\0button	location clicked
+_
+\^	pathline	title/header	footer	file	filename\0
+_
+1	\fBM\fPore \- \fBS\fPhow	CTRL-U	CTRL-D	F8	\fBS\fPhow
+2	c\fBO\fPmmand	PgUp	PgDn	\fBS\fPhow	ENTER
+3	c\fBO\fPmmand	PgUp	PgDn	\fBS\fPhow	ENTER
+_
+.TE
+.in
+
+=end roff
+
+The cursor will I<only> be moved when the title, header or footer is clicked,
+or when changing directory.
 
 Mouse use will be turned off during the execution of commands, unless
 'mouseturnoff' is set to 'no' in F<.pfmrc>. Note that setting this to
@@ -4429,7 +4549,7 @@ will receive escape codes when the mouse is clicked.
 
 =head1 WORKING DIRECTORY INHERITANCE
 
-Upon exit, C<pfm> will save its current working directory in a file
+Upon exit, C<pfm> will save its current working directory in the file
 F<$HOME/.pfm/cwd>. In order to have this directory "inherited" by the
 calling process (shell), you may call C<pfm> using a function or alias
 like the following:
@@ -4562,7 +4682,7 @@ memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.91.3.
+This manual pertains to C<pfm> version 1.91.4.
 
 =head1 SEE ALSO
 

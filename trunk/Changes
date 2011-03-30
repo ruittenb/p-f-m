@@ -1,7 +1,4 @@
-1.91.3 (Term::ANSIScreen)
+1.91.4 (Term::ANSIScreen)
 
-* obsoleted 'timeformat' option
-* changed (N)ame to display filetypeflags
-* changed (N)ame to allow direct numbase switching
-* updated documentation
+* updated documentation (use *roff tables)
 
