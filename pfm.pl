@@ -1,12 +1,12 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20030309 v1.92.3
+# @(#) pfm.pl 19990314-20030508 v1.92.4
 #
 # Name:         pfm
-# Version:      1.92.3
+# Version:      1.92.4
 # Author:       Rene Uittenbogaard
-# Date:         2003-03-09
+# Date:         2003-05-08
 # Usage:        pfm [ <directory> ] [ -s, --swap <directory> ]
 #               pfm { -v, --version | -h, --help }
 # Requires:     Term::ReadLine::Gnu (preferably)
@@ -22,20 +22,23 @@
 #
 # TODO:
 #       fix error handling in eval($do_this) and &display_error
-#          partly implemented in handlecopyrename
-#       use the nameindexmap from handledelete() more globally?
-#         in handlecopyrename()? in handlefind() in handlesymlink? in dirlookup?
-#       sub restat_copyback ?
+#           partly implemented in handlecopyrename
 #       sub fileforall(sub) ?
 #       cache color codes?
 #       don't cache user/groupnames? re-cache at every directory entry? test timestamp?
 #       bug: 'f' field in layout: characters in the 'gap' between filerecord & infocolumn
 #           are not cleared when switching columnformats -> insert an artificial "gap" field?
-#       bug: implement restat after launch
-#       bug: 'waitxbitlaunch' option defective
+#       handlesize gives unnecessary OS errors
+#       handletime does not restat(), nor resort
+#       handletime still has timezone errors :(
+#       cp -pr copies symlinks to symlinks - ?
+#       after rename: position_at new name?
+#       accept mouseclick in "hit any key to continue"
+#       use the nameindexmap from handledelete() more globally?
+#           in handlecopyrename()? in handlefind() in handlesymlink? in dirlookup? in handlemorefifo?
+#           use in conjunction with 'keeplostfiles' option?
 #
-#       'keeplostfiles' option?
-#       'autoenternewdir' option?
+#       'autodescendnewdir' option?
 #       implement 'logical' paths in addition to 'physical' paths?
 #           unless (chdir()) { getcwd() } otherwise no getcwd() ?
 #       set ROWS en COLUMNS in environment for child processes; but see if
@@ -359,7 +362,7 @@ my (
     $editor, $pager, $viewer, $printcmd, $ducmd, $showlockchar,
     $autoexitmultiple, $cursorveryvisible, $clsonexit,
     $autowritehistory, $trspace, $swap_persistent, $timestampformat, $mouseturnoff,
-    @colorsetnames, %filetypeflags, $swapstartdir, $waitxbitlaunched,
+    @colorsetnames, %filetypeflags, $swapstartdir, $waitlaunchexec,
     # layouts and formatting
     $currentformatline, $currentformatlinewithinfo,
     @layoutfields, @layoutfieldswithinfo, @columnlayouts, $currentlayout, $formatname,
@@ -471,7 +474,7 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
     # (e.g. confirmquit) - however, they remain accessable in %pfmrc
     # don't change initialized settings that are modifiable by key commands
     $clsonexit         = &isyes($pfmrc{clsonexit});
-    $waitxbitlaunched  = &isyes($pfmrc{waitxbitlaunched});
+    $waitlaunchexec    = &isyes($pfmrc{waitlaunchexec});
     $autowritehistory  = &isyes($pfmrc{autowritehistory});
     $autoexitmultiple  = &isyes($pfmrc{autoexitmultiple});
     $mouseturnoff      = &isyes($pfmrc{mouseturnoff});
@@ -780,7 +783,8 @@ sub expand_escapes { # quoteif, command, \%currentfile
     my $name      = $_[2]{name};
     my ($namenoext, $ext);
 #    $namenoext = $name =~ /^(.*)\.([^\.]+)$/ ? $1 : $name;
-    if ($name =~ /^(.*)\.([^\.]+)$/) {
+    # included '.' in \7
+    if ($name =~ /^(.*)(\.[^\.]+)$/) {
         $namenoext = $1;
         $ext = $2;
     } else {
@@ -797,11 +801,11 @@ sub expand_escapes { # quoteif, command, \%currentfile
 }
 
 sub isyes {
-    return $_[0] =~ /^(yes|1|true|on|always)$/i;
+    return $_[0] =~ /^(1|y|yes|true|on|always)$/i;
 }
 
 sub isno {
-    return $_[0] =~ /^(no|0|false|off|never)$/;
+    return $_[0] =~ /^(0|n|no|false|off|never)$/;
 }
 
 sub min ($$) {
@@ -956,8 +960,7 @@ sub fileforall {
                 &exclude($loopfile, '.');
                 $loopfile = &$do_this($loopfile);
                 if ($statflag) {
-                    $dircontents[$index] =
-                        &stat_entry($loopfile->{name}, $loopfile->{selected});
+                    $dircontents[$index] = &stat_entry($loopfile->{name}, $loopfile->{selected});
                 }
             }
         }
@@ -965,8 +968,7 @@ sub fileforall {
     } else {
         %currentfile = %{ &$do_this(\%currentfile) };
         if ($statflag) {
-            $showncontents[$currentline+$baseindex] =
-                &stat_entry($currentfile{name}, $currentfile{selected});
+            $showncontents[$currentline+$baseindex] = &stat_entry($currentfile{name}, $currentfile{selected});
         }
         &copyback($currentfile{name});
     }
@@ -983,6 +985,19 @@ sub multi_to_single {
     } else {
         return 0;
     }
+}
+
+sub restat_copyback {
+    $showncontents[$currentline+$baseindex] = &stat_entry($currentfile{name}, $currentfile{selected});
+    if ($showncontents[$currentline+$baseindex]{nlink} == 0) {
+#        if ($pfmrc{keeplostfiles}) {
+            $showncontents[$currentline+$baseindex]{display} .= $LOSTMSG;
+#        } else {
+#            splice @dircontents, $index, 1;
+#            splice @showncontents, $nameindexmap{$loopfile->{name}}, 1;
+#        }
+    }
+    &copyback($currentfile{name});
 }
 
 sub maxpan {
@@ -1046,8 +1061,7 @@ sub followmode {
 
 sub copyback {
     # copy a changed entry from @showncontents back to @dircontents
-    $dircontents[&dirlookup($_[0], @dircontents)] =
-        $showncontents[$currentline+$baseindex];
+    $dircontents[&dirlookup($_[0], @dircontents)] = $showncontents[$currentline+$baseindex];
 }
 
 sub isorphan {
@@ -1188,12 +1202,33 @@ sub applycolor {
 ##########################################################################
 # small printing routines
 
-sub makeformatlines {
-    my ($squeezedlayoutline, $prev, $letter, $trans, $temp);
-    if ($currentlayout > $#columnlayouts) {
-        $currentlayout = 0;
+sub validate_layoutnum {
+    while ($currentlayout > $#columnlayouts) {
+        $currentlayout -= @columnlayouts;
     }
-    my $currentlayoutline = $columnlayouts[$currentlayout];
+    return $currentlayout;
+}
+
+sub makeformatlines {
+    my ($squeezedlayoutline, $currentlayoutline, $firstwronglayout, $prev, $letter, $trans, $temp);
+    LAYOUT: {
+        $currentlayoutline = $columnlayouts[&validate_layoutnum];
+        unless ($currentlayoutline =~ /n/ and $currentlayoutline =~ /f/  and $currentlayoutline =~ /\*/) {
+            $firstwronglayout ||= $currentlayout || '0 but true';
+            $scr->at(0,0)->clreol();
+            &display_error("Bad layout #$currentlayout: a mandatory field is missing");
+            $scr->key_pressed($IMPORTANTDELAY);
+            $currentlayout++;
+            if (&validate_layoutnum != $firstwronglayout) {
+                redo LAYOUT;
+            } else {
+                $scr->at(0,0)->puts("Fatal error: No valid layout defined in " . &whichconfigfile)->clreol()->at(1,0);
+                &stty_raw($TERM_COOKED);
+                &mouseenable($MOUSE_OFF);
+                exit 2;
+            }
+        }
+    }
     # layouts are all based on a screenwidth of 80: elongate filename field
     $currentlayoutline =~ s/n/'n' x ($screenwidth - 79)/e;
     # find out the length of the filename, filesize and info fields
@@ -1239,6 +1274,7 @@ sub makeformatlines {
         $prev = $letter;
     }
     substr ($currentformatline = $currentformatlinewithinfo, $infocol, $infolength, '');
+    return $currentformatline;
 }
 
 sub pathline {
@@ -1438,7 +1474,7 @@ sub header {
     if      ($mode & $HEADER_SORT) {
         return 'Sort by: Name, Extension, Size, Date, Type, Inode (ignorecase, reverse):';
     } elsif ($mode & $HEADER_MORE) {
-        return 'Config-pfm Edit-new sHell Kill-chld Make-dir Show-dir Write-hist ESC';
+        return 'Config-pfm Edit-new make-Fifo sHell Kill-chld Make-dir Show-dir Write-hist ESC';
     } elsif ($mode & $HEADER_INCLUDE) {
         return 'Include? Every, Oldmarks, After, Before, User or Files only:';
     } elsif ($mode & $HEADER_LNKTYPE) {
@@ -1847,6 +1883,7 @@ sub handlesize {
     my ($recursivesize, $command, $tempfile, $do_this);
     my ($index, $loopfile);
     my $do_a_refresh = ($R_DIRFILTER | $R_DIRLIST | $R_HEADER | $R_PATHINFO | $R_DISKINFO) * $multiple_mode;
+#    $do_a_refresh |= $R_DIRSORT * (lc $sort_mode eq 'z');
     &markcurrentline('Z') unless $multiple_mode;
     $do_this = sub {
         $loopfile = shift;
@@ -2042,7 +2079,7 @@ sub handlemoreconfig {
 
 sub handlemoreedit {
     my $newname;
-    my $prompt  = 'New name: ';
+    my $prompt  = 'New filename: ';
     $scr->at(0,0)->clreol();
     &stty_raw($TERM_COOKED);
     $newname = &readintohist(\@path_history, $prompt);
@@ -2050,6 +2087,29 @@ sub handlemoreedit {
     system "$editor \Q$newname\E" and &display_error($!);
     &stty_raw($TERM_RAW);
     return $R_CLRSCR;
+}
+
+sub handlemorefifo {
+    my ($newname, $findindex);
+    my $do_a_refresh = $R_SCREEN;
+    my $prompt = 'New FIFO name: ';
+    $scr->at(0,0)->clreol();
+    &stty_raw($TERM_COOKED);
+    $newname = &readintohist(\@path_history, $prompt);
+    &expand_escapes($QUOTE_OFF, $newname, \%currentfile);
+    system "mkfifo \Q$newname\E" and &display_error($!);
+    # is newname present in @dircontents? push otherwise
+    # (this part is nearly identical to the part in handlecopyrename())
+    $findindex = 0;
+    $findindex++ while ($findindex <= $#dircontents and
+                    $newname ne $dircontents[$findindex]{name});
+    if ($findindex > $#dircontents) {
+        $do_a_refresh |= $R_DIRSORT;
+    }
+    $dircontents[$findindex] = &stat_entry($newname, $dircontents[$findindex]{selected} || ' ');
+    # upto here
+    &stty_raw($TERM_RAW);
+    return $do_a_refresh;
 }
 
 sub handlemoreshell {
@@ -2114,6 +2174,7 @@ sub handlemore {
         /^w$/i and $do_a_refresh |= &write_history,       last MOREKEY;
         # since when has pfm become a process manager?
         /^k$/i and $do_a_refresh |= &handlemorekill,      last MOREKEY;
+        /^f$/i and $do_a_refresh |= &handlemorefifo,      last MOREKEY;
 #        /^p$/i and $do_a_refresh |= &handlemoreprocgroup, last MOREKEY;
     }
     return $do_a_refresh;
@@ -2283,10 +2344,10 @@ sub handlesymlink {
                 # relative: reverse path
                 $targetstring = &reversepath($currentdir.'/'.$loopfile->{name}, $newnameexpanded);
             }
-        } elsif ($targetstring !~ m!^/!) {
-            # make relative path absolute
-            $targetstring = $currentdir . "/" . $loopfile->{name};
-        } # else absolute path wanted and got, or hard link wanted: do nothing
+        } else { # $absrel eq 'a'
+                # hand over an absolute path
+                $targetstring = $currentdir.'/'.$loopfile->{name};
+        }
         if (system @lncmd, $targetstring, $newnameexpanded) {
             $do_a_refresh |= &neat_error($!);
         } elsif ($newnameexpanded !~ m!/!) {
@@ -2318,9 +2379,7 @@ sub handlesymlink {
         $loopfile = \%currentfile;
         &expand_escapes($QUOTE_OFF, ($newnameexpanded = $newname), $loopfile);
         &$do_this;
-        $showncontents[$currentline+$baseindex] =
-            &stat_entry($currentfile{name}, $currentfile{selected});
-        &copyback($currentfile{name});
+        &restat_copyback;
     }
     return $do_a_refresh;
 }
@@ -2373,8 +2432,7 @@ sub handletarget {
                 &expand_escapes($QUOTE_OFF, ($newtargetexpanded = $newtarget), $loopfile);
                 &exclude($loopfile,'.');
                 &$do_this;
-                $dircontents[$index] =
-                    &stat_entry($loopfile->{name}, $loopfile->{selected});
+                $dircontents[$index] = &stat_entry($loopfile->{name}, $loopfile->{selected});
             }
         }
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
@@ -2382,9 +2440,7 @@ sub handletarget {
         $loopfile = \%currentfile;
         &expand_escapes($QUOTE_OFF,($newtargetexpanded = $newtarget),$loopfile);
         &$do_this;
-        $showncontents[$currentline+$baseindex] =
-            &stat_entry($currentfile{name}, $currentfile{selected});
-        &copyback($currentfile{name});
+        &restat_copyback;
     }
     return $do_a_refresh;
 }
@@ -2411,17 +2467,14 @@ sub handlechown {
                 $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
                 &exclude($loopfile, '.');
                 &$do_this;
-                $dircontents[$index] =
-                    &stat_entry($loopfile->{name}, $loopfile->{selected});
+                $dircontents[$index] = &stat_entry($loopfile->{name}, $loopfile->{selected});
             }
         }
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
         $loopfile = \%currentfile;
         &$do_this;
-        $showncontents[$currentline+$baseindex] =
-            &stat_entry($currentfile{name}, $currentfile{selected});
-        &copyback($currentfile{name});
+        &restat_copyback;
     }
     return $do_a_refresh;
 }
@@ -2466,9 +2519,7 @@ sub handlechmod {
     } else {
         $loopfile = \%currentfile;
         &$do_this;
-        $showncontents[$currentline+$baseindex] =
-            &stat_entry($currentfile{name}, $currentfile{selected});
-        &copyback($currentfile{name});
+        &restat_copyback;
     }
     return $do_a_refresh;
 }
@@ -2535,12 +2586,7 @@ sub handlecommand { # Y or O
             &expand_escapes($QUOTE_ON, $command, \%currentfile);
             $scr->clrscr()->at(0,0)->puts($command . "\n");
             system $command and &display_error($!);
-            $showncontents[$currentline+$baseindex] =
-                &stat_entry($currentfile{name}, $currentfile{selected});
-            if ($showncontents[$currentline+$baseindex]{nlink} == 0) {
-                $showncontents[$currentline+$baseindex]{display} .= $LOSTMSG;
-            }
-            &copyback($currentfile{name});
+            &restat_copyback;
         }
         &pressanykey;
     }
@@ -2549,13 +2595,15 @@ sub handlecommand { # Y or O
 }
 
 sub handledelete {
-    my ($loopfile, $do_this, $index, $success, $msg, $oldpos, %nameindexmap);
+    my ($loopfile, $do_this, $index, $success, $msg, $oldpos, $sure, %nameindexmap);
     my $count = 0;
     &markcurrentline('D') unless $multiple_mode;
-    $scr->at(0,0)->clreol();
-    &putmessage('Are you sure you want to delete [Y/N]? ');
-    my $sure = $scr->getch();
-    return $R_HEADER if $sure !~ /y/i;
+    if ($multiple_mode or $currentfile{nlink}) {
+        $scr->at(0,0)->clreol();
+        &putmessage('Are you sure you want to delete [Y/N]? ');
+        $sure = $scr->getch();
+        return $R_HEADER if $sure !~ /y/i;
+    }
     $scr->at($PATHLINE,0);
     $do_this = sub {
         if ($loopfile->{name} eq '.') {
@@ -2564,7 +2612,11 @@ sub handledelete {
             # then it can also be removed, which causes a fatal pfm error.
             $msg = 'Deleting current directory not allowed';
             $success = 0;
+        } elsif ($loopfile->{type} eq 'w') {
+            # not functional. readdir() does not return whiteout entries.
+            $success = !system('unwhiteout', $loopfile->{name});
         } elsif ($loopfile->{nlink} == 0) {
+            # remove 'lost files' immediately, no confirmation needed
             $success = 1;
         } elsif ($loopfile->{type} eq 'd') {
             if (&testdirempty($loopfile->{name})) {
@@ -2733,8 +2785,7 @@ sub handletime {
     } else {
         $loopfile = \%currentfile;
         &$do_this;
-        $showncontents[$currentline+$baseindex] = &stat_entry($currentfile{name}, $currentfile{selected});
-        &copyback($currentfile{name});
+        &restat_copyback;
     }
     return $do_a_refresh;
 }
@@ -2802,8 +2853,7 @@ sub handlecopyrename {
             if ($findindex > $#dircontents) {
                 $do_a_refresh |= $R_DIRSORT;
             }
-            $dircontents[$findindex] = &stat_entry($newnameexpanded,
-                $dircontents[$findindex]{selected} || ' ');
+            $dircontents[$findindex] = &stat_entry($newnameexpanded, $dircontents[$findindex]{selected} || ' ');
         }
     };
     &stty_raw($TERM_COOKED) unless $clobber_mode;
@@ -2827,11 +2877,7 @@ sub handlecopyrename {
         $loopfile = \%currentfile;
         &expand_escapes($QUOTE_OFF, ($newnameexpanded = $newname), $loopfile);
         &$do_this;
-        $showncontents[$currentline+$baseindex] = &stat_entry($currentfile{name}, $currentfile{selected});
-        if ($showncontents[$currentline+$baseindex]{nlink} == 0) {
-            $showncontents[$currentline+$baseindex]{display} .= $LOSTMSG;
-        }
-        &copyback($currentfile{name});
+        &restat_copyback;
         # if ! $clobber_mode, we might have gotten an 'Overwrite?' question
         $do_a_refresh |= $R_SCREEN unless $clobber_mode;
     }
@@ -2842,12 +2888,7 @@ sub handlecopyrename {
 sub handlerestat {
     # i have seen these commands somewhere before..
     my $currentfile = $dircontents[$currentline+$baseindex];
-    $showncontents[$currentline+$baseindex] =
-        &stat_entry($currentfile{name}, $currentfile{selected});
-    if ($showncontents[$currentline+$baseindex]{nlink} == 0) {
-        $showncontents[$currentline+$baseindex]{display} .= $LOSTMSG;
-    }
-    &copyback($currentfile{name});
+    &restat_copyback;
     return $R_STRIDE;
 }
 
@@ -2936,7 +2977,7 @@ sub launchbyxbit {
     my $pid;
     if (&followmode(\%currentfile) =~ /[xsS]/) {
         $scr->clrscr()->at(0,0)->puts("Launch executable $currentfile{name}\n");
-        if ($waitxbitlaunched) {
+        if ($waitlaunchexec) {
             system "./\Q$currentfile{name}" and &display_error($!);
         } elsif (!defined($pid = fork)) {
             &display_error("Unable to fork: $!");
@@ -2994,6 +3035,7 @@ sub handleenter {
     if ($launched =~ /launched/) {
         $launched = $R_CLRSCR;
         &pressanykey;
+        &restat_copyback;
     } elsif (defined $launched) {
         # we did try, but the file type was unknown
 #        &display_error('File type unknown');
@@ -3142,7 +3184,7 @@ sub stat_entry { # path_of_entry, selected_flag
         $ptr->{target}  = readlink($ptr->{name});
         $ptr->{display} = $entry . $filetypeflags{'l'}
                         . ' -> ' . $ptr->{target};
-    } elsif ($ptr->{type} eq '-' and $mode =~ /.[xst]/) {
+    } elsif ($ptr->{type} eq '-' and $ptr->{mode} =~ /.[xst]/) {
         $ptr->{display} = $entry . $filetypeflags{'x'};
     } elsif ($ptr->{type} =~ /[bc]/) {
         $ptr->{size_num} = sprintf("%d", $rdev/256) . $MAJORMINORSEPARATOR . ($rdev%256);
@@ -3640,8 +3682,8 @@ usecolor:force
 ## preferred image editor/viewer (don't specify \2 here)
 viewer:xv
 
-## wait for launched commands to finish?
-waitxbitlaunched:yes
+## wait for launched executables to finish?
+waitlaunchexec:yes
 
 ##########################################################################
 ## colors
@@ -3662,7 +3704,7 @@ footer=reverse blue on white:message=blue:highlight=bold:
 
 framecolors[dark]:\
 header=white on blue:multi=bold reverse cyan on white:\
-title=bold reverse cyan on white:swap=reverse black on cyan:\
+title=bold reverse cyan on white:swap=black on cyan:\
 footer=bold reverse blue on white:message=bold cyan:highlight=bold:
 
 ## these are a suggestion
@@ -3800,6 +3842,7 @@ your[o]:cp \2 \2.$(date +"%Y%m%d"); touch -r \2 \2.$(date +"%Y%m%d")
 your[p]:perl -cw \2
 your[q]:unzip -l \2 | \p
 your[r]:rpm -qpl \2 | \p
+your[S]:shar \2 > \2.shar
 your[s]:strings \2 | \p
 your[t]:gunzip < \2 | tar tvf - | \p
 your[U]:unzip \2
@@ -3857,6 +3900,7 @@ extension[*.mp2] : audio/mpeg
 extension[*.mp3] : audio/mpeg
 extension[*.mpeg]: video/mpeg
 extension[*.mpg] : video/mpeg
+extension[*.p]   : application/x-chem
 extension[*.pas] : application/x-pascal
 extension[*.pdf] : application/pdf
 extension[*.ppt] : application/x-ms-office
@@ -3867,6 +3911,7 @@ extension[*.ps]  : application/postscript
 extension[*.qt]  : video/quicktime
 extension[*.ra]  : audio/x-realaudio
 extension[*.ram] : audio/x-pn-realaudio
+extension[*.rar] : application/x-rar
 extension[*.rpm] : application/x-rpm
 extension[*.tar] : application/x-tar
 extension[*.taz] : application/x-tar-compress
@@ -3874,11 +3919,13 @@ extension[*.tgz] : application/x-tar-gzip
 extension[*.tif] : image/tiff
 extension[*.tiff]: image/tiff
 extension[*.txt] : text/plain
+extension[*.uue] : application/x-uuencoded
 extension[*.wav] : audio/x-wav
 extension[*.xbm] : image/x-xbitmap
 extension[*.xpm] : image/x-xpixmap
 extension[*.xwd] : image/x-xwindowdump
 extension[*.xls] : application/x-ms-office
+extension[*.ync] : application/x-yencoded
 extension[*.z]   : application/x-compress
 extension[*.zip] : application/zip
 
@@ -3897,6 +3944,7 @@ magic[PC bitmap.*Windows]   : image/x-ms-bitmap
 magic[PDF document]         : application/pdf
 magic[PNG image data]       : image/png
 magic[PostScript document]  : application/postscript
+magic[RAR archive]          : application/x-rar
 magic[RIFF.*data, AVI]      : video/x-msvideo
 magic[RPM]                  : application/x-rpm
 magic[Sun.NeXT audio data]  : audio/basic
@@ -3913,6 +3961,7 @@ magic[tar archive]          : application/x-tar
 
 launch[application/x-intercal]    : ick \2
 launch[application/x-befunge]     : mtfi \2
+launch[application/x-chem]        : chem \2 | pic | gtbl | eqn | groff -man > \1.ps; gv \1.ps &
 launch[application/octet-stream]  : \p \2
 launch[application/pdf]           : acroread \2 &
 launch[application/postscript]    : gv \2 &
@@ -3929,6 +3978,7 @@ launch[application/x-ms-office]   : \e \2
 launch[application/x-pascal]      : \e \2
 launch[application/x-perl-module] : \e \2
 launch[application/x-perl]        : \2
+launch[application/x-rar]         : unrar x \2
 #launch[application/x-rpm]         : rpm -Uvh \2
 launch[application/x-rpm]         : rpm -qpl \2
 #launch[application/x-tar-compress]: uncompress < \2 | tar xvf -
@@ -3937,6 +3987,8 @@ launch[application/x-tar-compress]: uncompress < \2 | tar tvf -
 launch[application/x-tar-gzip]    : gunzip < \2 | tar tvf -
 #launch[application/x-tar]         : tar xvf \2
 launch[application/x-tar]         : tar tvf \2
+launch[application/x-uuencoded]   : uudecode \2
+launch[application/x-yencoded]    : yydecode \2
 launch[application/zip]           : unzip \2
 launch[audio/basic]               : esdplay \2 &
 launch[audio/midi]                : timidity \2 &
@@ -4436,17 +4488,40 @@ the image viewer specified with the 'viewer' option in the config file
 
 The I<extension> of the filename is defined as follows:
 
-If the filename ends in a period or does not contain a period at all,
-then the file has no extension and its whole name is regarded as B<\1>.
+If the filename does not contain a period at all, then the file has no
+extension and its whole name is regarded as B<\1>.
 
     \1 == \2
     \7 == ''
 
-Otherwise, the extension B<\7> is defined as the longest string of
-non-period characters at the end of the filename. The filename B<\1>
-is the part before the period.
+Otherwise, the extension B<\7> is defined as the final part of the filename,
+starting at the last period in the name. The filename B<\1> is the part
+before the period.
 
-    \1.\7 == \2
+    \1\7 == \2
+
+Examples:
+
+=begin roff
+
+.in +4n
+.TS
+lb | lb lb
+l  | l  l  .
+_
+\e2	\e1	\e7
+_
+track01.wav	track01	.wav
+garden.jpg	garden	.jpg
+end.	end	.
+somename	somename	\fIempty\fP
+\.profile	\fIempty\fP	.profile
+\.profile.old	.profile	.old
+_
+.TE
+.in -4n
+
+=end roff
 
 See also below under QUOTING RULES.
 
@@ -4554,6 +4629,11 @@ settings modifiable by key commands (like 'defaultsortmode') will not.
 
 You will be prompted for the new filename, then your editor will
 be spawned.
+
+=item B<make Fifo>
+
+Prompts for a name, then creates a FIFO file (named pipe) with that
+name. See also fifo(4) and mkfifo(1).
 
 =item B<sHell>
 
@@ -4750,9 +4830,9 @@ Example:
 
 =item B<xbit>
 
-The executable bits in the file permissions will be checked (after having
-followed symbolic links). If the current file is executable, C<pfm> will
-attempt to start the file as an executable command.
+The executable bits in the file permissions will be checked (after
+symbolic links have been followed). If the current file is executable,
+C<pfm> will attempt to start the file as an executable command.
 
 =back
 
@@ -5139,7 +5219,7 @@ memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.92.3.
+This manual pertains to C<pfm> version 1.92.4.
 
 =head1 SEE ALSO
 
