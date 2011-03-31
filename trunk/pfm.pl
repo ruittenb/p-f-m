@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20030212 v1.91.4
+# @(#) pfm.pl 19990314-20030212 v1.91.5
 #
 # Name:         pfm
-# Version:      1.91.4
+# Version:      1.91.5
 # Author:       Rene Uittenbogaard
 # Date:         2003-02-12
 # Usage:        pfm [ <directory> ] [ -s, --swap <directory> ]
@@ -187,8 +187,9 @@ my $R_CHDIR     = $R_NEWDIR | $R_DIRCONTENTS | $R_DIRSORT | $R_SCREEN
 my $VERSION             = &getversion;
 my $CONFIGDIRNAME       = "$ENV{HOME}/.pfm";
 my $CONFIGFILENAME      = '.pfmrc';
-my $LOSTMSG             = '';   # was ' (file lost)'; # now shown with coloring
+my $CONFIGDIRMODE       = 0700;
 my $CWDFILENAME         = 'cwd';
+my $LOSTMSG             = '';   # was ' (file lost)'; # now shown with coloring
 my $MAJORMINORSEPARATOR = ',';
 my $NAMETOOLONGCHAR     = '+';
 my $MAXHISTSIZE         = 40;
@@ -200,8 +201,7 @@ my $BASELINE            = 3;
 my $USERLINE            = 21;
 my $DATELINE            = 22;
 my $DATECOL             = 14;
-my $CONFIGDIRMODE       = 0700;
-my $DFCMD               = ($^O eq 'hpux') ? 'bdf' : 'df -k';
+my $DFCMD               = ($^O eq 'hpux') ? 'bdf' : ($^O eq 'sco') ? 'dfspace' : 'df -k';
 
 my @SYMBOLIC_MODES      = qw(--- --x -w- -wx r-- r-x rw- rwx);
 my %ONOFF               = ('' => 'off', 0 => 'off', 1 => 'on');
@@ -362,18 +362,31 @@ sub whichconfigfile {
 }
 
 sub write_pfmrc {
-    local $_;
+#    local $_;
     my @resourcefile;
+    my $secs_per_32_days = 60 * 60 * 24 * 32;
+    my $maxdatelen = 0;
+    # the default layouts assume that the default timestamp format is 15 chars wide.
+    # find out if this is enough, taking the current locale into account.
+    foreach (0 .. 11) {
+        $maxdatelen = max($maxdatelen, length strftime("%b", gmtime($secs_per_32_days * $_)));
+    }
+    $maxdatelen -= 3;
     if (open MKPFMRC, '>' . &whichconfigfile) {
         # both __DATA__ and __END__ markers are used at the same time
-        push (@resourcefile, $_) while (($_ = <DATA>) !~ /^__END__$/);
-        close DATA;
-        print MKPFMRC map {
+        while (($_ = <DATA>) !~ /^__END__$/) {
             s/^(##? Version )x$/$1$VERSION/m;
-            s{^(\s*(?:your[[:alpha:]]|launch[^]:])\s*:\s*\w+.*?\s+)more(\s*)$}
-             {$1less$2}mg if $^O =~ /linux/i;
-            $_;
-        } @resourcefile;
+            if ($^O =~ /linux/i) {
+                s{^(\s*(?:your[[:alpha:]]|launch[^]:])\s*:\s*\w+.*?\s+)more(\s*)$}
+                 {$1less$2}mg;
+            }
+            if (/nnnnn/ and $maxdatelen) {
+                s/([cma])/$1 x ($maxdatelen+1)/e &&
+                s/nnnnn{$maxdatelen}/nnnn/;
+            }
+            print MKPFMRC;
+        }
+        close DATA;
         close MKPFMRC;
     } # no success? well, that's just too bad
 }
@@ -430,6 +443,9 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
     system ('tput', $cursorveryvisible ? 'cvvis' : 'cnorm');
     system ('stty', 'erase', $pfmrc{erase}) if defined($pfmrc{erase});
     $kbd->set_keymap($pfmrc{keymap})        if $pfmrc{keymap};
+    # time/date format for clock
+    $pfmrc{clockdateformat} ||= '%x';
+    $pfmrc{clocktimeformat} ||= '%X';
     # some configuration options are NOT fetched into common scalars
     # (e.g. confirmquit) - however, they remain accessable in %pfmrc
     # don't change initialized settings that are modifiable by key commands
@@ -641,7 +657,8 @@ sub time2str {
     if ($flag == $TIME_FILE) {
         return strftime ($timestampformat, localtime $time);
     } else {
-        return strftime ("%Y %b %d %H:%M:%S", localtime $time);
+        return strftime ($pfmrc{clockdateformat}, localtime $time),
+               strftime ($pfmrc{clocktimeformat}, localtime $time);
     }
 }
 
@@ -1494,7 +1511,7 @@ _eoCredits_
 # system information
 
 sub user_info {
-    $^A = "";
+    $^A = '';
     formline('@>>>>>>>>>>>>', $ident);
     color 'red' unless ($>); # red for root
     $scr->at($USERLINE, $screenwidth-$DATECOL+1)->puts($^A);
@@ -1502,7 +1519,7 @@ sub user_info {
 }
 
 sub infoline { # number, description
-    $^A = "";
+    $^A = '';
     formline('@>>>>>> @<<<<<', @_);
     return $^A;
 }
@@ -1566,13 +1583,18 @@ sub mark_info {
 }
 
 sub date_info {
-    my ($line, $col) = @_;
-    my ($datetime, $date, $time);
-    $datetime = &time2str(time, $TIME_CLOCK);
-    ($date, $time) = ($datetime =~ /(.*)\s+(.*)/);
-    # it might be better to do this with formline and $^A
-    $scr->at($line++, $col+3)->puts($date) if ($scr->rows() > 24);
-    $scr->at($line++, $col+6)->puts($time);
+    my ($date, $time);
+    my $line = $DATELINE;
+    my $col  = $screenwidth-$DATECOL;
+    ($date, $time) = &time2str(time, $TIME_CLOCK);
+    if ($scr->rows() > 24) {
+        $^A = '';
+        formline('@>>>>>>>>>>>>>', $date);
+        $scr->at($line++, $col)->puts($^A);
+    }
+    $^A = '';
+    formline('@>>>>>>>>>>>>>', $time);
+    $scr->at($line++, $col)->puts($^A);
 }
 
 ##########################################################################
@@ -1944,7 +1966,7 @@ sub handlemoremake {
 sub handlemoreconfig {
     my $do_a_refresh = $R_CLEAR;
     my $olddotdot    = $dotdot_mode;
-    if (system $editor, "$CONFIGDIRNAME/$CONFIGFILENAME") {
+    if (system $editor, &whichconfigfile) {
         &display_error($!);
     } else {
         &read_pfmrc($READ_AGAIN);
@@ -3093,7 +3115,7 @@ sub showdiskinfo {
     &dir_info(%total_nr_of);
     &mark_info(%selected_nr_of);
     &user_info;
-    &date_info($DATELINE, $screenwidth-$DATECOL);
+    &date_info;
 }
 
 ##########################################################################
@@ -3231,7 +3253,7 @@ sub browse {
         &highlightline($HIGHLIGHT_ON);
         &mouseenable($MOUSE_ON) if $mouse_mode && $mouseturnoff;
         WAIT: until ($scr->key_pressed(1) || $wasresized) {
-            &date_info($DATELINE, $screenwidth-$DATECOL);
+            &date_info;
             $scr->at($currentline+$BASELINE, $cursorcol);
         }
         if ($wasresized) {
@@ -3329,6 +3351,10 @@ autowritehistory:no
 ## automatically clobber existing files
 clobber:no
 
+## clock date/time format; see strftime(3). %x and %X are the defaults.
+clockdateformat:%x
+clocktimeformat:%X
+
 ## whether you want to have the screen cleared when pfm exits
 clsonexit:no
 
@@ -3384,18 +3410,16 @@ filetypeflags:yes
 importlscolors:yes
 
 ## additional key definitions for Term::Screen.
-## definitely look in the Term::Screen(3pm) manpage for details.
+## I have seen and tried pfm in several terminals and it seems
+## that Term::Screen *badly* needs these additions.
+## if some (function) keys do not seem to work, add their escape sequences here.
 ## you may specify these by-terminal (make the option name 'keydef[$TERM]')
 ## or global ('keydef[*]')
-## if some (function) keys do not seem to work, add their escape sequences here.
+## definitely look in the Term::Screen(3pm) manpage for details.
 ## also check 'kmous' from terminfo if your mouse is malfunctioning.
-keydef[*]:kmous=\e[M:
-#keydef[*]:kl=\eOD:kd=\eOB:ku=\eOA:kr=\eOC:home=\e[1~:end=\e[4~:end=\e[F:k1=\eOP:k2=\eOQ:k3=\eOR:k4=\e[OS:
-## some people always set TERM to 'vt100'
-keydef[vt100]:kl=\eOD:kd=\eOB:ku=\eOA:kr=\eOC:home=\e[1~:end=\e[4~:end=\e[F:k1=\eOP:k2=\eOQ:k3=\eOR:k4=\e[OS:
-keydef[linux]:home=\e[1~:end=\e[4~:
-keydef[xterm]:home=\e[1~:end=\e[4~:end=\e[F:
-keydef[xterm-color]:home=\e[1~:end=\e[4~:end=\e[F:
+#keydef[vt100]:home=\e[1~:end=\e[4~:
+keydef[*]:kmous=\e[M:home=\e[1~:end=\e[4~:end=\e[F:\
+kl=\eOD:kd=\eOB:ku=\eOA:kr=\eOC:k1=\eOP:k2=\eOQ:k3=\eOR:k4=\e[OS:
 
 ## the keymap to use in readline (vi,emacs). (default emacs)
 #keymap:vi
@@ -3430,6 +3454,7 @@ showlock:sun
 timestampformat:%y %b %d %H:%M
 #timestampformat:%Y-%m-%d %H:%M:%S
 #timestampformat:%b %d %H:%M
+#timestampformat:%c
 #timestampformat:%Y %V %a
 
 ## translate spaces when viewing Name
@@ -3539,9 +3564,9 @@ di=bold:ln=underscore:
 ## u    user                    >=8 (system-dependent)
 ## g    group                   >=8 (system-dependent)
 ## p    permissions (mode)      10
-## a    access time             15
-## c    change time             15
-## m    modification time       15
+## a    access time             15 (for "%y %b %d %H:%M" if len(%b) == 3)
+## c    change time             15 (idem)
+## m    modification time       15 (idem)
 ## d    device                  5?
 ## i    inode                   7
 ## l    link count              >=5 (system-dependent)
@@ -3928,8 +3953,9 @@ specified name, which must be on the same filesystem.
 This will create a symlink containing a relative path to the target,
 irrespective of whether you enter a relative or an absolute symlink name.
 
-In the previous example, this option would have created the symlink as
-follows:
+Example: when the cursor is on the file F</home/rene/incoming/.plan>,
+and you request a relative symlink to be made with either the name
+F<../.plan> or F</home/rene/.plan>, the actual symlink will become:
 
     /home/rene/.plan -> incoming/.plan
 
@@ -3955,7 +3981,7 @@ the terminal is not wide enough to display the entire name, or if the
 name contains non-printable characters.  Non-ASCII characters and control
 characters will be displayed as their octal or hexadecimal equivalents like
 the examples in the following table. Spaces will be converted as well, if
-the 'translatespace' option is turned on in the F<.pfmrc> file.  While the
+the 'translatespace' option is turned on in the F<.pfmrc> file.  When the
 name is shown in its converted form, pressing B<*> will change the radix.
 The 'defaultradix' option specifies the initial radix that will be used.
 
@@ -3988,11 +4014,6 @@ Examples:
 	<td>\0x20</td>
 </tr>
 <tr>
-	<td>sz ligature (<b>&szlig;</b>)</td>
-	<td>\337</td>
-	<td>\0xdf</td>
-</tr>
-<tr>
 	<td>c cedilla (<b>&ccedil;</b>)</td>
 	<td>\347</td>
 	<td>\0xe7</td>
@@ -4021,7 +4042,6 @@ _
 _
 CTRL-A	\\001	\\0x01
 space	\\040	\\0x20
-sz ligature (\fB\(ss\fP)	\\337	\\0xdf
 c cedilla (\fB\(,c\fP)	\\347	\\0xe7
 backslash (\fB\\\fP)	\\\\	\\\\\0
 _
@@ -4443,7 +4463,7 @@ Examples:
 
 .in
 .TS
-l l l.
+l | l l.
 _
 T{
 char(s) wanted in filename
@@ -4598,16 +4618,24 @@ The directory where the B<F7> command will take you if you don't specify
 a new directory. Also the directory that initial B<~/> characters in a
 filename will expand to.
 
-=for comment
 =item B<LC_ALL>
+
 =item B<LC_COLLATE>
+
 =item B<LC_CTYPE>
+
 =item B<LC_MESSAGES>
+
 =for comment =item B<LC_MONETARY>
+
 =item B<LC_NUMERIC>
+
 =item B<LC_TIME>
+
 =item B<LANG>
-Determine locale settings. See locale(7).
+
+Determine locale settings, most notably for collation sequence, messages
+and date/time format. See locale(7).
 
 =item B<PAGER>
 
@@ -4682,7 +4710,7 @@ memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.91.4.
+This manual pertains to C<pfm> version 1.91.5.
 
 =head1 SEE ALSO
 
