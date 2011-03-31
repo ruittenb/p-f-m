@@ -1,5 +1,7 @@
-1.92.0
+1.92.1
 
-* fixed bug in si(Z)e command in multiple mode (marked file info is now updated)
-* finished launch functionality
+* fixed bug concerning error reporting in launch
+* implemented clobber mode (switch with '!' command)
+* changed option 'clobber' to 'defaultclobber'
+* updated documentation
 

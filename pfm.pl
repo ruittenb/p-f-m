@@ -1,12 +1,12 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20030222 v1.92.0
+# @(#) pfm.pl 19990314-20030306 v1.92.1
 #
 # Name:         pfm
-# Version:      1.92.0
+# Version:      1.92.1
 # Author:       Rene Uittenbogaard
-# Date:         2003-02-22
+# Date:         2003-03-06
 # Usage:        pfm [ <directory> ] [ -s, --swap <directory> ]
 #               pfm { -v, --version | -h, --help }
 # Requires:     Term::ReadLine::Gnu (preferably)
@@ -20,9 +20,7 @@
 #               vars
 # Description:  Personal File Manager for Unix/Linux
 #
-# TODO: implement restat after launch
-#       still weird perl errors sometimes when launching
-#       launch opnemen in documentatie
+# TODO:
 #       fix error handling in eval($do_this) and &display_error
 #          partly implemented in handlecopyrename
 #       use the nameindexmap from handledelete() more globally?
@@ -30,9 +28,14 @@
 #       sub restat_copyback ?
 #       sub fileforall(sub) ?
 #       cache color codes?
+#       'keeplostfiles' option?
 #       make F11 respect multiple mode? (marked+oldmarked, not removing marks)
 #       'f' field in layout: characters in the 'gap' between filerecord & infocolumn
 #           are not cleared when switching columnformats -> insert an artificial "gap" field?
+#
+#       implement restat after launch
+#       launchexecwait optie?
+#       '!' command: clobber_mode and default
 #
 #       implement 'logical' paths in addition to 'physical' paths?
 #           unless (chdir()) { getcwd() } otherwise no getcwd() ?
@@ -47,6 +50,7 @@
 #       sub countdircontents is not used
 #       make commands in header and footer clickable buttons?
 #       hierarchical sort? e.g. 'sen' (size,ext,name)
+#       (F)ind command: stop at nearest match?
 #       incremental search (search entry while entering filename)?
 #       major/minor numbers on DU 4.0E are wrong (cannot test: no system available)
 
@@ -220,8 +224,8 @@ my %FILETYPEFLAGS       = (
    's'=> '=',
     D => '>',
     w => '%',
-    b => '&',
-    c => '&',
+#    b => '$',
+#    c => '$',
 );
 
 my @SORTMODES = (
@@ -302,7 +306,7 @@ my %FIELDHEADINGS = (
     grand_num     => 'total',
     grand_power   => ' ',
     inode         => 'inode',
-    mode          => ' perm',
+    mode          => 'perm',
     atime         => 'date/atime',
     mtime         => 'date/mtime',
     ctime         => 'date/ctime',
@@ -322,9 +326,9 @@ my $position_at     = '.';   # start with cursor here
 
 # some examples as defaults
 my @command_history = ('du -ks *', 'man "\1"');
-my @mode_history    = qw(755 644);
+my @mode_history    = ('755', '644');
 my @path_history    = ('/', $ENV{HOME});
-my @regex_history   = qw(.*\.jpg);
+my @regex_history   = ('.*\.jpg');
 my @time_history;
 my @perlcmd_history;
 
@@ -341,10 +345,10 @@ my (
     # lookup tables
     %user, %group, %pfmrc, @signame, %dircolors, %framecolors,
     # screen- and keyboard objects, screen parameters
-    $scr, $kbd, $wasresized, $mouse_mode,
+    $scr, $kbd, $wasresized, $currentpan,
     # modes
     $sort_mode, $multiple_mode, $swap_mode, $dot_mode, $dotdot_mode,
-    $currentpan, $color_mode, $ident_mode, $radix_mode,
+    $mouse_mode, $color_mode, $ident_mode, $radix_mode, $clobber_mode,
     # dir- and disk info
     $currentdir, $oldcurrentdir, @dircontents, @showncontents, %currentfile,
     %disk, $swap_state, %total_nr_of, %selected_nr_of, $ident,
@@ -352,7 +356,7 @@ my (
     $currentline, $baseindex, $cursorcol, $filenamecol, $infocol, $filerecordcol,
     # misc config options
     $editor, $pager, $viewer, $printcmd, $ducmd, $showlockchar,
-    $autoexitmultiple, $clobber, $cursorveryvisible, $clsonexit,
+    $autoexitmultiple, $cursorveryvisible, $clsonexit,
     $autowritehistory, $trspace, $swap_persistent,
     $timestampformat, $mouseturnoff,
     @colorsetnames, %filetypeflags, $swapstartdir,
@@ -467,16 +471,17 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
     # (e.g. confirmquit) - however, they remain accessable in %pfmrc
     # don't change initialized settings that are modifiable by key commands
     $clsonexit         = &isyes($pfmrc{clsonexit});
-    $clobber           = &isyes($pfmrc{clobber});
     $autowritehistory  = &isyes($pfmrc{autowritehistory});
     $autoexitmultiple  = &isyes($pfmrc{autoexitmultiple});
     $mouseturnoff      = &isyes($pfmrc{mouseturnoff});
     $swap_persistent   = &isyes($pfmrc{persistentswap});
     $trspace           = &isyes($pfmrc{translatespace}) ? ' ' : '';
     $dotdot_mode       = &isyes($pfmrc{dotdotmode});
-    $dot_mode          = &isyes($pfmrc{defaultdotmode}) if !defined $dot_mode;
-    $sort_mode         = $pfmrc{defaultsortmode} || 'n' if !defined $sort_mode;
-    $currentlayout     = $pfmrc{defaultlayout} || 0 if !defined $currentlayout;
+    $dot_mode          = &isyes($pfmrc{defaultdotmode})   if !defined $dot_mode;
+    $clobber_mode      = &isyes($pfmrc{defaultclobber})   if !defined $clobber_mode;
+    $sort_mode         = $pfmrc{defaultsortmode} || 'n'   if !defined $sort_mode;
+    $radix_mode        = $pfmrc{defaultradix}    || 'hex' if !defined $radix_mode;
+    $currentlayout     = $pfmrc{defaultlayout}   ||  0    if !defined $currentlayout;
     $timestampformat   = $pfmrc{timestampformat} || '%y %b %d %H:%M';
     $ducmd             = $pfmrc{ducmd} || $DUCMDS{$^O} || $DUCMDS{default};
     $mouse_mode        = $pfmrc{mousemode}  || 'xterm' if !defined $mouse_mode;
@@ -485,7 +490,6 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
                          ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER} \\2" : 'lpr \2');
     $showlockchar      = ( $pfmrc{showlock} eq 'sun' && $^O =~ /sun|solaris/i
                              or &isyes($pfmrc{showlock}) ) ? 'l' : 'S';
-    $radix_mode        = $pfmrc{defaultradix} || 'hex' if !defined $radix_mode;
     $ident_mode        = $IDENTMODES{$pfmrc{defaultident}} || 0 if !defined $ident_mode;
     $viewer            = $pfmrc{viewer} || 'xv';
     $editor            = $ENV{VISUAL} || $ENV{EDITOR}  || $pfmrc{editor} || 'vi';
@@ -1432,9 +1436,11 @@ sub footer {
     return "F1-Help F2-Back F3-Redraw F4-Color[$color_mode]"
     .     " F5-Reread F6-Sort[$sort_mode] F7-Swap[$ONOFF{$swap_mode}]"
     .     " F8-Include F9-Columns[$currentlayout]" # $formatname ?
-    .     " F10-Multiple[$ONOFF{$multiple_mode}] F11-Restat"
-    .     " F12-Mouse[$ONOFF{$mouse_mode}] *-Radix[$radix_mode]"
-#    .     " .-Dotmode[$dot_mode] =-Ident[$ident_mode]"
+    .     " F10-Multiple[$ONOFF{$multiple_mode}] F11-Restat F12-Mouse[$ONOFF{$mouse_mode}]"
+    .     " !-Clobber[$ONOFF{$clobber_mode}]"
+    .     " *-Radix[$radix_mode]"
+#    .     " .-Dotmode[$dot_mode]"
+#    .     " =-Ident[$ident_mode]"
     ;
 }
 
@@ -1724,6 +1730,11 @@ sub handleident {
     goto &initident;
 }
 
+sub handleclobber {
+    toggle($clobber_mode);
+    return $R_FOOTER;
+}
+
 sub handleradix {
     $radix_mode = $radix_mode eq 'hex' ? 'oct' : 'hex';
     return $R_FOOTER;
@@ -1846,7 +1857,7 @@ sub handlesize {
 }
 
 sub handledot {
-    &toggle($dot_mode);
+    toggle($dot_mode);
     $position_at = $currentfile{name};
     return $R_DIRLIST | $R_DIRFILTER | $R_DISKINFO;
 }
@@ -2190,7 +2201,7 @@ sub handlekeyell {
 sub handlesymlink {
     my ($newname, $loopfile, $do_this, $index, $newnameexpanded, $targetstring,
         $findindex, $testname, $headerlength, $absrel, $simpletarget, $simplename);
-    my @lncmd = $clobber ? qw(ln -f) : qw(ln);
+    my @lncmd = $clobber_mode ? qw(ln -f) : qw(ln);
     my $do_a_refresh = $multiple_mode ? $R_DIRLIST | $R_HEADER : $R_HEADER;
     &markcurrentline('L') unless $multiple_mode;
     $headerlength = &init_header($HEADER_LNKTYPE);
@@ -2705,7 +2716,7 @@ sub handleedit {
 
 sub handlecopyrename {
     my $state    = "\u$_[0]";
-    my @statecmd = ($state eq 'C' ? 'cp' : 'mv', $clobber ? () : qw(-i));
+    my @statecmd = ($state eq 'C' ? 'cp' : 'mv', $clobber_mode ? '-f' : '-i');
     my $prompt   = $state eq 'C' ? 'Destination: ' : 'New name: ';
     my ($loopfile, $index, $testname, $newname, $newnameexpanded, $do_this,
         $findindex, $err);
@@ -2744,7 +2755,7 @@ sub handlecopyrename {
                 $dircontents[$findindex]{selected} || ' ');
         }
     };
-    &stty_raw($TERM_COOKED) unless $clobber;
+    &stty_raw($TERM_COOKED) unless $clobber_mode;
     if ($multiple_mode) {
         for $index (0..$#dircontents) {
             $loopfile = $dircontents[$index];
@@ -2770,10 +2781,10 @@ sub handlecopyrename {
             $showncontents[$currentline+$baseindex]{display} .= $LOSTMSG;
         }
         &copyback($currentfile{name});
-        # if ! $clobber, we might have gotten an 'Overwrite?' question
-        $do_a_refresh |= $R_SCREEN unless $clobber;
+        # if ! $clobber_mode, we might have gotten an 'Overwrite?' question
+        $do_a_refresh |= $R_SCREEN unless $clobber_mode;
     }
-    &stty_raw($TERM_RAW) unless $clobber;
+    &stty_raw($TERM_RAW) unless $clobber_mode;
     return $do_a_refresh;
 }
 
@@ -2856,13 +2867,13 @@ sub handlemove {
     return &validate_position;
 }
 
-sub launchbytype {
+sub launchtype {
     my $do_this;
     if (exists $pfmrc{"launch[$_[0]]"}) {
         $do_this = $pfmrc{"launch[$_[0]]"};
         &expand_escapes($QUOTE_ON, $do_this, \%currentfile);
         $scr->clrscr()->at(0,0)->puts("Launch type $_[0]\n$do_this\n");
-        system $do_this or &display_error($!);
+        system $do_this and &display_error($!);
         return 'type_launched';
     } else {
         &display_error("No launch command defined for type $_[0]\n");
@@ -2872,7 +2883,8 @@ sub launchbytype {
 
 sub launchbyxbit {
     if (&followmode(\%currentfile) =~ /[xsS]/) {
-        system "./\Q$currentfile{name}" or &display_error($!);
+        $scr->clrscr()->at(0,0)->puts("Launch executable $currentfile{name}\n");
+        system "./\Q$currentfile{name}" and &display_error($!);
         return 'xbit_launched';
     } else {
         return 0; # must return false to prevent "File type unknown" error
@@ -2886,7 +2898,7 @@ sub launchbymagic {
         ($re) = (/magic\[([^]]+)\]/);
         # this will produce errors for invalid REs
         if (eval "\$magic =~ /$re/") {
-            $launched = &launchbytype($pfmrc{$_});
+            $launched = &launchtype($pfmrc{$_});
             last MAGIC;
         }
     }
@@ -2901,7 +2913,7 @@ sub launchbyextension {
     my ($ext) = ( $currentfile{name} =~ /(\.[^\.]+?)$/ );
     my $launched;
     if (exists $pfmrc{"extension[*$ext]"}) {
-        $launched = &launchbytype($pfmrc{"extension[*$ext]"});
+        $launched = &launchtype($pfmrc{"extension[*$ext]"});
     }
     if ($launched) {
         return 'ext_launched';
@@ -2924,13 +2936,15 @@ sub handleenter {
     if ($launched =~ /launched/) {
         $launched = $R_CLRSCR;
         &pressanykey;
-    } elsif ($launched) {
+    } elsif (defined $launched) {
+        # we did try, but the file type was unknown
 #        &display_error('File type unknown');
 #        $launched = $R_HEADER;
         system "$pager \Q$currentfile{name}" and &display_error($!);
         $launched = $R_CLRSCR;
     } else {
-        # launchby: contains no valid entries OR xbit was not set; no error
+        # 'launchby' contains no valid entries
+        &display_error(q"No valid 'launchby' option in config file");
         $launched = $R_HEADER;
     }
     &stty_raw($TERM_RAW);
@@ -3398,6 +3412,7 @@ sub browse {
                 /^k12$/      and $wantrefresh |= &handlemouse,         last KEY;
                 /^=$/        and $wantrefresh |= &handleident,         last KEY;
                 /^\*$/       and $wantrefresh |= &handleradix,         last KEY;
+                /^!$/        and $wantrefresh |= &handleclobber,       last KEY;
                 # invalid keypress: cursor position needs no checking
                 $wantrefresh &= ~$R_STRIDE;
             } # switch KEY
@@ -3441,9 +3456,6 @@ autoexitmultiple:yes
 ## write history files automatically upon exit
 autowritehistory:no
 
-## automatically clobber existing files
-clobber:no
-
 ## clock date/time format; see strftime(3).
 ## %x and %X provide properly localized time and date.
 ## the defaults are "%Y %b %d" and "%H:%M:%S"
@@ -3466,6 +3478,9 @@ copyrightdelay:0.2
 
 ## use very visible cursor (e.g. block cursor on Linux console)
 cursorveryvisible:yes
+
+## initial setting for automatically clobbering existing files (toggle with !)
+defaultclobber:no
 
 ## initial colorset to pick from the various colorsets defined below (for F4)
 defaultcolorset:dark
@@ -3739,11 +3754,12 @@ your[z]:gzip \2
 ##########################################################################
 ## launch commands
 
-## how should pfm try to determine the filetype? by magic (using file(1)),
-## by extension, or should we prefer one method and fallback on the other one?
-## should we try to run it as an executable immediately if the 'x' bit is set?
+## how should pfm try to determine the file type? by its magic (using file(1)),
+## by extension, should we try to run it as an executable if the 'x' bit is set,
+## or should we prefer one method and fallback on another one?
 ## allowed values: combinations of 'xbit', 'extension' and 'magic'
-launchby:extension,xbit,magic
+launchby:extension,xbit
+#launchby:extension,xbit,magic
 
 ## the file type names do not have to be valid MIME types
 extension[*.3i]  : application/x-intercal
@@ -3806,7 +3822,7 @@ extension[*.zip] : application/zip
 
 ## these will search by regular expression in the file(1) output
 magic[ASCII English text]   : text/plain
-magic[C\+?\+? program text] : text/x-c
+magic[C\+?\+? program text] : application/x-c
 magic[GIF image data]       : image/gif
 magic[HTML document text]   : text/html
 magic[JPEG image data]      : image/jpeg
@@ -3908,9 +3924,8 @@ the command corresponding to the keystroke will be performed on the current
 (highlighted) file only. In multiple-file mode, the command will apply to
 a selection of files.
 
-Note that throughout this manual page, I<file> can mean any type
-of file, not just plain regular files. These will be referred to as
-I<regular files>.
+Note that throughout this manual page, I<file> can mean any type of file,
+not just plain regular files. These will be referred to as I<regular files>.
 
 =head1 OPTIONS
 
@@ -3920,9 +3935,9 @@ may be specified using the environment variable C<PFMRC>. If there is no
 config file present at startup, one will be created. The file contains
 many comments on the available options, and is therefore supposed to be
 self-explanatory. C<pfm> will issue a warning if the config file version
-is older than the version of C<pfm> you are running. In this case,
-please let C<pfm> create a new default config file and compare the changes
-with your own settings, so you do not miss any new config options or
+is older than the version of C<pfm> you are running. In this case, please
+let C<pfm> create a new default config file and compare the changes with
+your own settings, so that you do not miss any new config options or
 format changes. See also the B<C>onfig command under MORE COMMANDS below,
 and DIAGNOSIS.
 
@@ -3960,14 +3975,57 @@ Print current version, then exit.
 =head1 NAVIGATION
 
 Navigation through directories is done using the arrow keys, the vi(1)
-cursor keys (B<hjkl>), B<->, B<+>, B<PgUp>, B<PgDn>, B<home>, B<end>,
-and the vi(1) control keys B<CTRL-F>, B<CTRL-B>, B<CTRL-U>, B<CTRL-D>,
-B<CTRL-Y> and B<CTRL-E>. Note that the B<l> key is also used for creating
-symbolic links (see also the B<L>ink command below). Pressing B<ESC> or B<BS>
-will take you one directory level up (note: see below under BUGS on the
-functioning of B<ESC>). Pressing B<ENTER> when the cursor is on a directory
-will chdir() to the directory. Pressing B<SPACE> will both mark the current file
-and advance the cursor.
+cursor keys (B<hjkl>), B<->, B<+>, B<PgUp>, B<PgDn>, B<home>, B<end>, and
+the vi(1) control keys B<CTRL-F>, B<CTRL-B>, B<CTRL-U>, B<CTRL-D>, B<CTRL-Y>
+and B<CTRL-E>. Note that the B<l> key is also used for creating symbolic
+links (see below under B<L>ink). Pressing B<ESC> or B<BS> will take you
+one directory level up (note: see below under BUGS on the functioning of
+B<ESC>). Pressing B<ENTER> when the cursor is on a directory will chdir()
+to the directory. Pressing B<SPACE> will both mark the current file and
+advance the cursor.
+
+=head2 Movement inside a directory
+
+=over
+
+=over
+
+=item B<up arrow>, B<down arrow>, B<k>, B<j>: move the cursor by one line
+
+=item B<->, B<+>: move the cursor by ten lines
+
+=item B<CTRL-E>, B<CTRL-B>: scroll the screen by one line
+
+=item B<CTRL-U>, B<CTRL-D>: move the cursor by half a page
+
+=item B<CTRL-B>, B<CTRL-F>, B<PgUp>, B<PgDn>: move the cursor by a full page
+
+=item B<home>, B<end>: move the cursor to the top or bottom line
+
+=item B<SPACE>: mark the current file, then move the cursor one line down
+
+=back
+
+=back
+
+=head2 Changing between directories
+
+=over
+
+=over
+
+=item B<right arrow>, B<l>, B<ENTER>: change to a subdirectory
+
+=item B<left arrow>, B<h>, B<ESC>, B<BS>: change to the parent directory
+
+=back
+
+=back
+
+Note 1: B<l> and B<ENTER> only work like this if the cursor is on a directory
+(see below under B<L>ink and B<ENTER> respectively).
+
+Note 2: see below under BUGS on the functioning of B<ESC>.
 
 =head1 COMMANDS
 
@@ -3978,8 +4036,8 @@ and advance the cursor.
 Changes the mode of the file if you are the owner. The mode may be specified
 either symbolically or numerically, see chmod(1) for more details.
 
-Note 1: the mode on a symbolic link cannot be set. Read the chmod(1)
-page for more details.
+Note 1: the mode on a symbolic link cannot be set. See chmod(1) for more
+details.
 
 Note 2: the name B<Attrib> for this command is a reminiscence of the DOS
 version.
@@ -3987,9 +4045,13 @@ version.
 =item B<Copy>
 
 Copy current file. You will be prompted for the destination filename.
-In multiple-file mode, it is not allowed to specify a regular file
-as a destination. Specify the destination name with B<\1> or B<\2>
-(see below under cB<O>mmand), or use a directory as a destination.
+
+In multiple-file mode, it is not allowed to specify a single non-directory
+filename as a destination. Instead, the destination name must be a directory
+or a name containing a B<\1> or B<\2> escape (see below under cB<O>mmand).
+
+If clobber mode is off (see below under the B<!> command), existing files
+will not be overwritten unless the action is confirmed by the user.
 
 =item B<Delete>
 
@@ -4044,7 +4106,7 @@ Oldmarks may be used to perform more than one command on a group of files.
 
 =item B<Link>
 
-Gives the option to create either:
+Prompts to create either:
 
 =over
 
@@ -4077,6 +4139,16 @@ F<../.plan> or F</home/rene/.plan>, the actual symlink will become:
 
 =back
 
+If a directory is specified, C<pfm> will follow the behavior of ln(1),
+which is to create the new link inside that directory.
+
+In multiple-file mode, it is not allowed to specify a single non-directory
+filename as a new name. Instead, the new name must be a directory or a
+name containing a B<\1> or B<\2> escape (see below under cB<O>mmand).
+
+If clobber mode is off (see below under the B<!> command), existing files
+will not be overwritten.
+
 Note that if the current file is a directory, the B<l> key, being one of
 the vi(1) cursor keys, will chdir() you into the directory. The capital B<L>
 command will I<always> try to make a link.
@@ -4094,7 +4166,7 @@ you back to the main menu.
 Shows the complete long filename. For a symbolic link, this command
 will also show the target of the symbolic link. This is useful in case
 the terminal is not wide enough to display the entire name, or if the
-name contains non-printable characters.  Non-ASCII characters and control
+name contains non-printable characters. Non-ASCII characters and control
 characters will be displayed as their octal or hexadecimal equivalents like
 the examples in the following table. Spaces will be converted as well, if
 the 'translatespace' option is turned on in the F<.pfmrc> file.  When the
@@ -4231,13 +4303,16 @@ B<Q> (quick quit), you will I<never> be asked for confirmation.
 
 =item B<Rename>
 
-Change the name of the file to the path- and filename specified. Depending
-on your Unix implementation, a different path- and filename on another
-filesystem may or may not be allowed. In multiple-file mode, the new
-name I<must> be a directoryname or a name containing a B<\1> or B<\2>
-escape (see cB<O>mmand above). If the option 'clobber' is set to I<no>
-in the F<.pfmrc> file, existing files will not be overwritten unless
-the action is confirmed by the user.
+Change the name of the file and/or move it into another directory. You will
+be prompted for the new filename. Depending on your Unix implementation,
+a pathname on another filesystem may or may not be allowed.
+
+In multiple-file mode, it is not allowed to specify a single non-directory
+filename as a new name. Instead, the new name must be a directory or a
+name containing a B<\1> or B<\2> escape (see above under cB<O>mmand).
+
+If clobber mode is off (see below under the B<!> command), existing files
+will not be overwritten unless the action is confirmed by the user.
 
 =item B<Show>
 
@@ -4259,7 +4334,7 @@ normal (non-C<root>) users to change ownership.
 
 =item B<View>
 
-(deprecated) Identical to B<N>ame.
+(Deprecated.) Identical to B<N>ame.
 
 =item B<eXclude>
 
@@ -4331,9 +4406,9 @@ same process group).
 
 =item B<Make new directory>
 
-Specify a new directory name and C<pfm> will create it for you.
-Furthermore, if you don't have any files marked, your current
-directory will be set to the newly created directory.
+Specify a new directory name and C<pfm> will create it for you. Furthermore,
+if you don't have any files marked, your current directory will be set to
+the newly created directory.
 
 =item B<Show directory>
 
@@ -4358,8 +4433,16 @@ in F<.pfmrc>.
 
 =item B<ENTER>
 
-If the current file is executable, the executable will be invoked, otherwise,
-the contents of the current file or directory are displayed (like B<S>how).
+If the current file is a directory, C<pfm> will chdir() to that directory.
+Otherwise, C<pfm> will attempt to I<launch> the file. See LAUNCHING
+FILES below.
+
+The B<ENTER> key will always behave as if C<pfm> runs in single-file mode.
+
+=item B<!>
+
+Toggle clobber mode. This controls whether a file should be overwritten when
+its name is reused in B<C>opy, B<L>ink or B<R>ename.
 
 =item B<*>
 
@@ -4457,6 +4540,73 @@ Refresh (using lstat(2)) the displayed file data for the current file.
 Toggle mouse use. See below under MOUSE COMMANDS.
 
 =back
+
+=head1 LAUNCHING FILES
+
+The B<ENTER> key, when used on a non-directory file, will attempt to launch
+the file.
+
+The command used for launching a file is determined by the file type. File
+types are identified by a unique name, preferably MIME type names. Launch
+commands for every file type may be defined using the config file
+'launch[I<filetype>]' options.
+
+Example:
+
+    launch[image/gif]      :\v \2 &
+    launch[application/pdf]:acroread \2 &
+
+There are three methods for determining the file type. You may opt to
+use only one of these methods, or using a second (and optionally, third)
+method as fallback.
+
+The following methods are available:
+
+=over
+
+=item B<extension>
+
+The filename extension will be translated to a file type using the
+'extension[*.I<extension>]' options in the config file.
+
+Example:
+
+    extension[*.gif]:image/gif
+    extension[*.pdf]:application/pdf
+
+=item B<magic>
+
+The file(1) command will be run on the current file. Its output will
+be translated to a file type using the 'magic[I<regular expression>]'
+options in the config file.
+
+Example:
+
+    magic[GIF image data]:image/gif
+    magic[PDF document]  :application/pdf
+
+=item B<xbit>
+
+The executable bits in the file permissions will be checked. If the current
+file is executable, C<pfm> will attempt to start the file as an executable
+command.
+
+=back
+
+To select which method or methods (I<extension>, I<magic>, and/or I<xbit>)
+should be used for determining the file type, you should specify these
+using the 'launchby' option (separated by commas if more than one).
+
+Example:
+
+    launchby:xbit,extension
+
+If the file type cannot be determined, the current file will be displayed
+using your pager.
+
+The B<ENTER> key will I<not> launch multiple files: it always behaves
+as if C<pfm> runs in single-file mode. Use B<Y>our or cB<O>mmand to launch
+multiple files.
 
 =head1 QUOTING RULES
 
@@ -4826,13 +4976,13 @@ memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.92.0.
+This manual pertains to C<pfm> version 1.92.1.
 
 =head1 SEE ALSO
 
-The documentation on PFMS<.>COM. The manual pages for chmod(1), less(1),
-locale(7), lpr(1), touch(1), vi(1), Term::ANSIScreen(3pm), Term::ReadLine(3pm),
-and Term::Screen(3pm).
+The documentation on PFMS<.>COM. The manual pages for chmod(1), file(1),
+less(1), locale(7), lpr(1), touch(1), vi(1), Term::ScreenColor(3pm),
+Term::ReadLine(3pm), and Term::Screen(3pm).
 
 =head1 AUTHOR
 
