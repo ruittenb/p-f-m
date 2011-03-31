@@ -1,12 +1,12 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20030214 v1.91.6
+# @(#) pfm.pl 19990314-20030216 v1.91.7
 #
 # Name:         pfm
-# Version:      1.91.6
+# Version:      1.91.7 (f column and launch still buggy)
 # Author:       Rene Uittenbogaard
-# Date:         2003-02-14
+# Date:         2003-02-16
 # Usage:        pfm [ <directory> ] [ -s, --swap <directory> ]
 #               pfm { -v, --version | -h, --help }
 # Requires:     Term::ReadLine::Gnu (preferably)
@@ -29,6 +29,7 @@
 #       sub fileforall(sub) ?
 #       cache color codes?
 #       make F11 respect multiple mode? (marked+oldmarked, not removing marks)
+#       include 'f' field in config? parse correctly?
 #
 #       beautify source: forget stupid 80-col limit; use tabs instead of spaces
 #       implement 'logical' paths in addition to 'physical' paths?
@@ -199,7 +200,6 @@ my $PATHLINE            = 1;
 my $BASELINE            = 3;
 my $USERLINE            = 21;
 my $DATELINE            = 22;
-my $DATECOL             = 14;
 my $DFCMD               = ($^O eq 'hpux') ? 'bdf' : ($^O eq 'sco') ? 'dfspace' : 'df -k';
 
 my @SYMBOLIC_MODES      = qw(--- --x -w- -wx r-- r-x rw- rwx);
@@ -281,6 +281,7 @@ my %LAYOUTFIELDS = (
     'l' => 'nlink',
     'i' => 'inode',
     'd' => 'rdev',
+    'f' => 'diskinfo',
 );
 
 my %FIELDHEADINGS = (
@@ -306,6 +307,7 @@ my %FIELDHEADINGS = (
     gid           => 'groupid',
     nlink         => 'lnks',
     rdev          => 'dev',
+    diskinfo      => 'disk info',
 );
 
 my $screenheight    = 20;    # inner height
@@ -341,7 +343,7 @@ my (
     $currentdir, $oldcurrentdir, @dircontents, @showncontents, %currentfile,
     %disk, $swap_state, %total_nr_of, %selected_nr_of, $ident,
     # cursor position
-    $currentline, $baseindex, $cursorcol, $filenamecol,
+    $currentline, $baseindex, $cursorcol, $filenamecol, $infocol,
     # misc config options
     $editor, $pager, $viewer, $printcmd, $ducmd, $showlockchar,
     $autoexitmultiple, $clobber, $cursorveryvisible, $clsonexit,
@@ -349,8 +351,9 @@ my (
     $timestampformat, $mouseturnoff,
     @colorsetnames, %filetypeflags, $swapstartdir,
     # layouts and formatting
-    @columnlayouts, $currentlayout, @layoutfields, $currentformatline,
-    $maxfilenamelength, $maxfilesizelength, $maxgrandtotallength, $formatname,
+    @columnlayouts, $currentlayout, @layoutfields, $formatname,
+    $currentformatline, $currentformatlinewithinfo,
+    $maxfilenamelength, $maxfilesizelength, $maxgrandtotallength, $infolength,
 );
 
 ##########################################################################
@@ -488,9 +491,9 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
     # split 'columnlayouts'
     @columnlayouts     = split(/:/, ( $pfmrc{columnlayouts}
         ? $pfmrc{columnlayouts}
-        :   '* nnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss mmmmmmmmmmmmmmmm pppppppppp:'
-        .   '* nnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss aaaaaaaaaaaaaaaa pppppppppp:'
-        .   '* nnnnnnnnnnnnnnnnnnnnnssssssss uuuuuuuu gggggggglllll pppppppppp:'
+        :   '* nnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss mmmmmmmmmmmmmmmm pppppppppp ffffffffffffff:'
+        .   '* nnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss aaaaaaaaaaaaaaaa pppppppppp ffffffffffffff:'
+        .   '* nnnnnnnnnnnnnnnnnnnnnssssssss uuuuuuuu gggggggglllll pppppppppp ffffffffffffff:'
     ));
     # parse colorsets
     if (&isyes($pfmrc{importlscolors}) and $ENV{LS_COLORS} || $ENV{LS_COLOURS}){
@@ -525,8 +528,9 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
         }
     }
     # now set color_mode if unset
-    $color_mode  = $color_mode || $pfmrc{defaultcolorset} ||
-        (defined $dircolors{ls_colors} ? 'ls_colors' : $colorsetnames[0]);
+    $color_mode = $color_mode || (defined($ENV{ANSI_COLORS_DISABLED})
+        ? 'off'
+        : $pfmrc{defaultcolorset} || (defined $dircolors{ls_colors} ? 'ls_colors' : $colorsetnames[0]));
     # repair pre-1.84 style (Y)our commands
     foreach (grep /^.$/, keys %pfmrc) {
         $oldkey = $_;
@@ -543,7 +547,7 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
             /^(\w+)=(.*)/ and $scr->def_key($1, $2);
         }
     }
-    # init ornaments, ident, formatlines
+    # init ornaments, ident, formatlines, enable mouse
     &setornaments;
     &initident;
     &makeformatlines;
@@ -1130,40 +1134,44 @@ sub makeformatlines {
         $currentlayout = 0;
     }
     my $currentlayoutline = $columnlayouts[$currentlayout];
-    # find out the length of the filename and filesize fields
-    $maxfilenamelength   =       ($currentlayoutline =~ tr/n//)+$screenwidth-80;
+    # layouts are all based on a screenwidth of 80: elongate filename field
+    $currentlayoutline =~ s/n/'n' x ($screenwidth - 79)/e;
+    # find out the length of the filename, filesize and info fields
+    $infolength          =       ($currentlayoutline =~ tr/f//);
+    $maxfilenamelength   =       ($currentlayoutline =~ tr/n//);
     $maxfilesizelength   = 10 ** ($currentlayoutline =~ tr/s// -1) -1;
     if ($maxfilesizelength < 2) { $maxfilesizelength = 2 }
     $maxgrandtotallength = 10 ** ($currentlayoutline =~ tr/z// -1) -1;
     if ($maxgrandtotallength < 2) { $maxgrandtotallength = 2 }
-    # layouts are all based on a screenwidth of 80
-    # elongate filename field
-    $currentlayoutline =~ s/n/'n' x ($screenwidth - 79)/e;
     # provide N, S and Z fields
     $currentlayoutline =~ s/n(?!n)/N/i;
     $currentlayoutline =~ s/s(?!s)/S/i;
     $currentlayoutline =~ s/z(?!z)/Z/i;
     $cursorcol         = index ($currentlayoutline, '*');
     $filenamecol       = index ($currentlayoutline, 'n');
-    foreach ($cursorcol, $filenamecol) {
+    $infocol           = index ($currentlayoutline, 'f');
+    foreach ($cursorcol, $filenamecol, $infocol) {
         if ($_ < 0) { $_ = 0 }
     }
-    ($squeezedlayoutline = $currentlayoutline) =~
-        tr/*nNsSzZugpacmdil /*nNsSzZugpacmdil/ds;
+    # determine the layout field set (no spaces or info column)
+    ($squeezedlayoutline = $currentlayoutline) =~ tr/*nNsSzZugpacmdilf /*nNsSzZugpacmdil/ds;
     ($formatname = $squeezedlayoutline) =~ s/[*SNZ]//g;
     @layoutfields = map { $LAYOUTFIELDS{$_} } (split //, $squeezedlayoutline);
-    $currentformatline = $prev = '';
+    # make the formatline
+    $currentformatlinewithinfo = $currentformatline = $prev = '';
     foreach $letter (split //, $currentlayoutline) {
         if ($letter eq ' ') {
-            $currentformatline .= ' ';
+            $currentformatlinewithinfo .= ' ';
         } elsif ($prev ne $letter) {
-            $currentformatline .= '@';
+            $currentformatlinewithinfo .= '@';
         } else {
-            ($trans = $letter) =~ tr/*nNsSzZugpacmdilf/<<<><><<<<<<<<>></;
-            $currentformatline .= $trans;
+            ($trans = $letter) =~ tr{*nNsSzZugpacmdilf}
+                                    {<<<><><<<<<<<<>>>};
+            $currentformatlinewithinfo .= $trans;
         }
         $prev = $letter;
     }
+    substr ($currentformatline = $currentformatlinewithinfo, $infocol, $infolength, '');
 }
 
 sub pathline {
@@ -1302,9 +1310,9 @@ sub promptforwildfilename {
 }
 
 sub clearcolumn {
-    my $spaces = ' ' x $DATECOL;
+    my $spaces = ' ' x $infolength;
     foreach ($BASELINE .. $BASELINE+$screenheight) {
-        $scr->at($_, $screenwidth-$DATECOL)->puts($spaces);
+        $scr->at($_, $infocol)->puts($spaces);
     }
 }
 
@@ -1341,11 +1349,11 @@ sub init_title { # swap_mode, extra field, @layoutfields
     my ($smode, $info, @fields) = @_;
     my $linecolor;
     for ($info) {
-        $_ == $TITLE_DISKINFO and $info = '     disk info';
-        $_ == $TITLE_SORT     and $info = 'sort mode     ';
-        $_ == $TITLE_SIGNAL   and $info = '  nr signal   ';
-        $_ == $TITLE_YCOMMAND and $info = 'your commands ';
-        $_ == $TITLE_ESCAPE   and $info = 'esc legend    ';
+        $_ == $TITLE_DISKINFO and $FIELDHEADINGS{diskinfo} = '     disk info';
+        $_ == $TITLE_SORT     and $FIELDHEADINGS{diskinfo} = 'sort mode     ';
+        $_ == $TITLE_SIGNAL   and $FIELDHEADINGS{diskinfo} = '  nr signal   ';
+        $_ == $TITLE_YCOMMAND and $FIELDHEADINGS{diskinfo} = 'your commands ';
+        $_ == $TITLE_ESCAPE   and $FIELDHEADINGS{diskinfo} = 'esc legend    ';
     }
     $linecolor = $smode ? $framecolors{$color_mode}{swap}
                         : $framecolors{$color_mode}{title};
@@ -1355,7 +1363,7 @@ sub init_title { # swap_mode, extra field, @layoutfields
     $scr->term()->Tputs('us', 1, *STDOUT)
                         if ($linecolor =~ /under(line|score)/);
     $^A = '';
-    formline($currentformatline . ' @>>>>>>>>>>>>>', @FIELDHEADINGS{@fields}, $info);
+    formline($currentformatlinewithinfo, @FIELDHEADINGS{@fields, 'diskinfo'});
     $scr->at(2,0)->putcolored($linecolor, $^A)->normal();
 }
 
@@ -1502,8 +1510,8 @@ _eoCredits_
 
 sub user_info {
     $^A = '';
-    formline('@>>>>>>>>>>>>', $ident);
-    $scr->at($USERLINE, $screenwidth-$DATECOL+1)->putcolored(($> ? 'normal' : 'red'), $^A);
+    formline('@' . '>' x ($infolength-2), $ident);
+    $scr->at($USERLINE, $infocol+1)->putcolored(($> ? 'normal' : 'red'), $^A);
 }
 
 sub infoline { # number, description
@@ -1520,15 +1528,14 @@ sub disk_info { # %disk{ total, used, avail }
     # I played with vt100 boxes once,      lqqqqk
     # but I hated it.                      x    x
     # In case someone wants to try:        mqqqqj
-#    $scr->at($startline-1,$screenwidth-$DATECOL)
-#        ->puts("\cNlqq\cO Disk space");
-    $scr->at($startline-1, $screenwidth-$DATECOL+4)->puts('Disk space');
+#    $scr->at($startline-1,$infocol)->puts("\cNlqq\cO Disk space");
+    $scr->at($startline-1, $infocol+4)->puts('Disk space');
     foreach (0..2) {
         while ($values[$_] > 99_999) {
                 $values[$_] /= 1024;
                 $desc[$_] =~ tr/KMGTP/MGTPE/;
         }
-        $scr->at($startline+$_, $screenwidth-$DATECOL+1)
+        $scr->at($startline+$_, $infocol+1)
             ->puts(&infoline(int($values[$_]), $desc[$_]));
     }
 }
@@ -1542,10 +1549,10 @@ sub dir_info {
                + $total_nr_of{'D'} + $total_nr_of{'w'}
                + $total_nr_of{'n'};
     my $startline = 9;
-    $scr->at($startline-1, $screenwidth - $DATECOL + !$dot_mode)
+    $scr->at($startline-1, $infocol + !$dot_mode)
         ->puts(" Directory($sort_mode" . ($dot_mode ? '.' : '') . ")");
     foreach (0..3) {
-        $scr->at($startline+$_,$screenwidth-$DATECOL+1)
+        $scr->at($startline+$_, $infocol+1)
             ->puts(&infoline($values[$_],$desc[$_]));
     }
 }
@@ -1561,28 +1568,27 @@ sub mark_info {
     my $total = 0;
     $values[0] = join ('', &fit2limit($values[0], 9_999_999));
     $values[0] =~ s/ $//;
-    $scr->at($startline-1, $screenwidth-$DATECOL+2)->puts('Marked files');
+    $scr->at($startline-1, $infocol+2)->puts('Marked files');
     foreach (0..4) {
-        $scr->at($startline+$_, $screenwidth-$DATECOL+1)
+        $scr->at($startline+$_, $infocol+1)
             ->puts(&infoline($values[$_], $desc[$_]));
         $total += $values[$_] if $_;
     }
     return $total;
 }
 
-sub date_info {
+sub clock_info {
     my ($date, $time);
     my $line = $DATELINE;
-    my $col  = $screenwidth-$DATECOL;
     ($date, $time) = &time2str(time, $TIME_CLOCK);
     if ($scr->rows() > 24) {
         $^A = '';
         formline('@>>>>>>>>>>>>>', $date);
-        $scr->at($line++, $col)->puts($^A);
+        $scr->at($line++, $infocol)->puts($^A);
     }
     $^A = '';
     formline('@>>>>>>>>>>>>>', $time);
-    $scr->at($line++, $col)->puts($^A);
+    $scr->at($line++, $infocol)->puts($^A);
 }
 
 ##########################################################################
@@ -1735,8 +1741,7 @@ sub handlemousedown {
         $do_a_refresh |= $mbutton ? &handlemove('pgup') : &handlemove("\cU");
     } elsif ($mouserow > $screenheight + $BASELINE) {
         $do_a_refresh |= $mbutton ? &handlemove('pgdn') : &handlemove("\cD");
-    } elsif ($mousecol >= $screenwidth - $DATECOL
-            or !defined $showncontents[$mouserow - $BASELINE + $baseindex]) {
+    } elsif ($mousecol >= $infocol or !defined $showncontents[$mouserow - $BASELINE + $baseindex]) {
         # return now if clicked on diskinfo or empty line
         return $do_a_refresh;
     } else {
@@ -1749,11 +1754,11 @@ sub handlemousedown {
         $on_name = ($mousecol >= $filenamecol
                 and $mousecol <= $filenamecol + $maxfilenamelength);
         if ($on_name and $mbutton) {
-            $do_a_refresh |= &handleshowenter("\r");
+            $do_a_refresh |= &handleenter;
         } elsif (!$on_name and !$mbutton) {
             $do_a_refresh |= &handleselect;
         } else {
-            $do_a_refresh |= &handleshowenter('s');
+            $do_a_refresh |= &handleshow;
         }
         # restore currentfile unless we did a chdir()
         unless ($do_a_refresh & $R_NEWDIR) {
@@ -1829,16 +1834,16 @@ sub handledot {
     return $R_DIRLIST | $R_DIRFILTER | $R_DISKINFO;
 }
 
-sub handleshowenter {
-    my $followmode  = &followmode(\%currentfile);
-    if ($followmode =~ /^d/) {
-        goto &handleentry;
-    } elsif ($_[0] =~ /\r/ and $followmode =~ /[xst]/) {
-        goto &handleenter;
-    } else {
-        goto &handleshow;
-    }
-}
+#sub handleshowenter {
+#    my $followmode  = &followmode(\%currentfile);
+#    if ($followmode =~ /^d/) {
+#        goto &handleentry;
+#    } elsif ($_[0] eq 's') {
+#        goto &handleshow;
+#    } else {
+#        goto &handleenter;
+#    }
+#}
 
 sub handlecdold {
     if (&ok_to_remove_marks) {
@@ -1998,7 +2003,7 @@ sub handlemorekill {
     foreach (1 .. min($#signame, $screenheight)+1) {
         $^A = "";
         formline('@# @<<<<<<<<', $_, $signame[$_]);
-        $scr->at($printline++, $screenwidth-$DATECOL+2)->puts($^A);
+        $scr->at($printline++, $infocol+2)->puts($^A);
     }
     $scr->at(0,0)->clreol();
     &stty_raw($TERM_COOKED);
@@ -2125,7 +2130,7 @@ sub handlename {
         $scr->echo()->at($currentline+$BASELINE, $filenamecol)->puts(' ' x length $line);
         goto &handlename;
     }
-    if (length($line) > $screenwidth - $DATECOL) {
+    if (length($line) > $infocol) {
         return $R_CLEAR;
     } else {
         return $R_STRIDE;
@@ -2143,7 +2148,7 @@ sub handlesort {
     foreach (grep { ($i += 1) %= 2 } @SORTMODES) { # keep keys, skip values
         $^A = "";
         formline('@ @<<<<<<<<<<<', $_, $sortmodes{$_});
-        $scr->at($printline++, $screenwidth - $DATECOL)->puts($^A);
+        $scr->at($printline++, $infocol)->puts($^A);
     }
     $key = $scr->at(0, $headerlength+1)->getch();
     &clearcolumn;
@@ -2421,7 +2426,7 @@ sub handlecommand { # Y or O
                 $printstr =~ s/\e/^[/g;
                 $^A = "";
                 formline('@ @<<<<<<<<<<<', substr($_,5,1), $printstr);
-                $scr->at($printline++,$screenwidth-$DATECOL)->puts($^A);
+                $scr->at($printline++, $infocol)->puts($^A);
             }
         }
         $prompt = 'Enter one of the highlighted chars at right: ';
@@ -2436,7 +2441,7 @@ sub handlecommand { # Y or O
             if ($printline <= $BASELINE+$screenheight) {
                 $^A = "";
                 formline('@< @<<<<<<<<<<', $_, $CMDESCAPES{$_});
-                $scr->at($printline++,$screenwidth-$DATECOL)->puts($^A);
+                $scr->at($printline++, $infocol)->puts($^A);
             }
         }
         $prompt= 'Enter Unix command (\1-\6 or \e,\p,\v escapes see right):';
@@ -2594,6 +2599,7 @@ sub handleprint {
 }
 
 sub handleshow {
+    goto &handleentry if (&followmode(\%currentfile) =~ /^d/);
     my ($loopfile,$index);
     $scr->clrscr()->at(0,0);
     &stty_raw($TERM_COOKED);
@@ -2836,12 +2842,74 @@ sub handlemove {
     return &validate_position;
 }
 
+sub launchbytype {
+    my $do_this;
+    system "echo 'bt:$_[0] :-> $pfmrc{qq(launch[$_[0]])}' > /dev/pts/6";
+    if (exists $pfmrc{"launch[$_[0]]"}) {
+        $do_this = $pfmrc{"launch[$_[0]]"};
+        &expand_escapes($QUOTE_ON, $do_this, \%currentfile);
+        &stty_raw($TERM_COOKED);
+        $scr->clrscr()->puts("Launch type $_[0]\n");
+        system $do_this or &display_error($!);
+        return 'type_launched';
+    } else {
+        &display_error("No command found to launch type $_[0]");
+        return 'type_tried';
+    }
+}
+
+sub launchbymagic {
+    my $magic = `file \Q$currentfile{name}`;
+    system "echo 'bm:$magic' > /dev/pts/6";
+    my ($re, $launched);
+    MAGIC: foreach (grep /^magic\[/, keys %pfmrc) {
+        ($re) = (/magic\[([^][]+)\]/);
+        if (eval "\$magic =~ /$re/") {
+            $launched = &launchbytype($pfmrc{$_});
+            last MAGIC;
+        }
+    }
+    if ($launched) {
+        return 'magic_launched';
+    } else {
+        return 'magic_tried';
+    }
+}
+
+sub launchbyextension {
+    my ($ext) = ( $currentfile{name} =~ /(\.[^\.]+?)$/ );
+    my $launched;
+    system "echo 'be:$ext :-> $pfmrc{qq(extension[*$ext])}' > /dev/pts/6";
+    if (exists $pfmrc{"extension[$_[0]]"}) {
+        $launched = &launchbytype($pfmrc{"extension[*$ext]"});
+    }
+    if ($launched) {
+        return 'ext_launched';
+    } else {
+        return 'ext_tried';
+    }
+}
+
 sub handleenter {
-    $scr->clrscr();
-    &stty_raw($TERM_COOKED);
-    system "./\Q$currentfile{name}" and &display_error($!);
-    &pressanykey; # will also reset raw mode
-    return $R_CLEAR;
+    goto &handleentry if &followmode(\%currentfile) =~ /^d/;
+    my $launched;
+    $scr->at(0,0)->clreol()->at(0,0);
+    LAUNCH: foreach (split /,/, $pfmrc{launchby}) {
+        /magic/     and $launched = &launchbymagic;
+        /extension/ and $launched = &launchbyextension;
+        last LAUNCH if $launched =~ /launched/;
+    }
+    if ($launched =~ /launched/) {
+        $launched = $R_CLEAR;
+    } elsif ($launched) {
+        &display_error('File type unknown');
+        $launched = $R_HEADER;
+    } else {
+        # launchby: contains no valid entries, no error
+        $launched = $R_HEADER;
+    }
+    &stty_raw($TERM_RAW);
+    return $launched;
 }
 
 sub swap_stash {
@@ -3037,7 +3105,7 @@ sub printdircontents { # @contents
             &applycolor($i+$BASELINE-$baseindex, $FILENAME_SHORT, %{$_[$i]});
         } else {
             $scr->at($i+$BASELINE-$baseindex,0)
-                ->puts(' 'x($screenwidth-$DATECOL-1));
+                ->puts(' 'x$infocol);
         }
     }
 }
@@ -3102,7 +3170,7 @@ sub showdiskinfo {
     &dir_info(%total_nr_of);
     &mark_info(%selected_nr_of);
     &user_info;
-    &date_info;
+    &clock_info;
 }
 
 ##########################################################################
@@ -3240,7 +3308,7 @@ sub browse {
         &highlightline($HIGHLIGHT_ON);
         &mouseenable($MOUSE_ON) if $mouse_mode && $mouseturnoff;
         WAIT: until ($scr->key_pressed(1) || $wasresized) {
-            &date_info;
+            &clock_info;
             $scr->at($currentline+$BASELINE, $cursorcol);
         }
         if ($wasresized) {
@@ -3263,7 +3331,8 @@ sub browse {
                 /^ $/        and $wantrefresh |= &handleadvance($_),   last KEY;
                 /^d$/i       and $wantrefresh |= &handledelete,        last KEY;
                 /^[ix]$/i    and $wantrefresh |= &handleinclude($_),   last KEY;
-                /^[s\r]$/i   and $wantrefresh |= &handleshowenter($_), last KEY;
+                /^\r$/i      and $wantrefresh |= &handleenter,         last KEY;
+                /^s$/i       and $wantrefresh |= &handleshow,          last KEY;
                 /^kmous$/    and $wantrefresh |= &handlemousedown,     last KEY;
                 /^k7$/       and $wantrefresh |= &handleswap,          last KEY;
                 /^k5$/       and $wantrefresh |= &handlerefresh,       last KEY;
@@ -3339,6 +3408,7 @@ autowritehistory:no
 clobber:no
 
 ## clock date/time format; see strftime(3). %x and %X are the defaults.
+## the diskinfo field (f) in the layouts below must be wide enough for this.
 clockdateformat:%x
 clocktimeformat:%X
 
@@ -3436,7 +3506,7 @@ persistentswap:yes
 showlock:sun
 
 ## format for displaying timestamps: see strftime(3).
-## take care that the time fields in the layouts defined below
+## take care that the time fields (a, c and m) in the layouts defined below
 ## should be wide enough for this string.
 timestampformat:%y %b %d %H:%M
 #timestampformat:%Y-%m-%d %H:%M:%S
@@ -3542,40 +3612,42 @@ di=bold:ln=underscore:
 ##########################################################################
 ## column layouts
 
-## char column name             needed character width if column present
-## ---- ----------------------- -----------------------------------------------
-## *    mark                    1
-## n    filename                variable length; last char == overflow flag
-## s    filesize                >=4; last char == power of 1024 (K, M, G..)
-## z    grand total             >=4; last char == power of 1024 (K, M, G..)
-## u    user                    >=8 (system-dependent)
-## g    group                   >=8 (system-dependent)
-## p    permissions (mode)      10
-## a    access time             15 (for "%y %b %d %H:%M" if len(%b) == 3)
-## c    change time             15 (idem)
-## m    modification time       15 (idem)
-## d    device                  5?
-## i    inode                   7
-## l    link count              >=5 (system-dependent)
+## char column name  mandatory?  needed character width if column present
+## ---- -----------------------  ----------------------------------------------
+## *    mark                yes  1
+## n    filename            yes  variable length; last char == overflow flag
+## s    filesize                 >=4; last char == power of 1024 (K, M, G..)
+## z    grand total              >=4; last char == power of 1024 (K, M, G..)
+## u    user                     >=8 (system-dependent)
+## g    group                    >=8 (system-dependent)
+## p    permissions              10
+## a    access time              15 (using "%y %b %d %H:%M" if len(%b) == 3)
+## c    change time              15 (using "%y %b %d %H:%M" if len(%b) == 3)
+## m    modification time        15 (using "%y %b %d %H:%M" if len(%b) == 3)
+## d    device                   5?
+## i    inode                    >=7 (system-dependent)
+## l    link count               >=5 (system-dependent)
+## f    diskinfo            yes  >=14 (using clockformat, if len(%x) <= 14)
 
 ## take care not to make the fields too small or values will be cropped!
 ## if the terminal is resized, the filename field will be elongated.
+## the diskinfo field is as yet only supported as the last column.
 ## a final : after the last layout is allowed.
 ## the first three layouts were the old (pre-v1.72) defaults.
 ## the last one is the ls(1) layout.
 
-#<----------- layouts must not be wider than this! ------------># #<-diskinfo->#
+#<------------------------- file info -------------------------># #<-diskinfo->#
 columnlayouts:\
-* nnnnnnnnnnnnnnnnnnnnnssssssss mmmmmmmmmmmmmmmiiiiiii pppppppppp:\
-* nnnnnnnnnnnnnnnnnnnnnssssssss aaaaaaaaaaaaaaaiiiiiii pppppppppp:\
-* nnnnnnnnnnnnnnnnnnnnnssssssss uuuuuuuu gggggggglllll pppppppppp:\
-* nnnnnnnnnnnnnnnnnnnnnnnnnnnsssssss uuuuuuuu gggggggg pppppppppp:\
-* nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnuuuuuuuu gggggggg pppppppppp:\
-* nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnzzzzzzzz mmmmmmmmmmmmmmm:\
-* nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss:\
-pppppppppp  uuuuuuuu gggggggg sssssss* nnnnnnnnnnnnnnnnnnnnnnnnnn:\
-pppppppppp  mmmmmmmmmmmmmmm  ssssssss* nnnnnnnnnnnnnnnnnnnnnnnnnn:\
-ppppppppppllll uuuuuuuu ggggggggssssssss mmmmmmmmmmmmmmm *nnnnnnn:
+* nnnnnnnnnnnnnnnnnnnnnssssssss mmmmmmmmmmmmmmmiiiiiii pppppppppp ffffffffffffff:\
+* nnnnnnnnnnnnnnnnnnnnnssssssss aaaaaaaaaaaaaaaiiiiiii pppppppppp ffffffffffffff:\
+* nnnnnnnnnnnnnnnnnnnnnssssssss uuuuuuuu gggggggglllll pppppppppp ffffffffffffff:\
+* nnnnnnnnnnnnnnnnnnnnnnnnnnnsssssss uuuuuuuu gggggggg pppppppppp ffffffffffffff:\
+* nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnuuuuuuuu gggggggg pppppppppp ffffffffffffff:\
+* nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnzzzzzzzz mmmmmmmmmmmmmmm ffffffffffffff:\
+* nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss ffffffffffffff:\
+pppppppppp  uuuuuuuu gggggggg sssssss* nnnnnnnnnnnnnnnnnnnnnnnnnn ffffffffffffff:\
+pppppppppp  mmmmmmmmmmmmmmm  ssssssss* nnnnnnnnnnnnnnnnnnnnnnnnnn ffffffffffffff:\
+ppppppppppllll uuuuuuuu ggggggggssssssss mmmmmmmmmmmmmmm *nnnnnnn ffffffffffffff:
 
 ##########################################################################
 ## your commands
@@ -3627,8 +3699,9 @@ your[z]:gzip \2
 
 ## should the filetype be determined by magic (file(1)), by extension,
 ## or should we prefer one method and fallback on the other one?
-## allowed values: 'extension' 'magic' 'extension,magic' 'magic,extension'
-launchby:extension,magic
+## should we try to execute it when the 'x' bit is set?
+## allowed values: combinations of 'xbit', 'extension' and 'magic'
+launchby:xbit,extension,magic
 
 ## the file type names do not have to be valid MIME types
 extension[*.Z]   : application/x-compress
@@ -4697,7 +4770,7 @@ memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.91.6.
+This manual pertains to C<pfm> version 1.91.7.
 
 =head1 SEE ALSO
 
