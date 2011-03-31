@@ -1,12 +1,12 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20030508 v1.92.4
+# @(#) pfm.pl 19990314-20030515 v1.92.5
 #
 # Name:         pfm
-# Version:      1.92.4
+# Version:      1.92.5
 # Author:       Rene Uittenbogaard
-# Date:         2003-05-08
+# Date:         2003-05-15
 # Usage:        pfm [ <directory> ] [ -s, --swap <directory> ]
 #               pfm { -v, --version | -h, --help }
 # Requires:     Term::ReadLine::Gnu (preferably)
@@ -20,6 +20,8 @@
 #               vars
 # Description:  Personal File Manager for Unix/Linux
 #
+# TOTEST:
+#       getdircontents: will stat(2) be able to detect w-files?
 # TODO:
 #       fix error handling in eval($do_this) and &display_error
 #           partly implemented in handlecopyrename
@@ -28,9 +30,9 @@
 #       don't cache user/groupnames? re-cache at every directory entry? test timestamp?
 #       bug: 'f' field in layout: characters in the 'gap' between filerecord & infocolumn
 #           are not cleared when switching columnformats -> insert an artificial "gap" field?
-#       handlesize gives unnecessary OS errors
-#       handletime does not restat(), nor resort
-#       handletime still has timezone errors :(
+#       handlesize gives unnecessary OS errors: $? not read correctly; what is reaper for?
+#       invert sense of dotmode/whitemode
+#       handletime does not restat() in multiple mode, nor resort
 #       cp -pr copies symlinks to symlinks - ?
 #       after rename: position_at new name?
 #       accept mouseclick in "hit any key to continue"
@@ -351,7 +353,7 @@ my (
     # screen- and keyboard objects, screen parameters
     $scr, $kbd, $wasresized, $currentpan,
     # modes
-    $sort_mode, $multiple_mode, $swap_mode, $dot_mode, $dotdot_mode,
+    $sort_mode, $multiple_mode, $swap_mode, $dot_mode, $dotdot_mode, $white_mode,
     $mouse_mode, $color_mode, $ident_mode, $radix_mode, $clobber_mode,
     # dir- and disk info
     $currentdir, $oldcurrentdir, @dircontents, @showncontents, %currentfile,
@@ -367,6 +369,8 @@ my (
     $currentformatline, $currentformatlinewithinfo,
     @layoutfields, @layoutfieldswithinfo, @columnlayouts, $currentlayout, $formatname,
     $maxfilenamelength, $maxfilesizelength, $maxgrandtotallength, $infolength,
+    # misc
+    $chldexit, $white_cmd, $unwo_cmd,
 );
 
 ##########################################################################
@@ -481,6 +485,7 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
     $swap_persistent   = &isyes($pfmrc{persistentswap});
     $trspace           = &isyes($pfmrc{translatespace}) ? ' ' : '';
     $dotdot_mode       = &isyes($pfmrc{dotdotmode});
+    $white_mode        = &isyes($pfmrc{defaultwhitemode}) if !defined $white_mode;
     $dot_mode          = &isyes($pfmrc{defaultdotmode})   if !defined $dot_mode;
     $clobber_mode      = &isyes($pfmrc{defaultclobber})   if !defined $clobber_mode;
     $sort_mode         = $pfmrc{defaultsortmode} || 'n'   if !defined $sort_mode;
@@ -716,9 +721,6 @@ sub mode2str {
     # c000  S_IFSOCK  s=  140000  socket
     # d000  S_IFDOOR  D>  150000  Solaris door
     # e000  S_IFWHT   w%  160000  BSD whiteout
-    #
-    # whiteout support is broken: readdir does not return the names of w-entries
-    # furthermore, the link count (0) on w-entries will pose problems too
     #
     if ($2 & 4) {       substr( $strmode,3,1) =~ tr/-x/Ss/ }
     if ($2 & 2) { eval "substr(\$strmode,6,1) =~ tr/-x/${showlockchar}s/" }
@@ -1074,7 +1076,7 @@ sub resizecatcher {
 }
 
 sub reaper {
-    wait;
+    $chldexit = (wait == -1) ? 0 : $?;
     $SIG{CHLD} = \&reaper;
 }
 
@@ -1105,6 +1107,20 @@ sub testdirempty {
     return !$third_entry;
 }
 
+sub white_commands {
+    $white_cmd = $unwo_cmd = '';
+    if (!system 'listwhite /dev/null >/dev/null 2>&1') {
+        $white_cmd = 'listwhite';
+    } elsif (!system 'lsw /dev/null >/dev/null 2>&1') {
+        $white_cmd = 'lsw';
+    }
+    if (!system 'unwhiteout /tmp/.pfm_wo >/dev/null 2>&1') {
+        $unwo_cmd = 'unwhiteout';
+    } elsif (!system 'unwo /tmp/.pfm_wo >/dev/null 2>&1') {
+        $unwo_cmd = 'unwo';
+    }
+}
+
 sub globalinit {
     my ($startingdir, $opt_version, $opt_help);
     &Getopt::Long::Configure('bundling');
@@ -1132,6 +1148,7 @@ sub globalinit {
     $swap_state     = 0;
     $currentpan     = 0;
     $baseindex      = 0;
+    &white_commands;
     &read_pfmrc($READ_FIRST);
     &read_history;
     &init_frame;
@@ -1178,6 +1195,7 @@ sub putmessage {
 
 sub decidecolor {
     my $f = shift;
+    $f->{type}  eq 'w'        and return $dircolors{$color_mode}{wh};
     $f->{nlink} ==  0         and return $dircolors{$color_mode}{lo};
     $f->{type}  eq 'd'        and return $dircolors{$color_mode}{di};
     $f->{type}  eq 'l'        and return $dircolors{$color_mode}
@@ -1188,7 +1206,6 @@ sub decidecolor {
     $f->{type}  eq 's'        and return $dircolors{$color_mode}{so};
     $f->{type}  eq 'D'        and return $dircolors{$color_mode}{'do'};
     $f->{type}  eq 'n'        and return $dircolors{$color_mode}{nt};
-    $f->{type}  eq 'w'        and return $dircolors{$color_mode}{wh};
     $f->{mode}  =~ /[xst]/    and return $dircolors{$color_mode}{ex};
     $f->{name}  =~ /(\.\w+)$/ and return $dircolors{$color_mode}{$1};
 }
@@ -1213,6 +1230,7 @@ sub makeformatlines {
     my ($squeezedlayoutline, $currentlayoutline, $firstwronglayout, $prev, $letter, $trans, $temp);
     LAYOUT: {
         $currentlayoutline = $columnlayouts[&validate_layoutnum];
+        # we could also test /(^f|f$)/; but catch only fatal errors for now.
         unless ($currentlayoutline =~ /n/ and $currentlayoutline =~ /f/  and $currentlayoutline =~ /\*/) {
             $firstwronglayout ||= $currentlayout || '0 but true';
             $scr->at(0,0)->clreol();
@@ -1380,19 +1398,19 @@ sub ok_to_remove_marks {
     return 1;
 }
 
-sub promptforboundtime {
+sub promptforboundarytime {
     my $prompt = ($_[0] eq 'a' ? 'After' : 'Before')
                . " modification time CCYY-MM-DD hh:mm[.ss]: ";
-    my $boundtime;
+    my $boundarytime;
     $scr->at(0,0)->clreol();
     &stty_raw($TERM_COOKED);
-    $boundtime = &readintohist(\@time_history, $prompt);
+    $boundarytime = &readintohist(\@time_history, $prompt);
     # init_header is done in handleinclude
     &stty_raw($TERM_RAW);
-    $boundtime =~ tr/0-9.//dc;
-    $boundtime =~ /(....)(..)(..)(..)(..)(\...)?$/;
-    $boundtime = mktime($6, $5, $4, $3, $2-1, $1-1900, 0, 0, 0);
-    return $boundtime;
+    $boundarytime =~ tr/0-9.//dc;
+    $boundarytime =~ /(....)(..)(..)(..)(..)(\...)?$/;
+    $boundarytime = mktime($6, $5, $4, $3, $2-1, $1-1900, 0, 0, 0);
+    return $boundarytime;
 }
 
 sub promptforwildfilename {
@@ -1453,11 +1471,12 @@ sub init_title { # swap_mode, extra field, @layoutfieldswithinfo
     my $linecolor;
     for ($info) {
         $_ == $TITLE_DISKINFO and $FIELDHEADINGS{diskinfo} = ' 'x($infolength-14).'     disk info';
-        $_ == $TITLE_SORT     and $FIELDHEADINGS{diskinfo} = 'sort mode     '.' 'x($infolength-14);
-        $_ == $TITLE_SIGNAL   and $FIELDHEADINGS{diskinfo} = '  nr signal   '.' 'x($infolength-14);
-        $_ == $TITLE_YCOMMAND and $FIELDHEADINGS{diskinfo} = 'your commands '.' 'x($infolength-14);
-        $_ == $TITLE_ESCAPE   and $FIELDHEADINGS{diskinfo} = 'esc legend    '.' 'x($infolength-14);
+        $_ == $TITLE_SORT     and $FIELDHEADINGS{diskinfo} = 'sort mode     ' . ' ' x ($infolength-14);
+        $_ == $TITLE_SIGNAL   and $FIELDHEADINGS{diskinfo} = '  nr signal   ' . ' ' x ($infolength-14);
+        $_ == $TITLE_YCOMMAND and $FIELDHEADINGS{diskinfo} = 'your commands ' . ' ' x ($infolength-14);
+        $_ == $TITLE_ESCAPE   and $FIELDHEADINGS{diskinfo} = 'esc legend    ' . ' ' x ($infolength-14);
     }
+#    $FIELDHEADINGS{display} = $FIELDHEADINGS{name} . ' (' . $sort_mode . ('','.')[$dot_mode] . ('','%')[$white_mode] . ')';
     $linecolor = $smode ? $framecolors{$color_mode}{swap}
                         : $framecolors{$color_mode}{title};
     $scr->bold()        if ($linecolor =~ /bold/);
@@ -1481,7 +1500,8 @@ sub header {
         return 'Absolute, Relative symlink or Hard link:';
     } else {
         return 'Attribute Copy Delete Edit Find Include tarGet Link More Name'
-        .     ' cOmmands Print Quit Rename Show Time User eXclude Your-commands siZe';
+        .     ' cOmmands Print Quit Rename Show Time User' . ($unwo_cmd ? ' unWhiteout' : '')
+        .     ' eXclude Your-commands siZe';
     }
 }
 
@@ -1514,9 +1534,10 @@ sub footer {
     .     " F8-Include F9-Columns[$currentlayout]" # $formatname ?
     .     " F10-Multiple[$ONOFF{$multiple_mode}] F11-Restat F12-Mouse[$ONOFF{$mouse_mode}]"
     .     " !-Clobber[$ONOFF{$clobber_mode}]"
+    .     " .-Dotfiles[$ONOFF{$dot_mode}]"
+    .     ($white_cmd ? " %-Whiteouts[$ONOFF{$white_mode}]" : '')
     .     " *-Radix[$radix_mode]"
-#    .     " .-Dotmode[$dot_mode]"
-#    .     " =-Ident[$ident_mode]"
+    .     " =-Ident"
     ;
 }
 
@@ -1652,7 +1673,7 @@ sub dir_info {
                + $total_nr_of{'n'};
     my $startline = $DIRINFOLINE;
     $scr->at($startline-1, $infocol)
-        ->puts(&str_informatted(" Directory($sort_mode" . ($dot_mode ? '.' : '') . ")"));
+        ->puts(&str_informatted("Directory($sort_mode" . ($dot_mode ? '.' : '') . ($white_mode ? '%' : '') . ")"));
     foreach (0..3) {
         $scr->at($startline+$_, $infocol)
             ->puts(&data_informatted($values[$_],$desc[$_]));
@@ -1798,7 +1819,7 @@ sub initident {
     chomp ($ident  = $user{$>} ) unless $ident_mode == 1;
     chomp ($ident  = `hostname`)     if $ident_mode == 1;
     chomp ($ident .= '@'.`hostname`) if $ident_mode == 2;
-    return $R_DISKINFO;
+    return $R_DISKINFO | $R_FOOTER;
 }
 
 sub handleident {
@@ -1888,10 +1909,12 @@ sub handlesize {
     $do_this = sub {
         $loopfile = shift;
         &expand_escapes($QUOTE_ON, ($command = $ducmd), $loopfile);
+        $chldexit = 0;
         ($recursivesize = `$command`) =~ s/\D*(\d+).*/$1/;
         chomp $recursivesize;
-        if ($?) {
-            $? >>= 8;
+        if ($chldexit) {
+#            system "echo $chldexit >/dev/pts/3";
+            $chldexit >>= 8;
             &neat_error('Could not read all directories');
             $recursivesize ||= 0;
             $do_a_refresh |= $R_SCREEN;
@@ -1933,10 +1956,16 @@ sub handlesize {
     return $do_a_refresh;
 }
 
+sub handlewhiteout {
+    toggle($white_mode);
+    $position_at = $currentfile{name};
+    return $R_DIRLIST | $R_DIRFILTER | $R_DISKINFO | $R_FOOTER;
+}
+
 sub handledot {
     toggle($dot_mode);
     $position_at = $currentfile{name};
-    return $R_DIRLIST | $R_DIRFILTER | $R_DISKINFO;
+    return $R_DIRLIST | $R_DIRFILTER | $R_DISKINFO | $R_FOOTER;
 }
 
 #sub handleshowenter {
@@ -1980,10 +2009,11 @@ sub handlefind {
     return $R_HEADER if $findme eq '';
     FINDENTRY:
     foreach (sort by_name @showncontents) {
-        if (index($_->{name}, $findme) == 0) {
-            $position_at = $_->{name};
-            last FINDENTRY;
-        }
+        last FINDENTRY if $findme le ($position_at = $_->{name});
+#        if (index($_->{name}, $findme) == 0) {
+#            $position_at = $_->{name};
+#            last FINDENTRY;
+#        }
     }
     return $R_DIRLIST | $R_HEADER;
 }
@@ -2185,7 +2215,7 @@ sub handleinclude { # include/exclude flag (from keypress)
     my $exin = shift;
     my $do_a_refresh = $R_HEADER | $R_PATHINFO;
     my ($criterion, $headerlength);
-    our ($wildfilename, $boundtime, $entry);
+    our ($wildfilename, $boundarytime, $entry);
     # $wildfilename could have been declared using my(), but that will prevent
     # changes in its value to be noticed by the anonymous sub
     $headerlength = &init_header($HEADER_INCLUDE);
@@ -2202,21 +2232,21 @@ sub handleinclude { # include/exclude flag (from keypress)
     } elsif ($key eq 'u') { # user only
         $criterion = sub { $entry->{uid} =~ /$ENV{USER}/ };
     } elsif ($key =~ /^[ab]$/) { # after/before mtime
-        if ($boundtime = &promptforboundtime($key)) {
+        if ($boundarytime = &promptforboundarytime($key)) {
             # this was the behavior of PFM.COM, IIRC
             $wildfilename = &promptforwildfilename;
             if ($key eq 'a') {
                 $criterion = sub {
                                 $entry->{name} =~ /$wildfilename/
-                                and $entry->{mtime} > $boundtime;
+                                and $entry->{mtime} > $boundarytime;
                             };
             } else {
                 $criterion = sub {
                                 $entry->{name} =~ /$wildfilename/
-                                and $entry->{mtime} < $boundtime;
+                                and $entry->{mtime} < $boundarytime;
                             };
             }
-        } # if $boundtime
+        } # if $boundarytime
     } elsif ($key eq 'f') { # regular files
         $wildfilename = &promptforwildfilename;
         # it seems that ("a" =~ //) == false, that comes in handy
@@ -2378,6 +2408,49 @@ sub handlesymlink {
     } else {
         $loopfile = \%currentfile;
         &expand_escapes($QUOTE_OFF, ($newnameexpanded = $newname), $loopfile);
+        &$do_this;
+        &restat_copyback;
+    }
+    return $do_a_refresh;
+}
+
+sub handleunwo {
+    my ($index, $loopfile, $do_this);
+    my $count = 0;
+    my $do_a_refresh = $multiple_mode ? $R_DIRLIST | $R_HEADER : $R_HEADER;
+    my $nowhiteouterror = 'Current file is not a whiteout';
+    &markcurrentline('W') unless $multiple_mode;
+    if ($currentfile{type} ne 'w' and !$multiple_mode) {
+        $scr->at(0,0)->clreol();
+        &display_error($nowhiteouterror);
+        return $R_HEADER;
+    }
+    $scr->at($PATHLINE,0);
+    $do_this = sub {
+        if ($loopfile->{type} eq 'w') {
+            if (!system($unwo_cmd, $loopfile->{name})) {
+                $total_nr_of{$loopfile->{type}}--;
+                &exclude($loopfile) if $loopfile->{selected} eq '*';
+            } else {
+                $do_a_refresh |= &neat_error($!);
+            }
+        } else {
+            $do_a_refresh |= &neat_error($nowhiteouterror);
+        }
+    };
+    if ($multiple_mode) {
+        for $index (0..$#dircontents) {
+            $loopfile = $dircontents[$index];
+            if ($loopfile->{selected} eq '*') {
+                $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
+                &exclude($loopfile, '.');
+                &$do_this;
+                $dircontents[$index] = &stat_entry($loopfile->{name}, $loopfile->{selected});
+            }
+        }
+        $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
+    } else {
+        $loopfile = \%currentfile;
         &$do_this;
         &restat_copyback;
     }
@@ -2613,9 +2686,8 @@ sub handledelete {
             $msg = 'Deleting current directory not allowed';
             $success = 0;
         } elsif ($loopfile->{type} eq 'w') {
-            # not functional. readdir() does not return whiteout entries.
-            $success = !system('unwhiteout', $loopfile->{name});
-        } elsif ($loopfile->{nlink} == 0) {
+            $success = !system($unwo_cmd, $loopfile->{name});
+        } elsif ($loopfile->{nlink} == 0 and $loopfile->{type} ne 'w') {
             # remove 'lost files' immediately, no confirmation needed
             $success = 1;
         } elsif ($loopfile->{type} eq 'd') {
@@ -3062,6 +3134,7 @@ sub swap_stash {
         multiple_mode     =>   $multiple_mode,
         sort_mode         =>   $sort_mode,
         dot_mode          =>   $dot_mode,
+        white_mode        =>   $white_mode,
         argvnull          =>   $0
     };
 }
@@ -3076,6 +3149,7 @@ sub swap_fetch {
     $multiple_mode  =   $state->{multiple_mode};
     $sort_mode      =   $state->{sort_mode};
     $dot_mode       =   $state->{dot_mode};
+    $white_mode     =   $state->{white_mode};
     $0              =   $state->{argvnull};
     return $state->{path};
 }
@@ -3214,6 +3288,9 @@ sub getdircontents { # (current)directory
     if (opendir CURRENT, "$_[0]") {
         @allentries = readdir CURRENT;
         closedir CURRENT;
+        if ($white_cmd) {
+            push @allentries, `$white_cmd $_[0]`;
+        }
     } else {
         $scr->at(0,0)->clreol();
         &display_error("Cannot read . : $!");
@@ -3223,7 +3300,7 @@ sub getdircontents { # (current)directory
     if ($#allentries < 0) {
         @allentries = ('.', '..');
     }
-    local $SIG{INT} = sub { return @contents };
+#    local $SIG{INT} = sub { return @contents };
     if ($#allentries > $SLOWENTRIES) {
         # don't use display_error here because that would just cost more time
         $scr->at(0,0)->clreol()->putcolored($framecolors{$color_mode}{message}, 'Please Wait');
@@ -3250,7 +3327,9 @@ sub printdircontents { # @contents
 }
 
 sub filterdir {
-    return grep { !$dot_mode || $_->{name} =~ /^(\.\.?|[^\.].*)$/ } @_;
+    return grep { !$dot_mode   || $_->{name} =~ /^(\.\.?|[^\.].*)$/
+           and    !$white_mode || $_->{type} ne 'w'
+    } @_;
 }
 
 sub init_dircount {
@@ -3468,23 +3547,23 @@ sub browse {
             &mouseenable($MOUSE_OFF) if $mouseturnoff;
             KEY: for ($key) {
                 # order is determined by (supposed) frequency of use
+                /^(?:ku|kd|pgup|pgdn|[-+jk\cF\cB\cD\cU]|home|end)$/i
+                             and $wantrefresh |= &handlemove($_),      last KEY;
                 /^(?:kr|kl|[h\e\cH])$/i
                              and $wantrefresh |= &handleentry($_),     last KEY;
+                /^[\cE\cY]$/ and $wantrefresh |= &handlescroll($_),    last KEY;
                 /^l$/        and $wantrefresh |= &handlekeyell($_),    last KEY;
+                /^ $/        and $wantrefresh |= &handleadvance($_),   last KEY;
+                /^k5$/       and $wantrefresh |= &handlerefresh,       last KEY;
                 /^[cr]$/i    and $wantrefresh |= &handlecopyrename($_),last KEY;
                 /^[yo]$/i    and $wantrefresh |= &handlecommand($_),   last KEY;
                 /^e$/i       and $wantrefresh |= &handleedit,          last KEY;
-                /^(?:ku|kd|pgup|pgdn|[-+jk\cF\cB\cD\cU]|home|end)$/i
-                             and $wantrefresh |= &handlemove($_),      last KEY;
-                /^[\cE\cY]$/ and $wantrefresh |= &handlescroll($_),    last KEY;
-                /^ $/        and $wantrefresh |= &handleadvance($_),   last KEY;
                 /^d(el)?$/i  and $wantrefresh |= &handledelete,        last KEY;
                 /^[ix]$/i    and $wantrefresh |= &handleinclude($_),   last KEY;
                 /^\r$/i      and $wantrefresh |= &handleenter,         last KEY;
                 /^s$/i       and $wantrefresh |= &handleshow,          last KEY;
                 /^kmous$/    and $wantrefresh |= &handlemousedown,     last KEY;
                 /^k7$/       and $wantrefresh |= &handleswap,          last KEY;
-                /^k5$/       and $wantrefresh |= &handlerefresh,       last KEY;
                 /^k10$/      and $wantrefresh |= &handlemultiple,      last KEY;
                 /^m$/i       and $wantrefresh |= &handlemore,          last KEY;
                 /^p$/i       and $wantrefresh |= &handleprint,         last KEY;
@@ -3513,6 +3592,8 @@ sub browse {
                 /^=$/        and $wantrefresh |= &handleident,         last KEY;
                 /^\*$/       and $wantrefresh |= &handleradix,         last KEY;
                 /^!$/        and $wantrefresh |= &handleclobber,       last KEY;
+                /^w$/i       and $wantrefresh |= &handleunwo,          last KEY;
+                /^%$/i       and $wantrefresh |= &handlewhiteout,      last KEY;
                 # invalid keypress: cursor position needs no checking
                 $wantrefresh &= ~$R_STRIDE;
             } # switch KEY
@@ -3602,6 +3683,9 @@ defaultradix:hex
 
 ## initial sort mode (nNmMeEfFsSzZiItTdDaA) (default n) (for F6)
 defaultsortmode:n
+
+## initial whiteout mode
+defaultwhitemode:y
 
 ## '.' and '..' entries always at the top of the dirlisting?
 dotdotmode:no
@@ -3723,7 +3807,7 @@ footer=bold reverse blue on white:message=bold cyan:highlight=bold:
 ##-file types:
 ## no=normal fi=file ex=executable lo=lost file ln=symlink or=orphan link
 ## di=directory bd=block special cd=character special pi=fifo so=socket
-## do=door nt=network special (not implemented) wh=whiteout (not implemented)
+## do=door nt=network special (not implemented) wh=whiteout
 ## *.<ext> defines extension colors
 
 dircolors[dark]:no=reset:fi=reset:ex=green:lo=bold black:di=bold blue:\
@@ -4572,6 +4656,13 @@ normal (non-C<root>) users to change ownership.
 
 (Deprecated.) Identical to B<N>ame.
 
+=item B<unWhiteout>
+
+(Only on platforms that support whiteout files). Provides the option
+to remove the whiteout entry in the top layer of a translucent (tfs),
+inheriting (ifs) or union (unionfs) filesystem, thereby restoring access
+to the corresponding file in the lower layer.
+
 =item B<eXclude>
 
 Allows you to erase marks on a group of files which meet a certain
@@ -4686,6 +4777,10 @@ Identical to the B<D>elete command (see above).
 
 Toggle clobber mode. This controls whether a file should be overwritten when
 its name is reused in B<C>opy, B<L>ink or B<R>ename.
+
+=item B<%>
+
+Toggle show/hide whiteout files.
 
 =item B<*>
 
@@ -5219,7 +5314,7 @@ memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.92.4.
+This manual pertains to C<pfm> version 1.92.5.
 
 =head1 SEE ALSO
 

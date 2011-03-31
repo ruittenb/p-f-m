@@ -1,9 +1,5 @@
-1.92.4
+1.92.5
 
-* fixed bug in (L)ink concerning making multiple absolute links
-* fixed stat() of currentfile after launch
-* changed (D)elete to delete files without confirmation if nlink == 0
-* changed meaning of \7 (include dot)
-* added (M)ore - (F)ifo command
-* added check on validity of layout (presence of mandatory fields)
+* fixed whiteout support: listing, deleting (W), toggle mode (%)
+* added helper app: listwhite(1)
 
