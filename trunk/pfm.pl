@@ -1,12 +1,12 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20030216 v1.91.7
+# @(#) pfm.pl 19990314-20030218 v1.91.8
 #
 # Name:         pfm
-# Version:      1.91.7 (f column and launch still buggy)
+# Version:      1.91.8 (f column and launch still buggy)
 # Author:       Rene Uittenbogaard
-# Date:         2003-02-16
+# Date:         2003-02-18
 # Usage:        pfm [ <directory> ] [ -s, --swap <directory> ]
 #               pfm { -v, --version | -h, --help }
 # Requires:     Term::ReadLine::Gnu (preferably)
@@ -29,7 +29,7 @@
 #       sub fileforall(sub) ?
 #       cache color codes?
 #       make F11 respect multiple mode? (marked+oldmarked, not removing marks)
-#       include 'f' field in config? parse correctly?
+#       include 'f' field in config? &printdircontents assumes fff col is last
 #
 #       beautify source: forget stupid 80-col limit; use tabs instead of spaces
 #       implement 'logical' paths in addition to 'physical' paths?
@@ -227,6 +227,7 @@ my @SORTMODES = (
     d =>'Date/mtime',  D =>' reverse',
     a =>'date/Atime',  A =>' reverse',
    's'=>'Size',        S =>' reverse',
+   'z'=>'siZe total',  Z =>' reverse',
     t =>'Type',        T =>' reverse',
     i =>'Inode',       I =>' reverse',
 );
@@ -343,7 +344,7 @@ my (
     $currentdir, $oldcurrentdir, @dircontents, @showncontents, %currentfile,
     %disk, $swap_state, %total_nr_of, %selected_nr_of, $ident,
     # cursor position
-    $currentline, $baseindex, $cursorcol, $filenamecol, $infocol,
+    $currentline, $baseindex, $cursorcol, $filenamecol, $infocol, $filerecordcol,
     # misc config options
     $editor, $pager, $viewer, $printcmd, $ducmd, $showlockchar,
     $autoexitmultiple, $clobber, $cursorveryvisible, $clsonexit,
@@ -655,6 +656,12 @@ sub setornaments {
 #        $kbd->ornaments(join(';', @cols) . ',me,,');
         $kbd->ornaments($cols[0] . ',me,,');
     }
+}
+
+sub formatted {
+    local $^A = '';
+    formline(shift(), @_);
+    return $^A;
 }
 
 sub time2str {
@@ -1129,7 +1136,7 @@ sub applycolor {
 # small printing routines
 
 sub makeformatlines {
-    my ($squeezedlayoutline, $prev, $letter, $trans);
+    my ($squeezedlayoutline, $prev, $letter, $trans, $temp);
     if ($currentlayout > $#columnlayouts) {
         $currentlayout = 0;
     }
@@ -1147,10 +1154,12 @@ sub makeformatlines {
     $currentlayoutline =~ s/n(?!n)/N/i;
     $currentlayoutline =~ s/s(?!s)/S/i;
     $currentlayoutline =~ s/z(?!z)/Z/i;
+    ($temp = $currentlayoutline) =~ s/[^f].*//;
+    $filerecordcol     = length $temp;
     $cursorcol         = index ($currentlayoutline, '*');
     $filenamecol       = index ($currentlayoutline, 'n');
     $infocol           = index ($currentlayoutline, 'f');
-    foreach ($cursorcol, $filenamecol, $infocol) {
+    foreach ($cursorcol, $filenamecol, $infocol, $filerecordcol) {
         if ($_ < 0) { $_ = 0 }
     }
     # determine the layout field set (no spaces or info column)
@@ -1166,7 +1175,7 @@ sub makeformatlines {
             $currentformatlinewithinfo .= '@';
         } else {
             ($trans = $letter) =~ tr{*nNsSzZugpacmdilf}
-                                    {<<<><><<<<<<<<>>>};
+                                    {<<<><><<<<<<<<>><};
             $currentformatlinewithinfo .= $trans;
         }
         $prev = $letter;
@@ -1226,7 +1235,7 @@ sub fileline { # $currentfile, @layoutfields
 
 sub highlightline { # true/false
     my $linecolor;
-    $scr->at($currentline + $BASELINE, 0);
+    $scr->at($currentline + $BASELINE, $filerecordcol);
     if ($_[0] == $HIGHLIGHT_ON) {
         $linecolor = $framecolors{$color_mode}{highlight};
         $scr->bold()        if ($linecolor =~ /bold/);
@@ -1274,7 +1283,7 @@ sub ok_to_remove_marks {
         &init_header;
         return ($sure =~ /y/i);
     }
-    1;
+    return 1;
 }
 
 sub promptforboundtime {
@@ -1349,11 +1358,11 @@ sub init_title { # swap_mode, extra field, @layoutfields
     my ($smode, $info, @fields) = @_;
     my $linecolor;
     for ($info) {
-        $_ == $TITLE_DISKINFO and $FIELDHEADINGS{diskinfo} = '     disk info';
-        $_ == $TITLE_SORT     and $FIELDHEADINGS{diskinfo} = 'sort mode     ';
-        $_ == $TITLE_SIGNAL   and $FIELDHEADINGS{diskinfo} = '  nr signal   ';
-        $_ == $TITLE_YCOMMAND and $FIELDHEADINGS{diskinfo} = 'your commands ';
-        $_ == $TITLE_ESCAPE   and $FIELDHEADINGS{diskinfo} = 'esc legend    ';
+        $_ == $TITLE_DISKINFO and $FIELDHEADINGS{diskinfo} = ' 'x($infolength-14).'     disk info';
+        $_ == $TITLE_SORT     and $FIELDHEADINGS{diskinfo} = 'sort mode     '.' 'x($infolength-14);
+        $_ == $TITLE_SIGNAL   and $FIELDHEADINGS{diskinfo} = '  nr signal   '.' 'x($infolength-14);
+        $_ == $TITLE_YCOMMAND and $FIELDHEADINGS{diskinfo} = 'your commands '.' 'x($infolength-14);
+        $_ == $TITLE_ESCAPE   and $FIELDHEADINGS{diskinfo} = 'esc legend    '.' 'x($infolength-14);
     }
     $linecolor = $smode ? $framecolors{$color_mode}{swap}
                         : $framecolors{$color_mode}{title};
@@ -1362,9 +1371,8 @@ sub init_title { # swap_mode, extra field, @layoutfields
 #    $scr->underline()   if ($linecolor =~ /under(line|score)/);
     $scr->term()->Tputs('us', 1, *STDOUT)
                         if ($linecolor =~ /under(line|score)/);
-    $^A = '';
-    formline($currentformatlinewithinfo, @FIELDHEADINGS{@fields, 'diskinfo'});
-    $scr->at(2,0)->putcolored($linecolor, $^A)->normal();
+    $scr->at(2,0)->putcolored($linecolor,
+        &formatted($currentformatlinewithinfo, @FIELDHEADINGS{@fields, 'diskinfo'}))->normal();
 }
 
 sub header {
@@ -1508,16 +1516,16 @@ _eoCredits_
 ##########################################################################
 # system information
 
-sub user_info {
-    $^A = '';
-    formline('@' . '>' x ($infolength-2), $ident);
-    $scr->at($USERLINE, $infocol+1)->putcolored(($> ? 'normal' : 'red'), $^A);
+sub str_informatted {
+    &formatted('@' . '>' x ($infolength-1), @_);
 }
 
-sub infoline { # number, description
-    $^A = '';
-    formline('@>>>>>> @<<<<<', @_);
-    return $^A;
+sub data_informatted {
+    &formatted('@' . '>' x ($infolength-7) . ' @<<<<<', @_);
+}
+
+sub user_info {
+    $scr->at($USERLINE, $infocol)->putcolored(($> ? 'normal' : 'red'), &str_informatted($ident));
 }
 
 sub disk_info { # %disk{ total, used, avail }
@@ -1529,14 +1537,14 @@ sub disk_info { # %disk{ total, used, avail }
     # but I hated it.                      x    x
     # In case someone wants to try:        mqqqqj
 #    $scr->at($startline-1,$infocol)->puts("\cNlqq\cO Disk space");
-    $scr->at($startline-1, $infocol+4)->puts('Disk space');
+    $scr->at($startline-1, $infocol)->puts(&str_informatted('Disk space'));
     foreach (0..2) {
         while ($values[$_] > 99_999) {
                 $values[$_] /= 1024;
                 $desc[$_] =~ tr/KMGTP/MGTPE/;
         }
-        $scr->at($startline+$_, $infocol+1)
-            ->puts(&infoline(int($values[$_]), $desc[$_]));
+        $scr->at($startline+$_, $infocol)
+            ->puts(&data_informatted(int($values[$_]), $desc[$_]));
     }
 }
 
@@ -1549,11 +1557,11 @@ sub dir_info {
                + $total_nr_of{'D'} + $total_nr_of{'w'}
                + $total_nr_of{'n'};
     my $startline = 9;
-    $scr->at($startline-1, $infocol + !$dot_mode)
-        ->puts(" Directory($sort_mode" . ($dot_mode ? '.' : '') . ")");
+    $scr->at($startline-1, $infocol)
+        ->puts(&str_informatted(" Directory($sort_mode" . ($dot_mode ? '.' : '') . ")"));
     foreach (0..3) {
-        $scr->at($startline+$_, $infocol+1)
-            ->puts(&infoline($values[$_],$desc[$_]));
+        $scr->at($startline+$_, $infocol)
+            ->puts(&data_informatted($values[$_],$desc[$_]));
     }
 }
 
@@ -1568,10 +1576,10 @@ sub mark_info {
     my $total = 0;
     $values[0] = join ('', &fit2limit($values[0], 9_999_999));
     $values[0] =~ s/ $//;
-    $scr->at($startline-1, $infocol+2)->puts('Marked files');
+    $scr->at($startline-1, $infocol)->puts(&str_informatted('Marked files'));
     foreach (0..4) {
-        $scr->at($startline+$_, $infocol+1)
-            ->puts(&infoline($values[$_], $desc[$_]));
+        $scr->at($startline+$_, $infocol)
+            ->puts(&data_informatted($values[$_], $desc[$_]));
         $total += $values[$_] if $_;
     }
     return $total;
@@ -1582,13 +1590,9 @@ sub clock_info {
     my $line = $DATELINE;
     ($date, $time) = &time2str(time, $TIME_CLOCK);
     if ($scr->rows() > 24) {
-        $^A = '';
-        formline('@>>>>>>>>>>>>>', $date);
-        $scr->at($line++, $infocol)->puts($^A);
+        $scr->at($line++, $infocol)->puts(&str_informatted($date));
     }
-    $^A = '';
-    formline('@>>>>>>>>>>>>>', $time);
-    $scr->at($line++, $infocol)->puts($^A);
+    $scr->at($line++, $infocol)->puts(&str_informatted($time));
 }
 
 ##########################################################################
@@ -1615,6 +1619,8 @@ sub as_requested {
         /A/ and return    $b->{atime} <=>    $a->{atime},   last SWITCH;
         /s/ and return    $a->{size}  <=>    $b->{size},    last SWITCH;
         /S/ and return    $b->{size}  <=>    $a->{size},    last SWITCH;
+        /z/ and return    $a->{grand} <=>    $b->{grand},   last SWITCH;
+        /Z/ and return    $b->{grand} <=>    $a->{grand},   last SWITCH;
         /i/ and return    $a->{inode} <=>    $b->{inode},   last SWITCH;
         /I/ and return    $b->{inode} <=>    $a->{inode},   last SWITCH;
         /t/ and return $a->{type}.$a->{name}
@@ -1675,7 +1681,7 @@ sub handlecolumns {
     $currentlayout++;
     &makeformatlines;
     &reformat;
-    return $R_DIRLIST | $R_TITLE;
+    return $R_CLEAR;
 }
 
 sub handlerefresh {
@@ -1800,7 +1806,7 @@ sub handlesize {
             $tempfile = { %$loopfile };
             @{$tempfile}{qw(size size_num size_power)} = ($recursivesize,
                 &fit2limit($recursivesize, $maxfilesizelength));
-            $scr->at($currentline + $BASELINE, 0)
+            $scr->at($currentline + $BASELINE, $filerecordcol)
                 ->puts(&fileline($tempfile, @layoutfields));
             &markcurrentline('Z');
             &applycolor($currentline + $BASELINE, $FILENAME_SHORT,
@@ -1998,12 +2004,11 @@ sub handlemorekill {
     my $printline = $BASELINE;
     my $prompt    = 'Signal to send to child processes: ';
     my $signal    = 'TERM';
+    my $err;
     &init_title($swap_mode, $TITLE_SIGNAL, @layoutfields);
     &clearcolumn;
     foreach (1 .. min($#signame, $screenheight)+1) {
-        $^A = "";
-        formline('@# @<<<<<<<<', $_, $signame[$_]);
-        $scr->at($printline++, $infocol+2)->puts($^A);
+        $scr->at($printline++, $infocol)->puts(sprintf('  %2d %s', $_, $signame[$_]));
     }
     $scr->at(0,0)->clreol();
     &stty_raw($TERM_COOKED);
@@ -2017,7 +2022,12 @@ sub handlemorekill {
     local $SIG{$signal} = 'IGNORE';
     # the "only portable" way from perlfunc(1) doesn't seem to work for me
 #   kill -$signal, $$;
-    kill $signal, -$$;
+    eval { kill $signal, -$$ };
+    if ($@) {
+        $scr->at(0,0)->clreol();
+        ($err = $@) =~ s/ at \S+ line \d+.\n//;
+        &display_error($err);
+    }
     return $R_HEADER | $R_PATHINFO | $R_TITLE | $R_DISKINFO;
 }
 
@@ -2146,9 +2156,7 @@ sub handlesort {
     &clearcolumn;
     # we can't use foreach (keys %SORTMODES) because we would lose ordering
     foreach (grep { ($i += 1) %= 2 } @SORTMODES) { # keep keys, skip values
-        $^A = "";
-        formline('@ @<<<<<<<<<<<', $_, $sortmodes{$_});
-        $scr->at($printline++, $infocol)->puts($^A);
+        $scr->at($printline++, $infocol)->puts(sprintf('%1s %s', $_, $sortmodes{$_}));
     }
     $key = $scr->at(0, $headerlength+1)->getch();
     &clearcolumn;
@@ -2424,9 +2432,8 @@ sub handlecommand { # Y or O
             if (/^your\[[[:alpha:]]\]$/ && $printline <= $BASELINE+$screenheight) {
                 $printstr = $pfmrc{$_};
                 $printstr =~ s/\e/^[/g;
-                $^A = "";
-                formline('@ @<<<<<<<<<<<', substr($_,5,1), $printstr);
-                $scr->at($printline++, $infocol)->puts($^A);
+                $scr->at($printline++, $infocol)
+                    ->puts(sprintf('%1s %s', substr($_,5,1), substr($printstr,0,$infolength-2)));
             }
         }
         $prompt = 'Enter one of the highlighted chars at right: ';
@@ -2439,9 +2446,7 @@ sub handlecommand { # Y or O
         &init_title($swap_mode, $TITLE_ESCAPE, @layoutfields);
         foreach (sort backslash_middle keys %CMDESCAPES) {
             if ($printline <= $BASELINE+$screenheight) {
-                $^A = "";
-                formline('@< @<<<<<<<<<<', $_, $CMDESCAPES{$_});
-                $scr->at($printline++, $infocol)->puts($^A);
+                $scr->at($printline++, $infocol)->puts(sprintf(' %2s %s', $_, $CMDESCAPES{$_}));
             }
         }
         $prompt= 'Enter Unix command (\1-\6 or \e,\p,\v escapes see right):';
@@ -3100,11 +3105,11 @@ sub getdircontents { # (current)directory
 sub printdircontents { # @contents
     foreach my $i ($baseindex .. $baseindex+$screenheight) {
         unless ($i > $#_) {
-            $scr->at($i+$BASELINE-$baseindex,0)
+            $scr->at($i+$BASELINE-$baseindex,$filerecordcol)
                 ->puts(&fileline($_[$i], @layoutfields));
             &applycolor($i+$BASELINE-$baseindex, $FILENAME_SHORT, %{$_[$i]});
         } else {
-            $scr->at($i+$BASELINE-$baseindex,0)
+            $scr->at($i+$BASELINE-$baseindex,$filerecordcol)
                 ->puts(' 'x$infocol);
         }
     }
@@ -3257,16 +3262,16 @@ sub browse {
             &init_frame;
         }
         # now in order of severity
-        if ($wantrefresh   & $R_DIRCONTENTS) {
-            $wantrefresh   &= ~$R_DIRCONTENTS;
+        if ($wantrefresh & $R_DIRCONTENTS) {
+            $wantrefresh &= ~$R_DIRCONTENTS;
             &init_dircount;
-            $position_at  ||= $showncontents[$currentline+$baseindex]{name};
-            @dircontents    = &getdircontents($currentdir);
+            $position_at  = $showncontents[$currentline+$baseindex]{name} unless length($position_at);
+            @dircontents  = &getdircontents($currentdir);
         }
         if ($wantrefresh & $R_DIRSORT) {
             $wantrefresh &= ~$R_DIRSORT;
-            $position_at ||= $showncontents[$currentline+$baseindex]{name};
-            @dircontents = sort as_requested @dircontents;
+            $position_at  = $showncontents[$currentline+$baseindex]{name} unless length($position_at);
+            @dircontents  = sort as_requested @dircontents;
         }
         if ($wantrefresh & $R_DIRFILTER) {
             $wantrefresh &= ~$R_DIRFILTER;
@@ -3441,7 +3446,7 @@ defaultlayout:0
 ## initial radix that Name will use to display non-ascii chars with (hex,oct)
 defaultradix:hex
 
-## initial sort mode (nNmMeEfFsSiItTdDaA) (default n) (for F6)
+## initial sort mode (nNmMeEfFsSzZiItTdDaA) (default n) (for F6)
 defaultsortmode:n
 
 ## '.' and '..' entries always at the top of the dirlisting?
@@ -4770,7 +4775,7 @@ memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.91.7.
+This manual pertains to C<pfm> version 1.91.8.
 
 =head1 SEE ALSO
 

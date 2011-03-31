@@ -1,5 +1,7 @@
-1.91.7 (Term::ScreenColor)
+1.91.8
 
-* start supporting f-column (diskinfo)
-* start implementing launch functionality
+* fixed bug in cursor positioning ('0' as filename no longer ignored)
+* fixed bug in (M)ore - (K)ill for invalid input
+* added option to sort by grand total (z-column)
+* continued work on f-column (diskinfo)
 
