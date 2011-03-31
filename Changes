@@ -1,7 +1,24 @@
-1.87.1 (Term::ScreenColor) (backport of bugfixes from 1.90.1)
+1.87.2 (Term::ScreenColor) (backport of functionality from 1.91.3)
 
-* fixed bug in displaying major/minor numbers on device special files
-* fixed bug in displaying current date
-* fixed bug in (M)ore - (W)rite history
-* fixed bug in (F)ind command concerning illegal regexps
+* fixed small bug concerning default sortmode after (F7)
+* fixed bug in (L)ink (multifile operations when destination is a single file)
+* fixed bug in read_pfmrc that delayed execution unnecessarily
+* added 'viewer' option
+* added '\[epv]' escapes
+* added dir/framecolors[*] option, not included in colorset cycle
+* added support for Term::ReadLine::Perl in addition to Term::ReadLine::Gnu
+* added option to create hard links in (L)ink
+* added intelligent symlink creator to (L)ink
+* added listing of escapes in c(O)mmand
+* added '=' command to display user and host
+* added '*' command to change numbase; display in footer
+* changed config option 'viewbase' to 'defaultnumbase'
+* changed (V)iew to (N)ame, this is less confusing with \v and (S)how
+* changed (N)ame to display filetypeflags
+* changed (N)ame to allow direct numbase switching
+* changed (M)ore - (M)ake dir: mkdir -p
+* changed readline ornaments to be configurable using the colorsets
+* changed parsing of config file options: more consistent now
+* obsoleted 'timeformat' option
+* updated and corrected documentation
 
