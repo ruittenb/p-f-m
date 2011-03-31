@@ -1,4 +1,8 @@
-1.92.2
+1.92.3
 
-* updated documentation
+* fixed bug in (M)ore - (C)onfig: mousemode setting no longer lost
+* implemented recursive delete directories
+* started work on 'waitlaunchexec'
+* added delete key
+* added \7 escape
 
