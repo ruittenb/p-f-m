@@ -1,7 +1,4 @@
-1.91.8
+1.91.9
 
-* fixed bug in cursor positioning ('0' as filename no longer ignored)
-* fixed bug in (M)ore - (K)ill for invalid input
-* added option to sort by grand total (z-column)
-* continued work on f-column (diskinfo)
+* finished work on f-column (diskinfo)
 
