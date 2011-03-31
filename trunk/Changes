@@ -1,4 +1,5 @@
-1.91.9
+1.92.0
 
-* finished work on f-column (diskinfo)
+* fixed bug in si(Z)e command in multiple mode (marked file info is now updated)
+* finished launch functionality
 

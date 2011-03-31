@@ -1,12 +1,12 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20030218 v1.91.9
+# @(#) pfm.pl 19990314-20030222 v1.92.0
 #
 # Name:         pfm
-# Version:      1.91.9 (f column and launch still buggy)
+# Version:      1.92.0
 # Author:       Rene Uittenbogaard
-# Date:         2003-02-18
+# Date:         2003-02-22
 # Usage:        pfm [ <directory> ] [ -s, --swap <directory> ]
 #               pfm { -v, --version | -h, --help }
 # Requires:     Term::ReadLine::Gnu (preferably)
@@ -20,7 +20,9 @@
 #               vars
 # Description:  Personal File Manager for Unix/Linux
 #
-# TODO: implement ENTER -> launch action for filetype: in 2.00; restat after launch
+# TODO: implement restat after launch
+#       still weird perl errors sometimes when launching
+#       launch opnemen in documentatie
 #       fix error handling in eval($do_this) and &display_error
 #          partly implemented in handlecopyrename
 #       use the nameindexmap from handledelete() more globally?
@@ -31,9 +33,7 @@
 #       make F11 respect multiple mode? (marked+oldmarked, not removing marks)
 #       'f' field in layout: characters in the 'gap' between filerecord & infocolumn
 #           are not cleared when switching columnformats -> insert an artificial "gap" field?
-#       resize 'f' field according to locale? %x?
 #
-#       beautify source: forget stupid 80-col limit; use tabs instead of spaces
 #       implement 'logical' paths in addition to 'physical' paths?
 #           unless (chdir()) { getcwd() } otherwise no getcwd() ?
 #       set ROWS en COLUMNS in environment for child processes; but see if
@@ -122,7 +122,7 @@ use vars qw(
     $R_DIRLIST
     $R_DISKINFO
     $R_DIRSORT
-    $R_CLS
+    $R_CLEAR
     $R_DIRCONTENTS
     $R_NEWDIR
     $R_INIT_SWAP
@@ -174,7 +174,7 @@ END {
 *R_DIRLIST      = \64;
 *R_DISKINFO     = \128;
 *R_DIRSORT      = \256;
-*R_CLS          = \512;
+*R_CLEAR        = \512;
 *R_DIRCONTENTS  = \1024;
 *R_NEWDIR       = \2048;
 *R_INIT_SWAP    = \4096;
@@ -182,7 +182,7 @@ END {
 
 my $R_FRAME     = $R_HEADER | $R_PATHINFO | $R_TITLE | $R_FOOTER;
 my $R_SCREEN    = $R_DIRFILTER | $R_DIRLIST | $R_DISKINFO | $R_FRAME;
-my $R_CLEAR     = $R_CLS | $R_SCREEN;
+my $R_CLRSCR    = $R_CLEAR | $R_SCREEN;
 my $R_CHDIR     = $R_NEWDIR | $R_DIRCONTENTS | $R_DIRSORT | $R_SCREEN
                 | $R_STRIDE;
 
@@ -419,10 +419,13 @@ sub read_pfmrc {
             }
             s/#.*//;
             if (s/\\\n?$//) { $_ .= <PFMRC>; redo; }
-            if (/^\s*       # whitespace at beginning
-                 ([^:\s]+)  # keyword
-                 \s*:\s*    # separator (:), may have whitespace around it
-                 (.*)$/x    # value - allow spaces
+            if (/^\s*           # whitespace at beginning
+                 (
+                 [^[:\s]+       # keyword (no whitespace)
+                 (?:\[[^]]+\])? # classifier (may contain whitespace)
+                 )
+                 \s*:\s*        # separator (:), may have whitespace around it
+                 (.*)$/x        # value - allow spaces
             ) {
                 $pfmrc{$1} = $2;
             }
@@ -458,8 +461,8 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
     system ('stty', 'erase', $pfmrc{erase}) if defined($pfmrc{erase});
     $kbd->set_keymap($pfmrc{keymap})        if $pfmrc{keymap};
     # time/date format for clock
-    $pfmrc{clockdateformat} ||= '%x';
-    $pfmrc{clocktimeformat} ||= '%X';
+    $pfmrc{clockdateformat} ||= '%Y %b %d';
+    $pfmrc{clocktimeformat} ||= '%H:%M:%S';
     # some configuration options are NOT fetched into common scalars
     # (e.g. confirmquit) - however, they remain accessable in %pfmrc
     # don't change initialized settings that are modifiable by key commands
@@ -1095,7 +1098,7 @@ sub dumprefreshflags {
     $res .= "R_NEWDIR\n"      if $_[0] & $R_NEWDIR;
     $res .= "R_DIRCONTENTS\n" if $_[0] & $R_DIRCONTENTS;
     $res .= "R_DIRSORT\n"     if $_[0] & $R_DIRSORT;
-    $res .= "R_CLS\n"         if $_[0] & $R_CLS;
+    $res .= "R_CLEAR\n"       if $_[0] & $R_CLEAR;
     $res .= "R_DIRFILTER\n"   if $_[0] & $R_DIRFILTER;
     $res .= "R_DIRLIST\n"     if $_[0] & $R_DIRLIST;
     $res .= "R_DISKINFO\n"    if $_[0] & $R_DISKINFO;
@@ -1735,7 +1738,7 @@ sub handleresize {
     $wasresized = 0;
     &handlefit;         # returns R_SCREEN, which is correct...
     &validate_position; # ... but we must validate the cursor position too
-    return $R_CLEAR;
+    return $R_CLRSCR;
 }
 
 sub handlemousedown {
@@ -1792,8 +1795,7 @@ sub handleadvance {
 sub handlesize {
     my ($recursivesize, $command, $tempfile, $do_this);
     my ($index, $loopfile);
-    my $do_a_refresh = ($R_DIRFILTER | $R_DIRLIST | $R_HEADER | $R_PATHINFO)
-                        * $multiple_mode;
+    my $do_a_refresh = ($R_DIRFILTER | $R_DIRLIST | $R_HEADER | $R_PATHINFO | $R_DISKINFO) * $multiple_mode;
     &markcurrentline('Z') unless $multiple_mode;
     $do_this = sub {
         $loopfile = shift;
@@ -1910,7 +1912,7 @@ sub handlefit {
     }
     &makeformatlines;
     &reformat;
-    return $R_CLEAR;
+    return $R_CLRSCR;
 }
 
 sub handleperlcommand {
@@ -1971,7 +1973,7 @@ sub handlemoremake {
 }
 
 sub handlemoreconfig {
-    my $do_a_refresh = $R_CLEAR;
+    my $do_a_refresh = $R_CLRSCR;
     my $olddotdot    = $dotdot_mode;
     if (system $editor, &whichconfigfile) {
         &display_error($!);
@@ -1996,7 +1998,7 @@ sub handlemoreedit {
     &expand_escapes($QUOTE_OFF, $newname, \%currentfile);
     system "$editor \Q$newname\E" and &display_error($!);
     &stty_raw($TERM_RAW);
-    return $R_CLEAR;
+    return $R_CLRSCR;
 }
 
 sub handlemoreshell {
@@ -2005,7 +2007,7 @@ sub handlemoreshell {
 #    @ENV{qw(ROWS COLUMNS)} = ($screenheight + $BASELINE + 2, $screenwidth);
     system ($ENV{SHELL} ? $ENV{SHELL} : 'sh'); # most portable
     &pressanykey; # will also put the screen back in raw mode
-    return $R_CLEAR;
+    return $R_CLRSCR;
 }
 
 sub handlemorekill {
@@ -2149,7 +2151,7 @@ sub handlename {
         goto &handlename;
     }
     if ($filenamecol < $infocol && $filenamecol+length($line) >= $infocol or $filenamecol+length($line) >= $screenwidth) {
-        return $R_CLEAR;
+        return $R_CLRSCR;
     } else {
         return $R_STRIDE;
     }
@@ -2464,9 +2466,9 @@ sub handlecommand { # Y or O
         $command = &readintohist(\@command_history);
         &clearcolumn;
     }
-#    $command =~ s/^\s*\n?$/$ENV{'SHELL'}/; # PFM.COM behavior
+#    $command =~ s/^\s*\n?$/$ENV{'SHELL'}/; # PFM.COM behavior (undesirable)
     unless ($command =~ /^\s*\n?$/) {
-        $command .= "\n";
+#        $command .= "\n";
         if ($multiple_mode) {
             $scr->clrscr()->at(0,0);
             for $index (0..$#dircontents) {
@@ -2475,7 +2477,7 @@ sub handlecommand { # Y or O
                     &exclude($loopfile,'.');
                     $do_this = $command;
                     &expand_escapes($QUOTE_ON, $do_this, $loopfile);
-                    $scr->puts($do_this);
+                    $scr->puts($do_this . "\n");
                     system $do_this and &display_error($!);
                     $dircontents[$index] =
                         &stat_entry($loopfile->{name},$loopfile->{selected});
@@ -2488,7 +2490,7 @@ sub handlecommand { # Y or O
         } else { # single-file mode
             $loopfile = \%currentfile;
             &expand_escapes($QUOTE_ON, $command, \%currentfile);
-            $scr->clrscr()->at(0,0)->puts($command);
+            $scr->clrscr()->at(0,0)->puts($command . "\n");
             system $command and &display_error($!);
             $showncontents[$currentline+$baseindex] =
                 &stat_entry($currentfile{name}, $currentfile{selected});
@@ -2500,7 +2502,7 @@ sub handlecommand { # Y or O
         &pressanykey;
     }
     &stty_raw($TERM_RAW);
-    return $R_CLEAR;
+    return $R_CLRSCR;
 }
 
 sub handledelete {
@@ -2630,14 +2632,14 @@ sub handleshow {
         system "$pager \Q$currentfile{name}" and &display_error($!);
     }
     &stty_raw($TERM_RAW);
-    return $R_CLEAR;
+    return $R_CLRSCR;
 }
 
 sub handlehelp {
     $scr->clrscr();
     system qw(man pfm); # how unsubtle :-)
     &credits;
-    return $R_CLEAR;
+    return $R_CLRSCR;
 }
 
 sub handletime {
@@ -2698,7 +2700,7 @@ sub handleedit {
         system "$editor \Q$currentfile{name}" and &display_error($!);
     }
     &stty_raw($TERM_RAW);
-    return $R_CLEAR;
+    return $R_CLRSCR;
 }
 
 sub handlecopyrename {
@@ -2856,26 +2858,33 @@ sub handlemove {
 
 sub launchbytype {
     my $do_this;
-    system "echo 'bt: $_[0] :-> $pfmrc{qq(launch[$_[0]])}' > /dev/pts/6";
     if (exists $pfmrc{"launch[$_[0]]"}) {
         $do_this = $pfmrc{"launch[$_[0]]"};
         &expand_escapes($QUOTE_ON, $do_this, \%currentfile);
-        &stty_raw($TERM_COOKED);
-        $scr->clrscr()->puts("Launch type $_[0]\n");
+        $scr->clrscr()->at(0,0)->puts("Launch type $_[0]\n$do_this\n");
         system $do_this or &display_error($!);
         return 'type_launched';
     } else {
-        &display_error("No command found to launch type $_[0]");
+        &display_error("No launch command defined for type $_[0]\n");
         return 'type_tried';
+    }
+}
+
+sub launchbyxbit {
+    if (&followmode(\%currentfile) =~ /[xsS]/) {
+        system "./\Q$currentfile{name}" or &display_error($!);
+        return 'xbit_launched';
+    } else {
+        return 0; # must return false to prevent "File type unknown" error
     }
 }
 
 sub launchbymagic {
     my $magic = `file \Q$currentfile{name}`;
-    system "echo 'bm: $magic' > /dev/pts/6";
     my ($re, $launched);
     MAGIC: foreach (grep /^magic\[/, keys %pfmrc) {
-        ($re) = (/magic\[([^][]+)\]/);
+        ($re) = (/magic\[([^]]+)\]/);
+        # this will produce errors for invalid REs
         if (eval "\$magic =~ /$re/") {
             $launched = &launchbytype($pfmrc{$_});
             last MAGIC;
@@ -2891,7 +2900,6 @@ sub launchbymagic {
 sub launchbyextension {
     my ($ext) = ( $currentfile{name} =~ /(\.[^\.]+?)$/ );
     my $launched;
-    system "echo 'be: $ext :-> $pfmrc{qq(extension[*$ext])}' > /dev/pts/6";
     if (exists $pfmrc{"extension[*$ext]"}) {
         $launched = &launchbytype($pfmrc{"extension[*$ext]"});
     }
@@ -2902,19 +2910,11 @@ sub launchbyextension {
     }
 }
 
-sub launchbyxbit {
-    if (&followmode(\%currentfile) =~ /[xsS]/) {
-        system "./\Q$currentfile{name}" or &display_error($!);
-        return 'xbit_launched';
-    } else {
-        return 0;
-    }
-}
-
 sub handleenter {
     goto &handleentry if &followmode(\%currentfile) =~ /^d/;
     my $launched;
     $scr->at(0,0)->clreol()->at(0,0);
+    &stty_raw($TERM_COOKED);
     LAUNCH: foreach (split /,/, $pfmrc{launchby}) {
         /magic/     and $launched = &launchbymagic;
         /extension/ and $launched = &launchbyextension;
@@ -2922,13 +2922,15 @@ sub handleenter {
         last LAUNCH if $launched =~ /launched/;
     }
     if ($launched =~ /launched/) {
-        $launched = $R_CLEAR;
+        $launched = $R_CLRSCR;
         &pressanykey;
     } elsif ($launched) {
-        &display_error('File type unknown');
-        $launched = $R_HEADER;
+#        &display_error('File type unknown');
+#        $launched = $R_HEADER;
+        system "$pager \Q$currentfile{name}" and &display_error($!);
+        $launched = $R_CLRSCR;
     } else {
-        # launchby: contains no valid entries, no error
+        # launchby: contains no valid entries OR xbit was not set; no error
         $launched = $R_HEADER;
     }
     &stty_raw($TERM_RAW);
@@ -3233,8 +3235,8 @@ sub showdiskinfo {
 # $R_DIRLIST     : redisplay directory listing
 # $R_DIRFILTER   : decide which entries to display (init @showncontents)
 # $R_SCREEN      : combination of R_DIRFILTER, R_DIRLIST, R_DISKINFO and R_FRAME
-# $R_CLS         : clear the screen
-# $R_CLEAR       : combination of R_CLS and R_SCREEN
+# $R_CLEAR       : clear the screen
+# $R_CLRSCR      : combination of R_CLEAR and R_SCREEN
 # $R_DIRSORT     : resort @dircontents
 # $R_DIRCONTENTS : reread directory contents
 # $R_NEWDIR      : re-init directory-specific vars
@@ -3281,8 +3283,8 @@ sub browse {
             }
         }
         # draw frame as soon as possible: this looks better on slower terminals
-        if ($wantrefresh & $R_CLS) {
-            $wantrefresh &= ~$R_CLS;
+        if ($wantrefresh & $R_CLEAR) {
+            $wantrefresh &= ~$R_CLEAR;
             $scr->clrscr();
         }
         if ($wantrefresh & $R_FRAME) {
@@ -3419,7 +3421,9 @@ __DATA__
 ## every option line in this file should have the form:
 ## [whitespace] option [whitespace]:[whitespace] value
 ## (whitespace is optional)
-## in other words: /^\s*([^:\s]+)\s*:\s*(.*)$/
+## the option itself may not contain whitespace or colons,
+## except in a classifier enclosed in [] that immediately follows it.
+## in other words: /^\s*([^[:\s]+(?:\[[^]]+\])?)\s*:\s*(.*)$/
 ## everything following a # is regarded as a comment.
 ## escape may be entered as a real escape, as \e or as ^[ (caret, bracket)
 ## lines may be continued on the next line by ending them in \
@@ -3440,7 +3444,9 @@ autowritehistory:no
 ## automatically clobber existing files
 clobber:no
 
-## clock date/time format; see strftime(3). %x and %X are the defaults.
+## clock date/time format; see strftime(3).
+## %x and %X provide properly localized time and date.
+## the defaults are "%Y %b %d" and "%H:%M:%S"
 ## the diskinfo field (f) in the layouts below must be wide enough for this.
 clockdateformat:%Y %b %d
 clocktimeformat:%H:%M:%S
@@ -3666,7 +3672,7 @@ di=bold:ln=underscore:
 
 ## take care not to make the fields too small or values will be cropped!
 ## if the terminal is resized, the filename field will be elongated.
-## the diskinfo field is as yet only supported as the last column.
+## the diskinfo field *must* be the _first_ or _last_ field on the line.
 ## a final : after the last layout is allowed.
 ## the first three layouts were the old (pre-v1.72) defaults.
 ## the last one is the ls(1) layout.
@@ -3722,6 +3728,7 @@ your[s]:strings \2 | \p
 your[t]:gunzip < \2 | tar tvf - | \p
 your[U]:unzip \2
 your[u]:gunzip \2
+your[V]:gv \2 &
 your[v]:xv \2 &
 your[w]:what \2
 your[x]:gunzip < \2 | tar xvf -
@@ -3730,15 +3737,18 @@ your[Z]:bzip2 \2
 your[z]:gzip \2
 
 ##########################################################################
-## launch commands (not implemented)
+## launch commands
 
-## should the filetype be determined by magic (file(1)), by extension,
-## or should we prefer one method and fallback on the other one?
+## how should pfm try to determine the filetype? by magic (using file(1)),
+## by extension, or should we prefer one method and fallback on the other one?
 ## should we try to run it as an executable immediately if the 'x' bit is set?
 ## allowed values: combinations of 'xbit', 'extension' and 'magic'
 launchby:extension,xbit,magic
 
 ## the file type names do not have to be valid MIME types
+extension[*.3i]  : application/x-intercal
+extension[*.i]   : application/x-intercal
+extension[*.bf]  : application/x-befunge
 extension[*.Z]   : application/x-compress
 extension[*.arj] : application/x-arj
 extension[*.au]  : audio/basic
@@ -3794,7 +3804,7 @@ extension[*.xls] : application/x-ms-office
 extension[*.z]   : application/x-compress
 extension[*.zip] : application/zip
 
-## these search by regular expression
+## these will search by regular expression in the file(1) output
 magic[ASCII English text]   : text/plain
 magic[C\+?\+? program text] : text/x-c
 magic[GIF image data]       : image/gif
@@ -3811,7 +3821,7 @@ magic[PNG image data]       : image/png
 magic[PostScript document]  : application/postscript
 magic[RIFF.*data, AVI]      : video/x-msvideo
 magic[RPM]                  : application/x-rpm
-magic[Sun/NeXT audio data]  : audio/basic
+magic[Sun.NeXT audio data]  : audio/basic
 magic[TIFF image data]      : image/tiff
 magic[WAVE audio]           : audio/x-wav
 magic[X pixmap image]       : image/x-xpixmap
@@ -3822,6 +3832,8 @@ magic[gzip compressed data] : application/x-gzip
 magic[perl script]          : application/x-perl
 magic[tar archive]          : application/x-tar
 
+launch[application/x-intercal]    : ick \2
+launch[application/x-befunge]     : mtfi \2
 launch[application/octet-stream]  : \p \2
 launch[application/pdf]           : acroread \2 &
 launch[application/postscript]    : gv \2 &
@@ -3830,7 +3842,7 @@ launch[application/x-bzip2]       : bunzip2 \2
 launch[application/x-c]           : gcc -o \1 \2
 launch[application/x-compress]    : uncompress \2
 #launch[application/x-deb]         :
-launch[application/x-executable]  : \2 &
+launch[application/x-executable]  : wine \2 &
 launch[application/x-gzip]        : gunzip \2
 #launch[application/x-lha]         :
 launch[application/x-msdos-batch] : \e \2
@@ -4814,7 +4826,7 @@ memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.91.9.
+This manual pertains to C<pfm> version 1.92.0.
 
 =head1 SEE ALSO
 
