@@ -1,6 +1,7 @@
-1.91.5 (Term::ANSIScreen)
+1.87.1 (Term::ScreenColor) (backport of bugfixes from 1.90.1)
 
-* fixed bug in editing config file when PFMRC is set
-* fixed bugs concerning locale support (a.o. Japanese)
-* added 'clockdateformat' and 'clocktimeformat' options
+* fixed bug in displaying major/minor numbers on device special files
+* fixed bug in displaying current date
+* fixed bug in (M)ore - (W)rite history
+* fixed bug in (F)ind command concerning illegal regexps
 
