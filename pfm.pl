@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20030218 v1.91.8
+# @(#) pfm.pl 19990314-20030218 v1.91.9
 #
 # Name:         pfm
-# Version:      1.91.8 (f column and launch still buggy)
+# Version:      1.91.9 (f column and launch still buggy)
 # Author:       Rene Uittenbogaard
 # Date:         2003-02-18
 # Usage:        pfm [ <directory> ] [ -s, --swap <directory> ]
@@ -20,7 +20,7 @@
 #               vars
 # Description:  Personal File Manager for Unix/Linux
 #
-# TODO: implement ENTER -> launch action for filetype: in 2.00
+# TODO: implement ENTER -> launch action for filetype: in 2.00; restat after launch
 #       fix error handling in eval($do_this) and &display_error
 #          partly implemented in handlecopyrename
 #       use the nameindexmap from handledelete() more globally?
@@ -29,7 +29,9 @@
 #       sub fileforall(sub) ?
 #       cache color codes?
 #       make F11 respect multiple mode? (marked+oldmarked, not removing marks)
-#       include 'f' field in config? &printdircontents assumes fff col is last
+#       'f' field in layout: characters in the 'gap' between filerecord & infocolumn
+#           are not cleared when switching columnformats -> insert an artificial "gap" field?
+#       resize 'f' field according to locale? %x?
 #
 #       beautify source: forget stupid 80-col limit; use tabs instead of spaces
 #       implement 'logical' paths in addition to 'physical' paths?
@@ -198,8 +200,11 @@ my $IMPORTANTDELAY      = 2;    # extra time for important errors
 my $SLOWENTRIES         = 300;
 my $PATHLINE            = 1;
 my $BASELINE            = 3;
-my $USERLINE            = 21;
-my $DATELINE            = 22;
+my $DISKINFOLINE        = 4;
+my $DIRINFOLINE         = 9;
+my $MARKINFOLINE        = 15;
+my $USERINFOLINE        = 21;
+my $DATEINFOLINE        = 22;
 my $DFCMD               = ($^O eq 'hpux') ? 'bdf' : ($^O eq 'sco') ? 'dfspace' : 'df -k';
 
 my @SYMBOLIC_MODES      = qw(--- --x -w- -wx r-- r-x rw- rwx);
@@ -286,10 +291,10 @@ my %LAYOUTFIELDS = (
 );
 
 my %FIELDHEADINGS = (
-    selected      => '',
+    selected      => ' ',
     name          => 'filename',
     display       => 'filename',
-    name_too_long => '',
+    name_too_long => ' ',
     size          => 'size',
     size_num      => 'size',
     size_power    => ' ',
@@ -352,8 +357,8 @@ my (
     $timestampformat, $mouseturnoff,
     @colorsetnames, %filetypeflags, $swapstartdir,
     # layouts and formatting
-    @columnlayouts, $currentlayout, @layoutfields, $formatname,
     $currentformatline, $currentformatlinewithinfo,
+    @layoutfields, @layoutfieldswithinfo, @columnlayouts, $currentlayout, $formatname,
     $maxfilenamelength, $maxfilesizelength, $maxgrandtotallength, $infolength,
 );
 
@@ -365,7 +370,6 @@ sub whichconfigfile {
 }
 
 sub write_pfmrc {
-#    local $_;
     my @resourcefile;
     my $secs_per_32_days = 60 * 60 * 24 * 32;
     my $maxdatelen = 0;
@@ -433,6 +437,7 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
     my ($termkeys, $oldkey);
     %dircolors = %framecolors = %filetypeflags = ();
     # 'usecolor' - find out when color must be turned _off_
+    # Term::ANSIScreen solution
 #    unless (defined($ENV{ANSI_COLORS_DISABLED})) {
 #        if (&isno($pfmrc{usecolor}) or
 #            ($ENV{TERM} !~ /(^linux$|color)/ && $pfmrc{usecolor} ne 'force')
@@ -440,6 +445,7 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
 #            $ENV{ANSI_COLORS_DISABLED} = 1;
 #        }
 #    }
+    # Term::ScreenColor solution
     if (defined($ENV{ANSI_COLORS_DISABLED}) or &isno($pfmrc{usecolor})) {
         $scr->colorizable(0);
     } elsif ($pfmrc{usecolor} eq 'force') {
@@ -1154,18 +1160,23 @@ sub makeformatlines {
     $currentlayoutline =~ s/n(?!n)/N/i;
     $currentlayoutline =~ s/s(?!s)/S/i;
     $currentlayoutline =~ s/z(?!z)/Z/i;
+#    $currentlayoutline =~ s/(\s+)f/'F'x length($1) . 'f'/e;
+#    $currentlayoutline =~ s/f(\s+)/'f' . 'F'x length($1)/e;
+#    $gaplength = 
     ($temp = $currentlayoutline) =~ s/[^f].*//;
     $filerecordcol     = length $temp;
     $cursorcol         = index ($currentlayoutline, '*');
     $filenamecol       = index ($currentlayoutline, 'n');
     $infocol           = index ($currentlayoutline, 'f');
+#    $gapcol            = index($currentlayoutline, 'F');
     foreach ($cursorcol, $filenamecol, $infocol, $filerecordcol) {
         if ($_ < 0) { $_ = 0 }
     }
-    # determine the layout field set (no spaces or info column)
-    ($squeezedlayoutline = $currentlayoutline) =~ tr/*nNsSzZugpacmdilf /*nNsSzZugpacmdil/ds;
+    # determine the layout field set (no spaces)
+    ($squeezedlayoutline = $currentlayoutline) =~ tr/*nNsSzZugpacmdilf /*nNsSzZugpacmdilf/ds;
     ($formatname = $squeezedlayoutline) =~ s/[*SNZ]//g;
-    @layoutfields = map { $LAYOUTFIELDS{$_} } (split //, $squeezedlayoutline);
+    @layoutfields         = map { $LAYOUTFIELDS{$_} } grep { !/f/ } (split //, $squeezedlayoutline);
+    @layoutfieldswithinfo = map { $LAYOUTFIELDS{$_} }               (split //, $squeezedlayoutline);
     # make the formatline
     $currentformatlinewithinfo = $currentformatline = $prev = '';
     foreach $letter (split //, $currentlayoutline) {
@@ -1350,11 +1361,11 @@ sub fitbanner { # $header/footer, $screenwidth
 
 sub init_frame {
    &init_header;
-   &init_title($swap_mode, $TITLE_DISKINFO, @layoutfields);
+   &init_title($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
    &init_footer;
 }
 
-sub init_title { # swap_mode, extra field, @layoutfields
+sub init_title { # swap_mode, extra field, @layoutfieldswithinfo
     my ($smode, $info, @fields) = @_;
     my $linecolor;
     for ($info) {
@@ -1371,8 +1382,7 @@ sub init_title { # swap_mode, extra field, @layoutfields
 #    $scr->underline()   if ($linecolor =~ /under(line|score)/);
     $scr->term()->Tputs('us', 1, *STDOUT)
                         if ($linecolor =~ /under(line|score)/);
-    $scr->at(2,0)->putcolored($linecolor,
-        &formatted($currentformatlinewithinfo, @FIELDHEADINGS{@fields, 'diskinfo'}))->normal();
+    $scr->at(2,0)->putcolored($linecolor, &formatted($currentformatlinewithinfo, @FIELDHEADINGS{@fields}))->normal();
 }
 
 sub header {
@@ -1444,7 +1454,8 @@ sub usage {
           "    $directory            : specify starting directory\n",
           "    -h, --help           : print this help and exit\n",
           "    -s, --swap $directory : specify swap directory\n",
-          "    -v, --version        : print version information and exit\n";
+          "    -v, --version        : print version information and exit\n",
+          "\nConfiguration options will be read from \$PFMRC ", $ENV{PFMRC} ? "($ENV{PFMRC})" : "or $CONFIGDIRNAME/$CONFIGFILENAME", "\n";
 }
 
 sub printversion {
@@ -1525,14 +1536,13 @@ sub data_informatted {
 }
 
 sub user_info {
-    $scr->at($USERLINE, $infocol)->putcolored(($> ? 'normal' : 'red'), &str_informatted($ident));
+    $scr->at($USERINFOLINE, $infocol)->putcolored(($> ? 'normal' : 'red'), &str_informatted($ident));
 }
 
 sub disk_info { # %disk{ total, used, avail }
-    local $_;
     my @desc      = ('K tot','K usd','K avl');
     my @values    = @disk{qw/total used avail/};
-    my $startline = 4;
+    my $startline = $DISKINFOLINE;
     # I played with vt100 boxes once,      lqqqqk
     # but I hated it.                      x    x
     # In case someone wants to try:        mqqqqj
@@ -1540,8 +1550,8 @@ sub disk_info { # %disk{ total, used, avail }
     $scr->at($startline-1, $infocol)->puts(&str_informatted('Disk space'));
     foreach (0..2) {
         while ($values[$_] > 99_999) {
-                $values[$_] /= 1024;
-                $desc[$_] =~ tr/KMGTP/MGTPE/;
+            $values[$_] /= 1024;
+            $desc[$_] =~ tr/KMGTP/MGTPE/;
         }
         $scr->at($startline+$_, $infocol)
             ->puts(&data_informatted(int($values[$_]), $desc[$_]));
@@ -1549,14 +1559,13 @@ sub disk_info { # %disk{ total, used, avail }
 }
 
 sub dir_info {
-    local $_;
-    my @desc   = qw/files dirs symln spec/;
+    my @desc   = ('files','dirs ','symln','spec ');
     my @values = @total_nr_of{'-','d','l'};
     $values[3] = $total_nr_of{'c'} + $total_nr_of{'b'}
                + $total_nr_of{'p'} + $total_nr_of{'s'}
                + $total_nr_of{'D'} + $total_nr_of{'w'}
                + $total_nr_of{'n'};
-    my $startline = 9;
+    my $startline = $DIRINFOLINE;
     $scr->at($startline-1, $infocol)
         ->puts(&str_informatted(" Directory($sort_mode" . ($dot_mode ? '.' : '') . ")"));
     foreach (0..3) {
@@ -1566,13 +1575,13 @@ sub dir_info {
 }
 
 sub mark_info {
-    my @desc = qw/bytes files dirs symln spec/;
+    my @desc = ('bytes','files','dirs ','symln','spec ');
     my @values = @selected_nr_of{'bytes','-','d','l'};
     $values[4] = $selected_nr_of{'c'} + $selected_nr_of{'b'}
                + $selected_nr_of{'p'} + $selected_nr_of{'s'}
                + $selected_nr_of{'D'} + $selected_nr_of{'w'}
                + $selected_nr_of{'n'};
-    my $startline = 15;
+    my $startline = $MARKINFOLINE;
     my $total = 0;
     $values[0] = join ('', &fit2limit($values[0], 9_999_999));
     $values[0] =~ s/ $//;
@@ -1587,7 +1596,7 @@ sub mark_info {
 
 sub clock_info {
     my ($date, $time);
-    my $line = $DATELINE;
+    my $line = $DATEINFOLINE;
     ($date, $time) = &time2str(time, $TIME_CLOCK);
     if ($scr->rows() > 24) {
         $scr->at($line++, $infocol)->puts(&str_informatted($date));
@@ -1681,7 +1690,7 @@ sub handlecolumns {
     $currentlayout++;
     &makeformatlines;
     &reformat;
-    return $R_CLEAR;
+    return $R_SCREEN;
 }
 
 sub handlerefresh {
@@ -1890,7 +1899,6 @@ sub handlefind {
 }
 
 sub handlefit {
-    local $_;
     $scr->resize();
     my $newheight = $scr->rows();
     my $newwidth  = $scr->cols();
@@ -2005,7 +2013,7 @@ sub handlemorekill {
     my $prompt    = 'Signal to send to child processes: ';
     my $signal    = 'TERM';
     my $err;
-    &init_title($swap_mode, $TITLE_SIGNAL, @layoutfields);
+    &init_title($swap_mode, $TITLE_SIGNAL, @layoutfieldswithinfo);
     &clearcolumn;
     foreach (1 .. min($#signame, $screenheight)+1) {
         $scr->at($printline++, $infocol)->puts(sprintf('  %2d %s', $_, $signame[$_]));
@@ -2140,7 +2148,7 @@ sub handlename {
         $scr->echo()->at($currentline+$BASELINE, $filenamecol)->puts(' ' x length $line);
         goto &handlename;
     }
-    if (length($line) > $infocol) {
+    if ($filenamecol < $infocol && $filenamecol+length($line) >= $infocol or $filenamecol+length($line) >= $screenwidth) {
         return $R_CLEAR;
     } else {
         return $R_STRIDE;
@@ -2152,7 +2160,7 @@ sub handlesort {
     my %sortmodes = @SORTMODES;
     my ($i, $key, $headerlength);
     $headerlength = &init_header($HEADER_SORT);
-    &init_title($swap_mode, $TITLE_SORT, @layoutfields);
+    &init_title($swap_mode, $TITLE_SORT, @layoutfieldswithinfo);
     &clearcolumn;
     # we can't use foreach (keys %SORTMODES) because we would lose ordering
     foreach (grep { ($i += 1) %= 2 } @SORTMODES) { # keep keys, skip values
@@ -2427,7 +2435,7 @@ sub handlecommand { # Y or O
     &markcurrentline(uc($_[0])) unless $multiple_mode;
     &clearcolumn;
     if ($_[0] =~ /y/i) { # Your
-        &init_title($swap_mode, $TITLE_YCOMMAND, @layoutfields);
+        &init_title($swap_mode, $TITLE_YCOMMAND, @layoutfieldswithinfo);
         foreach (sort alphabetically keys %pfmrc) {
             if (/^your\[[[:alpha:]]\]$/ && $printline <= $BASELINE+$screenheight) {
                 $printstr = $pfmrc{$_};
@@ -2443,7 +2451,7 @@ sub handlecommand { # Y or O
         return $R_DISKINFO | $R_FRAME unless $command = $pfmrc{"your[$key]"};
         &stty_raw($TERM_COOKED);
     } else { # cOmmand
-        &init_title($swap_mode, $TITLE_ESCAPE, @layoutfields);
+        &init_title($swap_mode, $TITLE_ESCAPE, @layoutfieldswithinfo);
         foreach (sort backslash_middle keys %CMDESCAPES) {
             if ($printline <= $BASELINE+$screenheight) {
                 $scr->at($printline++, $infocol)->puts(sprintf(' %2s %s', $_, $CMDESCAPES{$_}));
@@ -2795,7 +2803,6 @@ sub handleselect {
     %currentfile = %$file;
     &copyback($file->{name});
     &highlightline($HIGHLIGHT_OFF);
-#    &mark_info(%selected_nr_of);
     return $R_DISKINFO;
 }
 
@@ -2828,7 +2835,7 @@ sub handlescroll {
                        +(/^\cE$/);
     $baseindex   += $displacement;
     $currentline -= $displacement if $currentline-$displacement >= 0
-                                and $currentline-$displacement <= $screenheight;
+                                 and $currentline-$displacement <= $screenheight;
 #    &validate_position;
     return $R_DIRLIST;
 }
@@ -2849,7 +2856,7 @@ sub handlemove {
 
 sub launchbytype {
     my $do_this;
-    system "echo 'bt:$_[0] :-> $pfmrc{qq(launch[$_[0]])}' > /dev/pts/6";
+    system "echo 'bt: $_[0] :-> $pfmrc{qq(launch[$_[0]])}' > /dev/pts/6";
     if (exists $pfmrc{"launch[$_[0]]"}) {
         $do_this = $pfmrc{"launch[$_[0]]"};
         &expand_escapes($QUOTE_ON, $do_this, \%currentfile);
@@ -2865,7 +2872,7 @@ sub launchbytype {
 
 sub launchbymagic {
     my $magic = `file \Q$currentfile{name}`;
-    system "echo 'bm:$magic' > /dev/pts/6";
+    system "echo 'bm: $magic' > /dev/pts/6";
     my ($re, $launched);
     MAGIC: foreach (grep /^magic\[/, keys %pfmrc) {
         ($re) = (/magic\[([^][]+)\]/);
@@ -2884,14 +2891,23 @@ sub launchbymagic {
 sub launchbyextension {
     my ($ext) = ( $currentfile{name} =~ /(\.[^\.]+?)$/ );
     my $launched;
-    system "echo 'be:$ext :-> $pfmrc{qq(extension[*$ext])}' > /dev/pts/6";
-    if (exists $pfmrc{"extension[$_[0]]"}) {
+    system "echo 'be: $ext :-> $pfmrc{qq(extension[*$ext])}' > /dev/pts/6";
+    if (exists $pfmrc{"extension[*$ext]"}) {
         $launched = &launchbytype($pfmrc{"extension[*$ext]"});
     }
     if ($launched) {
         return 'ext_launched';
     } else {
         return 'ext_tried';
+    }
+}
+
+sub launchbyxbit {
+    if (&followmode(\%currentfile) =~ /[xsS]/) {
+        system "./\Q$currentfile{name}" or &display_error($!);
+        return 'xbit_launched';
+    } else {
+        return 0;
     }
 }
 
@@ -2902,10 +2918,12 @@ sub handleenter {
     LAUNCH: foreach (split /,/, $pfmrc{launchby}) {
         /magic/     and $launched = &launchbymagic;
         /extension/ and $launched = &launchbyextension;
+        /xbit/      and $launched = &launchbyxbit;
         last LAUNCH if $launched =~ /launched/;
     }
     if ($launched =~ /launched/) {
         $launched = $R_CLEAR;
+        &pressanykey;
     } elsif ($launched) {
         &display_error('File type unknown');
         $launched = $R_HEADER;
@@ -3076,7 +3094,7 @@ sub filetypeflag {
 sub getdircontents { # (current)directory
     my (@contents, $entry);
     my @allentries = ();
-#    &init_title($swap_mode, $TITLE_DISKINFO, @layoutfields);
+#    &init_title($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
     if (opendir CURRENT, "$_[0]") {
         @allentries = readdir CURRENT;
         closedir CURRENT;
@@ -3110,7 +3128,7 @@ sub printdircontents { # @contents
             &applycolor($i+$BASELINE-$baseindex, $FILENAME_SHORT, %{$_[$i]});
         } else {
             $scr->at($i+$BASELINE-$baseindex,$filerecordcol)
-                ->puts(' 'x$infocol);
+                ->puts(' 'x($screenwidth - $infolength));
         }
     }
 }
@@ -3171,11 +3189,21 @@ sub recalc_ptr {
 }
 
 sub showdiskinfo {
+    my $spaces = ' ' x $infolength;
+    # gap is not filled in yet
+    my $gap = ' ' x (max($infocol-length($currentformatline)-$filerecordcol,
+                         $filerecordcol-$infolength));
     &disk_info(%disk);
+    $scr->at($DIRINFOLINE-2, $infocol)->puts($spaces);
     &dir_info(%total_nr_of);
+    $scr->at($MARKINFOLINE-2, $infocol)->puts($spaces);
     &mark_info(%selected_nr_of);
+    $scr->at($USERINFOLINE-1, $infocol)->puts($spaces);
     &user_info;
     &clock_info;
+    foreach ($DATEINFOLINE+2 .. $BASELINE+$screenheight) {
+        $scr->at($_, $infocol)->puts($spaces);
+    }
 }
 
 ##########################################################################
@@ -3301,7 +3329,7 @@ sub browse {
         }
         if ($wantrefresh & $R_TITLE) {
             $wantrefresh &= ~$R_TITLE;
-            &init_title($swap_mode, $TITLE_DISKINFO, @layoutfields);
+            &init_title($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
         }
         if ($wantrefresh & $R_FOOTER) {
             $wantrefresh &= ~$R_FOOTER;
@@ -3414,8 +3442,10 @@ clobber:no
 
 ## clock date/time format; see strftime(3). %x and %X are the defaults.
 ## the diskinfo field (f) in the layouts below must be wide enough for this.
-clockdateformat:%x
-clocktimeformat:%X
+clockdateformat:%Y %b %d
+clocktimeformat:%H:%M:%S
+#clockdateformat:%x
+#clocktimeformat:%X
 
 ## whether you want to have the screen cleared when pfm exits
 clsonexit:no
@@ -3704,9 +3734,9 @@ your[z]:gzip \2
 
 ## should the filetype be determined by magic (file(1)), by extension,
 ## or should we prefer one method and fallback on the other one?
-## should we try to execute it when the 'x' bit is set?
+## should we try to run it as an executable immediately if the 'x' bit is set?
 ## allowed values: combinations of 'xbit', 'extension' and 'magic'
-launchby:xbit,extension,magic
+launchby:extension,xbit,magic
 
 ## the file type names do not have to be valid MIME types
 extension[*.Z]   : application/x-compress
@@ -3764,14 +3794,22 @@ extension[*.xls] : application/x-ms-office
 extension[*.z]   : application/x-compress
 extension[*.zip] : application/zip
 
+## these search by regular expression
 magic[ASCII English text]   : text/plain
 magic[C\+?\+? program text] : text/x-c
 magic[GIF image data]       : image/gif
 magic[HTML document text]   : text/html
 magic[JPEG image data]      : image/jpeg
+magic[MP3]                  : audio/mpeg
+magic[MS Windows.*executab] : application/x-executable
+magic[MS-DOS.*executable]   : application/x-executable
+magic[Microsoft ASF]        : application/x-ms-office
+magic[Microsoft Office.*]   : application/x-ms-office
+magic[PC bitmap.*Windows]   : image/x-ms-bitmap
 magic[PDF document]         : application/pdf
 magic[PNG image data]       : image/png
 magic[PostScript document]  : application/postscript
+magic[RIFF.*data, AVI]      : video/x-msvideo
 magic[RPM]                  : application/x-rpm
 magic[Sun/NeXT audio data]  : audio/basic
 magic[TIFF image data]      : image/tiff
@@ -3781,6 +3819,7 @@ magic[Zip archive data]     : application/zip
 magic[bzip2 compressed data]: application/x-bzip2
 magic[compress.d data]      : application/x-compress
 magic[gzip compressed data] : application/x-gzip
+magic[perl script]          : application/x-perl
 magic[tar archive]          : application/x-tar
 
 launch[application/octet-stream]  : \p \2
@@ -3791,7 +3830,7 @@ launch[application/x-bzip2]       : bunzip2 \2
 launch[application/x-c]           : gcc -o \1 \2
 launch[application/x-compress]    : uncompress \2
 #launch[application/x-deb]         :
-launch[application/x-executable]  : wine \2 &
+launch[application/x-executable]  : \2 &
 launch[application/x-gzip]        : gunzip \2
 #launch[application/x-lha]         :
 launch[application/x-msdos-batch] : \e \2
@@ -3915,7 +3954,7 @@ B<CTRL-Y> and B<CTRL-E>. Note that the B<l> key is also used for creating
 symbolic links (see also the B<L>ink command below). Pressing B<ESC> or B<BS>
 will take you one directory level up (note: see below under BUGS on the
 functioning of B<ESC>). Pressing B<ENTER> when the cursor is on a directory
-will open the directory. Pressing B<SPACE> will both mark the current file
+will chdir() to the directory. Pressing B<SPACE> will both mark the current file
 and advance the cursor.
 
 =head1 COMMANDS
@@ -4198,8 +4237,8 @@ variable C<PAGER>, or with the 'pager' option in the F<.pfmrc> file.
 
 Change mtime (modification date/time) of the file. The time may be entered
 either with or without clarifying interpunction (e.g. 2003-02-04 08:42.12)
-as it will be converted to a format which touch(1) can use. Enter B<.>
-to set the mtime to the current date and time.
+as the interpunction will be removed to obtain a format which touch(1)
+can use. Enter B<.> to set the mtime to the current date and time.
 
 =item B<Uid>
 
@@ -4217,7 +4256,7 @@ criterion. See B<I>nclude for details.
 
 =item B<Your command>
 
-Like cB<O>mmand (see above), except that it uses case-insensitive
+Like cB<O>mmand (see above), except that it uses case-sensitive
 one-letter commands that have been preconfigured in the F<.pfmrc> file.
 B<Y>our commands may use B<\1>S< - >B<\6> and B<\e>, B<\p> and B<\v>
 escapes just as in cB<O>mmand, e.g.
@@ -4270,7 +4309,7 @@ be spawned.
 
 =item B<sHell>
 
-Spawns your default login shell until you exit from it, then resumes.
+Spawns your default login shell. When you exit from it, C<pfm> will resume.
 
 =item B<Kill children>
 
@@ -4349,7 +4388,7 @@ Display help, version number and license information.
 
 =item B<F2>
 
-Jump back to the previous directory.
+chdir() back to the previous directory.
 
 =item B<F3>
 
@@ -4391,7 +4430,7 @@ in the 'defaultlayout' and 'columnlayouts' options. See the config
 file itself for information on changing the column layout.
 
 Note that a 'grand total' column in the layout will only be filled when
-the siB<Z>e command is issued.
+the siB<Z>e command is issued, not when reading the directory contents.
 
 =item B<F10>
 
@@ -4427,7 +4466,7 @@ Characters not in the set C<[0-9.]> are removed from the input.
 
 The input is taken literally.
 
-=item B<not a filename or shell command> (e.g. in B<A>ttribute)
+=item B<not a filename or shell command> (e.g. in B<A>ttribute or B<U>id)
 
 The input is taken literally.
 
@@ -4663,8 +4702,8 @@ Example for csh(1) and tcsh(1):
 
 =item B<ANSI_COLORS_DISABLED>
 
-Detected by C<Term::ANSIScreen> as an indication that ANSI coloring should
-not be used. Used internally to suppress color when 'usecolor' is turned off.
+Detected as an indication that ANSI coloring escape sequences should not
+be used.
 
 =item B<CDPATH>
 
@@ -4775,7 +4814,7 @@ memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.91.8.
+This manual pertains to C<pfm> version 1.91.9.
 
 =head1 SEE ALSO
 
