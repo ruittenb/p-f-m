@@ -1,7 +1,4 @@
-1.92.1
+1.92.2
 
-* fixed bug concerning error reporting in launch
-* implemented clobber mode (switch with '!' command)
-* changed option 'clobber' to 'defaultclobber'
 * updated documentation
 
