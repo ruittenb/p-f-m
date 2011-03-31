@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20030309 v1.92.2
+# @(#) pfm.pl 19990314-20030309 v1.92.3
 #
 # Name:         pfm
-# Version:      1.92.2
+# Version:      1.92.3
 # Author:       Rene Uittenbogaard
 # Date:         2003-03-09
 # Usage:        pfm [ <directory> ] [ -s, --swap <directory> ]
@@ -28,13 +28,14 @@
 #       sub restat_copyback ?
 #       sub fileforall(sub) ?
 #       cache color codes?
-#       make F11 respect multiple mode? (marked+oldmarked, not removing marks)
-#       'f' field in layout: characters in the 'gap' between filerecord & infocolumn
+#       don't cache user/groupnames? re-cache at every directory entry? test timestamp?
+#       bug: 'f' field in layout: characters in the 'gap' between filerecord & infocolumn
 #           are not cleared when switching columnformats -> insert an artificial "gap" field?
-#       implement restat after launch
-#       'launchexecwait' option?
-#       'keeplostfiles' option?
+#       bug: implement restat after launch
+#       bug: 'waitxbitlaunch' option defective
 #
+#       'keeplostfiles' option?
+#       'autoenternewdir' option?
 #       implement 'logical' paths in addition to 'physical' paths?
 #           unless (chdir()) { getcwd() } otherwise no getcwd() ?
 #       set ROWS en COLUMNS in environment for child processes; but see if
@@ -47,6 +48,7 @@
 #           (which is, therefore, still buggy). this is closely related to:
 #       sub countdircontents is not used
 #       make commands in header and footer clickable buttons?
+#       make F11 respect multiple mode? (marked+oldmarked, not removing marks)
 #       hierarchical sort? e.g. 'sen' (size,ext,name)
 #       (F)ind command: stop at nearest match?
 #       incremental search (search entry while entering filename)?
@@ -246,6 +248,7 @@ my %CMDESCAPES = (
     '\4'   => 'mountpoint',
     '\5'   => 'swap path',
     '\6'   => 'base path',
+    '\7'   => 'extension',
     '\\\\' => 'backslash',
     '\e'   => 'editor',
     '\p'   => 'pager',
@@ -355,9 +358,8 @@ my (
     # misc config options
     $editor, $pager, $viewer, $printcmd, $ducmd, $showlockchar,
     $autoexitmultiple, $cursorveryvisible, $clsonexit,
-    $autowritehistory, $trspace, $swap_persistent,
-    $timestampformat, $mouseturnoff,
-    @colorsetnames, %filetypeflags, $swapstartdir,
+    $autowritehistory, $trspace, $swap_persistent, $timestampformat, $mouseturnoff,
+    @colorsetnames, %filetypeflags, $swapstartdir, $waitxbitlaunched,
     # layouts and formatting
     $currentformatline, $currentformatlinewithinfo,
     @layoutfields, @layoutfieldswithinfo, @columnlayouts, $currentlayout, $formatname,
@@ -414,8 +416,8 @@ sub read_pfmrc {
             if (/# Version ([\w.]+)$/ and $1 lt $VERSION and !$_[0]) {
                 # will not be in message color: usecolor not yet parsed
                 &neat_error(
-                  "Warning: your $CONFIGFILENAME version $1 may be outdated."
-                . "\r\nPlease see pfm(1), under DIAGNOSIS."
+                  "Warning: your $CONFIGFILENAME version $1 may be outdated.\r\n"
+                . "Please see pfm(1), under DIAGNOSIS."
                 );
                 $scr->key_pressed($IMPORTANTDELAY);
             }
@@ -424,7 +426,7 @@ sub read_pfmrc {
             if (/^\s*           # whitespace at beginning
                  (
                  [^[:\s]+       # keyword (no whitespace)
-                 (?:\[[^]]+\])? # classifier (may contain whitespace)
+                 (?:\[[^]]+\])? # classifier (may contain whitespace or colons)
                  )
                  \s*:\s*        # separator (:), may have whitespace around it
                  (.*)$/x        # value - allow spaces
@@ -469,6 +471,7 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
     # (e.g. confirmquit) - however, they remain accessable in %pfmrc
     # don't change initialized settings that are modifiable by key commands
     $clsonexit         = &isyes($pfmrc{clsonexit});
+    $waitxbitlaunched  = &isyes($pfmrc{waitxbitlaunched});
     $autowritehistory  = &isyes($pfmrc{autowritehistory});
     $autoexitmultiple  = &isyes($pfmrc{autoexitmultiple});
     $mouseturnoff      = &isyes($pfmrc{mouseturnoff});
@@ -482,8 +485,8 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
     $currentlayout     = $pfmrc{defaultlayout}   ||  0    if !defined $currentlayout;
     $timestampformat   = $pfmrc{timestampformat} || '%y %b %d %H:%M';
     $ducmd             = $pfmrc{ducmd} || $DUCMDS{$^O} || $DUCMDS{default};
-    $mouse_mode        = $pfmrc{mousemode}  || 'xterm' if !defined $mouse_mode;
-    $mouse_mode        = ($mouse_mode eq 'xterm' && $ENV{TERM} =~ /xterm/) or &isyes($mouse_mode);
+    $mouse_mode        = $pfmrc{defaultmousemode}  || 'xterm' if !defined $mouse_mode;
+    $mouse_mode        = ($mouse_mode eq 'xterm' && $ENV{TERM} =~ /xterm/) || &isyes($mouse_mode);
     ($printcmd)        = ($pfmrc{printcmd}) ||
                          ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER} \\2" : 'lpr \2');
     $showlockchar      = ( $pfmrc{showlock} eq 'sun' && $^O =~ /sun|solaris/i
@@ -743,7 +746,7 @@ sub condquotemeta { # condition, string
     return $_[0] ? quotemeta($_[1]) : $_[1];
 }
 
-sub expand_replace { # esc-category, namenoext, name
+sub expand_replace { # esc-category, namenoext, name, ext
     my $qif = shift;
     for ($_[0]) {
         /1/ and return &condquotemeta($qif, $_[1]);
@@ -752,6 +755,7 @@ sub expand_replace { # esc-category, namenoext, name
         /4/ and return &condquotemeta($qif, $disk{mountpoint});
         /5/ and return &condquotemeta($qif, $swap_state->{path}) if $swap_state;
         /6/ and return &condquotemeta($qif, &basename($currentdir));
+        /7/ and return &condquotemeta($qif, $_[3]);
         /e/ and return &condquotemeta($qif, $editor);
         /p/ and return &condquotemeta($qif, $pager);
         /v/ and return &condquotemeta($qif, $viewer);
@@ -768,20 +772,28 @@ sub expand_3456_escapes { # quoteif, command, whatever
     # the format of passwd(5) dictates that a username cannot contain colons
     $_[1] =~ s/^~([^:\/]+)/(getpwnam $1)[7] || "~$1"/e;
     # the next generation in quoting
-    $_[1] =~ s/\\([^12])/&expand_replace($qif, $1)/ge;
+    $_[1] =~ s/\\([^127])/&expand_replace($qif, $1)/ge;
 }
 
 sub expand_escapes { # quoteif, command, \%currentfile
     my $qif       = $_[0];
     my $name      = $_[2]{name};
-    my $namenoext = $name =~ /^(.*)\.([^\.]+)$/ ? $1 : $name;
+    my ($namenoext, $ext);
+#    $namenoext = $name =~ /^(.*)\.([^\.]+)$/ ? $1 : $name;
+    if ($name =~ /^(.*)\.([^\.]+)$/) {
+        $namenoext = $1;
+        $ext = $2;
+    } else {
+        $namenoext = $name;
+        $ext = '';
+    }
     # readline understands ~ notation; now we understand it too
     $_[1] =~ s/^~(\/|$)/$ENV{HOME}\//;
     # ~user is not replaced if it is not in the passwd file
     # the format of passwd(5) dictates that a username cannot contain colons
     $_[1] =~ s/^~([^:\/]+)/(getpwnam $1)[7] || "~$1"/e;
     # the next generation in quoting
-    $_[1] =~ s/\\(.)/&expand_replace($qif, $1, $namenoext, $name)/ge;
+    $_[1] =~ s/\\(.)/&expand_replace($qif, $1, $namenoext, $name, $ext)/ge;
 }
 
 sub isyes {
@@ -960,6 +972,19 @@ sub fileforall {
     }
 }
 
+sub multi_to_single {
+    if ($multiple_mode and $_[0] !~ /(?<!\\)(?:\\\\)*\\[127]/ and !-d $_[0]) {
+        $scr->at(0,0);
+        &putmessage('Cannot do multifile operation when destination is single file.');
+        $scr->at(0,0);
+        &pressanykey;
+        &path_info;
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
 sub maxpan {
     my ($temp, $width) = @_;
     my $panspace;
@@ -1034,6 +1059,11 @@ sub resizecatcher {
     $SIG{WINCH} = \&resizecatcher;
 }
 
+sub reaper {
+    wait;
+    $SIG{CHLD} = \&reaper;
+}
+
 sub mouseenable {
     if ($_[0]) {
         print "\e[?9h";
@@ -1050,6 +1080,17 @@ sub stty_raw {
     }
 }
 
+sub testdirempty {
+    opendir TESTDIR, $_[0];
+    readdir TESTDIR;                    # every directory has at least a '.' entry
+    readdir TESTDIR;                    # and a '..' entry
+    my $third_entry = readdir TESTDIR;  # but not necessarily a third entry
+    closedir TESTDIR;
+    # if the directory could not be read at all, this will return true.
+    # instead of catching the exception here, we will simply wait for 'unlink' to return false
+    return !$third_entry;
+}
+
 sub globalinit {
     my ($startingdir, $opt_version, $opt_help);
     &Getopt::Long::Configure('bundling');
@@ -1062,6 +1103,7 @@ sub globalinit {
     exit 0        if $opt_help or $opt_version;
     $startingdir = shift @ARGV;
     $SIG{WINCH}  = \&resizecatcher;
+    $SIG{CHLD}   = \&reaper;
     # &read_pfmrc() needs $kbd for setting keymap and ornaments
     $kbd = Term::ReadLine->new('pfm');
     $scr = Term::ScreenColor->new();
@@ -2203,7 +2245,7 @@ sub handlesymlink {
     my $do_a_refresh = $multiple_mode ? $R_DIRLIST | $R_HEADER : $R_HEADER;
     &markcurrentline('L') unless $multiple_mode;
     $headerlength = &init_header($HEADER_LNKTYPE);
-    $absrel = lc($scr->at(0, $headerlength+1)->getch());
+    $absrel = lc $scr->at(0, $headerlength+1)->getch();
     return $R_HEADER unless $absrel =~ /^[arh]$/;
     push @lncmd, '-s' if $absrel !~ /h/;
     $scr->at(0,0)->clreol();
@@ -2217,19 +2259,11 @@ sub handlesymlink {
         pop @path_history;
     }
     &stty_raw($TERM_RAW);
-    return $R_HEADER if ($newname eq '');
+    return $R_HEADER if $newname eq '';
     $newname = &canonicalize_path($newname);
+    # expand \[3456] at this point as a test, but not \[127]
     &expand_3456_escapes($QUOTE_OFF, ($testname = $newname), \%currentfile);
-    if ($multiple_mode and $testname !~ /(?<!\\)(?:\\\\)*\\[12]/
-                       and !-d($testname) )
-    {
-        $scr->at(0,0);
-        &putmessage('Cannot do multifile operation when destination is single file.');
-        $scr->at(0,0);
-        &pressanykey;
-        &path_info;
-        return $R_HEADER;
-    }
+    return $R_HEADER if &multi_to_single($testname);
     $do_this = sub {
         if (-d $newnameexpanded) {
             # make sure $newname is a file (not a directory)
@@ -2468,7 +2502,7 @@ sub handlecommand { # Y or O
                 $scr->at($printline++, $infocol)->puts(sprintf(' %2s %s', $_, $CMDESCAPES{$_}));
             }
         }
-        $prompt= 'Enter Unix command (\1-\6 or \e,\p,\v escapes see right):';
+        $prompt= 'Enter Unix command (\1-\7 or \e,\p,\v escapes see right):';
         $scr->at(0,0)->clreol()->putcolored($framecolors{$color_mode}{message}, $prompt)
             ->at($PATHLINE,0)->clreol();
         &stty_raw($TERM_COOKED);
@@ -2518,9 +2552,9 @@ sub handledelete {
     my ($loopfile, $do_this, $index, $success, $msg, $oldpos, %nameindexmap);
     my $count = 0;
     &markcurrentline('D') unless $multiple_mode;
-    my $sure = $scr->at(0,0)->clreol()
-        ->putcolored($framecolors{$color_mode}{message}, 'Are you sure you want to delete [Y/N]? ')
-        ->getch();
+    $scr->at(0,0)->clreol();
+    &putmessage('Are you sure you want to delete [Y/N]? ');
+    my $sure = $scr->getch();
     return $R_HEADER if $sure !~ /y/i;
     $scr->at($PATHLINE,0);
     $do_this = sub {
@@ -2528,12 +2562,26 @@ sub handledelete {
             # don't allow people to delete '.'; normally, this would be allowed
             # if it is empty, but if that leaves the parent directory empty,
             # then it can also be removed, which causes a fatal pfm error.
-            $success = 0;
             $msg = 'Deleting current directory not allowed';
+            $success = 0;
         } elsif ($loopfile->{nlink} == 0) {
             $success = 1;
         } elsif ($loopfile->{type} eq 'd') {
-            $success = rmdir $loopfile->{name};
+            if (&testdirempty($loopfile->{name})) {
+                $success = rmdir $loopfile->{name};
+            } else {
+                $scr->at(0,0)->clreol();
+                &putmessage('Recursively delete a non-empty directory [Affirmative/Negative]? ');
+                $sure = lc $scr->getch();
+                $scr->at(0,0);
+                if ($sure eq 'a') {
+                    $success = !system('rm', '-rf', $loopfile->{name});
+                } else {
+                    $msg = 'Deletion cancelled. Directory not empty';
+                    $success = 0;
+                }
+                $scr->clreol();
+            }
         } else {
             $success = unlink $loopfile->{name};
         }
@@ -2713,11 +2761,11 @@ sub handleedit {
 }
 
 sub handlecopyrename {
-    my $state    = "\u$_[0]";
-    my @statecmd = ($state eq 'C' ? 'cp' : 'mv', $clobber_mode ? '-f' : '-i');
+    my $state    = uc $_[0];
+    my @statecmd = ($state eq 'C' ? qw(cp -r) : 'mv', $clobber_mode ? '-f' : '-i');
     my $prompt   = $state eq 'C' ? 'Destination: ' : 'New name: ';
     my ($loopfile, $index, $testname, $newname, $newnameexpanded, $do_this,
-        $findindex, $err);
+        $findindex, $sure);
     my $do_a_refresh = $R_HEADER;
     &markcurrentline($state) unless $multiple_mode;
     $scr->at(0,0)->clreol();
@@ -2729,16 +2777,21 @@ sub handlecopyrename {
     }
     &stty_raw($TERM_RAW);
     return $R_HEADER if ($newname eq '');
-    # expand \[3456] at this point as a test, but not \[12]
+    # expand \[3456] at this point as a test, but not \[127]
     &expand_3456_escapes($QUOTE_OFF, ($testname = $newname), \%currentfile);
-    if ($multiple_mode and $testname !~ /(?<!\\)(?:\\\\)*\\[12]/ and !-d($testname) ) {
-        $err = 'Cannot do multifile operation when destination is single file.';
-        $scr->at(0,0)->putcolored($framecolors{$color_mode}{message}, $err)->at(0,0);
-        &pressanykey;
-        &path_info;
-        return $R_HEADER;
-    }
+    return $R_HEADER if &multi_to_single($testname);
     $do_this = sub {
+#        if ($state eq 'C' and -d $loopfile->{name}) {
+#            $scr->at(0,0)->clreol();
+#            &putmessage('Recursively copy this directory [Affirmative/Negative]? ');
+#            $sure = lc $scr->getch();
+#            $scr->at(0,0);
+#            if ($sure eq 'a') {
+#            } else {
+#                $msg = 'Skipping directory';
+#            }
+#            $scr->clreol();
+#        } elsif
         if (system @statecmd, $loopfile->{name}, $newnameexpanded) {
             $do_a_refresh |= &neat_error($!);
         } elsif ($newnameexpanded !~ m!/!) {
@@ -2880,9 +2933,16 @@ sub launchtype {
 }
 
 sub launchbyxbit {
+    my $pid;
     if (&followmode(\%currentfile) =~ /[xsS]/) {
         $scr->clrscr()->at(0,0)->puts("Launch executable $currentfile{name}\n");
-        system "./\Q$currentfile{name}" and &display_error($!);
+        if ($waitxbitlaunched) {
+            system "./\Q$currentfile{name}" and &display_error($!);
+        } elsif (!defined($pid = fork)) {
+            &display_error("Unable to fork: $!");
+        } elsif (!$pid) {
+            exec "./\Q$currentfile{name}";
+        }
         return 'xbit_launched';
     } else {
         return 0; # must return false to prevent "File type unknown" error
@@ -3376,7 +3436,7 @@ sub browse {
                              and $wantrefresh |= &handlemove($_),      last KEY;
                 /^[\cE\cY]$/ and $wantrefresh |= &handlescroll($_),    last KEY;
                 /^ $/        and $wantrefresh |= &handleadvance($_),   last KEY;
-                /^d$/i       and $wantrefresh |= &handledelete,        last KEY;
+                /^d(el)?$/i  and $wantrefresh |= &handledelete,        last KEY;
                 /^[ix]$/i    and $wantrefresh |= &handleinclude($_),   last KEY;
                 /^\r$/i      and $wantrefresh |= &handleenter,         last KEY;
                 /^s$/i       and $wantrefresh |= &handleshow,          last KEY;
@@ -3492,6 +3552,9 @@ defaultident:user
 ## initial layout to pick from the array 'columnlayouts' (see below) (for F9)
 defaultlayout:0
 
+## initially turn on mouse support? (yes,no,xterm) (default: only in xterm)
+defaultmousemode:xterm
+
 ## initial radix that Name will use to display non-ascii chars with (hex,oct)
 defaultradix:hex
 
@@ -3533,9 +3596,6 @@ kl=\eOD:kd=\eOB:ku=\eOA:kr=\eOC:k1=\eOP:k2=\eOQ:k3=\eOR:k4=\e[OS:
 
 ## the keymap to use in readline (vi,emacs). (default emacs)
 #keymap:vi
-
-## turn on mouse support? (yes,no,xterm) (default: only in xterm)
-mousemode:xterm
 
 ## turn off mouse support during execution of commands?
 ## caution: if you set this to 'no', your (external) commands (like $pager
@@ -3579,6 +3639,9 @@ usecolor:force
 
 ## preferred image editor/viewer (don't specify \2 here)
 viewer:xv
+
+## wait for launched commands to finish?
+waitxbitlaunched:yes
 
 ##########################################################################
 ## colors
@@ -3706,12 +3769,13 @@ ppppppppppllll uuuuuuuu ggggggggssssssss mmmmmmmmmmmmmmm *nnnnnnn ffffffffffffff
 
 ## in the defined commands, you may use the following escapes.
 ## these must NOT be quoted any more!
-##  \1 = filename without extension
-##  \2 = filename entirely
+##  \1 = current filename without extension
+##  \2 = current filename entirely
 ##  \3 = current directory path
 ##  \4 = current mountpoint
 ##  \5 = swap directory path (F7)
 ##  \6 = current directory basename
+##  \7 = current filename extension
 ##  \\ = a literal backslash
 ##  \e = 'editor' (defined above)
 ##  \p = 'pager'  (defined above)
@@ -3723,6 +3787,7 @@ your[b]:xv -root +noresetroot +smooth -maxpect -quit \2
 your[c]:tar cvf - \2 | gzip > \2.tar.gz
 your[d]:uudecode \2
 your[e]:unarj l \2 | \p
+your[F]:fuser \2
 your[f]:file \2
 your[G]:gimp \2
 your[g]:gvim \2
@@ -3812,6 +3877,7 @@ extension[*.txt] : text/plain
 extension[*.wav] : audio/x-wav
 extension[*.xbm] : image/x-xbitmap
 extension[*.xpm] : image/x-xpixmap
+extension[*.xwd] : image/x-xwindowdump
 extension[*.xls] : application/x-ms-office
 extension[*.z]   : application/x-compress
 extension[*.zip] : application/zip
@@ -3837,6 +3903,7 @@ magic[Sun.NeXT audio data]  : audio/basic
 magic[TIFF image data]      : image/tiff
 magic[WAVE audio]           : audio/x-wav
 magic[X pixmap image]       : image/x-xpixmap
+magic[XWD X-Windows Dump]   : image/x-xwindowdump
 magic[Zip archive data]     : application/zip
 magic[bzip2 compressed data]: application/x-bzip2
 magic[compress.d data]      : application/x-compress
@@ -3884,6 +3951,7 @@ launch[image/tiff]                : \v \2 &
 launch[image/x-ms-bitmap]         : \v \2 &
 launch[image/x-xbitmap]           : \v \2 &
 launch[image/x-xpixmap]           : \v \2 &
+launch[image/x-xwindowdump]       : \v \2 &
 launch[text/css]                  : \e \2
 launch[text/html]                 : lynx \2
 launch[text/plain]                : \e \2
@@ -4115,17 +4183,22 @@ version.
 =item B<Copy>
 
 Copy current file. You will be prompted for the destination filename.
+Directories will be copied recursively with all underlying files.
 
 In multiple-file mode, it is not allowed to specify a single non-directory
-filename as a destination. Instead, the destination name must be a directory
-or a name containing a B<\1> or B<\2> escape (see below under cB<O>mmand).
+filename as a destination. Instead, the destination name must be a
+directory or a name containing a B<\1>, B<\2> or B<\7> escape (see below
+under cB<O>mmand).
 
 If clobber mode is off (see below under the B<!> command), existing files
 will not be overwritten unless the action is confirmed by the user.
 
 =item B<Delete>
 
-Delete a file or directory.
+Delete a file or directory. You must confirm this command with B<Y> to
+actually delete the file. If the current file is a directory which contains
+files, and you want to delete it recursively, you must respond with an B<A>
+(Affirmative) to the additional prompt.
 
 =item B<Edit>
 
@@ -4214,7 +4287,7 @@ which is to create the new link inside that directory.
 
 In multiple-file mode, it is not allowed to specify a single non-directory
 filename as a new name. Instead, the new name must be a directory or a
-name containing a B<\1> or B<\2> escape (see below under cB<O>mmand).
+name containing a B<\1>, B<\2> or B<\7> escape (see below under cB<O>mmand).
 
 If clobber mode is off (see below under the B<!> command), existing files
 will not be overwritten.
@@ -4339,6 +4412,10 @@ the full swap directory path (see B<F7> command)
 
 the basename of the current directory
 
+=item B<\7>
+
+the extension of the current filename
+
 =item B<\\>
 
 a literal backslash
@@ -4357,7 +4434,21 @@ the image viewer specified with the 'viewer' option in the config file
 
 =back
 
-Also see below under QUOTING RULES.
+The I<extension> of the filename is defined as follows:
+
+If the filename ends in a period or does not contain a period at all,
+then the file has no extension and its whole name is regarded as B<\1>.
+
+    \1 == \2
+    \7 == ''
+
+Otherwise, the extension B<\7> is defined as the longest string of
+non-period characters at the end of the filename. The filename B<\1>
+is the part before the period.
+
+    \1.\7 == \2
+
+See also below under QUOTING RULES.
 
 =item B<Print>
 
@@ -4415,7 +4506,7 @@ criterion. See B<I>nclude for details.
 
 Like cB<O>mmand (see above), except that it uses case-sensitive
 one-letter commands that have been preconfigured in the F<.pfmrc> file.
-B<Y>our commands may use B<\1>S< - >B<\6> and B<\e>, B<\p> and B<\v>
+B<Y>our commands may use B<\1>S< - >B<\7> and B<\e>, B<\p> and B<\v>
 escapes just as in cB<O>mmand, e.g.
 
     your[c]:tar cvf - \2 | gzip > \2.tar.gz
@@ -4506,6 +4597,10 @@ in F<.pfmrc>.
 If the current file is a directory, C<pfm> will chdir() to that directory.
 Otherwise, C<pfm> will attempt to I<launch> the file. See LAUNCHING
 FILES below.
+
+=item B<DEL>
+
+Identical to the B<D>elete command (see above).
 
 =item B<!>
 
@@ -4655,9 +4750,9 @@ Example:
 
 =item B<xbit>
 
-The executable bits in the file permissions will be checked. If the current
-file is executable, C<pfm> will attempt to start the file as an executable
-command.
+The executable bits in the file permissions will be checked (after having
+followed symbolic links). If the current file is executable, C<pfm> will
+attempt to start the file as an executable command.
 
 =back
 
@@ -4704,10 +4799,10 @@ The input is taken literally.
 
 First of all, tilde expansion is performed.
 
-Next, any backslashed C<[1-6evp]> character is expanded to the corresponding
+Next, any backslashed C<[1-7evp]> character is expanded to the corresponding
 value.
 
-At the same time, any backslashed non-C<[1-6evp]> character is just replaced
+At the same time, any backslashed non-C<[1-7evp]> character is just replaced
 with the character itself.
 
 Finally, if the filename is to be processed by C<pfm>, it is taken literally;
@@ -4717,10 +4812,10 @@ if it is to be handed over to a shell, all metacharacters are escaped.
 
 First of all, tilde expansion is performed.
 
-Next, any backslashed C<[1-6evp]> character is expanded to the corresponding
+Next, any backslashed C<[1-7evp]> character is expanded to the corresponding
 value, I<with shell metacharacters escaped>.
 
-At the same time, any backslashed non-C<[1-6evp]> character is just replaced
+At the same time, any backslashed non-C<[1-7evp]> character is just replaced
 with the character itself.
 
 =back
@@ -4823,8 +4918,8 @@ _
 =head1 MOUSE COMMANDS
 
 When C<pfm> is run in an xterm, mouse use may be turned on (either through
-the B<F12> key, or with the 'mousemode' option in the F<.pfmrc> file), which
-will give mouse access to the following commands:
+the B<F12> key, or with the 'defaultmousemode' option in the F<.pfmrc>
+file), which will give mouse access to the following commands:
 
 =begin html
 
@@ -5044,7 +5139,7 @@ memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.92.2.
+This manual pertains to C<pfm> version 1.92.3.
 
 =head1 SEE ALSO
 
