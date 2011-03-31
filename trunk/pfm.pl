@@ -1,17 +1,17 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20030206 v1.87.2
+# @(#) pfm.pl 19990314-20030214 v1.91.6
 #
 # Name:         pfm
-# Version:      1.87.2 (backport of funcionality from 1.91.3)
+# Version:      1.91.6
 # Author:       Rene Uittenbogaard
-# Date:         2003-02-06
+# Date:         2003-02-14
 # Usage:        pfm [ <directory> ] [ -s, --swap <directory> ]
 #               pfm { -v, --version | -h, --help }
-# Requires:     Term::ScreenColor
-#               Term::ReadLine
-#               Term::Screen
+# Requires:     Term::ReadLine::Gnu (preferably)
+#               Term::ScreenColor
+#               Getopt::Long
 #               POSIX
 #               Config
 #               Cwd
@@ -21,15 +21,16 @@
 # Description:  Personal File Manager for Unix/Linux
 #
 # TODO: implement ENTER -> launch action for filetype: in 2.00
-#       quoting problems solved with quotemeta(): in 1.90.5
-#       use Term::ANSIScreen: in 1.88
 #       fix error handling in eval($do_this) and &display_error
 #          partly implemented in handlecopyrename
 #       use the nameindexmap from handledelete() more globally?
 #         in handlecopyrename()? in handlefind() in handlesymlink? in dirlookup?
 #       sub restat_copyback ?
 #       sub fileforall(sub) ?
+#       cache color codes?
+#       make F11 respect multiple mode? (marked+oldmarked, not removing marks)
 #
+#       beautify source: forget stupid 80-col limit; use tabs instead of spaces
 #       implement 'logical' paths in addition to 'physical' paths?
 #           unless (chdir()) { getcwd() } otherwise no getcwd() ?
 #       set ROWS en COLUMNS in environment for child processes; but see if
@@ -185,8 +186,9 @@ my $R_CHDIR     = $R_NEWDIR | $R_DIRCONTENTS | $R_DIRSORT | $R_SCREEN
 my $VERSION             = &getversion;
 my $CONFIGDIRNAME       = "$ENV{HOME}/.pfm";
 my $CONFIGFILENAME      = '.pfmrc';
-my $LOSTMSG             = '';   # was ' (file lost)'; # now shown with coloring
+my $CONFIGDIRMODE       = 0700;
 my $CWDFILENAME         = 'cwd';
+my $LOSTMSG             = '';   # was ' (file lost)'; # now shown with coloring
 my $MAJORMINORSEPARATOR = ',';
 my $NAMETOOLONGCHAR     = '+';
 my $MAXHISTSIZE         = 40;
@@ -198,8 +200,7 @@ my $BASELINE            = 3;
 my $USERLINE            = 21;
 my $DATELINE            = 22;
 my $DATECOL             = 14;
-my $CONFIGDIRMODE       = 0700;
-my $DFCMD               = ($^O eq 'hpux') ? 'bdf' : 'df -k';
+my $DFCMD               = ($^O eq 'hpux') ? 'bdf' : ($^O eq 'sco') ? 'dfspace' : 'df -k';
 
 my @SYMBOLIC_MODES      = qw(--- --x -w- -wx r-- r-x rw- rwx);
 my %ONOFF               = ('' => 'off', 0 => 'off', 1 => 'on');
@@ -214,6 +215,8 @@ my %FILETYPEFLAGS       = (
    's'=> '=',
     D => '>',
     w => '%',
+    b => '&',
+    c => '&',
 );
 
 my @SORTMODES = (
@@ -246,11 +249,11 @@ my %CMDESCAPES = (
 # HP           : du gives blocks,               du -b something unwanted
 # Linux        : du gives blocks, du -k kbytes, du -b bytes
 my %DUCMDS = (
-    default => q(du -sk "\2" | awk '{ printf "%d", 1024 * $1 }'),
-    solaris => q(du -s  "\2" | awk '{ printf "%d", 1024 * $1 }'),
-    sunos   => q(du -s  "\2" | awk '{ printf "%d", 1024 * $1 }'),
-    hpux    => q(du -s  "\2" | awk '{ printf "%d",  512 * $1 }'),
-    linux   => q(du -sb "\2"),
+    default => q(du -sk \2 | awk '{ printf "%d", 1024 * $1 }'),
+    solaris => q(du -s  \2 | awk '{ printf "%d", 1024 * $1 }'),
+    sunos   => q(du -s  \2 | awk '{ printf "%d", 1024 * $1 }'),
+    hpux    => q(du -s  \2 | awk '{ printf "%d",  512 * $1 }'),
+    linux   => q(du -sb \2),
 #    aix     => can use the default
 #    freebsd => can use the default
 #    netbsd  => can use the default unless proven otherwise
@@ -261,7 +264,26 @@ my %DUCMDS = (
     # MSWin32, macos, os390 etc. not supported
 );
 
-my $TITLEVIRTFILE = {
+my %LAYOUTFIELDS = (
+    '*' => 'selected',
+    'n' => 'display',
+    'N' => 'name_too_long',
+    's' => 'size_num',
+    'S' => 'size_power',
+    'z' => 'grand_num',
+    'Z' => 'grand_power',
+    'u' => 'uid',
+    'g' => 'gid',
+    'p' => 'mode',
+    'a' => 'atimestring',
+    'c' => 'ctimestring',
+    'm' => 'mtimestring',
+    'l' => 'nlink',
+    'i' => 'inode',
+    'd' => 'rdev',
+);
+
+my %FIELDHEADINGS = (
     selected      => '',
     name          => 'filename',
     display       => 'filename',
@@ -284,7 +306,7 @@ my $TITLEVIRTFILE = {
     gid           => 'groupid',
     nlink         => 'lnks',
     rdev          => 'dev',
-};
+);
 
 my $screenheight    = 20;    # inner height
 my $screenwidth     = 80;    # terminal width
@@ -314,7 +336,7 @@ my (
     $scr, $kbd, $wasresized, $mouse_mode,
     # modes
     $sort_mode, $multiple_mode, $swap_mode, $dot_mode, $dotdot_mode,
-    $currentpan, $color_mode, $ident_mode, $numbase_mode,
+    $currentpan, $color_mode, $ident_mode, $radix_mode,
     # dir- and disk info
     $currentdir, $oldcurrentdir, @dircontents, @showncontents, %currentfile,
     %disk, $swap_state, %total_nr_of, %selected_nr_of, $ident,
@@ -328,7 +350,7 @@ my (
     @colorsetnames, %filetypeflags, $swapstartdir,
     # layouts and formatting
     @columnlayouts, $currentlayout, @layoutfields, $currentformatline,
-    $maxfilenamelength, $maxfilesizelength, $maxgrandtotallength,
+    $maxfilenamelength, $maxfilesizelength, $maxgrandtotallength, $formatname,
 );
 
 ##########################################################################
@@ -339,18 +361,31 @@ sub whichconfigfile {
 }
 
 sub write_pfmrc {
-    local $_;
+#    local $_;
     my @resourcefile;
+    my $secs_per_32_days = 60 * 60 * 24 * 32;
+    my $maxdatelen = 0;
+    # the default layouts assume that the default timestamp format is 15 chars wide.
+    # find out if this is enough, taking the current locale into account.
+    foreach (0 .. 11) {
+        $maxdatelen = max($maxdatelen, length strftime("%b", gmtime($secs_per_32_days * $_)));
+    }
+    $maxdatelen -= 3;
     if (open MKPFMRC, '>' . &whichconfigfile) {
         # both __DATA__ and __END__ markers are used at the same time
-        push (@resourcefile, $_) while (($_ = <DATA>) !~ /^__END__$/);
-        close DATA;
-        print MKPFMRC map {
+        while (($_ = <DATA>) !~ /^__END__$/) {
             s/^(##? Version )x$/$1$VERSION/m;
-            s{^(\s*(?:your[[:alpha:]]|launch[^]:])\s*:\s*\w+.*?\s+)more(\s*)$}
-             {$1less$2}mg if $^O =~ /linux/i;
-            $_;
-        } @resourcefile;
+            if ($^O =~ /linux/i) {
+                s{^(\s*(?:your[[:alpha:]]|launch[^]:])\s*:\s*\w+.*?\s+)more(\s*)$}
+                 {$1less$2}mg;
+            }
+            if (/nnnnn/ and $maxdatelen) {
+                s/([cma])/$1 x ($maxdatelen+1)/e &&
+                s/nnnnn{$maxdatelen}/nnnn/;
+            }
+            print MKPFMRC;
+        }
+        close DATA;
         close MKPFMRC;
     } # no success? well, that's just too bad
 }
@@ -394,7 +429,14 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
     my ($termkeys, $oldkey);
     %dircolors = %framecolors = %filetypeflags = ();
     # 'usecolor' - find out when color must be turned _off_
-    if (&isno($pfmrc{usecolor})) {
+#    unless (defined($ENV{ANSI_COLORS_DISABLED})) {
+#        if (&isno($pfmrc{usecolor}) or
+#            ($ENV{TERM} !~ /(^linux$|color)/ && $pfmrc{usecolor} ne 'force')
+#        ) {
+#            $ENV{ANSI_COLORS_DISABLED} = 1;
+#        }
+#    }
+    if (defined($ENV{ANSI_COLORS_DISABLED}) or &isno($pfmrc{usecolor})) {
         $scr->colorizable(0);
     } elsif ($pfmrc{usecolor} eq 'force') {
         $scr->colorizable(1);
@@ -405,6 +447,9 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
     system ('tput', $cursorveryvisible ? 'cvvis' : 'cnorm');
     system ('stty', 'erase', $pfmrc{erase}) if defined($pfmrc{erase});
     $kbd->set_keymap($pfmrc{keymap})        if $pfmrc{keymap};
+    # time/date format for clock
+    $pfmrc{clockdateformat} ||= '%x';
+    $pfmrc{clocktimeformat} ||= '%X';
     # some configuration options are NOT fetched into common scalars
     # (e.g. confirmquit) - however, they remain accessable in %pfmrc
     # don't change initialized settings that are modifiable by key commands
@@ -422,20 +467,16 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
     $timestampformat   = $pfmrc{timestampformat} || '%y %b %d %H:%M';
     $ducmd             = $pfmrc{ducmd} || $DUCMDS{$^O} || $DUCMDS{default};
     $mouse_mode        = $pfmrc{mousemode}  || 'xterm' if !defined $mouse_mode;
-    $mouse_mode        = ($mouse_mode eq 'xterm' && $ENV{TERM} =~ /xterm/)
-                         or &isyes($mouse_mode);
+    $mouse_mode        = ($mouse_mode eq 'xterm' && $ENV{TERM} =~ /xterm/) or &isyes($mouse_mode);
     ($printcmd)        = ($pfmrc{printcmd}) ||
                          ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER} \\2" : 'lpr \2');
     $showlockchar      = ( $pfmrc{showlock} eq 'sun' && $^O =~ /sun|solaris/i
                              or &isyes($pfmrc{showlock}) ) ? 'l' : 'S';
-    $numbase_mode      = $pfmrc{defaultnumbase} || $pfmrc{viewbase} || 'hex'
-                             if !defined $numbase_mode;
-    $ident_mode        = $IDENTMODES{$pfmrc{defaultident}} || 0
-                             if !defined $ident_mode;
+    $radix_mode        = $pfmrc{defaultradix} || 'hex' if !defined $radix_mode;
+    $ident_mode        = $IDENTMODES{$pfmrc{defaultident}} || 0 if !defined $ident_mode;
     $viewer            = $pfmrc{viewer} || 'xv';
-    $editor            = $ENV{VISUAL} || $ENV{EDITOR} || $pfmrc{editor} || 'vi';
-    $pager             = $ENV{PAGER}  || $pfmrc{pager}  ||
-                             ($^O =~ /linux/i ? 'less' : 'more');
+    $editor            = $ENV{VISUAL} || $ENV{EDITOR}  || $pfmrc{editor} || 'vi';
+    $pager             = $ENV{PAGER}  || $pfmrc{pager} || ($^O =~ /linux/i ? 'less' : 'more');
     # flags
     if ($pfmrc{filetypeflags} eq 'dirs') {
         %filetypeflags = ( d => $FILETYPEFLAGS{d} );
@@ -447,8 +488,8 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
     # split 'columnlayouts'
     @columnlayouts     = split(/:/, ( $pfmrc{columnlayouts}
         ? $pfmrc{columnlayouts}
-        :   '* nnnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss mmmmmmmmmmmmmmm pppppppppp:'
-        .   '* nnnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss aaaaaaaaaaaaaaa pppppppppp:'
+        :   '* nnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss mmmmmmmmmmmmmmmm pppppppppp:'
+        .   '* nnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss aaaaaaaaaaaaaaaa pppppppppp:'
         .   '* nnnnnnnnnnnnnnnnnnnnnssssssss uuuuuuuu gggggggglllll pppppppppp:'
     ));
     # parse colorsets
@@ -457,7 +498,7 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
     }
     $pfmrc{'dircolors[off]'}   = '';
     $pfmrc{'framecolors[off]'} =
-        'title=07:swap=07:footer=07:highlight=01:';
+        'title=reverse:swap=reverse:footer=reverse:highlight=bold:';
     # this %{{ }} construct keeps values unique
     @colorsetnames = keys %{{
         map { /\[(\w+)\]/; $1, '' }
@@ -466,8 +507,9 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
     # keep the default outside of @colorsetnames
     defined($pfmrc{'dircolors[*]'})   or $pfmrc{'dircolors[*]'}   = '';
     defined($pfmrc{'framecolors[*]'}) or $pfmrc{'framecolors[*]'} =
-        'header=37;44:multi=01;07;36;47:title=01;07;36;47:swap=07;36;40:'
-    .   'footer=01;07;34;47:message=01;36:highlight=01:';
+        'header=white on blue:multi=bold reverse cyan on white:'
+    .   'title=bold reverse cyan on white:swap=reverse black on cyan:'
+    .   'footer=bold reverse blue on white:message=bold cyan:highlight=bold:';
     foreach (@colorsetnames) {
         # should there be no dircolors[thisname], use the default
         defined($pfmrc{"dircolors[$_]"})
@@ -511,18 +553,17 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
 sub write_history {
     my $failed;
     $scr->at(0,0)->clreol();
-    &digestcolor($framecolors{$color_mode}{message});
     foreach (keys(%HISTORIES)) {
         if (open (HISTFILE, ">$CONFIGDIRNAME/$_")) {
             print HISTFILE join "\n", @{$HISTORIES{$_}}, '';
             close HISTFILE;
         } elsif (!$failed) {
-            $scr->puts("Unable to save (part of) history: $!");
+            &putmessage("Unable to save (part of) history: $!");
             $failed++; # warn only once
         }
     }
-    $scr->puts('History written successfully') unless $failed;
-    $scr->key_pressed($ERRORDELAY)->normal();
+    &putmessage('History written successfully') unless $failed;
+    $scr->key_pressed($ERRORDELAY);
     $scr->key_pressed($IMPORTANTDELAY) if $failed;
     return $R_HEADER;
 }
@@ -543,9 +584,7 @@ sub write_cwd {
         print CWDFILE getcwd();
         close CWDFILE;
     } else {
-        &digestcolor($framecolors{$color_mode}{message});
-        $scr->puts("Unable to create $CONFIGDIRNAME/$CWDFILENAME: $!\n")
-            ->normal();
+        &putmessage("Unable to create $CONFIGDIRNAME/$CWDFILENAME: $!\n");
     }
 }
 
@@ -591,6 +630,15 @@ sub init_signames {
     return @signame;
 }
 
+#sub colornum2name {
+#    my %attributes_r = map { s/^(.)$/0$1/; $_ }
+#                     reverse %Term::ANSIScreen::attributes;
+#    my $intermittent = shift;
+#    $intermittent =~ s/\b([034]\d)\b/$attributes_r{$1}/g;
+#    $intermittent =~ tr/;/ /;
+#    return $intermittent;
+#}
+
 sub setornaments {
     my $messcolor = $framecolors{$color_mode}{message};
     my @cols;
@@ -610,7 +658,8 @@ sub time2str {
     if ($flag == $TIME_FILE) {
         return strftime ($timestampformat, localtime $time);
     } else {
-        return strftime ("%Y %b %d %H:%M:%S", localtime $time);
+        return strftime ($pfmrc{clockdateformat}, localtime $time),
+               strftime ($pfmrc{clocktimeformat}, localtime $time);
     }
 }
 
@@ -660,36 +709,57 @@ sub fit2limit {
     return ($size_num, $size_power);
 }
 
-sub expand_12_escapes {
-    my %thisfile = %{$_[1]};
-    my $namenoext =
-        $thisfile{name} =~ /^(.*)\.([^\.]+)$/ ? $1 : $thisfile{name};
-    # there must be an odd nr. of backslashes before the digit
-    # because \\ must be interpreted as an escaped backslash
-    $_[0] =~ s/((?<!\\)(?:\\\\)*)\\1/$1$namenoext/g;
-    $_[0] =~ s/((?<!\\)(?:\\\\)*)\\2/$1$thisfile{name}/g;
+#sub unquotemeta {
+#    local $1;
+##    return map { s/\\(.)/$1/g; $_ } @_;
+#    $_[0] =~ s/\\(.)/$1/g;
+#    return $_[0];
+#}
+
+sub condquotemeta { # condition, string
+#    return shift() ? map { quotemeta } @_ : @_;
+    return $_[0] ? quotemeta($_[1]) : $_[1];
 }
 
-sub expand_3456_escapes {
-    # there must be an odd nr. of backslashes before the digit
-    # because \\ must be interpreted as an escaped backslash
-    $_[0] =~ s/((?<!\\)(?:\\\\)*)\\3/$1$currentdir/g;
-    $_[0] =~ s/((?<!\\)(?:\\\\)*)\\4/$1$disk{mountpoint}/g;
-    $_[0] =~ s/((?<!\\)(?:\\\\)*)\\5/$1$swap_state->{path}/g if $swap_state;
-    $_[0] =~ s/((?<!\\)(?:\\\\)*)\\6/$1.&basename($currentdir)/ge;
-    $_[0] =~ s/((?<!\\)(?:\\\\)*)\\p/$pager/g;
-    $_[0] =~ s/((?<!\\)(?:\\\\)*)\\e/$editor/g;
-    $_[0] =~ s/((?<!\\)(?:\\\\)*)\\v/$viewer/g;
+sub expand_replace { # esc-category, namenoext, name
+    my $qif = shift;
+    for ($_[0]) {
+        /1/ and return &condquotemeta($qif, $_[1]);
+        /2/ and return &condquotemeta($qif, $_[2]);
+        /3/ and return &condquotemeta($qif, $currentdir);
+        /4/ and return &condquotemeta($qif, $disk{mountpoint});
+        /5/ and return &condquotemeta($qif, $swap_state->{path}) if $swap_state;
+        /6/ and return &condquotemeta($qif, &basename($currentdir));
+        /e/ and return &condquotemeta($qif, $editor);
+        /p/ and return &condquotemeta($qif, $pager);
+        /v/ and return &condquotemeta($qif, $viewer);
+        # this also handles the special \\ case - don't quotemeta() this!
+        return $_;
+    }
+}
+
+sub expand_3456_escapes { # quoteif, command, whatever
+    my $qif = $_[0];
     # readline understands ~ notation; now we understand it too
+    $_[1] =~ s/^~(\/|$)/$ENV{HOME}\//;
     # ~user is not replaced if it is not in the passwd file
-    $_[0] =~ s/^~(\/|$)/$ENV{HOME}\//;
-    $_[0] =~ s/^~([^:\/]+)/(getpwnam $1)[7] || "~$1"/e;
+    # the format of passwd(5) dictates that a username cannot contain colons
+    $_[1] =~ s/^~([^:\/]+)/(getpwnam $1)[7] || "~$1"/e;
+    # the next generation in quoting
+    $_[1] =~ s/\\([^12])/&expand_replace($qif, $1)/ge;
 }
 
-sub expand_escapes {
-    &expand_12_escapes(@_);
-    &expand_3456_escapes(@_);
-    $_[0] =~ s/\\\\/\\/g;
+sub expand_escapes { # quoteif, command, \%currentfile
+    my $qif       = $_[0];
+    my $name      = $_[2]{name};
+    my $namenoext = $name =~ /^(.*)\.([^\.]+)$/ ? $1 : $name;
+    # readline understands ~ notation; now we understand it too
+    $_[1] =~ s/^~(\/|$)/$ENV{HOME}\//;
+    # ~user is not replaced if it is not in the passwd file
+    # the format of passwd(5) dictates that a username cannot contain colons
+    $_[1] =~ s/^~([^:\/]+)/(getpwnam $1)[7] || "~$1"/e;
+    # the next generation in quoting
+    $_[1] =~ s/\\(.)/&expand_replace($qif, $1, $namenoext, $name)/ge;
 }
 
 sub isyes {
@@ -944,9 +1014,9 @@ sub resizecatcher {
 
 sub mouseenable {
     if ($_[0]) {
-        $scr->puts("\e[?9h");
+        print "\e[?9h";
     } else {
-        $scr->puts("\e[?9l");
+        print "\e[?9l";
     }
 }
 
@@ -1024,39 +1094,31 @@ sub dumprefreshflags {
 ##########################################################################
 # apply color
 
-sub digestcolor {
-    return unless defined $_[0];
-    foreach (split /;/, $_[0]) { $scr->color($_) }
+sub putmessage {
+    $scr->putcolored($framecolors{$color_mode}{message}, @_);
 }
 
 sub decidecolor {
-    my %file = @_;
-    $file{nlink} ==  0  and &digestcolor($dircolors{$color_mode}{lo}), return;
-    $file{type}  eq 'd' and &digestcolor($dircolors{$color_mode}{di}), return;
-    $file{type}  eq 'l' and &digestcolor($dircolors{$color_mode}
-                                {&isorphan($file{name})?'or':'ln'}
-                            ), return;
-    $file{type}  eq 'b' and &digestcolor($dircolors{$color_mode}{bd}), return;
-    $file{type}  eq 'c' and &digestcolor($dircolors{$color_mode}{cd}), return;
-    $file{type}  eq 'p' and &digestcolor($dircolors{$color_mode}{pi}), return;
-    $file{type}  eq 's' and &digestcolor($dircolors{$color_mode}{so}), return;
-    $file{type}  eq 'D' and &digestcolor($dircolors{$color_mode}{'do'}), return;
-    $file{type}  eq 'n' and &digestcolor($dircolors{$color_mode}{nt}), return;
-    $file{type}  eq 'w' and &digestcolor($dircolors{$color_mode}{wh}), return;
-    $file{mode}  =~ /[xst]/
-                        and &digestcolor($dircolors{$color_mode}{ex}), return;
-    $file{name}  =~/(\.\w+)$/
-                        and &digestcolor($dircolors{$color_mode}{$1}), return;
+    my $f = shift;
+    $f->{nlink} ==  0         and return $dircolors{$color_mode}{lo};
+    $f->{type}  eq 'd'        and return $dircolors{$color_mode}{di};
+    $f->{type}  eq 'l'        and return $dircolors{$color_mode}
+                                        { &isorphan($f->{name}) ? 'or' : 'ln' };
+    $f->{type}  eq 'b'        and return $dircolors{$color_mode}{bd};
+    $f->{type}  eq 'c'        and return $dircolors{$color_mode}{cd};
+    $f->{type}  eq 'p'        and return $dircolors{$color_mode}{pi};
+    $f->{type}  eq 's'        and return $dircolors{$color_mode}{so};
+    $f->{type}  eq 'D'        and return $dircolors{$color_mode}{'do'};
+    $f->{type}  eq 'n'        and return $dircolors{$color_mode}{nt};
+    $f->{type}  eq 'w'        and return $dircolors{$color_mode}{wh};
+    $f->{mode}  =~ /[xst]/    and return $dircolors{$color_mode}{ex};
+    $f->{name}  =~ /(\.\w+)$/ and return $dircolors{$color_mode}{$1};
 }
 
 sub applycolor {
-    if ($scr->colorizable()) {
-        my ($line, $length, %file) = (shift, shift, @_);
-        $length = $length ? 255 : $maxfilenamelength-1;
-        &decidecolor(%file);
-        $scr->at($line, $filenamecol)
-            ->puts(substr($file{name}, 0, $length))->normal();
-    }
+    my ($line, $length, %file) = @_;
+    $length = $length ? 255 : $maxfilenamelength-1;
+    $scr->at($line, $filenamecol)->putcolored(&decidecolor(\%file), substr($file{name}, 0, $length));
 }
 
 ##########################################################################
@@ -1088,24 +1150,8 @@ sub makeformatlines {
     }
     ($squeezedlayoutline = $currentlayoutline) =~
         tr/*nNsSzZugpacmdil /*nNsSzZugpacmdil/ds;
-    @layoutfields = map {
-        if    ($_ eq '*') { 'selected'      }
-        elsif ($_ eq 'n') { 'display'       }
-        elsif ($_ eq 'N') { 'name_too_long' }
-        elsif ($_ eq 's') { 'size_num'      }
-        elsif ($_ eq 'S') { 'size_power'    }
-        elsif ($_ eq 'z') { 'grand_num'     }
-        elsif ($_ eq 'Z') { 'grand_power'   }
-        elsif ($_ eq 'u') { 'uid'           }
-        elsif ($_ eq 'g') { 'gid'           }
-        elsif ($_ eq 'p') { 'mode'          }
-        elsif ($_ eq 'a') { 'atimestring'   }
-        elsif ($_ eq 'c') { 'ctimestring'   }
-        elsif ($_ eq 'm') { 'mtimestring'   }
-        elsif ($_ eq 'l') { 'nlink'         }
-        elsif ($_ eq 'i') { 'inode'         }
-        elsif ($_ eq 'd') { 'rdev'          }
-    } (split //, $squeezedlayoutline);
+    ($formatname = $squeezedlayoutline) =~ s/[*SNZ]//g;
+    @layoutfields = map { $LAYOUTFIELDS{$_} } (split //, $squeezedlayoutline);
     $currentformatline = $prev = '';
     foreach $letter (split //, $currentlayoutline) {
         if ($letter eq ' ') {
@@ -1174,14 +1220,14 @@ sub highlightline { # true/false
     my $linecolor;
     $scr->at($currentline + $BASELINE, 0);
     if ($_[0] == $HIGHLIGHT_ON) {
-        &digestcolor($linecolor = $framecolors{$color_mode}{highlight});
-        $scr->bold()        if ($linecolor =~ /\b0?1\b/);
-        $scr->reverse()     if ($linecolor =~ /\b0?7\b/);
-#        $scr->underline()   if ($linecolor =~ /\b0?4\b/);
+        $linecolor = $framecolors{$color_mode}{highlight};
+        $scr->bold()        if ($linecolor =~ /bold/);
+        $scr->reverse()     if ($linecolor =~ /reverse/);
+#        $scr->underline()   if ($linecolor =~ /under(line|score)/);
         $scr->term()->Tputs('us', 1, *STDOUT)
-                            if ($linecolor =~ /\b0?4\b/);
+                            if ($linecolor =~ /under(line|score)/);
     }
-    $scr->puts(&fileline(\%currentfile, @layoutfields));
+    $scr->putcolored($linecolor, &fileline(\%currentfile, @layoutfields));
     &applycolor($currentline + $BASELINE, $FILENAME_SHORT, %currentfile);
     $scr->normal()->at($currentline + $BASELINE, $cursorcol);
 }
@@ -1191,15 +1237,13 @@ sub markcurrentline { # letter
 }
 
 sub pressanykey {
-    &digestcolor($framecolors{$color_mode}{message}); # previously just cyan()
-    print "\n*** Hit any key to continue ***";
+    &putmessage("\n*** Hit any key to continue ***"); # previously just cyan
     &stty_raw($TERM_RAW);
-    $scr->normal()->getch();
+    $scr->getch();
 }
 
 sub display_error {
-    &digestcolor($framecolors{$color_mode}{message});
-    $scr->puts($_[0])->normal();
+    &putmessage(@_);
     return $scr->key_pressed($ERRORDELAY); # return value not actually used
 }
 
@@ -1216,9 +1260,9 @@ sub neat_error {
 sub ok_to_remove_marks {
     my $sure;
     if (&mark_info) {
-        &digestcolor($framecolors{$color_mode}{message});
-        $sure = $scr->at(0,0)->clreol()
-                    ->puts("OK to remove marks [Y/N]? ")->normal()->getch();
+        $scr->at(0,0)->clreol();
+        &putmessage('OK to remove marks [Y/N]? ');
+        $sure = $scr->getch();
         &init_header;
         return ($sure =~ /y/i);
     }
@@ -1303,36 +1347,32 @@ sub init_title { # swap_mode, extra field, @layoutfields
         $_ == $TITLE_YCOMMAND and $info = 'your commands ';
         $_ == $TITLE_ESCAPE   and $info = 'esc legend    ';
     }
-    &digestcolor($linecolor = $smode ? $framecolors{$color_mode}{swap}
-                                     : $framecolors{$color_mode}{title});
-    $scr->bold()        if ($linecolor =~ /\b0?1\b/);
-    $scr->reverse()     if ($linecolor =~ /\b0?7\b/);
-#    $scr->underline()   if ($linecolor =~ /\b0?4\b/);
+    $linecolor = $smode ? $framecolors{$color_mode}{swap}
+                        : $framecolors{$color_mode}{title};
+    $scr->bold()        if ($linecolor =~ /bold/);
+    $scr->reverse()     if ($linecolor =~ /reverse/);
+#    $scr->underline()   if ($linecolor =~ /under(line|score)/);
     $scr->term()->Tputs('us', 1, *STDOUT)
-                         if ($linecolor =~ /\b0?4\b/);
+                        if ($linecolor =~ /under(line|score)/);
     $^A = '';
-    formline($currentformatline . ' @>>>>>>>>>>>>>',
-        @{$TITLEVIRTFILE}{@fields}, $info);
-    $scr->at(2,0)->puts($^A)->normal();
+    formline($currentformatline . ' @>>>>>>>>>>>>>', @FIELDHEADINGS{@fields}, $info);
+    $scr->at(2,0)->putcolored($linecolor, $^A)->normal();
 }
 
 sub header {
     # do not take multiple mode into account at all
     my $mode = $_[0];
     if      ($mode & $HEADER_SORT) {
-        return 'Sort by: Name, Extension, Size, Date, Type, Inode'
-        .     ' (ignorecase, reverse):';
+        return 'Sort by: Name, Extension, Size, Date, Type, Inode (ignorecase, reverse):';
     } elsif ($mode & $HEADER_MORE) {
-        return 'Config-pfm Edit-new sHell Kill-chld Make-dir Show-dir'
-        .     ' Write-hist ESC';
+        return 'Config-pfm Edit-new sHell Kill-chld Make-dir Show-dir Write-hist ESC';
     } elsif ($mode & $HEADER_INCLUDE) {
         return 'Include? Every, Oldmarks, After, Before, User or Files only:';
     } elsif ($mode & $HEADER_LNKTYPE) {
         return 'Absolute, Relative symlink or Hard link:';
     } else {
         return 'Attribute Copy Delete Edit Find Include tarGet Link More Name'
-        .     ' cOmmands Print Quit Rename Show Time User eXclude'
-        .     ' Your-commands siZe';
+        .     ' cOmmands Print Quit Rename Show Time User eXclude Your-commands siZe';
     }
 }
 
@@ -1348,11 +1388,9 @@ sub init_header { # <special header mode>
     }
     $scr->at(0,0);
     if ($domulti) {
-        &digestcolor($framecolors{$color_mode}{multi});
-        $scr->puts('Multiple')->normal();
+        $scr->putcolored($framecolors{$color_mode}{multi}, 'Multiple');
     }
-    &digestcolor($framecolors{$color_mode}{header});
-    $scr->puts(' ' x $domulti)->puts($header)->bold();
+    $scr->color($framecolors{$color_mode}{header})->puts(' ' x $domulti)->puts($header)->bold();
     while ($header =~ /[[:upper:]<>](?!nclude\?)/g) {
         $pos = pos($header) -1;
         $scr->at(0, $pos + 9 * $domulti)->puts(substr($header, $pos, 1));
@@ -1364,9 +1402,9 @@ sub init_header { # <special header mode>
 sub footer {
     return "F1-Help F2-Back F3-Redraw F4-Color[$color_mode]"
     .     " F5-Reread F6-Sort[$sort_mode] F7-Swap[$ONOFF{$swap_mode}]"
-    .     " F8-Include F9-Columns[$currentlayout]"
+    .     " F8-Include F9-Columns[$currentlayout]" # $formatname ?
     .     " F10-Multiple[$ONOFF{$multiple_mode}] F11-Restat"
-    .     " F12-Mouse[$ONOFF{$mouse_mode}] *-Numbase[$numbase_mode]"
+    .     " F12-Mouse[$ONOFF{$mouse_mode}] *-Radix[$radix_mode]"
 #    .     " .-Dotmode[$dot_mode] =-Ident[$ident_mode]"
     ;
 }
@@ -1374,24 +1412,22 @@ sub footer {
 sub init_footer {
     my $footer = &fitbanner(&footer, $screenwidth);
     my $linecolor;
-    &digestcolor($linecolor = $framecolors{$color_mode}{footer});
-    $scr->bold()        if ($linecolor =~ /\b0?1\b/);
-    $scr->reverse()     if ($linecolor =~ /\b0?7\b/);
-#    $scr->underline()   if ($linecolor =~ /\b0?4\b/);
+    $linecolor = $framecolors{$color_mode}{footer};
+    $scr->bold()        if ($linecolor =~ /bold/);
+    $scr->reverse()     if ($linecolor =~ /reverse/);
+#    $scr->underline()   if ($linecolor =~ /under(line|score)/);
     $scr->term()->Tputs('us', 1, *STDOUT)
-                        if ($linecolor =~ /\b0?4\b/);
-    $scr->at($BASELINE+$screenheight+1,0) ->puts($footer)
-        ->puts(' ' x ($screenwidth - length $footer))->normal();
+                        if ($linecolor =~ /under(line|score)/);
+    $scr->at($BASELINE+$screenheight+1,0) ->putcolored($linecolor, $footer, ' ' x ($screenwidth - length $footer))->normal();
 }
 
 sub usage {
-    print "Usage: pfm [ ", colored('directory', 'underline'), " ] [ -s, --swap ", colored('directory', 'underline'), " ]\n",
+    my $directory = &Term::ScreenColor::colored('underline', 'directory');
+    print "Usage: pfm [ $directory ] [ -s, --swap $directory ]\n",
           "       pfm { -h, --help | -v, --version }\n\n",
-          "    ",colored('directory', 'underline'),
-                       "            : specify starting directory\n",
+          "    $directory            : specify starting directory\n",
           "    -h, --help           : print this help and exit\n",
-          "    -s, --swap ", colored('directory', 'underline'),
-                                  " : specify swap directory\n",
+          "    -s, --swap $directory : specify swap directory\n",
           "    -v, --version        : print version information and exit\n";
 }
 
@@ -1401,12 +1437,12 @@ sub printversion {
 
 sub copyright {
     # lookalike to DOS version :)
+    return
     $scr->at(0,0)->clreol()->cyan() # %dircolors has not been set yet
                  ->puts("PFM $VERSION for Unix computers and compatibles.")
         ->at(1,0)->puts("Copyright (c) 1999-2003 Rene Uittenbogaard")
-        ->at(2,0)->puts("This software comes with no warranty: see the file "
-                       ."COPYING for details.")->normal();
-    return $scr->key_pressed($_[0]);
+        ->at(2,0)->puts("This software comes with no warranty: see the file COPYING for details.")
+                 ->normal()->key_pressed($_[0]);
 }
 
 sub goodbye {
@@ -1417,7 +1453,7 @@ sub goodbye {
         $scr->clrscr();
     } else {
         $scr->at(0,0)->puts(' ' x (($screenwidth-length $bye)/2) . $bye)
-            ->clreol()->normal()->at($PATHLINE,0);
+            ->clreol()->at($PATHLINE,0);
     }
     &write_cwd;
     &write_history if $autowritehistory;
@@ -1431,16 +1467,17 @@ sub goodbye {
 sub credits {
     $scr->clrscr();
     &stty_raw($TERM_COOKED);
+    my $pfm = $scr->colored('bold', 'pfm');
     print <<"_eoCredits_";
 
 
-             PFM for Unix computers and compatibles.  Version $VERSION
+             $pfm for Unix computers and compatibles.  Version $VERSION
              Original idea/design: Paul R. Culley and Henk de Heer
              Author and Copyright (c) 1999-2003 Rene Uittenbogaard
 
 
-       PFM is distributed under the GNU General Public License version 2.
-                    PFM is distributed without any warranty,
+       $pfm is distributed under the GNU General Public License version 2.
+                    $pfm is distributed without any warranty,
              even without the implied warranties of merchantability
                       or fitness for a particular purpose.
                    Please read the file COPYING for details.
@@ -1450,11 +1487,11 @@ sub credits {
 
     New versions may be obtained from http://sourceforge.net/projects/p-f-m/
 
-                For questions, remarks or suggestions about PFM,
+                For questions, remarks or suggestions about $pfm,
                  send email to: ruittenb\@users.sourceforge.net
 
 
-                                                          any key to exit to PFM
+                                                         any key to exit to $pfm
 _eoCredits_
     &stty_raw($TERM_RAW);
     $scr->getch();
@@ -1464,14 +1501,13 @@ _eoCredits_
 # system information
 
 sub user_info {
-    $^A = "";
+    $^A = '';
     formline('@>>>>>>>>>>>>', $ident);
-    $scr->red() unless ($>); # red for root
-    $scr->at($USERLINE, $screenwidth-$DATECOL+1)->puts($^A)->normal();
+    $scr->at($USERLINE, $screenwidth-$DATECOL+1)->putcolored(($> ? 'normal' : 'red'), $^A);
 }
 
 sub infoline { # number, description
-    $^A = "";
+    $^A = '';
     formline('@>>>>>> @<<<<<', @_);
     return $^A;
 }
@@ -1535,13 +1571,18 @@ sub mark_info {
 }
 
 sub date_info {
-    my ($line, $col) = @_;
-    my ($datetime, $date, $time);
-    $datetime = &time2str(time, $TIME_CLOCK);
-    ($date, $time) = ($datetime =~ /(.*)\s+(.*)/);
-    # it might be better to do this with formline and $^A
-    $scr->at($line++, $col+3)->puts($date) if ($scr->rows() > 24);
-    $scr->at($line++, $col+6)->puts($time);
+    my ($date, $time);
+    my $line = $DATELINE;
+    my $col  = $screenwidth-$DATECOL;
+    ($date, $time) = &time2str(time, $TIME_CLOCK);
+    if ($scr->rows() > 24) {
+        $^A = '';
+        formline('@>>>>>>>>>>>>>', $date);
+        $scr->at($line++, $col)->puts($^A);
+    }
+    $^A = '';
+    formline('@>>>>>>>>>>>>>', $time);
+    $scr->at($line++, $col)->puts($^A);
 }
 
 ##########################################################################
@@ -1613,9 +1654,8 @@ sub handlequit { # key
     return $R_QUIT if &isno($pfmrc{confirmquit});
     return $R_QUIT if $_[0] eq 'Q'; # quick quit
     return $R_QUIT if ($pfmrc{confirmquit} =~ /marked/i and !&mark_info);
-    &digestcolor($framecolors{$color_mode}{message});
     $scr->at(0,0)->clreol();
-    $scr->puts("Are you sure you want to quit [Y/N]? ")->normal();
+    &putmessage('Are you sure you want to quit [Y/N]? ');
     my $sure = $scr->getch();
     return +($sure =~ /y/i) ? $R_QUIT : $R_HEADER;
 }
@@ -1660,8 +1700,8 @@ sub handleident {
     goto &initident;
 }
 
-sub handlenumbase {
-    $numbase_mode = $numbase_mode eq 'hex' ? 'oct' : 'hex';
+sub handleradix {
+    $radix_mode = $radix_mode eq 'hex' ? 'oct' : 'hex';
     return $R_FOOTER;
 }
 
@@ -1737,7 +1777,7 @@ sub handlesize {
     &markcurrentline('Z') unless $multiple_mode;
     $do_this = sub {
         $loopfile = shift;
-        &expand_escapes($command = $ducmd, $loopfile);
+        &expand_escapes($QUOTE_ON, ($command = $ducmd), $loopfile);
         ($recursivesize = `$command`) =~ s/\D*(\d+).*/$1/;
         chomp $recursivesize;
         if ($?) {
@@ -1856,8 +1896,7 @@ sub handlefit {
 
 sub handleperlcommand {
     my $perlcmd;
-    &digestcolor($framecolors{$color_mode}{message});
-    $scr->at(0,0)->clreol()->puts('Enter Perl command:')->normal()
+    $scr->at(0,0)->clreol()->putcolored($framecolors{$color_mode}{message}, 'Enter Perl command:')
         ->at($PATHLINE,0)->clreol();
     &stty_raw($TERM_COOKED);
     $perlcmd = &readintohist(\@perlcmd_history);
@@ -1877,7 +1916,7 @@ sub handlemoreshow {
     &stty_raw($TERM_RAW);
     return $R_HEADER if $newname eq '';
     $position_at = '.';
-    &expand_escapes($newname, \%currentfile);
+    &expand_escapes($QUOTE_OFF, $newname, \%currentfile);
     if (&mychdir($newname)) {
         $do_a_refresh |= $R_CHDIR;
     } else {
@@ -1893,6 +1932,7 @@ sub handlemoremake {
     $scr->at(0,0)->clreol();
     &stty_raw($TERM_COOKED);
     $newname = &readintohist(\@path_history, $prompt);
+    &expand_escapes($QUOTE_OFF, $newname, \%currentfile);
     &stty_raw($TERM_RAW);
     return $R_HEADER if $newname eq '';
 #    if (!mkdir $newname, 0777) {
@@ -1914,7 +1954,7 @@ sub handlemoremake {
 sub handlemoreconfig {
     my $do_a_refresh = $R_CLEAR;
     my $olddotdot    = $dotdot_mode;
-    if (system $editor, "$CONFIGDIRNAME/$CONFIGFILENAME") {
+    if (system $editor, &whichconfigfile) {
         &display_error($!);
     } else {
         &read_pfmrc($READ_AGAIN);
@@ -1934,6 +1974,7 @@ sub handlemoreedit {
     $scr->at(0,0)->clreol();
     &stty_raw($TERM_COOKED);
     $newname = &readintohist(\@path_history, $prompt);
+    &expand_escapes($QUOTE_OFF, $newname, \%currentfile);
     system "$editor \Q$newname\E" and &display_error($!);
     &stty_raw($TERM_RAW);
     return $R_CLEAR;
@@ -2013,8 +2054,7 @@ sub handleinclude { # include/exclude flag (from keypress)
     $headerlength = &init_header($HEADER_INCLUDE);
     # modify header to say "exclude" when 'x' was pressed
     if ($exin =~ /x/i) {
-        &digestcolor($framecolors{$color_mode}{header});
-        $scr->at(0,0)->puts('Ex')->normal();
+        $scr->at(0,0)->putcolored($framecolors{$color_mode}{header}, 'Ex');
     }
     $exin =~ tr/ix/* /;
     my $key = lc($scr->at(0, $headerlength+1)->getch());
@@ -2067,7 +2107,7 @@ sub handleinclude { # include/exclude flag (from keypress)
 
 sub handlename {
     &markcurrentline(uc($_[0])); # disregard multiple_mode
-    my $numformat = $NUMFORMATS{$numbase_mode};
+    my $numformat = $NUMFORMATS{$radix_mode};
     my %otherfile = %currentfile;
     my $line;
     for ($otherfile{name}, $otherfile{target}) {
@@ -2076,14 +2116,13 @@ sub handlename {
         s{([${trspace}\177[:cntrl:]]|[^[:ascii:]])}
          {'\\' . sprintf($numformat, unpack('C', $1))}eg;
     }
-    &digestcolor($framecolors{$color_mode}{highlight});
     $line = $otherfile{name} . &filetypeflag(\%otherfile) . (length($otherfile{target}) ? ' -> ' . $otherfile{target} : '');
-    $scr->at($currentline+$BASELINE, $filenamecol)->puts($line . " \cH");
-    &applycolor($currentline+$BASELINE, $FILENAME_LONG, %otherfile);
-    if ($scr->getch() eq '*') {
-        &handlenumbase;
+    $scr->at($currentline+$BASELINE, $filenamecol)->putcolored($framecolors{$color_mode}{highlight}, $line, " \cH");
+    &applycolor($currentline+$BASELINE, $FILENAME_LONG, %otherfile); # resets colors to normal
+    if ($scr->noecho()->getch() eq '*') {
+        &handleradix;
         &init_footer;
-        $scr->at($currentline+$BASELINE, $filenamecol)->puts(' ' x length $line);
+        $scr->echo()->at($currentline+$BASELINE, $filenamecol)->puts(' ' x length $line);
         goto &handlename;
     }
     if (length($line) > $screenwidth - $DATECOL) {
@@ -2127,8 +2166,7 @@ sub handlekeyell {
 
 sub handlesymlink {
     my ($newname, $loopfile, $do_this, $index, $newnameexpanded, $targetstring,
-        $findindex, $testname, $err, $headerlength, $absrel,
-        $simpletarget, $simplename);
+        $findindex, $testname, $headerlength, $absrel, $simpletarget, $simplename);
     my @lncmd = $clobber ? qw(ln -f) : qw(ln);
     my $do_a_refresh = $multiple_mode ? $R_DIRLIST | $R_HEADER : $R_HEADER;
     &markcurrentline('L') unless $multiple_mode;
@@ -2149,13 +2187,13 @@ sub handlesymlink {
     &stty_raw($TERM_RAW);
     return $R_HEADER if ($newname eq '');
     $newname = &canonicalize_path($newname);
-    &expand_3456_escapes(($testname = $newname), \%currentfile);
+    &expand_3456_escapes($QUOTE_OFF, ($testname = $newname), \%currentfile);
     if ($multiple_mode and $testname !~ /(?<!\\)(?:\\\\)*\\[12]/
                        and !-d($testname) )
     {
-        $err = 'Cannot do multifile operation when destination is single file.';
-        &digestcolor($framecolors{$color_mode}{message});
-        $scr->at(0,0)->puts($err)->at(0,0)->normal();
+        $scr->at(0,0);
+        &putmessage('Cannot do multifile operation when destination is single file.');
+        $scr->at(0,0);
         &pressanykey;
         &path_info;
         return $R_HEADER;
@@ -2200,7 +2238,7 @@ sub handlesymlink {
     if ($multiple_mode) {
         for $index (0..$#dircontents) {
             $loopfile = $dircontents[$index];
-            &expand_escapes(($newnameexpanded = $newname), $loopfile);
+            &expand_escapes($QUOTE_OFF,($newnameexpanded = $newname),$loopfile);
             if ($loopfile->{selected} eq '*') {
                 $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
                 &exclude($loopfile,'.');
@@ -2212,7 +2250,7 @@ sub handlesymlink {
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
         $loopfile = \%currentfile;
-        &expand_escapes(($newnameexpanded = $newname), $loopfile);
+        &expand_escapes($QUOTE_OFF, ($newnameexpanded = $newname), $loopfile);
         &$do_this;
         $showncontents[$currentline+$baseindex] =
             &stat_entry($currentfile{name}, $currentfile{selected});
@@ -2266,7 +2304,7 @@ sub handletarget {
             $loopfile = $dircontents[$index];
             if ($loopfile->{selected} eq '*') {
                 $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
-                &expand_escapes(($newtargetexpanded = $newtarget), $loopfile);
+                &expand_escapes($QUOTE_OFF, ($newtargetexpanded = $newtarget), $loopfile);
                 &exclude($loopfile,'.');
                 &$do_this;
                 $dircontents[$index] =
@@ -2276,7 +2314,7 @@ sub handletarget {
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
         $loopfile = \%currentfile;
-        &expand_escapes(($newtargetexpanded = $newtarget),$loopfile);
+        &expand_escapes($QUOTE_OFF,($newtargetexpanded = $newtarget),$loopfile);
         &$do_this;
         $showncontents[$currentline+$baseindex] =
             &stat_entry($currentfile{name}, $currentfile{selected});
@@ -2386,9 +2424,8 @@ sub handlecommand { # Y or O
                 $scr->at($printline++,$screenwidth-$DATECOL)->puts($^A);
             }
         }
-        &digestcolor($framecolors{$color_mode}{message});
         $prompt = 'Enter one of the highlighted chars at right: ';
-        $key = $scr->at(0,0)->clreol()->puts($prompt)->normal()->getch();
+        $key = $scr->at(0,0)->clreol()->putcolored($framecolors{$color_mode}{message}, $prompt)->getch();
         &clearcolumn;
         # this line is supposed to contain an assignment
         return $R_DISKINFO | $R_FRAME unless $command = $pfmrc{"your[$key]"};
@@ -2403,8 +2440,7 @@ sub handlecommand { # Y or O
             }
         }
         $prompt= 'Enter Unix command (\1-\6 or \e,\p,\v escapes see right):';
-        &digestcolor($framecolors{$color_mode}{message});
-        $scr->at(0,0)->clreol()->puts($prompt)->normal()
+        $scr->at(0,0)->clreol()->putcolored($framecolors{$color_mode}{message}, $prompt)
             ->at($PATHLINE,0)->clreol();
         &stty_raw($TERM_COOKED);
         $command = &readintohist(\@command_history);
@@ -2420,7 +2456,7 @@ sub handlecommand { # Y or O
                 if ($loopfile->{selected} eq '*') {
                     &exclude($loopfile,'.');
                     $do_this = $command;
-                    &expand_escapes($do_this,$loopfile);
+                    &expand_escapes($QUOTE_ON, $do_this, $loopfile);
                     $scr->puts($do_this);
                     system $do_this and &display_error($!);
                     $dircontents[$index] =
@@ -2433,7 +2469,7 @@ sub handlecommand { # Y or O
             $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
         } else { # single-file mode
             $loopfile = \%currentfile;
-            &expand_escapes($command, \%currentfile);
+            &expand_escapes($QUOTE_ON, $command, \%currentfile);
             $scr->clrscr()->at(0,0)->puts($command);
             system $command and &display_error($!);
             $showncontents[$currentline+$baseindex] =
@@ -2453,10 +2489,9 @@ sub handledelete {
     my ($loopfile, $do_this, $index, $success, $msg, $oldpos, %nameindexmap);
     my $count = 0;
     &markcurrentline('D') unless $multiple_mode;
-    &digestcolor($framecolors{$color_mode}{message});
-    $scr->at(0,0)->clreol()
-        ->puts("Are you sure you want to delete [Y/N]? ")->normal();
-    my $sure = $scr->getch();
+    my $sure = $scr->at(0,0)->clreol()
+        ->putcolored($framecolors{$color_mode}{message}, 'Are you sure you want to delete [Y/N]? ')
+        ->getch();
     return $R_HEADER if $sure !~ /y/i;
     $scr->at($PATHLINE,0);
     $do_this = sub {
@@ -2524,8 +2559,7 @@ sub handledelete {
 sub handleprint {
     my ($loopfile, $do_this, $command, $index);
     &markcurrentline('P') unless $multiple_mode;
-    &digestcolor($framecolors{$color_mode}{message});
-    $scr->at(0,0)->clreol()->puts('Enter print command: ')->normal()
+    $scr->at(0,0)->clreol()->putcolored($framecolors{$color_mode}{message}, 'Enter print command: ')
         ->at($PATHLINE,0)->clreol();
     &stty_raw($TERM_COOKED);
     # don't use readintohist : special case with command_history
@@ -2544,7 +2578,7 @@ sub handleprint {
         for $index (0..$#dircontents) {
             $loopfile = $dircontents[$index];
             $do_this = $command;
-            &expand_escapes($do_this, $loopfile);
+            &expand_escapes($QUOTE_ON, $do_this, $loopfile);
             if ($loopfile->{selected} eq '*') {
                 $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
                 &exclude($loopfile, '.');
@@ -2553,7 +2587,7 @@ sub handleprint {
         }
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
-        &expand_escapes($command, \%currentfile);
+        &expand_escapes($QUOTE_ON, $command, \%currentfile);
         system $command and &display_error($!);
     }
     return $R_SCREEN;
@@ -2666,11 +2700,10 @@ sub handlecopyrename {
     &stty_raw($TERM_RAW);
     return $R_HEADER if ($newname eq '');
     # expand \[3456] at this point as a test, but not \[12]
-    &expand_3456_escapes(($testname = $newname), \%currentfile);
+    &expand_3456_escapes($QUOTE_OFF, ($testname = $newname), \%currentfile);
     if ($multiple_mode and $testname !~ /(?<!\\)(?:\\\\)*\\[12]/ and !-d($testname) ) {
         $err = 'Cannot do multifile operation when destination is single file.';
-        &digestcolor($framecolors{$color_mode}{message});
-        $scr->at(0,0)->puts($err)->normal()->at(0,0);
+        $scr->at(0,0)->putcolored($framecolors{$color_mode}{message}, $err)->at(0,0);
         &pressanykey;
         &path_info;
         return $R_HEADER;
@@ -2697,7 +2730,7 @@ sub handlecopyrename {
             if ($loopfile->{selected} eq '*') {
                 $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
                 &exclude($loopfile, '.');
-                &expand_escapes(($newnameexpanded = $newname), $loopfile);
+                &expand_escapes($QUOTE_OFF, ($newnameexpanded = $newname), $loopfile);
                 &$do_this;
                 $dircontents[$index] = &stat_entry($loopfile->{name},$loopfile->{selected});
                 if ($dircontents[$index]{nlink} == 0) {
@@ -2709,8 +2742,7 @@ sub handlecopyrename {
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
         $loopfile = \%currentfile;
-#        &expand_escapes($command, $loopfile);
-        &expand_escapes(($newnameexpanded = $newname), $loopfile);
+        &expand_escapes($QUOTE_OFF, ($newnameexpanded = $newname), $loopfile);
         &$do_this;
         $showncontents[$currentline+$baseindex] = &stat_entry($currentfile{name}, $currentfile{selected});
         if ($showncontents[$currentline+$baseindex]{nlink} == 0) {
@@ -2874,7 +2906,7 @@ sub handleswap {
             $nextdir = &readintohist(\@path_history, $prompt);
             &stty_raw($TERM_RAW);
         }
-        &expand_escapes($nextdir, \%currentfile);
+        &expand_escapes($QUOTE_OFF, $nextdir, \%currentfile);
         $position_at   = '.';
         $do_a_refresh |= $R_CHDIR;
     }
@@ -2987,8 +3019,7 @@ sub getdircontents { # (current)directory
     local $SIG{INT} = sub { return @contents };
     if ($#allentries > $SLOWENTRIES) {
         # don't use display_error here because that would just cost more time
-        &digestcolor($framecolors{$color_mode}{message});
-        $scr->at(0,0)->clreol()->puts('Please Wait')->normal();
+        $scr->at(0,0)->clreol()->putcolored($framecolors{$color_mode}{message}, 'Please Wait');
     }
     foreach $entry (@allentries) {
         # have the mark cleared on first stat with ' '
@@ -3071,7 +3102,7 @@ sub showdiskinfo {
     &dir_info(%total_nr_of);
     &mark_info(%selected_nr_of);
     &user_info;
-    &date_info($DATELINE, $screenwidth-$DATECOL);
+    &date_info;
 }
 
 ##########################################################################
@@ -3209,7 +3240,7 @@ sub browse {
         &highlightline($HIGHLIGHT_ON);
         &mouseenable($MOUSE_ON) if $mouse_mode && $mouseturnoff;
         WAIT: until ($scr->key_pressed(1) || $wasresized) {
-            &date_info($DATELINE, $screenwidth-$DATECOL);
+            &date_info;
             $scr->at($currentline+$BASELINE, $cursorcol);
         }
         if ($wasresized) {
@@ -3262,7 +3293,7 @@ sub browse {
                 /^g$/i       and $wantrefresh |= &handletarget,        last KEY;
                 /^k12$/      and $wantrefresh |= &handlemouse,         last KEY;
                 /^=$/        and $wantrefresh |= &handleident,         last KEY;
-                /^\*$/       and $wantrefresh |= &handlenumbase,       last KEY;
+                /^\*$/       and $wantrefresh |= &handleradix,         last KEY;
                 # invalid keypress: cursor position needs no checking
                 $wantrefresh &= ~$R_STRIDE;
             } # switch KEY
@@ -3307,6 +3338,10 @@ autowritehistory:no
 ## automatically clobber existing files
 clobber:no
 
+## clock date/time format; see strftime(3). %x and %X are the defaults.
+clockdateformat:%x
+clocktimeformat:%X
+
 ## whether you want to have the screen cleared when pfm exits
 clsonexit:no
 
@@ -3321,9 +3356,6 @@ copyrightdelay:0.2
 ## use very visible cursor (e.g. block cursor on Linux console)
 cursorveryvisible:yes
 
-## base number system what Name will display non-ascii chars in (hex,oct)
-defaultnumbase:hex
-
 ## initial colorset to pick from the various colorsets defined below (for F4)
 defaultcolorset:dark
 
@@ -3336,6 +3368,9 @@ defaultident:user
 ## initial layout to pick from the array 'columnlayouts' (see below) (for F9)
 defaultlayout:0
 
+## initial radix that Name will use to display non-ascii chars with (hex,oct)
+defaultradix:hex
+
 ## initial sort mode (nNmMeEfFsSiItTdDaA) (default n) (for F6)
 defaultsortmode:n
 
@@ -3345,7 +3380,7 @@ dotdotmode:no
 ## your system's du(1) command (needs \2 for the current filename).
 ## Specify so that the outcome is in bytes.
 ## this is commented out because pfm makes a clever guess for your OS.
-#ducmd:du -sk "\2" | awk '{ printf "%d", 1024 * $1 }'
+#ducmd:du -sk \2 | awk '{ printf "%d", 1024 * $1 }'
 
 ## specify your favorite editor (does not need \2).
 ## you can also use $EDITOR for this
@@ -3362,18 +3397,16 @@ filetypeflags:yes
 importlscolors:yes
 
 ## additional key definitions for Term::Screen.
-## definitely look in the Term::Screen(3pm) manpage for details.
+## I have seen and tried pfm in several terminals and it seems
+## that Term::Screen *badly* needs these additions.
+## if some (function) keys do not seem to work, add their escape sequences here.
 ## you may specify these by-terminal (make the option name 'keydef[$TERM]')
 ## or global ('keydef[*]')
-## if some (function) keys do not seem to work, add their escape sequences here.
+## definitely look in the Term::Screen(3pm) manpage for details.
 ## also check 'kmous' from terminfo if your mouse is malfunctioning.
-keydef[*]:kmous=\e[M:
-#keydef[*]:kl=\eOD:kd=\eOB:ku=\eOA:kr=\eOC:home=\e[1~:end=\e[4~:end=\e[F:k1=\eOP:k2=\eOQ:k3=\eOR:k4=\e[OS:
-## some people always set TERM to 'vt100'
-keydef[vt100]:kl=\eOD:kd=\eOB:ku=\eOA:kr=\eOC:home=\e[1~:end=\e[4~:end=\e[F:k1=\eOP:k2=\eOQ:k3=\eOR:k4=\e[OS:
-keydef[linux]:home=\e[1~:end=\e[4~:
-keydef[xterm]:home=\e[1~:end=\e[4~:end=\e[F:
-keydef[xterm-color]:home=\e[1~:end=\e[4~:end=\e[F:
+#keydef[vt100]:home=\e[1~:end=\e[4~:
+keydef[*]:kmous=\e[M:home=\e[1~:end=\e[4~:end=\e[F:\
+kl=\eOD:kd=\eOB:ku=\eOA:kr=\eOC:k1=\eOP:k2=\eOQ:k3=\eOR:k4=\e[OS:
 
 ## the keymap to use in readline (vi,emacs). (default emacs)
 #keymap:vi
@@ -3408,12 +3441,13 @@ showlock:sun
 timestampformat:%y %b %d %H:%M
 #timestampformat:%Y-%m-%d %H:%M:%S
 #timestampformat:%b %d %H:%M
+#timestampformat:%c
 #timestampformat:%Y %V %a
 
 ## translate spaces when viewing Name
 translatespace:no
 
-## use color (yes,no,force)
+## use color (yes,no,force) (may be overridden by ANSI_COLORS_DISABLED)
 ## 'no'    = use no color at all
 ## 'yes'   = use color if your terminal is thought to support it
 ## 'force' = use color on any terminal
@@ -3435,26 +3469,21 @@ viewer:xv
 ## title, title in swap mode, footer, messages, and the highlighted file.
 ## for the frame to become colored, 'usecolor' must be set to 'yes' or 'force'.
 
-##-attribute codes:
-## 00=none 01=bold 04=underscore 05=blink 07=reverse 08=concealed(?)
-##-text color codes:
-## 30=black 31=red 32=green 33=yellow 34=blue 35=magenta 36=cyan 37=white
-##-background color codes:
-## 40=black 41=red 42=green 43=yellow 44=blue 45=magenta 46=cyan 47=white
+framecolors[light]:\
+header=white on blue:multi=reverse cyan on black:\
+title=reverse cyan on black:swap=reverse black on cyan:\
+footer=reverse blue on white:message=blue:highlight=bold:
 
-framecolors[dark]:header=37;44:multi=01;07;36;47:title=01;07;36;47:\
-swap=07;36;40:footer=01;07;34;47:message=01;36:highlight=01:
-
-framecolors[light]:header=37;44:multi=07;36;40:title=07;36;40:\
-swap=07;30;46:footer=07;34;47:message=34:highlight=01:
-
-## these are the defaults
-#framecolors[default]:header=37;44:multi=01;07;36;47:title=01;07;36;47:\
-#swap=07;36;40:footer=01;07;34;47:message=01;36:highlight=01:
+framecolors[dark]:\
+header=white on blue:multi=bold reverse cyan on white:\
+title=bold reverse cyan on white:swap=reverse black on cyan:\
+footer=bold reverse blue on white:message=bold cyan:highlight=bold:
 
 ## these are a suggestion
-#framecolors[dark]:header=37;44:multi=07;36;40:title=07;36;40:\
-#swap=07;33;40:footer=01;07;34;47:message=01;36:highlight=01:
+#framecolors[dark]:\
+#header=white on blue:multi=reverse cyan on black:\
+#title=reverse cyan on black:swap=reverse yellow on black:\
+#footer=bold reverse blue on white:message=bold cyan:highlight=bold:
 
 ## 'dircolors' defines the colors that will be used for your files.
 ## for the files to become colored, 'usecolor' must be set to 'yes' or 'force'.
@@ -3469,37 +3498,46 @@ swap=07;30;46:footer=07;34;47:message=34:highlight=01:
 ## do=door nt=network special (not implemented) wh=whiteout (not implemented)
 ## *.<ext> defines extension colors
 
-dircolors[dark]:no=00:fi=00:ex=00;32:lo=01;30:di=01;34:ln=01;36:or=37;41:\
-bd=01;33;40:cd=01;33;40:pi=00;33;40:so=01;35:\
-do=01;35:nt=01;35:wh=01;30;47:lc=\e[:rc=m:\
-*.cmd=01;32:*.exe=01;32:*.com=01;32:*.btm=01;32:*.bat=01;32:\
-*.pas=32:*.c=35:*.h=35:*.pm=36:*.pl=36:*.htm=01;33:*.html=01;33:\
-*.tar=01;31:*.tgz=01;31:*.arj=01;31:*.taz=01;31:*.lzh=01;31:*.zip=01;31:\
-*.z=01;31:*.Z=01;31:*.gz=01;31:*.bz2=01;31:*.deb=31:*.rpm=31:*.pkg=31:\
-*.jpg=01;35:*.gif=01;35:*.bmp=01;35:*.xbm=01;35:*.xpm=01;35:*.png=01;35:\
-*.mpg=01;37:*.avi=01;37:*.gl=01;37:*.dl=01;37:
+dircolors[dark]:no=reset:fi=reset:ex=green:lo=bold black:di=bold blue:\
+ln=bold cyan:or=white on red:\
+bd=bold yellow on black:cd=bold yellow on black:\
+pi=yellow on black:so=bold magenta:\
+do=bold magenta:nt=bold magenta:wh=bold black on white:\
+*.cmd=bold green:*.exe=bold green:*.com=bold green:*.btm=bold green:\
+*.bat=bold green:*.pas=green:*.c=magenta:*.h=magenta:*.pm=cyan:*.pl=cyan:\
+*.htm=bold yellow:*.html=bold yellow:*.tar=bold red:*.tgz=bold red:\
+*.arj=bold red:*.taz=bold red:*.lzh=bold red:*.zip=bold red:\
+*.z=bold red:*.Z=bold red:*.gz=bold red:*.bz2=bold red:*.deb=red:*.rpm=red:\
+*.pkg=red:*.jpg=bold magenta:*.gif=bold magenta:*.bmp=bold magenta:\
+*.xbm=bold magenta:*.xpm=bold magenta:*.png=bold magenta:\
+*.mpg=bold white:*.avi=bold white:*.gl=bold white:*.dl=bold white:
 
-dircolors[light]:no=00:fi=00:ex=00;32:lo=01;30:di=01;34:ln=04;34:or=37;41:\
-bd=01;33;40:cd=01;33;40:pi=00;33;40:so=01;35:\
-do=01;35:nt=01;35:wh=01;37;40:lc=\e[:rc=m:\
-*.cmd=01;32:*.exe=01;32:*.com=01;32:*.btm=01;32:*.bat=01;32:\
-*.pas=32:*.c=35:*.h=35:*.pm=46:*.pl=46:*.htm=30;43:*.html=30;43:\
-*.tar=01;31:*.tgz=01;31:*.arj=01;31:*.taz=01;31:*.lzh=01;31:*.zip=01;31:\
-*.z=01;31:*.Z=01;31:*.gz=01;31:*.bz2=01;31:*.deb=31:*.rpm=31:*.pkg=31:\
-*.jpg=01;35:*.gif=01;35:*.bmp=01;35:*.xbm=01;35:*.xpm=01;35:*.png=01;35:\
-*.mpg=01;37;44:*.avi=01;37;44:*.gl=01;37;44:*.dl=01;37;44:
+dircolors[light]:no=reset:fi=reset:ex=reset green:lo=bold black:di=bold blue:\
+ln=underscore blue:or=white on red:\
+bd=bold yellow on black:cd=bold yellow on black:\
+pi=reset yellow on black:so=bold magenta:\
+do=bold magenta:nt=bold magenta:wh=bold white on black:\
+*.cmd=bold green:*.exe=bold green:*.com=bold green:*.btm=bold green:\
+*.bat=bold green:*.pas=green:*.c=magenta:*.h=magenta:*.pm=on cyan:*.pl=on cyan:\
+*.htm=black on yellow:*.html=black on yellow:*.tar=bold red:*.tgz=bold red:\
+*.arj=bold red:*.taz=bold red:*.lzh=bold red:*.zip=bold red:\
+*.z=bold red:*.Z=bold red:*.gz=bold red:*.bz2=bold red:*.deb=red:*.rpm=red:\
+*.pkg=red:*.jpg=bold magenta:*.gif=bold magenta:*.bmp=bold magenta:\
+*.xbm=bold magenta:*.xpm=bold magenta:*.png=bold magenta:\
+*.mpg=bold white on blue:*.avi=bold white on blue:\
+*.gl=bold white on blue:*.dl=bold white on blue:
 
 ## The special set 'framecolors[*]' will be used for every 'dircolors[x]'
 ## for which there is no corresponding 'framecolors[x]' (like ls_colors)
 
 framecolors[*]:\
-title=07:swap=07:footer=07:highlight=01:
+title=reverse:swap=reverse:footer=reverse:highlight=bold:
 
 ## The special set 'dircolors[*]' will be used for every 'framecolors[x]'
 ## for which there is no corresponding 'dircolors[x]'
 
 dircolors[*]:\
-di=01:ln=04:
+di=bold:ln=underscore:
 
 ##########################################################################
 ## column layouts
@@ -3513,9 +3551,9 @@ di=01:ln=04:
 ## u    user                    >=8 (system-dependent)
 ## g    group                   >=8 (system-dependent)
 ## p    permissions (mode)      10
-## a    access time             15
-## c    change time             15
-## m    modification time       15
+## a    access time             15 (for "%y %b %d %H:%M" if len(%b) == 3)
+## c    change time             15 (idem)
+## m    modification time       15 (idem)
 ## d    device                  5?
 ## i    inode                   7
 ## l    link count              >=5 (system-dependent)
@@ -3543,7 +3581,7 @@ ppppppppppllll uuuuuuuu ggggggggssssssss mmmmmmmmmmmmmmm *nnnnnnn:
 ## your commands
 
 ## in the defined commands, you may use the following escapes.
-## these assume you do not have filenames with double quotes in them.
+## these must NOT be quoted any more!
 ##  \1 = filename without extension
 ##  \2 = filename entirely
 ##  \3 = current directory path
@@ -3555,34 +3593,162 @@ ppppppppppllll uuuuuuuu ggggggggssssssss mmmmmmmmmmmmmmm *nnnnnnn:
 ##  \p = 'pager'  (defined above)
 ##  \v = 'viewer' (defined above)
 
-your[a]:acroread "\2" &
-your[B]:bunzip2 "\2"
-your[b]:xv -root +noresetroot +smooth -maxpect -quit "\2"
-your[c]:tar cvf - "\2" | gzip > "\2".tar.gz
-your[d]:uudecode "\2"
-your[e]:unarj l "\2" | more
-your[f]:file "\2"
-your[G]:gimp "\2"
-your[g]:gvim "\2"
-your[i]:rpm -qpi "\2"
-your[j]:mpg123 "\2" &
-your[k]:esdplay "\2"
-your[l]:mv -i "\2" "$(echo "\2" | tr '[:upper:]' '[:lower:]')"
-your[n]:nroff -man "\2" | more
-your[o]:cp "\2" "\2.$(date +"%Y%m%d")"; touch -r "\2" "\2.$(date +"%Y%m%d")"
-your[p]:perl -cw "\2"
-your[q]:unzip -l "\2" | more
-your[r]:rpm -qpl "\2" | more
-your[s]:strings "\2" | more
-your[t]:gunzip < "\2" | tar tvf - | more
-your[U]:unzip "\2"
-your[u]:gunzip "\2"
-your[v]:xv "\2" &
-your[w]:what "\2"
-your[x]:gunzip < "\2" | tar xvf -
-your[y]:lynx "\2"
-your[Z]:bzip2 "\2"
-your[z]:gzip "\2"
+your[a]:acroread \2 &
+your[B]:bunzip2 \2
+your[b]:xv -root +noresetroot +smooth -maxpect -quit \2
+your[c]:tar cvf - \2 | gzip > \2.tar.gz
+your[d]:uudecode \2
+your[e]:unarj l \2 | \p
+your[f]:file \2
+your[G]:gimp \2
+your[g]:gvim \2
+your[i]:rpm -qpi \2
+your[j]:mpg123 \2 &
+your[k]:esdplay \2
+your[l]:mv -i \2 "$(echo \2 | tr '[:upper:]' '[:lower:]')"
+your[n]:nroff -man \2 | \p
+your[o]:cp \2 \2.$(date +"%Y%m%d"); touch -r \2 \2.$(date +"%Y%m%d")
+your[p]:perl -cw \2
+your[q]:unzip -l \2 | \p
+your[r]:rpm -qpl \2 | \p
+your[s]:strings \2 | \p
+your[t]:gunzip < \2 | tar tvf - | \p
+your[U]:unzip \2
+your[u]:gunzip \2
+your[v]:xv \2 &
+your[w]:what \2
+your[x]:gunzip < \2 | tar xvf -
+your[y]:lynx \2
+your[Z]:bzip2 \2
+your[z]:gzip \2
+
+##########################################################################
+## launch commands (not implemented)
+
+## should the filetype be determined by magic (file(1)), by extension,
+## or should we prefer one method and fallback on the other one?
+## allowed values: 'extension' 'magic' 'extension,magic' 'magic,extension'
+launchby:extension,magic
+
+## the file type names do not have to be valid MIME types
+extension[*.Z]   : application/x-compress
+extension[*.arj] : application/x-arj
+extension[*.au]  : audio/basic
+extension[*.avi] : video/x-msvideo
+extension[*.bat] : application/x-msdos-batch
+extension[*.bin] : application/octet-stream
+extension[*.bmp] : image/x-ms-bitmap
+extension[*.bz2] : application/x-bzip2
+extension[*.c]   : application/x-c
+extension[*.cmd] : application/x-msdos-batch
+extension[*.com] : application/x-executable
+extension[*.css] : text/css
+extension[*.deb] : application/x-deb
+extension[*.doc] : application/x-ms-office
+extension[*.dll] : application/octet-stream
+extension[*.eps] : application/postscript
+extension[*.exe] : application/x-executable
+extension[*.gif] : image/gif
+extension[*.gz]  : application/x-gzip
+extension[*.htm] : text/html
+extension[*.html]: text/html
+extension[*.jpeg]: image/jpeg
+extension[*.jpg] : image/jpeg
+extension[*.lzh] : application/x-lha
+extension[*.mid] : audio/midi
+extension[*.midi]: audio/midi
+extension[*.mov] : video/quicktime
+extension[*.mp2] : audio/mpeg
+extension[*.mp3] : audio/mpeg
+extension[*.mpeg]: video/mpeg
+extension[*.mpg] : video/mpeg
+extension[*.pas] : application/x-pascal
+extension[*.pdf] : application/pdf
+extension[*.ppt] : application/x-ms-office
+extension[*.pl]  : application/x-perl
+extension[*.pm]  : application/x-perl-module
+extension[*.png] : image/png
+extension[*.ps]  : application/postscript
+extension[*.qt]  : video/quicktime
+extension[*.ra]  : audio/x-realaudio
+extension[*.ram] : audio/x-pn-realaudio
+extension[*.rpm] : application/x-rpm
+extension[*.tar] : application/x-tar
+extension[*.taz] : application/x-tar-compress
+extension[*.tgz] : application/x-tar-gzip
+extension[*.tif] : image/tiff
+extension[*.tiff]: image/tiff
+extension[*.txt] : text/plain
+extension[*.wav] : audio/x-wav
+extension[*.xbm] : image/x-xbitmap
+extension[*.xpm] : image/x-xpixmap
+extension[*.xls] : application/x-ms-office
+extension[*.z]   : application/x-compress
+extension[*.zip] : application/zip
+
+magic[ASCII English text]   : text/plain
+magic[C\+?\+? program text] : text/x-c
+magic[GIF image data]       : image/gif
+magic[HTML document text]   : text/html
+magic[JPEG image data]      : image/jpeg
+magic[PDF document]         : application/pdf
+magic[PNG image data]       : image/png
+magic[PostScript document]  : application/postscript
+magic[RPM]                  : application/x-rpm
+magic[Sun/NeXT audio data]  : audio/basic
+magic[TIFF image data]      : image/tiff
+magic[WAVE audio]           : audio/x-wav
+magic[X pixmap image]       : image/x-xpixmap
+magic[Zip archive data]     : application/zip
+magic[bzip2 compressed data]: application/x-bzip2
+magic[compress.d data]      : application/x-compress
+magic[gzip compressed data] : application/x-gzip
+magic[tar archive]          : application/x-tar
+
+launch[application/octet-stream]  : \p \2
+launch[application/pdf]           : acroread \2 &
+launch[application/postscript]    : gv \2 &
+launch[application/x-arj]         : unarj x \2
+launch[application/x-bzip2]       : bunzip2 \2
+launch[application/x-c]           : gcc -o \1 \2
+launch[application/x-compress]    : uncompress \2
+#launch[application/x-deb]         :
+launch[application/x-executable]  : wine \2 &
+launch[application/x-gzip]        : gunzip \2
+#launch[application/x-lha]         :
+launch[application/x-msdos-batch] : \e \2
+launch[application/x-ms-office]   : \e \2
+launch[application/x-pascal]      : \e \2
+launch[application/x-perl-module] : \e \2
+launch[application/x-perl]        : \2
+#launch[application/x-rpm]         : rpm -Uvh \2
+launch[application/x-rpm]         : rpm -qpl \2
+#launch[application/x-tar-compress]: uncompress < \2 | tar xvf -
+launch[application/x-tar-compress]: uncompress < \2 | tar tvf -
+#launch[application/x-tar-gzip]    : gunzip < \2 | tar xvf -
+launch[application/x-tar-gzip]    : gunzip < \2 | tar tvf -
+#launch[application/x-tar]         : tar xvf \2
+launch[application/x-tar]         : tar tvf \2
+launch[application/zip]           : unzip \2
+launch[audio/basic]               : esdplay \2 &
+launch[audio/midi]                : timidity \2 &
+launch[audio/mpeg]                : mpg123 \2 &
+launch[audio/x-pn-realaudio]      : realplay \2 &
+launch[audio/x-realaudio]         : realplay \2 &
+launch[audio/x-wav]               : esdplay \2 &
+launch[image/gif]                 : \v \2 &
+launch[image/jpeg]                : \v \2 &
+launch[image/png]                 : \v \2 &
+launch[image/tiff]                : \v \2 &
+launch[image/x-ms-bitmap]         : \v \2 &
+launch[image/x-xbitmap]           : \v \2 &
+launch[image/x-xpixmap]           : \v \2 &
+launch[text/css]                  : \e \2
+launch[text/html]                 : \e \2
+launch[text/plain]                : \e \2
+#launch[video/mpeg]                :
+#launch[video/quicktime]           :
+launch[video/x-msvideo]           : divxPlayer \2 &
 
 ## vi: set filetype=xdefaults: # fairly close
 __END__
@@ -3664,8 +3830,6 @@ Print current version, then exit.
 
 =head1 NAVIGATION
 
-=over
-
 Navigation through directories is done using the arrow keys, the vi(1)
 cursor keys (B<hjkl>), B<->, B<+>, B<PgUp>, B<PgDn>, B<home>, B<end>,
 and the vi(1) control keys B<CTRL-F>, B<CTRL-B>, B<CTRL-U>, B<CTRL-D>,
@@ -3675,8 +3839,6 @@ will take you one directory level up (note: see below under BUGS on the
 functioning of B<ESC>). Pressing B<ENTER> when the cursor is on a directory
 will open the directory. Pressing B<SPACE> will both mark the current file
 and advance the cursor.
-
-=back
 
 =head1 COMMANDS
 
@@ -3762,32 +3924,33 @@ Gives the option to create either:
 This will create a symlink containing an absolute path to the target,
 irrespective of whether you enter a relative or an absolute symlink name.
 
-Example: when the cursor is on the file F</home/rene/incoming/.profile>,
+Example: when the cursor is on the file F</home/rene/incoming/.plan>,
 and you request an absolute symlink to be made with either the name
-F<../.profile> or F</home/rene/.profile>, the actual symlink will become:
+F<../.plan> or F</home/rene/.plan>, the actual symlink will become:
 
-    /home/rene/.profile -> /home/rene/incoming/.profile
-
-=item a B<R>elative symlink
-
-This will create a symlink containing a relative path to the target,
-irrespective of whether you enter a relative or an absolute symlink name.
-
-In the previous example, this option would have created the symlink as
-follows:
-
-    /home/rene/.profile -> incoming/.profile
+    /home/rene/.plan -> /home/rene/incoming/.plan
 
 =item a B<H>ard link
 
 This will create an additional hard link to the current file with the
 specified name, which must be on the same filesystem.
 
+=item a B<R>elative symlink
+
+This will create a symlink containing a relative path to the target,
+irrespective of whether you enter a relative or an absolute symlink name.
+
+Example: when the cursor is on the file F</home/rene/incoming/.plan>,
+and you request a relative symlink to be made with either the name
+F<../.plan> or F</home/rene/.plan>, the actual symlink will become:
+
+    /home/rene/.plan -> incoming/.plan
+
 =back
 
 Note that if the current file is a directory, the B<l> key, being one of
 the vi(1) cursor keys, will chdir() you into the directory. The capital B<L>
-command will I<always> make a symlink.
+command will I<always> try to make a link.
 
 =item B<More>
 
@@ -3799,18 +3962,80 @@ you back to the main menu.
 
 =item B<Name>
 
-View the complete long filename. For a symbolic link, this command will
-also display the target of the symbolic link. Non-ASCII characters,
-control characters and (optionally) spaces will be displayed in octal or
-hexadecimal (configurable using the 'defaultnumbase' and 'translatespace'
-options in the F<.pfmrc> file), formatted like the following examples:
+Shows the complete long filename. For a symbolic link, this command
+will also show the target of the symbolic link. This is useful in case
+the terminal is not wide enough to display the entire name, or if the
+name contains non-printable characters.  Non-ASCII characters and control
+characters will be displayed as their octal or hexadecimal equivalents like
+the examples in the following table. Spaces will be converted as well, if
+the 'translatespace' option is turned on in the F<.pfmrc> file.  When the
+name is shown in its converted form, pressing B<*> will change the radix.
+The 'defaultradix' option specifies the initial radix that will be used.
 
-    octal                      hexadecimal
+Examples:
 
-    control-A : \001           control-A : \0x01
-    space     : \040           space     : \0x20
-    c-cedilla : \347           c-cedilla : \0xe7
-    backslash : \\             backslash : \\
+=begin html
+
+<table border=0 cellspacing=4 align=center width="50%">
+<tr><td colspan=3><hr></td></tr>
+<tr>
+	<td rowspan=3>character</td>
+	<td colspan=2>representation in radix</td>
+</tr>
+<tr>
+	<td colspan=2><hr></td>
+</tr>
+<tr>
+	<td>octal</td>
+	<td>hexadecimal</td>
+</tr>
+<tr><td colspan=3><hr></td></tr>
+<tr>
+	<td>CTRL-A</td>
+	<td>\001</td>
+	<td>\0x01</td>
+</tr>
+<tr>
+	<td>space</td>
+	<td>\040</td>
+	<td>\0x20</td>
+</tr>
+<tr>
+	<td>c cedilla (<b>&ccedil;</b>)</td>
+	<td>\347</td>
+	<td>\0xe7</td>
+</tr>
+<tr>
+	<td>backslash (<b>\</b>)</td>
+	<td>\\</td>
+	<td>\\</td>
+</tr>
+<tr><td colspan=3><hr></td></tr>
+</table>
+
+=end html
+
+=begin roff
+
+.in +4n
+.\" ooh, these *roff tables are neat
+.TS
+l  | c  s
+l6 | l8 l.
+_
+character	representation in radix
+_
+\^	octal	hexadecimal\0
+_
+CTRL-A	\\001	\\0x01
+space	\\040	\\0x20
+c cedilla (\fB\(,c\fP)	\\347	\\0xe7
+backslash (\fB\\\fP)	\\\\	\\\\\0
+_
+.TE
+.in
+
+=end roff
 
 =item B<cOmmand>
 
@@ -3861,12 +4086,13 @@ the image viewer specified with the 'viewer' option in the config file
 
 =back
 
+Also see below under QUOTING RULES.
+
 =item B<Print>
 
-Will prompt for a print command (default C<lpr -P$PRINTER \2>, or
-C<lpr \2> if C<PRINTER> is unset) and will pipe the current file through
-it. No formatting is done. You may specify a print command with the
-'printcmd' option in the F<.pfmrc> file.
+Will prompt for a print command (default C<lpr -P$PRINTER \2>, or C<lpr \2>
+if C<PRINTER> is unset) and will start it. No formatting is done. You may
+specify a print command with the 'printcmd' option in the F<.pfmrc> file.
 
 =item B<Quit>
 
@@ -4008,7 +4234,7 @@ the contents of the current file or directory are displayed (like B<S>how).
 
 =item B<*>
 
-Toggle the number base used for the B<N>ame command.
+Toggle the radix used by the B<N>ame command.
 
 =item B<.>
 
@@ -4054,7 +4280,7 @@ Fit the file list into the current window and refresh the display.
 =item B<F4>
 
 Change the current colorset. Multiple colorsets may be defined,
-see the F<.pfmrc> file for details.
+see the F<.pfmrc> file itself for details.
 
 =item B<F5>
 
@@ -4084,7 +4310,7 @@ Toggles the mark (include flag) on an individual file.
 
 Toggle the column layout. Layouts are defined in your F<.pfmrc>,
 in the 'defaultlayout' and 'columnlayouts' options. See the config
-file for information on changing the column layout.
+file itself for information on changing the column layout.
 
 Note that a 'grand total' column in the layout will only be filled when
 the siB<Z>e command is issued.
@@ -4103,20 +4329,225 @@ Toggle mouse use. See below under MOUSE COMMANDS.
 
 =back
 
+=head1 QUOTING RULES
+
+C<pfm> adds an extra layer of parsing to filenames and shell commands. It
+is important to take notice of the rules that C<pfm> uses. The following
+six types of input can be distinguished:
+
+=over
+
+=item B<a regular expression> (only the B<I>nclude and eB<X>clude commands)
+
+The input is parsed as a regular expression.
+
+=item B<a time> (e.g. the B<T>ime or B<I>nclude - B<B>efore commands)
+
+Characters not in the set C<[0-9.]> are removed from the input.
+
+=item B<a literal pattern> (only the B<F>ind command)
+
+The input is taken literally.
+
+=item B<not a filename or shell command> (e.g. in B<A>ttribute)
+
+The input is taken literally.
+
+=item B<a filename> (e.g. in B<C>opy or tarB<G>et).
+
+First of all, tilde expansion is performed.
+
+Next, any backslashed C<[1-6evp]> character is expanded to the corresponding
+value.
+
+At the same time, any backslashed non-C<[1-6evp]> character is just replaced
+with the character itself.
+
+Finally, if the filename is to be processed by C<pfm>, it is taken literally;
+if it is to be handed over to a shell, all metacharacters are escaped.
+
+=item B<a shell command> (e.g. in cB<O>mmand or B<P>rint)
+
+First of all, tilde expansion is performed.
+
+Next, any backslashed C<[1-6evp]> character is expanded to the corresponding
+value, I<with shell metacharacters escaped>.
+
+At the same time, any backslashed non-C<[1-6evp]> character is just replaced
+with the character itself.
+
+=back
+
+In short:
+
+=over
+
+=item
+
+C<pfm> always escapes shell metacharacters in expanded B<\2>
+I<etc.> constructs.
+
+=item
+
+In filenames entered, shell metacharacters are preserved, but they may
+also be escaped.
+
+=item
+
+In shell commands entered, metacharacters that you want to be taken
+literally must be escaped one extra time.
+
+=back
+
+Examples:
+
+=begin html
+
+<table border=0 cellspacing=4 align=center>
+<tr><td colspan=3><hr></td></tr>
+<tr>
+	<td>char(s) wanted in filename&nbsp;&nbsp;&nbsp;</td>
+	<td>char(s) to type in filename&nbsp;&nbsp;&nbsp;</td>
+	<td>char(s) to type in shell command&nbsp;&nbsp;&nbsp;</td>
+</tr>
+<tr><td colspan=3><hr><td></tr>
+<tr>
+	<td><i>any non-metachar</i></td>
+	<td><i>that char</i></td>
+	<td><i>that char</i></td>
+</tr>
+<tr>
+	<td>\</td>
+	<td>\\</td>
+	<td>\\\\</td>
+</tr>
+<tr>
+	<td>&quot;</td>
+	<td>&quot; <b>or</b> \&quot;</td>
+	<td>\\&quot; <b>or</b> '&quot;'</td>
+</tr>
+<tr>
+	<td><i>space</i></td>
+	<td><i>space</i> <b>or</b> \<i>space</i></td>
+	<td>\\<i>space</i>  <b>or</b> '<i>space</i>'</td>
+</tr>
+<tr>
+	<td><i>filename</i></td>
+	<td>\2</td>
+	<td>\2</td>
+</tr>
+<tr>
+	<td>\2</td>
+	<td>\\2</td>
+	<td>\\\\2 <b>or</b> '\\2'</td>
+</tr>
+<tr><td colspan=3><hr><td></tr>
+</table>
+
+=end html
+
+=begin roff
+
+.in
+.TS
+l | l l.
+_
+T{
+char(s) wanted in filename
+T}	T{
+char(s) to type in filename
+T}	T{
+char(s) to type in shell command
+T}
+_
+.\" great. *roff wants even more backslashes. so much for clarity.
+\fIany non-metachar\fP	\fIthat char\fP	\fIthat char\fP
+\\	\\\\	\\\\\\\\ \fBor\fR '\\\\'
+"	" \fBor\fP \\"	\\\\" \fBor\fR '"'
+\fIspace\fP	\fIspace\fP \fBor\fP \\\fIspace\fP	\\\\\fIspace\fP \fBor\fR '\fIspace\fP'
+\fIfilename\fP	\\2	\\2
+\\2	\\\\2	\\\\\\\\2 \fBor\fR '\\\\2'
+_
+.TE
+.in
+
+=end roff
+
 =head1 MOUSE COMMANDS
 
 When C<pfm> is run in an xterm, mouse use may be turned on (either through
 the B<F12> key, or with the 'mousemode' option in the F<.pfmrc> file), which
 will give mouse access to the following commands:
 
-    button   pathline      title    footer    file    filename
+=begin html
 
-    1        More - Show   ctrl-U   ctrl-D    F8      Show
-    2        cOmmand       PgUp     PgDn      Show    ENTER
-    3        cOmmand       PgUp     PgDn      Show    ENTER
+<table border=0 cellspacing=4 align=center width="50%">
+<tr><td colspan=6><hr></td></tr>
+<tr>
+	<td rowspan=3>button</td>
+	<td colspan=5>location clicked</td>
+</tr>
+<tr><td colspan=5><hr></td></tr>
+<tr>
+	<td>pathline</td>
+	<td>title</td>
+	<td>header/footer</td>
+	<td>file</td>
+	<td>filename</td>
+</tr>
+<tr><td colspan=6><hr></td></tr>
+<tr>
+	<td>1</td>
+	<td><b>M</b>ore - <b>S</b>how</td>
+	<td>CTRL-U</td>
+	<td>CTRL-D</td>
+	<td>F8</td>
+	<td><b>S</b>how</td>
+</tr>
+<tr>
+	<td>2</td>
+	<td>c<b>O</b>mmand</td>
+	<td>PgUp</td>
+	<td>PgDn</td>
+	<td><b>S</b>how</td>
+	<td>ENTER</td>
+</tr>
+<tr>
+	<td>3</td>
+	<td>c<b>O</b>mmand</td>
+	<td>PgUp</td>
+	<td>PgDn</td>
+	<td><b>S</b>how</td>
+	<td>ENTER</td>
+</tr>
+<tr><td colspan=6><hr><td></tr>
+</table>
 
-The cursor will I<only> be moved when the title or footer is clicked, or
-when changing directory.
+=end html
+
+=begin roff
+
+.in +4n
+.TS
+c | c s s s s
+^ | l l l l l
+c | l l l l l.
+_
+\0button	location clicked
+_
+\^	pathline	title/header	footer	file	filename\0
+_
+1	\fBM\fPore \- \fBS\fPhow	CTRL-U	CTRL-D	F8	\fBS\fPhow
+2	c\fBO\fPmmand	PgUp	PgDn	\fBS\fPhow	ENTER
+3	c\fBO\fPmmand	PgUp	PgDn	\fBS\fPhow	ENTER
+_
+.TE
+.in
+
+=end roff
+
+The cursor will I<only> be moved when the title, header or footer is clicked,
+or when changing directory.
 
 Mouse use will be turned off during the execution of commands, unless
 'mouseturnoff' is set to 'no' in F<.pfmrc>. Note that setting this to
@@ -4125,7 +4556,7 @@ will receive escape codes when the mouse is clicked.
 
 =head1 WORKING DIRECTORY INHERITANCE
 
-Upon exit, C<pfm> will save its current working directory in a file
+Upon exit, C<pfm> will save its current working directory in the file
 F<$HOME/.pfm/cwd>. In order to have this directory "inherited" by the
 calling process (shell), you may call C<pfm> using a function or alias
 like the following:
@@ -4152,6 +4583,11 @@ Example for csh(1) and tcsh(1):
 
 =over
 
+=item B<ANSI_COLORS_DISABLED>
+
+Detected by C<Term::ANSIScreen> as an indication that ANSI coloring should
+not be used. Used internally to suppress color when 'usecolor' is turned off.
+
 =item B<CDPATH>
 
 A colon-separated list of directories specifying the search path when
@@ -4168,6 +4604,25 @@ The editor to be used for the B<E>dit command. Overridden by C<VISUAL>.
 The directory where the B<F7> command will take you if you don't specify
 a new directory. Also the directory that initial B<~/> characters in a
 filename will expand to.
+
+=item B<LC_ALL>
+
+=item B<LC_COLLATE>
+
+=item B<LC_CTYPE>
+
+=item B<LC_MESSAGES>
+
+=for comment =item B<LC_MONETARY>
+
+=item B<LC_NUMERIC>
+
+=item B<LC_TIME>
+
+=item B<LANG>
+
+Determine locale settings, most notably for collation sequence, messages
+and date/time format. See locale(7).
 
 =item B<PAGER>
 
@@ -4234,11 +4689,6 @@ be processed before another key is pressed. This can be dangerous when
 deleting files. The author once almost pressed B<ENTER> when logged in as
 root and with the cursor next to F</sbin/reboot>. You have been warned.
 
-Commands that are started from a shell (e.g. with B<Y>our or cB<O>mmand)
-enclose the filename in double quotes to allow names with spaces.
-This prevents the correct processing of filenames containing double quotes.
-Note: this is solved in version 1.90.5.
-
 The smallest terminal size supported is 80x24. The display will be messed
 up if you resize your terminal window to a smaller size.
 
@@ -4247,12 +4697,12 @@ memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.87.2.
+This manual pertains to C<pfm> version 1.91.6.
 
 =head1 SEE ALSO
 
 The documentation on PFMS<.>COM. The manual pages for chmod(1), less(1),
-locale(7), lpr(1), touch(1), vi(1), Term::ScreenColor(3pm), Term::ReadLine(3pm),
+locale(7), lpr(1), touch(1), vi(1), Term::ANSIScreen(3pm), Term::ReadLine(3pm),
 and Term::Screen(3pm).
 
 =head1 AUTHOR
