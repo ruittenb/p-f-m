@@ -1,12 +1,12 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20030306 v1.92.1
+# @(#) pfm.pl 19990314-20030309 v1.92.2
 #
 # Name:         pfm
-# Version:      1.92.1
+# Version:      1.92.2
 # Author:       Rene Uittenbogaard
-# Date:         2003-03-06
+# Date:         2003-03-09
 # Usage:        pfm [ <directory> ] [ -s, --swap <directory> ]
 #               pfm { -v, --version | -h, --help }
 # Requires:     Term::ReadLine::Gnu (preferably)
@@ -28,14 +28,12 @@
 #       sub restat_copyback ?
 #       sub fileforall(sub) ?
 #       cache color codes?
-#       'keeplostfiles' option?
 #       make F11 respect multiple mode? (marked+oldmarked, not removing marks)
 #       'f' field in layout: characters in the 'gap' between filerecord & infocolumn
 #           are not cleared when switching columnformats -> insert an artificial "gap" field?
-#
 #       implement restat after launch
-#       launchexecwait optie?
-#       '!' command: clobber_mode and default
+#       'launchexecwait' option?
+#       'keeplostfiles' option?
 #
 #       implement 'logical' paths in addition to 'physical' paths?
 #           unless (chdir()) { getcwd() } otherwise no getcwd() ?
@@ -3504,11 +3502,11 @@ defaultsortmode:n
 dotdotmode:no
 
 ## your system's du(1) command (needs \2 for the current filename).
-## Specify so that the outcome is in bytes.
+## specify so that the outcome is in bytes.
 ## this is commented out because pfm makes a clever guess for your OS.
 #ducmd:du -sk \2 | awk '{ printf "%d", 1024 * $1 }'
 
-## specify your favorite editor (does not need \2).
+## specify your favorite editor (don't specify \2 here).
 ## you can also use $EDITOR for this
 editor:vi
 
@@ -3519,12 +3517,11 @@ editor:vi
 ## yes: 'ls -F' type, dirs: 'ls -p' type
 filetypeflags:yes
 
-## create an additional colorset for $LS_COLORS ?
+## convert $LS_COLORS into an additional colorset?
 importlscolors:yes
 
 ## additional key definitions for Term::Screen.
-## I have seen and tried pfm in several terminals and it seems
-## that Term::Screen *badly* needs these additions.
+## it seems that Term::Screen needs these additions *badly*.
 ## if some (function) keys do not seem to work, add their escape sequences here.
 ## you may specify these by-terminal (make the option name 'keydef[$TERM]')
 ## or global ('keydef[*]')
@@ -3545,7 +3542,7 @@ mousemode:xterm
 ## and $editor) will receive escape codes on mousedown events
 mouseturnoff:yes
 
-## your pager (does not need \2). you can also use $PAGER
+## your pager (don't specify \2 here). you can also use $PAGER
 #pager:less
 
 ## F7 key swap path method is persistent? (default no)
@@ -3580,7 +3577,7 @@ translatespace:no
 ## define your colorsets below ('framecolors' and 'dircolors')
 usecolor:force
 
-## preferred image editor/viewer (does not need \2)
+## preferred image editor/viewer (don't specify \2 here)
 viewer:xv
 
 ##########################################################################
@@ -3688,9 +3685,8 @@ di=bold:ln=underscore:
 ## take care not to make the fields too small or values will be cropped!
 ## if the terminal is resized, the filename field will be elongated.
 ## the diskinfo field *must* be the _first_ or _last_ field on the line.
-## a final : after the last layout is allowed.
+## a final colon (:) after the last layout is allowed.
 ## the first three layouts were the old (pre-v1.72) defaults.
-## the last one is the ls(1) layout.
 
 #<------------------------- file info -------------------------># #<-diskinfo->#
 columnlayouts:\
@@ -3889,7 +3885,7 @@ launch[image/x-ms-bitmap]         : \v \2 &
 launch[image/x-xbitmap]           : \v \2 &
 launch[image/x-xpixmap]           : \v \2 &
 launch[text/css]                  : \e \2
-launch[text/html]                 : \e \2
+launch[text/html]                 : lynx \2
 launch[text/plain]                : \e \2
 #launch[video/mpeg]                :
 #launch[video/quicktime]           :
@@ -3974,56 +3970,130 @@ Print current version, then exit.
 
 =head1 NAVIGATION
 
-Navigation through directories is done using the arrow keys, the vi(1)
-cursor keys (B<hjkl>), B<->, B<+>, B<PgUp>, B<PgDn>, B<home>, B<end>, and
-the vi(1) control keys B<CTRL-F>, B<CTRL-B>, B<CTRL-U>, B<CTRL-D>, B<CTRL-Y>
-and B<CTRL-E>. Note that the B<l> key is also used for creating symbolic
-links (see below under B<L>ink). Pressing B<ESC> or B<BS> will take you
-one directory level up (note: see below under BUGS on the functioning of
-B<ESC>). Pressing B<ENTER> when the cursor is on a directory will chdir()
-to the directory. Pressing B<SPACE> will both mark the current file and
-advance the cursor.
+Navigation through directories is essentially done using the arrow keys
+and the vi(1) cursor keys (B<hjkl>). The following additional navigation
+keys are available:
 
-=head2 Movement inside a directory
+Movement inside a directory:
 
-=over
+=begin html
 
-=over
+<table border=0 cellspacing=4 align=center width="80%">
+<tr><td colspan=2><hr></td></tr>
+<tr>
+    <td width="30%"><i>up arrow</i>, <i>down arrow</i></td>
+    <td>move the cursor by one line</td>
+</tr>
+<tr>
+    <td><b>k</b>, <b>j</b></td>
+    <td>move the cursor by one line</td>
+</tr>
+<tr>
+    <td><b>-</b>, <b>+</b></td>
+    <td>move the cursor by ten lines</td>
+</tr>
+<tr>
+    <td><b>CTRL-E</b>, <b>CTRL-Y</b></td>
+    <td>scroll the screen by one line</td>
+</tr>
+<tr>
+    <td><b>CTRL-U</b>, <b>CTRL-D</b></td>
+    <td>move the cursor by half a page</td>
+</tr>
+<tr>
+    <td><b>CTRL-B</b>, <b>CTRL-F</b></td>
+    <td>move the cursor by a full page</td>
+</tr>
+<tr>
+    <td><b>PgUp</b>, <b>PgDn</b></td>
+    <td>move the cursor by a full page</td>
+</tr>
+<tr>
+    <td><b>HOME</b>, <b>END</b></td>
+    <td>move the cursor to the top or bottom line</td>
+</tr>
+<!-- tr><td colspan=2><hr></td></tr -->
+<tr>
+    <td><b>SPACE</b></td>
+    <td>mark the current file, then move the cursor one line down</td>
+</tr>
+</tr>
+<tr><td colspan=2><hr></td></tr>
+</table>
 
-=item B<up arrow>, B<down arrow>, B<k>, B<j>: move the cursor by one line
+=end html
 
-=item B<->, B<+>: move the cursor by ten lines
+=begin roff
 
-=item B<CTRL-E>, B<CTRL-B>: scroll the screen by one line
+.in +4n
+.TS
+lw(20n) | lw(41n).
+_
+\fIup arrow\fP, \fIdown arrow\fP	move the cursor by one line
+\fBk\fP, \fBj\fP	move the cursor by one line
+\fB-\fP, \fB+\fP	move the cursor by ten lines
+\fBCTRL-E\fP, \fBCTRL-Y\fP	scroll the screen by one line
+\fBCTRL-U\fP, \fBCTRL-D\fP	move the cursor by half a page
+\fBCTRL-B\fP, \fBCTRL-F\fP	move the cursor by a full page
+\fBPgUp\fP, \fBPgDn\fP	move the cursor by a full page
+\fBHOME\fP, \fBEND\fP	move the cursor to the top or bottom line
+.\"_	_
+\fBSPACE\fP	T{
+mark the current file,
+then move the cursor one line down
+T}
+_
+.TE
+.in
 
-=item B<CTRL-U>, B<CTRL-D>: move the cursor by half a page
+=end roff
 
-=item B<CTRL-B>, B<CTRL-F>, B<PgUp>, B<PgDn>: move the cursor by a full page
+Changing between directories:
 
-=item B<home>, B<end>: move the cursor to the top or bottom line
+=begin html
 
-=item B<SPACE>: mark the current file, then move the cursor one line down
+<table border=0 cellspacing=4 align=center width="80%">
+<tr><td colspan=2><hr></td></tr>
+<tr>
+    <td width="30%"><i>right arrow</i>, <b>l</b></td>
+    <td>change to a subdirectory</td>
+</tr>
+<tr>
+    <td><i>left arrow</i>, <b>h</b></td>
+    <td>change to the parent directory</td>
+</tr>
+<tr>
+    <td><b>ENTER</b></td>
+    <td>change to a subdirectory</td>
+</tr>
+<tr>
+    <td><b>ESC</b>, <b>BS</b></td>
+    <td>change to the parent directory</td>
+</tr>
+<tr><td colspan=2><hr></td></tr>
+</table>
 
-=back
+=end html
 
-=back
+=begin roff
 
-=head2 Changing between directories
+.in +4n
+.TS
+lw(20n) | lw(41n).
+_
+\fIright arrow\fP, \fBl\fP	change to a subdirectory
+\fIleft arrow\fP, \fBh\fP	change to the parent directory
+\fBENTER\fP	change to a subdirectory
+\fBESC\fP, \fBBS\fP	change to the parent directory
+_
+.TE
+.in
 
-=over
+=end roff
 
-=over
-
-=item B<right arrow>, B<l>, B<ENTER>: change to a subdirectory
-
-=item B<left arrow>, B<h>, B<ESC>, B<BS>: change to the parent directory
-
-=back
-
-=back
-
-Note 1: B<l> and B<ENTER> only work like this if the cursor is on a directory
-(see below under B<L>ink and B<ENTER> respectively).
+Note 1: the B<l> and B<ENTER> keys function differently when the cursor
+is on a non-directory file (see below under B<L>ink and LAUNCHING FILES
+respectively).
 
 Note 2: see below under BUGS on the functioning of B<ESC>.
 
@@ -4437,8 +4507,6 @@ If the current file is a directory, C<pfm> will chdir() to that directory.
 Otherwise, C<pfm> will attempt to I<launch> the file. See LAUNCHING
 FILES below.
 
-The B<ENTER> key will always behave as if C<pfm> runs in single-file mode.
-
 =item B<!>
 
 Toggle clobber mode. This controls whether a file should be overwritten when
@@ -4604,8 +4672,8 @@ Example:
 If the file type cannot be determined, the current file will be displayed
 using your pager.
 
-The B<ENTER> key will I<not> launch multiple files: it always behaves
-as if C<pfm> runs in single-file mode. Use B<Y>our or cB<O>mmand to launch
+The B<ENTER> key will always behave as if C<pfm> runs in single-file mode.
+It will I<not> launch multiple files. Use B<Y>our or cB<O>mmand to launch
 multiple files.
 
 =head1 QUOTING RULES
@@ -4976,7 +5044,7 @@ memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.92.1.
+This manual pertains to C<pfm> version 1.92.2.
 
 =head1 SEE ALSO
 
