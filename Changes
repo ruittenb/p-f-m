@@ -1,8 +1,4 @@
-1.92.7
+1.92.8
 
-* changed user- and groupname caching
-* fixed perl version require()d: 5.006 (for our())
-* fixed error reporting
-* fixed bug that prevented replacing 'more' with 'less' when writing
-  a default config file on Linux
+* fixed logical path processing
 
