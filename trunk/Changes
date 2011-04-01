@@ -1,5 +1,6 @@
-1.92.5
+1.92.6
 
-* fixed whiteout support: listing, deleting (W), toggle mode (%)
-* added helper app: listwhite(1)
+* inverted meaning of 'dotmode' and 'whitemode'
+* fixed detection of 'unwo' command
+* made F7 (swap) abortable
 
