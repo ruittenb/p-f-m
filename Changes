@@ -1,6 +1,8 @@
-1.92.6
+1.92.7
 
-* inverted meaning of 'dotmode' and 'whitemode'
-* fixed detection of 'unwo' command
-* made F7 (swap) abortable
+* changed user- and groupname caching
+* fixed perl version require()d: 5.006 (for our())
+* fixed error reporting
+* fixed bug that prevented replacing 'more' with 'less' when writing
+  a default config file on Linux
 

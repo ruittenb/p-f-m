@@ -1,12 +1,12 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20030515 v1.92.6
+# @(#) pfm.pl 19990314-20030519 v1.92.7
 #
 # Name:         pfm
-# Version:      1.92.6
+# Version:      1.92.7
 # Author:       Rene Uittenbogaard
-# Date:         2003-05-15
+# Date:         2003-05-19
 # Usage:        pfm [ <directory> ] [ -s, --swap <directory> ]
 #               pfm { -v, --version | -h, --help }
 # Requires:     Term::ReadLine::Gnu (preferably)
@@ -22,16 +22,21 @@
 #
 # TOTEST:
 #       getdircontents: will stat(2) be able to detect w-files?
-# TODO:
+#       handlesize gives unnecessary OS errors: $? not read correctly;
 #       fix error handling in eval($do_this) and &display_error
 #           partly implemented in handlecopyrename
+# TODO:
+#       more consistent use of at(1,0) and at(0,0)
 #       sub fileforall(sub) ?
 #       cache color codes?
-#       don't cache user/groupnames? re-cache at every directory entry? test timestamp?
+#       change \ char for \1..\7 interpretation
+#       use SIGINT for interrupt single, SIGQUIT for interrupt multi?
 #       bug: 'f' field in layout: characters in the 'gap' between filerecord & infocolumn
 #           are not cleared when switching columnformats -> insert an artificial "gap" field?
 #       handlemousedown() does ($mousecol >= $infocol) test: wrong if f col at left
-#       handlesize gives unnecessary OS errors: $? not read correctly; what is reaper for?
+
+#       layout selected is not preserved across F7
+
 #       handletime does not restat() in multiple mode, nor resort
 #       in handledelete: test whether deleted file is present as whiteout after deletion
 #       cp -pr copies symlinks to symlinks - ?
@@ -56,6 +61,7 @@
 #       make commands in header and footer clickable buttons?
 #       make F11 respect multiple mode? (marked+oldmarked, not removing marks)
 #       hierarchical sort? e.g. 'sen' (size,ext,name)
+#       include acl commands?
 #       (F)ind command: stop at nearest match?
 #       incremental search (search entry while entering filename)?
 #       major/minor numbers on DU 4.0E are wrong (cannot test: no system available)
@@ -79,7 +85,9 @@
 ##########################################################################
 # requirements
 
-require 5.005; # for negative lookbehind in re (in handlecopyrename())
+# 5.005 for negative lookbehind in re (in handlecopyrename())
+# 5.6 for our()
+require 5.006;
 
 use Term::ScreenColor;
 use Term::ReadLine;
@@ -141,7 +149,7 @@ use vars qw(
 
 END {
     # in case something goes wrong
-    system qw(stty echo -raw);
+    system qw(stty -raw echo);
 }
 
 ##########################################################################
@@ -350,7 +358,7 @@ my %HISTORIES = (
 
 my (
     # lookup tables
-    %user, %group, %pfmrc, @signame, %dircolors, %framecolors,
+    %usercache, %groupcache, %pfmrc, @signame, %dircolors, %framecolors,
     # screen- and keyboard objects, screen parameters
     $scr, $kbd, $wasresized, $currentpan,
     # modes
@@ -371,7 +379,7 @@ my (
     @layoutfields, @layoutfieldswithinfo, @columnlayouts, $currentlayout, $formatname,
     $maxfilenamelength, $maxfilesizelength, $maxgrandtotallength, $infolength,
     # misc
-    $chldexit, $white_cmd, @unwo_cmd,
+    $white_cmd, @unwo_cmd,
 );
 
 ##########################################################################
@@ -396,7 +404,7 @@ sub write_pfmrc {
         while (($_ = <DATA>) !~ /^__END__$/) {
             s/^(##? Version )x$/$1$VERSION/m;
             if ($^O =~ /linux/i) {
-                s{^(\s*(?:your[[:alpha:]]|launch[^]:])\s*:\s*\w+.*?\s+)more(\s*)$}
+                s{^(\s*(?:your\[[[:alpha:]]\]|launch\[[^]]+\])\s*:\s*\w+.*?\s+)more(\s*)$}
                  {$1less$2}mg;
             }
             if (/nnnnn/ and $maxdatelen) {
@@ -431,14 +439,7 @@ sub read_pfmrc {
             }
             s/#.*//;
             if (s/\\\n?$//) { $_ .= <PFMRC>; redo; }
-            if (/^\s*           # whitespace at beginning
-                 (
-                 [^[:\s]+       # keyword (no whitespace)
-                 (?:\[[^]]+\])? # classifier (may contain whitespace or colons)
-                 )
-                 \s*:\s*        # separator (:), may have whitespace around it
-                 (.*)$/x        # value - allow spaces
-            ) {
+            if (/^\s*([^:[\s]+(?:\[[^]]+\])?)\s*:\s*(.*)$/o) {
                 $pfmrc{$1} = $2;
             }
         }
@@ -630,22 +631,14 @@ sub getversion {
     return $ver;
 }
 
-sub init_uids {
-    my (%user, $name, $uid);
-    while (($name, undef, $uid) = getpwent) {
-        $user{$uid} = $name
-    }
-    endpwent;
-    return %user;
+sub find_uid {
+    my $uid = $_[0];
+    return $usercache{$uid} || +($usercache{$uid} = scalar(getpwuid($uid)) || $uid);
 }
 
-sub init_gids {
-    my (%group, $name, $gid);
-    while (($name, undef, $gid) = getgrent) {
-        $group{$gid} = $name
-    }
-    endgrent;
-    return %group;
+sub find_gid {
+    my $gid = $_[0];
+    return $groupcache{$gid} || +($groupcache{$gid} = scalar(getgrgid($gid)) || $gid);
 }
 
 sub init_signames {
@@ -867,11 +860,18 @@ sub findchangedir {
 
 sub mychdir {
     my $goal = $_[0];
+#    system "echo ---'\n'Goal: $goal > /dev/pts/3";
     my $result;
     if ($result = &findchangedir($goal) and $goal ne $currentdir) {
         $oldcurrentdir = $currentdir;
+#        system "echo Result: $result > /dev/pts/3";
     }
-    $currentdir = getcwd() || $ENV{HOME};
+    if ($result) {
+        $currentdir = &canonicalize_path($goal =~ /^\// ? $goal : "$currentdir/$goal");
+    } else {
+        $currentdir = getcwd() || $ENV{HOME};
+    }
+#    system "echo Currentdir: $currentdir > /dev/pts/3";
     return $result;
 }
 
@@ -1076,10 +1076,10 @@ sub resizecatcher {
     $SIG{WINCH} = \&resizecatcher;
 }
 
-sub reaper {
-    $chldexit = (wait == -1) ? 0 : $?;
-    $SIG{CHLD} = \&reaper;
-}
+#sub reaper {
+#    (wait() == -1) ? 0 : $?;
+#    $SIG{CHLD} = \&reaper;
+#}
 
 sub mouseenable {
     if ($_[0]) {
@@ -1092,8 +1092,10 @@ sub mouseenable {
 sub stty_raw {
     if ($_[0]) {
         system qw(stty -raw echo);
+#        $scr->echo();
     } else {
         system qw(stty raw -echo);
+#        $scr->noecho();
     }
 }
 
@@ -1144,15 +1146,12 @@ sub globalinit {
     exit 0        if $opt_help or $opt_version;
     $startingdir = shift @ARGV;
     $SIG{WINCH}  = \&resizecatcher;
-    $SIG{CHLD}   = \&reaper;
     # &read_pfmrc() needs $kbd for setting keymap and ornaments
     $kbd = Term::ReadLine->new('pfm');
     $scr = Term::ScreenColor->new();
     $scr->clrscr();
     if ($scr->rows()) { $screenheight = $scr->rows()-$BASELINE-2 }
     if ($scr->cols()) { $screenwidth  = $scr->cols() }
-    %user           = &init_uids;
-    %group          = &init_gids;
     @signame        = &init_signames;
     %selected_nr_of = %total_nr_of   = ();
     $swap_mode      = $multiple_mode = 0;
@@ -1195,6 +1194,13 @@ sub dumprefreshflags {
     $res .= "R_STRIDE\n"      if $_[0] & $R_STRIDE;
     $res .= "R_NOP\n"         if $_[0] & $R_NOP;
     return $res;
+}
+
+sub convwhite {
+    $showncontents[$currentline+$baseindex]{type} = 'w';
+    $dircontents  [$currentline+$baseindex]{type} = 'w';
+    $showncontents[$currentline+$baseindex]{mode} =~ s/^./w/;
+    $dircontents  [$currentline+$baseindex]{mode} =~ s/^./w/;
 }
 
 ##########################################################################
@@ -1384,7 +1390,7 @@ sub pressanykey {
 
 sub display_error {
     &putmessage(@_);
-    return $scr->key_pressed($ERRORDELAY); # return value not actually used
+    return $scr->key_pressed($ERRORDELAY); # return value often discarded
 }
 
 sub neat_error {
@@ -1827,9 +1833,9 @@ sub handlecolor {
 }
 
 sub initident {
-    chomp ($ident  = $user{$>} ) unless $ident_mode == 1;
-    chomp ($ident  = `hostname`)     if $ident_mode == 1;
-    chomp ($ident .= '@'.`hostname`) if $ident_mode == 2;
+    chomp ($ident  = getpwuid($>)  ) unless $ident_mode == 1;
+    chomp ($ident  = `hostname`    )     if $ident_mode == 1;
+    chomp ($ident .= '@'.`hostname`)     if $ident_mode == 2;
     return $R_DISKINFO | $R_FOOTER;
 }
 
@@ -1920,12 +1926,9 @@ sub handlesize {
     $do_this = sub {
         $loopfile = shift;
         &expand_escapes($QUOTE_ON, ($command = $ducmd), $loopfile);
-        $chldexit = 0;
         ($recursivesize = `$command`) =~ s/\D*(\d+).*/$1/;
         chomp $recursivesize;
-        if ($chldexit) {
-#            system "echo $chldexit >/dev/pts/3";
-            $chldexit >>= 8;
+        if ($?) {
             &neat_error('Could not read all directories');
             $recursivesize ||= 0;
             $do_a_refresh |= $R_SCREEN;
@@ -2087,7 +2090,7 @@ sub handlemoremake {
     return $R_HEADER if $newname eq '';
 #    if (!mkdir $newname, 0777) {
     if (system "mkdir -p \Q$newname\E") {
-        &display_error("$newname: $!");
+        &display_error('Make dir failed');
         $do_a_refresh |= $R_SCREEN;
     } elsif (!&ok_to_remove_marks) {
         $do_a_refresh |= $R_HEADER; # $R_SCREEN ?
@@ -2104,8 +2107,10 @@ sub handlemoremake {
 sub handlemoreconfig {
     my $do_a_refresh = $R_CLRSCR;
     my $olddotdot    = $dotdot_mode;
+    $scr->at(0,0)->clreol();
     if (system $editor, &whichconfigfile) {
-        &display_error($!);
+        $scr->at(1,0);
+        &display_error('Editor failed');
     } else {
         &read_pfmrc($READ_AGAIN);
         if ($olddotdot != $dotdot_mode) {
@@ -2125,7 +2130,7 @@ sub handlemoreedit {
     &stty_raw($TERM_COOKED);
     $newname = &readintohist(\@path_history, $prompt);
     &expand_escapes($QUOTE_OFF, $newname, \%currentfile);
-    system "$editor \Q$newname\E" and &display_error($!);
+    system "$editor \Q$newname\E" and &display_error('Editor failed');
     &stty_raw($TERM_RAW);
     return $R_CLRSCR;
 }
@@ -2138,7 +2143,7 @@ sub handlemorefifo {
     &stty_raw($TERM_COOKED);
     $newname = &readintohist(\@path_history, $prompt);
     &expand_escapes($QUOTE_OFF, $newname, \%currentfile);
-    system "mkfifo \Q$newname\E" and &display_error($!);
+    system "mkfifo \Q$newname\E" and &display_error('Make FIFO failed');
     # is newname present in @dircontents? push otherwise
     # (this part is nearly identical to the part in handlecopyrename())
     $findindex = 0;
@@ -2207,6 +2212,7 @@ sub handlemore {
     $scr->noecho();
     my $key = $scr->at(0, $headerlength+1)->getch();
     MOREKEY: for ($key) {
+#        /^a$/i and $do_a_refresh |= &handlemoreacl,       last MOREKEY;
         /^s$/i and $do_a_refresh |= &handlemoreshow,      last MOREKEY;
         /^m$/i and $do_a_refresh |= &handlemoremake,      last MOREKEY;
         /^c$/i and $do_a_refresh |= &handlemoreconfig,    last MOREKEY;
@@ -2390,7 +2396,7 @@ sub handlesymlink {
                 $targetstring = $currentdir.'/'.$loopfile->{name};
         }
         if (system @lncmd, $targetstring, $newnameexpanded) {
-            $do_a_refresh |= &neat_error($!);
+            $do_a_refresh |= &neat_error('Linking failed');
         } elsif ($newnameexpanded !~ m!/!) {
             # is newname present in @dircontents? push otherwise
             $findindex = 0;
@@ -2443,7 +2449,7 @@ sub handleunwo {
                 $total_nr_of{$loopfile->{type}}--;
                 &exclude($loopfile) if $loopfile->{selected} eq '*';
             } else {
-                $do_a_refresh |= &neat_error($!);
+                $do_a_refresh |= &neat_error('Whiteout removal failed');
             }
         } else {
             $do_a_refresh |= &neat_error($nowhiteouterror);
@@ -2504,7 +2510,7 @@ sub handletarget {
             if ($oldtargetok and
                 system qw(ln -sf), $newtargetexpanded, $loopfile->{name})
             {
-                $do_a_refresh |= &neat_error($!);
+                $do_a_refresh |= &neat_error('Linking symbolically failed');
             }
         }
     };
@@ -2541,7 +2547,7 @@ sub handlechown {
     return $R_HEADER if ($newuid eq '');
     $do_this = sub {
         if (system ('chown', $newuid, $loopfile->{name})) {
-            $do_a_refresh |= &neat_error($!);
+            $do_a_refresh |= &neat_error('Change owner failed');
         }
     };
     if ($multiple_mode) {
@@ -2584,7 +2590,7 @@ sub handlechmod {
     } else {
         $do_this = sub {
             if (system 'chmod', $newmode, $loopfile->{name}) {
-                $do_a_refresh |= &neat_error($!);
+                $do_a_refresh |= &neat_error('Change mode failed');
             }
         };
     }
@@ -2656,7 +2662,7 @@ sub handlecommand { # Y or O
                     $do_this = $command;
                     &expand_escapes($QUOTE_ON, $do_this, $loopfile);
                     $scr->puts($do_this . "\n");
-                    system $do_this and &display_error($!);
+                    system $do_this and &display_error('External command failed');
                     $dircontents[$index] =
                         &stat_entry($loopfile->{name},$loopfile->{selected});
                     if ($dircontents[$index]{nlink} == 0) {
@@ -2669,7 +2675,7 @@ sub handlecommand { # Y or O
             $loopfile = \%currentfile;
             &expand_escapes($QUOTE_ON, $command, \%currentfile);
             $scr->clrscr()->at(0,0)->puts($command . "\n");
-            system $command and &display_error($!);
+            system $command and &display_error('External command failed');
             &restat_copyback;
         }
         &pressanykey;
@@ -2794,13 +2800,13 @@ sub handleprint {
             if ($loopfile->{selected} eq '*') {
                 $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
                 &exclude($loopfile, '.');
-                system $do_this and &display_error($!);
+                system $do_this and &display_error('Print command failed');
             }
         }
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
         &expand_escapes($QUOTE_ON, $command, \%currentfile);
-        system $command and &display_error($!);
+        system $command and &display_error('Print command failed');
     }
     return $R_SCREEN;
 }
@@ -2816,12 +2822,12 @@ sub handleshow {
             if ($loopfile->{selected} eq '*') {
                 $scr->puts($loopfile->{name});
                 &exclude($loopfile,'.');
-                system "$pager \Q$loopfile->{name}" and &display_error($!);
+                system "$pager \Q$loopfile->{name}" and &display_error('Pager failed');
             }
         }
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
-        system "$pager \Q$currentfile{name}" and &display_error($!);
+        system "$pager \Q$currentfile{name}" and &display_error('Pager failed');
     }
     &stty_raw($TERM_RAW);
     return $R_CLRSCR;
@@ -2851,7 +2857,7 @@ sub handletime {
     @cmdopts = ($newtime eq '.') ? () : ('-t', $newtime);
     $do_this = sub {
         if (system ('touch', @cmdopts, $loopfile->{name})) {
-            $do_a_refresh |= &neat_error($!);
+            $do_a_refresh |= &neat_error('Touch failed');
         }
     };
     if ($multiple_mode) {
@@ -2883,12 +2889,12 @@ sub handleedit {
             if ($loopfile->{selected} eq '*') {
                 $scr->puts($loopfile->{name});
                 &exclude($loopfile, '.');
-                system "$editor \Q$loopfile->{name}" and &display_error($!);
+                system "$editor \Q$loopfile->{name}" and &display_error('Editor failed');
             }
         }
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
-        system "$editor \Q$currentfile{name}" and &display_error($!);
+        system "$editor \Q$currentfile{name}" and &display_error('Editor failed');
     }
     &stty_raw($TERM_RAW);
     return $R_CLRSCR;
@@ -2927,7 +2933,7 @@ sub handlecopyrename {
 #            $scr->clreol();
 #        } elsif
         if (system @statecmd, $loopfile->{name}, $newnameexpanded) {
-            $do_a_refresh |= &neat_error($!);
+            $do_a_refresh |= &neat_error($state eq 'C' ? 'Copy failed' : 'Move failed');
         } elsif ($newnameexpanded !~ m!/!) {
             # is newname present in @dircontents? push otherwise
             $findindex = 0;
@@ -3048,7 +3054,7 @@ sub launchtype {
         $do_this = $pfmrc{"launch[$_[0]]"};
         &expand_escapes($QUOTE_ON, $do_this, \%currentfile);
         $scr->clrscr()->at(0,0)->puts("Launch type $_[0]\n$do_this\n");
-        system $do_this and &display_error($!);
+        system $do_this and &display_error('Launch failed');
         return 'type_launched';
     } else {
         &display_error("No launch command defined for type $_[0]\n");
@@ -3060,13 +3066,25 @@ sub launchbyxbit {
     my $pid;
     if (&followmode(\%currentfile) =~ /[xsS]/) {
         $scr->clrscr()->at(0,0)->puts("Launch executable $currentfile{name}\n");
-        if ($waitlaunchexec) {
-            system "./\Q$currentfile{name}" and &display_error($!);
-        } elsif (!defined($pid = fork)) {
-            &display_error("Unable to fork: $!");
-        } elsif (!$pid) {
-            exec "./\Q$currentfile{name}";
-        }
+#        if ($waitlaunchexec) {
+            system "./\Q$currentfile{name}" and &display_error('Launch failed');
+#        } else {
+#            $SIG{CHLD} = sub {
+#                wait;
+#                unless (--$childprocs) {
+#                    $SIG{CHLD} = 'DEFAULT';
+#                }
+#            };
+#            if (!defined($pid = fork)) {
+#                &display_error("Unable to fork: $!");
+#            } elsif (!$pid) {
+#                # child
+#                exec "./\Q$currentfile{name}";
+#            } else {
+#                # parent
+#                $childprocs++;
+#            }
+#        }
         return 'xbit_launched';
     } else {
         return 0; # must return false to prevent "File type unknown" error
@@ -3251,12 +3269,10 @@ sub stat_entry { # path_of_entry, selected_flag
     my ($ptr, $name_too_long, $target);
     my ($device, $inode, $mode, $nlink, $uid, $gid, $rdev, $size,
         $atime, $mtime, $ctime, $blksize, $blocks) = lstat $entry;
-    if (!defined $user{$uid} ) {  $user{$uid} = $uid }
-    if (!defined $group{$gid}) { $group{$gid} = $gid }
     $ptr = {
         name        => $entry,           device      => $device,
-        uid         => $user{$uid},      inode       => $inode,
-        gid         => $group{$gid},     nlink       => $nlink,
+        uid         => &find_uid($uid),  inode       => $inode,
+        gid         => &find_gid($gid),  nlink       => $nlink,
         mode        => &mode2str($mode), rdev        => $rdev,
         selected    => $selected_flag,   grand_power => ' ',
         atime       => $atime,           size        => $size,
@@ -3298,6 +3314,7 @@ sub filetypeflag {
 sub getdircontents { # (current)directory
     my (@contents, $entry);
     my @allentries = ();
+    %usercache = %groupcache = ();
 #    &init_title($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
     if (opendir CURRENT, "$_[0]") {
         @allentries = readdir CURRENT;
@@ -3549,14 +3566,14 @@ sub browse {
         # don't send mouse escapes to the terminal if not necessary
         &highlightline($HIGHLIGHT_ON);
         &mouseenable($MOUSE_ON) if $mouse_mode && $mouseturnoff;
-        WAIT: until ($scr->key_pressed(1) || $wasresized) {
+        MAIN_WAIT_LOOP: until (length($scr->{IN}) || $scr->key_pressed(1) || $wasresized) {
             &clock_info;
             $scr->at($currentline+$BASELINE, $cursorcol);
         }
         if ($wasresized) {
             $wantrefresh |= &handleresize;
         # the next line contains an assignment on purpose
-        } elsif ($scr->key_pressed() and $key = $scr->getch()) {
+        } elsif (length($scr->{IN}) || $scr->key_pressed() and $key = $scr->getch()) {
             &highlightline($HIGHLIGHT_OFF);
             &mouseenable($MOUSE_OFF) if $mouseturnoff;
             KEY: for ($key) {
@@ -3616,7 +3633,7 @@ sub browse {
 }
 
 ##########################################################################
-# void main(char *path)
+# int main(char *path) # main() is not of type void
 
 &globalinit;
 &browse($R_CHDIR | ($R_INIT_SWAP * defined $swapstartdir));
@@ -3633,7 +3650,7 @@ __DATA__
 ## (whitespace is optional)
 ## the option itself may not contain whitespace or colons,
 ## except in a classifier enclosed in [] that immediately follows it.
-## in other words: /^\s*([^[:\s]+(?:\[[^]]+\])?)\s*:\s*(.*)$/
+## in other words: /^\s*([^:[\s]+(?:\[[^]]+\])?)\s*:\s*(.*)$/
 ## everything following a # is regarded as a comment.
 ## escape may be entered as a real escape, as \e or as ^[ (caret, bracket)
 ## lines may be continued on the next line by ending them in \
@@ -3780,7 +3797,7 @@ usecolor:force
 ## preferred image editor/viewer (don't specify \2 here)
 viewer:xv
 
-## wait for launched executables to finish?
+## wait for launched executables to finish? (not implemented: will always wait)
 waitlaunchexec:yes
 
 ##########################################################################
@@ -5309,10 +5326,8 @@ pressing B<ESC>. For most commands, you will need to clear the half-finished
 line. You may use the terminal kill character (usually B<CTRL-U>) for this
 (see stty(1)).
 
-When key repeat sets in, some of the registered keystrokes may not
-be processed before another key is pressed. This can be dangerous when
-deleting files. The author once almost pressed B<ENTER> when logged in as
-root and with the cursor next to F</sbin/reboot>. You have been warned.
+The author once almost pressed B<ENTER> when logged in as root and with
+the cursor next to F</sbin/reboot>. You have been warned.
 
 The smallest terminal size supported is 80x24. The display will be messed
 up if you resize your terminal window to a smaller size.
@@ -5322,7 +5337,7 @@ memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.92.6.
+This manual pertains to C<pfm> version 1.92.7.
 
 =head1 SEE ALSO
 
