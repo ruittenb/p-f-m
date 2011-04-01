@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20030515 v1.92.5
+# @(#) pfm.pl 19990314-20030515 v1.92.6
 #
 # Name:         pfm
-# Version:      1.92.5
+# Version:      1.92.6
 # Author:       Rene Uittenbogaard
 # Date:         2003-05-15
 # Usage:        pfm [ <directory> ] [ -s, --swap <directory> ]
@@ -30,9 +30,10 @@
 #       don't cache user/groupnames? re-cache at every directory entry? test timestamp?
 #       bug: 'f' field in layout: characters in the 'gap' between filerecord & infocolumn
 #           are not cleared when switching columnformats -> insert an artificial "gap" field?
+#       handlemousedown() does ($mousecol >= $infocol) test: wrong if f col at left
 #       handlesize gives unnecessary OS errors: $? not read correctly; what is reaper for?
-#       invert sense of dotmode/whitemode
 #       handletime does not restat() in multiple mode, nor resort
+#       in handledelete: test whether deleted file is present as whiteout after deletion
 #       cp -pr copies symlinks to symlinks - ?
 #       after rename: position_at new name?
 #       accept mouseclick in "hit any key to continue"
@@ -370,7 +371,7 @@ my (
     @layoutfields, @layoutfieldswithinfo, @columnlayouts, $currentlayout, $formatname,
     $maxfilenamelength, $maxfilesizelength, $maxgrandtotallength, $infolength,
     # misc
-    $chldexit, $white_cmd, $unwo_cmd,
+    $chldexit, $white_cmd, @unwo_cmd,
 );
 
 ##########################################################################
@@ -1108,16 +1109,26 @@ sub testdirempty {
 }
 
 sub white_commands {
-    $white_cmd = $unwo_cmd = '';
-    if (!system 'listwhite /dev/null >/dev/null 2>&1') {
-        $white_cmd = 'listwhite';
-    } elsif (!system 'lsw /dev/null >/dev/null 2>&1') {
-        $white_cmd = 'lsw';
+    $white_cmd = '';
+    @unwo_cmd  = ();
+    foreach (split /:/, $ENV{PATH}) {
+        if (!@unwo_cmd) {
+            if (-f "$_/unwhiteout") {
+                @unwo_cmd = qw(unwhiteout);
+            } elsif (-f "$_/unwo") {
+                @unwo_cmd = qw(unwo);
+            }
+        }
+        if (!$white_cmd) {
+            if (-f "$_/listwhite") {
+                $white_cmd = 'listwhite';
+            } elsif (-f "$_/lsw") {
+                $white_cmd = 'lsw';
+            }
+        }
     }
-    if (!system 'unwhiteout /tmp/.pfm_wo >/dev/null 2>&1') {
-        $unwo_cmd = 'unwhiteout';
-    } elsif (!system 'unwo /tmp/.pfm_wo >/dev/null 2>&1') {
-        $unwo_cmd = 'unwo';
+    unless (@unwo_cmd) {
+        @unwo_cmd = qw(rm -W);
     }
 }
 
@@ -1470,13 +1481,13 @@ sub init_title { # swap_mode, extra field, @layoutfieldswithinfo
     my ($smode, $info, @fields) = @_;
     my $linecolor;
     for ($info) {
-        $_ == $TITLE_DISKINFO and $FIELDHEADINGS{diskinfo} = ' 'x($infolength-14).'     disk info';
+        $_ == $TITLE_DISKINFO and $FIELDHEADINGS{diskinfo} = ' ' x ($infolength-14) . '     disk info';
         $_ == $TITLE_SORT     and $FIELDHEADINGS{diskinfo} = 'sort mode     ' . ' ' x ($infolength-14);
         $_ == $TITLE_SIGNAL   and $FIELDHEADINGS{diskinfo} = '  nr signal   ' . ' ' x ($infolength-14);
         $_ == $TITLE_YCOMMAND and $FIELDHEADINGS{diskinfo} = 'your commands ' . ' ' x ($infolength-14);
         $_ == $TITLE_ESCAPE   and $FIELDHEADINGS{diskinfo} = 'esc legend    ' . ' ' x ($infolength-14);
     }
-#    $FIELDHEADINGS{display} = $FIELDHEADINGS{name} . ' (' . $sort_mode . ('','.')[$dot_mode] . ('','%')[$white_mode] . ')';
+#    $FIELDHEADINGS{display} = $FIELDHEADINGS{name} . ' (' . $sort_mode . ('%','')[$white_mode] . ('.','')[$dot_mode] . ')';
     $linecolor = $smode ? $framecolors{$color_mode}{swap}
                         : $framecolors{$color_mode}{title};
     $scr->bold()        if ($linecolor =~ /bold/);
@@ -1500,7 +1511,7 @@ sub header {
         return 'Absolute, Relative symlink or Hard link:';
     } else {
         return 'Attribute Copy Delete Edit Find Include tarGet Link More Name'
-        .     ' cOmmands Print Quit Rename Show Time User' . ($unwo_cmd ? ' unWhiteout' : '')
+        .     ' cOmmands Print Quit Rename Show Time User unWhiteout'
         .     ' eXclude Your-commands siZe';
     }
 }
@@ -1673,7 +1684,7 @@ sub dir_info {
                + $total_nr_of{'n'};
     my $startline = $DIRINFOLINE;
     $scr->at($startline-1, $infocol)
-        ->puts(&str_informatted("Directory($sort_mode" . ($dot_mode ? '.' : '') . ($white_mode ? '%' : '') . ")"));
+        ->puts(&str_informatted("Directory($sort_mode" . ($white_mode ? '' : '%') . ($dot_mode ? '' : '.') . ")"));
     foreach (0..3) {
         $scr->at($startline+$_, $infocol)
             ->puts(&data_informatted($values[$_],$desc[$_]));
@@ -2428,7 +2439,7 @@ sub handleunwo {
     $scr->at($PATHLINE,0);
     $do_this = sub {
         if ($loopfile->{type} eq 'w') {
-            if (!system($unwo_cmd, $loopfile->{name})) {
+            if (!system(@unwo_cmd, $loopfile->{name})) {
                 $total_nr_of{$loopfile->{type}}--;
                 &exclude($loopfile) if $loopfile->{selected} eq '*';
             } else {
@@ -2685,8 +2696,8 @@ sub handledelete {
             # then it can also be removed, which causes a fatal pfm error.
             $msg = 'Deleting current directory not allowed';
             $success = 0;
-        } elsif ($loopfile->{type} eq 'w') {
-            $success = !system($unwo_cmd, $loopfile->{name});
+#        } elsif ($loopfile->{type} eq 'w') {
+#            $success = !system(@unwo_cmd, $loopfile->{name});
         } elsif ($loopfile->{nlink} == 0 and $loopfile->{type} ne 'w') {
             # remove 'lost files' immediately, no confirmation needed
             $success = 1;
@@ -3173,10 +3184,6 @@ sub handleswap {
         toggle($swap_mode);
         $do_a_refresh |= $R_SCREEN;
     } else { # $swap_state = 0; ask and swap forward
-        $swap_state    = &swap_stash;
-        $swap_mode     = 1;
-        $sort_mode     = $pfmrc{defaultsortmode} || 'n';
-        $multiple_mode = 0;
         if (defined $swapstartdir) {
             $nextdir = $swapstartdir;
             undef $swapstartdir;
@@ -3186,7 +3193,14 @@ sub handleswap {
             &stty_raw($TERM_COOKED);
             $nextdir = &readintohist(\@path_history, $prompt);
             &stty_raw($TERM_RAW);
+            return $do_a_refresh if $nextdir eq '';
         }
+        $swap_state    = &swap_stash;
+        $swap_mode     = 1;
+        $sort_mode     = $pfmrc{defaultsortmode} || 'n';
+        $multiple_mode = 0;
+        # this was the old location of the if-block above
+        # which has been moved up to enable returning sooner
         &expand_escapes($QUOTE_OFF, $nextdir, \%currentfile);
         $position_at   = '.';
         $do_a_refresh |= $R_CHDIR;
@@ -3327,8 +3341,8 @@ sub printdircontents { # @contents
 }
 
 sub filterdir {
-    return grep { !$dot_mode   || $_->{name} =~ /^(\.\.?|[^\.].*)$/
-           and    !$white_mode || $_->{type} ne 'w'
+    return grep { $dot_mode   || $_->{name} =~ /^(\.\.?|[^\.].*)$/
+           and    $white_mode || $_->{type} ne 'w'
     } @_;
 }
 
@@ -3666,8 +3680,8 @@ defaultclobber:no
 ## initial colorset to pick from the various colorsets defined below (for F4)
 defaultcolorset:dark
 
-## hide dot files initially? (show them otherwise, toggle with . key)
-defaultdotmode:no
+## show dot files initially? (hide them otherwise, toggle with . key)
+defaultdotmode:yes
 
 ## initial ident mode (user, host, or user@host, cycle with = key)
 defaultident:user
@@ -3684,8 +3698,8 @@ defaultradix:hex
 ## initial sort mode (nNmMeEfFsSzZiItTdDaA) (default n) (for F6)
 defaultsortmode:n
 
-## initial whiteout mode
-defaultwhitemode:y
+## show whiteout files initially? (hide them otherwise, toggle with % key)
+defaultwhitemode:no
 
 ## '.' and '..' entries always at the top of the dirlisting?
 dotdotmode:no
@@ -4072,7 +4086,7 @@ launch[application/x-tar-gzip]    : gunzip < \2 | tar tvf -
 #launch[application/x-tar]         : tar xvf \2
 launch[application/x-tar]         : tar tvf \2
 launch[application/x-uuencoded]   : uudecode \2
-launch[application/x-yencoded]    : yydecode \2
+launch[application/x-yencoded]    : ydecode \2
 launch[application/zip]           : unzip \2
 launch[audio/basic]               : esdplay \2 &
 launch[audio/midi]                : timidity \2 &
@@ -5216,12 +5230,6 @@ if you want to use this feature.
 
 The editor to be used for the B<E>dit command. Overridden by C<VISUAL>.
 
-=item B<HOME>
-
-The directory where the B<F7> command will take you if you don't specify
-a new directory. Also the directory that initial B<~/> characters in a
-filename will expand to.
-
 =item B<LC_ALL>
 
 =item B<LC_COLLATE>
@@ -5314,7 +5322,7 @@ memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.92.5.
+This manual pertains to C<pfm> version 1.92.6.
 
 =head1 SEE ALSO
 
