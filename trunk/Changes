@@ -1,5 +1,9 @@
-1.93.0
+1.93.1
 
-* changed "Hit any key to continue" to accept mouseclick
+* added short help
+* added 'swd' file functionality
+* changed escape character default
+* changed escape character processing: now configurable
 * minor code cleanup
+* updated documentation
 
