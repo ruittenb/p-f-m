@@ -1,10 +1,10 @@
-#!/bin/ksh
+#!/usr/bin/env sh
 ############################################################################
 #
 # Name:         installpfm.sh
-# Version:      0.03
+# Version:      0.05
 # Authors:      Rene Uittenbogaard
-# Date:         2009-09-17
+# Date:         2009-09-23
 # Usage:        installpfm.sh
 # Description:  This is not a script, this is a manual.
 #		This is meant as an example how pfm dependencies can
@@ -12,57 +12,97 @@
 #		Comments and improvements are welcome!
 #
 
-VERSION=1.93.7
+VERSION=1.93.9
 
 ###############################################################################
 # functions
 
-check_libreadline_installation() {
-	question="Has libreadline successfully been installed on your system? (y/n) "
-	answer=n
-	read answer?"$question"
-	while [ "$answer" != y ]; do
-		download_and_install_libreadline
-		read answer?"$question"
-	done
+install_prepare() {
+	if echo -n "" | grep n >/dev/null; then
+		# echo -n does not suppress newline
+		n=
+	else
+		n='-n'
+	fi
 }
 
-download_and_install_libreadline() {
+check_distro() {
+	# if you know how to easily identify other distributions,
+	# please let me know.
+	if [ `uname` -eq 'Linux' ]; then
+		ubuntu=`cat /etc/*-release 2>/dev/null | grep -i ubuntu`
+	fi
+}
+
+check_libncurses_installation() {
+	if [ "$ubuntu" ]; then
+		apt-get install libncurses5
+		apt-get install libncurses5-dev
+	else
+		question="Has libncurses successfully been installed on your system? (y/n) "
+		answer=n
+		echo $n "$question"
+		read answer
+		while [ "$answer" != y ]; do
+			download_and_install_lib ncurses
+			echo $n "$question"
+			read answer
+		done
+	fi
+}
+
+check_libreadline_installation() {
+	if [ "$ubuntu" ]; then
+		apt-get install libreadline5
+		apt-get install libreadline5-dev
+		apt-get install libterm-readline-gnu-perl
+	else
+		question="Has libreadline successfully been installed on your system? (y/n) "
+		answer=n
+		echo $n "$question"
+		read answer
+		while [ "$answer" != y ]; do
+			download_and_install_lib readline
+			echo $n "$question"
+			read answer
+		done
+	fi
+}
+
+download_and_install_lib() {
 	case `uname` in
 		AIX)
-			echo You will need to download libreadline from e.g. http://www.bullfreeware.com/
-			echo and install it using installp, with something like:
-			echo 'installp -d `pwd`/libreadline*bff all'
+			echo "You will need to download it from e.g. http://www.bullfreeware.com/"
+			echo "(maybe: http://www.bullfreeware.com/download/aix43/gnu.readline-4.1.0.1.exe)"
+			echo "and install it using installp, with something like:"
+			echo 'installp -d `pwd`/lib'$1'*bff all'
 			break;;
 		HPUX)
-			echo You will need to download it from e.g. http://hpux.cs.utah.edu/
-			echo and install it using swinstall, with something like:
-			echo 'swinstall -s `pwd`/libreadline*depot libreadline'
+			echo "You will need to download it from e.g. http://hpux.connect.org.uk/"
+			echo "(maybe: http://hpux.connect.org.uk/hppd/hpux/Gnu/readline-6.0.004/ )"
+			echo "and install it using swinstall, with something like:"
+			echo 'swinstall -s `pwd`/lib'$1'*depot lib'$1
 			break;;
 		Solaris)
-			echo You will need to download it from e.g. http://www.sunfreeware.com/
-			echo and install it using pkgadd, with something like:
-			echo 'pkgadd -d libreadline*pkg all'
+			echo "You will need to download it from e.g. http://www.sunfreeware.com/"
+			echo "(maybe: ftp://ftp.sunfreeware.com/pub/freeware/sparc/10/readline-5.2-sol10-sparc-local.gz)"
+			echo "and install it using pkgadd, with something like:"
+			echo 'pkgadd -d lib'$1'*pkg all'
 			break;;
 		Linux)
-			if cat /etc/*-release 2>/dev/null | grep -i ubuntu >/dev/null; then
-				echo You will need to install libterm-readline-gnu-perl,
-				echo e.g. with a command like: apt-get install libterm-readline-gnu-perl
-			else
-				echo You will need to download and install libreadline.
-				echo Depending on your distribution:
-				echo '\tdownload it from e.g. http://www.rpmfind.net/'
-				echo '\tand install it using rpm, with something like:'
-				echo '\trpm -ivh libreadline*rpm'
-				echo or:
-				echo '\tdownload it from e.g. http://packages.debian.org/'
-				echo '\tand install it using apt-get, with something like:'
-				echo '\tapt-get install libreadline'
-				echo or use your distribution-specific commands.
-			fi
+			echo You will need to download and install lib$1.
+			echo Depending on your distribution:
+			echo '\tdownload it from e.g. http://www.rpmfind.net/'
+			echo '\tand install it using rpm, with something like:'
+			echo '\trpm -ivh lib'$1'*rpm'
+			echo or:
+			echo '\tdownload it from e.g. http://packages.debian.org/'
+			echo '\tand install it using apt-get, with something like:'
+			echo '\tapt-get install lib'$1
+			echo or use your distribution-specific commands.
 			break;;
 		*)
-			echo You will need to download and install libreadline.
+			echo "You will need to download and install lib$1".
 			break;;
 	esac
 	echo
@@ -106,6 +146,10 @@ install_pfm() {
 ###############################################################################
 # main
 
+install_prepare
+check_distro
+
+check_libncurses_installation
 check_libreadline_installation
 
 check_perl_module Term::Cap || download_and_install_perl_module \
