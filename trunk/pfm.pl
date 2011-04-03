@@ -1,12 +1,12 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20030531 v1.93.2
+# @(#) pfm.pl 19990314-20090216 v1.93.3
 #
 # Name:         pfm
-# Version:      1.93.2
+# Version:      1.93.3
 # Author:       Rene Uittenbogaard
-# Date:         2003-06-21
+# Date:         2009-02-16
 # Usage:        pfm [ <directory> ] [ -s, --swap <directory> ]
 #               pfm { -v, --version | -h, --help }
 # Requires:     Term::ReadLine::Gnu (preferably)
@@ -902,13 +902,34 @@ sub readintohist { # \@history, $prompt, [$default_input]
     my $history     = shift;
     my $prompt      = shift || '';
     my $input       = shift || '';
-    $kbd->SetHistory(@$history);
+#    $kbd->SetHistory(@$history);
+    set_term_history($kbd, @$history);
     $input = $kbd->readline($prompt, $input);
     if ($input =~ /\S/ and $input ne ${$history}[-1]) {
         push (@$history, $input);
         shift (@$history) if ($#$history > $MAXHISTSIZE);
     }
     return $input;
+}
+
+sub set_term_history {
+    my $term = shift;
+#    my $h    = _history_file;
+#    if ( $term->Features->{readHistory} ) {
+#        $term->ReadHistory($h);
+#    }
+#    elsif ( $term->Features->{setHistory} ) {
+#        if ( -e $h ) {
+#            my @h = File::Slurp::read_file($h);
+#            chomp @h;
+#            $term->SetHistory(@h);
+#        }
+#    }
+    if ($term->Features->{setHistory}) {
+        $term->SetHistory(@_);
+    }
+    # else fail silently
+    return $term;
 }
 
 sub mychdir {
@@ -1664,7 +1685,7 @@ sub copyright {
     return
     $scr->at(0,0)->clreol()->cyan() # %dircolors has not been set yet
                  ->puts("PFM $VERSION for Unix computers and compatibles.")
-        ->at(1,0)->puts("Copyright (c) 1999-2003 Rene Uittenbogaard")
+        ->at(1,0)->puts("Copyright (c) 1999-2009 Rene Uittenbogaard")
         ->at(2,0)->puts("This software comes with no warranty: see the file COPYING for details.")
                  ->normal()->key_pressed($_[0]);
 }
@@ -1697,7 +1718,7 @@ sub credits {
 
              $pfm for Unix computers and compatibles.  Version $VERSION
              Original idea/design: Paul R. Culley and Henk de Heer
-             Author and Copyright (c) 1999-2003 Rene Uittenbogaard
+             Author and Copyright (c) 1999-2009 Rene Uittenbogaard
 
 
        $pfm is distributed under the GNU General Public License version 2.
@@ -2854,7 +2875,8 @@ sub handleprint {
         ->at($PATHLINE,0)->clreol();
     &stty_raw($TERM_COOKED);
     # don't use readintohist : special case with command_history
-    $kbd->SetHistory(@command_history);
+#    $kbd->SetHistory(@command_history);
+    set_term_history($kbd, @command_history);
     $command = $kbd->readline('',$printcmd);
     if ($command =~ /\S/
         and $command ne $printcmd
@@ -4855,7 +4877,7 @@ variable C<PAGER>, or with the 'pager' option in the F<.pfmrc> file.
 =item B<Time>
 
 Change mtime (modification date/time) of the file. The time may be entered
-either with or without clarifying interpunction (e.g. 2003-02-04 08:42.12)
+either with or without clarifying interpunction (e.g. 2008-12-04 08:42.12)
 as the interpunction will be removed to obtain a format which touch(1)
 can use. Enter B<.> to set the mtime to the current date and time.
 
@@ -5563,7 +5585,7 @@ memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.93.2.
+This manual pertains to C<pfm> version 1.93.3.
 
 =head1 SEE ALSO
 
