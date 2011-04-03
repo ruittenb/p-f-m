@@ -1,4 +1,5 @@
-1.95.0
+1.95.1
 
-* updated documentation with =8 escape and 'rcscmd' option
+* added configuration option 'remove_marks_ok' to suppress the
+  'OK to remove marks?' message
 

@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2010-01-04 v1.95.0a
+# @(#) pfm.pl 2010-01-04 v1.95.1
 #
 # Name:			pfm
-# Version:		1.95.0a
+# Version:		1.95.1
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-02-11
@@ -413,9 +413,10 @@ my (
 	$currentline, $baseindex, $cursorcol, $filenamecol, $infocol, $filerecordcol,
 	# misc config options
 	$editor, $pager, $viewer, $windowcmd, $printcmd, $ducmd, $chdirautocmd, $e,
-	$autoexitmultiple, $cursorveryvisible, $clsonexit, $rdevtomajor,
-	$autowritehistory, $trspace, $swap_persistent, $mouseturnoff, $showlockchar,
+	$autoexitmultiple, $cursorveryvisible, $clsonexit, $rdevtomajor, $trspace,
+	$autowritehistory, $swap_persistent, $mouseturnoff, $showlockchar,
 	@colorsetnames, %filetypeflags, $swapstartdir, $waitlaunchexec,
+	$remove_marks_ok,
 	# layouts and formatting
 	$currentformatline, $currentformatlinewithinfo, $currentlayout, $formatname,
 	@layoutfields, @layoutfieldswithinfo, @columnlayouts,
@@ -528,6 +529,7 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
 	$trspace			= isyes($pfmrc{translatespace}) ? ' ' : '';
 	$dotdot_mode		= isyes($pfmrc{dotdotmode});
 	$autorcs			= isyes($pfmrc{autorcs});
+	$remove_marks_ok	= isyes($pfmrc{remove_marks_ok});
 	$white_mode			= isyes($pfmrc{defaultwhitemode})	if !defined $white_mode;
 	$dot_mode			= isyes($pfmrc{defaultdotmode})		if !defined $dot_mode;
 	$clobber_mode		= isyes($pfmrc{defaultclobber})		if !defined $clobber_mode;
@@ -570,14 +572,6 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
 		.	'* nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss mmmmmmmmmmmmmmmm ffffffffffffff:'
 		.	'* nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss uuuuuuuu pppppppppp ffffffffffffff:'
 	));
-	# repair pre-1.84 style (Y)our commands
-	foreach (grep /^.$/, keys %pfmrc) {
-		$oldkey = $_;
-		s/^([[:upper:]])\b/your[\l$1]/;
-		s/^([[:lower:]])\b/your[\u$1]/;
-		$pfmrc{$_} = $pfmrc{$oldkey};
-		delete $pfmrc{$oldkey};
-	}
 	# additional key definitions 'keydef'
 	if ($termkeys = $pfmrc{'keydef[*]'} .':'. $pfmrc{"keydef[$ENV{TERM}]"}) {
 		$termkeys =~ s/(\\e|\^\[)/\e/gi;
@@ -1557,7 +1551,7 @@ sub neat_error {
 
 sub ok_to_remove_marks {
 	my $sure;
-	if (mark_info()) {
+	if (!$remove_marks_ok and mark_info()) {
 		$scr->at(0,0)->clreol();
 		putmessage('OK to remove marks [Y/N]? ');
 		$sure = $scr->getch();
@@ -2495,6 +2489,7 @@ sub handlemoreshell {
 	system ($ENV{SHELL} ? $ENV{SHELL} : 'sh'); # most portable
 	pressanykey(); # will also put the screen back in raw mode
 	alternate_screen($ALTERNATE_ON) if $altscreen_mode;
+	system("$chdirautocmd") if length($chdirautocmd);
 	return $R_CLRSCR;
 }
 
@@ -4316,6 +4311,9 @@ persistentswap:yes
 ## command to use for requesting the file status in your rcs system.
 rcscmd:svn status
 
+## suppress the prompt "OK to remove marks?"
+#remove_marks_ok:no
+
 ## show whether mandatory locking is enabled (e.g. -rw-r-lr-- ) (yes,no,sun)
 ## 'sun' = show locking only on sunos/solaris
 showlock:sun
@@ -6067,7 +6065,7 @@ up if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.95.0a.
+This manual pertains to C<pfm> version 1.95.1.
 
 =head1 AUTHOR and COPYRIGHT
 
