@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2009-10-07 v1.94.1b
+# @(#) pfm.pl 2009-10-07 v1.94.1c
 #
 # Name:			pfm
-# Version:		1.94.1b
+# Version:		1.94.1c
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2009-10-07
@@ -35,7 +35,6 @@
 #		use SIGINT for interrupt single, SIGQUIT for interrupt multi?
 #		bug: 'f' field in layout: characters in the 'gap' between filerecord & infocolumn
 #			are not cleared when switching columnformats -> insert an artificial "gap" field?
-#		handlemousedown() does ($mousecol >= $infocol) test: wrong if f col at left
 #
 #		does DFCMD handle columns correctly on AIX?  @tdisk{qw/device total used avail/}
 #			prove1sup7:/home/ruittenb>df -k 
@@ -75,25 +74,23 @@
 #		(U) in multiple mode does not restat()
 #		handletime does not restat() in multiple mode, nor resort
 #
-#		in handledelete: test whether deleted file is present as whiteout after deletion
+#		in handledelete: test if deleted file is a whiteout after deletion
 #		after rename: position_at new name?
 #		use the nameindexmap from handledelete() more globally?
-#			in handlecopyrename()? in handlefind() in handlesymlink? in dirlookup? in handlemorefifo?
+#			in handlecopyrename()? in handlefind() in handlesymlink?
+#			in dirlookup? in handlemorefifo?
 #			use in conjunction with 'keeplostfiles' option?
 #
-#		set ROWS and COLUMNS in environment for child processes; but see if
-#			this does not mess up with $scr->rows etc. which use these
-#			variables internally; portability?
-#		cache converted formatlines - store formatlines and maxfilesizelength
-#			etc in hash; column_mode in swap_state
 #		stat_entry() must *not* rebuild the selected_nr and total_nr lists:
 #			this messes up with e.g. cOmmand -> cp \2 /somewhere/else
 #			(which is, therefore, still buggy). this is closely related to:
 #		sub countdircontents is not used
 #		make F11 respect multiple mode? (marked+oldmarked, not removing marks)
 #		hierarchical sort? e.g. 'sen' (size,ext,name)
-#		window sizing problems on Sun 5.6 - test on sup6
+#		window sizing problems on Sun 5.6?
 #		include acl commands?
+#		V - subversion
+#		=8 escape for all files?
 
 ##########################################################################
 # main data structures:
@@ -358,6 +355,7 @@ my %LAYOUTFIELDS = (
 	'l' => 'nlink',
 	'i' => 'inode',
 	'd' => 'rdev',
+	'v' => 'svn',
 	'f' => 'diskinfo',
 );
 
@@ -384,6 +382,7 @@ my %FIELDHEADINGS = (
 	gid				=> 'groupid',
 	nlink			=> 'lnks',
 	rdev			=> 'dev',
+	svn				=> 'svn',
 	diskinfo		=> 'disk info',
 );
 
@@ -426,6 +425,8 @@ my (
 	$currentformatline, $currentformatlinewithinfo, $currentlayout, $formatname,
 	@layoutfields, @layoutfieldswithinfo, @columnlayouts,
 	$maxfilenamelength, $maxfilesizelength, $maxgrandtotallength, $infolength,
+	# rcs
+	$rcsbuffer, $rcsrunning, $rcscmd,
 	# misc
 	$white_cmd, @unwo_cmd,
 );
@@ -547,6 +548,7 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
 	$altscreen_mode		= $pfmrc{altscreenmode}		|| 'xterm' if !defined $altscreen_mode;
 	$altscreen_mode		= ($altscreen_mode eq 'xterm' && isxterm($ENV{TERM})) || isyes($altscreen_mode);
 	$chdirautocmd		= $pfmrc{chdirautocmd};
+	$rcscmd				= $pfmrc{rcscmd} || 'svn status';
 	($windowcmd)		= ($pfmrc{windowcmd}) ||
 						  ($^O eq 'linux' ? 'gnome-terminal -e' : 'xterm -e');
 	($printcmd)			= ($pfmrc{printcmd}) ||
@@ -1358,7 +1360,7 @@ sub makeformatlines {
 	}
 	# layouts are all based on a screenwidth of 80: elongate filename field
 	$currentlayoutline =~ s/n/'n' x ($screenwidth - 79)/e;
-	# find out the length of the filename, filesize and info fields
+	# find out the length of the filename, filesize, grand total and info fields
 	$infolength			=		($currentlayoutline =~ tr/f//);
 	$maxfilenamelength	=		($currentlayoutline =~ tr/n//);
 	$maxfilesizelength	= 10 ** ($currentlayoutline =~ tr/s// -1) -1;
@@ -1385,7 +1387,7 @@ sub makeformatlines {
 		if ($_ < 0) { $_ = 0 }
 	}
 	# determine the layout field set (no spaces)
-	($squeezedlayoutline = $currentlayoutline) =~ tr/*nNsSzZugpacmdilf /*nNsSzZugpacmdilf/ds;
+	($squeezedlayoutline = $currentlayoutline) =~ tr/*nNsSzZugpacmdilvf /*nNsSzZugpacmdilvf/ds;
 	($formatname = $squeezedlayoutline) =~ s/[*SNZ]//g;
 	@layoutfields         = map { $LAYOUTFIELDS{$_} } grep { !/f/ } (split //, $squeezedlayoutline);
 	@layoutfieldswithinfo = map { $LAYOUTFIELDS{$_} }               (split //, $squeezedlayoutline);
@@ -1397,8 +1399,8 @@ sub makeformatlines {
 		} elsif ($prev ne $letter) {
 			$currentformatlinewithinfo .= '@';
 		} else {
-			($trans = $letter) =~ tr{*nNsSzZugpacmdilf}
-									{<<<><><<<<<<<<>><};
+			($trans = $letter) =~ tr{*nNsSzZugpacmdilvf}
+									{<<<><><<<<<<<<>><<};
 			$currentformatlinewithinfo .= $trans;
 		}
 		$prev = $letter;
@@ -1618,7 +1620,7 @@ sub header {
 	if		($mode & $HEADER_SORT) {
 		return 'Sort by: Name, Extension, Size, Date, Type, Inode (ignorecase, reverse):';
 	} elsif ($mode & $HEADER_MORE) {
-		return 'Bookmark Config Edit-new mkFifo sHell Kill-chld Mkdir Show-dir Write-hist ESC';
+		return 'Bookmark Config Edit-new mkFifo sHell Kill-chld Mkdir Show-dir sVn Write-hist';
 	} elsif ($mode & $HEADER_INCLUDE) {
 		return 'Include? Every, Oldmarks, After, Before, User or Files only:';
 	} elsif ($mode & $HEADER_LNKTYPE) {
@@ -1972,16 +1974,44 @@ sub handleradix {
 	return $R_FOOTER;
 }
 
-sub handlemouse {
-	mouseenable(toggle $mouse_mode);
-	return $R_FOOTER;
-}
-
 sub handleresize {
 	$wasresized = 0;
 	handlefit();
 	validate_position();
 	return $R_CLRSCR;
+}
+
+sub handlercspipe {
+	return unless $rcsrunning;
+	system("xmessage ':rcs running:'&");
+	my $pin = '';
+	my ($nfound, $input, $f1, $f2, $newlinepos, %nameindexmap, $count);
+	vec($pin,fileno(RCSPIPE),1) = 1;
+	$nfound = select($pin, undef, $pin, 0);
+	return if ($nfound <= 0);
+	if (sysread(RCSPIPE, $input, 10000) or length($rcsbuffer)) {
+		$rcsbuffer .= $input;
+		%nameindexmap = map { $_->{name}, $count++ } @showncontents;
+		while (($newlinepos = index($rcsbuffer,"\cJ")) >= 0) {
+			$input = substr($rcsbuffer, 0, $newlinepos);
+			$rcsbuffer = substr($rcsbuffer, $newlinepos+1);
+			$f1 = substr($input, 0, 3);
+			$f2 = substr($input, 3);
+			# TODO test
+			$nameindexmap{$f2}{$LAYOUTFIELDS{'v'}} = $f1;
+		}
+	} else {
+		$rcsrunning = 0;
+	}
+}
+
+sub handlepipes {
+	handlercspipe();
+}
+
+sub handlemouse {
+	mouseenable(toggle $mouse_mode);
+	return $R_FOOTER;
 }
 
 sub handlemousedown {
@@ -2401,6 +2431,16 @@ sub handlemorekill {
 #	return $R_PATHINFO | $R_HEADER;
 #}
 
+sub handlemorercsopen {
+	if ($rcsrunning) {
+		close RCSPIPE;
+	}
+	$rcsbuffer = '';
+	$rcsrunning = 1;
+	my $rcspid = open(RCSPIPE, "$rcscmd|");
+	return $R_HEADER;
+}
+
 sub handlemore {
 	local $_;
 	my $do_a_refresh = $R_HEADER;
@@ -2416,6 +2456,7 @@ sub handlemore {
 		/^h$/io and $do_a_refresh |= handlemoreshell(),		last MOREKEY;
 		/^b$/io and $do_a_refresh |= handlemorebookmark(),	last MOREKEY;
 		/^f$/io and $do_a_refresh |= handlemorefifo(),		last MOREKEY;
+		/^v$/io and $do_a_refresh |= handlemorercsopen(),	last MOREKEY;
 		/^w$/io and $do_a_refresh |= write_history(),		last MOREKEY;
 #		/^p$/io and $do_a_refresh |= handlemorephyspath(),	last MOREKEY;
 		# since when has pfm become a process manager?
@@ -3888,6 +3929,7 @@ sub browse {
 		mouseenable($MOUSE_ON) if $mouse_mode && $mouseturnoff;
 		MAIN_WAIT_LOOP: until (length($scr->{IN}) || $wasresized || $scr->key_pressed(1)) {
 			clock_info();
+			handlepipes();
 			$scr->at($currentline+$BASELINE, $cursorcol);
 		}
 		if ($wasresized) {
@@ -4112,6 +4154,9 @@ persistentswap:yes
 ## if $PRINTER is set:   'lpr -P$PRINTER =2'
 ## if $PRINTER is unset: 'lpr =2'
 #printcmd:lp -d$PRINTER =2
+
+## command to use for requesting the file status in your rcs system.
+rcscmd:svn status
 
 ## show whether mandatory locking is enabled (e.g. -rw-r-lr-- ) (yes,no,sun)
 ## 'sun' = show locking only on sunos/solaris
@@ -5839,7 +5884,7 @@ up if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.94.1b.
+This manual pertains to C<pfm> version 1.94.1c.
 
 =head1 AUTHOR and COPYRIGHT
 
