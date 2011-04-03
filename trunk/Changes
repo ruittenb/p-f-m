@@ -1,5 +1,6 @@
-1.95.1
+1.95.2
 
-* added configuration option 'remove_marks_ok' to suppress the
-  'OK to remove marks?' message
+* added configuration option to check for updates when pfm exits
+* (M)ore - (P)hysical path
+* (M)ore - al(T)screen
 
