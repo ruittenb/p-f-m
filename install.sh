@@ -1,18 +1,18 @@
 #!/usr/bin/env sh
 ############################################################################
 #
-# Name:         installpfm.sh
-# Version:      0.17
+# Name:         install.sh
+# Version:      0.20
 # Authors:      Rene Uittenbogaard
-# Date:         2009-11-11
-# Usage:        installpfm.sh
+# Date:         2009-11-13
+# Usage:        sh install.sh
 # Description:  This is not so much a script as a manual.
 #		This is meant as an example how pfm dependencies can
 #		be downloaded and installed. Your Mileage May Vary.
 #		Comments and improvements are welcome!
 #
 
-VERSION=1.94.6
+VERSION=1.94.9
 
 ###############################################################################
 # helper functions
@@ -30,21 +30,21 @@ init_package_commands() {
 	case "$1" in
 	hpux)
 		packagelistcmd=swlist
-		packageinstallcmd='swinstall -s `pwd`/${packagename}*depot ${packagename}'
+		packageinstallcmd='swinstall -s \`pwd\`/${packagename}\*depot ${packagename}'
 		packageurls='http://hpux.connect.org.uk/'
 		packagesuggestion='http://hpux.connect.org.uk/hppd/hpux/Gnu/readline-6.0.004/'
 		break
 		;;
 	sunos|solaris)
 		packagelistcmd=pkginfo
-		packageinstallcmd='pkgadd -d ${packagename}*pkg all'
+		packageinstallcmd='pkgadd -d ${packagename}\*pkg all'
 		packageurls='ftp://ftp.sunfreeware.com/'
 		packagesuggestion='ftp://ftp.sunfreeware.com/pub/freeware/sparc/10/readline-5.2-sol10-sparc-local.gz'
 		break
 		;;
 	aix)
 		packagelistcmd='lslpp -L'
-		packageinstallcmd='installp -d `pwd`/${packagename}*bff all'
+		packageinstallcmd='installp -d \`pwd\`/${packagename}\*bff all'
 		packageurls='http://www.bullfreeware.com/'
 		packagesuggestion='http://www.bullfreeware.com/download/aix43/gnu.readline-4.1.0.1.exe'
 		break
@@ -69,7 +69,7 @@ init_package_commands() {
 		;;
 	rpm)
 		packagelistcmd='rpm -qa'
-		packageinstallcmd='rpm -ivh ${packagename}*.rpm'
+		packageinstallcmd='rpm -ivh ${packagename}\*.rpm'
 		packageurls='http://www.rpmfind.net/,http://www.rpm.org/'
 		break
 		;;
@@ -186,7 +186,7 @@ check_package() {
 #		apt-get install libterm-readline-gnu-perl
 #	else
 	packagename="$1"
-	question="Has $packagename successfully been installed on your system? (Yes/No/Tell me) "
+	question="Has lib$packagename successfully been installed on your system? (Yes/No/Tell me) "
 	answer=n
 	echo $n "$question"
 	read answer
@@ -207,9 +207,9 @@ check_package() {
 
 download_and_install() {
 	packagename="$1"
-	echo $n "You will need to download $packagename"
+	echo "You will need to download $packagename (sometimes called lib$packagename),"
 	if [ "x$packageurls" != x ]; then
-		echo ", maybe from:"
+		echo "perhaps from:"
 		for url in $(echo $packageurls | tr , " "); do
 			echo "- $url"
 		done
@@ -256,7 +256,7 @@ check_perl_module_term_readline_gnu() {
 download_and_install_perl_module() {
 	packagename="$1"
 	if [ "$cpan_available" ]; then
-		while [ "x$install_opt" != xb && "x$install_opt" != xc ]; do
+		while [ "x$install_opt" != xb -a "x$install_opt" != xc ]; do
 			echo "Do you want to install the bundled version, or "
 			echo $n "download the latest version from CPAN? (Bundled/Cpan) "
 			read install_opt
@@ -285,8 +285,8 @@ install_pfm() {
 install_prepare
 check_distro
 
-check_package libncurses
-check_package libreadline
+check_package ncurses
+check_package readline
 
 # check, download and install the Perl modules
 

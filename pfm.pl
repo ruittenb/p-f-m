@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2009-12-03 v1.94.8
+# @(#) pfm.pl 2009-12-03 v1.94.9
 #
 # Name:			pfm
-# Version:		1.94.8
+# Version:		1.94.9
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2009-12-03
+# Date:			2009-12-23
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				pfm { -v, --version | -h, --help }
 # Requires:		Term::ReadLine::Gnu (preferably)
@@ -2472,6 +2472,8 @@ sub handlemorefifo {
 	stty_raw($TERM_COOKED);
 	$newname = readintohist(\@path_history, $prompt);
 	expand_escapes($QUOTE_OFF, $newname, \%currentfile);
+	stty_raw($TERM_RAW);
+	return $R_HEADER if $newname eq '';
 	system "mkfifo \Q$newname\E" and display_error('Make FIFO failed');
 	# is newname present in @dircontents? push otherwise
 	# (this part is nearly identical to the part in handlecopyrename())
@@ -2483,7 +2485,6 @@ sub handlemorefifo {
 	}
 	$dircontents[$findindex] = stat_entry($newname, $dircontents[$findindex]{selected} || ' ');
 	# upto here
-	stty_raw($TERM_RAW);
 	return $do_a_refresh;
 }
 
@@ -4577,6 +4578,9 @@ extension[*.mp2]  : audio/mpeg
 extension[*.mp3]  : audio/mpeg
 extension[*.mpeg] : video/mpeg
 extension[*.mpg]  : video/mpeg
+extension[*.odp]  : application/x-openoffice
+extension[*.ods]  : application/x-openoffice
+extension[*.odt]  : application/x-openoffice
 extension[*.p]    : application/x-chem
 extension[*.pas]  : application/x-pascal
 extension[*.pdb]  : chemical/x-pdb
@@ -4665,7 +4669,8 @@ launch[application/x-groff-mm]	  : groff -pteR -mm  =2 > =1.ps; gv =1.ps &
 launch[application/x-gzip]        : gunzip =2
 #launch[application/x-lha]         :
 launch[application/x-msdos-batch] : =e =2
-launch[application/x-ms-office]   : ooffice =2
+launch[application/x-ms-office]   : ooffice =2 &
+launch[application/x-openoffice]  : ooffice =2 &
 launch[application/x-nroff-man]	  : nroff -p -t -e -man =2 | =p
 launch[application/x-pascal]      : =e =2
 launch[application/x-perl-module] : =e =2
@@ -6056,7 +6061,7 @@ up if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.94.8.
+This manual pertains to C<pfm> version 1.94.9.
 
 =head1 AUTHOR and COPYRIGHT
 
