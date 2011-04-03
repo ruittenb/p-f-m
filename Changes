@@ -1,5 +1,4 @@
-1.94.6
+1.94.7
 
-* updated and fixed installation script
-* updated help (F1)
+* added =8 escape (list of selected filenames)
 
