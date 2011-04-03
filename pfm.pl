@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20030527 v1.93.0
+# @(#) pfm.pl 19990314-20030527 v1.93.0m
 #
 # Name:         pfm
-# Version:      1.93.0
+# Version:      1.93.0m
 # Author:       Rene Uittenbogaard
 # Date:         2003-05-27
 # Usage:        pfm [ <directory> ] [ -s, --swap <directory> ]
@@ -1386,7 +1386,12 @@ sub markcurrentline { # letter
 sub pressanykey {
     &putmessage("\n*** Hit any key to continue ***"); # previously just cyan
     &stty_raw($TERM_RAW);
-    $scr->getch();
+    &mouseenable($MOUSE_ON) if $mouse_mode && $mouseturnoff;
+    if ($scr->getch() eq 'kmous') {
+        $scr->getch();
+        $scr->getch();
+        $scr->getch();
+    };
 }
 
 sub display_error {
@@ -5344,7 +5349,7 @@ memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.93.0.
+This manual pertains to C<pfm> version 1.93.0m.
 
 =head1 SEE ALSO
 
