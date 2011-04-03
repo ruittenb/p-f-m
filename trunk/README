@@ -1,0 +1,41 @@
+
+
+Package: pfm-1.87.2
+
+
+This package is available from http://sourceforge.net/projects/p-f-m/
+
+Prerequisites for this package, in dependency order
+(versions are "at least"-values):
+
++-----+--------------+------------------+-----------------------+------------+
+|     |              | Term-Screen-1.02 | Term-ScreenColor-1.08 |            |
+|     |              +------------------+-----------------------+            |
+|     |  perl-5.005  |          Term-ReadLine-Perl              |            |
+| gcc |              +----------------- or ---------------------+ pfm-1.87.2 |
+|     |              |                                          |            |
+|     +--------------+          Term-ReadLine-Gnu-1.09          |            |
+|     | readline-4.1 |                                          |            |
++-----+--------------+------------------------------------------+------------+
+
+
+If you are upgrading from an older version, you are strongly advised
+to rename your ~/.pfm/.pfmrc and compare it with the default config file
+that pfm automatically generates for you.
+
+
+Notes:
+
+* As of version 1.84, the (Y)our commands must be specified in a different
+  format. Use the script 'mend_your_cmnds.pl' if you want to convert the
+  (Y)our commands in your old .pfmrc to the new format.
+
+* As of version 1.83, pfm now respects your current locale settings.
+  If you are not concerned with this, you may want to set your environment
+  variable LC_ALL to the value 'C'.
+
+* In pre-1.83 versions, there was no need to explicitly state some bold
+  and reverse rendering of the frame (header, footer, titlebar).  As of
+  version 1.83, this formatting must now explicitly be specified in the
+  .pfmrc config file.
+
