@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2009-10-05 v1.94.0f1
+# @(#) pfm.pl 2009-10-05 v1.94.0f2
 #
 # Name:			pfm
-# Version:		1.94.0f1
+# Version:		1.94.0f2
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2009-10-05
@@ -2400,18 +2400,18 @@ sub handlemore {
 	$scr->noecho();
 	my $key = $scr->at(0, $headerlength+1)->getch();
 	MOREKEY: for ($key) {
-#		/^a$/i and $do_a_refresh |= handlemoreacl(),		last MOREKEY;
-		/^s$/i and $do_a_refresh |= handlemoreshow(),		last MOREKEY;
-		/^m$/i and $do_a_refresh |= handlemoremake(),		last MOREKEY;
-		/^c$/i and $do_a_refresh |= handlemoreconfig(),		last MOREKEY;
-		/^e$/i and $do_a_refresh |= handlemoreedit(),		last MOREKEY;
-		/^h$/i and $do_a_refresh |= handlemoreshell(),		last MOREKEY;
-		/^b$/i and $do_a_refresh |= handlemorebookmark(),	last MOREKEY;
-		/^f$/i and $do_a_refresh |= handlemorefifo(),		last MOREKEY;
-		/^w$/i and $do_a_refresh |= write_history(),		last MOREKEY;
-#		/^p$/i and $do_a_refresh |= handlemorephyspath(),	last MOREKEY;
+#		/^a$/io and $do_a_refresh |= handlemoreacl(),		last MOREKEY;
+		/^s$/io and $do_a_refresh |= handlemoreshow(),		last MOREKEY;
+		/^m$/io and $do_a_refresh |= handlemoremake(),		last MOREKEY;
+		/^c$/io and $do_a_refresh |= handlemoreconfig(),	last MOREKEY;
+		/^e$/io and $do_a_refresh |= handlemoreedit(),		last MOREKEY;
+		/^h$/io and $do_a_refresh |= handlemoreshell(),		last MOREKEY;
+		/^b$/io and $do_a_refresh |= handlemorebookmark(),	last MOREKEY;
+		/^f$/io and $do_a_refresh |= handlemorefifo(),		last MOREKEY;
+		/^w$/io and $do_a_refresh |= write_history(),		last MOREKEY;
+#		/^p$/io and $do_a_refresh |= handlemorephyspath(),	last MOREKEY;
 		# since when has pfm become a process manager?
-		/^k$/i and $do_a_refresh |= handlemorekill(),		last MOREKEY;
+		/^k$/io and $do_a_refresh |= handlemorekill(),		last MOREKEY;
 	}
 	return $do_a_refresh;
 }
@@ -4263,6 +4263,7 @@ your[i]:rpm -qpi =2
 your[j]:mpg123 =2 &
 your[k]:esdplay =2
 your[l]:mv -i =2 "$(echo =2 | tr '[:upper:]' '[:lower:]')"
+your[M]:meld . =5 &
 your[n]:nroff -man =2 | =p
 your[o]:cp =2 =2.$(date +"%Y%m%d"); touch -r =2 =2.$(date +"%Y%m%d")
 your[p]:perl -cw =2
@@ -4424,7 +4425,7 @@ launch[application/x-ms-office]   : ooffice =2
 launch[application/x-nroff-man]	  : nroff -p -t -e -man =2 | =p
 launch[application/x-pascal]      : =e =2
 launch[application/x-perl-module] : =e =2
-launch[application/x-perl]        : =2
+launch[application/x-perl]        : ./=2
 launch[application/x-rar]         : unrar x =2
 #launch[application/x-rpm]         : rpm -Uvh =2
 launch[application/x-rpm]         : rpm -qpl =2
@@ -4716,7 +4717,8 @@ in the F<.pfmrc> file. Otherwise vi(1) is used.
 
 =item B<Find>
 
-Prompts for a filename, then positions the cursor on that file.
+Prompts for a (partial) filename. While you type, the cursor is positioned
+on the best match. Type ENTER to end typing.
 
 =item B<tarGet>
 
@@ -5795,7 +5797,7 @@ up if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.94.0f1.
+This manual pertains to C<pfm> version 1.94.0f2.
 
 =head1 AUTHOR and COPYRIGHT
 
