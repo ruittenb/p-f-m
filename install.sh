@@ -2,7 +2,7 @@
 ############################################################################
 #
 # Name:         installpfm.sh
-# Version:      0.07
+# Version:      0.08
 # Authors:      Rene Uittenbogaard
 # Date:         2009-09-30
 # Usage:        installpfm.sh
@@ -28,56 +28,50 @@ install_prepare() {
 
 init_package_commands() {
 	case "$1" in
-	hp-ux|hpux)
-		_swinstall()
-		{
-			swinstall -s `pwd`/$1*depot $1
-		}
+	hpux)
 		packagelistcmd=swlist
-		packageinstallcmd=_swinstall
+		packageinstallcmd='swinstall -s `pwd`/${packagename}*depot ${packagename}'
+		packageurls='http://hpux.connect.org.uk/'
 		break
 		;;
 	sunos|solaris)
-		_pkgadd()
-		{
-			pkgadd -d $1*pkg all
-		}
 		packagelistcmd=pkginfo
-		packageinstallcmd=_pkgadd
+		packageinstallcmd='pkgadd -d ${packagename}*pkg all'
+		packageurls='ftp://ftp.sunfreeware.com/'
 		break
 		;;
 	aix)
-		_installp()
-		{
-			installp -d `pwd`/$1*bff all
-		}
 		packagelistcmd='lslpp -L'
-		packageinstallcmd='_installp'
+		packageinstallcmd='installp -d `pwd`/${packagename}*bff all'
+		packageurls='http://www.bullfreeware.com/'
 		break
 		;;
-	macosx)
-		packagelistcmd='port list'
-		packageinstallcmd='port install'
+	darwin)
+		packagelistcmd='port installed'
+		packageinstallcmd='port install ${packagename}'
+		packageurls="http://www.macports.org/"
 		break
 		;;
 	*bsd)
 		packagelistcmd=pkg_info
-		packageinstallcmd=pkg_add
+		packageinstallcmd='pkg_add ${packagename}'
 		break
 		;;
 	rpm)
 		packagelistcmd='rpm -qa'
-		packageinstallcmd='rpm -ivh'
+		packageinstallcmd='rpm -ivh ${packagename}*.rpm'
+		packageurls='http://www.rpmfind.net/'
 		break
 		;;
 	deb)
 		packagelistcmd='dpkg -l'
-		packageinstallcmd='apt-get install'
+		packageinstallcmd='apt-get install ${packagename}'
+		packageurls='http://packages.ubuntu.com/,http://packages.debian.org/'
 		break
 		;;
 	slackware)
 		packagelistcmd='ls -1 /var/log/packages'
-		packageinstallcmd=installpkg
+		packageinstallcmd='installpkg ${packagename}'
 		break
 		;;
 	*)
@@ -137,17 +131,16 @@ enkader() {
 	awk '
 	BEGIN {
 		indent="'"$indent"'"
-		if ("'"$footer"'" == "no") footer=0
-		else footer=1
-		maxlength=78-indent;
+		if ("'"$footer"'" == "no") footer=0; else footer=1
+		maxlength=77-indent;
 		indentstr=substr("                                    ", 1, indent);
 		minusstr=substr( \
 			"--------------------------------------------------------------------------------", \
-			1, maxlength);
+			1, maxlength + 1);
 		printf("%s+%-s+\n", indentstr, minusstr);
 	}
 	{
-		printf("%s|%-" (78-indent) "s|\n", indentstr, substr($0, 1, maxlength));
+		printf("%s| %-" maxlength "s|\n", indentstr, substr($0, 1, maxlength));
 	}
 	END {
 		if (footer) printf("%s+%-s+\n", indentstr, minusstr);
@@ -157,27 +150,26 @@ enkader() {
 enkadercmd() {
 	command="$@"
 	test "$command" || return
-	echo "$command" | enkader 4 no
-	$command | enkader 4
+	echo "Command: $command" | enkader 4 no
+	eval "$command" | enkader 4
 }
 
 #----------------------------- main functions ---------------------------------
 
 check_libncurses_installation() {
-	if [ "$ubuntu" ]; then
-		apt-get install libncurses5
-		apt-get install libncurses5-dev
-	else
-		question="Has libncurses successfully been installed on your system? (Yes/No/Tell me) "
-		answer=n
+#	if [ "$ubuntu" ]; then
+#		apt-get install libncurses5
+#		apt-get install libncurses5-dev
+#	else
+	question="Has libncurses successfully been installed on your system? (Yes/No/Tell me) "
+	answer=n
+	echo $n "$question"
+	read answer
+	while [ "$answer" != y ]; do
+		download_and_install_lib ncurses
 		echo $n "$question"
 		read answer
-		while [ "$answer" != y ]; do
-			download_and_install_lib ncurses
-			echo $n "$question"
-			read answer
-		done
-	fi
+	done
 }
 
 check_libreadline_installation() {
