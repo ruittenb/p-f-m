@@ -2,11 +2,11 @@
 ############################################################################
 #
 # Name:         installpfm.sh
-# Version:      0.08
+# Version:      0.11
 # Authors:      Rene Uittenbogaard
-# Date:         2009-09-30
+# Date:         2009-10-02
 # Usage:        installpfm.sh
-# Description:  This is not a script, this is a manual.
+# Description:  This is not so much a script as a manual.
 #		This is meant as an example how pfm dependencies can
 #		be downloaded and installed. Your Mileage May Vary.
 #		Comments and improvements are welcome!
@@ -18,7 +18,7 @@ VERSION=1.94.0
 # helper functions
 
 install_prepare() {
-	if echo -n "" | grep n >/dev/null; then
+	if echo -n '' | grep n >/dev/null; then
 		# echo -n does not suppress newline
 		n=
 	else
@@ -32,29 +32,39 @@ init_package_commands() {
 		packagelistcmd=swlist
 		packageinstallcmd='swinstall -s `pwd`/${packagename}*depot ${packagename}'
 		packageurls='http://hpux.connect.org.uk/'
+		packagesuggestion='http://hpux.connect.org.uk/hppd/hpux/Gnu/readline-6.0.004/'
 		break
 		;;
 	sunos|solaris)
 		packagelistcmd=pkginfo
 		packageinstallcmd='pkgadd -d ${packagename}*pkg all'
 		packageurls='ftp://ftp.sunfreeware.com/'
+		packagesuggestion='ftp://ftp.sunfreeware.com/pub/freeware/sparc/10/readline-5.2-sol10-sparc-local.gz'
 		break
 		;;
 	aix)
 		packagelistcmd='lslpp -L'
 		packageinstallcmd='installp -d `pwd`/${packagename}*bff all'
 		packageurls='http://www.bullfreeware.com/'
+		packagesuggestion='http://www.bullfreeware.com/download/aix43/gnu.readline-4.1.0.1.exe'
 		break
 		;;
 	darwin)
-		packagelistcmd='port installed'
-		packageinstallcmd='port install ${packagename}'
-		packageurls="http://www.macports.org/"
+		if port --version >/dev/null 2>&1; then
+			packagelistcmd='port installed'
+			packageinstallcmd='port install ${packagename}'
+			packageurls='http://www.macports.org/'
+		else
+			packagelistcmd='dpkg -l'
+			packageinstallcmd='apt-get install ${packagename}'
+			packageurls='http://www.finkproject.org/'
+		fi
 		break
 		;;
 	*bsd)
 		packagelistcmd=pkg_info
 		packageinstallcmd='pkg_add ${packagename}'
+		packageurls='http://www.freebsd.org/ports/,ftp://ftp.openbsd.org/pub/OpenBSD/'
 		break
 		;;
 	rpm)
@@ -72,11 +82,13 @@ init_package_commands() {
 	slackware)
 		packagelistcmd='ls -1 /var/log/packages'
 		packageinstallcmd='installpkg ${packagename}'
+		packageurls='http://packages.slackware.it/'
 		break
 		;;
 	*)
 		packagelistcmd=
 		packageinstallcmd=
+		packageurls=
 		break
 		;;
 	esac
@@ -156,76 +168,52 @@ enkadercmd() {
 
 #----------------------------- main functions ---------------------------------
 
-check_libncurses_installation() {
+check_package() {
 #	if [ "$ubuntu" ]; then
 #		apt-get install libncurses5
 #		apt-get install libncurses5-dev
+#		#
+#		apt-get install libreadline5
+#		apt-get install libreadline5-dev
+#		apt-get install libterm-readline-gnu-perl
 #	else
-	question="Has libncurses successfully been installed on your system? (Yes/No/Tell me) "
+	packagename="$1"
+	question="Has $packagename successfully been installed on your system? (Yes/No/Tell me) "
 	answer=n
 	echo $n "$question"
 	read answer
 	while [ "$answer" != y ]; do
-		download_and_install_lib ncurses
+		if [ "$answer" = t ]; then
+			if [ "x$packagelistcmd" = x ]; then
+				echo "I don't know how to list installed packages for your system"
+			else
+				enkadercmd "$packagelistcmd | grep '$packagename' || echo not found"
+			fi
+		elif [ "$answer" != y ]; then
+			download_and_install "$packagename"
+		fi
 		echo $n "$question"
 		read answer
 	done
 }
 
-check_libreadline_installation() {
-	if [ "$ubuntu" ]; then
-		apt-get install libreadline5
-		apt-get install libreadline5-dev
-		apt-get install libterm-readline-gnu-perl
-	else
-		question="Has libreadline successfully been installed on your system? (Yes/No/Tell me) "
-		answer=n
-		echo $n "$question"
-		read answer
-		while [ "$answer" != y ]; do
-			download_and_install_lib readline
-			echo $n "$question"
-			read answer
+download_and_install() {
+	packagename="$1"
+	echo $n "You will need to download $packagename"
+	if [ "x$packageurls" != x ]; then
+		echo ", maybe from:"
+		for url in $(echo $packageurls | tr , " "); do
+			echo "- $url"
 		done
+		if [ "x$packagesuggestion" != x ]; then
+			echo "(maybe: $packagesuggestion)"
+		fi
 	fi
-}
-
-download_and_install_lib() {
-	case `uname` in
-		AIX)
-			echo "You will need to download it from e.g. http://www.bullfreeware.com/"
-			echo "(maybe: http://www.bullfreeware.com/download/aix43/gnu.readline-4.1.0.1.exe)"
-			echo "and install it using installp, with something like:"
-			echo 'installp -d `pwd`/lib'$1'*bff all'
-			break;;
-		HPUX)
-			echo "You will need to download it from e.g. http://hpux.connect.org.uk/"
-			echo "(maybe: http://hpux.connect.org.uk/hppd/hpux/Gnu/readline-6.0.004/ )"
-			echo "and install it using swinstall, with something like:"
-			echo 'swinstall -s `pwd`/lib'$1'*depot lib'$1
-			break;;
-		Solaris)
-			echo "You will need to download it from e.g. http://www.sunfreeware.com/"
-			echo "(maybe: ftp://ftp.sunfreeware.com/pub/freeware/sparc/10/readline-5.2-sol10-sparc-local.gz)"
-			echo "and install it using pkgadd, with something like:"
-			echo 'pkgadd -d lib'$1'*pkg all'
-			break;;
-		Linux)
-			echo You will need to download and install lib$1.
-			echo Depending on your distribution:
-			echo '\tdownload it from e.g. http://www.rpmfind.net/'
-			echo '\tand install it using rpm, with something like:'
-			echo '\trpm -ivh lib'$1'*rpm'
-			echo or:
-			echo '\tdownload it from e.g. http://packages.debian.org/'
-			echo '\tand install it using apt-get, with something like:'
-			echo '\tapt-get install lib'$1
-			echo or use your distribution-specific commands.
-			break;;
-		*)
-			echo "You will need to download and install lib$1".
-			break;;
-	esac
+	echo $n "and install it"
+	if [ "x$packageinstallcmd" != x ]; then
+		echo " using a command like:"
+		eval "echo '$packageinstallcmd'"
+	fi
 	echo
 }
 
@@ -270,8 +258,8 @@ install_pfm() {
 install_prepare
 check_distro
 
-check_libncurses_installation
-check_libreadline_installation
+check_package libncurses
+check_package libreadline
 
 # check, download and install the Perl modules
 
@@ -291,5 +279,5 @@ check_perl_module Term::ReadLine::Gnu || download_and_install_perl_module \
 
 install_pfm
 
-
 # vim: set tabstop=8 shiftwidth=8 noexpandtab:
+
