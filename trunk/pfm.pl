@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2009-11-06 v1.94.6
+# @(#) pfm.pl 2009-11-30 v1.94.7
 #
 # Name:			pfm
-# Version:		1.94.6
+# Version:		1.94.7
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2009-11-06
+# Date:			2009-11-30
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				pfm { -v, --version | -h, --help }
 # Requires:		Term::ReadLine::Gnu (preferably)
@@ -21,7 +21,6 @@
 # Description:	Personal File Manager for Unix/Linux
 #
 # TOTEST:
-#		getdircontents: will stat(2) be able to detect w-files?
 #		fix error handling in eval($do_this) and display_error()
 #			partly implemented in handlecopyrename
 #		fixed sysread() and buffering
@@ -89,7 +88,6 @@
 #		window sizing problems on Sun 5.6?
 #		include acl commands?
 #		V - subversion
-#		=8 escape for all files?
 
 ##########################################################################
 # main data structures:
@@ -299,6 +297,7 @@ my %CMDESCAPES = (
 	'5' => 'swap path',
 	'6' => 'base path',
 	'7' => 'extension',
+	'8' => 'selection',
 	'e' => 'editor',
 	'p' => 'pager',
 	'v' => 'viewer',
@@ -800,8 +799,24 @@ sub fit2limit {
 }
 
 sub condquotemeta { # condition, string
-#	return shift() ? map { quotemeta } @_ : @_;
 	return $_[0] ? quotemeta($_[1]) : $_[1];
+}
+
+sub selectednames {
+	my $qif = $_[0];
+	my @res =	map  {
+					exclude($_, '.');
+					condquotemeta($qif, $_->{name})
+				}
+				grep { $_->{selected} eq '*' }
+				@showncontents;
+#	# 'oldmark' all files at once
+#	foreach (@showncontents) {
+#		if ($_->{selected} eq '*') {
+#			exclude($_{name}, '.');
+#		}
+#	}
+	return @res;
 }
 
 sub expand_replace { # esc-category, namenoext, name, ext
@@ -814,6 +829,7 @@ sub expand_replace { # esc-category, namenoext, name, ext
 		/5/ and return condquotemeta($qif, $swap_state->{path}) if $swap_state;
 		/6/ and return condquotemeta($qif, basename($currentdir));
 		/7/ and return condquotemeta($qif, $_[3]);
+		/8/ and return join (' ', selectednames($qif));
 		/e/ and return condquotemeta($qif, $editor);
 		/p/ and return condquotemeta($qif, $pager);
 		/v/ and return condquotemeta($qif, $viewer);
@@ -2812,6 +2828,7 @@ sub handleunwo {
 			if (!system(@unwo_cmd, $loopfile->{name})) {
 				$total_nr_of{$loopfile->{type}}--;
 				exclude($loopfile) if $loopfile->{selected} eq '*';
+				restat_copyback(); # TEST
 			} else {
 				$do_a_refresh |= neat_error('Whiteout removal failed');
 			}
@@ -3189,14 +3206,14 @@ sub handleshow {
 				$scr->puts($loopfile->{name});
 				exclude($loopfile,'.');
 				alternate_screen($ALTERNATE_OFF);
-				system "$pager \Q$loopfile->{name}" and display_error("Pager failed\n");
+				system "$pager \Q$loopfile->{name}\E" and display_error("Pager failed\n");
 				alternate_screen($ALTERNATE_ON) if $altscreen_mode;
 			}
 		}
 		$multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
 	} else {
 		alternate_screen($ALTERNATE_OFF);
-		system "$pager \Q$currentfile{name}" and display_error("Pager failed\n");
+		system "$pager \Q$currentfile{name}\E" and display_error("Pager failed\n");
 		alternate_screen($ALTERNATE_ON) if $altscreen_mode;
 	}
 	stty_raw($TERM_RAW);
@@ -3215,15 +3232,15 @@ sub handlehelp {
         g     tarGet         mk  Kill children    CTRL-B, CTRL-F   move a full page     
         i     Include        mm  Make new dir     PgUp, PgDn       move a full page     
         L     symLink        ms  Show directory   HOME, END        move to top, bottom  
-        n     Name           mv  SVN status       SPACE            mark file & advance  
+        n     Name           mv  sVn status       SPACE            mark file & advance  
         o     cOmmand        mw  Write history    right arrow, l   enter dir            
         p     Print         --------------------  left arrow, h    leave dir            
-        q     Quit           =   ident            ENTER            enter dir; launch    
-        Q     Quick quit     *   radix            ESC, BS          leave dir            
-        r     Rename         !   clobber         ---------------------------------------
-        s     Show           @   perlcmd          F1  help            F7  swap mode     
-        t     Time           .   dotfiles         F2  prev dir        F8  mark file     
-        u     Uid            %   whiteout         F3  redraw screen   F9  cycle layouts 
+        q Q   (Quick) quit   =   ident            ENTER            enter dir; launch    
+        r     Rename         *   radix            ESC, BS          leave dir            
+        s     Show           !   clobber         ---------------------------------------
+        t     Time           @   perlcmd          F1  help            F7  swap mode     
+        u     Uid            .   dotfiles         F2  prev dir        F8  mark file     
+        v     sVn status     %   whiteout         F3  redraw screen   F9  cycle layouts 
         w     unWhiteout     <   commands left    F4  cycle colors    F10 multiple mode 
         x     eXclude        >   commands right   F5  reread dir      F11 restat file   
         y     Your command   "   paths log/phys   F6  sort dir        F12 toggle mouse  
@@ -3289,12 +3306,12 @@ sub handleedit {
 			if ($loopfile->{selected} eq '*') {
 				$scr->puts($loopfile->{name});
 				exclude($loopfile, '.');
-				system "$editor \Q$loopfile->{name}" and display_error('Editor failed');
+				system "$editor \Q$loopfile->{name}\E" and display_error('Editor failed');
 			}
 		}
 		$multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
 	} else {
-		system "$editor \Q$currentfile{name}" and display_error('Editor failed');
+		system "$editor \Q$currentfile{name}\E" and display_error('Editor failed');
 		restat_copyback();
 	}
 	alternate_screen($ALTERNATE_ON) if $altscreen_mode;
@@ -3472,7 +3489,7 @@ sub launchbyxbit {
 	if (followmode(\%currentfile) =~ /[xsS]/) {
 		$scr->clrscr()->at(0,0)->puts("Launch executable $currentfile{name}\n");
 #		if ($waitlaunchexec) {
-			system "./\Q$currentfile{name}" and display_error('Launch failed');
+			system "./\Q$currentfile{name}\E" and display_error('Launch failed');
 #		} else {
 #			$SIG{CHLD} = sub {
 #				wait;
@@ -3484,7 +3501,7 @@ sub launchbyxbit {
 #				display_error("Unable to fork: $!");
 #			} elsif (!$pid) {
 #				# child
-#				exec "./\Q$currentfile{name}";
+#				exec "./\Q$currentfile{name}\E";
 #			} else {
 #				# parent
 #				$childprocs++;
@@ -3497,7 +3514,7 @@ sub launchbyxbit {
 }
 
 sub launchbymagic {
-	my $magic = `file \Q$currentfile{name}`;
+	my $magic = `file \Q$currentfile{name}\E`;
 	my ($re, $launched);
 	MAGIC: foreach (grep /^magic\[/, keys %pfmrc) {
 		($re) = (/magic\[([^]]+)\]/);
@@ -3547,7 +3564,7 @@ sub handleenter {
 		# we did try, but the file type was unknown
 #		display_error('File type unknown');
 #		$launched = $R_HEADER;
-		system "$pager \Q$currentfile{name}" and display_error($!);
+		system "$pager \Q$currentfile{name}\E" and display_error($!);
 		$launched = $R_CLRSCR;
 	} else {
 		# 'launchby' contains no valid entries
@@ -3758,13 +3775,14 @@ sub filetypeflag {
 sub getdircontents { # (current)directory
 	my (@contents, $entry);
 	my @allentries = ();
+	my @white_entries = ();
 	%usercache = %groupcache = ();
 #	init_title($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
 	if (opendir CURRENT, "$_[0]") {
 		@allentries = readdir CURRENT;
 		closedir CURRENT;
 		if ($white_cmd) {
-			push @allentries, `$white_cmd $_[0]`;
+			@white_entries = `$white_cmd $_[0]`;
 		}
 	} else {
 		$scr->at(0,0)->clreol();
@@ -3783,6 +3801,12 @@ sub getdircontents { # (current)directory
 	foreach $entry (@allentries) {
 		# have the mark cleared on first stat with ' '
 		push @contents, stat_entry($entry, ' ');
+	}
+	foreach $entry (@white_entries) {
+		$entry = stat_entry($entry, ' ');
+		$entry->{type} = 'w';
+		substr($entry->{mode}, 0, 1) = 'w';
+		push @contents, $entry;
 	}
 	init_header();
 	handlemorercsopen() if $autorcs;
@@ -4461,6 +4485,7 @@ ppppppppppllll uuuuuuuu ggggggggssssssss mmmmmmmmmmmmmmm *nnnnnnn ffffffffffffff
 ##  =5 : swap directory path (F7)
 ##  =6 : current directory basename
 ##  =7 : current filename extension
+##  =8 : list of selected filenames
 ##  == : a single literal '='
 ##  =e : 'editor' (defined above)
 ##  =p : 'pager'  (defined above)
@@ -4476,6 +4501,7 @@ your[F]:fuser =2
 your[f]:file =2
 your[G]:gimp =2 &
 your[g]:gvim =2
+your[I]:svn ci =8
 your[i]:rpm -qpi =2
 your[j]:mpg123 =2 &
 your[k]:esdplay =2
@@ -5157,6 +5183,10 @@ the basename of the current directory
 =item B<=7>
 
 the extension of the current filename (see below)
+
+=item B<=8>
+
+a space-separated list of all selected filenames
 
 =item B<==>
 
@@ -6026,7 +6056,7 @@ up if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.94.6.
+This manual pertains to C<pfm> version 1.94.7.
 
 =head1 AUTHOR and COPYRIGHT
 
