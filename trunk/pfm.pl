@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2009-12-03 v1.94.9
+# @(#) pfm.pl 2009-12-23 v1.94.9b
 #
 # Name:			pfm
-# Version:		1.94.9
+# Version:		1.94.9b
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2009-12-23
@@ -4049,7 +4049,7 @@ sub browse {
 		}
 		if ($wantrefresh &   $R_STRIDE) {
 			$wantrefresh &= ~$R_STRIDE;
-			position_cursor() if $position_at ne '';
+			position_cursor_find_incremental() if $position_at ne '';
 			recalc_ptr() unless defined $showncontents[$currentline+$baseindex];
 			%currentfile = %{$showncontents[$currentline+$baseindex]};
 		}
