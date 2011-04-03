@@ -2,9 +2,9 @@
 ############################################################################
 #
 # Name:         install.sh
-# Version:      0.20
+# Version:      0.21
 # Authors:      Rene Uittenbogaard
-# Date:         2009-11-13
+# Date:         2010-01-02
 # Usage:        sh install.sh
 # Description:  This is not so much a script as a manual.
 #		This is meant as an example how pfm dependencies can
@@ -12,7 +12,7 @@
 #		Comments and improvements are welcome!
 #
 
-VERSION=1.94.9
+VERSION=1.95.0
 
 ###############################################################################
 # helper functions
@@ -174,17 +174,10 @@ enkadercmd() {
 	eval "$command" | enkader 4
 }
 
-#----------------------------- main functions ---------------------------------
+###############################################################################
+# main functions
 
 check_package() {
-#	if [ "$ubuntu" ]; then
-#		apt-get install libncurses5
-#		apt-get install libncurses5-dev
-#		#
-#		apt-get install libreadline5
-#		apt-get install libreadline5-dev
-#		apt-get install libterm-readline-gnu-perl
-#	else
 	packagename="$1"
 	question="Has lib$packagename successfully been installed on your system? (Yes/No/Tell me) "
 	answer=n
@@ -256,6 +249,7 @@ check_perl_module_term_readline_gnu() {
 download_and_install_perl_module() {
 	packagename="$1"
 	if [ "$cpan_available" ]; then
+		install_opt=
 		while [ "x$install_opt" != xb -a "x$install_opt" != xc ]; do
 			echo "Do you want to install the bundled version, or "
 			echo $n "download the latest version from CPAN? (Bundled/Cpan) "

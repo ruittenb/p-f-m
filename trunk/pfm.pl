@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2009-12-23 v1.94.9b
+# @(#) pfm.pl 2010-01-04 v1.95.0a
 #
 # Name:			pfm
-# Version:		1.94.9b
+# Version:		1.95.0a
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2009-12-23
+# Date:			2010-02-11
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				pfm { -v, --version | -h, --help }
 # Requires:		Term::ReadLine::Gnu (preferably)
@@ -40,13 +40,10 @@
 #			/dev/hd4          45056   3528    93%    1389      7%  /
 #			/dev/hd2         303104  31984    90%   10081     14%  /usr
 #
-#		make errortime and importanttime configurable
-#		fixing whiteout handling
 #		in chmod(directory): recursively descend? y/n
-#		define printcommand at top of program? together with touch, du, lpr, unwo?
 #		implement escape char fixes to Term::Screen in Term::ScreenColor
 #
-#		mend timetouchformat. see shar(1) archives
+#		fix timetouchformat. see shar(1) archives
 #			if touch -am -t 200112312359.59 $$.touch >/dev/null 2>&1 && test ! -f 200112312359.59 -a -f $$.touch; then
 #			shar_touch='touch -am -t $1$2$3$4$5$6.$7 "$8"'
 #			elif touch -am 123123592001.59 $$.touch >/dev/null 2>&1 && test ! -f 123123592001.59 -a ! -f 123123592001.5 -a -f $$.touch; then
@@ -87,7 +84,6 @@
 #		hierarchical sort? e.g. 'sen' (size,ext,name)
 #		window sizing problems on Sun 5.6?
 #		include acl commands?
-#		V - subversion
 
 ##########################################################################
 # main data structures:
@@ -847,7 +843,7 @@ sub expand_3456_escapes { # quoteif, command, whatever
 	# the format of passwd(5) dictates that a username cannot contain colons
 	$_[1] =~ s/^~([^:\/]+)/(getpwnam $1)[7] || "~$1"/e;
 	# the next generation in quoting
-	$_[1] =~ s/$qe([^127])/expand_replace($qif, $1)/ge;
+	$_[1] =~ s/$qe([^1278])/expand_replace($qif, $1)/ge;
 }
 
 sub expand_escapes { # quoteif, command, \%currentfile
@@ -1159,6 +1155,7 @@ sub reformat {
 	foreach (@dircontents) {
 		$_->{name_too_long} = length($_->{display}) > $maxfilenamelength-1
 			? $NAMETOOLONGCHAR : ' ';
+		# TODO next line ignores the fact that size_num could be major/minor
 		@{$_}{qw(size_num size_power)} =
 			fit2limit($_->{size}, $maxfilesizelength);
 		@{$_}{qw(grand_num grand_power)} =
@@ -2227,6 +2224,7 @@ sub handlesize {
 		} elsif (!$multiple_mode) {
 			# use filesize field
 			$tempfile = { %$loopfile };
+			# TODO next line ignores the fact that size_num could be major/minor
 			@{$tempfile}{qw(size size_num size_power)} = ($recursivesize,
 				fit2limit($recursivesize, $maxfilesizelength));
 			$scr->at($currentline + $BASELINE, $filerecordcol)
@@ -2367,6 +2365,7 @@ sub handlefit {
 
 sub handleperlcommand {
 	my $perlcmd;
+	markcurrentline('@'); # disregard multiple_mode
 	$scr->at(0,0)->clreol()->putcolored($framecolors{$color_mode}{message}, 'Enter Perl command:')
 		->at($PATHLINE,0)->clreol();
 	stty_raw($TERM_COOKED);
@@ -2749,7 +2748,7 @@ sub handlesymlink {
 	stty_raw($TERM_RAW);
 	return $R_HEADER if $newname eq '';
 	$newname = canonicalize_path($newname);
-	# expand \[3456] at this point as a test, but not \[127]
+	# expand \[3456] at this point as a test, but not \[1278]
 	expand_3456_escapes($QUOTE_OFF, ($testname = $newname), \%currentfile);
 	# assignment on purpose, executed before evaluation of return value
 	return $R_HEADER | $multi2single if $multi2single = multi_to_single($testname);
@@ -3025,7 +3024,7 @@ sub handlecommand { # Y or O
 				$scr->at($printline++, $infocol)->puts(sprintf(' %1s%1s %s', $e, $_, $CMDESCAPES{$_} || "literal $e"));
 			}
 		}
-		$prompt = "Enter Unix command ($e" . "[1-7] or $e" . "[epv] escapes see below):";
+		$prompt = "Enter Unix command ($e" . "[1-8] or $e" . "[epv] escapes see below):";
 		$scr->at(0,0)->clreol()->putcolored($framecolors{$color_mode}{message}, $prompt)
 			->at($PATHLINE,0)->clreol();
 		stty_raw($TERM_COOKED);
@@ -3337,7 +3336,7 @@ sub handlecopyrename {
 	}
 	stty_raw($TERM_RAW);
 	return $R_HEADER if ($newname eq '');
-	# expand \[3456] at this point as a test, but not \[127]
+	# expand \[3456] at this point as a test, but not \[1278]
 	expand_3456_escapes($QUOTE_OFF, ($testname = $newname), \%currentfile);
 	# assignment on purpose, executed before evaluation of return value
 	return $R_HEADER | $multi2single if $multi2single = multi_to_single($testname);
@@ -4049,7 +4048,7 @@ sub browse {
 		}
 		if ($wantrefresh &   $R_STRIDE) {
 			$wantrefresh &= ~$R_STRIDE;
-			position_cursor_find_incremental() if $position_at ne '';
+			position_cursor() if $position_at ne '';
 			recalc_ptr() unless defined $showncontents[$currentline+$baseindex];
 			%currentfile = %{$showncontents[$currentline+$baseindex]};
 		}
@@ -4450,6 +4449,7 @@ di=bold:ln=underscore:
 ## a    access time              15 (using "%y %b %d %H:%M" if len(%b) == 3)
 ## c    change time              15 (using "%y %b %d %H:%M" if len(%b) == 3)
 ## m    modification time        15 (using "%y %b %d %H:%M" if len(%b) == 3)
+## v    rcs(svn) info            >=4
 ## d    device                   5?
 ## i    inode                    >=7 (system-dependent)
 ## l    link count               >=5 (system-dependent)
@@ -4478,7 +4478,7 @@ ppppppppppllll uuuuuuuu ggggggggssssssss mmmmmmmmmmmmmmm *nnnnnnn ffffffffffffff
 ## your commands
 
 ## in the defined commands, you may use the following escapes.
-## these must NOT be quoted any more!
+## these must NOT be quoted.
 ##  =1 : current filename without extension
 ##  =2 : current filename entirely
 ##  =3 : current directory path
@@ -4568,6 +4568,7 @@ extension[*.html] : text/html
 extension[*.jar]  : application/zip
 extension[*.jpeg] : image/jpeg
 extension[*.jpg]  : image/jpeg
+extension[*.json] : application/json
 extension[*.lzh]  : application/x-lha
 extension[*.mid]  : audio/midi
 extension[*.midi] : audio/midi
@@ -4616,6 +4617,7 @@ extension[*.xml]  : application/xml
 extension[*.xpm]  : image/x-xpixmap
 extension[*.xwd]  : image/x-xwindowdump
 extension[*.ync]  : application/x-yencoded
+extension[*.yml]  : application/x-yaml
 extension[*.z]    : application/x-compress
 extension[*.zip]  : application/zip
 
@@ -4650,6 +4652,7 @@ magic[gzip compressed data] : application/x-gzip
 magic[perl script]          : application/x-perl
 magic[tar archive]          : application/x-tar
 
+launch[application/json]          : =e =2
 launch[application/octet-stream]  : =p =2
 launch[application/pdf]           : acroread =2 &
 #launch[application/pdf]           : evince =2 &
@@ -4685,6 +4688,7 @@ launch[application/x-tar-gzip]    : gunzip < =2 | tar tvf -
 #launch[application/x-tar]         : tar xvf =2
 launch[application/x-tar]         : tar tvf =2
 launch[application/x-uuencoded]   : uudecode =2
+launch[application/x-yaml]        : =e =2
 launch[application/x-yencoded]    : ydecode =2
 launch[application/xml]           : firefox =2 &
 launch[application/zip]           : unzip =2
@@ -5337,7 +5341,8 @@ Change ownership of a file. Note that many Unix variants do not allow normal
 
 =item B<sVn>
 
-Updates the current file with Subversion status information.
+Updates the current file with Subversion status information. The command
+to use can be configured in the F<.pfmrc> with the 'rcscmd' option.
 See also B<M>ore - sB<V>n.
 
 =item B<unWhiteout>
@@ -5356,11 +5361,12 @@ criterion. See B<I>nclude for details.
 
 Like cB<O>mmand (see above), except that it uses one-letter commands
 (case-sensitive) that have been preconfigured in the F<.pfmrc> file.
-B<Y>our commands may use B<=1> up to B<=7> and B<=e>, B<=p> and B<=v>
+B<Y>our commands may use B<=1> up to B<=8> and B<=e>, B<=p> and B<=v>
 escapes just as in cB<O>mmand, e.g.
 
     your[c]:tar cvf - =2 | gzip > =2.tar.gz
     your[t]:tar tvf =2 | =p
+    your[o]:svn commit =8
 
 =item B<siZe>
 
@@ -5679,10 +5685,10 @@ The input is taken literally.
 
 First of all, tilde expansion is performed.
 
-Next, any C<=[1-7evp]> character sequence is expanded to the corresponding
+Next, any C<=[1-8evp]> character sequence is expanded to the corresponding
 value.
 
-At the same time, any C<=[^1-7evp]> character sequence is just replaced
+At the same time, any C<=[^1-8evp]> character sequence is just replaced
 with the character itself.
 
 Finally, if the filename is to be processed by C<pfm>, it is taken literally;
@@ -5692,10 +5698,10 @@ if it is to be handed over to a shell, all metacharacters are replaced I<escaped
 
 First of all, tilde expansion is performed.
 
-Next, any C<=[1-7evp]> character sequence is expanded to the corresponding
+Next, any C<=[1-8evp]> character sequence is expanded to the corresponding
 value, I<with shell metacharacters escaped>.
 
-At the same time, any C<=[^1-7evp]> character sequence is just replaced
+At the same time, any C<=[^1-8evp]> character sequence is just replaced
 with the character itself.
 
 =back
@@ -6061,7 +6067,7 @@ up if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.94.9.
+This manual pertains to C<pfm> version 1.95.0a.
 
 =head1 AUTHOR and COPYRIGHT
 
@@ -6073,12 +6079,12 @@ This manual pertains to C<pfm> version 1.94.9.
 .ie \n(.g .ds e' \('e
 .el       .ds e' e\*'
 ..
-Copyright \*(co 1999-2009, Ren\*(e' Uittenbogaard
+Copyright \*(co 1999-2010, Ren\*(e' Uittenbogaard
 (ruittenb@users.sourceforge.net).
 .PP \
 
 =for html
-Copyright &copy; 1999-2009, Ren&eacute; Uittenbogaard
+Copyright &copy; 1999-2010, Ren&eacute; Uittenbogaard
 (ruittenb&#64;users.sourceforge.net).
 
 All rights reserved. This program is free software; you can redistribute
