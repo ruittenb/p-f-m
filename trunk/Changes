@@ -1,6 +1,4 @@
-1.94.0
+1.94.1
 
-* added chdir() autocommand
-* added (M)ore - (B)ookmark command
-* fixed minor screen formatting issues
+* added incremental (F)ind
 
