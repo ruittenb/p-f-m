@@ -2,9 +2,9 @@
 ############################################################################
 #
 # Name:         install.sh
-# Version:      0.23
+# Version:      0.24
 # Authors:      Rene Uittenbogaard
-# Date:         2010-11-28
+# Date:         2010-03-28
 # Usage:        sh install.sh
 # Description:  Un*x-like systems can be very diverse.
 #		This script is meant as an example how pfm dependencies
@@ -12,7 +12,7 @@
 #		Suggestions for improvement are welcome!
 #
 
-VERSION=1.95.0
+VERSION='1.95.4a'
 
 ###############################################################################
 # helper functions
@@ -274,6 +274,69 @@ install_pfm() {
 	make install
 }
 
+check_date_locale() {
+	# no GNU date? return now.
+	date --version 2>&1 | grep GNU >/dev/null 2>&1 || return
+	# with GNU date, we can find names of any month.
+	currentlocale=${LC_ALL:-${LC_TIME:-$LANG}}
+	for i in Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec; do
+		datumlen=`date --date="$i 1" +'%b'`
+		if [ ${#datumlen} -gt 3 ]; then
+			echo "Warning: some of the short month names in your locale ($currentlocale)"
+			echo "seem to be longer than 3 characters."
+			echo "The default config file (possibly at ${PFMRC:-$HOME/.pfm/.pfmrc})"
+			echo "does not take this into account."
+			echo "Please verify that your file timestamps don't look truncated,"
+			echo "otherwise please alter the 'columnlayouts' option."
+			return
+		fi
+	done
+	echo "Pfm should work correctly with the month names in your locale ($currentlocale)"
+}
+
+check_pfmrc() {
+	pfmrc="${PFMRC:-$HOME/.pfm/.pfmrc}"
+	if [ ! -f "$pfmrc" ]; then
+		return
+	fi
+	oldversion="$(awk '/^## Version / { print $3 }' $pfmrc)"
+	if [ -z "$oldversion" ]; then
+		echo "The version number of your config file ('$pfmrc')"
+		echo "could not be determined. Please have pfm create a new one"
+		echo "and compare the old and new ones so that you will not miss"
+		echo "any configuration file updates."
+		return
+	fi
+	repairs="$(
+		( cd repair; ls ) | perl -nle 's/\.pl$//; print if ($_ gt "repair-'$oldversion'" and $_ le "repair-'$VERSION'");'
+	)"
+	if [ ! "$repairs" ]; then
+		return
+	fi
+	echo
+	echo "You seem to be upgrading from version $oldversion."
+	echo "For the current version ($VERSION), updates to your config file are needed."
+	echo
+	echo "Do you want me to back up your current config file"
+	echo "(located at '$pfmrc')"
+	echo $n "and try to update it? (Yes/No) "
+	read answer
+	if [ "$answer" != y ]; then
+		return
+	fi
+	newpfmrc="$pfmrc.`date +'%Y%m%dT%H%M%S'`"
+	cp -i "$pfmrc" "$newpfmrc"
+	echo
+	echo "Config file backed up as '$newpfmrc'."
+	echo "$repairs" | while read repair; do
+		perl -pi repair/$repair "$pfmrc"
+		v=${repair#repair-}; v=${v%.pl}
+		echo "Successfully updated to $v"
+	done
+	perl -pi "s/^(## Version ).*/$1$VERSION/" "$pfmrc"
+	echo "Successfully updated to $VERSION"
+}
+
 ###############################################################################
 # main
 
@@ -286,7 +349,6 @@ check_package readline
 # check, download and install the Perl modules
 
 check_cpan
-check_perl_module Term::Cap         || download_and_install_perl_module Term::Cap
 check_perl_module Term::Screen      || download_and_install_perl_module Term::Screen
 check_perl_module Term::ScreenColor || download_and_install_perl_module Term::ScreenColor
 check_perl_module_term_readline_gnu || download_and_install_perl_module Term::ReadLine::Gnu
@@ -294,6 +356,11 @@ check_perl_module_term_readline_gnu || download_and_install_perl_module Term::Re
 # check, download and install the application
 
 install_pfm
+
+# check the installation
+
+check_date_locale
+check_pfmrc
 
 # vim: set tabstop=8 shiftwidth=8 noexpandtab:
 

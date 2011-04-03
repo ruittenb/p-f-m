@@ -1,6 +1,6 @@
 
 
-Package: pfm-1.95.0
+Package: pfm-1.95.4a
 
 
 This package is available from http://sourceforge.net/projects/p-f-m/
@@ -13,10 +13,10 @@ gcc                        ?
   ncurses                  ?             5
     Term-Screen            1.02          1.03
       Term-Screen-Uni      0.04          0.04
-        Term-ScreenColor   1.09          1.10
+        Term-ScreenColor   1.09          1.20
   readline                 4.1           5
-    Term-ReadLine-Gnu      1.09          1.19
-      pfm                  -             1.95.0
+    Term-ReadLine-Gnu      1.09          1.20
+      pfm                  -             1.95.4a
 
 If you run Ubuntu, it is advisable to install the following packages:
 
