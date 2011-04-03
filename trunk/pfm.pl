@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2010-04-16 v1.95.4
+# @(#) pfm.pl 2010-04-16 v1.95.4a
 #
 # Name:			pfm
-# Version:		1.95.4
+# Version:		1.95.4a
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-04-16
@@ -2157,8 +2157,10 @@ sub handlemousedown {
 		$do_a_refresh |= handlemove('ku');
 		$do_a_refresh |= handlemove('ku');
 		$do_a_refresh |= handlemove('ku');
+		$do_a_refresh |= handlemove('ku');
 	} elsif ($mbutton == 65) {
 		# wheel down
+		$do_a_refresh |= handlemove('kd');
 		$do_a_refresh |= handlemove('kd');
 		$do_a_refresh |= handlemove('kd');
 		$do_a_refresh |= handlemove('kd');
@@ -3413,7 +3415,7 @@ sub handlecopyrename {
 #			$scr->clreol();
 #		} elsif
 		if (system @statecmd, $loopfile->{name}, $newnameexpanded) {
-			$do_a_refresh |= neat_error($state eq 'C' ? 'Copy failed' : 'Move failed');
+			$do_a_refresh |= neat_error($state eq 'C' ? 'Copy failed' : 'Rename failed');
 		} elsif ($newnameexpanded !~ m!/!) {
 			# is newname present in @dircontents? push otherwise
 			$findindex = 0;
@@ -4145,9 +4147,10 @@ sub browse {
 		# don't send mouse escapes to the terminal if not necessary
 		highlightline($HIGHLIGHT_ON);
 		mouseenable($MOUSE_ON) if $mouse_mode && $mouseturnoff;
-		MAIN_WAIT_LOOP: until (length($scr->{IN}) || $wasresized || $scr->key_pressed(1)) {
-			clock_info();
+		MAIN_WAIT_LOOP: until (length($scr->{IN}) || $wasresized || $scr->key_pressed(0.3)) {
 			handlepipes();
+			last if $scr->key_pressed(0.7);
+			clock_info();
 			$scr->at($currentline+$BASELINE, $cursorcol);
 		}
 		if ($wasresized) {
@@ -6143,7 +6146,7 @@ up if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.95.4.
+This manual pertains to C<pfm> version 1.95.4a.
 
 =head1 AUTHOR and COPYRIGHT
 
