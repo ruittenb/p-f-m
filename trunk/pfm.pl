@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2009-10-05 v1.94.0h
+# @(#) pfm.pl 2009-10-07 v1.94.0i
 #
 # Name:			pfm
-# Version:		1.94.0h
+# Version:		1.94.0i
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2009-10-05
+# Date:			2009-10-07
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				pfm { -v, --version | -h, --help }
 # Requires:		Term::ReadLine::Gnu (preferably)
@@ -1843,7 +1843,7 @@ sub clock_info {
 sub as_requested {
 	my ($exta, $extb);
 	if ($dotdot_mode) {
-		# Oleg Bartunov wanted to have . and .. unsorted (always at the top)
+		# Oleg Bartunov requested to have . and .. unsorted (always at the top)
 		if    ($a->{name} eq '.' ) { return -1 }
 		elsif ($b->{name} eq '.' ) { return  1 }
 		elsif ($a->{name} eq '..') { return -1 }
@@ -2146,38 +2146,41 @@ sub handlepan {
 	return $R_HEADER | $R_FOOTER;
 }
 
-#sub handlefind {
-#	my $findme;
-#	my $prompt = 'File to find: ';
-#	$scr->at(0,0)->clreol();
-#	stty_raw($TERM_COOKED);
-#	($findme = readintohist(\@path_history, $prompt)) =~ s/\/$//;
-#	if ($findme =~ /\//) { $findme = basename($findme) };
-#	stty_raw($TERM_RAW);
-#	return $R_HEADER if $findme eq '';
-#	FINDENTRY:
-#	foreach (sort by_name @showncontents) {
-#		last FINDENTRY if $findme le ($position_at = $_->{name});
-##		if (index($_->{name}, $findme) == 0) {
-##			$position_at = $_->{name};
-##			last FINDENTRY;
-##		}
-#	}
-#	return $R_DIRLIST | $R_HEADER;
-#}
-
 sub handlefind {
+	if (lc($sort_mode) eq 'n') {
+		goto &handlefind_incremental;
+	}
+	my $findme;
+	my $prompt = 'File to find: ';
+	$scr->at(0,0)->clreol();
+	stty_raw($TERM_COOKED);
+	($findme = readintohist(\@path_history, $prompt)) =~ s/\/$//;
+	if ($findme =~ /\//) { $findme = basename($findme) };
+	stty_raw($TERM_RAW);
+	return $R_HEADER if $findme eq '';
+	FINDENTRY:
+	foreach (sort by_name @showncontents) {
+		last FINDENTRY if $findme le ($position_at = $_->{name});
+#		if (index($_->{name}, $findme) == 0) {
+#			$position_at = $_->{name};
+#			last FINDENTRY;
+#		}
+	}
+	return $R_DIRLIST | $R_HEADER;
+}
+
+sub handlefind_incremental {
 	my ($findme, $k, $delay);
 	my $jumpmouse = 1;
 	my $prompt = 'File to find: ';
 	$delay = .5;
-	FINDENTRY: for (;;) {
+	while (1) {
 		highlightline($HIGHLIGHT_ON);
 		$scr->at(0,0)->clreol();
 		putmessage($prompt);
 		$scr->puts($findme);
 		if ($jumpmouse) {
-			FINDENTRYKEY: while (!$scr->key_pressed($delay)) {
+			while (!$scr->key_pressed($delay)) {
 				$scr->at($currentline+$BASELINE, $cursorcol);
 				last if ($scr->key_pressed($delay));
 				$scr->at(0, length($prompt . $findme));
@@ -2197,7 +2200,7 @@ sub handlefind {
 			$findme .= $k;
 		}
 		$position_at = $findme;
-		position_cursor_find();
+		position_cursor_find_incremental();
 		%currentfile = %{$showncontents[$currentline+$baseindex]};
 #		if (!$scr->key_pressed(0)) {
 			printdircontents(@showncontents);
@@ -2853,7 +2856,7 @@ sub handlecommand { # Y or O
 					$do_this = $command;
 					expand_escapes($QUOTE_ON, $do_this, $loopfile);
 					$scr->puts($do_this . "\n");
-					system $do_this and display_error('External command failed');
+					system $do_this and display_error("External command failed\n");
 					$dircontents[$index] =
 						stat_entry($loopfile->{name},$loopfile->{selected});
 					if ($dircontents[$index]{nlink} == 0) {
@@ -3491,7 +3494,7 @@ sub handleentry {
 
 sub handlepathjump {
 	my $mousecol = shift;
-	my ($baselen, $skipsize, $selecteddir, $do_a_refresh);
+	my ($baselen, $skipsize, $selecteddir);
 	my $do_a_refresh = $R_NOP;
 	my $pathline = pathline($currentdir,
 							$disk{'device'},
@@ -3654,11 +3657,18 @@ sub get_filesystem_info {
 	return %tdisk;
 }
 
-sub position_cursor_find {
+sub position_cursor_find_incremental {
+	my $condition;
 	$currentline = 0;
+	if ($sort_mode eq 'n') {
+		$condition = sub { return ($position_at le substr($_[0], 0, length($position_at))); }
+	} else { # $sort_mode eq 'N'
+		$condition = sub { return ($position_at ge substr($_[0], 0, length($position_at))); }
+	}
 	ANYENTRYFIND: {
 		for (0..$#showncontents) {
-			if ($position_at le substr($showncontents[$_]{name}, 0, length($position_at))) {
+#			if ($position_at le substr($showncontents[$_]{name}, 0, length($position_at))) {
+			if ($condition->($showncontents[$_]{name})) {
 				$currentline = $_ - $baseindex;
 				last ANYENTRYFIND;
 			}
@@ -5801,7 +5811,7 @@ up if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.94.0h.
+This manual pertains to C<pfm> version 1.94.0i.
 
 =head1 AUTHOR and COPYRIGHT
 
