@@ -2,9 +2,9 @@
 ############################################################################
 #
 # Name:         installpfm.sh
-# Version:      0.13
+# Version:      0.14
 # Authors:      Rene Uittenbogaard
-# Date:         2009-10-02
+# Date:         2009-10-08
 # Usage:        installpfm.sh
 # Description:  This is not so much a script as a manual.
 #		This is meant as an example how pfm dependencies can
@@ -230,19 +230,24 @@ check_perl_module() {
 }
 
 download_and_install_perl_module() {
-	olddir=$(pwd)
 	url="$1"
-	file="${1##/}"
-	name="${file%.tar.gz}"
-	cd /tmp
-	wget -c "$url"
-	gunzip < "$file" | tar xvf -
-	cd "$name"
-	perl Makefile.PL
-	make
-	make test
-	make install
-	cd $olddir
+	filename="${url##*/}"
+	packageversionname="${filename%.tar.gz}"
+	packagename="${packageversionname%-*}"
+	if check_perl_module CPAN; then
+		perl -MCPAN -e"install $packagename"
+	else
+		olddir=$(pwd)
+		cd /tmp
+		wget -c "$url"
+		gunzip < "$filename" | tar xvf -
+		cd "$packageversionname"
+		perl Makefile.PL
+		make
+		make test
+		make install
+		cd $olddir
+	fi
 }
 
 install_pfm() {

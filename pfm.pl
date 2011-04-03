@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2009-10-07 v1.94.0k
+# @(#) pfm.pl 2009-10-07 v1.94.1
 #
 # Name:			pfm
-# Version:		1.94.0k
+# Version:		1.94.1
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2009-10-07
@@ -5834,7 +5834,7 @@ up if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.94.0k.
+This manual pertains to C<pfm> version 1.94.1.
 
 =head1 AUTHOR and COPYRIGHT
 
