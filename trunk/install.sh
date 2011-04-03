@@ -2,9 +2,9 @@
 ############################################################################
 #
 # Name:         installpfm.sh
-# Version:      0.06
+# Version:      0.07
 # Authors:      Rene Uittenbogaard
-# Date:         2009-09-29
+# Date:         2009-09-30
 # Usage:        installpfm.sh
 # Description:  This is not a script, this is a manual.
 #		This is meant as an example how pfm dependencies can
@@ -12,10 +12,10 @@
 #		Comments and improvements are welcome!
 #
 
-VERSION=1.93.9
+VERSION=1.94.0
 
 ###############################################################################
-# functions
+# helper functions
 
 install_prepare() {
 	if echo -n "" | grep n >/dev/null; then
@@ -29,18 +29,40 @@ install_prepare() {
 init_package_commands() {
 	case "$1" in
 	hp-ux|hpux)
-		packagelistcmd= # TODO
-		packageinstallcmd= # TODO
+		_swinstall()
+		{
+			swinstall -s `pwd`/$1*depot $1
+		}
+		packagelistcmd=swlist
+		packageinstallcmd=_swinstall
 		break
 		;;
 	sunos|solaris)
-		packagelistcmd= # TODO
-		packageinstallcmd= # TODO
+		_pkgadd()
+		{
+			pkgadd -d $1*pkg all
+		}
+		packagelistcmd=pkginfo
+		packageinstallcmd=_pkgadd
 		break
 		;;
 	aix)
-		packagelistcmd= # TODO
-		packageinstallcmd='installp -d `pwd`/lib'$1'*bff all'
+		_installp()
+		{
+			installp -d `pwd`/$1*bff all
+		}
+		packagelistcmd='lslpp -L'
+		packageinstallcmd='_installp'
+		break
+		;;
+	macosx)
+		packagelistcmd='port list'
+		packageinstallcmd='port install'
+		break
+		;;
+	*bsd)
+		packagelistcmd=pkg_info
+		packageinstallcmd=pkg_add
 		break
 		;;
 	rpm)
@@ -107,12 +129,46 @@ check_distro() {
 	fi
 }
 
+enkader() {
+	# usage  : cmd | enkader [ indent [ footer_yesno ] ]
+	# example: dpkg -l | grep libncurses | enkader
+	indent="${1:-4}"
+	footer="${2:-yes}"
+	awk '
+	BEGIN {
+		indent="'"$indent"'"
+		if ("'"$footer"'" == "no") footer=0
+		else footer=1
+		maxlength=78-indent;
+		indentstr=substr("                                    ", 1, indent);
+		minusstr=substr( \
+			"--------------------------------------------------------------------------------", \
+			1, maxlength);
+		printf("%s+%-s+\n", indentstr, minusstr);
+	}
+	{
+		printf("%s|%-" (78-indent) "s|\n", indentstr, substr($0, 1, maxlength));
+	}
+	END {
+		if (footer) printf("%s+%-s+\n", indentstr, minusstr);
+	}'
+}
+
+enkadercmd() {
+	command="$@"
+	test "$command" || return
+	echo "$command" | enkader 4 no
+	$command | enkader 4
+}
+
+#----------------------------- main functions ---------------------------------
+
 check_libncurses_installation() {
 	if [ "$ubuntu" ]; then
 		apt-get install libncurses5
 		apt-get install libncurses5-dev
 	else
-		question="Has libncurses successfully been installed on your system? (y/n) "
+		question="Has libncurses successfully been installed on your system? (Yes/No/Tell me) "
 		answer=n
 		echo $n "$question"
 		read answer
@@ -130,7 +186,7 @@ check_libreadline_installation() {
 		apt-get install libreadline5-dev
 		apt-get install libterm-readline-gnu-perl
 	else
-		question="Has libreadline successfully been installed on your system? (y/n) "
+		question="Has libreadline successfully been installed on your system? (Yes/No/Tell me) "
 		answer=n
 		echo $n "$question"
 		read answer
@@ -244,4 +300,4 @@ check_perl_module Term::ReadLine::Gnu || download_and_install_perl_module \
 install_pfm
 
 
-
+# vim: set tabstop=8 shiftwidth=8 noexpandtab:
