@@ -2,9 +2,9 @@
 ############################################################################
 #
 # Name:         install.sh
-# Version:      0.22
+# Version:      0.23
 # Authors:      Rene Uittenbogaard
-# Date:         2010-01-03
+# Date:         2010-11-28
 # Usage:        sh install.sh
 # Description:  Un*x-like systems can be very diverse.
 #		This script is meant as an example how pfm dependencies
