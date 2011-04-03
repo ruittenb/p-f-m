@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2009-09-23 v1.93.9
+# @(#) pfm.pl 2009-09-30 v1.94.0
 #
 # Name:			pfm
-# Version:		1.93.9
+# Version:		1.94.0
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2009-09-23
+# Date:			2009-09-30
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				pfm { -v, --version | -h, --help }
 # Requires:		Term::ReadLine::Gnu (preferably)
@@ -27,8 +27,6 @@
 #			partly implemented in handlecopyrename
 #		fixed sysread() and buffering
 #
-#		change \ char for \1..\7 interpretation
-#		correct optreden van "cannot do multifile oper when destination is single" (multi_to_single)
 #		test substitution in (O), (Y) and Launch; du(Z); (P); df;  (N)ame
 #		test major/minor numbers on DU 4.0E, Tru64, Sun (cannot test: no system available)
 # TODO:
@@ -431,9 +429,9 @@ my (
 	# cursor position
 	$currentline, $baseindex, $cursorcol, $filenamecol, $infocol, $filerecordcol,
 	# misc config options
-	$editor, $pager, $viewer, $windowcmd, $printcmd, $ducmd, $showlockchar, $e,
+	$editor, $pager, $viewer, $windowcmd, $printcmd, $ducmd, $chdirautocmd, $e,
 	$autoexitmultiple, $cursorveryvisible, $clsonexit, $rdevtomajor,
-	$autowritehistory, $trspace, $swap_persistent, $mouseturnoff,
+	$autowritehistory, $trspace, $swap_persistent, $mouseturnoff, $showlockchar,
 	@colorsetnames, %filetypeflags, $swapstartdir, $waitlaunchexec,
 	# layouts and formatting
 	$currentformatline, $currentformatlinewithinfo, $currentlayout, $formatname,
@@ -559,6 +557,7 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
 	$mouse_mode			= ($mouse_mode eq 'xterm' && isxterm($ENV{TERM})) || isyes($mouse_mode);
 	$altscreen_mode		= $pfmrc{altscreenmode}		|| 'xterm' if !defined $altscreen_mode;
 	$altscreen_mode		= ($altscreen_mode eq 'xterm' && isxterm($ENV{TERM})) || isyes($altscreen_mode);
+	($chdirautocmd)		= $pfmrc{chdirautocmd};
 	($windowcmd)		= ($pfmrc{windowcmd}) ||
 						  ($^O eq 'linux' ? 'gnome-terminal -e' : 'xterm -e');
 	($printcmd)			= ($pfmrc{printcmd}) ||
@@ -959,6 +958,7 @@ sub mychdir {
 	if ($result = chdir $goal and $goal ne $currentdir) {
 		$oldcurrentdir = $currentdir;
 		$currentdir = $goal;
+		system("$chdirautocmd") if length($chdirautocmd);
 #	} elsif (!$result) {
 #		$currentdir = getcwd();
 	}
@@ -1493,6 +1493,7 @@ sub pressanykey {
 		$scr->getch();
 		$scr->getch();
 	};
+	$scr->puts("\n");
 	alternate_screen($ALTERNATE_ON) if $altscreen_mode;
 	return handleresize() if $wasresized;
 	return 0;
@@ -2971,14 +2972,14 @@ sub handleshow {
 				$scr->puts($loopfile->{name});
 				exclude($loopfile,'.');
 				alternate_screen($ALTERNATE_OFF);
-				system "$pager \Q$loopfile->{name}" and display_error('Pager failed');
+				system "$pager \Q$loopfile->{name}" and display_error("Pager failed\n");
 				alternate_screen($ALTERNATE_ON) if $altscreen_mode;
 			}
 		}
 		$multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
 	} else {
 		alternate_screen($ALTERNATE_OFF);
-		system "$pager \Q$currentfile{name}" and display_error('Pager failed');
+		system "$pager \Q$currentfile{name}" and display_error("Pager failed\n");
 		alternate_screen($ALTERNATE_ON) if $altscreen_mode;
 	}
 	stty_raw($TERM_RAW);
@@ -3893,6 +3894,10 @@ autowritehistory:no
 ## use xterm alternate screen buffer (yes,no,xterm) (default: only in xterm)
 altscreenmode:xterm
 
+## command to perform automatically after every chdir()
+#chdirautocmd:printf "\033]0;pfm - $(basename $(pwd))\007"
+#chdirautocmd:xtitle "pfm - $(hostname):$(pwd)"
+
 ## clock date/time format; see strftime(3).
 ## %x and %X provide properly localized time and date.
 ## the defaults are "%Y %b %d" and "%H:%M:%S"
@@ -3981,7 +3986,7 @@ importlscolors:yes
 ## definitely look in the Term::Screen(3pm) manpage for details.
 ## also check 'kmous' from terminfo if your mouse is malfunctioning.
 #keydef[vt100]:home=\e[1~:end=\e[4~:
-keydef[*]:kmous=\e[M:home=\e[1~:end=\e[4~:end=\e[F:\
+keydef[*]:kmous=\e[M:home=\e[1~:end=\e[4~:end=\e[F:home=\eOH:end=\eOF:\
 kl=\eOD:kd=\eOB:ku=\eOA:kr=\eOC:k1=\eOP:k2=\eOQ:k3=\eOR:k4=\eOS:\
 pgdn=\e[62~:pgup=\e[63~:
 
@@ -4240,6 +4245,7 @@ extension[*.com]  : application/x-executable
 extension[*.css]  : text/css
 extension[*.deb]  : application/x-deb
 extension[*.doc]  : application/x-ms-office
+extension[*.docx] : application/x-ms-office
 extension[*.dll]  : application/octet-stream
 extension[*.dvi]  : application/x-dvi
 extension[*.eps]  : application/postscript
@@ -4267,6 +4273,7 @@ extension[*.pdb]  : chemical/x-pdb
 extension[*.pdf]  : application/pdf
 extension[*.php]  : text/x-php
 extension[*.phtml]: text/x-php
+extension[*.pps]  : application/x-ms-office
 extension[*.ppt]  : application/x-ms-office
 extension[*.pl]   : application/x-perl
 extension[*.pm]   : application/x-perl-module
@@ -4289,6 +4296,7 @@ extension[*.wmv]  : video/x-winmedia
 extension[*.xcf]  : image/x-gimp
 extension[*.xbm]  : image/x-xbitmap
 extension[*.xls]  : application/x-ms-office
+extension[*.xlsx] : application/x-ms-office
 extension[*.xml]  : application/xml
 extension[*.xpm]  : image/x-xpixmap
 extension[*.xwd]  : image/x-xwindowdump
@@ -4345,7 +4353,7 @@ launch[application/x-groff-mm]	  : groff -pteR -mm  =2 > =1.ps; gv =1.ps &
 launch[application/x-gzip]        : gunzip =2
 #launch[application/x-lha]         :
 launch[application/x-msdos-batch] : =e =2
-launch[application/x-ms-office]   : =e =2
+launch[application/x-ms-office]   : ooffice =2
 launch[application/x-nroff-man]	  : nroff -p -t -e -man =2 | =p
 launch[application/x-pascal]      : =e =2
 launch[application/x-perl-module] : =e =2
@@ -4585,6 +4593,9 @@ _
 .in
 
 =end roff
+
+If the option 'chdirautocmd' has been specified in the F<.pfmrc> file,
+pfm will execute that command after every chdir().
 
 Note 1: the B<l> and B<ENTER> keys function differently when the cursor
 is on a non-directory file (see below under B<L>ink and LAUNCHING FILES
@@ -5712,7 +5723,7 @@ up if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.93.9.
+This manual pertains to C<pfm> version 1.94,0.
 
 =head1 AUTHOR and COPYRIGHT
 

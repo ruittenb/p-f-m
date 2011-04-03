@@ -1,5 +1,6 @@
-1.93.9
+1.94.0
 
-* added: clicking the mouse in the directory path will chdir()
-  to the clicked parent directory
+* added chdir() autocommand
+* added (M)ore - (B)ookmark command
+* fixed minor screen formatting issues
 
