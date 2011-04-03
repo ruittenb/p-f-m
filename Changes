@@ -1,5 +1,4 @@
-1.94.9
+1.95.0
 
-* fix for (M)ore - mk(F)ifo: bail out on entering empty string
-* fixed installation script
+* updated documentation with =8 escape and 'rcscmd' option
 
