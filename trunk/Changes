@@ -1,6 +1,5 @@
-1.93.8
+1.93.9
 
-* added: 'windowcmd' option to open directories in a new window
-* added: 'altscreenmode' option for switching to alternate screen buffer
-* code cleanup (a.o.: converted spaces to tabs)
+* added: clicking the mouse in the directory path will chdir()
+  to the clicked parent directory
 
