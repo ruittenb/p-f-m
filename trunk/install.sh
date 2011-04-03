@@ -2,14 +2,14 @@
 ############################################################################
 #
 # Name:         install.sh
-# Version:      0.21
+# Version:      0.22
 # Authors:      Rene Uittenbogaard
-# Date:         2010-01-02
+# Date:         2010-01-03
 # Usage:        sh install.sh
-# Description:  This is not so much a script as a manual.
-#		This is meant as an example how pfm dependencies can
-#		be downloaded and installed. Your Mileage May Vary.
-#		Comments and improvements are welcome!
+# Description:  Un*x-like systems can be very diverse.
+#		This script is meant as an example how pfm dependencies
+#		can be downloaded and installed, but Your Mileage May Vary.
+#		Suggestions for improvement are welcome!
 #
 
 VERSION=1.95.0
@@ -227,21 +227,22 @@ check_cpan() {
 }
 
 check_perl_module() {
-	echo $n "Checking module $1... "
+	echo "Checking module $1..."
 	if perl -M"$1" -e1; then
-		echo "found."
+		echo "Module $1 found."
 	else
-		echo "not found"
+		echo "Module $1 not found"
 		return 1
 	fi
 }
 
 check_perl_module_term_readline_gnu() {
-	echo $n "Checking module Term::ReadLine::Gnu... "
+	trg=Term::ReadLine::Gnu
+	echo "Checking module $trg..."
 	if perl -MTerm::ReadLine -e '$t = new Term::ReadLine ""; exit !($t->ReadLine eq "Term::ReadLine::Gnu")'; then
-		echo "found."
+		echo "Module $trg found."
 	else
-		echo "not found"
+		echo "Module $trg not found"
 		return 1
 	fi
 }
