@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2009-10-05 v1.94.0f
+# @(#) pfm.pl 2009-10-05 v1.94.0f1
 #
 # Name:			pfm
-# Version:		1.94.0f
+# Version:		1.94.0f1
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2009-10-05
@@ -2168,30 +2168,40 @@ sub handlepan {
 
 sub handlefind {
 	my ($findme, $k, $delay);
+	my $jumpmouse = 1;
 	my $prompt = 'File to find: ';
 	$delay = .5;
 	FINDENTRY: for (;;) {
-		$scr->at(0,0)->clreol()->puts($prompt . $findme);
 		highlightline($HIGHLIGHT_ON);
-		FINDENTRYKEY: while (!$scr->key_pressed($delay)) {
-			$scr->at($currentline+$BASELINE, $cursorcol);
-			last if ($scr->key_pressed($delay));
-			$scr->at(0, length($prompt . $findme));
+		$scr->at(0,0)->clreol();
+		putmessage($prompt);
+		$scr->puts($findme);
+		if ($jumpmouse) {
+			FINDENTRYKEY: while (!$scr->key_pressed($delay)) {
+				$scr->at($currentline+$BASELINE, $cursorcol);
+				last if ($scr->key_pressed($delay));
+				$scr->at(0, length($prompt . $findme));
+			}
 		}
 		$k = $scr->getch();
 		highlightline($HIGHLIGHT_OFF);
-		for ($k) {
-			/\cM/ and return $R_HEADER;
-			if (/\cH/ || /del/) {
-				chop($findme);
-			} else {
-				$findme .= $_;
-			}
-			$position_at = $findme;
-			position_cursor_find();
-			%currentfile = %{$showncontents[$currentline+$baseindex]};
-			printdircontents(@showncontents);
+		if ($k eq "\cM") {
+			return $R_HEADER;
+		} elsif ($k eq "\cH" or $k eq 'del' or $k eq "\x7F") {
+			chop($findme);
+#		} elsif ($k eq "\cW") {
+#			$findme =~ s/(.*\s+|^)(\S+\s*)$/$1/;
+		} elsif ($k eq "\cU") {
+			$findme = '';
+		} else {
+			$findme .= $k;
 		}
+		$position_at = $findme;
+		position_cursor_find();
+		%currentfile = %{$showncontents[$currentline+$baseindex]};
+#		if (!$scr->key_pressed(0)) {
+			printdircontents(@showncontents);
+#		}
 	}
 	# we should never get here
 	return $R_DIRLIST | $R_HEADER;
@@ -3850,53 +3860,53 @@ sub browse {
 			mouseenable($MOUSE_OFF) if $mouseturnoff;
 			KEY: for ($key) {
 				# order is determined by (supposed) frequency of use
-				/^(?:ku|kd|pgup|pgdn|[-+jk\cF\cB\cD\cU]|home|end)$/i
+				/^(?:ku|kd|pgup|pgdn|[-+jk\cF\cB\cD\cU]|home|end)$/io
 								and $wantrefresh |= handlemove($_),		 last KEY;
-				/^(?:kr|kl|[h\e\cH])$/i
+				/^(?:kr|kl|[h\e\cH])$/io
 								and $wantrefresh |= handleentry($_),	 last KEY;
-				/^[\cE\cY]$/	and $wantrefresh |= handlescroll($_),	 last KEY;
-				/^l$/			and $wantrefresh |= handlekeyell($_),	 last KEY;
-				/^ $/			and $wantrefresh |= handleadvance($_),	 last KEY;
-				/^k5$/			and $wantrefresh |= handlerefresh(),	 last KEY;
-				/^[cr]$/i		and $wantrefresh |= handlecopyrename($_),last KEY;
-				/^[yo]$/i		and $wantrefresh |= handlecommand($_),	 last KEY;
-				/^e$/i			and $wantrefresh |= handleedit(),		 last KEY;
-				/^d(el)?$/i		and $wantrefresh |= handledelete(),		 last KEY;
-				/^[ix]$/i		and $wantrefresh |= handleinclude($_),	 last KEY;
-				/^\r$/i			and $wantrefresh |= handleenter(),		 last KEY;
-				/^s$/i			and $wantrefresh |= handleshow(),		 last KEY;
-				/^kmous$/		and $wantrefresh |= handlemousedown(),	 last KEY;
-				/^k7$/			and $wantrefresh |= handleswap(),		 last KEY;
-				/^k10$/			and $wantrefresh |= handlemultiple(),	 last KEY;
-				/^m$/i			and $wantrefresh |= handlemore(),		 last KEY;
-				/^p$/i			and $wantrefresh |= handleprint(),		 last KEY;
-				/^L$/			and $wantrefresh |= handlesymlink(),	 last KEY;
-				/^[nv]$/i		and $wantrefresh |= handlename($_),		 last KEY;
-				/^k8$/			and $wantrefresh |= handleselect(),		 last KEY;
-				/^k11$/			and $wantrefresh |= handlerestat(),		 last KEY;
-				/^[\/f]$/i		and $wantrefresh |= handlefind(),		 last KEY;
-				/^[<>]$/i		and $wantrefresh |= handlepan($_),		 last KEY;
-				/^k3|\cL|\cR/	and $wantrefresh |= handlefit(),		 last KEY;
-				/^t$/i			and $wantrefresh |= handletime(),		 last KEY;
-				/^a$/i			and $wantrefresh |= handlechmod(),		 last KEY;
-				/^q$/i			and $wantrefresh |= handlequit($_),		 last KEY;
-				/^k6$/			and $wantrefresh |= handlesort(),		 last KEY;
-				/^(?:k1|\?)$/	and $wantrefresh |= handlehelp(),		 last KEY;
-				/^k2$/			and $wantrefresh |= handlecdold(),		 last KEY;
-				/^\.$/			and $wantrefresh |= handledot(),		 last KEY;
-				/^k9$/			and $wantrefresh |= handlecolumns(),	 last KEY;
-				/^k4$/			and $wantrefresh |= handlecolor(),		 last KEY;
-				/^\@$/			and $wantrefresh |= handleperlcommand(), last KEY;
-				/^u$/i			and $wantrefresh |= handlechown(),		 last KEY;
-				/^z$/i			and $wantrefresh |= handlesize(),		 last KEY;
-				/^g$/i			and $wantrefresh |= handletarget(),		 last KEY;
-				/^k12$/			and $wantrefresh |= handlemouse(),		 last KEY;
-				/^=$/			and $wantrefresh |= handleident(),		 last KEY;
-				/^\*$/			and $wantrefresh |= handleradix(),		 last KEY;
-				/^!$/			and $wantrefresh |= handleclobber(),	 last KEY;
-				/^"$/			and $wantrefresh |= handlepathmode(),	 last KEY;
-				/^w$/i			and $wantrefresh |= handleunwo(),		 last KEY;
-				/^%$/i			and $wantrefresh |= handlewhiteout(),	 last KEY;
+				/^[\cE\cY]$/o	and $wantrefresh |= handlescroll($_),	 last KEY;
+				/^l$/o			and $wantrefresh |= handlekeyell($_),	 last KEY;
+				/^ $/o			and $wantrefresh |= handleadvance($_),	 last KEY;
+				/^k5$/o			and $wantrefresh |= handlerefresh(),	 last KEY;
+				/^[cr]$/io		and $wantrefresh |= handlecopyrename($_),last KEY;
+				/^[yo]$/io		and $wantrefresh |= handlecommand($_),	 last KEY;
+				/^e$/io			and $wantrefresh |= handleedit(),		 last KEY;
+				/^d(el)?$/io	and $wantrefresh |= handledelete(),		 last KEY;
+				/^[ix]$/io		and $wantrefresh |= handleinclude($_),	 last KEY;
+				/^\r$/io		and $wantrefresh |= handleenter(),		 last KEY;
+				/^s$/io			and $wantrefresh |= handleshow(),		 last KEY;
+				/^kmous$/o		and $wantrefresh |= handlemousedown(),	 last KEY;
+				/^k7$/o			and $wantrefresh |= handleswap(),		 last KEY;
+				/^k10$/o		and $wantrefresh |= handlemultiple(),	 last KEY;
+				/^m$/io			and $wantrefresh |= handlemore(),		 last KEY;
+				/^p$/io			and $wantrefresh |= handleprint(),		 last KEY;
+				/^L$/o			and $wantrefresh |= handlesymlink(),	 last KEY;
+				/^[nv]$/io		and $wantrefresh |= handlename($_),		 last KEY;
+				/^k8$/o			and $wantrefresh |= handleselect(),		 last KEY;
+				/^k11$/o		and $wantrefresh |= handlerestat(),		 last KEY;
+				/^[\/f]$/io		and $wantrefresh |= handlefind(),		 last KEY;
+				/^[<>]$/io		and $wantrefresh |= handlepan($_),		 last KEY;
+				/^k3|\cL|\cR/o	and $wantrefresh |= handlefit(),		 last KEY;
+				/^t$/io			and $wantrefresh |= handletime(),		 last KEY;
+				/^a$/io			and $wantrefresh |= handlechmod(),		 last KEY;
+				/^q$/io			and $wantrefresh |= handlequit($_),		 last KEY;
+				/^k6$/o			and $wantrefresh |= handlesort(),		 last KEY;
+				/^(?:k1|\?)$/o	and $wantrefresh |= handlehelp(),		 last KEY;
+				/^k2$/o			and $wantrefresh |= handlecdold(),		 last KEY;
+				/^\.$/o			and $wantrefresh |= handledot(),		 last KEY;
+				/^k9$/o			and $wantrefresh |= handlecolumns(),	 last KEY;
+				/^k4$/o			and $wantrefresh |= handlecolor(),		 last KEY;
+				/^\@$/o			and $wantrefresh |= handleperlcommand(), last KEY;
+				/^u$/io			and $wantrefresh |= handlechown(),		 last KEY;
+				/^z$/io			and $wantrefresh |= handlesize(),		 last KEY;
+				/^g$/io			and $wantrefresh |= handletarget(),		 last KEY;
+				/^k12$/o		and $wantrefresh |= handlemouse(),		 last KEY;
+				/^=$/o			and $wantrefresh |= handleident(),		 last KEY;
+				/^\*$/o			and $wantrefresh |= handleradix(),		 last KEY;
+				/^!$/o			and $wantrefresh |= handleclobber(),	 last KEY;
+				/^"$/o			and $wantrefresh |= handlepathmode(),	 last KEY;
+				/^w$/io			and $wantrefresh |= handleunwo(),		 last KEY;
+				/^%$/io			and $wantrefresh |= handlewhiteout(),	 last KEY;
 				# invalid keypress: cursor position needs no checking
 				$wantrefresh &= ~$R_STRIDE;
 			} # switch KEY
@@ -5785,7 +5795,7 @@ up if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.94.0f.
+This manual pertains to C<pfm> version 1.94.0f1.
 
 =head1 AUTHOR and COPYRIGHT
 
