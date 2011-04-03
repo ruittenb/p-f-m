@@ -1,5 +1,5 @@
-1.94.3
+1.94.4
 
-* fixes to Subversion support
+* added single-file subversion command (V)
 * updated documentation
 
