@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2009-10-07 v1.94.1d
+# @(#) pfm.pl 2009-10-09 v1.94.1f
 #
 # Name:			pfm
-# Version:		1.94.1d
+# Version:		1.94.1f
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2009-10-07
+# Date:			2009-10-09
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				pfm { -v, --version | -h, --help }
 # Requires:		Term::ReadLine::Gnu (preferably)
@@ -26,7 +26,6 @@
 #			partly implemented in handlecopyrename
 #		fixed sysread() and buffering
 #
-#		test substitution in (O), (Y) and Launch; du(Z); (P); df;  (N)ame
 #		test major/minor numbers on DU 4.0E, Tru64, Sun (cannot test: no system available)
 # TODO:
 #		more consistent use of at(1,0) and at(0,0)
@@ -426,7 +425,7 @@ my (
 	@layoutfields, @layoutfieldswithinfo, @columnlayouts,
 	$maxfilenamelength, $maxfilesizelength, $maxgrandtotallength, $infolength,
 	# rcs
-	$rcsbuffer, $rcsrunning, $rcscmd,
+	$rcsbuffer, $rcsrunning, $rcscmd, $chdirautorcs,
 	# misc
 	$white_cmd, @unwo_cmd,
 );
@@ -532,6 +531,7 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
 	$swap_persistent	= isyes($pfmrc{persistentswap});
 	$trspace			= isyes($pfmrc{translatespace}) ? ' ' : '';
 	$dotdot_mode		= isyes($pfmrc{dotdotmode});
+	$chdirautorcs		= isyes($pfmrc{chdirautorcs});
 	$white_mode			= isyes($pfmrc{defaultwhitemode})	if !defined $white_mode;
 	$dot_mode			= isyes($pfmrc{defaultdotmode})		if !defined $dot_mode;
 	$clobber_mode		= isyes($pfmrc{defaultclobber})		if !defined $clobber_mode;
@@ -950,6 +950,7 @@ sub mychdir {
 		$oldcurrentdir = $currentdir;
 		$currentdir = $goal;
 		system("$chdirautocmd") if length($chdirautocmd);
+		handlemorercsopen() if $chdirautorcs;
 	}
 	return $result;
 }
@@ -1157,10 +1158,10 @@ sub resizecatcher {
 	$SIG{WINCH} = \&resizecatcher;
 }
 
-#sub reaper {
-#	(wait() == -1) ? 0 : $?;
+sub reaper {
+	(wait() == -1) ? 0 : $?;
 #	$SIG{CHLD} = \&reaper;
-#}
+}
 
 sub mouseenable {
 	if ($_[0]) {
@@ -1983,10 +1984,9 @@ sub handleresize {
 
 sub handlercspipe {
 	return unless $rcsrunning;
-	system("xmessage ':rcs running:'&");
 	my $pin = '';
 	my $firstcolsize = 7;
-	my ($nfound, $input, $f1, $f2, $newlinepos, %nameindexmap, $count);
+	my ($nfound, $input, $f1, $f2, $newlinepos, %nameindexmap, $count, $mapindex);
 	vec($pin,fileno(RCSPIPE),1) = 1;
 	$nfound = select($pin, undef, $pin, 0);
 	return if ($nfound <= 0);
@@ -1999,9 +1999,13 @@ sub handlercspipe {
 			next if m!/!;
 			$f1 = substr($input, 0, $firstcolsize);
 			$f2 = substr($input, $firstcolsize);
-			# TODO test
-			$showncontents[$nameindexmap{$f2}]{$LAYOUTFIELDS{'v'}} = $f1;
+			if (defined($mapindex = $nameindexmap{$f2})) {
+				$showncontents[$mapindex]{$LAYOUTFIELDS{'v'}} = $f1;
+			}
+			%currentfile = %{$showncontents[$currentline+$baseindex]};
 		}
+		printdircontents(@showncontents);
+		highlightline($HIGHLIGHT_ON);
 	} else {
 		$rcsrunning = 0;
 	}
@@ -2434,12 +2438,18 @@ sub handlemorekill {
 #}
 
 sub handlemorercsopen {
-	if ($rcsrunning) {
+	# we could have used: if (RCSPIPE->opened)
+	# but then we'd need IO::Handle
+	if (defined(fileno(RCSPIPE))) {
 		close RCSPIPE;
 	}
 	$rcsbuffer = '';
 	$rcsrunning = 1;
+	$SIG{CHLD}  = \&reaper;
 	my $rcspid = open(RCSPIPE, "$rcscmd|");
+	foreach(0..$#showncontents) {
+		$showncontents[$_]{$LAYOUTFIELDS{'v'}} = '';
+	}
 	return $R_HEADER;
 }
 
@@ -3098,14 +3108,14 @@ sub handlehelp {
         p     Print          F11 restat file      left arrow, h   leave dir             
         q     Quit           F12 toggle mouse     ENTER           enter dir, launch     
         Q     Quick quit    --------------------- ESC, BS         leave dir             
-        r     Rename         mc  Config pfm      ---------------------------------------
+        r     Rename         mb  Bookmark        ---------------------------------------
         s     Show           me  Edit new file    =  ident           <  cmnds left      
         t     Time           mf  make FIFO        *  radix           >  cmnds right     
         u     Uid            mh  spawn sHell      !  clobber         "  paths log/phys  
-        w     unWhiteout     mk  Kill children    @  perlcmd         ?  help            
-        x     eXclude        mm  Make new dir     .  dotfiles                           
-        y     Your command   ms  Show directory   %  whiteout                           
-        z     siZe           mw  Write history                                          
+        w     unWhiteout     mm  Make new dir     @  perlcmd         ?  help            
+        x     eXclude        ms  Show directory   .  dotfiles                           
+        y     Your command   mv  SVN status       %  whiteout        mc Config pfm      
+        z     siZe           mw  Write history                       mk Kill children   
         --------------------------------------------------------------------------------
     _eoHelp_
 #	$scr->at(12,0)->putcolored('bold yellow', 'q     Quit')->at(23,0);
@@ -3595,6 +3605,7 @@ sub stat_entry { # path_of_entry, selected_flag
 		atime		=> $atime,			size		=> $size,
 		mtime		=> $mtime,			blocks		=> $blocks,
 		ctime		=> $ctime,			blksize		=> $blksize,
+		svn			=> '-',
 		atimestring => time2str($atime, $TIME_FILE),
 		mtimestring => time2str($mtime, $TIME_FILE),
 		ctimestring => time2str($ctime, $TIME_FILE),
@@ -4038,6 +4049,9 @@ altscreenmode:xterm
 ## command to perform automatically after every chdir()
 #chdirautocmd:printf "\033]0;pfm - $(basename $(pwd))\007"
 #chdirautocmd:xtitle "pfm - $(hostname):$(pwd)"
+
+## request rcs status automatically after every chdir()?
+chdirautorcs:yes
 
 ## clock date/time format; see strftime(3).
 ## %x and %X provide properly localized time and date.
@@ -5886,7 +5900,7 @@ up if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.94.1d.
+This manual pertains to C<pfm> version 1.94.1f.
 
 =head1 AUTHOR and COPYRIGHT
 
