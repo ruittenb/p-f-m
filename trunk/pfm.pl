@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2009-10-07 v1.94.1c
+# @(#) pfm.pl 2009-10-07 v1.94.1d
 #
 # Name:			pfm
-# Version:		1.94.1c
+# Version:		1.94.1d
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2009-10-07
@@ -1985,6 +1985,7 @@ sub handlercspipe {
 	return unless $rcsrunning;
 	system("xmessage ':rcs running:'&");
 	my $pin = '';
+	my $firstcolsize = 7;
 	my ($nfound, $input, $f1, $f2, $newlinepos, %nameindexmap, $count);
 	vec($pin,fileno(RCSPIPE),1) = 1;
 	$nfound = select($pin, undef, $pin, 0);
@@ -1995,10 +1996,11 @@ sub handlercspipe {
 		while (($newlinepos = index($rcsbuffer,"\cJ")) >= 0) {
 			$input = substr($rcsbuffer, 0, $newlinepos);
 			$rcsbuffer = substr($rcsbuffer, $newlinepos+1);
-			$f1 = substr($input, 0, 3);
-			$f2 = substr($input, 3);
+			next if m!/!;
+			$f1 = substr($input, 0, $firstcolsize);
+			$f2 = substr($input, $firstcolsize);
 			# TODO test
-			$nameindexmap{$f2}{$LAYOUTFIELDS{'v'}} = $f1;
+			$showncontents[$nameindexmap{$f2}]{$LAYOUTFIELDS{'v'}} = $f1;
 		}
 	} else {
 		$rcsrunning = 0;
@@ -5884,7 +5886,7 @@ up if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.94.1c.
+This manual pertains to C<pfm> version 1.94.1d.
 
 =head1 AUTHOR and COPYRIGHT
 
