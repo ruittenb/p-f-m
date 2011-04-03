@@ -1,4 +1,7 @@
 
+default:
+	@echo "use 'make install' to install"
+
 install: pfm pfm.1 listwhite
 	mkdir -p -m 755 /usr/local/bin/ /usr/local/man/man1/
 	install -o root -g root -m 755 pfm   /usr/local/bin/
@@ -9,4 +12,7 @@ install: pfm pfm.1 listwhite
 	@echo
 
 listwhite:
-	make -C listwhite all
+	make -C listwhite
+
+pfm.1:
+	pod2man pfm

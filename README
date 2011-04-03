@@ -1,22 +1,29 @@
 
 
-Package: pfm-1.93.4
+Package: pfm-1.94.0
 
 
 This package is available from http://sourceforge.net/projects/p-f-m/
 
-Prerequisites for this package, in dependency order
-(versions are "at least"-values):
+Prerequisites for this package, in dependency order:
 
-+-----+--------------+------------------+-----------------------+------------+
-|     |              | Term-Screen-1.02 | Term-ScreenColor-1.09 |            |
-|     |              +------------------+-----------------------+            |
-|     |  perl-5.006  |          Term-ReadLine-Perl              |            |
-| gcc |              +----------------- or ---------------------+ pfm-1.93.4 |
-|     |              |                                          |            |
-|     +--------------+          Term-ReadLine-Gnu-1.09          |            |
-|     | readline-4.1 |                                          |            |
-+-----+--------------+------------------------------------------+------------+
+			at least	preferred
+gcc
+  perl			5.6		5.10
+  ncurses		?		5
+    Term-Screen		1.02		1.03
+      Term-ScreenColor	1.09		1.10
+  readline		4.1		5
+    Term-ReadLine-Gnu	1.09		1.17a
+      pfm		-		1.94.0
+
+If you run Ubuntu, it is advisable to install the following packages:
+
+libncurses5
+libncurses5-dev
+libreadline5
+libreadline5-dev
+libterm-readline-gnu-perl
 
 
 If you are upgrading from an older version, you are strongly advised
