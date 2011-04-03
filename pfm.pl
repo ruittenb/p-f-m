@@ -1,12 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
+# @(#) pfm.pl 2009-09-16 v1.93.7
 #
 # Name:         pfm
-# Version:      1.93.6
+# Version:      1.93.7
 # Author:       Rene Uittenbogaard
 # Created:      1999-03-14
-# Date:         2009-02-20
+# Date:         2009-09-16
 # Usage:        pfm [ <directory> ] [ -s, --swap <directory> ]
 #               pfm { -v, --version | -h, --help }
 # Requires:     Term::ReadLine::Gnu (preferably)
@@ -152,6 +153,8 @@ use vars qw(
     $QUOTE_ON
     $MOUSE_OFF
     $MOUSE_ON
+    $ALTERNATE_OFF
+    $ALTERNATE_ON
     $TERM_RAW
     $TERM_COOKED
     $FILENAME_SHORT
@@ -204,6 +207,8 @@ END {
 *QUOTE_ON       = \1;
 *MOUSE_OFF      = \0;
 *MOUSE_ON       = \1;
+*ALTERNATE_OFF  = \0;
+*ALTERNATE_ON   = \1;
 *TERM_RAW       = \0;
 *TERM_COOKED    = \1;
 *FILENAME_SHORT = \0;
@@ -267,6 +272,7 @@ my $USERINFOLINE        = 21;
 my $DATEINFOLINE        = 22;
 my $DFCMD               = ($^O eq 'hpux') ? 'bdf' : ($^O eq 'sco') ? 'dfspace' : 'df -k';
 
+my $XTERMS              = qr/^(.*xterm.*|rxvt.*|gnome|kterm)$/;
 my @SYMBOLIC_MODES      = qw(--- --x -w- -wx r-- r-x rw- rwx);
 my %ONOFF               = ('' => 'off', 0 => 'off', 1 => 'on');
 my %IDENTMODES          = ( user => 0, host => 1, 'user@host' => 2);
@@ -339,7 +345,7 @@ my %DUCMDS = (
 );
 
 my %RDEVTOMAJOR = (
-    default => 256,
+    default => 2 **  8,
     aix     => 2 ** 16,
     irix    => 2 ** 18,
     solaris => 2 ** 18,
@@ -425,7 +431,7 @@ my (
     # cursor position
     $currentline, $baseindex, $cursorcol, $filenamecol, $infocol, $filerecordcol,
     # misc config options
-    $editor, $pager, $viewer, $printcmd, $ducmd, $showlockchar, $e,
+    $editor, $pager, $viewer, $window, $printcmd, $ducmd, $showlockchar, $e,
     $autoexitmultiple, $cursorveryvisible, $clsonexit, $rdevtomajor,
     $autowritehistory, $trspace, $swap_persistent, $mouseturnoff,
     @colorsetnames, %filetypeflags, $swapstartdir, $waitlaunchexec,
@@ -547,9 +553,9 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
     $swap_persistent   = isyes($pfmrc{persistentswap});
     $trspace           = isyes($pfmrc{translatespace}) ? ' ' : '';
     $dotdot_mode       = isyes($pfmrc{dotdotmode});
-    $white_mode        = isyes($pfmrc{defaultwhitemode}) if !defined $white_mode;
-    $dot_mode          = isyes($pfmrc{defaultdotmode})   if !defined $dot_mode;
-    $clobber_mode      = isyes($pfmrc{defaultclobber})   if !defined $clobber_mode;
+    $white_mode        = isyes($pfmrc{defaultwhitemode})  if !defined $white_mode;
+    $dot_mode          = isyes($pfmrc{defaultdotmode})    if !defined $dot_mode;
+    $clobber_mode      = isyes($pfmrc{defaultclobber})    if !defined $clobber_mode;
     $sort_mode         = $pfmrc{defaultsortmode} || 'n'   if !defined $sort_mode;
     $radix_mode        = $pfmrc{defaultradix}    || 'hex' if !defined $radix_mode;
     $path_mode         = $pfmrc{defaultpathmode} || 'log' if !defined $path_mode;
@@ -559,7 +565,9 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
     $ducmd             = $pfmrc{ducmd} || $DUCMDS{$^O} || $DUCMDS{default};
     $ducmd             =~ s/\$\{e\}/$e/g;
     $mouse_mode        = $pfmrc{defaultmousemode}  || 'xterm' if !defined $mouse_mode;
-    $mouse_mode        = ($mouse_mode eq 'xterm' && $ENV{TERM} =~ /xterm/) || isyes($mouse_mode);
+    $mouse_mode        = ($mouse_mode eq 'xterm' && isxterm($ENV{TERM})) || isyes($mouse_mode);
+    ($window)          = ($pfmrc{window}) ||
+                         ($^O eq 'linux' ? 'gnome-terminal -e' : 'xterm -e');
     ($printcmd)        = ($pfmrc{printcmd}) ||
                          ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER} ${e}2" : "lpr ${e}2");
     $showlockchar      = ( $pfmrc{showlock} eq 'sun' && $^O =~ /sun|solaris/i
@@ -609,7 +617,7 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
 
 sub parse_colorsets {
     if (isyes($pfmrc{importlscolors}) and $ENV{LS_COLORS} || $ENV{LS_COLOURS}){
-        $pfmrc{'dircolors[ls_colors]'} =   $ENV{LS_COLORS} || $ENV{LS_COLOURS};
+        $pfmrc{'dircolors[ls_colors]'} =  $ENV{LS_COLORS} || $ENV{LS_COLOURS};
     }
     $pfmrc{'dircolors[off]'}   = '';
     $pfmrc{'framecolors[off]'} =
@@ -878,6 +886,11 @@ sub expand_escapes { # quoteif, command, \%currentfile
     $_[1] =~ s/^~([^:\/]+)/(getpwnam $1)[7] || "~$1"/e;
     # the next generation in quoting
     $_[1] =~ s/$qe(.)/expand_replace($qif, $1, $namenoext, $name, $ext)/ge;
+}
+
+sub isxterm {
+    my $termname = shift;
+    return $termname =~ $XTERMS;
 }
 
 sub isyes {
@@ -1191,6 +1204,14 @@ sub mouseenable {
     }
 }
 
+sub alternate_screen {
+    if ($_[0]) {
+        print "\e[?47h";
+    } else {
+        print "\e[?47l";
+    }
+}
+
 sub stty_raw {
     if ($_[0]) {
         system qw(stty -raw echo);
@@ -1244,13 +1265,14 @@ sub globalinit {
                 'v|version' => \$opt_version) or $opt_help = 2;
     usage()        if $opt_help;
     printversion() if $opt_version;
-    exit 1          if $opt_help == 2;
-    exit 0          if $opt_help or $opt_version;
+    exit 1         if $opt_help == 2;
+    exit 0         if $opt_help or $opt_version;
     $startingdir = shift @ARGV;
     $SIG{WINCH}  = \&resizecatcher;
     # read_pfmrc() needs $kbd for setting keymap and ornaments
     $kbd = new Term::ReadLine 'pfm';
     $scr = new Term::ScreenColor;
+    alternate_screen($ALTERNATE_ON);
     $scr->clrscr();
     if ($scr->rows()) { $screenheight = $scr->rows()-$BASELINE-2 }
     if ($scr->cols()) { $screenwidth  = $scr->cols() }
@@ -1711,6 +1733,7 @@ sub copyright {
 
 sub goodbye {
     my $bye = 'Goodbye from your Personal File Manager!';
+    alternate_screen($ALTERNATE_OFF);
     mouseenable($MOUSE_OFF);
     stty_raw($TERM_COOKED);
     if ($clsonexit) {
@@ -1998,26 +2021,46 @@ sub handlemousedown {
     # left     More - Show   ctrl-U/ctrl-D     F8        Show
     # middle   cOmmand       pgup/pgdn         Show      ENTER
     # right    cOmmand       pgup/pgdn         Show      ENTER
-    if ($mouserow == $PATHLINE) {
+    if ($mbutton == 64) {			# wheel up
+        $do_a_refresh |= handlemove('ku');
+        $do_a_refresh |= handlemove('ku');
+        $do_a_refresh |= handlemove('ku');
+    } elsif ($mbutton == 65) {			# wheel down
+        $do_a_refresh |= handlemove('kd');
+        $do_a_refresh |= handlemove('kd');
+        $do_a_refresh |= handlemove('kd');
+    } elsif ($mbutton == 68) {			# shift-wheel up
+        $do_a_refresh |= handlemove('ku');
+    } elsif ($mbutton == 69) {			# shift-wheel down
+        $do_a_refresh |= handlemove('kd');
+    } elsif ($mouserow == $PATHLINE) {
         $do_a_refresh |= $mbutton ? handlecommand('o') : handlemoreshow();
     } elsif ($mouserow < $BASELINE) {
         $do_a_refresh |= $mbutton ? handlemove('pgup') : handlemove("\cU");
     } elsif ($mouserow > $screenheight + $BASELINE) {
         $do_a_refresh |= $mbutton ? handlemove('pgdn') : handlemove("\cD");
     } elsif ($mousecol >= $infocol or !defined $showncontents[$mouserow - $BASELINE + $baseindex]) {
-    # return now if clicked on diskinfo or empty line
+        # return now if clicked on diskinfo or empty line
         return $do_a_refresh;
     } else {
-    # clicked on an existing file
+        # clicked on an existing file
         $stashline   = $currentline;
         %stashfile   = %currentfile;
-    # put cursor temporarily on another file
+        # put cursor temporarily on another file
         $currentline = $mouserow - $BASELINE;
         %currentfile = %{$showncontents[$currentline+$baseindex]};
         $on_name = ($mousecol >= $filenamecol
                 and $mousecol <= $filenamecol + $maxfilenamelength);
         if ($on_name and $mbutton) {
-            $do_a_refresh |= handleenter();
+            if ($currentfile{type} eq 'd') {
+                if ($swap_state) {
+                    system("$window 'pfm -s " . $swap_state->{path} . "' &");
+                } else {
+                    system("$window pfm &");
+                }
+            } else {
+                $do_a_refresh |= &handleenter();
+            }
         } elsif (!$on_name and !$mbutton) {
             $do_a_refresh |= handleselect();
         } else {
@@ -2322,7 +2365,7 @@ sub handlemore {
     my $headerlength = init_header($HEADER_MORE);
     $scr->noecho();
     my $key = $scr->at(0, $headerlength+1)->getch();
-MOREKEY: for ($key) {
+    MOREKEY: for ($key) {
 #        /^a$/i and $do_a_refresh |= handlemoreacl(),      last MOREKEY;
         /^s$/i and $do_a_refresh |= handlemoreshow(),     last MOREKEY;
         /^m$/i and $do_a_refresh |= handlemoremake(),     last MOREKEY;
@@ -2332,7 +2375,7 @@ MOREKEY: for ($key) {
         /^f$/i and $do_a_refresh |= handlemorefifo(),     last MOREKEY;
         /^w$/i and $do_a_refresh |= write_history(),      last MOREKEY;
 #        /^p$/i and $do_a_refresh |= handlemorephyspath(), last MOREKEY;
-# since when has pfm become a process manager?
+        # since when has pfm become a process manager?
         /^k$/i and $do_a_refresh |= handlemorekill(),     last MOREKEY;
     }
     return $do_a_refresh;
@@ -3417,9 +3460,9 @@ sub stat_entry { # path_of_entry, selected_flag
         $atime, $mtime, $ctime, $blksize, $blocks) = lstat $entry;
     $ptr = {
         name        => $entry,           device      => $device,
-        uid         => find_uid($uid),  inode       => $inode,
-        gid         => find_gid($gid),  nlink       => $nlink,
-        mode        => mode2str($mode), rdev        => $rdev,
+        uid         => find_uid($uid),   inode       => $inode,
+        gid         => find_gid($gid),   nlink       => $nlink,
+        mode        => mode2str($mode),  rdev        => $rdev,
         selected    => $selected_flag,   grand_power => ' ',
         atime       => $atime,           size        => $size,
         mtime       => $mtime,           blocks      => $blocks,
@@ -3619,7 +3662,6 @@ sub browse {
     my $wantrefresh = shift;
     my $key;
     STRIDE: until ($wantrefresh & $R_QUIT) {
-#        system "echo '" . dumprefreshflags($wantrefresh) . "' > /dev/pts/3";
 #        $wantrefresh |= handleresize() if $wasresized;
         if ($wantrefresh &   $R_NEWDIR) {
             $wantrefresh &= ~$R_NEWDIR;
@@ -3905,7 +3947,8 @@ importlscolors:yes
 ## also check 'kmous' from terminfo if your mouse is malfunctioning.
 #keydef[vt100]:home=\e[1~:end=\e[4~:
 keydef[*]:kmous=\e[M:home=\e[1~:end=\e[4~:end=\e[F:\
-kl=\eOD:kd=\eOB:ku=\eOA:kr=\eOC:k1=\eOP:k2=\eOQ:k3=\eOR:k4=\eOS:
+kl=\eOD:kd=\eOB:ku=\eOA:kr=\eOC:k1=\eOP:k2=\eOQ:k3=\eOR:k4=\eOS:\
+pgdn=\e[62~:pgup=\e[63~:
 
 ## the keymap to use in readline (vi,emacs). (default emacs)
 #keymap:vi
@@ -3956,6 +3999,13 @@ viewer:xv
 ## wait for launched executables to finish? (not implemented: will always wait)
 waitlaunchexec:yes
 
+## command used for starting a new pfm window for a directory.
+## Only applicable under X. The default is to take gnome-terminal under
+## Linux, xterm under other Unixes.
+## Be sure to include the option to start a program in the window.
+#window:gnome-terminal -e
+#window:xterm -e
+
 ##########################################################################
 ## colors
 
@@ -4004,8 +4054,8 @@ pi=yellow on black:so=bold magenta:\
 do=bold magenta:nt=bold magenta:wh=bold black on white:\
 *.cmd=bold green:*.exe=bold green:*.com=bold green:*.btm=bold green:\
 *.bat=bold green:*.pas=green:*.c=magenta:*.h=magenta:*.pm=cyan:*.pl=cyan:\
-*.htm=bold yellow:*.html=bold yellow:*.tar=bold red:*.tgz=bold red:\
-*.arj=bold red:*.taz=bold red:*.lzh=bold red:*.zip=bold red:\
+*.htm=bold yellow:*.phtml=bold yellow:*.html=bold yellow:*.php=yellow:*.tar=bold red:\
+*.tgz=bold red:*.arj=bold red:*.taz=bold red:*.lzh=bold red:*.zip=bold red:*.rar=bold red:\
 *.z=bold red:*.Z=bold red:*.gz=bold red:*.bz2=bold red:*.deb=red:*.rpm=red:\
 *.pkg=red:*.jpg=bold magenta:*.gif=bold magenta:*.bmp=bold magenta:\
 *.xbm=bold magenta:*.xpm=bold magenta:*.png=bold magenta:\
@@ -4018,9 +4068,9 @@ pi=reset yellow on black:so=bold magenta:\
 do=bold magenta:nt=bold magenta:wh=bold white on black:\
 *.cmd=bold green:*.exe=bold green:*.com=bold green:*.btm=bold green:\
 *.bat=bold green:*.pas=green:*.c=magenta:*.h=magenta:*.pm=on cyan:*.pl=on cyan:\
-*.htm=black on yellow:*.html=black on yellow:*.tar=bold red:*.tgz=bold red:\
-*.arj=bold red:*.taz=bold red:*.lzh=bold red:*.zip=bold red:\
-*.z=bold red:*.Z=bold red:*.gz=bold red:*.bz2=bold red:*.deb=red:*.rpm=red:\
+*.htm=black on yellow:*.phtml=black on yellow:*.html=black on yellow:*.php=black on yellow:\
+*.tar=bold red:*.tgz=bold red:*.arj=bold red:*.taz=bold red:*.lzh=bold red:*.zip=bold red:\
+*.rar=bold red:*.z=bold red:*.Z=bold red:*.gz=bold red:*.bz2=bold red:*.deb=red:*.rpm=red:\
 *.pkg=red:*.jpg=bold magenta:*.gif=bold magenta:*.bmp=bold magenta:\
 *.xbm=bold magenta:*.xpm=bold magenta:*.png=bold magenta:\
 *.mpg=bold white on blue:*.avi=bold white on blue:\
@@ -4137,73 +4187,78 @@ launchby:extension,xbit
 #launchby:extension,xbit,magic
 
 ## the file type names do not have to be valid MIME types
-extension[*.3i]  : application/x-intercal
-extension[*.i]   : application/x-intercal
-extension[*.bf]  : application/x-befunge
-extension[*.Z]   : application/x-compress
-extension[*.arj] : application/x-arj
-extension[*.au]  : audio/basic
-extension[*.avi] : video/x-msvideo
-extension[*.bat] : application/x-msdos-batch
-extension[*.bin] : application/octet-stream
-extension[*.bmp] : image/x-ms-bitmap
-extension[*.bz2] : application/x-bzip2
-extension[*.c]   : application/x-c
-extension[*.cmd] : application/x-msdos-batch
-extension[*.com] : application/x-executable
-extension[*.css] : text/css
-extension[*.deb] : application/x-deb
-extension[*.doc] : application/x-ms-office
-extension[*.dll] : application/octet-stream
-extension[*.dvi] : application/x-dvi
-extension[*.eps] : application/postscript
-extension[*.exe] : application/x-executable
-extension[*.gif] : image/gif
-extension[*.gz]  : application/x-gzip
-extension[*.htm] : text/html
-extension[*.html]: text/html
-extension[*.jar] : application/zip
-extension[*.jpeg]: image/jpeg
-extension[*.jpg] : image/jpeg
-extension[*.lzh] : application/x-lha
-extension[*.mid] : audio/midi
-extension[*.midi]: audio/midi
-extension[*.mov] : video/quicktime
-extension[*.man] : application/x-groff-man
-extension[*.mm]  : application/x-groff-mm
-extension[*.mp2] : audio/mpeg
-extension[*.mp3] : audio/mpeg
-extension[*.mpeg]: video/mpeg
-extension[*.mpg] : video/mpeg
-extension[*.p]   : application/x-chem
-extension[*.pas] : application/x-pascal
-extension[*.pdb] : chemical/x-pdb
-extension[*.pdf] : application/pdf
-extension[*.ppt] : application/x-ms-office
-extension[*.pl]  : application/x-perl
-extension[*.pm]  : application/x-perl-module
-extension[*.png] : image/png
-extension[*.ps]  : application/postscript
-extension[*.qt]  : video/quicktime
-extension[*.ra]  : audio/x-realaudio
-extension[*.ram] : audio/x-pn-realaudio
-extension[*.rar] : application/x-rar
-extension[*.rpm] : application/x-rpm
-extension[*.tar] : application/x-tar
-extension[*.taz] : application/x-tar-compress
-extension[*.tgz] : application/x-tar-gzip
-extension[*.tif] : image/tiff
-extension[*.tiff]: image/tiff
-extension[*.txt] : text/plain
-extension[*.uue] : application/x-uuencoded
-extension[*.wav] : audio/x-wav
-extension[*.xbm] : image/x-xbitmap
-extension[*.xpm] : image/x-xpixmap
-extension[*.xwd] : image/x-xwindowdump
-extension[*.xls] : application/x-ms-office
-extension[*.ync] : application/x-yencoded
-extension[*.z]   : application/x-compress
-extension[*.zip] : application/zip
+extension[*.1m]   : application/x-nroff-man
+extension[*.3i]   : application/x-intercal
+extension[*.i]    : application/x-intercal
+extension[*.bf]   : application/x-befunge
+extension[*.Z]    : application/x-compress
+extension[*.arj]  : application/x-arj
+extension[*.au]   : audio/basic
+extension[*.avi]  : video/x-msvideo
+extension[*.bat]  : application/x-msdos-batch
+extension[*.bin]  : application/octet-stream
+extension[*.bmp]  : image/x-ms-bitmap
+extension[*.bz2]  : application/x-bzip2
+extension[*.c]    : application/x-c
+extension[*.cmd]  : application/x-msdos-batch
+extension[*.com]  : application/x-executable
+extension[*.css]  : text/css
+extension[*.deb]  : application/x-deb
+extension[*.doc]  : application/x-ms-office
+extension[*.dll]  : application/octet-stream
+extension[*.dvi]  : application/x-dvi
+extension[*.eps]  : application/postscript
+extension[*.exe]  : application/x-executable
+extension[*.gif]  : image/gif
+extension[*.gz]   : application/x-gzip
+extension[*.htm]  : text/html
+extension[*.html] : text/html
+extension[*.jar]  : application/zip
+extension[*.jpeg] : image/jpeg
+extension[*.jpg]  : image/jpeg
+extension[*.lzh]  : application/x-lha
+extension[*.mid]  : audio/midi
+extension[*.midi] : audio/midi
+extension[*.mov]  : video/quicktime
+extension[*.man]  : application/x-groff-man
+extension[*.mm]   : application/x-groff-mm
+extension[*.mp2]  : audio/mpeg
+extension[*.mp3]  : audio/mpeg
+extension[*.mpeg] : video/mpeg
+extension[*.mpg]  : video/mpeg
+extension[*.p]    : application/x-chem
+extension[*.pas]  : application/x-pascal
+extension[*.pdb]  : chemical/x-pdb
+extension[*.pdf]  : application/pdf
+extension[*.php]  : text/x-php
+extension[*.phtml]: text/x-php
+extension[*.ppt]  : application/x-ms-office
+extension[*.pl]   : application/x-perl
+extension[*.pm]   : application/x-perl-module
+extension[*.png]  : image/png
+extension[*.ps]   : application/postscript
+extension[*.qt]   : video/quicktime
+extension[*.ra]   : audio/x-realaudio
+extension[*.ram]  : audio/x-pn-realaudio
+extension[*.rar]  : application/x-rar
+extension[*.rpm]  : application/x-rpm
+extension[*.tar]  : application/x-tar
+extension[*.taz]  : application/x-tar-compress
+extension[*.tgz]  : application/x-tar-gzip
+extension[*.tif]  : image/tiff
+extension[*.tiff] : image/tiff
+extension[*.txt]  : text/plain
+extension[*.uue]  : application/x-uuencoded
+extension[*.wav]  : audio/x-wav
+extension[*.wmv]  : video/x-winmedia
+extension[*.xcf]  : image/x-gimp
+extension[*.xbm]  : image/x-xbitmap
+extension[*.xpm]  : image/x-xpixmap
+extension[*.xwd]  : image/x-xwindowdump
+extension[*.xls]  : application/x-ms-office
+extension[*.ync]  : application/x-yencoded
+extension[*.z]    : application/x-compress
+extension[*.zip]  : application/zip
 
 ## these will search by regular expression in the file(1) output
 magic[ASCII English text]   : text/plain
@@ -4238,7 +4293,7 @@ magic[tar archive]          : application/x-tar
 
 launch[application/x-intercal]    : ick =2
 launch[application/x-befunge]     : mtfi =2
-launch[application/x-chem]        : chem =2 | groff -pteR -man > =1.ps; gv =1.ps &
+launch[application/x-chem]        : chem =2 | groff -pteR -mm > =1.ps; gv =1.ps &
 launch[application/octet-stream]  : =p =2
 launch[application/pdf]           : acroread =2 &
 launch[application/postscript]    : gv =2 &
@@ -4250,6 +4305,7 @@ launch[application/x-compress]    : uncompress =2
 launch[application/x-dvi]         : xdvi =2 &
 launch[application/x-executable]  : wine =2 &
 launch[application/x-groff-man]	  : groff -pteR -man =2 > =1.ps; gv =1.ps &
+launch[application/x-nroff-man]	  : nroff -p -t -e -man =2 | =p
 launch[application/x-groff-mm]	  : groff -pteR -mm  =2 > =1.ps; gv =1.ps &
 launch[application/x-gzip]        : gunzip =2
 #launch[application/x-lha]         :
@@ -4288,7 +4344,8 @@ launch[image/x-xwindowdump]       : =v =2 &
 launch[text/css]                  : =e =2
 launch[text/html]                 : lynx =2
 launch[text/plain]                : =e =2
-#launch[video/mpeg]                :
+launch[text/x-php]                : =e =2
+launch[video/mpeg]                : xine =2 &
 #launch[video/quicktime]           :
 launch[video/x-msvideo]           : divxPlayer =2 &
 
@@ -4379,8 +4436,8 @@ Movement inside a directory:
 
 =begin html
 
-<table border=0 cellspacing=4 align=center width="80%">
-<tr><td colspan=2><hr></td></tr>
+<table border="0" cellspacing="4" align="center" width="80%">
+<tr><td colspan="2"><hr /></td></tr>
 <tr>
     <td width="30%"><i>up arrow</i>, <i>down arrow</i></td>
     <td>move the cursor by one line</td>
@@ -4413,13 +4470,12 @@ Movement inside a directory:
     <td><b>HOME</b>, <b>END</b></td>
     <td>move the cursor to the top or bottom line</td>
 </tr>
-<!-- tr><td colspan=2><hr></td></tr -->
 <tr>
     <td><b>SPACE</b></td>
     <td>mark the current file, then move the cursor one line down</td>
 </tr>
 </tr>
-<tr><td colspan=2><hr></td></tr>
+<tr><td colspan="2"><hr /></td></tr>
 </table>
 
 =end html
@@ -4453,8 +4509,8 @@ Movement between directories:
 
 =begin html
 
-<table border=0 cellspacing=4 align=center width="80%">
-<tr><td colspan=2><hr></td></tr>
+<table border="0" cellspacing="4" align="center" width="80%">
+<tr><td colspan="2"><hr /></td></tr>
 <tr>
     <td width="30%"><i>right arrow</i>, <b>l</b></td>
     <td><i>chdir()</i> to a subdirectory</td>
@@ -4471,7 +4527,7 @@ Movement between directories:
     <td><b>ESC</b>, <b>BS</b></td>
     <td><i>chdir()</i> to the parent directory</td>
 </tr>
-<tr><td colspan=2><hr></td></tr>
+<tr><td colspan="2"><hr /></td></tr>
 </table>
 
 =end html
@@ -4656,20 +4712,20 @@ Examples:
 
 =begin html
 
-<table border=0 cellspacing=4 align=center width="50%">
-<tr><td colspan=3><hr></td></tr>
+<table border="0" cellspacing="4" align="center" width="50%">
+<tr><td colspan="3"><hr /></td></tr>
 <tr>
-    <td rowspan=3>character</td>
-    <td colspan=2>representation in radix</td>
+    <td rowspan="3">character</td>
+    <td colspan="2">representation in radix</td>
 </tr>
 <tr>
-    <td colspan=2><hr></td>
+    <td colspan="2"><hr /></td>
 </tr>
 <tr>
     <td>octal</td>
     <td>hexadecimal</td>
 </tr>
-<tr><td colspan=3><hr></td></tr>
+<tr><td colspan="3"><hr /></td></tr>
 <tr>
     <td>CTRL-A</td>
     <td>\001</td>
@@ -4690,7 +4746,7 @@ Examples:
     <td>\\</td>
     <td>\\</td>
 </tr>
-<tr><td colspan=3><hr></td></tr>
+<tr><td colspan=3><hr /></td></tr>
 </table>
 
 =end html
@@ -4795,14 +4851,14 @@ Examples:
 
 =begin html
 
-<table border=0 cellspacing=4 align=center width="50%">
-<tr><td colspan=3><hr></td></tr>
+<table border="0" cellspacing="4" align="center" width="50%">
+<tr><td colspan="3"><hr /></td></tr>
 <tr>
     <td><b>=2</b></td>
     <td><b>=1</b></td>
     <td><b>=7</b></td>
 </tr>
-<tr><td colspan=3><hr></td></tr>
+<tr><td colspan="3"><hr /></td></tr>
 <tr>
     <td>track01.wav</td>
     <td>track01</td>
@@ -4833,7 +4889,7 @@ Examples:
     <td>.profile</td>
     <td>.old</td>
 </tr>
-<tr><td colspan=3><hr></td></tr>
+<tr><td colspan="3"><hr /></td></tr>
 </table>
 
 =end html
@@ -5279,61 +5335,16 @@ literally must be escaped one extra time.
 
 Examples:
 
-=begin older versions
-
-<table border=0 cellspacing=4 align=center>
-<tr><td colspan=3><hr></td></tr>
-<tr>
-    <td>char(s) wanted in filename&nbsp;&nbsp;&nbsp;</td>
-    <td>char(s) to type in filename&nbsp;&nbsp;&nbsp;</td>
-    <td>char(s) to type in shell command&nbsp;&nbsp;&nbsp;</td>
-</tr>
-<tr><td colspan=3><hr><td></tr>
-<tr>
-    <td><i>any non-metachar</i></td>
-    <td><i>that char</i></td>
-    <td><i>that char</i></td>
-</tr>
-<tr>
-    <td>\</td>
-    <td>\\</td>
-    <td>\\\\</td>
-</tr>
-<tr>
-    <td>&quot;</td>
-    <td>&quot; <b>or</b> \&quot;</td>
-    <td>\\&quot; <b>or</b> '&quot;'</td>
-</tr>
-<tr>
-    <td><i>space</i></td>
-    <td><i>space</i> <b>or</b> \<i>space</i></td>
-    <td>\\<i>space</i>  <b>or</b> '<i>space</i>'</td>
-</tr>
-<tr>
-    <td><i>filename</i></td>
-    <td>\2</td>
-    <td>\2</td>
-</tr>
-<tr>
-    <td>\2</td>
-    <td>\\2</td>
-    <td>\\\\2 <b>or</b> '\\2'</td>
-</tr>
-<tr><td colspan=3><hr><td></tr>
-</table>
-
-=end older versions
-
 =begin html
 
-<table border=0 cellspacing=4 align=center>
-<tr><td colspan=3><hr></td></tr>
+<table border="0" cellspacing="4" align="center">
+<tr><td colspan="3"><hr /><td></tr>
 <tr>
     <td>char(s) wanted in filename&nbsp;&nbsp;&nbsp;</td>
     <td>char(s) to type in filename&nbsp;&nbsp;&nbsp;</td>
     <td>char(s) to type in shell command&nbsp;&nbsp;&nbsp;</td>
 </tr>
-<tr><td colspan=3><hr><td></tr>
+<tr><td colspan="3"><hr /><td></tr>
 <tr>
     <td><i>any non-metachar</i></td>
     <td><i>that char</i></td>
@@ -5374,37 +5385,10 @@ Examples:
     <td>==2</td>
     <td>==2</td>
 </tr>
-<tr><td colspan=3><hr><td></tr>
+<tr><td colspan="3"><hr /><td></tr>
 </table>
 
 =end html
-
-=begin older versions
-
-.in
-.TS
-l | l l.
-_
-T{
-char(s) wanted in filename
-T}	T{
-char(s) to type in filename
-T}	T{
-char(s) to type in shell command
-T}
-_
-.\" great. *roff wants even more backslashes. so much for clarity.
-\fIany non-metachar\fP	\fIthat char\fP	\fIthat char\fP
-\\	\\\\	\\\\\\\\ \fBor\fR '\\\\'
-"	" \fBor\fP \\"	\\\\" \fBor\fR '"'
-\fIspace\fP	\fIspace\fP \fBor\fP \\\fIspace\fP	\\\\\fIspace\fP \fBor\fR '\fIspace\fP'
-\fIfilename\fP	\\2	\\2
-\\2	\\\\2	\\\\\\\\2 \fBor\fR '\\\\2'
-_
-.TE
-.in
-
-=end older versions
 
 =begin roff
 
@@ -5444,27 +5428,29 @@ the B<F12> key) will give mouse access to the following commands:
 
 =begin html
 
-<table border=0 cellspacing=4 align=center width="50%">
-<tr><td colspan=6><hr></td></tr>
+<table border="0" cellspacing="4" align="center" width="70%">
+<tr><td colspan="7"><hr /></td></tr>
 <tr>
-    <td rowspan=3>button</td>
-    <td colspan=5>location clicked</td>
+    <th rowspan="3">button</th>
+    <th colspan="6">location clicked</th>
 </tr>
-<tr><td colspan=5><hr></td></tr>
+<tr><td colspan="7"><hr /></td></tr>
 <tr>
     <td>pathline</td>
     <td>title</td>
     <td>header/footer</td>
-    <td>file</td>
+    <td>fileline</td>
     <td>filename</td>
+    <td>dirname</td>
 </tr>
-<tr><td colspan=6><hr></td></tr>
+<tr><td colspan="7"><hr /></td></tr>
 <tr>
     <td>1</td>
     <td><b>M</b>ore - <b>S</b>how</td>
     <td>CTRL-U</td>
     <td>CTRL-D</td>
     <td>F8</td>
+    <td><b>S</b>how</td>
     <td><b>S</b>how</td>
 </tr>
 <tr>
@@ -5474,6 +5460,7 @@ the B<F12> key) will give mouse access to the following commands:
     <td>PgDn</td>
     <td><b>S</b>how</td>
     <td>ENTER</td>
+    <td><i>new window</i></td>
 </tr>
 <tr>
     <td>3</td>
@@ -5482,8 +5469,18 @@ the B<F12> key) will give mouse access to the following commands:
     <td>PgDn</td>
     <td><b>S</b>how</td>
     <td>ENTER</td>
+    <td><i>new window</i></td>
 </tr>
-<tr><td colspan=6><hr><td></tr>
+<tr><td colspan="7"><hr /><td></tr>
+<tr>
+    <td>wheel up</td>
+    <td colspan="6" align="center"><i>three lines up</i></td>
+</tr>
+<tr>
+    <td>wheel down</td>
+    <td colspan="6" align="center"><i>three lines down</i></td>
+</tr>
+<tr><td colspan="7"><hr /></td></tr>
 </table>
 
 =end html
@@ -5492,25 +5489,36 @@ the B<F12> key) will give mouse access to the following commands:
 
 .in +4n
 .TS
-c | c s s s s
-^ | l l l l l
-c | l l l l l.
+c | c s s s s s
+^ | l l l l l l
+c | l l l l l l
+c | l l l l l l
+c | l l l l l l
+c | c s s s s s
+c | c s s s s s.
 _
 \0button	location clicked
 _
-\^	pathline	title/header	footer	file	filename\0
+\^	pathline	title/header	footer	fileline	filename	dirname\0
 _
-1	\fBM\fPore \- \fBS\fPhow	CTRL-U	CTRL-D	F8	\fBS\fPhow
-2	c\fBO\fPmmand	PgUp	PgDn	\fBS\fPhow	ENTER
-3	c\fBO\fPmmand	PgUp	PgDn	\fBS\fPhow	ENTER
+1	\fBM\fPore \- \fBS\fPhow	CTRL-U	CTRL-D	F8	\fBS\fPhow	\fBS\fPhow
+2	c\fBO\fPmmand	PgUp	PgDn	\fBS\fPhow	ENTER	\fInew window\fP
+3	c\fBO\fPmmand	PgUp	PgDn	\fBS\fPhow	ENTER	\fInew window\fP
+_
+wheel up	\fIthree lines up\fP
+wheel down	\fIthree lines down\fP
 _
 .TE
 .in
 
 =end roff
 
-The cursor will I<only> be moved when the title, header or footer is clicked,
-or when changing directory.
+The cursor will I<only> be moved when the title, header or footer is
+clicked, or when changing directory. The mouse wheel also works and
+moves the cursor three lines per notch, or one line if shift is pressed.
+
+Clicking the middle mouse button on a directory name will open a new
+pfm terminal window.
 
 Mouse use will be turned off during the execution of commands, unless
 'mouseturnoff' is set to 'no' in F<.pfmrc>. Note that setting this to
@@ -5533,7 +5541,7 @@ Example for ksh(1), bash(1) and zsh(1):
             swd=-s"`cat ~/.pfm/swd`"
         fi
         # providing $swd is optional
-        /usr/local/bin/pfm $swd "$@"
+        env pfm $swd "$@"
         if [ -s ~/.pfm/cwd ]; then
             cd "`cat ~/.pfm/cwd`"
             rm -f ~/.pfm/cwd
@@ -5547,7 +5555,7 @@ Example for csh(1) and tcsh(1):
         set swd=-s"`cat ~/.pfm/swd`"            \
     endif                                       \
     : providing $swd is optional                \
-    /usr/local/bin/pfm $swd \!*                 \
+    env pfm $swd \!*                            \
     if (-s ~/.pfm/cwd) then                     \
         cd "`cat ~/.pfm/cwd`"                   \
         rm -f ~/.pfm/cwd                        \
@@ -5657,12 +5665,9 @@ the cursor next to F</sbin/reboot>. You have been warned.
 The smallest terminal size supported is 80x24. The display will be messed
 up if you resize your terminal window to a smaller size.
 
-C<pfm> uses up too much memory. But then again, everybody has tons of
-memory nowadays.
-
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.93.6.
+This manual pertains to C<pfm> version 1.93.7.
 
 =head1 AUTHOR and COPYRIGHT
 
@@ -5674,11 +5679,13 @@ This manual pertains to C<pfm> version 1.93.6.
 .ie \n(.g .ds e' \('e
 .el       .ds e' e\*'
 ..
-Copyright \*(co 1999-2009, Ren\*(e' Uittenbogaard (ruittenb@users.sourceforge.net).
+Copyright \*(co 1999-2009, Ren\*(e' Uittenbogaard
+(ruittenb@users.sourceforge.net).
 .PP \
 
 =for html
-Copyright &copy; 1999-2009, Ren&eacute; Uittenbogaard (ruittenb@users.sourceforge.net).
+Copyright &copy; 1999-2009, Ren&eacute; Uittenbogaard
+(ruittenb&#64;users.sourceforge.net).
 
 All rights reserved. This program is free software; you can redistribute
 it and/or modify it under the terms described by the GNU General Public
