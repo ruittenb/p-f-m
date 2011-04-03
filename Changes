@@ -1,3 +1,7 @@
+2.00.0-WIP
+
+* start restructuring in object-oriented form
+
 1.95.5
 
 * added experimental Newmarks
@@ -81,6 +85,7 @@
 
 1.93.8
 
+* added: 'windowcmd' option to open directories in a new window
 * added: 'altscreenmode' option for switching to alternate screen buffer
 * code cleanup (a.o.: converted spaces to tabs)
 
@@ -401,103 +406,120 @@
 * changed (C)opy and (R)ename behavior: add any new entries to the current dir
 * changed (D)elete behavior: will delete files with nlink == 0
 
-1.74:
+1.74
 
 * added < and > commands to give a better overview of available commands
 
-1.73:
+1.73
 
 * fixed multiple small problems with column layouts
 * fixed bug in (M)ore -> (K)ill command
 * updated documentation 
 
-1.72:
+1.72
 
 * implemented user-customizable column layouts!
 * implemented environment $PFMRC for indicating other config file
 
-1.71:
+1.71
 
 * code optimization
 
-1.70:
+1.70
 
 * small updates to default config file
 * guess correct du(1) command based on OS
 * implemented 'dotdot' mode where . and .. entries are not sorted
 * supported whiteout filetype
 
-1.69:
+1.69
 
 * fixed bug in executing (with ENTER) filenames containing spaces
 * fixed (L)ink command for making symlink in another directory
 * added support for coloring missing (e.g. renamed) files
 * updated documentation
 
-1.67:
+1.67
 
 * added (L)ink command (make symlink)
 
-1.66:
+1.66
 
 * added tar(G)et command (change target of symlink)
 * more robust handling of file names containing quotes or spaces
 * fixed behavior of (R)ename command
 * preserve column view across Swap(F7)
 
-1.65:
+1.65
 
 * added support for coloring orphan symbolic links
 * small fixes and updates to documentation
 * small fixes to default config file
 
-1.64:
+1.64
 
 * fixed bug in default config file regarding si(Z)e
 
-1.63:
+1.63
 
 * code optimization in handleentry()
 * fixed nasty cursor positioning bug in F6(Sort)
 
-1.62:
+1.62
 
 * small fixes to documentation
 
-1.61:
+1.61
 
 * code optimization in handleinclude()
 * implemented si(Z)e command
 * fixed some small bugs
 
-1.60:
+1.60
 
 * code cleanup and optimization
 * added (?) and <BS> commands
 * preserve dotmode across F7(Swap)
 * updated documentation
 
-1.59:
+1.59
 
 * implemented toggle show/hide dotfiles
 * small fixes and updates to documentation
 
-1.57:
+1.57
 
 * support for CDPATH
 
-1.56:
+1.56
 
 * c(O)mmand may be aborted more user-friendly and consistent
 * unix shell now invoked through (M)ore->s(H)ell
 
-1.54:
+1.54
 
 * implemented 'clobber: no' option
 
-1.53:
+1.53
 
 * fixed fatal error when chdir()ing into a non-existent directory
 * fixed fatal error when deleting '.' entry
 * implemented ~username notation
+
+1.51
+
+* updated documentation
+
+1.50
+
+* restructured (M)ore commands
+* expanded (M)ore - (K)ill to provide a selection of signals
+* updated documentation
+
+1.49
+
+* fixes to expanding escapes in filenames and c(O)mmands
+* added 'translatespace'
+* added / as synonym for (F)ind
+* start using ReadLine's prompt
 
