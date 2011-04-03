@@ -1,5 +1,5 @@
-1.94.4
+1.94.5
 
-* added single-file subversion command (V)
-* updated documentation
+* added '!' symbol to SVN column heading when a status command is running
+* minor fixes
 
