@@ -12,8 +12,7 @@ gcc                        ?
   perl                     5.6           5.10
   ncurses                  ?             5
     Term-Screen            1.02          1.03
-      Term-Screen-Uni      0.04          0.04
-        Term-ScreenColor   1.09          1.20
+      Term-ScreenColor     1.09          1.20
   readline                 4.1           5
     Term-ReadLine-Gnu      1.09          1.20
       pfm                  -             1.95.4a
