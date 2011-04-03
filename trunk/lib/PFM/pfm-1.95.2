@@ -247,9 +247,8 @@ my $SLOWENTRIES			= 300;
 #my $DATEINFOLINE		= 22;
 my $DFCMD				= ($^O eq 'hpux') ? 'bdf' : ($^O eq 'sco') ? 'dfspace' : 'df -k';
 
-my $XTERMS				= qr/^(.*xterm.*|rxvt.*|gnome|kterm)$/;
+#my $XTERMS				= qr/^(.*xterm.*|rxvt.*|gnome|kterm)$/;
 my @SYMBOLIC_MODES		= qw(--- --x -w- -wx r-- r-x rw- rwx);
-my %ONOFF				= ('' => 'off', 0 => 'off', 1 => 'on');
 my %IDENTMODES			= ( user => 0, host => 1, 'user@host' => 2);
 my %NUMFORMATS			= ( 'hex' => '%#04lx', 'oct' => '%03lo');
 
@@ -864,62 +863,62 @@ sub expand_escapes { # quoteif, command, \%currentfile
 	$_[1] =~ s/$qe(.)/expand_replace($qif, $1, $namenoext, $name, $ext)/ge;
 }
 
-sub isxterm {
-	my $termname = shift;
-	return $termname =~ $XTERMS;
-}
-
-sub isyes {
-	return $_[0] =~ /^(1|y|yes|true|on|always)$/i;
-}
-
-sub isno {
-	return $_[0] =~ /^(0|n|no|false|off|never)$/;
-}
-
-sub min ($$) {
-	return +($_[1] < $_[0]) ? $_[1] : $_[0];
-}
-
-sub max ($$) {
-	return +($_[1] > $_[0]) ? $_[1] : $_[0];
-}
-
-sub inhibit ($$) {
-	return !$_[0] && $_[1];
-}
-
-sub triggle ($) {
-	++$_[0] > 2 and $_[0] = 0;
-	return $_[0];
-}
-
-sub toggle ($) {
-	$_[0] = !$_[0];
-}
-
-sub svnmaxchar($$) {
-	my ($a, $b) = @_;
-	if ($a eq 'C' or $b eq 'C') {
-		return 'C';
-	} elsif ($a eq 'M' or $b eq 'M'or $a eq 'A' or $b eq 'A') {
-		return 'M';
-	} elsif ($a eq '' or $a eq '-') {
-		return $b;
-	} else {
-		return $a;
-	}
-}
-
-sub svnmax($$) {
-	my ($old, $new) = @_;
-	my $res = $old;
-	substr($res,0,1) = svnmaxchar(substr($old,0,1), substr($new,0,1));
-	substr($res,1,1) = svnmaxchar(substr($old,1,1), substr($new,1,1));
-	substr($res,2,1) ||= substr($new,2,1);
-	return $res;
-}
-
+#sub isxterm {
+#	my $termname = shift;
+#	return $termname =~ $XTERMS;
+#}
+#
+#sub isyes {
+#	return $_[0] =~ /^(1|y|yes|true|on|always)$/i;
+#}
+#
+#sub isno {
+#	return $_[0] =~ /^(0|n|no|false|off|never)$/;
+#}
+#
+#sub min ($$) {
+#	return +($_[1] < $_[0]) ? $_[1] : $_[0];
+#}
+#
+#sub max ($$) {
+#	return +($_[1] > $_[0]) ? $_[1] : $_[0];
+#}
+#
+#sub inhibit ($$) {
+#	return !$_[0] && $_[1];
+#}
+#
+#sub triggle ($) {
+#	++$_[0] > 2 and $_[0] = 0;
+#	return $_[0];
+#}
+#
+#sub toggle ($) {
+#	$_[0] = !$_[0];
+#}
+#
+#sub svnmaxchar($$) {
+#	my ($a, $b) = @_;
+#	if ($a eq 'C' or $b eq 'C') {
+#		return 'C';
+#	} elsif ($a eq 'M' or $b eq 'M'or $a eq 'A' or $b eq 'A') {
+#		return 'M';
+#	} elsif ($a eq '' or $a eq '-') {
+#		return $b;
+#	} else {
+#		return $a;
+#	}
+#}
+#
+#sub svnmax($$) {
+#	my ($old, $new) = @_;
+#	my $res = $old;
+#	substr($res,0,1) = svnmaxchar(substr($old,0,1), substr($new,0,1));
+#	substr($res,1,1) = svnmaxchar(substr($old,1,1), substr($new,1,1));
+#	substr($res,2,1) ||= substr($new,2,1);
+#	return $res;
+#}
+#
 ##########################################################################
 # more translations
 
@@ -1117,20 +1116,20 @@ sub restat_copyback {
 	copyback($currentfile{name});
 }
 
-sub maxpan {
-	my ($temp, $width) = @_;
-	my $panspace;
-	# this is an assignment on purpose
-	if ($panspace = 2 * (length($temp) > $width)) {
-		eval "
-			\$temp =~ s/^((?:\\S+ )+?).{1,".($width - $panspace)."}\$/\$1/;
-		";
-		return $temp =~ tr/ //;
-	} else {
-		return 0;
-	};
-}
-
+#sub maxpan {
+#	my ($temp, $width) = @_;
+#	my $panspace;
+#	# this is an assignment on purpose
+#	if ($panspace = 2 * (length($temp) > $width)) {
+#		eval "
+#			\$temp =~ s/^((?:\\S+ )+?).{1,".($width - $panspace)."}\$/\$1/;
+#		";
+#		return $temp =~ tr/ //;
+#	} else {
+#		return 0;
+#	};
+#}
+#
 sub exclude { # $entry,$oldmark
 	my ($entry, $oldmark) = @_;
 	$oldmark ||= " ";
@@ -1628,11 +1627,11 @@ sub path_info {
 #
 #sub init_frame {
 #	init_header();
-#	init_title($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
+#	init_headings($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
 #	init_footer();
 #}
 #
-#sub init_title { # swap_mode, extra field, @layoutfieldswithinfo
+#sub init_headings { # swap_mode, extra field, @layoutfieldswithinfo
 #	my ($smode, $info, @fields) = @_;
 #	my $linecolor;
 #	for ($info) {
@@ -2119,7 +2118,7 @@ sub handlercspipe {
 		close RCSPIPE;
 		$rcsrunning = 0;
 		$FIELDHEADINGS{'svn'} =~ s/!+$//;
-		init_title($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
+		init_headings($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
 	}
 }
 
@@ -2292,15 +2291,15 @@ sub handlecdold {
 	}
 }
 
-sub handlepan {
-	my ($key, $mode) = @_;
-	my $width = $screenwidth - 9 * $multiple_mode;
-	my $count   = max(maxpan(header($mode), $width), maxpan(footer(), $width));
-	$currentpan = $currentpan - ($key =~ /</ and $currentpan > 0)
-							  + ($key =~ />/ and $currentpan < $count);
-	return $R_HEADER | $R_FOOTER;
-}
-
+#sub handlepan {
+#	my ($key, $mode) = @_;
+#	my $width = $screenwidth - 9 * $multiple_mode;
+#	my $count   = max(maxpan(header($mode), $width), maxpan(footer(), $width));
+#	$currentpan = $currentpan - ($key =~ /</ and $currentpan > 0)
+#							  + ($key =~ />/ and $currentpan < $count);
+#	return $R_HEADER | $R_FOOTER;
+#}
+#
 sub handlefind {
 	if (lc($sort_mode) eq 'n') {
 		goto &handlefind_incremental;
@@ -2521,7 +2520,7 @@ sub handlemorekill {
 	my $prompt    = 'Signal to send to child processes: ';
 	my $signal    = 'TERM';
 	my $err;
-	init_title($swap_mode, $TITLE_SIGNAL, @layoutfieldswithinfo);
+	init_headings($swap_mode, $TITLE_SIGNAL, @layoutfieldswithinfo);
 	clearcolumn();
 	foreach (1 .. min($#signame, $screenheight)+1) {
 		$scr->at($printline++, $infocol)->puts(sprintf('  %2d %s', $_, $signame[$_]));
@@ -2734,7 +2733,7 @@ sub handlesort {
 	my %sortmodes = @SORTMODES;
 	my ($i, $key, $headerlength);
 	$headerlength = init_header($HEADER_SORT);
-	init_title($swap_mode, $TITLE_SORT, @layoutfieldswithinfo);
+	init_headings($swap_mode, $TITLE_SORT, @layoutfieldswithinfo);
 	clearcolumn();
 	# we can't use foreach (keys %SORTMODES) because we would lose ordering
 	foreach (grep { ($i += 1) %= 2 } @SORTMODES) { # keep keys, skip values
@@ -3037,7 +3036,7 @@ sub handlecommand { # Y or O
 	markcurrentline(uc($_[0])) unless $multiple_mode;
 	clearcolumn();
 	if ($_[0] =~ /y/i) { # Your
-		init_title($swap_mode, $TITLE_YCOMMAND, @layoutfieldswithinfo);
+		init_headings($swap_mode, $TITLE_YCOMMAND, @layoutfieldswithinfo);
 		foreach (sort alphabetically keys %pfmrc) {
 			if (/^your\[[[:alpha:]]\]$/ && $printline <= $BASELINE+$screenheight) {
 				$printstr = $pfmrc{$_};
@@ -3053,7 +3052,7 @@ sub handlecommand { # Y or O
 		return $R_DISKINFO | $R_FRAME unless $command = $pfmrc{"your[$key]"};
 		stty_raw($TERM_COOKED);
 	} else { # cOmmand
-		init_title($swap_mode, $TITLE_ESCAPE, @layoutfieldswithinfo);
+		init_headings($swap_mode, $TITLE_ESCAPE, @layoutfieldswithinfo);
 		foreach (sort escape_middle keys %CMDESCAPES, $e) {
 			if ($printline <= $BASELINE+$screenheight) {
 				$scr->at($printline++, $infocol)->puts(sprintf(' %1s%1s %s', $e, $_, $CMDESCAPES{$_} || "literal $e"));
@@ -3812,7 +3811,7 @@ sub getdircontents { # (current)directory
 	my @allentries = ();
 	my @white_entries = ();
 	%usercache = %groupcache = ();
-#	init_title($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
+#	init_headings($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
 	if (opendir CURRENT, "$_[0]") {
 		@allentries = readdir CURRENT;
 		closedir CURRENT;
@@ -3845,7 +3844,7 @@ sub getdircontents { # (current)directory
 	}
 	init_header();
 	handlemorercsopen() if $autorcs;
-	init_title($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
+	init_headings($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
 	return @contents;
 }
 
@@ -4105,7 +4104,7 @@ sub browse {
 		}
 		if ($wantrefresh &   $R_TITLE) {
 			$wantrefresh &= ~$R_TITLE;
-			init_title($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
+			init_headings($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
 		}
 		if ($wantrefresh &   $R_FOOTER) {
 			$wantrefresh &= ~$R_FOOTER;

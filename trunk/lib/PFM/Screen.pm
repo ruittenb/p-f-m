@@ -62,6 +62,17 @@ sub screenheight {
 	return $_screenheight;
 }
 
+=item frame()
+
+Getter for the PFM::Screen::Frame object.
+
+=cut
+
+sub frame {
+	my $self = shift;
+	return $_frame;
+}
+
 ##########################################################################
 # public subs
 
