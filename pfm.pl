@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2009-09-30 v1.94.0
+# @(#) pfm.pl 2009-09-30 v1.94.0b
 #
 # Name:			pfm
-# Version:		1.94.0
+# Version:		1.94.0b
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2009-09-30
@@ -46,11 +46,8 @@
 #
 #		errortime and importanttime configureerbaar maken
 #		fixing whiteout handling
-#		find out why coloring goes wrong when e.g. LC_ALL=*.utf8
 #		in chmod(directory): recursively descend? y/n
-#		fix deleting lost file with one D if file is marked (file count ok, byte count wrong)
 #		define printcommand at top of program? together with touch, du, lpr, unwo?
-#		add html format doc for =1,=2,=7 definition examples
 #		implement escape char fixes to Term::Screen in Term::ScreenColor
 #
 #		mend timetouchformat. see shar(1) archives
@@ -73,7 +70,6 @@
 #			recursive directory copy? Ask for follow?
 #		change (U)id command to request changing the symlink?
 #		(B)abel option? tr/[:upper:]/[:lower:]/ etc
-#		NIS line in passwd file will display '+' as username if ypbind is not running
 #
 #		(L)ink (R)el to current dir does not restat()
 #		tar(G)et in multiple mode does not re-readlink()
@@ -86,8 +82,6 @@
 #			in handlecopyrename()? in handlefind() in handlesymlink? in dirlookup? in handlemorefifo?
 #			use in conjunction with 'keeplostfiles' option?
 #
-#		(M)ore - (P)hysical path?
-#		'autochangedir' option?
 #		set ROWS and COLUMNS in environment for child processes; but see if
 #			this does not mess up with $scr->rows etc. which use these
 #			variables internally; portability?
@@ -256,7 +250,7 @@ my $SWDFILENAME			= 'swd';
 my $LOSTMSG				= '';   # was ' (file lost)'; # now shown through coloring
 my $MAJORMINORSEPARATOR	= ',';
 my $NAMETOOLONGCHAR		= '+';
-my $MAXHISTSIZE			= 40;
+my $MAXHISTSIZE			= 70;
 my $ERRORDELAY			= 1;    # in seconds (fractions allowed)
 my $IMPORTANTDELAY		= 2;    # extra time for important errors
 my $SLOWENTRIES			= 300;
@@ -1493,6 +1487,7 @@ sub pressanykey {
 		$scr->getch();
 		$scr->getch();
 	};
+	# the output of the following command should start on a new line
 	$scr->puts("\n");
 	alternate_screen($ALTERNATE_ON) if $altscreen_mode;
 	return handleresize() if $wasresized;
@@ -1623,7 +1618,8 @@ sub header {
 	if		($mode & $HEADER_SORT) {
 		return 'Sort by: Name, Extension, Size, Date, Type, Inode (ignorecase, reverse):';
 	} elsif ($mode & $HEADER_MORE) {
-		return 'Config-pfm Edit-new make-Fifo sHell Kill-chld Make-dir Show-dir Write-hist ESC';
+		#       01234567890123456789012345678901234567890123456789012345678901234567890123456789
+		return 'Bookmark Config Edit-new mkFifo sHell Kill-chld Mkdir Show-dir Write-hist ESC';
 	} elsif ($mode & $HEADER_INCLUDE) {
 		return 'Include? Every, Oldmarks, After, Before, User or Files only:';
 	} elsif ($mode & $HEADER_LNKTYPE) {
@@ -2222,6 +2218,17 @@ sub handlemoreshow {
 	return $do_a_refresh;
 }
 
+sub handlemorebookmark {
+	if ($path_history[-1] ne $currentdir) {
+		push @path_history, $currentdir;
+		shift (@path_history) if ($#path_history > $MAXHISTSIZE);
+	}
+#	$scr->at(0,0)->clreol();
+#	putmessage('Current directory bookmarked');
+#	$scr->key_pressed($ERRORDELAY);
+	return $R_HEADER;
+}
+
 sub handlemoremake {
 	my ($newname, $do_a_refresh);
 	my $prompt  = 'New Directory Pathname: ';
@@ -2357,17 +2364,18 @@ sub handlemore {
 	$scr->noecho();
 	my $key = $scr->at(0, $headerlength+1)->getch();
 	MOREKEY: for ($key) {
-#		/^a$/i and $do_a_refresh |= handlemoreacl(),	  last MOREKEY;
-		/^s$/i and $do_a_refresh |= handlemoreshow(),	  last MOREKEY;
-		/^m$/i and $do_a_refresh |= handlemoremake(),	  last MOREKEY;
-		/^c$/i and $do_a_refresh |= handlemoreconfig(),	  last MOREKEY;
-		/^e$/i and $do_a_refresh |= handlemoreedit(),	  last MOREKEY;
-		/^h$/i and $do_a_refresh |= handlemoreshell(),	  last MOREKEY;
-		/^f$/i and $do_a_refresh |= handlemorefifo(),	  last MOREKEY;
-		/^w$/i and $do_a_refresh |= write_history(),	  last MOREKEY;
-#		/^p$/i and $do_a_refresh |= handlemorephyspath(), last MOREKEY;
+#		/^a$/i and $do_a_refresh |= handlemoreacl(),		last MOREKEY;
+		/^s$/i and $do_a_refresh |= handlemoreshow(),		last MOREKEY;
+		/^m$/i and $do_a_refresh |= handlemoremake(),		last MOREKEY;
+		/^c$/i and $do_a_refresh |= handlemoreconfig(),		last MOREKEY;
+		/^e$/i and $do_a_refresh |= handlemoreedit(),		last MOREKEY;
+		/^h$/i and $do_a_refresh |= handlemoreshell(),		last MOREKEY;
+		/^b$/i and $do_a_refresh |= handlemorebookmark(),	last MOREKEY;
+		/^f$/i and $do_a_refresh |= handlemorefifo(),		last MOREKEY;
+		/^w$/i and $do_a_refresh |= write_history(),		last MOREKEY;
+#		/^p$/i and $do_a_refresh |= handlemorephyspath(),	last MOREKEY;
 		# since when has pfm become a process manager?
-		/^k$/i and $do_a_refresh |= handlemorekill(),	  last MOREKEY;
+		/^k$/i and $do_a_refresh |= handlemorekill(),		last MOREKEY;
 	}
 	return $do_a_refresh;
 }
@@ -3989,6 +3997,12 @@ importlscolors:yes
 keydef[*]:kmous=\e[M:home=\e[1~:end=\e[4~:end=\e[F:home=\eOH:end=\eOF:\
 kl=\eOD:kd=\eOB:ku=\eOA:kr=\eOC:k1=\eOP:k2=\eOQ:k3=\eOR:k4=\eOS:\
 pgdn=\e[62~:pgup=\e[63~:
+# for gnome-terminal that handles F1 itself, you can enable shift-F1 with:
+#k1=\eO1;2P:
+# for gnome-terminal that handles F10 itself, you can enable shift-F10 with:
+#k10=\e[21;2~:
+# for gnome-terminal that handles F11 itself, you can enable shift-F11 with:
+#k11=\e[23;2~:
 
 ## the keymap to use in readline (vi,emacs). (default emacs)
 #keymap:vi
@@ -5065,6 +5079,11 @@ These commands are accessible through the main screen B<M>ore command.
 
 =over
 
+=item B<Bookmark>
+
+This command will push the current directory onto the path history. With
+the B<M>ore - B<S>how command, it can be recalled using the up-arrow key.
+
 =item B<Config pfm>
 
 This command will open the F<.pfmrc> config file with your preferred
@@ -5723,7 +5742,7 @@ up if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.94,0.
+This manual pertains to C<pfm> version 1.94.0b.
 
 =head1 AUTHOR and COPYRIGHT
 
