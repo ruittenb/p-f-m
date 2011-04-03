@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2009-10-05 v1.94.0e
+# @(#) pfm.pl 2009-10-05 v1.94.0f
 #
 # Name:			pfm
-# Version:		1.94.0e
+# Version:		1.94.0f
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2009-10-05
@@ -2141,8 +2141,6 @@ sub handlecdold {
 sub handlepan {
 	my $width = $screenwidth - 9 * $multiple_mode;
 	my $count   = max(maxpan(header(0), $width), maxpan(footer(), $width));
-#	# add 2 for safety, because header and footer are of unequal length
-#	my $count   = 2 + maxpan(header());
 	$currentpan = $currentpan - ($_[0] =~ /</ and $currentpan > 0)
 							  + ($_[0] =~ />/ and $currentpan < $count);
 	return $R_HEADER | $R_FOOTER;
@@ -5787,7 +5785,7 @@ up if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.94.0e.
+This manual pertains to C<pfm> version 1.94.0f.
 
 =head1 AUTHOR and COPYRIGHT
 
