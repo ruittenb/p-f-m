@@ -1,14 +1,15 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2010-01-04 v1.95.1
+# @(#) pfm.pl 2010-01-04 v1.95.2
 #
 # Name:			pfm
-# Version:		1.95.1
+# Version:		1.95.2
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-02-11
+# Date:			2010-03-17
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
+#				    [ -l, --layout <number> ]
 #				pfm { -v, --version | -h, --help }
 # Requires:		Term::ReadLine::Gnu (preferably)
 #				Term::ScreenColor
@@ -424,7 +425,7 @@ my (
 	# rcs
 	$rcsbuffer, $rcsrunning, $rcs_need_refresh, $rcscmd, $autorcs,
 	# misc
-	$white_cmd, @unwo_cmd,
+	$white_cmd, @unwo_cmd, $check_for_updates,
 );
 
 ##########################################################################
@@ -486,8 +487,8 @@ sub read_pfmrc {
 			}
 			s/#.*//;
 			if (s/\\\n?$//) { $_ .= <PFMRC>; redo; }
-#			if (/^\s*([^:[\s]+(?:\[[^]]+\])?)\s*:\s*(.*)$/o) {
-			if (/^[ \t]*([^: \t[]+(?:\[[^]]+\])?)[ \t]*:[ \t]*(.*)$/o) {
+			if (/^\s*([^:[\s]+(?:\[[^]]+\])?)\s*:\s*(.*)$/o) {
+#			if (/^[ \t]*([^: \t[]+(?:\[[^]]+\])?)[ \t]*:[ \t]*(.*)$/o) {
 #				print STDERR "-$1";
 				$pfmrc{$1} = $2;
 			}
@@ -520,6 +521,7 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
 	# some configuration options are NOT fetched into common scalars
 	# (e.g. confirmquit) - however, they remain accessable in %pfmrc
 	# don't change initialized settings that are modifiable by key commands
+	$check_for_updates  = isyes($pfmrc{checkforupdates});
 	$clsonexit			= isyes($pfmrc{clsonexit});
 	$waitlaunchexec		= isyes($pfmrc{waitlaunchexec});
 	$autowritehistory	= isyes($pfmrc{autowritehistory});
@@ -543,6 +545,7 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
 	$ducmd				=~ s/\$\{e\}/$e/g;
 	$mouse_mode			= $pfmrc{defaultmousemode}	|| 'xterm' if !defined $mouse_mode;
 	$mouse_mode			= ($mouse_mode eq 'xterm' && isxterm($ENV{TERM})) || isyes($mouse_mode);
+	# shouldn't this be !defined $pfmrc{altscreen_mode} ?
 	$altscreen_mode		= $pfmrc{altscreenmode}		|| 'xterm' if !defined $altscreen_mode;
 	$altscreen_mode		= ($altscreen_mode eq 'xterm' && isxterm($ENV{TERM})) || isyes($altscreen_mode);
 	$chdirautocmd		= $pfmrc{chdirautocmd};
@@ -1149,9 +1152,10 @@ sub reformat {
 	foreach (@dircontents) {
 		$_->{name_too_long} = length($_->{display}) > $maxfilenamelength-1
 			? $NAMETOOLONGCHAR : ' ';
-		# TODO next line ignores the fact that size_num could be major/minor
-		@{$_}{qw(size_num size_power)} =
-			fit2limit($_->{size}, $maxfilesizelength);
+        unless ($_->{type} =~ /[bc]/) {
+            @{$_}{qw(size_num size_power)} =
+                fit2limit($_->{size}, $maxfilesizelength);
+        }
 		@{$_}{qw(grand_num grand_power)} =
 			fit2limit($_->{grand}, $maxgrandtotallength);
 		@{$_}{qw(atimestr ctimestr mtimestr)} =
@@ -1264,9 +1268,10 @@ sub white_commands {
 sub globalinit {
 	my ($startingdir, $opt_version, $opt_help);
 	Getopt::Long::Configure(qw'bundling permute');
-	GetOptions ('s|swap=s'  => \$swapstartdir,
-				'h|help'    => \$opt_help,
-				'v|version' => \$opt_version) or $opt_help = 2;
+	GetOptions ('s|swap=s'   => \$swapstartdir,
+				'l|layout=i' => \$currentlayout,
+				'h|help'     => \$opt_help,
+				'v|version'  => \$opt_version) or $opt_help = 2;
 	usage()			if $opt_help;
 	printversion()	if $opt_version;
 	exit 1			if $opt_help == 2;
@@ -1493,9 +1498,7 @@ sub pathline {
 
 sub fileline { # $currentfile, @layoutfields
 	my ($currentfile, @fields) = @_;
-	$^A = '';
-	formline($currentformatline, @{$currentfile}{@fields});
-	return $^A;
+	return formatted($currentformatline, @{$currentfile}{@fields});
 }
 
 sub highlightline { # true/false
@@ -1503,8 +1506,8 @@ sub highlightline { # true/false
 	$scr->at($currentline + $BASELINE, $filerecordcol);
 	if ($_[0] == $HIGHLIGHT_ON) {
 		$linecolor = $framecolors{$color_mode}{highlight};
-		$scr->bold()		if ($linecolor =~ /bold/);
-		$scr->reverse()		if ($linecolor =~ /reverse/);
+#		$scr->bold()		if ($linecolor =~ /bold/);
+#		$scr->reverse()		if ($linecolor =~ /reverse/);
 #		$scr->underline()	if ($linecolor =~ /under(line|score)/);
 		$scr->term()->Tputs('us', 1, *STDOUT)
 							if ($linecolor =~ /under(line|score)/);
@@ -1519,7 +1522,7 @@ sub markcurrentline { # letter
 }
 
 sub pressanykey {
-	putmessage("\n*** Hit any key to continue ***"); # previously just cyan
+	putmessage("\r\n*** Hit any key to continue ***");
 	stty_raw($TERM_RAW);
 	mouseenable($MOUSE_ON) if $mouse_mode && $mouseturnoff;
 	if ($scr->getch() eq 'kmous') {
@@ -1528,7 +1531,7 @@ sub pressanykey {
 		$scr->getch();
 	};
 	# the output of the following command should start on a new line
-	$scr->puts("\n");
+	$scr->puts("\r\n");
 	alternate_screen($ALTERNATE_ON) if $altscreen_mode;
 	return handleresize() if $wasresized;
 	return 0;
@@ -1658,7 +1661,8 @@ sub header {
 	if		($mode & $HEADER_SORT) {
 		return 'Sort by: Name, Extension, Size, Date, Type, Inode (ignorecase, reverse):';
 	} elsif ($mode & $HEADER_MORE) {
-		return 'Bookmark Config Edit-new mkFifo sHell Kill-chld Mkdir Show-dir sVn Write-hist';
+		#return 'Bookmark Config Edit-new mkFifo sHell Kill-chld Mkdir Show-dir sVn Write-hist';
+		return 'Bookmark Config Edit-new mkFifo sHell Kill-chld Mkdir Physical-path Show-dir sVn Write-hist alTscreen';
 	} elsif ($mode & $HEADER_INCLUDE) {
 		return 'Include? Every, Oldmarks, After, Before, User or Files only:';
 	} elsif ($mode & $HEADER_LNKTYPE) {
@@ -1696,7 +1700,7 @@ sub init_header { # <special header mode>
 sub footer {
 	return	"F1-Help F2-Back F3-Redraw F4-Color[$color_mode]"
 	.		" F5-Reread F6-Sort[$sort_mode] F7-Swap[$ONOFF{$swap_mode}]"
-	.		" F8-Include F9-Columns[$currentlayout]" # $formatname ?
+	.		" F8-Include F9-Layout[$currentlayout]" # $formatname ?
 	.		" F10-Multiple[$ONOFF{$multiple_mode}] F11-Restat F12-Mouse[$ONOFF{$mouse_mode}]"
 	.		" !-Clobber[$ONOFF{$clobber_mode}]"
 	.		" .-Dotfiles[$ONOFF{$dot_mode}]"
@@ -1711,8 +1715,8 @@ sub init_footer {
 	my $footer = fitbanner(footer(), $screenwidth);
 	my $linecolor;
 	$linecolor = $framecolors{$color_mode}{footer};
-	$scr->bold()		if ($linecolor =~ /bold/);
-	$scr->reverse()		if ($linecolor =~ /reverse/);
+#	$scr->bold()		if ($linecolor =~ /bold/);
+#	$scr->reverse()		if ($linecolor =~ /reverse/);
 #	$scr->underline()	if ($linecolor =~ /under(line|score)/);
 	$scr->term()->Tputs('us', 1, *STDOUT)
 						if ($linecolor =~ /under(line|score)/);
@@ -1723,10 +1727,12 @@ sub init_footer {
 
 sub usage {
 	my $directory = Term::ScreenColor::colored('underline', 'directory');
-	print "Usage: pfm [ $directory ] [ -s, --swap $directory ]\n",
+	my $number    = Term::ScreenColor::colored('underline', 'number');
+	print "Usage: pfm [ -l, --layout $number ] [ $directory ] [ -s, --swap $directory ]\n",
 		  "       pfm { -h, --help | -v, --version }\n\n",
 		  "    $directory            : specify starting directory\n",
 		  "    -h, --help           : print this help and exit\n",
+		  "    -l, --layout $number  : startup with specified layout\n",
 		  "    -s, --swap $directory : specify swap directory\n",
 		  "    -v, --version        : print version information and exit\n",
 		  "\nConfiguration options will be read from \$PFMRC ", $ENV{PFMRC} ? "($ENV{PFMRC})" : "or $CONFIGDIRNAME/$CONFIGFILENAME", "\n";
@@ -1743,7 +1749,7 @@ sub copyright {
 				 ->puts("PFM $VERSION for Unix and Unix-like OS's.")
 		->at(1,0)->puts("Copyright (c) 1999-$LASTYEAR Rene Uittenbogaard")
 		->at(2,0)->puts("This software comes with no warranty: see the file COPYING for details.")
-				 ->reset()->normal()->key_pressed($_[0]);
+		         ->reset()->normal()->key_pressed($_[0]);
 }
 
 sub goodbye {
@@ -1751,19 +1757,35 @@ sub goodbye {
 	stty_raw($TERM_COOKED);
 	mouseenable($MOUSE_OFF);
 	alternate_screen($ALTERNATE_OFF);
-	if ($clsonexit) {
-		$scr->clrscr();
+	system qw(tput cnorm) if $cursorveryvisible;
+	if ($altscreen_mode) {
+		print "\n";
 	} else {
-		$scr->at(0,0)->puts(' ' x (($screenwidth-length $bye)/2) . $bye)
+		if ($clsonexit) {
+			$scr->clrscr();
+		} else {
+			$scr->at(0,0)->puts(' ' x (($screenwidth-length $bye)/2) . $bye)
 			->clreol()->at($PATHLINE,0);
+		}
 	}
 	write_cwd();
 	write_history() if $autowritehistory;
-	unless ($clsonexit) {
+	if ($altscreen_mode or !$clsonexit) {
 		$scr->at($screenheight+$BASELINE+1,0)->clreol();
 	}
-	system qw(tput cnorm) if $cursorveryvisible;
-	# END {} block is also executed, although not necessary at normal exit.
+	check_for_updates() unless !$check_for_updates;
+	# END {} block is also executed, although it is not necessary at normal exit.
+}
+
+sub check_for_updates {
+	use LWP::Simple;
+	my $latest_version;
+	my $url = 'http://p-f-m.sourceforge.net/';
+	my $pfmpage = get($url);
+	($latest_version = $pfmpage) =~ s/.*?latest version \(v?([0-9.]+[a-z]?)\).*/$1/s;
+	if ($latest_version gt $VERSION) {
+		putmessage("There is a newer version ($latest_version) available at $url\n");
+	}
 }
 
 sub credits {
@@ -1963,7 +1985,7 @@ sub handlemultiple {
 	return $R_HEADER;
 }
 
-sub handlecolumns {
+sub handlelayouts {
 	$currentlayout++;
 	makeformatlines();
 	reformat();
@@ -2271,10 +2293,11 @@ sub handlecdold {
 }
 
 sub handlepan {
+	my ($key, $mode) = @_;
 	my $width = $screenwidth - 9 * $multiple_mode;
-	my $count   = max(maxpan(header(0), $width), maxpan(footer(), $width));
-	$currentpan = $currentpan - ($_[0] =~ /</ and $currentpan > 0)
-							  + ($_[0] =~ />/ and $currentpan < $count);
+	my $count   = max(maxpan(header($mode), $width), maxpan(footer(), $width));
+	$currentpan = $currentpan - ($key =~ /</ and $currentpan > 0)
+							  + ($key =~ />/ and $currentpan < $count);
 	return $R_HEADER | $R_FOOTER;
 }
 
@@ -2524,14 +2547,21 @@ sub handlemorekill {
 	return $R_HEADER | $R_PATHINFO | $R_TITLE | $R_DISKINFO;
 }
 
-#sub handlemorephyspath {
-#	init_header();
-#	$scr->at(0,0)->clreol();
-#	putmessage('Current physical path:');
-#	$scr->at($PATHLINE, 0)->puts(pathline(getcwd(), $disk{'device'}));
-#	$scr->getch();
-#	return $R_PATHINFO | $R_HEADER;
-#}
+sub handlemorealtscreen {
+	return unless $altscreen_mode;
+	alternate_screen($ALTERNATE_OFF);
+	pressanykey();
+	return $R_CLRSCR;
+}
+
+sub handlemorephyspath {
+	init_header();
+	$scr->at(0,0)->clreol();
+	putmessage('Current physical path:');
+	$scr->at($PATHLINE, 0)->puts(pathline(getcwd(), $disk{'device'}));
+	$scr->getch();
+	return $R_PATHINFO | $R_HEADER;
+}
 
 sub handlemorercsopen {
 	my $file = shift;
@@ -2557,22 +2587,32 @@ sub handlemore {
 	local $_;
 	my $do_a_refresh = $R_HEADER;
 	my $headerlength = init_header($HEADER_MORE);
+	my $key;
 	$scr->noecho();
-	my $key = $scr->at(0, $headerlength+1)->getch();
-	MOREKEY: for ($key) {
-#		/^a$/io and $do_a_refresh |= handlemoreacl(),		last MOREKEY;
-		/^s$/io and $do_a_refresh |= handlemoreshow(),		last MOREKEY;
-		/^m$/io and $do_a_refresh |= handlemoremake(),		last MOREKEY;
-		/^c$/io and $do_a_refresh |= handlemoreconfig(),	last MOREKEY;
-		/^e$/io and $do_a_refresh |= handlemoreedit(),		last MOREKEY;
-		/^h$/io and $do_a_refresh |= handlemoreshell(),		last MOREKEY;
-		/^b$/io and $do_a_refresh |= handlemorebookmark(),	last MOREKEY;
-		/^f$/io and $do_a_refresh |= handlemorefifo(),		last MOREKEY;
-		/^v$/io and $do_a_refresh |= handlemorercsopen(),	last MOREKEY;
-		/^w$/io and $do_a_refresh |= write_history(),		last MOREKEY;
-#		/^p$/io and $do_a_refresh |= handlemorephyspath(),	last MOREKEY;
-		# since when has pfm become a process manager?
-		/^k$/io and $do_a_refresh |= handlemorekill(),		last MOREKEY;
+	MOREKEY: {
+		$key = $scr->at(0, $headerlength+1)->getch();
+		for ($key) {
+#			/^a$/io		and $do_a_refresh |= handlemoreacl(),				last MOREKEY;
+			/^s$/io		and $do_a_refresh |= handlemoreshow(),				last MOREKEY;
+			/^m$/io		and $do_a_refresh |= handlemoremake(),				last MOREKEY;
+			/^c$/io		and $do_a_refresh |= handlemoreconfig(),			last MOREKEY;
+			/^e$/io		and $do_a_refresh |= handlemoreedit(),				last MOREKEY;
+			/^h$/io		and $do_a_refresh |= handlemoreshell(),				last MOREKEY;
+			/^b$/io		and $do_a_refresh |= handlemorebookmark(),			last MOREKEY;
+			/^f$/io		and $do_a_refresh |= handlemorefifo(),				last MOREKEY;
+			/^v$/io		and $do_a_refresh |= handlemorercsopen(),			last MOREKEY;
+			/^w$/io		and $do_a_refresh |= write_history(),				last MOREKEY;
+			/^t$/io		and $do_a_refresh |= handlemorealtscreen(),			last MOREKEY;
+			/^p$/io		and $do_a_refresh |= handlemorephyspath(),			last MOREKEY;
+			# since when has pfm become a process manager?
+			/^k$/io		and $do_a_refresh |= handlemorekill(),				last MOREKEY;
+			/^[<>]$/io	and do {
+								handlepan($_, $HEADER_MORE);
+								$headerlength = init_header($HEADER_MORE);
+								init_footer();
+								redo MOREKEY;
+			};
+		}
 	}
 	return $do_a_refresh;
 }
@@ -3226,20 +3266,20 @@ sub handlehelp {
         f /   find           mh  spawn sHell      CTRL-U, CTRL-D   move half a page     
         g     tarGet         mk  Kill children    CTRL-B, CTRL-F   move a full page     
         i     Include        mm  Make new dir     PgUp, PgDn       move a full page     
-        L     symLink        ms  Show directory   HOME, END        move to top, bottom  
-        n     Name           mv  sVn status       SPACE            mark file & advance  
-        o     cOmmand        mw  Write history    right arrow, l   enter dir            
-        p     Print         --------------------  left arrow, h    leave dir            
-        q Q   (Quick) quit   =   ident            ENTER            enter dir; launch    
-        r     Rename         *   radix            ESC, BS          leave dir            
-        s     Show           !   clobber         ---------------------------------------
-        t     Time           @   perlcmd          F1  help            F7  swap mode     
-        u     Uid            .   dotfiles         F2  prev dir        F8  mark file     
-        v     sVn status     %   whiteout         F3  redraw screen   F9  cycle layouts 
-        w     unWhiteout     <   commands left    F4  cycle colors    F10 multiple mode 
-        x     eXclude        >   commands right   F5  reread dir      F11 restat file   
+        L     symLink        mp  Physical path    HOME, END        move to top, bottom  
+        n     Name           ms  Show directory   SPACE            mark file & advance  
+        o     cOmmand        mt  alTernate scrn   right arrow, l   enter dir            
+        p     Print          mv  sVn status all   left arrow, h    leave dir            
+        q Q   (Quick) quit   mw  Write history    ENTER            enter dir; launch    
+        r     Rename        --------------------  ESC, BS          leave dir            
+        s     Show           =   ident           ---------------------------------------
+        t     Time           *   radix            F1  help            F7  swap mode     
+        u     Uid            !   clobber          F2  prev dir        F8  mark file     
+        v     sVn status     @   perlcmd          F3  redraw screen   F9  cycle layouts 
+        w     unWhiteout     .   dotfiles         F4  cycle colors    F10 multiple mode 
+        x     eXclude        %   whiteout         F5  reread dir      F11 restat file   
         y     Your command   "   paths log/phys   F6  sort dir        F12 toggle mouse  
-        z     siZe           ?   help                                                   
+        z     siZe           ?   help             <   commands left   >   commands right
         --------------------------------------------------------------------------------
     _eoHelp_
 #	$scr->at(12,0)->putcolored('bold yellow', 'q     Quit')->at(23,0);
@@ -3335,6 +3375,7 @@ sub handlecopyrename {
 	expand_3456_escapes($QUOTE_OFF, ($testname = $newname), \%currentfile);
 	# assignment on purpose, executed before evaluation of return value
 	return $R_HEADER | $multi2single if $multi2single = multi_to_single($testname);
+	$scr->at(1,0)->clreol() unless $clobber_mode;
 	$do_this = sub {
 #		if ($state eq 'C' and $loopfile->{type} =~ /[ld]/ ) { # move this outsde of do_this
 #			# AIX: cp -r follows symlink
@@ -4114,7 +4155,7 @@ sub browse {
 				/^k8$/o			and $wantrefresh |= handleselect(),		 last KEY;
 				/^k11$/o		and $wantrefresh |= handlerestat(),		 last KEY;
 				/^[\/f]$/io		and $wantrefresh |= handlefind(),		 last KEY;
-				/^[<>]$/io		and $wantrefresh |= handlepan($_),		 last KEY;
+				/^[<>]$/io		and $wantrefresh |= handlepan($_, 0),	 last KEY;
 				/^k3|\cL|\cR/o	and $wantrefresh |= handlefit(),		 last KEY;
 				/^t$/io			and $wantrefresh |= handletime(),		 last KEY;
 				/^a$/io			and $wantrefresh |= handlechmod(),		 last KEY;
@@ -4123,7 +4164,7 @@ sub browse {
 				/^(?:k1|\?)$/o	and $wantrefresh |= handlehelp(),		 last KEY;
 				/^k2$/o			and $wantrefresh |= handlecdold(),		 last KEY;
 				/^\.$/o			and $wantrefresh |= handledot(),		 last KEY;
-				/^k9$/o			and $wantrefresh |= handlecolumns(),	 last KEY;
+				/^k9$/o			and $wantrefresh |= handlelayouts(),	 last KEY;
 				/^k4$/o			and $wantrefresh |= handlecolor(),		 last KEY;
 				/^\@$/o			and $wantrefresh |= handleperlcommand(), last KEY;
 				/^u$/io			and $wantrefresh |= handlechown(),		 last KEY;
@@ -4190,6 +4231,9 @@ altscreenmode:xterm
 #chdirautocmd:printf "\033]0;pfm - $(basename $(pwd))\007"
 #chdirautocmd:xtitle "pfm - $(hostname):$(pwd)"
 
+## automatically check for updates on exit (default: no)
+checkforupdates:yes
+
 ## clock date/time format; see strftime(3).
 ## %x and %X provide properly localized time and date.
 ## the defaults are "%Y %b %d" and "%H:%M:%S"
@@ -4199,7 +4243,8 @@ clocktimeformat:%H:%M:%S
 #clockdateformat:%x
 #clocktimeformat:%X
 
-## whether you want to have the screen cleared when pfm exits
+## whether you want to have the screen cleared when pfm exits.
+## No effect if altscreenmode is set.
 clsonexit:no
 
 ## have pfm ask for confirmation when you press 'q'uit? (yes,no,marked)
@@ -4728,7 +4773,8 @@ C<pfm> - Personal File Manager for Linux/Unix
 
 =head1 SYNOPSIS
 
-C<pfm [ >I<directory>C< ] [ -s, --swap >I<directory>C< ]>
+C<pfm [ -l, --layout >I<number>C< ]>
+C< [ >I<directory>C< ] [ -s, --swap >I<directory>C< ]>
 
 C<pfm { -v, --version | -h, --help }>
 
@@ -4774,6 +4820,10 @@ unspecified, the current directory is used.
 =item -h, --help
 
 Print usage information, then exit.
+
+=item -l, --layout I<number>
+
+Start C<pfm> using the specified column layout (as defined in the F<.pfmrc>).
 
 =item -s, --swap I<directory>
 
@@ -6065,7 +6115,7 @@ up if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.95.1.
+This manual pertains to C<pfm> version 1.95.2.
 
 =head1 AUTHOR and COPYRIGHT
 
