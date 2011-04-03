@@ -2,7 +2,7 @@
 ############################################################################
 #
 # Name:         installpfm.sh
-# Version:      0.11
+# Version:      0.13
 # Authors:      Rene Uittenbogaard
 # Date:         2009-10-02
 # Usage:        installpfm.sh
@@ -12,7 +12,7 @@
 #		Comments and improvements are welcome!
 #
 
-VERSION=1.94.0
+VERSION=1.94.1
 
 ###############################################################################
 # helper functions
@@ -50,7 +50,7 @@ init_package_commands() {
 		break
 		;;
 	darwin)
-		if port --version >/dev/null 2>&1; then
+		if port version >/dev/null 2>&1; then
 			packagelistcmd='port installed'
 			packageinstallcmd='port install ${packagename}'
 			packageurls='http://www.macports.org/'
@@ -70,7 +70,7 @@ init_package_commands() {
 	rpm)
 		packagelistcmd='rpm -qa'
 		packageinstallcmd='rpm -ivh ${packagename}*.rpm'
-		packageurls='http://www.rpmfind.net/'
+		packageurls='http://www.rpmfind.net/,http://www.rpm.org/'
 		break
 		;;
 	deb)
@@ -83,6 +83,12 @@ init_package_commands() {
 		packagelistcmd='ls -1 /var/log/packages'
 		packageinstallcmd='installpkg ${packagename}'
 		packageurls='http://packages.slackware.it/'
+		break
+		;;
+	gentoo)
+		packagelistcmd='emerge -s'
+		packageinstallcmd='emerge ${packagename}'
+		packageurls='http://www.gentoo.org/main/en/mirrors2.xml'
 		break
 		;;
 	*)
@@ -99,36 +105,38 @@ check_distro() {
 	# http://goc.grid.sinica.edu.tw/gocwiki/How_to_publish_the_OS_name
 	#
 	uname=`uname | tr A-Z a-z`
+	lsb="`lsb_release -i 2>/dev/null | awk '{print $NF}' | tr A-Z a-z`"
 	if [ "$uname" != 'linux' ]; then
 		distro=
 		init_package_commands $uname
-	elif [ -e /etc/ubuntu-release ]; then
+	elif [ -e /etc/ubuntu-release -o "$lsb" = ubuntu ]; then
 		distro=ubuntu
 		init_package_commands deb
-	elif [ -e /etc/redhat-release ]; then
+	elif [ -e /etc/redhat-release -o "$lsb" = redhat ]; then
 		distro=redhat
 		init_package_commands rpm
-	elif [ -e /etc/fedora-release ]; then
+	elif [ -e /etc/fedora-release -o "$lsb" = fedora ]; then
 		distro=fedoracore
 		init_package_commands rpm
-	elif [ -e /etc/mandrake-release ]; then
+	elif [ -e /etc/mandrake-release -o "$lsb" = mandrake ]; then
 		distro=mandrake
 		init_package_commands rpm
-	elif [ -e /etc/debian_version ]; then
+	elif [ -e /etc/debian_version -o "$lsb" = debian ]; then
 		distro=debian
 		init_package_commands deb
-	elif [	-e /etc/SuSE-release -o -e /etc/UnitedLinux-release ]; then
+	elif [	-e /etc/SuSE-release        -o "$lsb" = suse \
+	-o	-e /etc/UnitedLinux-release -o "$lsb" = unitedlinux ]; then
 		distro=suse
 		init_package_commands rpm
-	elif [ -e /etc/slackware-version ]; then
+	elif [ -e /etc/slackware-version -o "$lsb" = slackware ]; then
 		distro=slackware
 		init_package_commands slackware
-	elif [ -e /etc/knoppix_version ]; then
+	elif [ -e /etc/knoppix_version -o "$lsb" = knoppix ]; then
 		distro=knoppix
 		init_package_commands deb
-	elif [ -x /usr/bin/lsb_release ]; then
-		distro="`lsb_release -i | awk '{print $NF}' | tr A-Z a-z`"
-		init_package_commands ''
+	elif [ -e /etc/gentoo-release -o "$lsb" = gentoo ]; then
+		distro=gentoo
+		init_package_commands gentoo
 	else
 		distro=unknown
 		init_package_commands ''
@@ -185,9 +193,9 @@ check_package() {
 	while [ "$answer" != y ]; do
 		if [ "$answer" = t ]; then
 			if [ "x$packagelistcmd" = x ]; then
-				echo "I don't know how to list installed packages for your system"
+				echo "I don't know how to list installed packages for your system, sorry"
 			else
-				enkadercmd "$packagelistcmd | grep '$packagename' || echo not found"
+				enkadercmd "$packagelistcmd|grep -i '$packagename'||echo not found"
 			fi
 		elif [ "$answer" != y ]; then
 			download_and_install "$packagename"
@@ -273,7 +281,7 @@ check_perl_module Term::ScreenColor || download_and_install_perl_module \
 	http://search.cpan.org/CPAN/authors/id/R/RU/RUITTENB/Term-ScreenColor-1.10.tar.gz
 
 check_perl_module Term::ReadLine::Gnu || download_and_install_perl_module \
-	http://search.cpan.org/CPAN/authors/id/H/HA/HAYASHI/Term-ReadLine-Gnu-1.17a.tar.gz
+	http://search.cpan.org/CPAN/authors/id/H/HA/HAYASHI/Term-ReadLine-Gnu-1.19.tar.gz
 
 # check, download and install the application
 
