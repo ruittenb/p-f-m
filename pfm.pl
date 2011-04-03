@@ -1,12 +1,12 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20030526 v1.92.8
+# @(#) pfm.pl 19990314-20030527 v1.92.9
 #
 # Name:         pfm
-# Version:      1.92.8
+# Version:      1.92.9
 # Author:       Rene Uittenbogaard
-# Date:         2003-05-26
+# Date:         2003-05-27
 # Usage:        pfm [ <directory> ] [ -s, --swap <directory> ]
 #               pfm { -v, --version | -h, --help }
 # Requires:     Term::ReadLine::Gnu (preferably)
@@ -27,6 +27,7 @@
 #           partly implemented in handlecopyrename
 #       fixed sysread() and buffering
 #       fixed getcwd()
+#       'logical' paths in addition to 'physical' paths?
 # TODO:
 #       more consistent use of at(1,0) and at(0,0)
 #       sub fileforall(sub) ?
@@ -38,8 +39,6 @@
 #       handlemousedown() does ($mousecol >= $infocol) test: wrong if f col at left
 #
 #       fixing whiteout handling
-#       implement 'logical' paths in addition to 'physical' paths?
-#           unless (chdir()) { getcwd() } otherwise no getcwd() ?
 #
 #       handletime does not restat() in multiple mode, nor resort
 #       in handledelete: test whether deleted file is present as whiteout after deletion
@@ -51,7 +50,7 @@
 #           use in conjunction with 'keeplostfiles' option?
 #
 #       'autochangedir' option?
-#       set ROWS en COLUMNS in environment for child processes; but see if
+#       set ROWS and COLUMNS in environment for child processes; but see if
 #           this does not mess up with $scr->rows etc. which use these
 #           variables internally; portability?
 #       cache converted formatlines - store formatlines and maxfilesizelength
@@ -65,6 +64,7 @@
 #       hierarchical sort? e.g. 'sen' (size,ext,name)
 #       include acl commands?
 #       (F)ind command: stop at nearest match?
+#       filename subs command? foreach(@file) { s/^pfm/pfm-/ }
 #       incremental search (search entry while entering filename)?
 #       major/minor numbers on DU 4.0E are wrong (cannot test: no system available)
 
@@ -365,7 +365,7 @@ my (
     $scr, $kbd, $wasresized, $currentpan,
     # modes
     $sort_mode, $multiple_mode, $swap_mode, $dot_mode, $dotdot_mode, $white_mode,
-    $mouse_mode, $color_mode, $ident_mode, $radix_mode, $clobber_mode,
+    $mouse_mode, $color_mode, $ident_mode, $radix_mode, $clobber_mode, $path_mode,
     # dir- and disk info
     $currentdir, $oldcurrentdir, @dircontents, @showncontents, %currentfile,
     %disk, $swap_state, %total_nr_of, %selected_nr_of, $ident,
@@ -494,6 +494,7 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
     $clobber_mode      = &isyes($pfmrc{defaultclobber})   if !defined $clobber_mode;
     $sort_mode         = $pfmrc{defaultsortmode} || 'n'   if !defined $sort_mode;
     $radix_mode        = $pfmrc{defaultradix}    || 'hex' if !defined $radix_mode;
+    $path_mode         = $pfmrc{defaultpathmode} || 'log' if !defined $path_mode;
     $currentlayout     = $pfmrc{defaultlayout}   ||  0    if !defined $currentlayout;
     $timestampformat   = $pfmrc{timestampformat} || '%y %b %d %H:%M';
     $ducmd             = $pfmrc{ducmd} || $DUCMDS{$^O} || $DUCMDS{default};
@@ -612,7 +613,7 @@ sub read_history {
 
 sub write_cwd {
     if (open CWDFILE,">$CONFIGDIRNAME/$CWDFILENAME") {
-        print CWDFILE getcwd(); # $path_mode ? getcwd() : $currentdir;
+        print CWDFILE ($path_mode eq 'phys' ? getcwd() : $currentdir);
         close CWDFILE;
     } else {
         &putmessage("Unable to create $CONFIGDIRNAME/$CWDFILENAME: $!\n");
@@ -847,7 +848,6 @@ sub readintohist { # \@history, $prompt, [$default_input]
 sub mychdir {
     my $goal = $_[0];
     my $result;
-#    system "echo ---'\n'Goal 1: $goal > /dev/pts/3";
     if ($goal eq '') {
         $goal = $ENV{HOME};
     } elsif (-d $goal and $goal !~ m!^/!) {
@@ -863,18 +863,13 @@ sub mychdir {
             }
         }
     }
-#    system "echo Goal 2: $goal > /dev/pts/3";
-    $goal = &canonicalize_path($goal);
-#    system "echo Goal 3: $goal > /dev/pts/3";
+    $goal = &canonize_path($goal);
     if ($result = chdir $goal and $goal ne $currentdir) {
         $oldcurrentdir = $currentdir;
         $currentdir = $goal;
-    } elsif (!$result) {
-        $currentdir = getcwd();
+#    } elsif (!$result) {
+#        $currentdir = getcwd();
     }
-#    system "echo Result: $result > /dev/pts/3";
-#    system "echo Old: $oldcurrentdir > /dev/pts/3";
-#    system "echo Current: $currentdir > /dev/pts/3";
     return $result;
 }
 
@@ -892,7 +887,7 @@ sub basename {
 
 sub reversepath {
     # reverses the path from target to symlink, returns the path from symlink to target
-    my ($symlink_target_abs, $symlink_name_rel) = map { &canonicalize_path($_) } @_;
+    my ($symlink_target_abs, $symlink_name_rel) = map { &canonize_path($_) } @_;
     # $result ultimately is named as requested
     my $result = &basename($symlink_target_abs);
     if ($symlink_name_rel !~ m!/!) {
@@ -916,10 +911,10 @@ sub reversepath {
             $symlink_target_abs .= '/'.$_;
         }
     }
-    return &canonicalize_path($result);
+    return &canonize_path($result);
 }
 
-sub canonicalize_path {
+sub canonize_path {
     # works like realpath() but does not resolve symlinks
     my $path = shift;
     1 while $path =~ s!/\./!/!g;
@@ -1556,6 +1551,7 @@ sub footer {
     .     " !-Clobber[$ONOFF{$clobber_mode}]"
     .     " .-Dotfiles[$ONOFF{$dot_mode}]"
     .     ($white_cmd ? " %-Whiteouts[$ONOFF{$white_mode}]" : '')
+    .     " \"-Pathnames[$path_mode]"
     .     " *-Radix[$radix_mode]"
 #    .     " =-Ident"
     ;
@@ -1850,6 +1846,12 @@ sub handleident {
 sub handleclobber {
     toggle($clobber_mode);
     return $R_FOOTER;
+}
+
+sub handlepathmode {
+    $path_mode  = $path_mode eq 'phys' ? 'log' : 'phys';
+    $currentdir = getcwd() if $path_mode eq 'phys';
+    return $R_FOOTER | $R_PATHINFO;
 }
 
 sub handleradix {
@@ -2360,7 +2362,7 @@ sub handlesymlink {
     }
     &stty_raw($TERM_RAW);
     return $R_HEADER if $newname eq '';
-    $newname = &canonicalize_path($newname);
+    $newname = &canonize_path($newname);
     # expand \[3456] at this point as a test, but not \[127]
     &expand_3456_escapes($QUOTE_OFF, ($testname = $newname), \%currentfile);
     return $R_HEADER if &multi_to_single($testname);
@@ -3464,17 +3466,17 @@ sub browse {
     my $wantrefresh = shift;
     my $key;
     STRIDE: until ($wantrefresh & $R_QUIT) {
-#        system "xmessage '" . &dumprefreshflags($wantrefresh) . "'";
-        if ($wantrefresh & $R_NEWDIR) {
+#        system "echo '" . &dumprefreshflags($wantrefresh) . "' > /dev/pts/3";
+        if ($wantrefresh &   $R_NEWDIR) {
             $wantrefresh &= ~$R_NEWDIR;
             # it's dangerous to leave multiple_mode on when changing directories
             # 'autoexitmultiple' is only for leaving it on between commands
             $multiple_mode = 0;
-#            $currentdir    = getcwd();
+            $currentdir    = getcwd() if $path_mode eq 'phys';
             %disk          = &get_filesystem_info();
             &set_argv0();
             # this test is nested so that it does not get executed every time
-            if ($wantrefresh & $R_INIT_SWAP) {
+            if ($wantrefresh &   $R_INIT_SWAP) {
                 $wantrefresh &= ~$R_INIT_SWAP;
                 # if $swapstartdir is set, we will make a first pass through
                 # this then{} construct: it reads the main dircontents
@@ -3499,7 +3501,7 @@ sub browse {
             }
         }
         # draw frame as soon as possible: this looks better on slower terminals
-        if ($wantrefresh & $R_CLEAR) {
+        if ($wantrefresh &   $R_CLEAR) {
             $wantrefresh &= ~$R_CLEAR;
             $scr->clrscr();
         }
@@ -3508,48 +3510,48 @@ sub browse {
             &init_frame();
         }
         # now in order of severity
-        if ($wantrefresh & $R_DIRCONTENTS) {
+        if ($wantrefresh &   $R_DIRCONTENTS) {
             $wantrefresh &= ~$R_DIRCONTENTS;
             &init_dircount();
             $position_at  = $showncontents[$currentline+$baseindex]{name} unless length($position_at);
             @dircontents  = &getdircontents($currentdir);
         }
-        if ($wantrefresh & $R_DIRSORT) {
+        if ($wantrefresh &   $R_DIRSORT) {
             $wantrefresh &= ~$R_DIRSORT;
             $position_at  = $showncontents[$currentline+$baseindex]{name} unless length($position_at);
             @dircontents  = sort as_requested @dircontents;
         }
-        if ($wantrefresh & $R_DIRFILTER) {
+        if ($wantrefresh &   $R_DIRFILTER) {
             $wantrefresh &= ~$R_DIRFILTER;
             @showncontents = &filterdir(@dircontents);
         }
-        if ($wantrefresh & $R_STRIDE) {
+        if ($wantrefresh &   $R_STRIDE) {
             $wantrefresh &= ~$R_STRIDE;
             &position_cursor if $position_at ne '';
             &recalc_ptr unless defined $showncontents[$currentline+$baseindex];
             %currentfile = %{$showncontents[$currentline+$baseindex]};
         }
-        if ($wantrefresh & $R_DIRLIST) {
+        if ($wantrefresh &   $R_DIRLIST) {
             $wantrefresh &= ~$R_DIRLIST;
             &printdircontents(@showncontents);
         }
-        if ($wantrefresh & $R_DISKINFO) {
+        if ($wantrefresh &   $R_DISKINFO) {
             $wantrefresh &= ~$R_DISKINFO;
             &showdiskinfo();
         }
-        if ($wantrefresh & $R_HEADER) {
+        if ($wantrefresh &   $R_HEADER) {
             $wantrefresh &= ~$R_HEADER;
             &init_header();
         }
-        if ($wantrefresh & $R_PATHINFO) {
+        if ($wantrefresh &   $R_PATHINFO) {
             $wantrefresh &= ~$R_PATHINFO;
             &path_info();
         }
-        if ($wantrefresh & $R_TITLE) {
+        if ($wantrefresh &   $R_TITLE) {
             $wantrefresh &= ~$R_TITLE;
             &init_title($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
         }
-        if ($wantrefresh & $R_FOOTER) {
+        if ($wantrefresh &   $R_FOOTER) {
             $wantrefresh &= ~$R_FOOTER;
             &init_footer();
         }
@@ -3615,6 +3617,7 @@ sub browse {
                 /^=$/        and $wantrefresh |= &handleident,         last KEY;
                 /^\*$/       and $wantrefresh |= &handleradix,         last KEY;
                 /^!$/        and $wantrefresh |= &handleclobber,       last KEY;
+                /^"$/        and $wantrefresh |= &handlepathmode,      last KEY;
                 /^w$/i       and $wantrefresh |= &handleunwo,          last KEY;
                 /^%$/i       and $wantrefresh |= &handlewhiteout,      last KEY;
                 # invalid keypress: cursor position needs no checking
@@ -3686,7 +3689,7 @@ cursorveryvisible:yes
 ## initial setting for automatically clobbering existing files (toggle with !)
 defaultclobber:no
 
-## initial colorset to pick from the various colorsets defined below (for F4)
+## initial colorset to pick from the various colorsets defined below (cycle with F4)
 defaultcolorset:dark
 
 ## show dot files initially? (hide them otherwise, toggle with . key)
@@ -3695,16 +3698,19 @@ defaultdotmode:yes
 ## initial ident mode (user, host, or user@host, cycle with = key)
 defaultident:user
 
-## initial layout to pick from the array 'columnlayouts' (see below) (for F9)
+## initial layout to pick from the array 'columnlayouts' (see below) (cycle with F9)
 defaultlayout:0
 
-## initially turn on mouse support? (yes,no,xterm) (default: only in xterm)
+## initially turn on mouse support? (yes,no,xterm) (default: only in xterm) (toggle with F12)
 defaultmousemode:xterm
 
-## initial radix that Name will use to display non-ascii chars with (hex,oct)
+## initially display logical or physical paths? (log,phys) (default: log) (toggle with ")
+defaultpathmode:log
+
+## initial radix that Name will use to display non-ascii chars with (hex,oct) (toggle with *)
 defaultradix:hex
 
-## initial sort mode (nNmMeEfFsSzZiItTdDaA) (default n) (for F6)
+## initial sort mode (nNmMeEfFsSzZiItTdDaA) (default: n) (select with F6)
 defaultsortmode:n
 
 ## show whiteout files initially? (hide them otherwise, toggle with % key)
@@ -4801,6 +4807,13 @@ Identical to the B<D>elete command (see above).
 Toggle clobber mode. This controls whether a file should be overwritten when
 its name is reused in B<C>opy, B<L>ink or B<R>ename.
 
+=item B<">
+
+Toggle pathname handling. In B<physical> mode, the current directory path
+will always be transformed to its canonical form (the simplest form, with
+symbolic names resolved). In B<logical> mode, all symbolic link components
+in the current directory path will be preserved.
+
 =item B<%>
 
 Toggle show/hide whiteout files.
@@ -5329,7 +5342,7 @@ memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.92.8.
+This manual pertains to C<pfm> version 1.92.9.
 
 =head1 SEE ALSO
 

@@ -1,4 +1,5 @@
-1.92.8
+1.92.9
 
-* fixed logical path processing
+* added logical/physical mode (")
+* updated documentation
 
