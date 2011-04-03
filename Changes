@@ -1,5 +1,4 @@
-1.93.2
+1.93.3
 
-* added CTRL-L and CTRL-R as "redraw screen" commands
-* changed "Hit any key to continue" to handle resize event
+* fixed setting keyboard history in case readline does not allow it
 
