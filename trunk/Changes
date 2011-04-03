@@ -1,5 +1,6 @@
-1.93.6
+1.93.7
 
-* fix major/minor numbers of device files on different *nixes
-* code cleanup
+* added mouse wheel support for scrolling
+* added support for switching to alternate screen buffer (xterm)
+* added option to open a directory in a new x window
 
