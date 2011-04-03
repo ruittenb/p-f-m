@@ -1,6 +1,4 @@
-1.95.2
+1.95.3
 
-* added configuration option to check for updates when pfm exits
-* (M)ore - (P)hysical path
-* (M)ore - al(T)screen
+* c(O)mmand handles 'cd' as special case
 
