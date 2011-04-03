@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2009-10-02 v1.94.0c
+# @(#) pfm.pl 2009-10-05 v1.94.0e
 #
 # Name:			pfm
-# Version:		1.94.0c
+# Version:		1.94.0e
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2009-10-02
+# Date:			2009-10-05
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				pfm { -v, --version | -h, --help }
 # Requires:		Term::ReadLine::Gnu (preferably)
@@ -2148,23 +2148,54 @@ sub handlepan {
 	return $R_HEADER | $R_FOOTER;
 }
 
+#sub handlefind {
+#	my $findme;
+#	my $prompt = 'File to find: ';
+#	$scr->at(0,0)->clreol();
+#	stty_raw($TERM_COOKED);
+#	($findme = readintohist(\@path_history, $prompt)) =~ s/\/$//;
+#	if ($findme =~ /\//) { $findme = basename($findme) };
+#	stty_raw($TERM_RAW);
+#	return $R_HEADER if $findme eq '';
+#	FINDENTRY:
+#	foreach (sort by_name @showncontents) {
+#		last FINDENTRY if $findme le ($position_at = $_->{name});
+##		if (index($_->{name}, $findme) == 0) {
+##			$position_at = $_->{name};
+##			last FINDENTRY;
+##		}
+#	}
+#	return $R_DIRLIST | $R_HEADER;
+#}
+
 sub handlefind {
-	my $findme;
+	my ($findme, $k, $delay);
 	my $prompt = 'File to find: ';
-	$scr->at(0,0)->clreol();
-	stty_raw($TERM_COOKED);
-	($findme = readintohist(\@path_history, $prompt)) =~ s/\/$//;
-	if ($findme =~ /\//) { $findme = basename($findme) };
-	stty_raw($TERM_RAW);
-	return $R_HEADER if $findme eq '';
-	FINDENTRY:
-	foreach (sort by_name @showncontents) {
-		last FINDENTRY if $findme le ($position_at = $_->{name});
-#		if (index($_->{name}, $findme) == 0) {
-#			$position_at = $_->{name};
-#			last FINDENTRY;
-#		}
+	$delay = .5;
+	FINDENTRY: for (;;) {
+		$scr->at(0,0)->clreol()->puts($prompt . $findme);
+		highlightline($HIGHLIGHT_ON);
+		FINDENTRYKEY: while (!$scr->key_pressed($delay)) {
+			$scr->at($currentline+$BASELINE, $cursorcol);
+			last if ($scr->key_pressed($delay));
+			$scr->at(0, length($prompt . $findme));
+		}
+		$k = $scr->getch();
+		highlightline($HIGHLIGHT_OFF);
+		for ($k) {
+			/\cM/ and return $R_HEADER;
+			if (/\cH/ || /del/) {
+				chop($findme);
+			} else {
+				$findme .= $_;
+			}
+			$position_at = $findme;
+			position_cursor_find();
+			%currentfile = %{$showncontents[$currentline+$baseindex]};
+			printdircontents(@showncontents);
+		}
 	}
+	# we should never get here
 	return $R_DIRLIST | $R_HEADER;
 }
 
@@ -3613,6 +3644,21 @@ sub get_filesystem_info {
 	$tdisk{avail} = $tdisk{total} - $tdisk{used} if $tdisk{avail} =~ /%/;
 	@tdisk{qw/mountpoint/} = $dflist[0] =~ /(\S*)$/;
 	return %tdisk;
+}
+
+sub position_cursor_find {
+	$currentline = 0;
+	ANYENTRYFIND: {
+		for (0..$#showncontents) {
+			if ($position_at le substr($showncontents[$_]{name}, 0, length($position_at))) {
+				$currentline = $_ - $baseindex;
+				last ANYENTRYFIND;
+			}
+		}
+		$baseindex = 0;
+	}
+	$position_at = '';
+	return validate_position(); # refresh flag
 }
 
 sub position_cursor {
@@ -5741,7 +5787,7 @@ up if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.94.0c.
+This manual pertains to C<pfm> version 1.94.0e.
 
 =head1 AUTHOR and COPYRIGHT
 
