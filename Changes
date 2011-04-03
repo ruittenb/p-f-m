@@ -1,9 +1,5 @@
-1.93.1
+1.93.2
 
-* added short help
-* added 'swd' file functionality
-* changed escape character default
-* changed escape character processing: now configurable
-* minor code cleanup
-* updated documentation
+* added CTRL-L and CTRL-R as "redraw screen" commands
+* changed "Hit any key to continue" to handle resize event
 
