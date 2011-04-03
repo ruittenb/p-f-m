@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2009-10-16 v1.94.3
+# @(#) pfm.pl 2009-10-20 v1.94.4
 #
 # Name:			pfm
-# Version:		1.94.3
+# Version:		1.94.4
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2009-10-16
+# Date:			2009-10-20
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				pfm { -v, --version | -h, --help }
 # Requires:		Term::ReadLine::Gnu (preferably)
@@ -1652,7 +1652,7 @@ sub header {
 		return 'Absolute, Relative symlink or Hard link:';
 	} else {
 		return	'Attribute Copy Delete Edit Find tarGet Include Link More Name'
-		.		' cOmmand Print Quit Rename Show Time User unWhiteout'
+		.		' cOmmand Print Quit Rename Show Time User sVn unWhiteout'
 		.		' eXclude Your-command siZe';
 	}
 }
@@ -2011,7 +2011,7 @@ sub preparercscol {
 	my (%nameindexmap, $count);
 	if ($file ne '' and $file ne '.') {
 		%nameindexmap = map { $_->{name}, $count++ } @showncontents;
-		$showncontents[$file]{$LAYOUTFIELDS{'v'}} = '-';
+		$showncontents[$nameindexmap{$file}]{$LAYOUTFIELDS{'v'}} = '-';
 		return;
 	}
 	foreach(0..$#showncontents) {
@@ -2020,6 +2020,10 @@ sub preparercscol {
 }
 
 sub handlercspipe {
+	# I don't have any experience with other versioning systems.
+	# If anyone wants to help me port this to other versioning systems,
+	# any help would be appreciated.
+	#
 	if (!$rcsrunning and $rcs_need_refresh) {
 		printdircontents(@showncontents);
 		highlightline($HIGHLIGHT_ON);
@@ -2034,24 +2038,33 @@ sub handlercspipe {
 	$nfound = select($pin, undef, $pin, 0);
 	return if ($nfound <= 0);
 	if (sysread(RCSPIPE, $input, 10000) or length($rcsbuffer)) {
+		# found data to process.
 		$rcsbuffer .= $input;
 		%nameindexmap = map { $_->{name}, $count++ } @showncontents;
 		$svnfieldtitle = $LAYOUTFIELDS{'v'};
 		while (($newlinepos = index($rcsbuffer,"\cJ")) >= 0) {
+			# process one line of input.
 			$input = substr($rcsbuffer, 0, $newlinepos);
 			$rcsbuffer = substr($rcsbuffer, $newlinepos+1);
+			# split line: status information and filename
 			$f1 = substr($input, 0, $firstcolsize);
 			$f2 = substr($input, $firstcolsize);
 			if ($f2 =~ m!/!) {
-				# TODO if change in subdir, then show 'M' on current dir
+				# change in subdirectory
 				($topdir = $f2) =~ s!/.*!!;
 				$dirindex = $nameindexmap{$topdir};
-				$oldval = $showncontents[$dirindex]{$svnfieldtitle};
 				# find highest prio marker: C > M > ? > ''
-#				$showncontents[$dirindex]{$svnfieldtitle} = $f1;
+				$oldval = $showncontents[$dirindex]{$svnfieldtitle};
 				$showncontents[$dirindex]{$svnfieldtitle} = svnmax($oldval, $f1);
+				#
+#				# if there was a change in a subdir, then show 'M' on current dir
+#				$dirindex = $nameindexmap{'.'};
+#				# find highest prio marker: C > M > ? > ''
+#				$oldval = $showncontents[$dirindex]{$svnfieldtitle};
+#				$showncontents[$dirindex]{$svnfieldtitle} = svnmax($oldval, 'M');
 				next;
 			}
+			# change in file in current directory
 			if (defined($mapindex = $nameindexmap{$f2})) {
 				$showncontents[$mapindex]{$svnfieldtitle} = $f1;
 			}
@@ -2496,7 +2509,7 @@ sub handlemorekill {
 sub handlemorercsopen {
 	my $file = shift;
 	# we could have used: if (RCSPIPE->opened)
-	# but then we'd need IO::Handle
+	# but then we'd need to include IO::Handle
 	if (defined(fileno(RCSPIPE))) {
 		close RCSPIPE;
 		# another svn-status command was running.
@@ -2508,7 +2521,7 @@ sub handlemorercsopen {
 	$rcs_need_refresh = 1;
 	$SIG{CHLD}  = \&reaper;
 	preparercscol($file);
-	my $rcspid = open(RCSPIPE, "$rcscmd $file 2>/dev/null |");
+	my $rcspid = open(RCSPIPE, "$rcscmd \Q$file\E 2>/dev/null |");
 	return $R_HEADER;
 }
 
@@ -2598,6 +2611,28 @@ sub handleinclude { # include/exclude flag (from keypress)
 	return $do_a_refresh;
 }
 
+sub handlercs {
+	my $do_a_refresh = $R_STRIDE;
+	my ($index, $loopfile);
+	if ($multiple_mode) {
+		# do the entire directory.
+		handlemorercsopen();
+		for $index (0..$#dircontents) {
+			$loopfile = $dircontents[$index];
+			if ($loopfile->{selected} eq '*') {
+				exclude($loopfile, '.');
+				$dircontents[$index] = $loopfile;
+			}
+		}
+		$multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
+		$do_a_refresh |= $R_DIRLIST | $R_HEADER;
+	} else {
+		handlemorercsopen($currentfile{name});
+		%currentfile = %{$showncontents[$currentline+$baseindex]};
+	}
+	return $do_a_refresh;
+}
+
 sub handlename {
 	markcurrentline(uc($_[0])); # disregard multiple_mode
 	my $numformat = $NUMFORMATS{$radix_mode};
@@ -2605,7 +2640,7 @@ sub handlename {
 	my $line;
 	for ($otherfile{name}, $otherfile{target}) {
 		s/\\/\\\\/;
-		# don't ask how this works
+		# this is highly magical
 		s{([${trspace}\177[:cntrl:]]|[^[:ascii:]])}
 		 {'\\' . sprintf($numformat, unpack('C', $1))}eg;
 	}
@@ -2648,7 +2683,7 @@ sub handlesort {
 sub handlekeyell {
 	# small l only
 	if ($currentfile{type} eq 'd') {
-		# this automatically passes the 'l' key in $_[0] to handleentry()
+		# this automagically passes the 'l' key in $_[0] to handleentry()
 		goto &handleentry;
 	} else {
 		goto &handlesymlink;
@@ -3165,14 +3200,14 @@ sub handlehelp {
         n     Name           mv  SVN status       SPACE            mark file & advance  
         o     cOmmand        mw  Write history    right arrow, l   enter dir            
         p     Print         --------------------  left arrow, h    leave dir            
-        q     Quit           =   ident            ENTER            enter dir, launch    
+        q     Quit           =   ident            ENTER            enter dir; launch    
         Q     Quick quit     *   radix            ESC, BS          leave dir            
         r     Rename         !   clobber         ---------------------------------------
         s     Show           @   perlcmd          F1  help            F7  swap mode     
         t     Time           .   dotfiles         F2  prev dir        F8  mark file     
         u     Uid            %   whiteout         F3  redraw screen   F9  cycle layouts 
-        w     unWhiteout     <   cmnds left       F4  cycle colors    F10 multiple mode 
-        x     eXclude        >   cmnds right      F5  reread dir      F11 restat file   
+        w     unWhiteout     <   commands left    F4  cycle colors    F10 multiple mode 
+        x     eXclude        >   commands right   F5  reread dir      F11 restat file   
         y     Your command   "   paths log/phys   F6  sort dir        F12 toggle mouse  
         z     siZe           ?   help                                                   
         --------------------------------------------------------------------------------
@@ -4038,7 +4073,7 @@ sub browse {
 				/^m$/io			and $wantrefresh |= handlemore(),		 last KEY;
 				/^p$/io			and $wantrefresh |= handleprint(),		 last KEY;
 				/^L$/o			and $wantrefresh |= handlesymlink(),	 last KEY;
-				/^[nv]$/io		and $wantrefresh |= handlename($_),		 last KEY;
+				/^n$/io			and $wantrefresh |= handlename($_),		 last KEY;
 				/^k8$/o			and $wantrefresh |= handleselect(),		 last KEY;
 				/^k11$/o		and $wantrefresh |= handlerestat(),		 last KEY;
 				/^[\/f]$/io		and $wantrefresh |= handlefind(),		 last KEY;
@@ -4055,6 +4090,7 @@ sub browse {
 				/^k4$/o			and $wantrefresh |= handlecolor(),		 last KEY;
 				/^\@$/o			and $wantrefresh |= handleperlcommand(), last KEY;
 				/^u$/io			and $wantrefresh |= handlechown(),		 last KEY;
+				/^v$/io			and $wantrefresh |= handlercs(),		 last KEY;
 				/^z$/io			and $wantrefresh |= handlesize(),		 last KEY;
 				/^g$/io			and $wantrefresh |= handletarget(),		 last KEY;
 				/^k12$/o		and $wantrefresh |= handlemouse(),		 last KEY;
@@ -5245,9 +5281,10 @@ can use. Enter B<.> to set the mtime to the current date and time.
 Change ownership of a file. Note that many Unix variants do not allow normal
 (non-C<root>) users to change ownership. Symbolic links will be followed.
 
-=item B<View>
+=item B<sVn>
 
-(Deprecated.) Identical to B<N>ame.
+Updates the current file with Subversion status information.
+See also B<M>ore - sB<V>n.
 
 =item B<unWhiteout>
 
@@ -5970,7 +6007,7 @@ up if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.94.3.
+This manual pertains to C<pfm> version 1.94.4.
 
 =head1 AUTHOR and COPYRIGHT
 
