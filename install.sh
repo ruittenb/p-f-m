@@ -2,9 +2,9 @@
 ############################################################################
 #
 # Name:         installpfm.sh
-# Version:      0.16
+# Version:      0.17
 # Authors:      Rene Uittenbogaard
-# Date:         2009-11-08
+# Date:         2009-11-11
 # Usage:        installpfm.sh
 # Description:  This is not so much a script as a manual.
 #		This is meant as an example how pfm dependencies can
@@ -225,24 +225,42 @@ download_and_install() {
 	echo
 }
 
+check_cpan() {
+	if check_perl_module CPAN; then
+		cpan_available=1
+	else
+		cpan_available=
+	fi
+}
+
 check_perl_module() {
 	echo $n "Checking module $1... "
-	perl -M"$1" -e1 && echo "found." || echo "not found"
+	if perl -M"$1" -e1; then
+		echo "found."
+	else
+		echo "not found"
+		return 1
+	fi
 }
 
 check_perl_module_term_readline_gnu() {
 	echo $n "Checking module Term::ReadLine::Gnu... "
-	perl -MTerm::ReadLine -e '$t = new Term::ReadLine ""; exit !($t->ReadLine eq "Term::ReadLine::Gnu")' \
-	&& echo "found." || echo "not found"
+	if perl -MTerm::ReadLine -e '$t = new Term::ReadLine ""; exit !($t->ReadLine eq "Term::ReadLine::Gnu")'; then
+		echo "found."
+	else
+		echo "not found"
+		return 1
+	fi
 }
 
 download_and_install_perl_module() {
 	packagename="$1"
-	if check_perl_module CPAN; then
+	if [ "$cpan_available" ]; then
 		while [ "x$install_opt" != xb && "x$install_opt" != xc ]; do
 			echo "Do you want to install the bundled version, or "
 			echo $n "download the latest version from CPAN? (Bundled/Cpan) "
 			read install_opt
+			install_opt=$(echo $install_opt | cut -c1 | tr A-Z a-z)
 		done
 	else
 		install_opt=b
@@ -259,7 +277,6 @@ download_and_install_perl_module() {
 install_pfm() {
 	make
 	make install
-	cd $olddir
 }
 
 ###############################################################################
@@ -273,6 +290,7 @@ check_package libreadline
 
 # check, download and install the Perl modules
 
+check_cpan
 check_perl_module Term::Cap         || download_and_install_perl_module Term::Cap
 check_perl_module Term::Screen      || download_and_install_perl_module Term::Screen
 check_perl_module Term::ScreenColor || download_and_install_perl_module Term::ScreenColor
