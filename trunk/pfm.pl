@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2009-10-28 v1.94.5
+# @(#) pfm.pl 2009-11-06 v1.94.6
 #
 # Name:			pfm
-# Version:		1.94.5
+# Version:		1.94.6
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2009-10-28
+# Date:			2009-11-06
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				pfm { -v, --version | -h, --help }
 # Requires:		Term::ReadLine::Gnu (preferably)
@@ -3964,7 +3964,6 @@ sub browse {
 	my $wantrefresh = shift;
 	my $key;
 	STRIDE: until ($wantrefresh & $R_QUIT) {
-#		$wantrefresh |= handleresize() if $wasresized;
 		if ($wantrefresh &   $R_NEWDIR) {
 			$wantrefresh &= ~$R_NEWDIR;
 			# it's dangerous to leave multiple_mode on when changing directories
@@ -6027,7 +6026,7 @@ up if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.94.5.
+This manual pertains to C<pfm> version 1.94.6.
 
 =head1 AUTHOR and COPYRIGHT
 

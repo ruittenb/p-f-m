@@ -2,9 +2,9 @@
 ############################################################################
 #
 # Name:         installpfm.sh
-# Version:      0.15
+# Version:      0.16
 # Authors:      Rene Uittenbogaard
-# Date:         2009-10-08
+# Date:         2009-11-08
 # Usage:        installpfm.sh
 # Description:  This is not so much a script as a manual.
 #		This is meant as an example how pfm dependencies can
@@ -12,7 +12,7 @@
 #		Comments and improvements are welcome!
 #
 
-VERSION=1.94.2
+VERSION=1.94.6
 
 ###############################################################################
 # helper functions
@@ -226,40 +226,37 @@ download_and_install() {
 }
 
 check_perl_module() {
-	perl -M"$1" -e1
+	echo $n "Checking module $1... "
+	perl -M"$1" -e1 && echo "found." || echo "not found"
+}
+
+check_perl_module_term_readline_gnu() {
+	echo $n "Checking module Term::ReadLine::Gnu... "
+	perl -MTerm::ReadLine -e '$t = new Term::ReadLine ""; exit !($t->ReadLine eq "Term::ReadLine::Gnu")' \
+	&& echo "found." || echo "not found"
 }
 
 download_and_install_perl_module() {
-	url="$1"
-	filename="${url##*/}"
-	packageversionname="${filename%.tar.gz}"
-	packagename="${packageversionname%-*}"
+	packagename="$1"
 	if check_perl_module CPAN; then
+		while [ "x$install_opt" != xb && "x$install_opt" != xc ]; do
+			echo "Do you want to install the bundled version, or "
+			echo $n "download the latest version from CPAN? (Bundled/Cpan) "
+			read install_opt
+		done
+	else
+		install_opt=b
+	fi
+
+	if [ "x$install_opt" = xc ]; then
 		perl -MCPAN -e"install $packagename"
 	else
-		olddir=$(pwd)
-		cd /tmp
-		wget -c "$url"
-		gunzip < "$filename" | tar xvf -
-		cd "$packageversionname"
-		perl Makefile.PL
-		make
-		make test
-		make install
-		cd $olddir
+		target="$(echo $packagename | sed -es/::/-/g)"
+		make -C modules $target
 	fi
 }
 
 install_pfm() {
-	olddir=$(pwd)
-	if [ ! -f pfm ]; then
-		file="pfm-$VERSION.tar.gz"
-		name="${file%.tar.gz}"
-		cd /tmp
-		wget -c http://downloads.sourceforge.net/p-f-m/$file
-		gunzip < "$file" | tar xvf -
-		cd "$name"
-	fi
 	make
 	make install
 	cd $olddir
@@ -276,17 +273,10 @@ check_package libreadline
 
 # check, download and install the Perl modules
 
-check_perl_module Term::Cap || download_and_install_perl_module \
-	http://search.cpan.org/CPAN/authors/id/J/JS/JSTOWE/Term-Cap-1.12.tar.gz
-
-check_perl_module Term::Screen || download_and_install_perl_module \
-	http://search.cpan.org/CPAN/authors/id/J/JS/JSTOWE/Term-Screen-1.03.tar.gz
-
-check_perl_module Term::ScreenColor || download_and_install_perl_module \
-	http://search.cpan.org/CPAN/authors/id/R/RU/RUITTENB/Term-ScreenColor-1.10.tar.gz
-
-check_perl_module Term::ReadLine::Gnu || download_and_install_perl_module \
-	http://search.cpan.org/CPAN/authors/id/H/HA/HAYASHI/Term-ReadLine-Gnu-1.19.tar.gz
+check_perl_module Term::Cap         || download_and_install_perl_module Term::Cap
+check_perl_module Term::Screen      || download_and_install_perl_module Term::Screen
+check_perl_module Term::ScreenColor || download_and_install_perl_module Term::ScreenColor
+check_perl_module_term_readline_gnu || download_and_install_perl_module Term::ReadLine::Gnu
 
 # check, download and install the application
 

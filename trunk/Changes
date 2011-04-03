@@ -1,5 +1,5 @@
-1.94.5
+1.94.6
 
-* added '!' symbol to SVN column heading when a status command is running
-* minor fixes
+* updated and fixed installation script
+* updated help (F1)
 
