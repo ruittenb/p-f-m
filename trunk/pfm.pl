@@ -3,7 +3,7 @@
 ##########################################################################
 #
 # Name:         pfm
-# Version:      1.93.5
+# Version:      1.93.6
 # Author:       Rene Uittenbogaard
 # Created:      1999-03-14
 # Date:         2009-02-20
@@ -29,6 +29,7 @@
 #       change \ char for \1..\7 interpretation
 #       correct optreden van "cannot do multifile oper when destination is single" (multi_to_single)
 #       test substitution in (O), (Y) and Launch; du(Z); (P); df;  (N)ame
+#       test major/minor numbers on DU 4.0E, Tru64, Sun (cannot test: no system available)
 # TODO:
 #       more consistent use of at(1,0) and at(0,0)
 #       sub fileforall(sub) ?
@@ -105,8 +106,6 @@
 #       (F)ind command: stop at nearest match?
 #       filename subs command? foreach(@file) { s/^pfm/pfm-/ }
 #       incremental search (search entry while entering filename)?
-#       major/minor numbers on DU 4.0E are wrong (cannot test: no system available)
-#       maj/min numbers are wrong on HP-UX
 
 ##########################################################################
 # main data structures:
@@ -341,8 +340,13 @@ my %DUCMDS = (
 
 my %RDEVTOMAJOR = (
     default => 256,
-    aix     => 65536,
-    hpux    => 65536 * 256,
+    aix     => 2 ** 16,
+    irix    => 2 ** 18,
+    solaris => 2 ** 18,
+    sunos   => 2 ** 18,
+    dec_osf => 2 ** 20,
+    tru64   => 2 ** 20, # correct value for $OSNAME on Tru64?
+    hpux    => 2 ** 24,
 );
 
 my %LAYOUTFIELDS = (
@@ -1057,7 +1061,7 @@ sub fileforall {
             if ($loopfile->{selected} eq '*') {
                 $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
                 exclude($loopfile, '.');
-                $loopfile = &$do_this($loopfile);
+                $loopfile = $do_this->($loopfile);
                 if ($statflag) {
                     $dircontents[$index] = stat_entry($loopfile->{name}, $loopfile->{selected});
                 }
@@ -1065,7 +1069,7 @@ sub fileforall {
         }
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
-        %currentfile = %{ &$do_this(\%currentfile) };
+        %currentfile = %{ $do_this->(\%currentfile) };
         if ($statflag) {
             $showncontents[$currentline+$baseindex] = stat_entry($currentfile{name}, $currentfile{selected});
         }
@@ -2073,13 +2077,13 @@ sub handlesize {
             if ($loopfile->{selected} eq '*') {
                 $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
                 exclude($loopfile, '.');
-                $loopfile = &$do_this($loopfile);
+                $loopfile = $do_this->($loopfile);
                 $dircontents[$index] = $loopfile;
             }
         }
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
-        %currentfile = %{ &$do_this(\%currentfile) };
+        %currentfile = %{ $do_this->(\%currentfile) };
         $showncontents[$currentline+$baseindex] = { %currentfile };
         copyback($currentfile{name});
     }
@@ -2381,7 +2385,7 @@ sub handleinclude { # include/exclude flag (from keypress)
     }
     if ($criterion) {
         foreach $entry (@showncontents) {
-            if (&$criterion) {
+            if ($criterion->()) {
                 if ($entry->{selected} eq '*' && $exin eq ' ') {
                     exclude($entry);
                 } elsif ($entry->{selected} eq '.' && $exin eq ' ') {
@@ -2525,7 +2529,7 @@ sub handlesymlink {
             if ($loopfile->{selected} eq '*') {
                 $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
                 exclude($loopfile,'.');
-                &$do_this;
+                $do_this->();
                 $dircontents[$index] =
                     stat_entry($loopfile->{name}, $loopfile->{selected});
             }
@@ -2534,7 +2538,7 @@ sub handlesymlink {
     } else {
         $loopfile = \%currentfile;
         expand_escapes($QUOTE_OFF, ($newnameexpanded = $newname), $loopfile);
-        &$do_this;
+        $do_this->();
         restat_copyback();
     }
     return $do_a_refresh;
@@ -2570,14 +2574,14 @@ sub handleunwo {
             if ($loopfile->{selected} eq '*') {
                 $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
                 exclude($loopfile, '.');
-                &$do_this;
+                $do_this->();
                 $dircontents[$index] = stat_entry($loopfile->{name}, $loopfile->{selected});
             }
         }
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
         $loopfile = \%currentfile;
-        &$do_this;
+        $do_this->();
         restat_copyback();
     }
     return $do_a_refresh;
@@ -2630,7 +2634,7 @@ sub handletarget {
                 $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
                 expand_escapes($QUOTE_OFF, ($newtargetexpanded = $newtarget), $loopfile);
                 exclude($loopfile,'.');
-                &$do_this;
+                $do_this->();
                 $dircontents[$index] = stat_entry($loopfile->{name}, $loopfile->{selected});
             }
         }
@@ -2638,7 +2642,7 @@ sub handletarget {
     } else {
         $loopfile = \%currentfile;
         expand_escapes($QUOTE_OFF,($newtargetexpanded = $newtarget),$loopfile);
-        &$do_this;
+        $do_this->();
         restat_copyback();
     }
     return $do_a_refresh;
@@ -2665,14 +2669,14 @@ sub handlechown {
             if ($loopfile->{selected} eq '*') {
                 $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
                 exclude($loopfile, '.');
-                &$do_this;
+                $do_this->();
                 $dircontents[$index] = stat_entry($loopfile->{name}, $loopfile->{selected});
             }
         }
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
         $loopfile = \%currentfile;
-        &$do_this;
+        $do_this->();
         restat_copyback();
     }
     return $do_a_refresh;
@@ -2709,7 +2713,7 @@ sub handlechmod {
             if ($loopfile->{selected} eq '*') {
                 $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
                 exclude($loopfile,'.');
-                &$do_this;
+                $do_this->();
                 $dircontents[$index] =
                     stat_entry($loopfile->{name},$loopfile->{selected});
             }
@@ -2717,7 +2721,7 @@ sub handlechmod {
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
         $loopfile = \%currentfile;
-        &$do_this;
+        $do_this->();
         restat_copyback();
     }
     return $do_a_refresh;
@@ -2854,7 +2858,7 @@ sub handledelete {
             $loopfile = $dircontents[$index];
             if ($loopfile->{selected} eq '*') {
                 $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
-                &$do_this;
+                $do_this->();
                 if ($success) {
                     splice @dircontents, $index, 1;
                     splice @showncontents, $nameindexmap{$loopfile->{name}}, 1;
@@ -2868,7 +2872,7 @@ sub handledelete {
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
         $loopfile = \%currentfile;
-        &$do_this;
+        $do_this->();
         if ($success) {
             splice @dircontents, dirlookup($loopfile->{name}, @dircontents), 1;
             splice @showncontents, $currentline+$baseindex, 1;
@@ -3005,14 +3009,14 @@ sub handletime {
             if ($loopfile->{selected} eq '*') {
                 $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
                 exclude($loopfile,'.');
-                &$do_this;
+                $do_this->();
                 $dircontents[$index] = stat_entry($loopfile->{name},$loopfile->{selected});
             }
         }
         $multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
     } else {
         $loopfile = \%currentfile;
-        &$do_this;
+        $do_this->();
         restat_copyback();
     }
     return $do_a_refresh;
@@ -3095,7 +3099,7 @@ sub handlecopyrename {
                 $scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
                 exclude($loopfile, '.');
                 expand_escapes($QUOTE_OFF, ($newnameexpanded = $newname), $loopfile);
-                &$do_this;
+                $do_this->();
                 $dircontents[$index] = stat_entry($loopfile->{name},$loopfile->{selected});
                 if ($dircontents[$index]{nlink} == 0) {
                     $dircontents[$index]{display} .= $LOSTMSG;
@@ -3107,7 +3111,7 @@ sub handlecopyrename {
     } else {
         $loopfile = \%currentfile;
         expand_escapes($QUOTE_OFF, ($newnameexpanded = $newname), $loopfile);
-        &$do_this;
+        $do_this->();
         restat_copyback();
         # if ! $clobber_mode, we might have gotten an 'Overwrite?' question
         $do_a_refresh |= $R_SCREEN unless $clobber_mode;
@@ -3433,7 +3437,7 @@ sub stat_entry { # path_of_entry, selected_flag
     } elsif ($ptr->{type} eq '-' and $ptr->{mode} =~ /.[xst]/) {
         $ptr->{display} = $entry . $filetypeflags{'x'};
     } elsif ($ptr->{type} =~ /[bc]/) {
-        $ptr->{size_num} = sprintf("%d", $rdev/$rdevtomajor) . $MAJORMINORSEPARATOR . ($rdev%256);
+        $ptr->{size_num} = sprintf("%d", $rdev / $rdevtomajor) . $MAJORMINORSEPARATOR . ($rdev % $rdevtomajor);
         $ptr->{display} = $entry . $filetypeflags{$ptr->{type}};
     } else {
         $ptr->{display} = $entry . $filetypeflags{$ptr->{type}};
@@ -5658,7 +5662,7 @@ memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.93.5.
+This manual pertains to C<pfm> version 1.93.6.
 
 =head1 AUTHOR and COPYRIGHT
 

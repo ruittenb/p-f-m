@@ -1,5 +1,5 @@
-1.93.5
+1.93.6
 
-* minor fixes
+* fix major/minor numbers of device files on different *nixes
 * code cleanup
 
