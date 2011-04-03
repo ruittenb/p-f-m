@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2009-09-30 v1.94.0b
+# @(#) pfm.pl 2009-10-02 v1.94.0c
 #
 # Name:			pfm
-# Version:		1.94.0b
+# Version:		1.94.0c
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2009-09-30
+# Date:			2009-10-02
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				pfm { -v, --version | -h, --help }
 # Requires:		Term::ReadLine::Gnu (preferably)
@@ -551,7 +551,7 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
 	$mouse_mode			= ($mouse_mode eq 'xterm' && isxterm($ENV{TERM})) || isyes($mouse_mode);
 	$altscreen_mode		= $pfmrc{altscreenmode}		|| 'xterm' if !defined $altscreen_mode;
 	$altscreen_mode		= ($altscreen_mode eq 'xterm' && isxterm($ENV{TERM})) || isyes($altscreen_mode);
-	($chdirautocmd)		= $pfmrc{chdirautocmd};
+	$chdirautocmd		= $pfmrc{chdirautocmd};
 	($windowcmd)		= ($pfmrc{windowcmd}) ||
 						  ($^O eq 'linux' ? 'gnome-terminal -e' : 'xterm -e');
 	($printcmd)			= ($pfmrc{printcmd}) ||
@@ -953,8 +953,6 @@ sub mychdir {
 		$oldcurrentdir = $currentdir;
 		$currentdir = $goal;
 		system("$chdirautocmd") if length($chdirautocmd);
-#	} elsif (!$result) {
-#		$currentdir = getcwd();
 	}
 	return $result;
 }
@@ -1618,7 +1616,6 @@ sub header {
 	if		($mode & $HEADER_SORT) {
 		return 'Sort by: Name, Extension, Size, Date, Type, Inode (ignorecase, reverse):';
 	} elsif ($mode & $HEADER_MORE) {
-		#       01234567890123456789012345678901234567890123456789012345678901234567890123456789
 		return 'Bookmark Config Edit-new mkFifo sHell Kill-chld Mkdir Show-dir Write-hist ESC';
 	} elsif ($mode & $HEADER_INCLUDE) {
 		return 'Include? Every, Oldmarks, After, Before, User or Files only:';
@@ -4289,6 +4286,7 @@ extension[*.php]  : text/x-php
 extension[*.phtml]: text/x-php
 extension[*.pps]  : application/x-ms-office
 extension[*.ppt]  : application/x-ms-office
+extension[*.pptx] : application/x-ms-office
 extension[*.pl]   : application/x-perl
 extension[*.pm]   : application/x-perl-module
 extension[*.png]  : image/png
@@ -4351,6 +4349,7 @@ magic[tar archive]          : application/x-tar
 
 launch[application/octet-stream]  : =p =2
 launch[application/pdf]           : acroread =2 &
+#launch[application/pdf]           : evince =2 &
 launch[application/postscript]    : gv =2 &
 launch[application/x-arj]         : unarj x =2
 launch[application/x-befunge]     : mtfi =2
@@ -4359,7 +4358,7 @@ launch[application/x-c]           : gcc -o =1 =2
 launch[application/x-chem]        : chem =2 | groff -pteR -mm > =1.ps; gv =1.ps &
 launch[application/x-compress]    : uncompress =2
 launch[application/x-intercal]    : ick =2
-#launch[application/x-deb]         :
+launch[application/x-deb]         : dpkg -L =2
 launch[application/x-dvi]         : xdvi =2 &
 launch[application/x-executable]  : wine =2 &
 launch[application/x-groff-man]	  : groff -pteR -man =2 > =1.ps; gv =1.ps &
@@ -5742,7 +5741,7 @@ up if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.94.0b.
+This manual pertains to C<pfm> version 1.94.0c.
 
 =head1 AUTHOR and COPYRIGHT
 
