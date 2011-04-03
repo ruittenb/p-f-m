@@ -1,5 +1,5 @@
-1.94.8
+1.94.9
 
-* added openoffice document extensions to default .pfmrc
-* fixes to whiteout handling
+* fix for (M)ore - mk(F)ifo: bail out on entering empty string
+* fixed installation script
 
