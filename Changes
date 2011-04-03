@@ -1,5 +1,5 @@
-1.92.9
+1.93.0
 
-* added logical/physical mode (")
-* updated documentation
+* changed "Hit any key to continue" to accept mouseclick
+* minor code cleanup
 
