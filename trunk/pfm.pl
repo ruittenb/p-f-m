@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2010-04-16 v1.95.4a
+# @(#) pfm.pl 2010-04-16 v1.95.5
 #
 # Name:			pfm
-# Version:		1.95.4a
+# Version:		1.95.5
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-04-16
@@ -236,6 +236,7 @@ my $SWDFILENAME			= 'swd';
 my $LOSTMSG				= '';   # was ' (file lost)'; # now shown through coloring
 my $MAJORMINORSEPARATOR	= ',';
 my $NAMETOOLONGCHAR		= '+';
+my $NEWMARK				= '~';
 my $MAXHISTSIZE			= 70;
 my $ERRORDELAY			= 1;    # in seconds (fractions allowed)
 my $IMPORTANTDELAY		= 2;    # extra time for important errors
@@ -1554,7 +1555,7 @@ sub neat_error {
 
 sub ok_to_remove_marks {
 	my $sure;
-	if (!$remove_marks_ok and mark_info()) {
+	if (!$remove_marks_ok and mark_info() > 0) {
 		init_title($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
 		disk_info();
 		dir_info();
@@ -1669,7 +1670,7 @@ sub header {
 		#return 'Bookmark Config Edit-new mkFifo sHell Kill-chld Mkdir Show-dir sVn Write-hist';
 		return 'Bookmark Config Edit-new mkFifo sHell Kill-chld Mkdir Physical-path Show-dir sVn Write-hist alTscreen';
 	} elsif ($mode & $HEADER_INCLUDE) {
-		return 'Include? Every, Oldmarks, After, Before, User or Files only:';
+		return 'Include? Every, Oldmarks, Newmarks, After, Before, User or Files only:';
 	} elsif ($mode & $HEADER_LNKTYPE) {
 		return 'Absolute, Relative symlink or Hard link:';
 	} else {
@@ -2157,10 +2158,8 @@ sub handlemousedown {
 		$do_a_refresh |= handlemove('ku');
 		$do_a_refresh |= handlemove('ku');
 		$do_a_refresh |= handlemove('ku');
-		$do_a_refresh |= handlemove('ku');
 	} elsif ($mbutton == 65) {
 		# wheel down
-		$do_a_refresh |= handlemove('kd');
 		$do_a_refresh |= handlemove('kd');
 		$do_a_refresh |= handlemove('kd');
 		$do_a_refresh |= handlemove('kd');
@@ -2644,6 +2643,8 @@ sub handleinclude { # include/exclude flag (from keypress)
 	my $key = lc($scr->at(0, $headerlength+1)->getch());
 	if      ($key eq 'o') { # oldmarks
 		$criterion = sub { $entry->{selected} eq '.' };
+	} elsif ($key eq 'n') { # newmarks
+		$criterion = sub { $entry->{selected} eq $NEWMARK };
 	} elsif ($key eq 'e') { # every
 		$criterion = sub { $entry->{name} !~ /^\.\.?$/ };
 	} elsif ($key eq 'u') { # user only
@@ -3424,7 +3425,9 @@ sub handlecopyrename {
 			if ($findindex > $#dircontents) {
 				$do_a_refresh |= $R_DIRSORT;
 			}
-			$dircontents[$findindex] = stat_entry($newnameexpanded, $dircontents[$findindex]{selected} || ' ');
+			# this also puts a newmark at '..' if you moved a file to it
+#			$dircontents[$findindex] = stat_entry($newnameexpanded, $dircontents[$findindex]{selected} || ' ');
+			$dircontents[$findindex] = stat_entry($newnameexpanded, $NEWMARK);
 		}
 	};
 	stty_raw($TERM_COOKED) unless $clobber_mode;
@@ -3448,6 +3451,7 @@ sub handlecopyrename {
 		$loopfile = \%currentfile;
 		expand_escapes($QUOTE_OFF, ($newnameexpanded = $newname), $loopfile);
 		$do_this->();
+		exclude($loopfile, '.');
 		restat_copyback();
 		# if ! $clobber_mode, we might have gotten an 'Overwrite?' question
 		$do_a_refresh |= $R_SCREEN unless $clobber_mode;
@@ -4114,7 +4118,7 @@ sub browse {
 		}
 		if ($wantrefresh &   $R_STRIDE) {
 			$wantrefresh &= ~$R_STRIDE;
-			position_cursor() if $position_at ne '';
+			position_cursor_find_incremental() if $position_at ne '';
 			recalc_ptr() unless defined $showncontents[$currentline+$baseindex];
 			%currentfile = %{$showncontents[$currentline+$baseindex]};
 		}
@@ -4147,10 +4151,9 @@ sub browse {
 		# don't send mouse escapes to the terminal if not necessary
 		highlightline($HIGHLIGHT_ON);
 		mouseenable($MOUSE_ON) if $mouse_mode && $mouseturnoff;
-		MAIN_WAIT_LOOP: until (length($scr->{IN}) || $wasresized || $scr->key_pressed(0.3)) {
-			handlepipes();
-			last if $scr->key_pressed(0.7);
+		MAIN_WAIT_LOOP: until (length($scr->{IN}) || $wasresized || $scr->key_pressed(1)) {
 			clock_info();
+			handlepipes();
 			$scr->at($currentline+$BASELINE, $cursorcol);
 		}
 		if ($wasresized) {
@@ -6146,7 +6149,7 @@ up if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.95.4a.
+This manual pertains to C<pfm> version 1.95.5.
 
 =head1 AUTHOR and COPYRIGHT
 

@@ -1,5 +1,4 @@
-1.95.4
+1.95.5
 
-* fix for (M)ore - mk(F)ifo: return on failure
-* fix: if a command deletes a file, a whiteout file may appear in its place.
+* added experimental Newmarks
 
