@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2009-09-22 v1.93.8
+# @(#) pfm.pl 2009-09-23 v1.93.9
 #
 # Name:			pfm
-# Version:		1.93.8
+# Version:		1.93.9
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2009-09-22
+# Date:			2009-09-23
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				pfm { -v, --version | -h, --help }
 # Requires:		Term::ReadLine::Gnu (preferably)
@@ -99,7 +99,6 @@
 #			this messes up with e.g. cOmmand -> cp \2 /somewhere/else
 #			(which is, therefore, still buggy). this is closely related to:
 #		sub countdircontents is not used
-#		make directories in pathline clickable
 #		make F11 respect multiple mode? (marked+oldmarked, not removing marks)
 #		hierarchical sort? e.g. 'sen' (size,ext,name)
 #		window sizing problems on Sun 5.6 - test on sup6
@@ -1415,9 +1414,7 @@ sub makeformatlines {
 }
 
 sub pathline {
-	# pfff.. this has become very complicated since we wanted to handle
-	# all those exceptions
-	my ($path, $dev) = @_;
+	my ($path, $dev, $displen, $ellipssize) = @_;
 	my $overflow	 = ' ';
 	my $ELLIPSIS	 = '..';
 	my $normaldevlen = 12;
@@ -1434,23 +1431,26 @@ sub pathline {
 			# shows the filesystem we're on; and as much as possible of the end
 			unless ($path =~ /^(\/[^\/]+?\/)(.+)/) {
 				# impossible to replace; just truncate
-				# this is the case for e.g. /some_insanely_long_directory_name
+				# this is the case for e.g. /some_ridiculously_long_directory_name
 				$disppath = substr($path, 0, $maxpathlen);
+				$$displen = $maxpathlen;
 				$overflow = $NAMETOOLONGCHAR;
 				last FIT;
 			}
 			($disppath, $path) = ($1, $2);
+			$$displen = length($disppath);
 			# the one being subtracted is for the '/' char in the next match
 			$restpathlen = $maxpathlen -length($disppath) -length($ELLIPSIS) -1;
-			unless ($path =~ /(\/.{1,$restpathlen})$/) {
+			unless ($path =~ /(.*?)(\/.{1,$restpathlen})$/) {
 				# impossible to replace; just truncate
-				# this is the case for e.g. /usr/some_insanely_long_directory_name
+				# this is the case for e.g. /usr/some_ridiculously_long_directory_name
 				$disppath = substr($disppath.$path, 0, $maxpathlen);
 				$overflow = $NAMETOOLONGCHAR;
 				last FIT;
 			}
 			# pathname component candidate for replacement found; name will fit
-			$disppath .= $ELLIPSIS . $1;
+			$disppath .= $ELLIPSIS . $2;
+			$$ellipssize = length($1) - length($ELLIPSIS);
 		}
 	}
 	return $disppath . ' 'x max($maxpathlen -length($disppath), 0)
@@ -1996,30 +1996,40 @@ sub handlemousedown {
 	$mousecol = ord($scr->getch()) - 041;
 	$mouserow = ord($scr->getch()) - 041;
 	$scr->echo();
-	# button:  on pathline:  on title/footer:  on file:  on filename:
-	# left     More - Show   ctrl-U/ctrl-D     F8        Show
-	# middle   cOmmand       pgup/pgdn         Show      ENTER
-	# right    cOmmand       pgup/pgdn         Show      ENTER
-	if ($mbutton == 64) {				# wheel up
+	# button ----------------- location clicked -----------------------
+	# 		pathline		header/footer	fileln	filename	dirname
+	# 1		More/Show/cd()	ctrl-U/ctrl-D	F8		Show		Show
+	# 2		cOmmand			pgup/pgdn		Show	ENTER		new win
+	# 3		cOmmand			pgup/pgdn		Show	ENTER		new win
+	# up	------------------- three lines up ------------------------
+	# down	------------------ three lines down -----------------------
+	if ($mbutton == 64) {
+		# wheel up
 		$do_a_refresh |= handlemove('ku');
 		$do_a_refresh |= handlemove('ku');
 		$do_a_refresh |= handlemove('ku');
-	} elsif ($mbutton == 65) {			# wheel down
+	} elsif ($mbutton == 65) {
+		# wheel down
 		$do_a_refresh |= handlemove('kd');
 		$do_a_refresh |= handlemove('kd');
 		$do_a_refresh |= handlemove('kd');
-	} elsif ($mbutton == 68) {			# shift-wheel up
+	} elsif ($mbutton == 68) {
+		# shift-wheel up
 		$do_a_refresh |= handlemove('ku');
-	} elsif ($mbutton == 69) {			# shift-wheel down
+	} elsif ($mbutton == 69) {
+		# shift-wheel down
 		$do_a_refresh |= handlemove('kd');
 	} elsif ($mouserow == $PATHLINE) {
-		$do_a_refresh |= $mbutton ? handlecommand('o') : handlemoreshow();
+		# path line
+		$do_a_refresh |= $mbutton ? handlecommand('o') : handlepathjump($mousecol);
 	} elsif ($mouserow < $BASELINE) {
+		# title / header
 		$do_a_refresh |= $mbutton ? handlemove('pgup') : handlemove("\cU");
 	} elsif ($mouserow > $screenheight + $BASELINE) {
+		# footer
 		$do_a_refresh |= $mbutton ? handlemove('pgdn') : handlemove("\cD");
 	} elsif ($mousecol >= $infocol or !defined $showncontents[$mouserow - $BASELINE + $baseindex]) {
-		# return now if clicked on diskinfo or empty line
+		# diskinfo or empty line
 		return $do_a_refresh;
 	} else {
 		# clicked on an existing file
@@ -2033,7 +2043,8 @@ sub handlemousedown {
 		if ($on_name and $mbutton) {
 			if ($currentfile{type} eq 'd') {
 				if ($swap_state) {
-					system("$windowcmd 'pfm \Q$currentfile{name}\E -s " . $swap_state->{path} . "' &");
+					system("$windowcmd 'pfm \Q$currentfile{name}\E -s " .
+										quotemeta($swap_state->{path}) . "' &");
 				} else {
 					system("$windowcmd 'pfm \Q$currentfile{name}\E' &");
 				}
@@ -2785,7 +2796,7 @@ sub handlecommand { # Y or O
 		$command = readintohist(\@command_history);
 		clearcolumn();
 	}
-#	$command =~ s/^\s*$/$ENV{'SHELL'}/; # PFM.COM behavior (undesirable)
+	alternate_screen($ALTERNATE_OFF);
 	unless ($command =~ /^\s*\n?$/) {
 #		$command .= "\n";
 		if ($multiple_mode) {
@@ -2815,6 +2826,7 @@ sub handlecommand { # Y or O
 		}
 		pressanykey();
 	}
+	alternate_screen($ALTERNATE_ON) if $altscreen_mode;
 	stty_raw($TERM_RAW);
 	return $R_CLRSCR;
 }
@@ -3417,7 +3429,7 @@ sub handleentry {
 	}
 	return $R_NOP if ($nextdir    eq '.');
 	return $R_NOP if ($currentdir eq '/' && $direction eq 'up');
-	return $R_NOP if ! ok_to_remove_marks();
+	return $R_NOP if !ok_to_remove_marks();
 	$success = mychdir($nextdir);
 	if ($success && $direction =~ /up/ ) {
 		$position_at   = basename($oldcurrentdir);
@@ -3430,6 +3442,41 @@ sub handleentry {
 		init_header();
 	}
 	return $success ? $R_CHDIR : $R_STRIDE;
+}
+
+sub handlepathjump {
+	my $mousecol = shift;
+	my ($baselen, $skipsize, $selecteddir, $do_a_refresh);
+	my $do_a_refresh = $R_NOP;
+	my $pathline = pathline($currentdir,
+							$disk{'device'},
+							\$baselen,
+							\$skipsize);
+	# if part of the pathline has been left out, calculate the position
+	# where the mouse would have clicked if the path had been complete
+	if ($mousecol >= $baselen) {
+		$mousecol += $skipsize;
+	}
+	$currentdir  =~ /^(.{$mousecol}	# 'mousecol' number of chars
+						[^\/]*		# gobbling up all non-slash chars
+						(?:\/|$))	# a slash or eoln
+					  	([^\/]*)	# maybe another string of non-slash chars
+					/x;
+	$selecteddir = $1;
+	$position_at = $2;
+	if ($selecteddir eq ''
+	or  $selecteddir eq $currentdir)
+	{
+		$do_a_refresh |= handlemoreshow();
+	} elsif (ok_to_remove_marks()) {
+		if (mychdir($selecteddir)) {
+			$do_a_refresh |= $R_CHDIR;
+		} else {
+			display_error("$selecteddir: $!");
+			$do_a_refresh |= $R_SCREEN;
+		}
+	}
+	return $do_a_refresh;
 }
 
 ##########################################################################
@@ -5428,8 +5475,8 @@ the B<F12> key) will give mouse access to the following commands:
 <tr><td colspan="7"><hr /></td></tr>
 <tr>
 	<td>pathline</td>
-	<td>title</td>
-	<td>header/footer</td>
+	<td>title/header</td>
+	<td>footer</td>
 	<td>fileline</td>
 	<td>filename</td>
 	<td>dirname</td>
@@ -5437,7 +5484,7 @@ the B<F12> key) will give mouse access to the following commands:
 <tr><td colspan="7"><hr /></td></tr>
 <tr>
 	<td>1</td>
-	<td><b>M</b>ore - <b>S</b>how</td>
+	<td><i>chdir()</i></td>
 	<td>CTRL-U</td>
 	<td>CTRL-D</td>
 	<td>F8</td>
@@ -5478,7 +5525,7 @@ the B<F12> key) will give mouse access to the following commands:
 
 =begin roff
 
-.in +4n
+.in +2n
 .TS
 c | c s s s s s
 ^ | l l l l l l
@@ -5490,14 +5537,18 @@ c | c s s s s s.
 _
 \0button	location clicked
 _
-\^	pathline	title/header	footer	fileline	filename	dirname
+\^	pathline	T{
+title/
+.br
+header
+T}	footer	fileline	filename	dirname
 _
-1	\fBM\fPore \- \fBS\fPhow	CTRL-U	CTRL-D	F8	\fBS\fPhow	\fBS\fPhow
-2	c\fBO\fPmmand	PgUp	PgDn	\fBS\fPhow	ENTER	\fInew window\fP\0
-3	c\fBO\fPmmand	PgUp	PgDn	\fBS\fPhow	ENTER	\fInew window\fP
+1	\fIchdir()\fR	CTRL-U	CTRL-D	F8	\fBS\fPhow	\fBS\fPhow
+2	c\fBO\fPmmand	PgUp	PgDn	\fBS\fPhow	ENTER	\fInew win\fP\0
+3	c\fBO\fPmmand	PgUp	PgDn	\fBS\fPhow	ENTER	\fInew win\fP
 _
-wheel up	\fIthree lines up\fP
-wheel down	\fIthree lines down\fP
+up	\fIthree lines up\fP
+down	\fIthree lines down\fP
 _
 .TE
 .in
@@ -5508,8 +5559,11 @@ The cursor will I<only> be moved when the title, header or footer is
 clicked, or when changing directory. The mouse wheel also works and
 moves the cursor three lines per notch, or one line if shift is pressed.
 
-Clicking the middle mouse button on a directory name will open a new
-pfm terminal window.
+Clicking button 1 on the current directory path will chdir() up to the
+clicked ancestor directory. If the current directory was clicked, or the
+device name, it will act like a B<M>ore - B<S>how command.
+
+Clicking button 2 on a directory name will open a new pfm terminal window.
 
 Mouse use will be turned off during the execution of commands, unless
 'mouseturnoff' is set to 'no' in F<.pfmrc>. Note that setting this to
@@ -5658,7 +5712,7 @@ up if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.93.8.
+This manual pertains to C<pfm> version 1.93.9.
 
 =head1 AUTHOR and COPYRIGHT
 
@@ -5694,6 +5748,6 @@ Term::ReadLine(3pm), and Term::Screen(3pm).
 
 =cut
 
-: vim:     set tabstop=4 shiftwidth=4 noexpandtab:
-: vim>600: set foldmethod=indent nofoldenable:
+# vim:     set tabstop=4 shiftwidth=4 noexpandtab:
+# vim>600: set foldmethod=indent nofoldenable:
 
