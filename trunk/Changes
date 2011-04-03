@@ -1,4 +1,5 @@
-1.94.7
+1.94.8
 
-* added =8 escape (list of selected filenames)
+* added openoffice document extensions to default .pfmrc
+* fixes to whiteout handling
 

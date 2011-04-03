@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2009-11-30 v1.94.7
+# @(#) pfm.pl 2009-12-03 v1.94.8
 #
 # Name:			pfm
-# Version:		1.94.7
+# Version:		1.94.8
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2009-11-30
+# Date:			2009-12-03
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				pfm { -v, --version | -h, --help }
 # Requires:		Term::ReadLine::Gnu (preferably)
@@ -6056,7 +6056,7 @@ up if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.94.7.
+This manual pertains to C<pfm> version 1.94.8.
 
 =head1 AUTHOR and COPYRIGHT
 
