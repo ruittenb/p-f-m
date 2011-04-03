@@ -1,6 +1,6 @@
-1.93.7
+1.93.8
 
-* added mouse wheel support for scrolling
-* added support for switching to alternate screen buffer (xterm)
-* added option to open a directory in a new x window
+* added: 'windowcmd' option to open directories in a new window
+* added: 'altscreenmode' option for switching to alternate screen buffer
+* code cleanup (a.o.: converted spaces to tabs)
 
