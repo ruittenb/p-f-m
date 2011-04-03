@@ -18,6 +18,8 @@ package PFM::Config;
 
 use base 'PFM::Abstract';
 
+use PFM::Util;
+
 use constant {
 	RE_READ			= 0,
 	FIRST_READ		= 1,
@@ -78,7 +80,7 @@ sub _parse_colorsets {
 	}
 	$pfmrc{'dircolors[off]'}   = '';
 	$pfmrc{'framecolors[off]'} =
-		'title=reverse:swap=reverse:footer=reverse:highlight=bold:';
+		'headings=reverse:swap=reverse:footer=reverse:highlight=bold:';
 	# this %{{ }} construct keeps values unique
 	@colorsetnames = keys %{{
 		map { /\[(\w+)\]/; $1, '' }
@@ -87,8 +89,8 @@ sub _parse_colorsets {
 	# keep the default outside of @colorsetnames
 	defined($pfmrc{'dircolors[*]'})   or $pfmrc{'dircolors[*]'}   = '';
 	defined($pfmrc{'framecolors[*]'}) or $pfmrc{'framecolors[*]'} =
-		'header=white on blue:multi=bold reverse cyan on white:'
-	.	'title=bold reverse cyan on white:swap=reverse black on cyan:'
+		'menu=white on blue:multi=bold reverse cyan on white:'
+	.	'headings=bold reverse cyan on white:swap=reverse black on cyan:'
 	.	'footer=bold reverse blue on white:message=bold cyan:highlight=bold:';
 	foreach (@colorsetnames) {
 		# should there be no dircolors[thisname], use the default
@@ -521,24 +523,24 @@ waitlaunchexec:yes
 ## the F4 key will cycle through these colorsets.
 ## the special setname 'off' is used for no coloring.
 
-## 'framecolors' defines the colors for header, header in multiple mode,
-## title, title in swap mode, footer, messages, and the highlighted file.
+## 'framecolors' defines the colors for menu, menu in multiple mode,
+## headings, headings in swap mode, footer, messages, and the highlighted file.
 ## for the frame to become colored, 'usecolor' must be set to 'yes' or 'force'.
 
 framecolors[light]:\
-header=white on blue:multi=reverse cyan on black:\
-title=reverse cyan on black:swap=reverse black on cyan:\
+menu=white on blue:multi=reverse cyan on black:\
+headings=reverse cyan on black:swap=reverse black on cyan:\
 footer=reverse blue on white:message=blue:highlight=bold:
 
 framecolors[dark]:\
-header=white on blue:multi=bold reverse cyan on white:\
-title=bold reverse cyan on white:swap=black on cyan:\
+menu=white on blue:multi=bold reverse cyan on white:\
+headings=bold reverse cyan on white:swap=black on cyan:\
 footer=bold reverse blue on white:message=bold cyan:highlight=bold:
 
 ## these are a suggestion
 #framecolors[dark]:\
-#header=white on blue:multi=reverse cyan on black:\
-#title=reverse cyan on black:swap=reverse yellow on black:\
+#menu=white on blue:multi=reverse cyan on black:\
+#headings=reverse cyan on black:swap=reverse yellow on black:\
 #footer=bold reverse blue on white:message=bold cyan:highlight=bold:
 
 ## 'dircolors' defines the colors that will be used for your files.
@@ -587,7 +589,7 @@ do=bold magenta:nt=bold magenta:wh=bold white on black:\
 ## for which there is no corresponding 'framecolors[x]' (like ls_colors)
 
 framecolors[*]:\
-title=reverse:swap=reverse:footer=reverse:highlight=bold:
+headings=reverse:swap=reverse:footer=reverse:highlight=bold:
 
 ## The special set 'dircolors[*]' will be used for every 'framecolors[x]'
 ## for which there is no corresponding 'dircolors[x]'

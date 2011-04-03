@@ -221,6 +221,17 @@ sub config {
 	return $_config;
 }
 
+=item state()
+
+Getter for the PFM::State object.
+
+=cut
+
+sub state {
+	my ($self, $value) = @_;
+	return $_state;
+}
+
 ##########################################################################
 # public subs
 
