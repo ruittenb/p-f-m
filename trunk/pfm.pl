@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20090216 v1.93.3
+# @(#) pfm.pl 19990314-20090216 v1.93.4
 #
 # Name:         pfm
-# Version:      1.93.3
+# Version:      1.93.4
 # Author:       Rene Uittenbogaard
 # Date:         2009-02-16
 # Usage:        pfm [ <directory> ] [ -s, --swap <directory> ]
@@ -5194,8 +5194,7 @@ is important to take notice of the rules that C<pfm> uses.
 
 =for considering In versions prior to 1.93.1, the default escape character was B<\>.
 
-The following
-six types of input can be distinguished:
+The following six types of input can be distinguished:
 
 =over
 
@@ -5585,7 +5584,7 @@ memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.93.3.
+This manual pertains to C<pfm> version 1.93.4.
 
 =head1 SEE ALSO
 

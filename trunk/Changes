@@ -1,4 +1,4 @@
-1.93.3
+1.93.4
 
-* fixed setting keyboard history in case readline does not allow it
+* fixed distribution tarball
 
