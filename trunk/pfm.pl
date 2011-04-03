@@ -1,12 +1,12 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20030531 v1.93.1
+# @(#) pfm.pl 19990314-20030531 v1.93.2
 #
 # Name:         pfm
-# Version:      1.93.1 - second altered escape version
+# Version:      1.93.2
 # Author:       Rene Uittenbogaard
-# Date:         2003-05-28
+# Date:         2003-06-21
 # Usage:        pfm [ <directory> ] [ -s, --swap <directory> ]
 #               pfm { -v, --version | -h, --help }
 # Requires:     Term::ReadLine::Gnu (preferably)
@@ -27,7 +27,7 @@
 #       fixed sysread() and buffering
 #
 #       change \ char for \1..\7 interpretation
-#       multi_to_single (cannot do multifile oper when destination is single)
+#       correct optreden van "cannot do multifile oper when destination is single" (multi_to_single)
 #       test substitution in (O), (Y) and Launch; du(Z); (P); df;  (N)ame
 # TODO:
 #       more consistent use of at(1,0) and at(0,0)
@@ -46,6 +46,8 @@
 #
 #       errortime and importanttime configureerbaar maken
 #       fixing whiteout handling
+#       find out why coloring goes wrong when e.g. LC_ALL=*.utf8
+#       in chmod(directory): recursively descend? y/n
 #       fix deleting lost file with one D if file is marked (file count ok, byte count wrong)
 #       define printcommand at top of program? together with touch, du, lpr, unwo?
 #       add html format doc for =1,=2,=7 definition examples
@@ -70,6 +72,8 @@
 #       cp -pr copies symlinks to symlinks - ?
 #           recursive directory copy? Ask for follow?
 #       change (U)id command to request changing the symlink?
+#       (B)abel option? tr/[:upper:]/[:lower:]/ etc
+#       NIS line in passwd file will display '+' as username if ypbind is not running
 #
 #       (L)ink (R)el to current dir does not restat()
 #       tar(G)et in multiple mode does not re-readlink()
@@ -102,6 +106,7 @@
 #       filename subs command? foreach(@file) { s/^pfm/pfm-/ }
 #       incremental search (search entry while entering filename)?
 #       major/minor numbers on DU 4.0E are wrong (cannot test: no system available)
+#       maj/min numbers are wrong on HP-UX
 
 ##########################################################################
 # main data structures:
@@ -247,7 +252,7 @@ my $CONFIGFILENAME      = '.pfmrc';
 my $CONFIGDIRMODE       = 0700;
 my $CWDFILENAME         = 'cwd';
 my $SWDFILENAME         = 'swd';
-my $LOSTMSG             = '';   # was ' (file lost)'; # now shown with coloring
+my $LOSTMSG             = '';   # was ' (file lost)'; # now shown through coloring
 my $MAJORMINORSEPARATOR = ',';
 my $NAMETOOLONGCHAR     = '+';
 my $MAXHISTSIZE         = 40;
@@ -467,7 +472,9 @@ sub read_pfmrc {
     }
     if (open PFMRC, &whichconfigfile()) {
         while (<PFMRC>) {
-            if (/# Version ([\w.]+)$/ and $1 lt $VERSION and !$_[0]) {
+            # the pragma 'locale' causes problems with reading in the configfile when using UTF-8
+            no locale;
+            if (/# Version ([\w\.]+)$/ and $1 lt $VERSION and !$_[0]) {
                 # will not be in message color: usecolor not yet parsed
                 &neat_error(
                   "Warning: your $CONFIGFILENAME version $1 may be outdated.\r\n"
@@ -477,7 +484,9 @@ sub read_pfmrc {
             }
             s/#.*//;
             if (s/\\\n?$//) { $_ .= <PFMRC>; redo; }
-            if (/^\s*([^:[\s]+(?:\[[^]]+\])?)\s*:\s*(.*)$/o) {
+#            if (/^\s*([^:[\s]+(?:\[[^]]+\])?)\s*:\s*(.*)$/o) {
+             if (/^[ \t]*([^: \t[]+(?:\[[^]]+\])?)[ \t]*:[ \t]*(.*)$/o) {
+#                print STDERR "-$1";
                 $pfmrc{$1} = $2;
             }
         }
@@ -679,9 +688,11 @@ sub write_cwd {
 
 sub getversion {
     my $ver = 'unknown';
+    # the pragma 'locale' causes problems with reading in the configfile when using UTF-8
+    no locale;
     if ( open (SELF, $0) || open (SELF, `which $0`) ) {
         while (<SELF>) {
-        /^#+ Version: +([\d\w\.]+)/ and $ver = "$1";
+            /^#+ Version: +([\w\.]+)/ and $ver = "$1", last;
         }
         close SELF;
     }
@@ -1032,13 +1043,14 @@ sub fileforall {
 
 sub multi_to_single {
     my $qe = quotemeta $e;
+    my $do_a_refresh = $R_PATHINFO;
     if ($multiple_mode and $_[0] !~ /(?<!$qe)(?:$qe$qe)*${e}[127]/ and !-d $_[0]) {
         $scr->at(0,0);
         &putmessage('Cannot do multifile operation when destination is single file.');
         $scr->at(0,0);
-        &pressanykey();
+        $do_a_refresh |= &pressanykey(); # screen might have been resized
         &path_info();
-        return 1;
+        return $do_a_refresh;
     } else {
         return 0;
     }
@@ -1190,7 +1202,7 @@ sub white_commands {
 
 sub globalinit {
     my ($startingdir, $opt_version, $opt_help);
-    &Getopt::Long::Configure('bundling');
+    &Getopt::Long::Configure(qw'bundling permute');
     GetOptions ('s|swap=s'  => \$swapstartdir,
                 'h|help'    => \$opt_help,
                 'v|version' => \$opt_version) or $opt_help = 2;
@@ -1445,11 +1457,13 @@ sub pressanykey {
         $scr->getch();
         $scr->getch();
     };
+    return &handleresize() if $wasresized;
+    return 0;
 }
 
 sub display_error {
     &putmessage(@_);
-    return $scr->key_pressed($ERRORDELAY); # return value often discarded
+    return $scr->key_pressed($ERRORDELAY); # return value often discarded by caller
 }
 
 sub neat_error {
@@ -1575,7 +1589,7 @@ sub header {
     } elsif ($mode & $HEADER_LNKTYPE) {
         return 'Absolute, Relative symlink or Hard link:';
     } else {
-        return 'Attribute Copy Delete Edit Find Include tarGet Link More Name'
+        return 'Attribute Copy Delete Edit Find tarGet Include Link More Name'
         .     ' cOmmands Print Quit Rename Show Time User unWhiteout'
         .     ' eXclude Your-commands siZe';
     }
@@ -1992,7 +2006,7 @@ sub handlesize {
     $do_this = sub {
         $loopfile = shift;
         &expand_escapes($QUOTE_ON, ($command = $ducmd), $loopfile);
-        ($recursivesize = `$command`) =~ s/\D*(\d+).*/$1/;
+        ($recursivesize = `$command 2>/dev/null`) =~ s/\D*(\d+).*/$1/;
         chomp $recursivesize;
         if ($?) {
             &neat_error('Could not read all directories');
@@ -2404,8 +2418,9 @@ sub handlekeyell {
 }
 
 sub handlesymlink {
-    my ($newname, $loopfile, $do_this, $index, $newnameexpanded, $targetstring,
-        $findindex, $testname, $headerlength, $absrel, $simpletarget, $simplename);
+    my ($newname, $loopfile, $do_this, $multi2single, $index, $newnameexpanded,
+        $targetstring, $findindex, $testname, $headerlength, $absrel,
+        $simpletarget, $simplename);
     my @lncmd = $clobber_mode ? qw(ln -f) : qw(ln);
     my $do_a_refresh = $multiple_mode ? $R_DIRLIST | $R_HEADER : $R_HEADER;
     &markcurrentline('L') unless $multiple_mode;
@@ -2428,7 +2443,8 @@ sub handlesymlink {
     $newname = &canonicalize_path($newname);
     # expand \[3456] at this point as a test, but not \[127]
     &expand_3456_escapes($QUOTE_OFF, ($testname = $newname), \%currentfile);
-    return $R_HEADER if &multi_to_single($testname);
+    # assignment on purpose, executed before evaluation of return value
+    return $R_HEADER | $multi2single if $multi2single = &multi_to_single($testname);
     $do_this = sub {
         if (-d $newnameexpanded) {
             # make sure $newname is a file (not a directory)
@@ -2897,15 +2913,15 @@ sub handlehelp {
         a     Attrib         F1  help             up, down arrow  move one line         
         c     Copy           F2  prev dir         k, j            move one line         
         d DEL Delete         F3  redraw screen    -, +            move ten lines        
-        e     Edit           F4  color cycle      CTRL-E, CTRL-Y  scroll dir one line   
+        e     Edit           F4  cycle colors     CTRL-E, CTRL-Y  scroll dir one line   
         f /   find           F5  reread dir       CTRL-U, CTRL-D  move half a page      
         g     tarGet         F6  sort dir         CTRL-B, CTRL-F  move a full page      
         i     Include        F7  swap mode        PgUp, PgDn      move a full page      
         L     symLink        F8  mark file        HOME, END       move to top, bottom   
-        n     Name           F9  layout cycle     SPACE           mark file & advance   
+        n     Name           F9  cycle layouts    SPACE           mark file & advance   
         o     cOmmand        F10 multiple mode    right arrow, l  enter dir             
         p     Print          F11 restat file      left arrow, h   leave dir             
-        q     Quit           F12 mouse toggle     ENTER           enter dir, launch     
+        q     Quit           F12 toggle mouse     ENTER           enter dir, launch     
         Q     Quick quit    --------------------- ESC, BS         leave dir             
         r     Rename         mc  Config pfm      ---------------------------------------
         s     Show           me  Edit new file    =  ident           <  cmnds left      
@@ -2990,7 +3006,8 @@ sub handlecopyrename {
     my $state    = uc $_[0];
     my @statecmd = (($state eq 'C' ? qw(cp -r)       : 'mv'), ($clobber_mode ? '-f' : '-i'));
     my $prompt   =   $state eq 'C' ? 'Destination: ' : 'New name: ';
-    my ($loopfile, $index, $testname, $newname, $newnameexpanded, $do_this, $findindex, $sure);
+    my ($loopfile, $index, $testname, $newname, $multi2single, $newnameexpanded,
+        $do_this, $findindex, $sure);
     my $do_a_refresh = $R_HEADER;
     &markcurrentline($state) unless $multiple_mode;
     $scr->at(0,0)->clreol();
@@ -3004,7 +3021,8 @@ sub handlecopyrename {
     return $R_HEADER if ($newname eq '');
     # expand \[3456] at this point as a test, but not \[127]
     &expand_3456_escapes($QUOTE_OFF, ($testname = $newname), \%currentfile);
-    return $R_HEADER if &multi_to_single($testname);
+    # assignment on purpose, executed before evaluation of return value
+    return $R_HEADER | $multi2single if $multi2single = &multi_to_single($testname);
     $do_this = sub {
 #        if ($state eq 'C' and $loopfile->{type} =~ /[ld]/ ) { # move this outsde of do_this
 #            # AIX: cp -r follows symlink
@@ -3561,6 +3579,7 @@ sub browse {
     my $key;
     STRIDE: until ($wantrefresh & $R_QUIT) {
 #        system "echo '" . &dumprefreshflags($wantrefresh) . "' > /dev/pts/3";
+#        $wantrefresh |= &handleresize() if $wasresized;
         if ($wantrefresh &   $R_NEWDIR) {
             $wantrefresh &= ~$R_NEWDIR;
             # it's dangerous to leave multiple_mode on when changing directories
@@ -3654,7 +3673,7 @@ sub browse {
         # don't send mouse escapes to the terminal if not necessary
         &highlightline($HIGHLIGHT_ON);
         &mouseenable($MOUSE_ON) if $mouse_mode && $mouseturnoff;
-        MAIN_WAIT_LOOP: until (length($scr->{IN}) || $scr->key_pressed(1) || $wasresized) {
+        MAIN_WAIT_LOOP: until (length($scr->{IN}) || $wasresized || $scr->key_pressed(1)) {
             &clock_info();
             $scr->at($currentline+$BASELINE, $cursorcol);
         }
@@ -3692,7 +3711,7 @@ sub browse {
                 /^k11$/       and $wantrefresh |= &handlerestat(),      last KEY;
                 /^[\/f]$/i    and $wantrefresh |= &handlefind(),        last KEY;
                 /^[<>]$/i     and $wantrefresh |= &handlepan($_),       last KEY;
-                /^k3$/        and $wantrefresh |= &handlefit(),         last KEY;
+                /^k3|\cL|\cR/ and $wantrefresh |= &handlefit(),         last KEY;
                 /^t$/i        and $wantrefresh |= &handletime(),        last KEY;
                 /^a$/i        and $wantrefresh |= &handlechmod(),       last KEY;
                 /^q$/i        and $wantrefresh |= &handlequit($_),      last KEY;
@@ -4479,7 +4498,7 @@ this purpose.
 =item B<Edit>
 
 Edit a file with your external editor. You can specify an editor with the
-environment variable C<VISUAL> or C<EDITOR> or with the 'editor' option
+environment variable VISUAL or EDITOR or with the 'editor' option
 in the F<.pfmrc> file. Otherwise vi(1) is used.
 
 =item B<Find>
@@ -5185,7 +5204,7 @@ At the same time, any C<=[^1-7evp]> character sequence is just replaced
 with the character itself.
 
 Finally, if the filename is to be processed by C<pfm>, it is taken literally;
-if it is to be handed over to a shell, all metacharacters are replace<escaped>.
+if it is to be handed over to a shell, all metacharacters are replaced I<escaped>.
 
 =item B<a shell command> (e.g. in cB<O>mmand or B<P>rint)
 
@@ -5415,7 +5434,7 @@ Example for ksh(1), bash(1) and zsh(1):
             swd=-s"`cat ~/.pfm/swd`"
         fi
         # providing $swd is optional
-        /usr/local/bin/pfm "$swd" "$@"
+        /usr/local/bin/pfm $swd "$@"
         if [ -s ~/.pfm/cwd ]; then
             cd "`cat ~/.pfm/cwd`"
             rm -f ~/.pfm/cwd
@@ -5429,7 +5448,7 @@ Example for csh(1) and tcsh(1):
         set swd=-s"`cat ~/.pfm/swd`"            \
     endif                                       \
     : providing $swd is optional                \
-    /usr/local/bin/pfm "$swd" \!*               \
+    /usr/local/bin/pfm $swd \!*                 \
     if (-s ~/.pfm/cwd) then                     \
         cd "`cat ~/.pfm/cwd`"                   \
         rm -f ~/.pfm/cwd                        \
@@ -5452,7 +5471,7 @@ of this search path.
 
 =item B<EDITOR>
 
-The editor to be used for the B<E>dit command. Overridden by C<VISUAL>.
+The editor to be used for the B<E>dit command. Overridden by VISUAL.
 
 =item B<LC_ALL>
 
@@ -5480,7 +5499,7 @@ for Linux systems or more(1) for Unix systems.
 
 =item B<PERL_RL>
 
-Indicate whether and how the C<readline> prompts should be highlighted.
+Indicate whether and how the readline prompts should be highlighted.
 See Term::ReadLine(3pm). If unset, a good guess is made based on your
 config file 'framecolors[]' setting.
 
@@ -5501,7 +5520,7 @@ Your default login shell, spawned by B<M>ore - sB<H>ell.
 
 =item B<VISUAL>
 
-The editor to be used for the B<E>dit command. Overrides C<EDITOR>.
+The editor to be used for the B<E>dit command. Overrides EDITOR.
 
 =back
 
@@ -5544,7 +5563,7 @@ memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.93.1.
+This manual pertains to C<pfm> version 1.93.2.
 
 =head1 SEE ALSO
 
