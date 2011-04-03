@@ -2,9 +2,9 @@
 ############################################################################
 #
 # Name:         installpfm.sh
-# Version:      0.05
+# Version:      0.06
 # Authors:      Rene Uittenbogaard
-# Date:         2009-09-23
+# Date:         2009-09-29
 # Usage:        installpfm.sh
 # Description:  This is not a script, this is a manual.
 #		This is meant as an example how pfm dependencies can
@@ -26,11 +26,84 @@ install_prepare() {
 	fi
 }
 
+init_package_commands() {
+	case "$1" in
+	hp-ux|hpux)
+		packagelistcmd= # TODO
+		packageinstallcmd= # TODO
+		break
+		;;
+	sunos|solaris)
+		packagelistcmd= # TODO
+		packageinstallcmd= # TODO
+		break
+		;;
+	aix)
+		packagelistcmd= # TODO
+		packageinstallcmd='installp -d `pwd`/lib'$1'*bff all'
+		break
+		;;
+	rpm)
+		packagelistcmd='rpm -qa'
+		packageinstallcmd='rpm -ivh'
+		break
+		;;
+	deb)
+		packagelistcmd='dpkg -l'
+		packageinstallcmd='apt-get install'
+		break
+		;;
+	slackware)
+		packagelistcmd='ls -1 /var/log/packages'
+		packageinstallcmd=installpkg
+		break
+		;;
+	*)
+		packagelistcmd=
+		packageinstallcmd=
+		break
+		;;
+	esac
+}
+
 check_distro() {
-	# if you know how to easily identify other distributions,
-	# please let me know.
-	if [ `uname` -eq 'Linux' ]; then
-		ubuntu=`cat /etc/*-release 2>/dev/null | grep -i ubuntu`
+	# http://linuxmafia.com/faq/Admin/release-files.html
+	# http://goc.grid.sinica.edu.tw/gocwiki/How_to_publish_the_OS_name
+	#
+	uname=`uname | tr A-Z a-z`
+	if [ "$uname" != 'linux' ]; then
+		distro=
+		init_package_commands $uname
+	elif [ -e /etc/ubuntu-release ]; then
+		distro=ubuntu
+		init_package_commands deb
+	elif [ -e /etc/redhat-release ]; then
+		distro=redhat
+		init_package_commands rpm
+	elif [ -e /etc/fedora-release ]; then
+		distro=fedoracore
+		init_package_commands rpm
+	elif [ -e /etc/mandrake-release ]; then
+		distro=mandrake
+		init_package_commands rpm
+	elif [ -e /etc/debian_version ]; then
+		distro=debian
+		init_package_commands deb
+	elif [	-e /etc/SuSE-release -o -e /etc/UnitedLinux-release ]; then
+		distro=suse
+		init_package_commands rpm
+	elif [ -e /etc/slackware-version ]; then
+		distro=slackware
+		init_package_commands slackware
+	elif [ -e /etc/knoppix_version ]; then
+		distro=knoppix
+		init_package_commands deb
+	elif [ -x /usr/bin/lsb_release ]; then
+		distro="`lsb_release -i | awk '{print $NF}' | tr A-Z a-z`"
+		init_package_commands ''
+	else
+		distro=unknown
+		init_package_commands ''
 	fi
 }
 
@@ -152,6 +225,8 @@ check_distro
 check_libncurses_installation
 check_libreadline_installation
 
+# check, download and install the Perl modules
+
 check_perl_module Term::Cap || download_and_install_perl_module \
 	http://search.cpan.org/CPAN/authors/id/J/JS/JSTOWE/Term-Cap-1.12.tar.gz
 
@@ -163,6 +238,8 @@ check_perl_module Term::ScreenColor || download_and_install_perl_module \
 
 check_perl_module Term::ReadLine::Gnu || download_and_install_perl_module \
 	http://search.cpan.org/CPAN/authors/id/H/HA/HAYASHI/Term-ReadLine-Gnu-1.17a.tar.gz
+
+# check, download and install the application
 
 install_pfm
 
