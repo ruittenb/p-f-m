@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2010-01-04 v1.95.2
+# @(#) pfm.pl 2010-04-14 v1.95.3
 #
 # Name:			pfm
-# Version:		1.95.2
+# Version:		1.95.3
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-03-17
+# Date:			2010-04-14
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				    [ -l, --layout <number> ]
 #				pfm { -v, --version | -h, --help }
@@ -1555,6 +1555,11 @@ sub neat_error {
 sub ok_to_remove_marks {
 	my $sure;
 	if (!$remove_marks_ok and mark_info()) {
+		init_title($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
+		disk_info();
+		dir_info();
+		user_info();
+		clock_info();
 		$scr->at(0,0)->clreol();
 		putmessage('OK to remove marks [Y/N]? ');
 		$sure = $scr->getch();
@@ -3032,7 +3037,7 @@ sub handlechmod {
 
 sub handlecommand { # Y or O
 	local $_;
-	my ($key, $command, $do_this, $printstr, $prompt, $loopfile, $index);
+	my ($key, $command, $do_this, $printstr, $prompt, $loopfile, $index, $newname);
 	my $printline = $BASELINE;
 	markcurrentline(uc($_[0])) unless $multiple_mode;
 	clearcolumn();
@@ -3066,8 +3071,21 @@ sub handlecommand { # Y or O
 		$command = readintohist(\@command_history);
 		clearcolumn();
 	}
-	alternate_screen($ALTERNATE_OFF);
+	if ($command =~ /^\s*cd\s(.*)$/) {
+		$newname = $1;
+		expand_escapes($QUOTE_OFF, $newname, \%currentfile);
+		stty_raw($TERM_RAW);
+		if (!ok_to_remove_marks()) {
+			return $R_HEADER; # $R_SCREEN ?
+		} elsif (!mychdir($newname)) {
+			$scr->at(2,0);
+			display_error("$newname: $!");
+			return $R_SCREEN;
+		}
+		return $R_CHDIR;
+	}
 	unless ($command =~ /^\s*\n?$/) {
+		alternate_screen($ALTERNATE_OFF);
 #		$command .= "\n";
 		if ($multiple_mode) {
 			$scr->clrscr()->at(0,0);
@@ -3095,8 +3113,8 @@ sub handlecommand { # Y or O
 			restat_copyback();
 		}
 		pressanykey();
+		alternate_screen($ALTERNATE_ON) if $altscreen_mode;
 	}
-	alternate_screen($ALTERNATE_ON) if $altscreen_mode;
 	stty_raw($TERM_RAW);
 	return $R_CLRSCR;
 }
@@ -3814,11 +3832,11 @@ sub getdircontents { # (current)directory
 	my @white_entries = ();
 	%usercache = %groupcache = ();
 #	init_title($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
-	if (opendir CURRENT, "$_[0]") {
+	if (opendir CURRENT, ".") {
 		@allentries = readdir CURRENT;
 		closedir CURRENT;
 		if ($white_cmd) {
-			@white_entries = `$white_cmd $_[0]`;
+			@white_entries = `$white_cmd .`;
 		}
 	} else {
 		$scr->at(0,0)->clreol();
@@ -6115,7 +6133,7 @@ up if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.95.2.
+This manual pertains to C<pfm> version 1.95.3.
 
 =head1 AUTHOR and COPYRIGHT
 
