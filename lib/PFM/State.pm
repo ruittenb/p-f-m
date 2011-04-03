@@ -12,30 +12,30 @@
 #				application.
 #
 
+##########################################################################
+# declarations
+
 package PFM::State;
 
 ##########################################################################
 # private subs
 
+=item _init()
+
+Initializes new instances. Called from the constructor.
+
+=cut
+
 sub _init {
 	my $self = shift;
-	%_selected_nr_of = %_total_nr_of = ();
-	$self->{selected_nr_of}	= %_selected_nr_of;
-	$self->{total_nr_of}	= %_total_nr_of;
+	my %empty_hash = ();
+	$self->{selected_nr_of}	= %empty_hash;
+	$self->{total_nr_of}	= %empty_hash;
 	$self->{multiple_mode}	= 0;
 }
 
 ##########################################################################
 # constructor, getters and setters
-
-sub new {
-	my $type = shift;
-	$type = ref($type) || $type;
-	my $self = {};
-	bless($self, $type);
-	$self->_init();
-	return $self;
-}
 
 ##########################################################################
 # public subs

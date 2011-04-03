@@ -11,6 +11,9 @@
 # Description:	PFM class used for handling and parsing the config file.
 #
 
+##########################################################################
+# declarations
+
 package PFM::Config;
 
 use base 'PFM::Abstract';
@@ -31,9 +34,21 @@ my $CONFIGDIRMODE		= 0700;
 ##########################################################################
 # private subs
 
+=item _init()
+
+Initializes new instances. Called from the constructor.
+
+=cut
+
+sub _init {
+	my $self = shift;
+	$_configfilename =
+		$ENV{PFMRC} ? $ENV{PFMRC} : "$CONFIGDIRNAME/$CONFIGFILENAME";
+}
+
 =item _copyright()
 
-Print startup copyright message.
+Prints a short copyright message. Called at startup.
 
 =cut
 
@@ -51,18 +66,52 @@ sub _copyright {
 	return $pfm->screen->key_pressed($_[0]);
 }
 
+=item _parse_colorsets()
+
+Parses the colorsets defined in the F<.pfmrc>.
+
+=cut
+
+sub _parse_colorsets {
+	if (isyes($pfmrc{importlscolors}) and $ENV{LS_COLORS} || $ENV{LS_COLOURS}){
+		$pfmrc{'dircolors[ls_colors]'} =  $ENV{LS_COLORS} || $ENV{LS_COLOURS};
+	}
+	$pfmrc{'dircolors[off]'}   = '';
+	$pfmrc{'framecolors[off]'} =
+		'title=reverse:swap=reverse:footer=reverse:highlight=bold:';
+	# this %{{ }} construct keeps values unique
+	@colorsetnames = keys %{{
+		map { /\[(\w+)\]/; $1, '' }
+		grep { /^(dir|frame)colors\[[^*]/ } keys(%pfmrc)
+	}};
+	# keep the default outside of @colorsetnames
+	defined($pfmrc{'dircolors[*]'})   or $pfmrc{'dircolors[*]'}   = '';
+	defined($pfmrc{'framecolors[*]'}) or $pfmrc{'framecolors[*]'} =
+		'header=white on blue:multi=bold reverse cyan on white:'
+	.	'title=bold reverse cyan on white:swap=reverse black on cyan:'
+	.	'footer=bold reverse blue on white:message=bold cyan:highlight=bold:';
+	foreach (@colorsetnames) {
+		# should there be no dircolors[thisname], use the default
+		defined($pfmrc{"dircolors[$_]"})
+			or $pfmrc{"dircolors[$_]"} = $pfmrc{'dircolors[*]'};
+		while ($pfmrc{"dircolors[$_]"} =~ /([^:=*]+)=([^:=]+)/g ) {
+			$dircolors{$_}{$1} = $2;
+		}
+		# should there be no framecolors[thisname], use the default
+		defined($pfmrc{"framecolors[$_]"})
+			or $pfmrc{"framecolors[$_]"} = $pfmrc{'framecolors[*]'};
+		while ($pfmrc{"framecolors[$_]"} =~ /([^:=*]+)=([^:=]+)/g ) {
+			$framecolors{$_}{$1} = $2;
+		}
+	}
+	# now set color_mode if unset
+	$color_mode ||= defined($ENV{ANSI_COLORS_DISABLED})
+		? 'off'
+		: $pfmrc{defaultcolorset} || (defined $dircolors{ls_colors} ? 'ls_colors' : $colorsetnames[0]);
+}
+
 ##########################################################################
 # constructor, getters and setters
-
-sub new {
-	my $type = shift;
-	$type    = ref($type) || $type;
-	my $self = {};
-	bless($self, $type);
-	$_configfilename =
-		$ENV{PFMRC} ? $ENV{PFMRC} : "$CONFIGDIRNAME/$CONFIGFILENAME";
-	return $self;
-}
 
 =item configfilename()
 
@@ -81,7 +130,7 @@ sub configfilename {
 
 =item explain()
 
-Returns a string explaining which F<.pfmrc> is used.
+Returns a string indicating which F<.pfmrc> is currently being used.
 
 =cut
 
@@ -221,7 +270,7 @@ sub parse { # $readflag - show copyright only on startup (first read)
 		}
 	}
 	# init colorsets, ornaments, ident, formatlines, enable mouse
-	parse_colorsets();
+	$self->_parse_colorsets();
 	setornaments();
 	initident();
 	makeformatlines();
@@ -257,6 +306,8 @@ sub write_default {
 		close MKPFMRC;
 	} # no success? well, that's just too bad
 }
+
+##########################################################################
 
 1;
 
@@ -829,9 +880,6 @@ launch[video/x-msvideo]           : divxPlayer =2 &
 ## vim: set filetype=xdefaults: # fairly close
 __END__
 
-
-
-
-
+# we need 5 lines so that vim does not read the line above.
 
 # vim: set tabstop=4 shiftwidth=4:
