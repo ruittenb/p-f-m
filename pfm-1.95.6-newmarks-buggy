@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2010-04-16 v1.95.5
+# @(#) pfm.pl 2010-04-16 v1.95.6
 #
 # Name:			pfm
-# Version:		1.95.5
+# Version:		1.95.6
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-04-16
@@ -2158,8 +2158,10 @@ sub handlemousedown {
 		$do_a_refresh |= handlemove('ku');
 		$do_a_refresh |= handlemove('ku');
 		$do_a_refresh |= handlemove('ku');
+		$do_a_refresh |= handlemove('ku');
 	} elsif ($mbutton == 65) {
 		# wheel down
+		$do_a_refresh |= handlemove('kd');
 		$do_a_refresh |= handlemove('kd');
 		$do_a_refresh |= handlemove('kd');
 		$do_a_refresh |= handlemove('kd');
@@ -3451,7 +3453,6 @@ sub handlecopyrename {
 		$loopfile = \%currentfile;
 		expand_escapes($QUOTE_OFF, ($newnameexpanded = $newname), $loopfile);
 		$do_this->();
-		exclude($loopfile, '.');
 		restat_copyback();
 		# if ! $clobber_mode, we might have gotten an 'Overwrite?' question
 		$do_a_refresh |= $R_SCREEN unless $clobber_mode;
@@ -6149,7 +6150,7 @@ up if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.95.5.
+This manual pertains to C<pfm> version 1.95.6.
 
 =head1 AUTHOR and COPYRIGHT
 
@@ -6186,5 +6187,4 @@ Term::ReadLine(3pm), and Term::Screen(3pm).
 =cut
 
 # vim:     set tabstop=4 shiftwidth=4 noexpandtab:
-# vim>600: set foldmethod=indent nofoldenable:
 
