@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2009-10-20 v1.94.4
+# @(#) pfm.pl 2009-10-23 v1.94.4b
 #
 # Name:			pfm
-# Version:		1.94.4
+# Version:		1.94.4b
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2009-10-20
+# Date:			2009-10-23
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				pfm { -v, --version | -h, --help }
 # Requires:		Term::ReadLine::Gnu (preferably)
@@ -288,6 +288,7 @@ my @SORTMODES = (
 	'z'=>'siZe total',	Z =>' reverse',
 	 t =>'Type',		T =>' reverse',
 	 i =>'Inode',		I =>' reverse',
+#	 v =>'sVn',			V =>' reverse',
 );
 
 my %CMDESCAPES = (
@@ -405,7 +406,7 @@ my (
 	# lookup tables
 	%usercache, %groupcache, %pfmrc, @signame, %dircolors, %framecolors,
 	# screen- and keyboard objects, screen parameters
-	$scr, $kbd, $wasresized, $currentpan,
+	$scr, $kbd, $wasresized, $wasquit, $currentpan,
 	# modes
 	$sort_mode, $multiple_mode, $swap_mode, $dot_mode, $dotdot_mode, $white_mode,
 	$mouse_mode, $color_mode, $ident_mode, $radix_mode, $clobber_mode, $path_mode,
@@ -1182,6 +1183,11 @@ sub resizecatcher {
 	$SIG{WINCH} = \&resizecatcher;
 }
 
+sub quitcatcher {
+	$wasquit = 1;
+#	$SIG{QUIT} = \&quitcatcher;
+}
+
 sub reaper {
 	(wait() == -1) ? 0 : $?;
 #	$SIG{CHLD} = \&reaper;
@@ -1894,6 +1900,8 @@ sub as_requested {
 		/Z/ and return		$b->{grand} <=>		$a->{grand},last SWITCH;
 		/i/ and return		$a->{inode} <=>		$b->{inode},last SWITCH;
 		/I/ and return		$b->{inode} <=>		$a->{inode},last SWITCH;
+#		/v/ and return		$a->{svn}   <=>		$b->{svn},  last SWITCH;
+#		/V/ and return		$b->{svn}   <=>		$a->{svn},  last SWITCH;
 		/t/ and return $a->{type}.$a->{name}
 									  cmp $b->{type}.$b->{name}, last SWITCH;
 		/T/ and return $b->{type}.$b->{name}
@@ -2024,21 +2032,23 @@ sub handlercspipe {
 	# If anyone wants to help me port this to other versioning systems,
 	# any help would be appreciated.
 	#
+	my $pin = '';
+	my $firstcolsize = 7;
+	my ($nfound, $input, $f1, $f2, $newlinepos, %nameindexmap, $count, $mapindex,
+		$topdir, $dirindex, $oldval, $svnfieldtitle);
+	#
 	if (!$rcsrunning and $rcs_need_refresh) {
 		printdircontents(@showncontents);
 		highlightline($HIGHLIGHT_ON);
 		$rcs_need_refresh = 0;
 		return;
 	}
-	my $pin = '';
-	my $firstcolsize = 7;
-	my ($nfound, $input, $f1, $f2, $newlinepos, %nameindexmap, $count, $mapindex,
-		$topdir, $dirindex, $oldval, $svnfieldtitle);
+	# check if there is data ready on the filehandle
 	vec($pin,fileno(RCSPIPE),1) = 1;
 	$nfound = select($pin, undef, $pin, 0);
 	return if ($nfound <= 0);
+	# found data to process
 	if (sysread(RCSPIPE, $input, 10000) or length($rcsbuffer)) {
-		# found data to process.
 		$rcsbuffer .= $input;
 		%nameindexmap = map { $_->{name}, $count++ } @showncontents;
 		$svnfieldtitle = $LAYOUTFIELDS{'v'};
@@ -2072,9 +2082,15 @@ sub handlercspipe {
 		%currentfile = %{$showncontents[$currentline+$baseindex]};
 		printdircontents(@showncontents);
 		highlightline($HIGHLIGHT_ON);
+		# there might be more data (which we want to read now)
+		# or the pipe may be empty (then we want to close it)
+		# therefore, continue processing
+		goto &handlercspipe;
 	} else {
 		close RCSPIPE;
 		$rcsrunning = 0;
+		$FIELDHEADINGS{'svn'} =~ s/!+$//;
+		init_title($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
 	}
 }
 
@@ -2522,7 +2538,8 @@ sub handlemorercsopen {
 	$SIG{CHLD}  = \&reaper;
 	preparercscol($file);
 	my $rcspid = open(RCSPIPE, "$rcscmd \Q$file\E 2>/dev/null |");
-	return $R_HEADER;
+	$FIELDHEADINGS{'svn'} .= '!';
+	return $R_HEADER | $R_TITLE;
 }
 
 sub handlemore {
@@ -2612,7 +2629,7 @@ sub handleinclude { # include/exclude flag (from keypress)
 }
 
 sub handlercs {
-	my $do_a_refresh = $R_STRIDE;
+	my $do_a_refresh = $R_STRIDE | $R_TITLE;
 	my ($index, $loopfile);
 	if ($multiple_mode) {
 		# do the entire directory.
@@ -2661,6 +2678,7 @@ sub handlename {
 }
 
 sub handlesort {
+	# TODO: sort by 'v' and 'V' doesn't work: dir. is read fresh before sorting
 	my $printline = $BASELINE;
 	my %sortmodes = @SORTMODES;
 	my ($i, $key, $headerlength);
@@ -3768,6 +3786,7 @@ sub getdircontents { # (current)directory
 	}
 	init_header();
 	handlemorercsopen() if $autorcs;
+	init_title($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
 	return @contents;
 }
 
@@ -4425,10 +4444,10 @@ columnlayouts:\
 * nnnnnnnnnnnnnnnnnnnnnssssssss uuuuuuuu gggggggglllll pppppppppp ffffffffffffff:\
 * nnnnnnnnnnnnnnnnnnnnnnnnnnnsssssss uuuuuuuu gggggggg pppppppppp ffffffffffffff:\
 * nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnuuuuuuuu gggggggg pppppppppp ffffffffffffff:\
+* nnnnnnnnnnnnnnnnnnnnnnnssssssss vvvv mmmmmmmmmmmmmmm pppppppppp ffffffffffffff:\
 * nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnzzzzzzzz mmmmmmmmmmmmmmm ffffffffffffff:\
 * nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnsssssssss ffffffffffffff:\
-pppppppppp  uuuuuuuu gggggggg sssssss* nnnnnnnnnnnnnnnnnnnnnnnnnn ffffffffffffff:\
-pppppppppp  mmmmmmmmmmmmmmm  ssssssss* nnnnnnnnnnnnnnnnnnnnnnnnnn ffffffffffffff:\
+pppppppppp uuuuuuuu gggggggg mmmmmmmmmmmmmmm sssssss* nnnnnnnnnnn ffffffffffffff:\
 ppppppppppllll uuuuuuuu ggggggggssssssss mmmmmmmmmmmmmmm *nnnnnnn ffffffffffffff:
 
 ##########################################################################
@@ -4456,7 +4475,7 @@ your[d]:uudecode =2
 your[e]:unarj l =2 | =p
 your[F]:fuser =2
 your[f]:file =2
-your[G]:gimp =2
+your[G]:gimp =2 &
 your[g]:gvim =2
 your[i]:rpm -qpi =2
 your[j]:mpg123 =2 &
@@ -4493,6 +4512,7 @@ launchby:extension,xbit
 
 ## the file type names do not have to be valid MIME types
 extension[*.1m]   : application/x-nroff-man
+extension[*.1]    : application/x-nroff-man
 extension[*.3i]   : application/x-intercal
 extension[*.i]    : application/x-intercal
 extension[*.bf]   : application/x-befunge
@@ -6007,7 +6027,7 @@ up if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.94.4.
+This manual pertains to C<pfm> version 1.94.4b.
 
 =head1 AUTHOR and COPYRIGHT
 
