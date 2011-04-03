@@ -1,6 +1,6 @@
 
 
-Package: pfm-1.92.2
+Package: pfm-1.93.4
 
 
 This package is available from http://sourceforge.net/projects/p-f-m/
@@ -11,8 +11,8 @@ Prerequisites for this package, in dependency order
 +-----+--------------+------------------+-----------------------+------------+
 |     |              | Term-Screen-1.02 | Term-ScreenColor-1.09 |            |
 |     |              +------------------+-----------------------+            |
-|     |  perl-5.005  |          Term-ReadLine-Perl              |            |
-| gcc |              +----------------- or ---------------------+ pfm-1.92.2 |
+|     |  perl-5.006  |          Term-ReadLine-Perl              |            |
+| gcc |              +----------------- or ---------------------+ pfm-1.93.4 |
 |     |              |                                          |            |
 |     +--------------+          Term-ReadLine-Gnu-1.09          |            |
 |     | readline-4.1 |                                          |            |
@@ -25,6 +25,9 @@ that pfm automatically generates for you.
 
 
 Notes:
+
+* As of version 1.92.6, the meaning of the 'defaultdotmode' option
+  has been inverted. 'dot_mode' set now means that dotfiles *will* be shown.
 
 * As of version 1.92.0, the config file has been extended with options
   necessary for the launch functionality. Please check the new options in
@@ -47,4 +50,8 @@ Notes:
 * As of version 1.84, the (Y)our commands must be specified in a different
   format. Use the script 'mend_your_cmnds.pl' if you want to convert the
   (Y)our commands in your old .pfmrc to the new format.
+
+* On HP-UX 11.00, the file /etc/termcap does not seem to contain an 'me'
+  entry. You need to add it in order to make Term::Screen function
+  correctly, for example :me=\E[0m:
 
