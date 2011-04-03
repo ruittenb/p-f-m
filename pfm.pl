@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2009-10-07 v1.94.0i
+# @(#) pfm.pl 2009-10-07 v1.94.0k
 #
 # Name:			pfm
-# Version:		1.94.0i
+# Version:		1.94.0k
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2009-10-07
@@ -2170,10 +2170,11 @@ sub handlefind {
 }
 
 sub handlefind_incremental {
-	my ($findme, $k, $delay);
+	my ($findme, $k);
 	my $jumpmouse = 1;
 	my $prompt = 'File to find: ';
-	$delay = .5;
+	my $delay = .5;
+	FINDINCENTRY:
 	while (1) {
 		highlightline($HIGHLIGHT_ON);
 		$scr->at(0,0)->clreol();
@@ -2189,7 +2190,7 @@ sub handlefind_incremental {
 		$k = $scr->getch();
 		highlightline($HIGHLIGHT_OFF);
 		if ($k eq "\cM") {
-			return $R_HEADER;
+			last FINDINCENTRY;
 		} elsif ($k eq "\cH" or $k eq 'del' or $k eq "\x7F") {
 			chop($findme);
 #		} elsif ($k eq "\cW") {
@@ -2206,8 +2207,7 @@ sub handlefind_incremental {
 			printdircontents(@showncontents);
 #		}
 	}
-	# we should never get here
-	return $R_DIRLIST | $R_HEADER;
+	return $R_HEADER;
 }
 
 sub handlefit {
@@ -3657,23 +3657,46 @@ sub get_filesystem_info {
 	return %tdisk;
 }
 
+sub find_best_find_match {
+	my ($seek, $rec) = @_;
+	my ($first, $second, $char);
+	if ($rec == 0) {
+		return -$baseindex;
+	}
+	$first  = $showncontents[$rec-1]{name};
+	$second = $showncontents[$rec  ]{name};
+	for ($char = length($seek); $char > 0; $char--) {
+		if (substr($first,  0, $char) eq substr($seek, 0, $char)) {
+			return $rec -1 - $baseindex;
+		}
+		if (substr($second, 0, $char) eq substr($seek, 0, $char)) {
+			return $currentline = $rec - $baseindex;
+		}
+	}
+	return $rec - $baseindex;
+}
+
 sub position_cursor_find_incremental {
-	my $condition;
+	my $criterion;
 	$currentline = 0;
 	if ($sort_mode eq 'n') {
-		$condition = sub { return ($position_at le substr($_[0], 0, length($position_at))); }
-	} else { # $sort_mode eq 'N'
-		$condition = sub { return ($position_at ge substr($_[0], 0, length($position_at))); }
+		$criterion = sub {
+			return ($position_at le substr($_[0], 0, length($position_at)));
+		};
+	} else {
+		# $sort_mode eq 'N'
+		$criterion = sub {
+			return ($position_at ge substr($_[0], 0, length($position_at)));
+		};
 	}
 	ANYENTRYFIND: {
 		for (0..$#showncontents) {
-#			if ($position_at le substr($showncontents[$_]{name}, 0, length($position_at))) {
-			if ($condition->($showncontents[$_]{name})) {
-				$currentline = $_ - $baseindex;
+			if ($criterion->($showncontents[$_]{name})) {
+				$currentline = find_best_find_match($position_at, $_);
 				last ANYENTRYFIND;
 			}
 		}
-		$baseindex = 0;
+		$currentline = $#showncontents - $baseindex;
 	}
 	$position_at = '';
 	return validate_position(); # refresh flag
@@ -5811,7 +5834,7 @@ up if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.94.0i.
+This manual pertains to C<pfm> version 1.94.0k.
 
 =head1 AUTHOR and COPYRIGHT
 
