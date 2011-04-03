@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2010-04-14 v1.95.3
+# @(#) pfm.pl 2010-04-16 v1.95.4
 #
 # Name:			pfm
-# Version:		1.95.3
+# Version:		1.95.4
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-14
+# Date:			2010-04-16
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				    [ -l, --layout <number> ]
 #				pfm { -v, --version | -h, --help }
@@ -2495,7 +2495,10 @@ sub handlemorefifo {
 	expand_escapes($QUOTE_OFF, $newname, \%currentfile);
 	stty_raw($TERM_RAW);
 	return $R_HEADER if $newname eq '';
-	system "mkfifo \Q$newname\E" and display_error('Make FIFO failed');
+	if (system "mkfifo \Q$newname\E") {
+		display_error('Make FIFO failed');
+		return $do_a_refresh;
+	}
 	# is newname present in @dircontents? push otherwise
 	# (this part is nearly identical to the part in handlecopyrename())
 	$findindex = 0;
@@ -3071,6 +3074,7 @@ sub handlecommand { # Y or O
 		$command = readintohist(\@command_history);
 		clearcolumn();
 	}
+	# chdir special case
 	if ($command =~ /^\s*cd\s(.*)$/) {
 		$newname = $1;
 		expand_escapes($QUOTE_OFF, $newname, \%currentfile);
@@ -3780,9 +3784,15 @@ sub stat_entry { # path_of_entry, selected_flag
 	# 'selected' field of the file info should be cleared (when reading
 	# a new directory) or kept intact (when re-statting)
 	my ($entry, $selected_flag) = @_;
-	my ($ptr, $name_too_long, $target);
+	my ($ptr, $name_too_long, $target, @white_entries);
 	my ($device, $inode, $mode, $nlink, $uid, $gid, $rdev, $size,
 		$atime, $mtime, $ctime, $blksize, $blocks) = lstat $entry;
+	if (!defined $mode and defined $white_cmd) {
+		@white_entries = map { chop; $_ } `$white_cmd \Q$currentdir`;
+		if (grep /$entry/, @white_entries) {
+			$mode = 0160000;
+		}
+	}
 	$ptr = {
 		name		=> $entry,			device		=> $device,
 		uid			=> find_uid($uid),	inode		=> $inode,
@@ -3836,7 +3846,7 @@ sub getdircontents { # (current)directory
 		@allentries = readdir CURRENT;
 		closedir CURRENT;
 		if ($white_cmd) {
-			@white_entries = `$white_cmd .`;
+			@white_entries = map { chop; $_ } `$white_cmd .`;
 		}
 	} else {
 		$scr->at(0,0)->clreol();
@@ -6133,7 +6143,7 @@ up if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.95.3.
+This manual pertains to C<pfm> version 1.95.4.
 
 =head1 AUTHOR and COPYRIGHT
 
