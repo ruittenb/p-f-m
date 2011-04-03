@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2009-10-07 v1.94.1
+# @(#) pfm.pl 2009-10-07 v1.94.1b
 #
 # Name:			pfm
-# Version:		1.94.1
+# Version:		1.94.1b
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2009-10-07
@@ -18,7 +18,6 @@
 #				Cwd
 #				locale
 #				strict
-#				vars
 # Description:	Personal File Manager for Unix/Linux
 #
 # TOTEST:
@@ -44,7 +43,7 @@
 #			/dev/hd4          45056   3528    93%    1389      7%  /
 #			/dev/hd2         303104  31984    90%   10081     14%  /usr
 #
-#		errortime and importanttime configureerbaar maken
+#		make errortime and importanttime configurable
 #		fixing whiteout handling
 #		in chmod(directory): recursively descend? y/n
 #		define printcommand at top of program? together with touch, du, lpr, unwo?
@@ -67,9 +66,9 @@
 #			rm -f 200112312359.59 123123592001.59 123123592001.5 1231235901 $$.touch
 #
 #		cp -pr copies symlinks to symlinks - ?
-#			recursive directory copy? Ask for follow?
+#			recursive directory copy? Ask to follow?
 #		change (U)id command to request changing the symlink?
-#		(B)abel option? tr/[:upper:]/[:lower:]/ etc
+#		(B)abel option? tr/[:upper:]/[:lower:]/, s/^pfm/pfm-/
 #
 #		(L)ink (R)el to current dir does not restat()
 #		tar(G)et in multiple mode does not re-readlink()
@@ -95,9 +94,6 @@
 #		hierarchical sort? e.g. 'sen' (size,ext,name)
 #		window sizing problems on Sun 5.6 - test on sup6
 #		include acl commands?
-#		(F)ind command: stop at nearest match?
-#		filename subs command? foreach(@file) { s/^pfm/pfm-/ }
-#		incremental search (search entry while entering filename)?
 
 ##########################################################################
 # main data structures:
@@ -135,51 +131,50 @@ use strict;
 #disable diagnostics; # so we can switch it on in '@'
 #$^W = 0;
 
-use vars qw(
-	$FALSE
-	$TRUE
-	$READ_FIRST
-	$READ_AGAIN
-	$QUOTE_OFF
-	$QUOTE_ON
-	$MOUSE_OFF
-	$MOUSE_ON
-	$ALTERNATE_OFF
-	$ALTERNATE_ON
-	$TERM_RAW
-	$TERM_COOKED
-	$FILENAME_SHORT
-	$FILENAME_LONG
-	$HIGHLIGHT_OFF
-	$HIGHLIGHT_ON
-	$TIME_FILE
-	$TIME_CLOCK
-	$HEADER_SINGLE
-	$HEADER_MULTI
-	$HEADER_MORE
-	$HEADER_SORT
-	$HEADER_INCLUDE
-	$HEADER_LNKTYPE
-	$TITLE_DISKINFO
-	$TITLE_YCOMMAND
-	$TITLE_SIGNAL
-	$TITLE_SORT
-	$TITLE_ESCAPE
-	$R_NOP
-	$R_STRIDE
-	$R_HEADER
-	$R_PATHINFO
-	$R_TITLE
-	$R_FOOTER
-	$R_DIRFILTER
-	$R_DIRLIST
-	$R_DISKINFO
-	$R_DIRSORT
-	$R_CLEAR
-	$R_DIRCONTENTS
-	$R_NEWDIR
-	$R_INIT_SWAP
-	$R_QUIT
+our($FALSE,
+	$TRUE,
+	$READ_FIRST,
+	$READ_AGAIN,
+	$QUOTE_OFF,
+	$QUOTE_ON,
+	$MOUSE_OFF,
+	$MOUSE_ON,
+	$ALTERNATE_OFF,
+	$ALTERNATE_ON,
+	$TERM_RAW,
+	$TERM_COOKED,
+	$FILENAME_SHORT,
+	$FILENAME_LONG,
+	$HIGHLIGHT_OFF,
+	$HIGHLIGHT_ON,
+	$TIME_FILE,
+	$TIME_CLOCK,
+	$HEADER_SINGLE,
+	$HEADER_MULTI,
+	$HEADER_MORE,
+	$HEADER_SORT,
+	$HEADER_INCLUDE,
+	$HEADER_LNKTYPE,
+	$TITLE_DISKINFO,
+	$TITLE_YCOMMAND,
+	$TITLE_SIGNAL,
+	$TITLE_SORT,
+	$TITLE_ESCAPE,
+	$R_NOP,
+	$R_STRIDE,
+	$R_HEADER,
+	$R_PATHINFO,
+	$R_TITLE,
+	$R_FOOTER,
+	$R_DIRFILTER,
+	$R_DIRLIST,
+	$R_DISKINFO,
+	$R_DIRSORT,
+	$R_CLEAR,
+	$R_DIRCONTENTS,
+	$R_NEWDIR,
+	$R_INIT_SWAP,
+	$R_QUIT,
 );
 
 END {
@@ -1339,8 +1334,10 @@ sub makeformatlines {
 	my ($squeezedlayoutline, $currentlayoutline, $firstwronglayout, $prev, $letter, $trans, $temp);
 	LAYOUT: {
 		$currentlayoutline = $columnlayouts[validate_layoutnum()];
-		# we could also test /(^f|f$)/; but catch only fatal errors for now.
-		unless ($currentlayoutline =~ /n/ and $currentlayoutline =~ /f/  and $currentlayoutline =~ /\*/) {
+		unless ($currentlayoutline =~ /n/o
+		    and $currentlayoutline =~ /(^f|f$)/o
+			and $currentlayoutline =~ /\*/o)
+		{
 			$firstwronglayout ||= $currentlayout || '0 but true';
 			$scr->at(0,0)->clreol();
 			display_error("Bad layout #$currentlayout: a mandatory field is missing");
@@ -1349,10 +1346,12 @@ sub makeformatlines {
 			if (validate_layoutnum() != $firstwronglayout) {
 				redo LAYOUT;
 			} else {
-				$scr->at(0,0)->puts("Fatal error: No valid layout defined in " . whichconfigfile())->clreol()->at(1,0);
+				alternate_screen($ALTERNATE_OFF);
+				$scr->clrscr()->at(0,0)
+				    ->puts("Fatal error: No valid layout defined in " . whichconfigfile())
+					->at(1,0);
 				stty_raw($TERM_COOKED);
 				mouseenable($MOUSE_OFF);
-				alternate_screen($ALTERNATE_OFF);
 				exit 2;
 			}
 		}
@@ -1367,17 +1366,20 @@ sub makeformatlines {
 	$maxgrandtotallength = 10 ** ($currentlayoutline =~ tr/z// -1) -1;
 	if ($maxgrandtotallength < 2) { $maxgrandtotallength = 2 }
 	# provide N, S and Z fields
-	$currentlayoutline =~ s/n(?!n)/N/i;
-	$currentlayoutline =~ s/s(?!s)/S/i;
-	$currentlayoutline =~ s/z(?!z)/Z/i;
+	# N = overflow char for name
+	# S = power of 1024 for size
+	# Z = power of 1024 for grand total
+	$currentlayoutline =~ s/n(?!n)/N/io;
+	$currentlayoutline =~ s/s(?!s)/S/io;
+	$currentlayoutline =~ s/z(?!z)/Z/io;
 #	$currentlayoutline =~ s/(\s+)f/'F'x length($1) . 'f'/e;
 #	$currentlayoutline =~ s/f(\s+)/'f' . 'F'x length($1)/e;
 #	$gaplength = 
 	($temp = $currentlayoutline) =~ s/[^f].*//;
 	$filerecordcol	= length $temp;
-	$cursorcol		= index ($currentlayoutline, '*');
-	$filenamecol	= index ($currentlayoutline, 'n');
-	$infocol		= index ($currentlayoutline, 'f');
+	$cursorcol		= index($currentlayoutline, '*');
+	$filenamecol	= index($currentlayoutline, 'n');
+	$infocol		= index($currentlayoutline, 'f');
 #	$gapcol			= index($currentlayoutline, 'F');
 	foreach ($cursorcol, $filenamecol, $infocol, $filerecordcol) {
 		if ($_ < 0) { $_ = 0 }
@@ -1401,7 +1403,7 @@ sub makeformatlines {
 		}
 		$prev = $letter;
 	}
-	substr ($currentformatline = $currentformatlinewithinfo, $infocol, $infolength, '');
+	substr($currentformatline = $currentformatlinewithinfo, $infocol, $infolength, '');
 	return $currentformatline;
 }
 
@@ -2022,7 +2024,10 @@ sub handlemousedown {
 	} elsif ($mouserow > $screenheight + $BASELINE) {
 		# footer
 		$do_a_refresh |= $mbutton ? handlemove('pgdn') : handlemove("\cD");
-	} elsif ($mousecol >= $infocol or !defined $showncontents[$mouserow - $BASELINE + $baseindex]) {
+	} elsif (($mousecol >= $infocol and $infocol > $filerecordcol)
+		or   ($mousecol < $filerecordcol)
+		or !defined $showncontents[$mouserow - $BASELINE + $baseindex])
+	{
 		# diskinfo or empty line
 		return $do_a_refresh;
 	} else {
@@ -2892,7 +2897,7 @@ sub handledelete {
 	$scr->at($PATHLINE,0);
 	$do_this = sub {
 		if ($loopfile->{name} eq '.') {
-			# don't allow people to delete '.'; normally, this would be allowed
+			# don't allow people to delete '.'; normally, this could be allowed
 			# if it is empty, but if that leaves the parent directory empty,
 			# then it can also be removed, which causes a fatal pfm error.
 			$msg = 'Deleting current directory not allowed';
@@ -5834,7 +5839,7 @@ up if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.94.1.
+This manual pertains to C<pfm> version 1.94.1b.
 
 =head1 AUTHOR and COPYRIGHT
 
