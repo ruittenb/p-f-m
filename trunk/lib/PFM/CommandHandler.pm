@@ -8,8 +8,11 @@
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-03-27
-# Description:	PFM class used for handling user commands
+# Description:	PFM class used for executing user commands
 #
+
+##########################################################################
+# declarations
 
 package PFM::CommandHandler;
 
@@ -19,6 +22,22 @@ my ($_bootstrapped, $_keyboard);
 
 ##########################################################################
 # private subs
+
+=item _init()
+
+Initializes new instances. Called from the constructor.
+
+=cut
+
+sub _init {
+	my $self = shift;
+}
+
+=item _credits()
+
+Prints elaborate info about pfm. Called from help().
+
+=cut
 
 sub _credits {
 	my ($self, $pfm) = @_;
@@ -55,14 +74,6 @@ _eoCredits_
 
 ##########################################################################
 # constructor, getters and setters
-
-sub new {
-	my $type = shift;
-	$type    = ref($type) || $type;
-	my $self = {};
-	bless($self, $type);
-	return $self;
-}
 
 ##########################################################################
 # public subs

@@ -1,15 +1,18 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Application 2010-03-27 v2.00.0
+# @(#) PFM::Application 2010-03-27 v2.00.1
 #
 # Name:			PFM::Application.pm
-# Version:		2.00.0
+# Version:		2.00.1
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-03-27
 # Description:	The PFM application.
 #
+
+##########################################################################
+# declarations
 
 package PFM::Application;
 
@@ -38,7 +41,7 @@ my ($_bootstrapped,
 
 =item _init()
 
-Initializes new instances.
+Initializes new instances. Called from the constructor.
 
 =cut
 
@@ -205,6 +208,17 @@ sub screen {
 	my ($self, $value) = @_;
 	$_screen = $value if defined $value;
 	return $_screen;
+}
+
+=item config()
+
+Getter for the PFM::Config object.
+
+=cut
+
+sub config {
+	my ($self, $value) = @_;
+	return $_config;
 }
 
 ##########################################################################

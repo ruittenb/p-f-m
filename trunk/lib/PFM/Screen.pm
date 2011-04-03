@@ -12,6 +12,9 @@
 # Description:	PFM class used for controlling the screen.
 #
 
+##########################################################################
+# declarations
+
 package PFM::Screen;
 
 use base 'Term::ScreenColor';
@@ -26,18 +29,18 @@ use constant {
 	MARKINFOLINE	=> 15,
 	USERINFOLINE	=> 21,
 	DATEINFOLINE	=> 22,
-#	TERM_RAW		=> 0,
-#	TERM_COOKED		=> 1,
-#	MOUSE_OFF		=> 0,
-#	MOUSE_ON		=> 1,
-#	ALTERNATE_OFF	=> 0,
-#	ALTERNATE_ON	=> 1,
 };
 
 my ($_frame, $_screenwidth, $_screenheight);
 
 ##########################################################################
 # private subs
+
+=item _init()
+
+Initializes new instances. Called from the constructor.
+
+=cut
 
 sub _init {
 	my $self = shift;
@@ -46,15 +49,6 @@ sub _init {
 
 ##########################################################################
 # constructor, getters and setters
-
-sub new {
-	my $type = shift;
-	$type = ref($type) || $type;
-	my $self = {};
-	bless($self, $type);
-	$self->_init();
-	return $self;
-}
 
 sub screenwidth {
 	my ($self, $value) = @_;
