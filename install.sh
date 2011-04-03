@@ -2,7 +2,7 @@
 ############################################################################
 #
 # Name:         installpfm.sh
-# Version:      0.14
+# Version:      0.15
 # Authors:      Rene Uittenbogaard
 # Date:         2009-10-08
 # Usage:        installpfm.sh
@@ -12,7 +12,7 @@
 #		Comments and improvements are welcome!
 #
 
-VERSION=1.94.1
+VERSION=1.94.2
 
 ###############################################################################
 # helper functions
