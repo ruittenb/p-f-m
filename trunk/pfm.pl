@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2009-10-09 v1.94.1f
+# @(#) pfm.pl 2009-10-16 v1.94.3
 #
 # Name:			pfm
-# Version:		1.94.1f
+# Version:		1.94.3
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2009-10-09
+# Date:			2009-10-16
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				pfm { -v, --version | -h, --help }
 # Requires:		Term::ReadLine::Gnu (preferably)
@@ -425,7 +425,7 @@ my (
 	@layoutfields, @layoutfieldswithinfo, @columnlayouts,
 	$maxfilenamelength, $maxfilesizelength, $maxgrandtotallength, $infolength,
 	# rcs
-	$rcsbuffer, $rcsrunning, $rcscmd, $chdirautorcs,
+	$rcsbuffer, $rcsrunning, $rcs_need_refresh, $rcscmd, $autorcs,
 	# misc
 	$white_cmd, @unwo_cmd,
 );
@@ -531,7 +531,7 @@ sub parse_pfmrc { # $readflag - show copyright only on startup (first read)
 	$swap_persistent	= isyes($pfmrc{persistentswap});
 	$trspace			= isyes($pfmrc{translatespace}) ? ' ' : '';
 	$dotdot_mode		= isyes($pfmrc{dotdotmode});
-	$chdirautorcs		= isyes($pfmrc{chdirautorcs});
+	$autorcs			= isyes($pfmrc{autorcs});
 	$white_mode			= isyes($pfmrc{defaultwhitemode})	if !defined $white_mode;
 	$dot_mode			= isyes($pfmrc{defaultdotmode})		if !defined $dot_mode;
 	$clobber_mode		= isyes($pfmrc{defaultclobber})		if !defined $clobber_mode;
@@ -890,6 +890,28 @@ sub toggle ($) {
 	$_[0] = !$_[0];
 }
 
+sub svnmaxchar($$) {
+	my ($a, $b) = @_;
+	if ($a eq 'C' or $b eq 'C') {
+		return 'C';
+	} elsif ($a eq 'M' or $b eq 'M'or $a eq 'A' or $b eq 'A') {
+		return 'M';
+	} elsif ($a eq '' or $a eq '-') {
+		return $b;
+	} else {
+		return $a;
+	}
+}
+
+sub svnmax($$) {
+	my ($old, $new) = @_;
+	my $res = $old;
+	substr($res,0,1) = svnmaxchar(substr($old,0,1), substr($new,0,1));
+	substr($res,1,1) = svnmaxchar(substr($old,1,1), substr($new,1,1));
+	substr($res,2,1) ||= substr($new,2,1);
+	return $res;
+}
+
 ##########################################################################
 # more translations
 
@@ -950,7 +972,6 @@ sub mychdir {
 		$oldcurrentdir = $currentdir;
 		$currentdir = $goal;
 		system("$chdirautocmd") if length($chdirautocmd);
-		handlemorercsopen() if $chdirautorcs;
 	}
 	return $result;
 }
@@ -1074,6 +1095,9 @@ sub multi_to_single {
 
 sub restat_copyback {
 	$showncontents[$currentline+$baseindex] = stat_entry($currentfile{name}, $currentfile{selected});
+	if (!$rcsrunning and $autorcs) {
+		handlemorercsopen($currentfile{name});
+	}
 	if ($showncontents[$currentline+$baseindex]{nlink} == 0) {
 #		if ($pfmrc{keeplostfiles}) {
 			$showncontents[$currentline+$baseindex]{display} .= $LOSTMSG;
@@ -1982,31 +2006,61 @@ sub handleresize {
 	return $R_CLRSCR;
 }
 
+sub preparercscol {
+	my $file = shift;
+	my (%nameindexmap, $count);
+	if ($file ne '' and $file ne '.') {
+		%nameindexmap = map { $_->{name}, $count++ } @showncontents;
+		$showncontents[$file]{$LAYOUTFIELDS{'v'}} = '-';
+		return;
+	}
+	foreach(0..$#showncontents) {
+		$showncontents[$_]{$LAYOUTFIELDS{'v'}} = '-';
+	}
+}
+
 sub handlercspipe {
-	return unless $rcsrunning;
+	if (!$rcsrunning and $rcs_need_refresh) {
+		printdircontents(@showncontents);
+		highlightline($HIGHLIGHT_ON);
+		$rcs_need_refresh = 0;
+		return;
+	}
 	my $pin = '';
 	my $firstcolsize = 7;
-	my ($nfound, $input, $f1, $f2, $newlinepos, %nameindexmap, $count, $mapindex);
+	my ($nfound, $input, $f1, $f2, $newlinepos, %nameindexmap, $count, $mapindex,
+		$topdir, $dirindex, $oldval, $svnfieldtitle);
 	vec($pin,fileno(RCSPIPE),1) = 1;
 	$nfound = select($pin, undef, $pin, 0);
 	return if ($nfound <= 0);
 	if (sysread(RCSPIPE, $input, 10000) or length($rcsbuffer)) {
 		$rcsbuffer .= $input;
 		%nameindexmap = map { $_->{name}, $count++ } @showncontents;
+		$svnfieldtitle = $LAYOUTFIELDS{'v'};
 		while (($newlinepos = index($rcsbuffer,"\cJ")) >= 0) {
 			$input = substr($rcsbuffer, 0, $newlinepos);
 			$rcsbuffer = substr($rcsbuffer, $newlinepos+1);
-			next if m!/!;
 			$f1 = substr($input, 0, $firstcolsize);
 			$f2 = substr($input, $firstcolsize);
-			if (defined($mapindex = $nameindexmap{$f2})) {
-				$showncontents[$mapindex]{$LAYOUTFIELDS{'v'}} = $f1;
+			if ($f2 =~ m!/!) {
+				# TODO if change in subdir, then show 'M' on current dir
+				($topdir = $f2) =~ s!/.*!!;
+				$dirindex = $nameindexmap{$topdir};
+				$oldval = $showncontents[$dirindex]{$svnfieldtitle};
+				# find highest prio marker: C > M > ? > ''
+#				$showncontents[$dirindex]{$svnfieldtitle} = $f1;
+				$showncontents[$dirindex]{$svnfieldtitle} = svnmax($oldval, $f1);
+				next;
 			}
-			%currentfile = %{$showncontents[$currentline+$baseindex]};
+			if (defined($mapindex = $nameindexmap{$f2})) {
+				$showncontents[$mapindex]{$svnfieldtitle} = $f1;
+			}
 		}
+		%currentfile = %{$showncontents[$currentline+$baseindex]};
 		printdircontents(@showncontents);
 		highlightline($HIGHLIGHT_ON);
 	} else {
+		close RCSPIPE;
 		$rcsrunning = 0;
 	}
 }
@@ -2389,11 +2443,13 @@ sub handlemorefifo {
 }
 
 sub handlemoreshell {
+	alternate_screen($ALTERNATE_OFF);
 	$scr->clrscr();
 	stty_raw($TERM_COOKED);
 #	@ENV{qw(ROWS COLUMNS)} = ($screenheight + $BASELINE + 2, $screenwidth);
 	system ($ENV{SHELL} ? $ENV{SHELL} : 'sh'); # most portable
 	pressanykey(); # will also put the screen back in raw mode
+	alternate_screen($ALTERNATE_ON) if $altscreen_mode;
 	return $R_CLRSCR;
 }
 
@@ -2438,18 +2494,21 @@ sub handlemorekill {
 #}
 
 sub handlemorercsopen {
+	my $file = shift;
 	# we could have used: if (RCSPIPE->opened)
 	# but then we'd need IO::Handle
 	if (defined(fileno(RCSPIPE))) {
 		close RCSPIPE;
+		# another svn-status command was running.
+		# run a new one for the entire directory.
+		$file = '';
 	}
 	$rcsbuffer = '';
 	$rcsrunning = 1;
+	$rcs_need_refresh = 1;
 	$SIG{CHLD}  = \&reaper;
-	my $rcspid = open(RCSPIPE, "$rcscmd|");
-	foreach(0..$#showncontents) {
-		$showncontents[$_]{$LAYOUTFIELDS{'v'}} = '';
-	}
+	preparercscol($file);
+	my $rcspid = open(RCSPIPE, "$rcscmd $file 2>/dev/null |");
 	return $R_HEADER;
 }
 
@@ -3095,27 +3154,27 @@ sub handlehelp {
 	$scr->clrscr()->cooked();
 	print map { substr($_, 8)."\n" } split("\n", <<'    _eoHelp_');
         --------------------------------------------------------------------------------
-        a     Attrib         F1  help             up, down arrow  move one line         
-        c     Copy           F2  prev dir         k, j            move one line         
-        d DEL Delete         F3  redraw screen    -, +            move ten lines        
-        e     Edit           F4  cycle colors     CTRL-E, CTRL-Y  scroll dir one line   
-        f /   find           F5  reread dir       CTRL-U, CTRL-D  move half a page      
-        g     tarGet         F6  sort dir         CTRL-B, CTRL-F  move a full page      
-        i     Include        F7  swap mode        PgUp, PgDn      move a full page      
-        L     symLink        F8  mark file        HOME, END       move to top, bottom   
-        n     Name           F9  cycle layouts    SPACE           mark file & advance   
-        o     cOmmand        F10 multiple mode    right arrow, l  enter dir             
-        p     Print          F11 restat file      left arrow, h   leave dir             
-        q     Quit           F12 toggle mouse     ENTER           enter dir, launch     
-        Q     Quick quit    --------------------- ESC, BS         leave dir             
-        r     Rename         mb  Bookmark        ---------------------------------------
-        s     Show           me  Edit new file    =  ident           <  cmnds left      
-        t     Time           mf  make FIFO        *  radix           >  cmnds right     
-        u     Uid            mh  spawn sHell      !  clobber         "  paths log/phys  
-        w     unWhiteout     mm  Make new dir     @  perlcmd         ?  help            
-        x     eXclude        ms  Show directory   .  dotfiles                           
-        y     Your command   mv  SVN status       %  whiteout        mc Config pfm      
-        z     siZe           mw  Write history                       mk Kill children   
+        a     Attrib         mb  Bookmark         up, down arrow   move one line        
+        c     Copy           mc  Config pfm       k, j             move one line        
+        d DEL Delete         me  Edit new file    -, +             move ten lines       
+        e     Edit           mf  make FIFO        CTRL-E, CTRL-Y   scroll dir one line  
+        f /   find           mh  spawn sHell      CTRL-U, CTRL-D   move half a page     
+        g     tarGet         mk  Kill children    CTRL-B, CTRL-F   move a full page     
+        i     Include        mm  Make new dir     PgUp, PgDn       move a full page     
+        L     symLink        ms  Show directory   HOME, END        move to top, bottom  
+        n     Name           mv  SVN status       SPACE            mark file & advance  
+        o     cOmmand        mw  Write history    right arrow, l   enter dir            
+        p     Print         --------------------  left arrow, h    leave dir            
+        q     Quit           =   ident            ENTER            enter dir, launch    
+        Q     Quick quit     *   radix            ESC, BS          leave dir            
+        r     Rename         !   clobber         ---------------------------------------
+        s     Show           @   perlcmd          F1  help            F7  swap mode     
+        t     Time           .   dotfiles         F2  prev dir        F8  mark file     
+        u     Uid            %   whiteout         F3  redraw screen   F9  cycle layouts 
+        w     unWhiteout     <   cmnds left       F4  cycle colors    F10 multiple mode 
+        x     eXclude        >   cmnds right      F5  reread dir      F11 restat file   
+        y     Your command   "   paths log/phys   F6  sort dir        F12 toggle mouse  
+        z     siZe           ?   help                                                   
         --------------------------------------------------------------------------------
     _eoHelp_
 #	$scr->at(12,0)->putcolored('bold yellow', 'q     Quit')->at(23,0);
@@ -3168,6 +3227,7 @@ sub handletime {
 
 sub handleedit {
 	my ($loopfile, $index);
+	alternate_screen($ALTERNATE_OFF);
 	$scr->clrscr()->at(0,0);
 	stty_raw($TERM_COOKED);
 	if ($multiple_mode) {
@@ -3182,7 +3242,9 @@ sub handleedit {
 		$multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
 	} else {
 		system "$editor \Q$currentfile{name}" and display_error('Editor failed');
+		restat_copyback();
 	}
+	alternate_screen($ALTERNATE_ON) if $altscreen_mode;
 	stty_raw($TERM_RAW);
 	return $R_CLRSCR;
 }
@@ -3417,6 +3479,7 @@ sub handleenter {
 	my $launched;
 	$scr->at(0,0)->clreol()->at(0,0);
 	stty_raw($TERM_COOKED);
+	alternate_screen($ALTERNATE_OFF);
 	LAUNCH: foreach (split /,/, $pfmrc{launchby}) {
 		/magic/     and $launched = launchbymagic();
 		/extension/ and $launched = launchbyextension();
@@ -3431,9 +3494,7 @@ sub handleenter {
 		# we did try, but the file type was unknown
 #		display_error('File type unknown');
 #		$launched = $R_HEADER;
-		alternate_screen($ALTERNATE_OFF);
 		system "$pager \Q$currentfile{name}" and display_error($!);
-		alternate_screen($ALTERNATE_ON) if $altscreen_mode;
 		$launched = $R_CLRSCR;
 	} else {
 		# 'launchby' contains no valid entries
@@ -3441,6 +3502,7 @@ sub handleenter {
 		$launched = $R_HEADER;
 	}
 	stty_raw($TERM_RAW);
+	alternate_screen($ALTERNATE_ON) if $altscreen_mode;
 	return $launched;
 }
 
@@ -3520,6 +3582,7 @@ sub handleswap {
 		display_error("$nextdir: $!");
 		$do_a_refresh |= $R_CHDIR; # dan maar de lucht in
 	}
+	handlemorercsopen() if $autorcs;
 	return $do_a_refresh;
 }
 
@@ -3669,6 +3732,7 @@ sub getdircontents { # (current)directory
 		push @contents, stat_entry($entry, ' ');
 	}
 	init_header();
+	handlemorercsopen() if $autorcs;
 	return @contents;
 }
 
@@ -4040,6 +4104,9 @@ __DATA__
 ## should we exit from multiple file mode after executing a command?
 autoexitmultiple:yes
 
+## request rcs status automatically?
+autorcs:yes
+
 ## write history files automatically upon exit
 autowritehistory:no
 
@@ -4049,9 +4116,6 @@ altscreenmode:xterm
 ## command to perform automatically after every chdir()
 #chdirautocmd:printf "\033]0;pfm - $(basename $(pwd))\007"
 #chdirautocmd:xtitle "pfm - $(hostname):$(pwd)"
-
-## request rcs status automatically after every chdir()?
-chdirautorcs:yes
 
 ## clock date/time format; see strftime(3).
 ## %x and %X provide properly localized time and date.
@@ -5282,6 +5346,12 @@ You will be asked for the directory you want to view. Note that this
 command is different from B<F7> because this will not change your current
 swap directory status.
 
+=item B<sVn>
+
+Updates the current directory with Subversion status information.
+If you set the 'autorcs' option in your F<.pfmrc>, this will automatically
+be done every time C<pfm> shows directory contents.
+
 =item B<Write history>
 
 C<pfm> uses the readline library for keeping track of the Unix commands,
@@ -5900,7 +5970,7 @@ up if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.94.1f.
+This manual pertains to C<pfm> version 1.94.3.
 
 =head1 AUTHOR and COPYRIGHT
 

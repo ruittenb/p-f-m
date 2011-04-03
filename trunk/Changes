@@ -1,4 +1,5 @@
-1.94.1
+1.94.3
 
-* added incremental (F)ind
+* fixes to Subversion support
+* updated documentation
 
