@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 19990314-20030527 v1.92.9
+# @(#) pfm.pl 19990314-20030527 v1.93.0
 #
 # Name:         pfm
-# Version:      1.92.9
+# Version:      1.93.0
 # Author:       Rene Uittenbogaard
 # Date:         2003-05-27
 # Usage:        pfm [ <directory> ] [ -s, --swap <directory> ]
@@ -28,17 +28,20 @@
 #       fixed sysread() and buffering
 #       fixed getcwd()
 #       'logical' paths in addition to 'physical' paths?
+#       canonicalize path
 # TODO:
 #       more consistent use of at(1,0) and at(0,0)
 #       sub fileforall(sub) ?
 #       cache color codes?
-#       change \ char for \1..\7 interpretation
 #       use SIGINT for interrupt single, SIGQUIT for interrupt multi?
 #       bug: 'f' field in layout: characters in the 'gap' between filerecord & infocolumn
 #           are not cleared when switching columnformats -> insert an artificial "gap" field?
 #       handlemousedown() does ($mousecol >= $infocol) test: wrong if f col at left
 #
 #       fixing whiteout handling
+#       (L)ink (R)el to current dir does not restat()
+#       tar(G)et in multiple mode does not re-readlink()
+#       change \ char for \1..\7 interpretation
 #
 #       handletime does not restat() in multiple mode, nor resort
 #       in handledelete: test whether deleted file is present as whiteout after deletion
@@ -863,7 +866,7 @@ sub mychdir {
             }
         }
     }
-    $goal = &canonize_path($goal);
+    $goal = &canonicalize_path($goal);
     if ($result = chdir $goal and $goal ne $currentdir) {
         $oldcurrentdir = $currentdir;
         $currentdir = $goal;
@@ -887,7 +890,7 @@ sub basename {
 
 sub reversepath {
     # reverses the path from target to symlink, returns the path from symlink to target
-    my ($symlink_target_abs, $symlink_name_rel) = map { &canonize_path($_) } @_;
+    my ($symlink_target_abs, $symlink_name_rel) = map { &canonicalize_path($_) } @_;
     # $result ultimately is named as requested
     my $result = &basename($symlink_target_abs);
     if ($symlink_name_rel !~ m!/!) {
@@ -911,10 +914,10 @@ sub reversepath {
             $symlink_target_abs .= '/'.$_;
         }
     }
-    return &canonize_path($result);
+    return &canonicalize_path($result);
 }
 
-sub canonize_path {
+sub canonicalize_path {
     # works like realpath() but does not resolve symlinks
     my $path = shift;
     1 while $path =~ s!/\./!/!g;
@@ -922,7 +925,7 @@ sub canonize_path {
     1 while $path =~ s!/\.$!!g; # keep vim happy with this !
     1 while $path =~ s!
         (^|/)                # start of string or following /
-        (\.?[^./][^/]*
+        (?:\.?[^./][^/]*
         |\.\.[^/]+)          # any filename except ..
         /+                   # any number of slashes
         \.\.                 # the name '..'
@@ -2362,7 +2365,7 @@ sub handlesymlink {
     }
     &stty_raw($TERM_RAW);
     return $R_HEADER if $newname eq '';
-    $newname = &canonize_path($newname);
+    $newname = &canonicalize_path($newname);
     # expand \[3456] at this point as a test, but not \[127]
     &expand_3456_escapes($QUOTE_OFF, ($testname = $newname), \%currentfile);
     return $R_HEADER if &multi_to_single($testname);
@@ -2470,15 +2473,15 @@ sub handleunwo {
 
 sub handletarget {
     my ($newtarget, $newtargetexpanded, $oldtargetok, $loopfile, $do_this, $index);
+    my $do_a_refresh = $multiple_mode ? $R_DIRLIST | $R_HEADER : $R_HEADER;
     my $nosymlinkerror = 'Current file is not a symbolic link';
+    &markcurrentline('G') unless $multiple_mode;
     if ($currentfile{type} ne 'l' and !$multiple_mode) {
         $scr->at(0,0)->clreol();
         &display_error($nosymlinkerror);
         return $R_HEADER;
     }
     my $prompt = 'New symlink target: ';
-    my $do_a_refresh = $multiple_mode ? $R_DIRLIST | $R_HEADER : $R_HEADER;
-    &markcurrentline('G') unless $multiple_mode;
     $scr->at(0,0)->clreol();
     &stty_raw($TERM_COOKED);
     push (@path_history, $currentfile{target}) unless $multiple_mode;
@@ -5244,9 +5247,8 @@ be used.
 =item B<CDPATH>
 
 A colon-separated list of directories specifying the search path when
-changing directories. There is an implicit B<.> entry at the start of
-this search path. Make sure the variable is exported into the environment
-if you want to use this feature.
+changing directories. There is always an implicit B<.> entry at the start
+of this search path.
 
 =item B<EDITOR>
 
@@ -5342,7 +5344,7 @@ memory nowadays.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.92.9.
+This manual pertains to C<pfm> version 1.93.0.
 
 =head1 SEE ALSO
 
