@@ -2,9 +2,9 @@
 ############################################################################
 #
 # Name:         installpfm.sh
-# Version:      0.02
+# Version:      0.03
 # Authors:      Rene Uittenbogaard
-# Date:         2009-02-24
+# Date:         2009-09-17
 # Usage:        installpfm.sh
 # Description:  This is not a script, this is a manual.
 #		This is meant as an example how pfm dependencies can
@@ -12,7 +12,7 @@
 #		Comments and improvements are welcome!
 #
 
-VERSION=1.93.5
+VERSION=1.93.7
 
 ###############################################################################
 # functions
@@ -45,16 +45,21 @@ download_and_install_libreadline() {
 			echo 'pkgadd -d libreadline*pkg all'
 			break;;
 		Linux)
-			echo You will need to download and install libreadline.
-			echo Depending on your distribution:
-			echo '\tdownload it from e.g. http://www.rpmfind.net/'
-			echo '\tand install it using rpm, with something like:'
-			echo '\trpm -ivh libreadline*rpm'
-			echo or:
-			echo '\tdownload it from e.g. http://packages.debian.org/'
-			echo '\tand install it using apt-get, with something like:'
-			echo '\tapt-get install libreadline'
-			echo or use your distribution-specific commands.
+			if cat /etc/*-release 2>/dev/null | grep -i ubuntu >/dev/null; then
+				echo You will need to install libterm-readline-gnu-perl,
+				echo e.g. with a command like: apt-get install libterm-readline-gnu-perl
+			else
+				echo You will need to download and install libreadline.
+				echo Depending on your distribution:
+				echo '\tdownload it from e.g. http://www.rpmfind.net/'
+				echo '\tand install it using rpm, with something like:'
+				echo '\trpm -ivh libreadline*rpm'
+				echo or:
+				echo '\tdownload it from e.g. http://packages.debian.org/'
+				echo '\tand install it using apt-get, with something like:'
+				echo '\tapt-get install libreadline'
+				echo or use your distribution-specific commands.
+			fi
 			break;;
 		*)
 			echo You will need to download and install libreadline.
