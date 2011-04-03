@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2009-10-05 v1.94.0f2
+# @(#) pfm.pl 2009-10-05 v1.94.0h
 #
 # Name:			pfm
-# Version:		1.94.0f2
+# Version:		1.94.0h
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2009-10-05
@@ -1623,8 +1623,8 @@ sub header {
 		return 'Absolute, Relative symlink or Hard link:';
 	} else {
 		return	'Attribute Copy Delete Edit Find tarGet Include Link More Name'
-		.		' cOmmands Print Quit Rename Show Time User unWhiteout'
-		.		' eXclude Your-commands siZe';
+		.		' cOmmand Print Quit Rename Show Time User unWhiteout'
+		.		' eXclude Your-command siZe';
 	}
 }
 
@@ -4717,8 +4717,12 @@ in the F<.pfmrc> file. Otherwise vi(1) is used.
 
 =item B<Find>
 
-Prompts for a (partial) filename. While you type, the cursor is positioned
-on the best match. Type ENTER to end typing.
+If the current sort mode is by filename, you are prompted for a (partial)
+filename. While you type, the cursor is positioned on the best match. 
+Type ENTER to end typing.
+
+If the current sort mode is not by filename, then you are prompted for a
+filename. The cursor is then positioned on that file.
 
 =item B<tarGet>
 
@@ -5797,7 +5801,7 @@ up if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.94.0f2.
+This manual pertains to C<pfm> version 1.94.0h.
 
 =head1 AUTHOR and COPYRIGHT
 
