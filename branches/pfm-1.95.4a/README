@@ -1,0 +1,65 @@
+
+
+Package: pfm-1.95.0
+
+
+This package is available from http://sourceforge.net/projects/p-f-m/
+
+Prerequisites for this package, in dependency order:
+
+                           at least      preferred
+gcc                        ?
+  perl                     5.6           5.10
+  ncurses                  ?             5
+    Term-Screen            1.02          1.03
+      Term-Screen-Uni      0.04          0.04
+        Term-ScreenColor   1.09          1.10
+  readline                 4.1           5
+    Term-ReadLine-Gnu      1.09          1.19
+      pfm                  -             1.95.0
+
+If you run Ubuntu, it is advisable to install the following packages:
+
+libncurses5
+libncurses5-dev
+libreadline5
+libreadline5-dev
+libterm-readline-gnu-perl
+
+
+If you are upgrading from an older version, you are strongly advised
+to rename your ~/.pfm/.pfmrc and compare it with the default config file
+that pfm automatically generates for you.
+
+
+Notes:
+
+* As of version 1.92.6, the meaning of the 'defaultdotmode' option
+  has been inverted. 'dot_mode' set now means that dotfiles *will* be shown.
+
+* As of version 1.92.0, the config file has been extended with options
+  necessary for the launch functionality. Please check the new options in
+  the default config file.
+
+* As of version 1.91.7, the column layouts in your .pfmrc need to specify
+  the location of the diskinfo column. You may update your .pfmrc using
+  the script 'mend_diskinfo.pl'.
+
+* As of version 1.91.6, the 'dircolors[]' and 'framecolors[]' option values
+  may use both numerical values and color names.
+  You may use the script 'mend_colors.pl' if you want to convert the
+  color codes in your old .pfmrc to colornames.
+
+* As of version 1.89, quoting behavior has changed. You will have
+  to remove the double quotes around \1, \2 etc. in your config file.
+  The script 'mend_quotes.pl' is provided to convert your .pfmrc to the
+  new format.
+
+* As of version 1.84, the (Y)our commands must be specified in a different
+  format. Use the script 'mend_your_cmnds.pl' if you want to convert the
+  (Y)our commands in your old .pfmrc to the new format.
+
+* On HP-UX 11.00, the file /etc/termcap does not seem to contain an 'me'
+  entry. You need to add it in order to make Term::Screen function
+  correctly, for example :me=\E[0m:
+
