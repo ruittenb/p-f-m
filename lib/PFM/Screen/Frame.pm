@@ -248,10 +248,10 @@ sub show_menu {
 	}
 	$_screen->at(0,0);
 	if ($do_multi) {
-		$color = $_pfm->config->{framecolors}{$_pfm->state->color_mode}{multi};
+		$color = $_pfm->config->{framecolors}{$_pfm->state->{color_mode}}{multi};
 		$_screen->putcolored($color, 'Multiple');
 	}
-	$color = $_pfm->config->{framecolors}{$_pfm->state->color_mode}{menu};
+	$color = $_pfm->config->{framecolors}{$_pfm->state->{color_mode}}{menu};
 	$_screen->color($color)->puts(' ' x $do_multi)->puts($menu)->bold();
 	while ($menu =~ /[[:upper:]<>](?!nclude\?)/g) {
 		$pos = pos($menu) -1;
@@ -283,8 +283,8 @@ sub show_headings {
 #	$_fieldheadings{display} = sprintf('%s (%s%s%s)', $_fieldheadings{name},
 #		$sort_mode, ('%','')[$white_mode], ('.','')[$dot_mode]);
 	$linecolor = $swapmode
-		? $_pfm->config->framecolors->{$_pfm->state->{color_mode}}{swap}
-		: $_pfm->config->framecolors->{$_pfm->state->{color_mode}}{headings};
+		? $_pfm->config->{framecolors}->{$_pfm->state->{color_mode}}{swap}
+		: $_pfm->config->{framecolors}->{$_pfm->state->{color_mode}}{headings};
 #	$_screen->bold()		if ($linecolor =~ /bold/);
 #	$_screen->reverse()		if ($linecolor =~ /reverse/);
 #	$_screen->underline()	if ($linecolor =~ /under(line|score)/);
@@ -310,7 +310,7 @@ sub show_footer {
 	my $footer	  = $self->_fitbanner($self->_getfooter(), $width);
 	my $padding	  = ' ' x ($width - length $footer);
 	my $linecolor =
-		$_pfm->config->{framecolors}{$_pfm->state->color_mode}{footer};
+		$_pfm->config->{framecolors}{$_pfm->state->{color_mode}}{footer};
 #	$screen->bold()			if ($linecolor =~ /bold/);
 #	$screen->reverse()		if ($linecolor =~ /reverse/);
 #	$screen->underline()	if ($linecolor =~ /under(line|score)/);

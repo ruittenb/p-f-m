@@ -63,7 +63,7 @@ Initializes new instances. Called from the constructor.
 =cut
 
 sub _init {
-	my ($self, $pfm, $path)	= shift;
+	my ($self, $pfm, $path)	= @_;
 	$_pfm					= $pfm;
 	$_path					= $path;
 }
@@ -241,19 +241,19 @@ sub chdir {
 		foreach (split /:/, $ENV{CDPATH}) {
 			if (-d "$_/$target") {
 				$target = "$_/$target";
-				$screen->at(0,0)->clreol();
-				$screen->display_error("Using $target");
-				$screen->at(0,0);
+				$screen->at(0,0)->clreol()
+					->display_error("Using $target")
+					->at(0,0);
 				last;
 			}
 		}
 	}
 	$target = canonicalize_path($target);
 	if ($result = chdir $target and $target ne $_path) {
-		$_pfm->state(2) = $_pfm->state->clone();
+		$_pfm->state(2, $_pfm->state->clone());
 		# TODO store _path in state->_position
 		$_path = $target;
-		$chdirautocmd = $_pfm->config->chdirautocmd;
+		$chdirautocmd = $_pfm->config->{chdirautocmd};
 		system("$chdirautocmd") if length($chdirautocmd);
 		$screen->set_deferred_refresh($screen->R_CHDIR);
 	}
@@ -344,7 +344,7 @@ sub stat_entry {
 		ctimestring => $self->stamp2str($ctime),
 	};
 	@{$ptr}{qw(size_num size_power)} =
-		fit2limit($size, $_pfm->state->listing->maxfilesizelength);
+		fit2limit($size, $_pfm->screen->listing->maxfilesizelength);
 	$ptr->{type} = substr($ptr->{mode}, 0, 1);
 	if ($ptr->{type} eq 'l') {
 		$ptr->{target}  = readlink($ptr->{name});
@@ -358,7 +358,7 @@ sub stat_entry {
 	} else {
 		$ptr->{display} = $entry . $filetypeflags{$ptr->{type}};
 	}
-	$ptr->{name_too_long} = length($ptr->{display}) > $_pfm->state->listing->maxfilenamelength-1
+	$ptr->{name_too_long} = length($ptr->{display}) > $_pfm->screen->listing->maxfilenamelength-1
 							? $_pfm->state->listing->NAMETOOLONGCHAR : ' ';
 	$_total_nr_of{ $ptr->{type} }++; # this is wrong! e.g. after cOmmand
 	return $ptr;
@@ -448,7 +448,7 @@ sub readcontents {
 	}
 	$screen->set_deferred_refresh($screen->R_MENU | $screen->R_HEADINGS);
 	# TODO
-	handlemorercsopen() if $_pfm->config->{autorcs};
+	$_pfm->job->start('Subversion') if $_pfm->config->{autorcs};
 	return @contents;
 }
 

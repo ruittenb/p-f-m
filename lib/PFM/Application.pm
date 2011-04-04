@@ -210,8 +210,12 @@ sub _check_for_updates {
 
 =item history()
 
-Getters for the PFM::Screen, PFM::CommandHandler, PFM::Config and
-PFM::History objects.
+=item job()
+
+=item browser()
+
+Getters for the objects: PFM::Screen, PFM::CommandHandler, PFM::Config,
+PFM::History, PFM::Job and PFM::Browser.
 
 =item state()
 
@@ -236,10 +240,21 @@ sub history {
 	return $_history;
 }
 
+sub job {
+	return $_job;
+}
+
+sub browser {
+	return $_browser;
+}
+
 sub state {
-	my ($self, $value) = @_;
-	$value ||= 0;
-	return $_states[$value];
+	my ($self, $index, $value) = @_;
+	$index ||= 0;
+	if (defined $value) {
+		$_states[$index] = $value;
+	}
+	return $_states[$index];
 }
 
 ##########################################################################

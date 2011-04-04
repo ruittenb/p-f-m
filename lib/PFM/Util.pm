@@ -158,7 +158,7 @@ Returns a line that has been formatted using Perl formatting algorithm.
 
 sub formatted (@) {
 	local $^A = '';
-	formline(shift(), @_);
+	formline(shift, @_);
 	return $^A;
 }
 

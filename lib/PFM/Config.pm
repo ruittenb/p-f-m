@@ -111,7 +111,7 @@ Prints a short copyright message. Called at startup.
 =cut
 
 sub _copyright {
-	my ($self) = @_;
+	my ($self, $delay) = @_;
 	# lookalike to DOS version :)
 	# note that configured colors are not yet known
 	my $lastyear = $_pfm->{LASTYEAR};
@@ -123,7 +123,7 @@ sub _copyright {
 		->at(2,0)->puts("This software comes with no warranty: " .
 						"see the file COPYING for details.")
 		->reset()->normal();
-	return $_pfm->screen->key_pressed($_[0]);
+	return $_pfm->screen->key_pressed($delay);
 }
 
 =item _parse_colorsets()
@@ -365,7 +365,7 @@ sub apply {
 	$screen->alternate_on()	if $self->{altscreen_mode};
 	# TODO hand variables over to $_pfm->state
 	# now set color_mode if unset
-	$_pfm->state->color_mode ||= defined($ENV{ANSI_COLORS_DISABLED})
+	$_pfm->state->{color_mode} ||= defined($ENV{ANSI_COLORS_DISABLED})
 		? 'off'
 		: $_pfmrc{defaultcolorset} || (defined $self->{dircolors}{ls_colors}
 									? 'ls_colors'

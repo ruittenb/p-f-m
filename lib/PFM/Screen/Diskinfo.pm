@@ -98,7 +98,9 @@ column the diskinfo area starts.
 
 sub infocol {
 	my ($self, $value) = @_;
-	$_infocol = $value if defined $value;
+	if (defined $value) {
+		$_infocol = $value >= 0 ? $value : 0;
+	}
 	return $_infocol;
 }
 
