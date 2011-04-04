@@ -144,11 +144,11 @@ our($FALSE,
 #	$HEADER_SORT,
 #	$HEADER_INCLUDE,
 #	$HEADER_LNKTYPE,
-#	$TITLE_DISKINFO,
-#	$TITLE_YCOMMAND,
-#	$TITLE_SIGNAL,
-#	$TITLE_SORT,
-#	$TITLE_ESCAPE,
+#	$HEADING_DISKINFO,
+#	$HEADING_YCOMMAND,
+#	$HEADING_SIGNAL,
+#	$HEADING_SORT,
+#	$HEADING_ESCAPE,
 #	$R_NOP,
 #	$R_STRIDE,
 #	$R_MENU,
@@ -188,8 +188,8 @@ our($FALSE,
 #*TERM_COOKED	= \1;
 *FILENAME_SHORT	= \0;
 *FILENAME_LONG	= \1;
-*HIGHLIGHT_OFF	= \0;
-*HIGHLIGHT_ON	= \1;
+#*HIGHLIGHT_OFF	= \0;
+#*HIGHLIGHT_ON	= \1;
 #*TIME_FILE		= \0;
 #*TIME_CLOCK		= \1;
 #*HEADER_SINGLE	= \0;
@@ -198,11 +198,11 @@ our($FALSE,
 #*HEADER_SORT	= \4;
 #*HEADER_INCLUDE	= \8;
 #*HEADER_LNKTYPE	= \16;
-#*TITLE_DISKINFO	= \0;
-#*TITLE_YCOMMAND	= \1;
-#*TITLE_SIGNAL	= \2;
-#*TITLE_SORT		= \3;
-#*TITLE_ESCAPE	= \4;
+#*HEADING_DISKINFO	= \0;
+#*HEADING_YCOMMAND	= \1;
+#*HEADING_SIGNAL	= \2;
+#*HEADING_SORT		= \3;
+#*HEADING_ESCAPE	= \4;
 #*R_NOP			= \0;
 #*R_STRIDE		= \1;
 #*R_MENU		= \2;
@@ -232,12 +232,12 @@ our($FALSE,
 #my $CWDFILENAME			= 'cwd';
 #my $SWDFILENAME			= 'swd';
 my $LOSTMSG				= '';   # was ' (file lost)'; # now shown through coloring
-my $MAJORMINORSEPARATOR	= ',';
-my $NAMETOOLONGCHAR		= '+';
+#my $MAJORMINORSEPARATOR	= ',';
+#my $NAMETOOLONGCHAR		= '+';
 #my $MAXHISTSIZE			= 70;
 #my $ERRORDELAY			= 1;    # in seconds (fractions allowed)
 #my $IMPORTANTDELAY		= 2;    # extra time for important errors
-my $SLOWENTRIES			= 300;
+#my $SLOWENTRIES			= 300;
 #my $PATHLINE			= 1;
 #my $BASELINE			= 3;
 #my $DISKINFOLINE		= 4;
@@ -248,7 +248,7 @@ my $SLOWENTRIES			= 300;
 my $DFCMD				= ($^O eq 'hpux') ? 'bdf' : ($^O eq 'sco') ? 'dfspace' : 'df -k';
 
 #my $XTERMS				= qr/^(.*xterm.*|rxvt.*|gnome|kterm)$/;
-my @SYMBOLIC_MODES		= qw(--- --x -w- -wx r-- r-x rw- rwx);
+#my @SYMBOLIC_MODES		= qw(--- --x -w- -wx r-- r-x rw- rwx);
 #my %IDENTMODES			= ( user => 0, host => 1, 'user@host' => 2);
 my %NUMFORMATS			= ( 'hex' => '%#04lx', 'oct' => '%03lo');
 
@@ -695,16 +695,16 @@ my (
 #	return ($ver, $year);
 #}
 #
-sub find_uid {
-	my $uid = $_[0];
-	return $usercache{$uid} || +($usercache{$uid} = scalar(defined($uid) ? getpwuid($uid) : '') || $uid);
-}
-
-sub find_gid {
-	my $gid = $_[0];
-	return $groupcache{$gid} || +($groupcache{$gid} = scalar(defined($gid) ? getgrgid($gid) : '') || $gid);
-}
-
+#sub find_uid {
+#	my $uid = $_[0];
+#	return $usercache{$uid} || +($usercache{$uid} = scalar(defined($uid) ? getpwuid($uid) : '') || $uid);
+#}
+#
+#sub find_gid {
+#	my $gid = $_[0];
+#	return $groupcache{$gid} || +($groupcache{$gid} = scalar(defined($gid) ? getgrgid($gid) : '') || $gid);
+#}
+#
 #sub init_signames {
 #	my $i = 0;
 #	my @signame;
@@ -745,37 +745,37 @@ sub find_gid {
 #	}
 #}
 #
-sub mode2str {
-	my $strmode;
-	my $nummode = shift; # || 0;
-	my $octmode = sprintf("%lo", $nummode);
-	$octmode	=~ /(\d\d?)(\d)(\d)(\d)(\d)$/;
-	$strmode	= substr('-pc?d?b?-nl?sDw?', oct($1) & 017, 1)
-				. $SYMBOLIC_MODES[$3] . $SYMBOLIC_MODES[$4] . $SYMBOLIC_MODES[$5];
-	# 0000                000000  unused
-	# 1000  S_IFIFO   p|  010000  fifo (named pipe)
-	# 2000  S_IFCHR   c   020000  character special
-	# 3000  S_IFMPC       030000  multiplexed character special (V7)
-	# 4000  S_IFDIR   d/  040000  directory
-	# 5000  S_IFNAM       050000  XENIX named special file with two subtypes, distinguished by st_rdev values 1,2
-	# 0001  S_INSEM   s   000001  semaphore
-	# 0002  S_INSHD   m   000002  shared data
-	# 6000  S_IFBLK   b   060000  block special
-	# 7000  S_IFMPB       070000  multiplexed block special (V7)
-	# 8000  S_IFREG   -   100000  regular
-	# 9000  S_IFNWK   n   110000  network special (HP-UX)
-	# a000  S_IFLNK   l@  120000  symbolic link
-	# b000  S_IFSHAD      130000  Solaris ACL shadow inode,not seen by userspace
-	# c000  S_IFSOCK  s=  140000  socket
-	# d000  S_IFDOOR  D>  150000  Solaris door
-	# e000  S_IFWHT   w%  160000  BSD whiteout
-	#
-	if ($2 & 4) {		substr( $strmode,3,1) =~ tr/-x/Ss/ }
-	if ($2 & 2) { eval "substr(\$strmode,6,1) =~ tr/-x/${showlockchar}s/" }
-	if ($2 & 1) {		substr( $strmode,9,1) =~ tr/-x/Tt/ }
-	return $strmode;
-}
-
+#sub mode2str {
+#	my $strmode;
+#	my $nummode = shift; # || 0;
+#	my $octmode = sprintf("%lo", $nummode);
+#	$octmode	=~ /(\d\d?)(\d)(\d)(\d)(\d)$/;
+#	$strmode	= substr('-pc?d?b?-nl?sDw?', oct($1) & 017, 1)
+#				. $SYMBOLIC_MODES[$3] . $SYMBOLIC_MODES[$4] . $SYMBOLIC_MODES[$5];
+#	# 0000                000000  unused
+#	# 1000  S_IFIFO   p|  010000  fifo (named pipe)
+#	# 2000  S_IFCHR   c   020000  character special
+#	# 3000  S_IFMPC       030000  multiplexed character special (V7)
+#	# 4000  S_IFDIR   d/  040000  directory
+#	# 5000  S_IFNAM       050000  XENIX named special file with two subtypes, distinguished by st_rdev values 1,2
+#	# 0001  S_INSEM   s   000001  semaphore
+#	# 0002  S_INSHD   m   000002  shared data
+#	# 6000  S_IFBLK   b   060000  block special
+#	# 7000  S_IFMPB       070000  multiplexed block special (V7)
+#	# 8000  S_IFREG   -   100000  regular
+#	# 9000  S_IFNWK   n   110000  network special (HP-UX)
+#	# a000  S_IFLNK   l@  120000  symbolic link
+#	# b000  S_IFSHAD      130000  Solaris ACL shadow inode,not seen by userspace
+#	# c000  S_IFSOCK  s=  140000  socket
+#	# d000  S_IFDOOR  D>  150000  Solaris door
+#	# e000  S_IFWHT   w%  160000  BSD whiteout
+#	#
+#	if ($2 & 4) {		substr( $strmode,3,1) =~ tr/-x/Ss/ }
+#	if ($2 & 2) { eval "substr(\$strmode,6,1) =~ tr/-x/${showlockchar}s/" }
+#	if ($2 & 1) {		substr( $strmode,9,1) =~ tr/-x/Tt/ }
+#	return $strmode;
+#}
+#
 #sub fit2limit {
 #	my $size_power = ' ';
 #	# size_num might be uninitialized or major/minor
@@ -1023,27 +1023,27 @@ sub reversepath {
 	return canonicalize_path($result);
 }
 
-sub canonicalize_path {
-	# works like realpath() but does not resolve symlinks
-	my $path = shift;
-	1 while $path =~ s!/\./!/!g;
-	1 while $path =~ s!^\./+!!g;
-	1 while $path =~ s!/\.$!!g; # keep vim happy with this !
-	1 while $path =~ s!
-		(^|/)				# start of string or following /
-		(?:\.?[^./][^/]*
-		|\.\.[^/]+)			# any filename except ..
-		/+					# any number of slashes
-		\.\.				# the name '..'
-		(?=/|$)				# followed by nothing or a slash
-		!$1!gx;
-	1 while $path =~ s!//!/!g;
-	1 while $path =~ s!^/\.\.(/|$)!/!g;
-	$path =~ s!(.)/$!$1!g; # keep vim happy with this !
-	length($path) or $path = '/';
-	return $path;
-}
-
+#sub canonicalize_path {
+#	# works like realpath() but does not resolve symlinks
+#	my $path = shift;
+#	1 while $path =~ s!/\./!/!g;
+#	1 while $path =~ s!^\./+!!g;
+#	1 while $path =~ s!/\.$!!g; # keep vim happy with this !
+#	1 while $path =~ s!
+#		(^|/)				# start of string or following /
+#		(?:\.?[^./][^/]*
+#		|\.\.[^/]+)			# any filename except ..
+#		/+					# any number of slashes
+#		\.\.				# the name '..'
+#		(?=/|$)				# followed by nothing or a slash
+#		!$1!gx;
+#	1 while $path =~ s!//!/!g;
+#	1 while $path =~ s!^/\.\.(/|$)!/!g;
+#	$path =~ s!(.)/$!$1!g; # keep vim happy with this !
+#	length($path) or $path = '/';
+#	return $path;
+#}
+#
 sub reducepaths {
 	# remove identical prefix from path
 	my ($symlink_target_abs, $symlink_name_abs) = @_;
@@ -1148,9 +1148,10 @@ sub reformat {
 	foreach (@dircontents) {
 		$_->{name_too_long} = length($_->{display}) > $maxfilenamelength-1
 			? $NAMETOOLONGCHAR : ' ';
-		# TODO next line ignores the fact that size_num could be major/minor
-		@{$_}{qw(size_num size_power)} =
-			fit2limit($_->{size}, $maxfilesizelength);
+		unless ($_->{type} =~ /[bc]/) {
+			@{$_}{qw(size_num size_power)} =
+				fit2limit($_->{size}, $maxfilesizelength);
+		}
 		@{$_}{qw(grand_num grand_power)} =
 			fit2limit($_->{grand}, $maxgrandtotallength);
 		@{$_}{qw(atimestr ctimestr mtimestr)} =
@@ -1447,71 +1448,71 @@ sub makeformatlines {
 	return $currentformatline;
 }
 
-sub pathline {
-	my ($path, $dev, $displen, $ellipssize) = @_;
-	my $overflow	 = ' ';
-	my $ELLIPSIS	 = '..';
-	my $normaldevlen = 12;
-	my $actualdevlen = max($normaldevlen, length($dev));
-	# the three in the next exp is the length of the overflow char plus the '[]'
-	my $maxpathlen   = $screenwidth - $actualdevlen -3;
-	my ($restpathlen, $disppath);
-	$dev = $dev . ' 'x max($actualdevlen -length($dev), 0);
-	FIT: {
-		# the next line is supposed to contain an assignment
-		unless (length($path) <= $maxpathlen and $disppath = $path) {
-			# no fit: try to replace (part of) the name with ..
-			# we will try to keep the first part e.g. /usr1/ because this often
-			# shows the filesystem we're on; and as much as possible of the end
-			unless ($path =~ /^(\/[^\/]+?\/)(.+)/) {
-				# impossible to replace; just truncate
-				# this is the case for e.g. /some_ridiculously_long_directory_name
-				$disppath = substr($path, 0, $maxpathlen);
-				$$displen = $maxpathlen;
-				$overflow = $NAMETOOLONGCHAR;
-				last FIT;
-			}
-			($disppath, $path) = ($1, $2);
-			$$displen = length($disppath);
-			# the one being subtracted is for the '/' char in the next match
-			$restpathlen = $maxpathlen -length($disppath) -length($ELLIPSIS) -1;
-			unless ($path =~ /(.*?)(\/.{1,$restpathlen})$/) {
-				# impossible to replace; just truncate
-				# this is the case for e.g. /usr/some_ridiculously_long_directory_name
-				$disppath = substr($disppath.$path, 0, $maxpathlen);
-				$overflow = $NAMETOOLONGCHAR;
-				last FIT;
-			}
-			# pathname component candidate for replacement found; name will fit
-			$disppath .= $ELLIPSIS . $2;
-			$$ellipssize = length($1) - length($ELLIPSIS);
-		}
-	}
-	return $disppath . ' 'x max($maxpathlen -length($disppath), 0)
-		 . $overflow . "[$dev]";
-}
+#sub pathline {
+#	my ($path, $dev, $displen, $ellipssize) = @_;
+#	my $overflow	 = ' ';
+#	my $ELLIPSIS	 = '..';
+#	my $normaldevlen = 12;
+#	my $actualdevlen = max($normaldevlen, length($dev));
+#	# the three in the next exp is the length of the overflow char plus the '[]'
+#	my $maxpathlen   = $screenwidth - $actualdevlen -3;
+#	my ($restpathlen, $disppath);
+#	$dev = $dev . ' 'x max($actualdevlen -length($dev), 0);
+#	FIT: {
+#		# the next line is supposed to contain an assignment
+#		unless (length($path) <= $maxpathlen and $disppath = $path) {
+#			# no fit: try to replace (part of) the name with ..
+#			# we will try to keep the first part e.g. /usr1/ because this often
+#			# shows the filesystem we're on; and as much as possible of the end
+#			unless ($path =~ /^(\/[^\/]+?\/)(.+)/) {
+#				# impossible to replace; just truncate
+#				# this is the case for e.g. /some_ridiculously_long_directory_name
+#				$disppath = substr($path, 0, $maxpathlen);
+#				$$displen = $maxpathlen;
+#				$overflow = $NAMETOOLONGCHAR;
+#				last FIT;
+#			}
+#			($disppath, $path) = ($1, $2);
+#			$$displen = length($disppath);
+#			# the one being subtracted is for the '/' char in the next match
+#			$restpathlen = $maxpathlen -length($disppath) -length($ELLIPSIS) -1;
+#			unless ($path =~ /(.*?)(\/.{1,$restpathlen})$/) {
+#				# impossible to replace; just truncate
+#				# this is the case for e.g. /usr/some_ridiculously_long_directory_name
+#				$disppath = substr($disppath.$path, 0, $maxpathlen);
+#				$overflow = $NAMETOOLONGCHAR;
+#				last FIT;
+#			}
+#			# pathname component candidate for replacement found; name will fit
+#			$disppath .= $ELLIPSIS . $2;
+#			$$ellipssize = length($1) - length($ELLIPSIS);
+#		}
+#	}
+#	return $disppath . ' 'x max($maxpathlen -length($disppath), 0)
+#		 . $overflow . "[$dev]";
+#}
+#
+#sub fileline { # $currentfile, @layoutfields
+#	my ($currentfile, @fields) = @_;
+#	return formatted($currentformatline, @{$currentfile}{@fields});
+#}
 
-sub fileline { # $currentfile, @layoutfields
-	my ($currentfile, @fields) = @_;
-	return formatted($currentformatline, @{$currentfile}{@fields});
-}
-
-sub highlightline { # true/false
-	my $linecolor;
-	$scr->at($currentline + $BASELINE, $filerecordcol);
-	if ($_[0] == $HIGHLIGHT_ON) {
-		$linecolor = $framecolors{$color_mode}{highlight};
-		$scr->bold()		if ($linecolor =~ /bold/);
-		$scr->reverse()		if ($linecolor =~ /reverse/);
-#		$scr->underline()	if ($linecolor =~ /under(line|score)/);
-		$scr->term()->Tputs('us', 1, *STDOUT)
-							if ($linecolor =~ /under(line|score)/);
-	}
-	$scr->putcolored($linecolor, fileline(\%currentfile, @layoutfields));
-	applycolor($currentline + $BASELINE, $FILENAME_SHORT, %currentfile);
-	$scr->reset()->normal()->at($currentline + $BASELINE, $cursorcol);
-}
-
+#sub highlightline { # true/false
+#	my $linecolor;
+#	$scr->at($currentline + $BASELINE, $filerecordcol);
+#	if ($_[0] == $HIGHLIGHT_ON) {
+#		$linecolor = $framecolors{$color_mode}{highlight};
+#		$scr->bold()		if ($linecolor =~ /bold/);
+#		$scr->reverse()		if ($linecolor =~ /reverse/);
+##		$scr->underline()	if ($linecolor =~ /under(line|score)/);
+#		$scr->term()->Tputs('us', 1, *STDOUT)
+#							if ($linecolor =~ /under(line|score)/);
+#	}
+#	$scr->putcolored($linecolor, fileline(\%currentfile, @layoutfields));
+#	applycolor($currentline + $BASELINE, $FILENAME_SHORT, %currentfile);
+#	$scr->reset()->normal()->at($currentline + $BASELINE, $cursorcol);
+#}
+#
 sub markcurrentline { # letter
 	$scr->at($currentline + $BASELINE, $cursorcol)->puts($_[0]);
 }
@@ -1624,19 +1625,19 @@ sub promptforwildfilename {
 #
 #sub draw_frame {
 #	show_menu();
-#	show_headings($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
+#	show_headings($swap_mode, $HEADING_DISKINFO);
 #	show_footer();
 #}
 #
-#sub show_headings { # swap_mode, extra field, @layoutfieldswithinfo
+#sub show_headings { # swap_mode, extra field
 #	my ($smode, $info, @fields) = @_;
 #	my $linecolor;
 #	for ($info) {
-#		$_ == $TITLE_DISKINFO	and $FIELDHEADINGS{diskinfo} = ' ' x ($infolength-14) . '     disk info';
-#		$_ == $TITLE_SORT		and $FIELDHEADINGS{diskinfo} = 'sort mode     ' . ' ' x ($infolength-14);
-#		$_ == $TITLE_SIGNAL		and $FIELDHEADINGS{diskinfo} = '  nr signal   ' . ' ' x ($infolength-14);
-#		$_ == $TITLE_YCOMMAND	and $FIELDHEADINGS{diskinfo} = 'your commands ' . ' ' x ($infolength-14);
-#		$_ == $TITLE_ESCAPE		and $FIELDHEADINGS{diskinfo} = 'esc legend    ' . ' ' x ($infolength-14);
+#		$_ == $HEADING_DISKINFO	and $FIELDHEADINGS{diskinfo} = ' ' x ($infolength-14) . '     disk info';
+#		$_ == $HEADING_SORT		and $FIELDHEADINGS{diskinfo} = 'sort mode     ' . ' ' x ($infolength-14);
+#		$_ == $HEADING_SIGNAL		and $FIELDHEADINGS{diskinfo} = '  nr signal   ' . ' ' x ($infolength-14);
+#		$_ == $HEADING_YCOMMAND	and $FIELDHEADINGS{diskinfo} = 'your commands ' . ' ' x ($infolength-14);
+#		$_ == $HEADING_ESCAPE		and $FIELDHEADINGS{diskinfo} = 'esc legend    ' . ' ' x ($infolength-14);
 #	}
 ##	$FIELDHEADINGS{display} = $FIELDHEADINGS{name} . ' (' . $sort_mode . ('%','')[$white_mode] . ('.','')[$dot_mode] . ')';
 #	$linecolor = $smode ? $framecolors{$color_mode}{swap}
@@ -2120,11 +2121,11 @@ sub handlercspipe {
 		close RCSPIPE;
 		$rcsrunning = 0;
 		$FIELDHEADINGS{'svn'} =~ s/!+$//;
-		show_headings($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
+		show_headings($swap_mode, $HEADING_DISKINFO);
 	}
 }
 
-sub handlepipes {
+sub pollall { # was handlepipes
 	handlercspipe();
 }
 
@@ -2522,7 +2523,7 @@ sub handlemorekill {
 	my $prompt    = 'Signal to send to child processes: ';
 	my $signal    = 'TERM';
 	my $err;
-	show_headings($swap_mode, $TITLE_SIGNAL, @layoutfieldswithinfo);
+	show_headings($swap_mode, $HEADING_SIGNAL);
 	clearcolumn();
 	foreach (1 .. min($#signame, $screenheight)+1) {
 		$scr->at($printline++, $infocol)->puts(sprintf('  %2d %s', $_, $signame[$_]));
@@ -2735,7 +2736,7 @@ sub handlesort {
 	my %sortmodes = @SORTMODES;
 	my ($i, $key, $headerlength);
 	$headerlength = show_menu($HEADER_SORT);
-	show_headings($swap_mode, $TITLE_SORT, @layoutfieldswithinfo);
+	show_headings($swap_mode, $HEADING_SORT);
 	clearcolumn();
 	# we can't use foreach (keys %SORTMODES) because we would lose ordering
 	foreach (grep { ($i += 1) %= 2 } @SORTMODES) { # keep keys, skip values
@@ -3038,7 +3039,7 @@ sub handlecommand { # Y or O
 	markcurrentline(uc($_[0])) unless $multiple_mode;
 	clearcolumn();
 	if ($_[0] =~ /y/i) { # Your
-		show_headings($swap_mode, $TITLE_YCOMMAND, @layoutfieldswithinfo);
+		show_headings($swap_mode, $HEADING_YCOMMAND);
 		foreach (sort alphabetically keys %pfmrc) {
 			if (/^your\[[[:alpha:]]\]$/ && $printline <= $BASELINE+$screenheight) {
 				$printstr = $pfmrc{$_};
@@ -3054,7 +3055,7 @@ sub handlecommand { # Y or O
 		return $R_DISKINFO | $R_FRAME unless $command = $pfmrc{"your[$key]"};
 		stty_raw($TERM_COOKED);
 	} else { # cOmmand
-		show_headings($swap_mode, $TITLE_ESCAPE, @layoutfieldswithinfo);
+		show_headings($swap_mode, $HEADING_ESCAPE);
 		foreach (sort escape_middle keys %CMDESCAPES, $e) {
 			if ($printline <= $BASELINE+$screenheight) {
 				$scr->at($printline++, $infocol)->puts(sprintf(' %1s%1s %s', $e, $_, $CMDESCAPES{$_} || "literal $e"));
@@ -3758,48 +3759,48 @@ sub handlepathjump {
 ##########################################################################
 # directory browsing helper routines
 
-sub stat_entry { # path_of_entry, selected_flag
-	# the second argument is used to have the caller specify whether the
-	# 'selected' field of the file info should be cleared (when reading
-	# a new directory) or kept intact (when re-statting)
-	my ($entry, $selected_flag) = @_;
-	my ($ptr, $name_too_long, $target);
-	my ($device, $inode, $mode, $nlink, $uid, $gid, $rdev, $size,
-		$atime, $mtime, $ctime, $blksize, $blocks) = lstat $entry;
-	$ptr = {
-		name		=> $entry,			device		=> $device,
-		uid			=> find_uid($uid),	inode		=> $inode,
-		gid			=> find_gid($gid),	nlink		=> $nlink,
-		mode		=> mode2str($mode),	rdev		=> $rdev,
-		selected	=> $selected_flag,	grand_power	=> ' ',
-		atime		=> $atime,			size		=> $size,
-		mtime		=> $mtime,			blocks		=> $blocks,
-		ctime		=> $ctime,			blksize		=> $blksize,
-		svn			=> '-',
-		atimestring => time2str($atime, $TIME_FILE),
-		mtimestring => time2str($mtime, $TIME_FILE),
-		ctimestring => time2str($ctime, $TIME_FILE),
-	};
-	@{$ptr}{qw(size_num size_power)} = fit2limit($size, $maxfilesizelength);
-	$ptr->{type} = substr($ptr->{mode}, 0, 1);
-	if ($ptr->{type} eq 'l') {
-		$ptr->{target}  = readlink($ptr->{name});
-		$ptr->{display} = $entry . $filetypeflags{'l'}
-						. ' -> ' . $ptr->{target};
-	} elsif ($ptr->{type} eq '-' and $ptr->{mode} =~ /.[xst]/) {
-		$ptr->{display} = $entry . $filetypeflags{'x'};
-	} elsif ($ptr->{type} =~ /[bc]/) {
-		$ptr->{size_num} = sprintf("%d", $rdev / $rdevtomajor) . $MAJORMINORSEPARATOR . ($rdev % $rdevtomajor);
-		$ptr->{display} = $entry . $filetypeflags{$ptr->{type}};
-	} else {
-		$ptr->{display} = $entry . $filetypeflags{$ptr->{type}};
-	}
-	$ptr->{name_too_long} = length($ptr->{display}) > $maxfilenamelength-1
-							? $NAMETOOLONGCHAR : ' ';
-	$total_nr_of{ $ptr->{type} }++; # this is wrong! e.g. after cOmmand
-	return $ptr;
-}
-
+#sub stat_entry { # path_of_entry, selected_flag
+#	# the second argument is used to have the caller specify whether the
+#	# 'selected' field of the file info should be cleared (when reading
+#	# a new directory) or kept intact (when re-statting)
+#	my ($entry, $selected_flag) = @_;
+#	my ($ptr, $name_too_long, $target);
+#	my ($device, $inode, $mode, $nlink, $uid, $gid, $rdev, $size,
+#		$atime, $mtime, $ctime, $blksize, $blocks) = lstat $entry;
+#	$ptr = {
+#		name		=> $entry,			device		=> $device,
+#		uid			=> find_uid($uid),	inode		=> $inode,
+#		gid			=> find_gid($gid),	nlink		=> $nlink,
+#		mode		=> mode2str($mode),	rdev		=> $rdev,
+#		selected	=> $selected_flag,	grand_power	=> ' ',
+#		atime		=> $atime,			size		=> $size,
+#		mtime		=> $mtime,			blocks		=> $blocks,
+#		ctime		=> $ctime,			blksize		=> $blksize,
+#		svn			=> '-',
+#		atimestring => time2str($atime, $TIME_FILE),
+#		mtimestring => time2str($mtime, $TIME_FILE),
+#		ctimestring => time2str($ctime, $TIME_FILE),
+#	};
+#	@{$ptr}{qw(size_num size_power)} = fit2limit($size, $maxfilesizelength);
+#	$ptr->{type} = substr($ptr->{mode}, 0, 1);
+#	if ($ptr->{type} eq 'l') {
+#		$ptr->{target}  = readlink($ptr->{name});
+#		$ptr->{display} = $entry . $filetypeflags{'l'}
+#						. ' -> ' . $ptr->{target};
+#	} elsif ($ptr->{type} eq '-' and $ptr->{mode} =~ /.[xst]/) {
+#		$ptr->{display} = $entry . $filetypeflags{'x'};
+#	} elsif ($ptr->{type} =~ /[bc]/) {
+#		$ptr->{size_num} = sprintf("%d", $rdev / $rdevtomajor) . $MAJORMINORSEPARATOR . ($rdev % $rdevtomajor);
+#		$ptr->{display} = $entry . $filetypeflags{$ptr->{type}};
+#	} else {
+#		$ptr->{display} = $entry . $filetypeflags{$ptr->{type}};
+#	}
+#	$ptr->{name_too_long} = length($ptr->{display}) > $maxfilenamelength-1
+#							? $NAMETOOLONGCHAR : ' ';
+#	$total_nr_of{ $ptr->{type} }++; # this is wrong! e.g. after cOmmand
+#	return $ptr;
+#}
+#
 sub filetypeflag {
 	my $file = shift;
 	if ($file->{type} eq '-' and $file->{mode} =~ /.[xst]/) {
@@ -3814,7 +3815,7 @@ sub filetypeflag {
 #	my @allentries = ();
 #	my @white_entries = ();
 #	%usercache = %groupcache = ();
-##	show_headings($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
+##	show_headings($swap_mode, $HEADING_DISKINFO);
 #	if (opendir CURRENT, "$_[0]") {
 #		@allentries = readdir CURRENT;
 #		closedir CURRENT;
@@ -3847,7 +3848,7 @@ sub filetypeflag {
 #	}
 #	show_menu();
 #	handlemorercsopen() if $autorcs;
-#	show_headings($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
+#	show_headings($swap_mode, $HEADING_DISKINFO);
 #	return @contents;
 #}
 #
@@ -3940,32 +3941,32 @@ sub position_cursor_find_incremental {
 	return validate_position(); # refresh flag
 }
 
-sub position_cursor {
-	$currentline = 0;
-	$baseindex   = 0 if $position_at eq '..'; # descending into this dir
-	ANYENTRY: {
-		for (0..$#showncontents) {
-			if ($position_at eq $showncontents[$_]{name}) {
-				$currentline = $_ - $baseindex;
-				last ANYENTRY;
-			}
-		}
-		$baseindex = 0;
-	}
-	$position_at = '';
-	return validate_position(); # refresh flag
-}
-
+#sub position_cursor {
+#	$currentline = 0;
+#	$baseindex   = 0 if $position_at eq '..'; # descending into this dir
+#	ANYENTRY: {
+#		for (0..$#showncontents) {
+#			if ($position_at eq $showncontents[$_]{name}) {
+#				$currentline = $_ - $baseindex;
+#				last ANYENTRY;
+#			}
+#		}
+#		$baseindex = 0;
+#	}
+#	$position_at = '';
+#	return validate_position(); # refresh flag
+#}
+#
 sub set_argv0 {
 	# this may be helpful for sysadmins trying to unmount a filesystem
 	$0 = 'pfm [on ' . ( $disk{device} eq 'none' ? $disk{mountpoint}
 												: $disk{device} ) . ']';
 }
 
-sub recalc_ptr {
-	$position_at = '.';
-	return position_cursor(); # refresh flag
-}
+#sub recalc_ptr {
+#	$position_at = '.';
+#	return position_cursor(); # refresh flag
+#}
 
 #sub showdiskinfo {
 #	my $spaces = ' ' x $infolength;
@@ -4107,7 +4108,7 @@ sub browse {
 #		}
 #		if ($wantrefresh &   $R_HEADINGS) {
 #			$wantrefresh &= ~$R_HEADINGS;
-#			show_headings($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
+#			show_headings($swap_mode, $HEADING_DISKINFO);
 #		}
 #		if ($wantrefresh &   $R_FOOTER) {
 #			$wantrefresh &= ~$R_FOOTER;
@@ -4123,8 +4124,8 @@ sub browse {
 #			handlepipes();
 #			$scr->at($currentline+$BASELINE, $cursorcol);
 #		}
-		if ($wasresized) {
-			$wantrefresh |= handleresize();
+#		if ($wasresized) {
+#			$wantrefresh |= handleresize();
 		# the next line contains an assignment on purpose
 		} elsif (length($scr->{IN}) || $scr->key_pressed() and $key = $scr->getch()) {
 			highlightline($HIGHLIGHT_OFF);

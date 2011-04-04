@@ -33,7 +33,7 @@ PFM Job class for Subversion commands.
 
 package PFM::Job::Subversion;
 
-use base 'PFM::Abstract';
+use base 'PFM::Job::Abstract';
 
 my $_command = 'svn status';
 
@@ -48,6 +48,45 @@ Initializes new instances. Called from the constructor.
 
 sub _init {
 	my $self = shift;
+}
+
+=item _svnmaxchar()
+
+=item _svnmax()
+
+Determine which subversion status character should be displayed on
+a directory that holds files with different status characters.
+For this purpose, a relative priority is defined:
+
+=over
+
+B<C> (conflict) > B<M>,B<A> (modified, added) > I<other>
+
+=back
+
+=cut
+
+sub _svnmaxchar {
+	my ($self, $a, $b) = @_;
+	# C conflict
+	return 'C' if ($a eq 'C' or $b eq 'C');
+	# M modified
+	# A added
+	return 'M' if ($a eq 'M' or $b eq 'M' or $a eq 'A' or $b eq 'A');
+	# D deleted
+	# I ignored
+	# ? unversioned
+	return $b  if ($a eq ''  or $a eq '-');
+	return $a;
+}
+
+sub _svnmax {
+	my ($self, $old, $new) = @_;
+	my $res = $old;
+	substr($res,0,1) = $self->_svnmaxchar(substr($old,0,1), substr($new,0,1));
+	substr($res,1,1) = $self->_svnmaxchar(substr($old,1,1), substr($new,1,1));
+	substr($res,2,1) ||= substr($new,2,1);
+	return $res;
 }
 
 ##########################################################################

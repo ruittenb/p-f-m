@@ -39,6 +39,9 @@ use Carp;
 ##########################################################################
 # private subs
 
+sub _init() {
+}
+
 ##########################################################################
 # constructor, getters and setters
 
@@ -50,8 +53,8 @@ Constructor for all classes based on PFM::Abstract.
 
 sub new {
 	my $type = shift;
-	if ($type eq __PACKAGE__) {
-		croak(__PACKAGE__, ' should not be instantiated');
+	if ($type =~ /::Abstract$/) {
+		croak("$type should not be instantiated");
 	}
 	$type = ref($type) || $type;
 	my $self = {};

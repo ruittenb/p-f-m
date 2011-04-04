@@ -33,7 +33,7 @@ PFM Job class for CVS commands.
 
 package PFM::Job::Cvs;
 
-use base 'PFM::Abstract';
+use base 'PFM::Job::Abstract';
 
 my $_command = 'cvs -n -q update -l';
 
@@ -48,6 +48,43 @@ Initializes new instances. Called from the constructor.
 
 sub _init {
 	my $self = shift;
+}
+
+=item _cvsmaxchar()
+
+=item _cvsmax()
+
+Determine which svn status character should be displayed on
+a directory that holds files with different status characters.
+For this purpose, a relative priority is defined:
+
+=over
+
+B<C> (conflict) > B<M> (modified) > B<U>,B<P> (updated) > I<other>
+
+=back
+
+=cut
+
+sub _cvsmaxchar {
+	my ($self, $a, $b) = @_;
+	# C conflict
+	return 'C' if ($a eq 'C' or $b eq 'C');
+	# M modified
+	return 'M' if ($a eq 'M' or $b eq 'M');
+	# U updated on server
+	# P patch (like U, but sends only a diff/patch instead of the entire file).
+	return 'U' if ($a eq 'U' or $b eq 'U' or $a eq 'P' or $b eq 'P');
+	# ? unversioned
+	return $b  if ($a eq ''  or $a eq '-');
+	return $a;
+}
+
+sub _cvsmax {
+	my ($self, $old, $new) = @_;
+	my $res = $old;
+	substr($res,0,1) = $self->_cvsmaxchar(substr($old,0,1), substr($new,0,1));
+	return $res;
 }
 
 ##########################################################################

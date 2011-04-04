@@ -10,11 +10,12 @@ WHEEL=`awk -F: '$$3 == 0 {print $$1}' /etc/group`
 install:
 	@echo "Please use the script 'install.sh' to install pfm."
 
-man: CheckUpdates.3pm Bazaar.3pm Cvs.3pm Subversion.3pm
+man: Abstract.3pm CheckUpdates.3pm Bazaar.3pm Cvs.3pm Subversion.3pm
 
 doc: man
 
 test:
+	perl -I../.. -cw Abstract.pm
 	perl -I../.. -cw CheckUpdates.pm
 	perl -I../.. -cw Bazaar.pm
 	perl -I../.. -cw Cvs.pm

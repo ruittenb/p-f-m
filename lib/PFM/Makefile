@@ -29,4 +29,6 @@ test:
 	perl -I.. -cw Screen.pm
 	perl -I.. -cw State.pm
 	perl -I.. -cw Util.pm
+	make -C Job test
+	make -C Screen test
 

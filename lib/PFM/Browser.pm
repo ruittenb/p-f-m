@@ -37,7 +37,8 @@ package PFM::Browser;
 
 use base 'PFM::Abstract';
 
-my ($_pfm, $_currentline, $_baseindex, $_position_at);
+my ($_pfm, $_screen,
+	$_currentline, $_baseindex, $_position_at);
 
 ##########################################################################
 # private subs
@@ -51,6 +52,7 @@ Initializes new instances. Called from the constructor.
 sub _init {
 	my ($self, $pfm) = @_;
 	$_pfm			 = $pfm;
+	$_screen		 = $pfm->screen;
 	$_currentline	 = 0;
 	$_baseindex		 = 0;
 	$_position_at    = '.';
@@ -65,17 +67,43 @@ the on-screen clock.
 
 sub _wait_loop {
 	my $self = shift;
-	my $screen = $_pfm->screen;
-	until ($screen->pending_input(1)) {
-		$screen->diskinfo->clock_info();
-		$_pfm->job->pollall(); # was handlepipes(); # $self->job->pollall()?
-		$screen->at(
-			$_currentline + $screen->BASELINE, $screen->listing->cursorcol);
+	until ($_screen->pending_input(1)) {
+		$_screen->diskinfo->clock_info();
+		$_pfm->job->pollall();
+		$_screen->at(
+			$_currentline + $_screen->BASELINE, $_screen->listing->cursorcol);
 	}
 }
 
 ##########################################################################
 # constructor, getters and setters
+
+=item currentfile()
+
+Getter for the file at the cursor position.
+
+=cut
+
+sub currentfile {
+	my ($self) = @_;
+	return $_pfm->state->directory->showncontents
+		->[$_currentline + $_baseindex];
+}
+
+=item baseindex()
+
+Getter/setter for the start of the screen window in the current directory.
+
+=cut
+
+sub baseindex {
+	my ($self, $value) = @_;
+	if (defined $value) {
+		$_baseindex = $value;
+		$self->validate_position();
+	}
+	return $_baseindex;
+}
 
 =item position_at()
 
@@ -112,21 +140,23 @@ sub browse {
 	my $self = shift;
 	my ($event, $quit);
 	until ($quit) {
-		$_pfm->screen->refresh();
+		$_screen->refresh();
 		# normally, the current cursor position must be validated every pass
-		$_pfm->screen->set_deferred_refresh($_pfm->screen->R_STRIDE);
-		#TODO
-		highlightline($HIGHLIGHT_ON);
+		$_screen->set_deferred_refresh($_screen->R_STRIDE);
+		$_screen->listing->highlight_on();
 		# don't send mouse escapes to the terminal if not necessary
 		if ($_pfm->state->{mouse_mode} && $_pfm->config->{mouseturnoff}) {
-			$_pfm->screen->mouse_enable();
+			$_screen->mouse_enable();
 		}
 		# enter main wait loop
 		$event = $self->_wait_loop();
-		if ($wasresized) {
-			$wantrefresh |= handleresize();
+		if ($_screen->wasresized) {
+			$_screen->handleresize();
+		} else {
+			# TODO fetch keypress etc
+
+			$quit = $_pfm->commandhandler->handle($event);
 		}
-		$quit  = $_pfm->commandhandler->handle($event);
 	}
 }
 
@@ -160,6 +190,32 @@ sub validate_position {
 		$_currentline = $#showncontents - $_baseindex;
 		$screen->set_deferred_refresh($screen->R_DIRLIST);
 	}
+}
+
+=item position_cursor()
+
+Position the cursor at a specific file.
+
+=cut
+
+sub position_cursor {
+	my ($self, $target) = @_;
+	$_position_at = $target if (defined $target and $target ne '');
+	return if $_position_at eq '';
+	my @showncontents = @{$_pfm->directory->showncontents};
+	$_currentline     = 0;
+	$_baseindex       = 0 if $_position_at eq '..'; # descending into this dir
+	ANYENTRY: {
+		for (0..$#showncontents) {
+			if ($_position_at eq $showncontents[$_]{name}) {
+				$_currentline = $_ - $_baseindex;
+				last ANYENTRY;
+			}
+		}
+		$_baseindex = 0;
+	}
+	$_position_at = '';
+	$self->validate_position(); # refresh flag
 }
 
 ##########################################################################

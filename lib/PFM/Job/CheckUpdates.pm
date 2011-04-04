@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Job::Bazaar 0.01
+# @(#) PFM::Job::CheckUpdates 0.01
 #
-# Name:			PFM::Job::Bazaar.pm
+# Name:			PFM::Job::CheckUpdates.pm
 # Version:		0.01
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-03-27
+# Date:			2010-04-03
 #
 
 ##########################################################################
@@ -16,11 +16,11 @@
 
 =head1 NAME
 
-PFM::Job::Bazaar
+PFM::Job::CheckUpdates
 
 =head1 DESCRIPTION
 
-PFM Job class for Bazaar commands.
+PFM Job class for checking for application updates.
 
 =head1 METHODS
 
@@ -31,11 +31,9 @@ PFM Job class for Bazaar commands.
 ##########################################################################
 # declarations
 
-package PFM::Job::Bazaar;
+package PFM::Job::CheckUpdates;
 
 use base 'PFM::Job::Abstract';
-
-my $_command = 'bzr status -S';
 
 ##########################################################################
 # private subs
@@ -61,10 +59,10 @@ sub start {
 	#TODO
 }
 
-sub poll {
-	my $self = shift;
-	#TODO
-}
+#sub poll {
+#	my $self = shift;
+#	#TODO
+#}
 
 ##########################################################################
 
