@@ -34,20 +34,22 @@ in memory, and coordinates how Term::ReadLine handles them.
 
 package PFM::History;
 
-use base 'PFM::Abstract';
+use base qw(PFM::Abstract Exporter);
 
 use Term::ReadLine;
 
 use strict;
 
 use constant {
-	HISTORY_COMMAND	=> 'history_command',
-	HISTORY_MODE	=> 'history_mode',
-	HISTORY_PATH	=> 'history_path',
-	HISTORY_REGEX	=> 'history_regex',
-	HISTORY_TIME	=> 'history_time',
-	HISTORY_PERLCMD	=> 'history_perlcmd',
+	H_COMMAND	=> 'history_command',
+	H_MODE		=> 'history_mode',
+	H_PATH		=> 'history_path',
+	H_REGEX		=> 'history_regex',
+	H_TIME		=> 'history_time',
+	H_PERLCMD	=> 'history_perlcmd',
 };
+
+our @EXPORT = qw(H_COMMAND H_MODE H_PATH H_REGEX H_TIME H_PERLCMD);
 
 my ($_pfm, $_keyboard,
 	@_command_history,
@@ -209,7 +211,7 @@ the appropriate history.
 
 =cut
 
-sub input { # \@history, $prompt, [$default_input]
+sub input { # $history, $prompt, [$default_input]
 	local $SIG{INT} = 'IGNORE'; # do not interrupt pfm
 	my ($self, $history, $prompt, $input) = @_;
 	$history = $HISTORIES{$history};
@@ -251,6 +253,45 @@ sub setornaments {
 ##########################################################################
 
 =back
+
+=head1 CONSTANTS
+
+This package provides the B<H_*> constants which indicate the different
+types of input histories. They are:
+
+=over
+
+=item H_COMMAND
+
+The history of shell commands entered, I<e.g.> for the B<O> command.
+
+=item H_MODE
+
+The history of file modes (permission bits).
+
+=item H_PATH
+
+The history of file- and directory paths entered, I<e.g.> entered for
+the B<M>ore - B<S>how command.
+
+=item H_REGEX
+
+The history of regular expressions entered.
+
+=item H_TIME
+
+The history of times entered, I<e.g.> for the B<T> command.
+
+=item H_PERLCMD
+
+The history of Perl commands entered for the B<@> command.
+
+=back
+
+An input line may be stored in one of the histories by providing
+one of these constants to input() I<e.g.>
+
+    $self->input(H_PATH);
 
 =head1 SEE ALSO
 

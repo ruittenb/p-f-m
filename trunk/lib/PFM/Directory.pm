@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Directory 0.01
+# @(#) PFM::Directory 0.12
 #
 # Name:			PFM::Directory.pm
-# Version:		0.01
+# Version:		0.12
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-01
+# Date:			2010-04-10
 #
 
 ##########################################################################
@@ -51,9 +51,20 @@ my @SYMBOLIC_MODES = qw(--- --x -w- -wx r-- r-x rw- rwx);
 
 my $DFCMD = ($^O eq 'hpux') ? 'bdf' : ($^O eq 'sco') ? 'dfspace' : 'df -k';
 
+my %RDEVTOMAJOR = (
+	default	=> 2 **  8,
+	aix		=> 2 ** 16,
+	irix	=> 2 ** 18,
+	solaris	=> 2 ** 18,
+	sunos	=> 2 ** 18,
+	dec_osf	=> 2 ** 20,
+	tru64	=> 2 ** 20, # correct value for $OSNAME on Tru64?
+	hpux	=> 2 ** 24,
+);
+
 my ($_pfm, $_path,
 	@_dircontents, @_showncontents, %_selected_nr_of, %_total_nr_of,
-	%_usercache, %_groupcache, %_disk);
+	%_usercache, %_groupcache, %_disk, $_rdevtomajor, $_path_mode);
 
 ##########################################################################
 # private subs
@@ -66,8 +77,9 @@ Initializes new instances. Called from the constructor.
 
 sub _init {
 	my ($self, $pfm, $path)	= @_;
-	$_pfm					= $pfm;
-	$_path					= $path;
+	$_pfm		  = $pfm;
+	$_path		  = $path;
+	$_rdevtomajor = $RDEVTOMAJOR{$^O} || $RDEVTOMAJOR{default};
 }
 
 =item _find_uid()
@@ -156,7 +168,7 @@ sub _init_filesystem_info {
 	$dflist[0] .= $dflist[1]; # in case filesystem info wraps onto next line
 	@_disk{qw/device total used avail/} = split (/\s+/, $dflist[0]);
 	$_disk{avail} = $_disk{total} - $_disk{used} if $_disk{avail} =~ /%/;
-	$_disk{mountpoint} = $dflist[0] =~ /(\S*)$/;
+	@_disk{qw/mountpoint/} = $dflist[0] =~ /(\S*)$/;
 	return \%_disk;
 }
 
@@ -262,6 +274,18 @@ sub device {
 	return $_disk{device};
 }
 
+=item path_mode()
+
+Getter/setter for the path mode setting (physical or logical).
+
+=cut
+
+sub path_mode {
+	my ($self, $value) = @_;
+	$_path_mode = $value if defined $value;
+	return $_path_mode;
+}
+
 ##########################################################################
 # public subs
 
@@ -295,12 +319,16 @@ sub chdir {
 	$target = canonicalize_path($target);
 	if ($result = chdir $target and $target ne $_path) {
 		$_pfm->state(2, $_pfm->state->clone());
-		# TODO store _path in state->_position
-		$_path = $target;
+		if ($_path_mode eq 'phys') {
+			$_path = getcwd();
+		} else {
+			$_path = $target;
+		}
 		$chdirautocmd = $_pfm->config->{chdirautocmd};
 		system("$chdirautocmd") if length($chdirautocmd);
 		$screen->set_deferred_refresh($screen->R_CHDIR);
 		$self->_init_filesystem_info();
+		# TODO store position_at in state->_position
 	}
 	return $result;
 }
@@ -398,14 +426,17 @@ sub stat_entry {
 	} elsif ($ptr->{type} eq '-' and $ptr->{mode} =~ /.[xst]/) {
 		$ptr->{display} = $entry . $filetypeflags{'x'};
 	} elsif ($ptr->{type} =~ /[bc]/) {
-		$ptr->{size_num} = sprintf("%d", $rdev / $_pfm->config->{rdevtomajor}) . MAJORMINORSEPARATOR . ($rdev % $_pfm->config->{rdevtomajor});
+		$ptr->{size_num} = sprintf("%d", $rdev / $_rdevtomajor) .
+							MAJORMINORSEPARATOR . ($rdev % $_rdevtomajor);
 		$ptr->{display} = $entry . $filetypeflags{$ptr->{type}};
 	} else {
 		$ptr->{display} = $entry . $filetypeflags{$ptr->{type}};
 	}
-	$ptr->{name_too_long} = length($ptr->{display}) > $_pfm->screen->listing->maxfilenamelength-1
-							? $_pfm->state->listing->NAMETOOLONGCHAR : ' ';
-	$_total_nr_of{ $ptr->{type} }++; # this is wrong! e.g. after cOmmand
+	$ptr->{name_too_long} =
+		length($ptr->{display}) > $_pfm->screen->listing->maxfilenamelength-1
+			? $_pfm->state->listing->NAMETOOLONGCHAR : ' ';
+	$_total_nr_of{$ptr->{type} }++; # TODO this is wrong! e.g. after cOmmand
+	# maybe provide a flag argument to distinguish between stat/restat?
 	return $ptr;
 }
 
@@ -457,11 +488,12 @@ Reads the entries in the current directory and performs a stat() on them.
 
 sub readcontents {
 	my $self = shift;
-	my (@contents, $entry);
+	my $entry;
 	my @allentries = ();
 	my @white_entries = ();
 	my $whitecommand = $_pfm->commandhandler->whitecommand;
 	my $screen = $_pfm->screen;
+	@_dircontents = @_showncontents = ();
 	%_usercache = %_groupcache = ();
 	if (opendir CURRENT, '.') { # was $_path
 		@allentries = readdir CURRENT;
@@ -477,24 +509,24 @@ sub readcontents {
 	if ($#allentries < 0) {
 		@allentries = ('.', '..');
 	}
-#	local $SIG{INT} = sub { return @contents };
+#	local $SIG{INT} = sub { return @_dircontents };
 	if ($#allentries > SLOWENTRIES) {
 		$screen->at(0,0)->clreol()->putmessage('Please Wait');
 	}
 	foreach $entry (@allentries) {
 		# have the mark cleared on first stat with ' '
-		push @contents, $self->stat_entry($entry, ' ');
+		push @_dircontents, $self->stat_entry($entry, ' ');
 	}
 	foreach $entry (@white_entries) {
 		$entry = $self->stat_entry($entry, ' ');
 		$entry->{type} = 'w';
 		substr($entry->{mode}, 0, 1) = 'w';
-		push @contents, $entry;
+		push @_dircontents, $entry;
 	}
 	$screen->set_deferred_refresh($screen->R_MENU | $screen->R_HEADINGS);
-	# TODO
+	# TODO decide if and which
 	$_pfm->jobhandler->start('Subversion') if $_pfm->config->{autorcs};
-	return @contents;
+	return @_dircontents;
 }
 
 =item sortcontents()
@@ -504,7 +536,7 @@ Sorts the directory's contents according to the selected sort mode.
 =cut
 
 sub sortcontents {
-	@_dircontents  = sort _by_sort_mode @_dircontents;
+	@_dircontents = sort _by_sort_mode @_dircontents;
 }
 
 =item filtercontents()

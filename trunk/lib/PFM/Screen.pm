@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Screen 0.03
+# @(#) PFM::Screen 0.24
 #
 # Name:			PFM::Screen.pm
-# Version:		0.03
+# Version:		0.24
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-01
+# Date:			2010-04-10
 # Requires:		Term::ScreenColor
 #
 
@@ -34,7 +34,7 @@ PFM class used for coordinating how all elements are displayed on screen.
 
 package PFM::Screen;
 
-use base qw(PFM::Abstract Term::ScreenColor);
+use base qw(PFM::Abstract Term::ScreenColor Exporter);
 
 use PFM::Screen::Frame;
 use PFM::Screen::Listing;
@@ -55,7 +55,7 @@ use constant {
 	R_PATHINFO		=> 4,		# reprint the pathinfo
 	R_HEADINGS		=> 8,		# reprint the headings
 	R_FOOTER		=> 16,		# reprint the footer
-#	R_FRAME						# combines R_MENU, R_PATHINFO, R_HEADINGS and R_FOOTER
+#	R_FRAME						# combines R_FOOTER, R_HEADINGS, R_PATHINFO and R_MENU
 	R_DISKINFO		=> 32,		# reprint the disk- and directory info column
 	R_DIRLIST		=> 64,		# redisplay directory listing
 	R_DIRFILTER		=> 128,		# decide which entries to display (init @showncontents)
@@ -64,10 +64,8 @@ use constant {
 #	R_CLRSCR					# combines R_CLEAR and R_SCREEN
 	R_DIRSORT		=> 512,		# resort @dircontents
 	R_DIRCONTENTS	=> 1024,	# reread directory contents
-#	R_CHDIR						# re-init directory-specific vars
-	R_NEWDIR		=> 2048,	# combines R_NEWDIR, R_DIRCONTENTS, R_DIRSORT, R_SCREEN
-	R_INIT_SWAP		=> 4096,	# after reading the directory, we should be swapped immediately
-	R_QUIT			=> 1048576,	# exit from program
+#	R_NEWDIR					# re-init directory-specific vars
+	R_CHDIR			=> 2048,	# combines R_NEWDIR, R_DIRCONTENTS, R_DIRSORT, R_SCREEN
 };
 
 # needs new invocations because of the calculations
@@ -75,6 +73,12 @@ use constant R_FRAME  => R_MENU | R_PATHINFO | R_HEADINGS | R_FOOTER;
 use constant R_SCREEN => R_DIRFILTER | R_DIRLIST | R_DISKINFO | R_FRAME;
 use constant R_CLRSCR => R_CLEAR | R_SCREEN;
 use constant R_CHDIR  => R_NEWDIR | R_DIRCONTENTS | R_DIRSORT | R_SCREEN | R_STRIDE;
+
+our @EXPORT = qw(R_NOP R_STRIDE R_MENU R_PATHINFO R_HEADINGS R_FOOTER R_FRAME
+	R_DISKINFO R_DIRLIST R_DIRFILTER R_SCREEN R_CLEAR R_CLRSCR R_DIRSORT
+	R_DIRCONTENTS R_CHDIR R_NEWDIR
+);
+
 
 my ($_pfm, $_frame, $_listing, $_diskinfo,
 	$_screenwidth, $_screenheight, $_deferred_refresh, $_wasresized,
@@ -501,11 +505,19 @@ sub refresh {
 		$_frame->show();
 	}
 	# now in order of severity
+	if ($_deferred_refresh & R_NEWDIR) {
+		# it's dangerous to leave multiple_mode on when changing directories
+		# ('autoexitmultiple' is only for leaving it on between commands)
+		$_pfm->state->{multiple_mode} = 0;
+	}
 	if ($_deferred_refresh & R_DIRCONTENTS or
 		$_deferred_refresh & R_DIRSORT)
 	{
 		$directory->init_dircount();
-		$browser->position_at($browser->currentfile->{name}) unless $browser->position_at();
+		# first time round 'currentfile' is undefined
+		if (defined $browser->currentfile) {
+			$browser->position_at($browser->currentfile->{name});
+		}
 	}
 	if ($_deferred_refresh & R_DIRCONTENTS) {
 		$directory->readcontents();
@@ -610,6 +622,88 @@ sub pathline {
 ##########################################################################
 
 =back
+
+=head1 CONSTANTS
+
+This package provides the B<R_*> constants which indicate which part of
+the terminal screen needs to be redrawn. They are:
+
+=over
+
+=item R_NOP
+
+No refresh action is required.
+
+=item R_STRIDE
+
+The cursor position needs to be validated.
+
+=item R_MENU
+
+Redisplay the menu.
+
+=item R_PATHINFO
+
+Redisplay the pathinfo (current directory and current device).
+
+=item R_HEADINGS
+
+Redisplay the column headings.
+
+=item R_FOOTER
+
+Redisplay the footer.
+
+=item R_FRAME
+
+A combination of R_FOOTER, R_HEADINGS, R_PATHINFO and R_MENU.
+
+=item R_DISKINFO
+
+Redisplay the disk- and directory info column.
+
+=item R_DIRLIST
+
+Redisplay the directory listing.
+
+=item R_DIRFILTER
+
+Decide which entries to display and apply the filter.
+
+=item R_SCREEN
+
+A combination of R_DIRFILTER, R_DIRLIST, R_DISKINFO and R_FRAME.
+
+=item R_CLEAR
+
+Clear the screen.
+
+=item R_CLRSCR
+
+A combination of R_CLEAR and R_SCREEN.
+
+=item R_DIRSORT
+
+The internal array with directory contents needs to be sorted again.
+
+=item R_DIRCONTENTS
+
+The current directory contents need to be read from disk again.
+
+=item R_NEWDIR
+
+Reinitialize directory-specific variables.
+
+=item R_CHDIR
+
+A combination of R_NEWDIR, R_DIRCONTENTS, R_DIRSORT and R_SCREEN.
+
+=back
+
+A refresh for a screen element may be requested by providing one or more of
+these constants to set_deferred_refresh(), I<e.g.>
+
+    $self->set_deferred_refresh(R_MENU | R_FOOTER);
 
 =head1 SEE ALSO
 

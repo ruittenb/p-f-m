@@ -35,12 +35,15 @@ package PFM::CommandHandler;
 
 use base 'PFM::Abstract';
 
+use PFM::Util;
+use PFM::History;
+
 use POSIX qw(strftime mktime);
 use Config;
 
 use strict;
 
-my ($_pfm,
+my ($_pfm, $_screen,
 	@_signame, $_white_cmd, @_unwo_cmd, $_clobber_mode);
 
 ##########################################################################
@@ -54,7 +57,8 @@ Initializes new instances. Called from the constructor.
 
 sub _init {
 	my ($self, $pfm) = @_;
-	$_pfm = $pfm;
+	$_pfm    = $pfm;
+	$_screen = $pfm->screen;
 	$self->_init_signames();
 	$self->_init_white_commands();
 }
@@ -115,14 +119,15 @@ Prints elaborate info about pfm. Called from help().
 
 sub _credits {
 	my $self = shift;
-	my $screen = $_pfm->screen;
-	$screen->clrscr();
-	$screen->stty_raw($screen->TERM_COOKED);
-	my $name = $screen->colored('bold', 'pfm');
+	$_screen->clrscr()->stty_cooked();
+	my $name = $_screen->colored('bold', 'pfm');
+	my $version_message = $_pfm->{LATEST_VERSION}
+		? "A new version $_pfm->{LATEST_VERSION} is available from"
+		: "  New versions may be obtained from";
 	print <<"_eoCredits_";
 
 
-             $name for Unix and Unix-like OS's.  Version $_pfm->{VERSION}
+          $name for Unix and Unix-like operating systems.  Version $_pfm->{VERSION}
              Original idea/design: Paul R. Culley and Henk de Heer
              Author and Copyright (c) 1999-$_pfm->{LASTYEAR} Rene Uittenbogaard
 
@@ -136,7 +141,7 @@ sub _credits {
       You are encouraged to copy and share this program with other users.
    Any bug, comment or suggestion is welcome in order to update this product.
 
-    New versions may be obtained from http://sourceforge.net/projects/p-f-m/
+  $version_message http://sourceforge.net/projects/p-f-m/
 
                 For questions, remarks or suggestions about $name,
                  send email to: ruittenb\@users.sourceforge.net
@@ -144,7 +149,7 @@ sub _credits {
 
                                                          any key to exit to $name
 _eoCredits_
-	$screen->stty_raw($screen->TERM_RAW)->getch();
+	$_screen->stty_raw()->getch();
 }
 
 ##########################################################################
@@ -183,7 +188,62 @@ Finds out how an event should be handled, and acts on it.
 =cut
 
 sub handle {
-	# TODO
+	my ($self, $event) = @_;
+	my $res = 1; # assume the event was valid
+	for ($event) {
+		# order is determined by (supposed) frequency of use
+#		/^(?:ku|kd|pgup|pgdn|[-+jk\cF\cB\cD\cU]|home|end)$/io
+#							and $self->handlemove($_),			last;
+#		/^(?:kr|kl|[h\e\cH])$/io
+#							and $self->handleentry($_),			last;
+#		/^[\cE\cY]$/o		and $self->handlescroll($_),		last;
+#		/^l$/o				and $self->handlekeyell($_),		last;
+#		/^ $/o				and $self->handleadvance($_),		last;
+#		/^k5$/o				and $self->handlerefresh(),			last;
+#		/^[cr]$/io			and $self->handlecopyrename($_),	last;
+#		/^[yo]$/io			and $self->handlecommand($_),		last;
+#		/^e$/io				and $self->handleedit(),			last;
+#		/^(?:d|del)$/io		and $self->handledelete(),			last;
+#		/^[ix]$/io			and $self->handleinclude($_),		last;
+#		/^\r$/io			and $self->handleenter(),			last;
+#		/^s$/io				and $self->handleshow(),			last;
+#		/^kmous$/o			and $self->handlemousedown(),		last;
+#		/^k7$/o				and $self->handleswap(),			last;
+#		/^k10$/o			and $self->handlemultiple(),		last;
+#		/^m$/io				and $self->handlemore(),			last;
+#		/^p$/io				and $self->handleprint(),			last;
+#		/^L$/o				and $self->handlesymlink(),			last;
+#		/^n$/io				and $self->handlename($_),			last;
+#		/^k8$/o				and $self->handleselect(),			last;
+#		/^k11$/o			and $self->handlerestat(),			last;
+#		/^[\/f]$/io			and $self->handlefind(),			last;
+		/^[<>]$/io			and $self->handlepan($_,
+								$_screen->frame->MENU_SINGLE),	last;
+#		/^(?:k3|\cL|\cR)$/o	and $self->handlefit(),				last;
+#		/^t$/io				and $self->handletime(),			last;
+#		/^a$/io				and $self->handlechmod(),			last;
+		/^q$/io				and $res = $self->handlequit($_),	last;
+#		/^k6$/o				and $self->handlesort(),			last;
+		/^(?:k1|\?)$/o		and $self->handlehelp(),			last;
+#		/^k2$/o				and $self->handlecdold(),			last;
+#		/^\.$/o				and $self->handledot(),				last;
+#		/^k9$/o				and $self->handlelayouts(),			last;
+#		/^k4$/o				and $self->handlecolor(),			last;
+		/^\@$/o				and $self->handleperlcommand(),		last;
+#		/^u$/io				and $self->handlechown(),			last;
+#		/^v$/io				and $self->handlercs(),				last;
+#		/^z$/io				and $self->handlesize(),			last;
+#		/^g$/io				and $self->handletarget(),			last;
+#		/^k12$/o			and $self->handlemouse(),			last;
+#		/^=$/o				and $self->handleident(),			last;
+#		/^\*$/o				and $self->handleradix(),			last;
+#		/^!$/o				and $self->handleclobber(),			last;
+#		/^"$/o				and $self->handlepathmode(),		last;
+#		/^w$/io				and $self->handleunwo(),			last;
+#		/^%$/o				and $self->handlewhiteout(),		last;
+		$res = 0; # invalid key
+	}
+	return $res;
 }
 
 =item handlepan()
@@ -194,7 +254,7 @@ Handles the pan keys B<E<lt>> and B<E<gt>>.
 
 sub handlepan {
 	my ($self, $key, $mode) = @_;
-	$_pfm->screen->frame->pan($key, $mode);
+	$_screen->frame->pan($key, $mode);
 }
 
 =item handlelayouts()
@@ -204,21 +264,98 @@ Handles moving on to the next configured layout.
 =cut
 
 sub handlelayouts {
-	my $self = shift;
-	$_pfm->screen->listing->show_next_layout();
+#	my $self = shift;
+	$_screen->listing->show_next_layout();
 }
 
 =item handlefit()
 
-Recalculate the screen size and adjust the layouts.
+Recalculates the screen size and adjusts the layouts.
 
 =cut
 
 sub handlefit {
-	my $self = shift;
-	$_pfm->screen->fit();
+#	my $self = shift;
+	$_screen->fit();
 }
 
+=item handlequit()
+
+Handles the B<q>uit and quick B<Q>uit commands.
+
+=cut
+
+sub handlequit {
+	my ($self, $key) = @_;
+	my $confirmquit = $_pfm->config->{confirmquit};
+	return 'quit' if isno($confirmquit);
+	return 'quit' if $key eq 'Q'; # quick quit
+	return 'quit' if
+		($confirmquit =~ /marked/i and !$_screen->diskinfo->mark_info);
+	$_screen->at(0,0)->clreol()
+		->putmessage('Are you sure you want to quit [Y/N]? ');
+	my $sure = $_screen->getch();
+	return 'quit' if ($sure =~ /y/i);
+	$_screen->set_deferred_refresh($_screen->R_MENU);
+	return 0;
+}
+
+=item handleperlcommand()
+
+Handles the B<@> command (execute Perl command).
+
+=cut
+
+sub handleperlcommand {
+#	my $self = shift;
+	my $perlcmd;
+	$_screen->listing->markcurrentline('@'); # disregard multiple_mode
+	$_screen->at(0,0)->clreol()->putmessage('Enter Perl command:')
+		->at($_screen->PATHLINE,0)->clreol()->stty_cooked();
+	$perlcmd = $_pfm->history->input(H_PERLCMD);
+	$_screen->stty_raw();
+	eval $perlcmd;
+	$_screen->display_error($@) if $@;
+	$_screen->set_deferred_refresh($_screen->R_SCREEN);
+}
+
+sub handlehelp {
+#	my $self = shift;
+	$_screen->clrscr()->stty_cooked();
+	print map { substr($_, 8)."\n" } split("\n", <<'    _eoHelp_');
+        --------------------------------------------------------------------------------
+        a     Attrib         mb  Bookmark         up, down arrow   move one line        
+        c     Copy           mc  Config pfm       k, j             move one line        
+        d DEL Delete         me  Edit new file    -, +             move ten lines       
+        e     Edit           mf  make FIFO        CTRL-E, CTRL-Y   scroll dir one line  
+        f /   find           mh  spawn sHell      CTRL-U, CTRL-D   move half a page     
+        g     tarGet         mk  Kill children    CTRL-B, CTRL-F   move a full page     
+        i     Include        mm  Make new dir     PgUp, PgDn       move a full page     
+        L     symLink        mp  Physical path    HOME, END        move to top, bottom  
+        n     Name           ms  Show directory   SPACE            mark file & advance  
+        o     cOmmand        mt  alTernate scrn   right arrow, l   enter dir            
+        p     Print          mv  sVn status all   left arrow, h    leave dir            
+        q Q   (Quick) quit   mw  Write history    ENTER            enter dir; launch    
+        r     Rename        --------------------  ESC, BS          leave dir            
+        s     Show           =   ident           ---------------------------------------
+        t     Time           *   radix            F1  help            F7  swap mode     
+        u     Uid            !   clobber          F2  prev dir        F8  mark file     
+        v     sVn status     @   perlcmd          F3  redraw screen   F9  cycle layouts 
+        w     unWhiteout     .   dotfiles         F4  cycle colors    F10 multiple mode 
+        x     eXclude        %   whiteout         F5  reread dir      F11 restat file   
+        y     Your command   "   paths log/phys   F6  sort dir        F12 toggle mouse  
+        z     siZe           ?   help             <   commands left   >   commands right
+        --------------------------------------------------------------------------------
+    _eoHelp_
+#	$_screen->at(12,0)->putcolored('bold yellow', 'q Q   (Quick) quit')->at(23,0);
+	$_screen->puts("F1 or ? for more elaborate help, any other key for next screen ")
+		->stty_raw();
+	if ($scr->getch() =~ /(k1|\?)/) {
+		system qw(man pfm); # how unsubtle :-)
+	}
+	credits();
+	return $R_CLRSCR;
+}
 
 ##########################################################################
 

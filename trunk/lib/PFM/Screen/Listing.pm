@@ -491,6 +491,17 @@ sub makeformatlines {
 	return $_currentformatline;
 }
 
+=item markcurrentline()
+
+Shows the current command on the current file in the cursor column.
+
+=cut
+
+sub markcurrentline {
+	my ($self, $letter) = @_;
+	$_screen->at($_pfm->browser->currentline + $_screen->BASELINE, $_cursorcol)
+		->puts($letter);
+}
 
 ##########################################################################
 
