@@ -38,9 +38,14 @@ use base 'PFM::Abstract';
 
 use PFM::Util;
 
+use constant {
+	SLOWENTRIES         => 300,
+	MAJORMINORSEPARATOR => ',',
+};
+
 my ($_pfm, $_path,
 	@_dircontents, @_showncontents, %_selected_nr_of, %_total_nr_of,
-	%_disk);
+	%_usercache, %_groupcache, %_disk);
 
 ##########################################################################
 # private subs
@@ -57,6 +62,27 @@ sub _init {
 	$_path					= $path;
 }
 
+=item _find_uid()
+
+=item _find_gid()
+
+Finds the username or group name corresponding to a uid or gid,
+and caches the result.
+
+=cut
+
+sub _find_uid {
+	my ($self, $uid) = @_;
+	return $_usercache{$uid} ||
+		+($_usercache{$uid} = (defined($uid) ? getpwuid($uid) : '') || $uid);
+}
+
+sub _find_gid {
+	my ($self, $gid) = @_;
+	return $_groupcache{$gid} ||
+		+($_groupcache{$gid} = (defined($gid) ? getgrgid($gid) : '') || $gid);
+}
+
 =item _by_sort_mode()
 
 Sorts two directory entries according to the selected sort mode.
@@ -64,6 +90,7 @@ Sorts two directory entries according to the selected sort mode.
 =cut
 
 sub _by_sort_mode {
+	# note: called directly (not OO-like)
 	my ($exta, $extb);
 	if ($_pfm->config->{dotdot_mode}) {
 		# Oleg Bartunov requested to have . and .. unsorted (always at the top)
@@ -188,6 +215,14 @@ sub disk {
 ##########################################################################
 # public subs
 
+=item chdir()
+
+Tries to change the current working directory, if necessary using B<CDPATH>.
+If successful, it stores the previous state in @PFM::Application::states
+and executes the 'chdirautocmd' from the F<.pfmrc> file.
+
+=cut
+
 sub chdir {
 	my ($self, $target) = @_;
 	my $result;
@@ -207,11 +242,9 @@ sub chdir {
 			}
 		}
 	}
-	#TODO canonicalize_path
 	$target = canonicalize_path($target);
 	if ($result = chdir $target and $target ne $_path) {
-		#TODO define constants for oldcwd
-		$_pfm->state(2) = $self;
+		$_pfm->state(2) = $_pfm->state;
 		# TODO store _path in state->_position
 		$_path = $target;
 		$chdirautocmd = $_pfm->config->chdirautocmd;
@@ -220,6 +253,67 @@ sub chdir {
 	}
 	return $result;
 }
+
+=item stat_entry()
+
+Initializes the current file information by performing a stat() on it.
+
+=cut
+
+# TODO
+sub stat_entry {
+	# the selected_flag argument is used to have the caller specify whether
+	# the 'selected' field of the file info should be cleared (when reading
+	# a new directory) or kept intact (when re-statting)
+	my ($self, $entry, $selected_flag) = @_;
+	my ($ptr, $name_too_long, $target);
+	my ($device, $inode, $mode, $nlink, $uid, $gid, $rdev, $size,
+		$atime, $mtime, $ctime, $blksize, $blocks) = lstat $entry;
+	$ptr = {
+		name		=> $entry,
+		uid			=> $self->_find_uid($uid),
+		gid			=> $self->_find_gid($gid),
+		mode		=> mode2str($mode),
+		device		=> $device,
+		inode		=> $inode,
+		nlink		=> $nlink,
+		rdev		=> $rdev,
+		selected	=> $selected_flag,	grand_power	=> ' ',
+		atime		=> $atime,			size		=> $size,
+		mtime		=> $mtime,			blocks		=> $blocks,
+		ctime		=> $ctime,			blksize		=> $blksize,
+		svn			=> '-',
+		atimestring => time2str($atime, TIME_FILE),
+		mtimestring => time2str($mtime, TIME_FILE),
+		ctimestring => time2str($ctime, TIME_FILE),
+	};
+	@{$ptr}{qw(size_num size_power)} =
+		fit2limit($size, $_pfm->state->listing->maxfilesizelength);
+	$ptr->{type} = substr($ptr->{mode}, 0, 1);
+	if ($ptr->{type} eq 'l') {
+		$ptr->{target}  = readlink($ptr->{name});
+		$ptr->{display} = $entry . $filetypeflags{'l'}
+						. ' -> ' . $ptr->{target};
+	} elsif ($ptr->{type} eq '-' and $ptr->{mode} =~ /.[xst]/) {
+		$ptr->{display} = $entry . $filetypeflags{'x'};
+	} elsif ($ptr->{type} =~ /[bc]/) {
+		$ptr->{size_num} = sprintf("%d", $rdev / $rdevtomajor) . MAJORMINORSEPARATOR . ($rdev % $rdevtomajor);
+		$ptr->{display} = $entry . $filetypeflags{$ptr->{type}};
+	} else {
+		$ptr->{display} = $entry . $filetypeflags{$ptr->{type}};
+	}
+	$ptr->{name_too_long} = length($ptr->{display}) > $_pfm->state->listing->maxfilenamelength-1
+							? $_pfm->state->listing->NAMETOOLONGCHAR : ' ';
+	$total_nr_of{ $ptr->{type} }++; # this is wrong! e.g. after cOmmand
+	return $ptr;
+}
+
+=item init_dircount()
+
+Initializes the total number of entries of each type in the current
+directory by zeroing them out.
+
+=cut
 
 sub init_dircount {
 	%_selected_nr_of = %_total_nr_of =
@@ -242,22 +336,27 @@ sub countcontents {
 	}
 }
 
-# TODO
+=item readcontents()
+
+Reads the entries in the current directory and performs a stat() on them.
+
+=cut
+
 sub readcontents {
+	my $self = shift;
 	my (@contents, $entry);
 	my @allentries = ();
 	my @white_entries = ();
-	%usercache = %groupcache = ();
-#	draw_headings($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
+	my $screen = $_pfm->screen;
+	%_usercache = %_groupcache = ();
 	if (opendir CURRENT, '.') { # was $_path
 		@allentries = readdir CURRENT;
 		closedir CURRENT;
 		if ($white_cmd) {
-			@white_entries = `$white_cmd $_[0]`;
+			@white_entries = `$white_cmd .`;
 		}
 	} else {
-		$scr->at(0,0)->clreol();
-		display_error("Cannot read . : $!");
+		$screen->at(0,0)->clreol()->display_error("Cannot read . : $!");
 	}
 	# next lines also correct for directories with no entries at all
 	# (this is sometimes the case on NTFS filesystems: why?)
@@ -265,23 +364,22 @@ sub readcontents {
 		@allentries = ('.', '..');
 	}
 #	local $SIG{INT} = sub { return @contents };
-	if ($#allentries > $SLOWENTRIES) {
-		# don't use display_error here because that would just cost more time
-		$scr->at(0,0)->clreol()->putcolored($framecolors{$color_mode}{message}, 'Please Wait');
+	if ($#allentries > SLOWENTRIES) {
+		$screen->at(0,0)->clreol()->putmessage('Please Wait');
 	}
 	foreach $entry (@allentries) {
 		# have the mark cleared on first stat with ' '
-		push @contents, stat_entry($entry, ' ');
+		push @contents, $self->stat_entry($entry, ' ');
 	}
 	foreach $entry (@white_entries) {
-		$entry = stat_entry($entry, ' ');
+		$entry = $self->stat_entry($entry, ' ');
 		$entry->{type} = 'w';
 		substr($entry->{mode}, 0, 1) = 'w';
 		push @contents, $entry;
 	}
-	show_menu();
-	handlemorercsopen() if $autorcs;
-	show_headings($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
+	$screen->set_deferred_refresh($screen->R_MENU | $screen->R_HEADINGS);
+	# TODO
+	handlemorercsopen() if $_pfm->config->{autorcs};
 	return @contents;
 }
 
@@ -292,8 +390,7 @@ Sorts the directory's contents according to the selected sort mode.
 =cut
 
 sub sortcontents {
-	# TODO sorteer uitdaging
-	@_dircontents  = sort { $self->_by_sort_mode } @_dircontents;
+	@_dircontents  = sort _by_sort_mode @_dircontents;
 }
 
 =item filtercontents()

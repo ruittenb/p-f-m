@@ -41,12 +41,13 @@ use PFM::Screen::Listing;
 use PFM::Screen::Diskinfo;
 
 use constant {
-	ERRORDELAY		=> 1,	# in seconds (fractions allowed)
-	IMPORTANTDELAY	=> 2,	# extra time for important errors
+	NAMETOOLONGCHAR => '+',
+	ERRORDELAY		=> 1,		# in seconds (fractions allowed)
+	IMPORTANTDELAY	=> 2,		# extra time for important errors
 	PATHLINE		=> 1,
 	BASELINE		=> 3,
 	R_NOP			=> 0,		# no action was required, wait for new key
-	R_STRIDE		=> 1,		# refresh currentfile, validate cursor position (always done)
+	R_STRIDE		=> 1,		# validate cursor position (always done)
 	R_MENU			=> 2,		# reprint the menu (header)
 	R_PATHINFO		=> 4,		# reprint the pathinfo
 	R_HEADINGS		=> 8,		# reprint the headings
@@ -167,6 +168,19 @@ sub listing {
 
 sub diskinfo {
 	return $_diskinfo;
+}
+
+=item wasresized()
+
+Getter/setter for the flag that indicates that the window was resized
+and needs to be updated.
+
+=cut
+
+sub wasresized {
+	my ($self, $value) = @_;
+	$_wasresized = $value if defined $value;
+	return $_wasresized;
 }
 
 ##########################################################################
@@ -351,7 +365,7 @@ sub pressanykey {
 	};
 	# the output of the following command should start on a new line.
 	# does this work correctly in TERM_RAW mode?
-	$scr->puts("\n");
+	$self->puts("\n");
 	$self->mouse_enable() if $_pfm->state->{mouse_mode};
 	$self->alternate_on() if $_pfm->config->{altscreen_mode};
 	$self->handleresize() if $_wasresized;
@@ -433,11 +447,7 @@ sub refresh {
 		$_deferred_refresh & R_DIRSORT)
 	{
 		$directory->init_dircount();
-		$browser->position_at(
-			$directory->showncontents->[
-				$browser->_currentline + $browser->_baseindex
-			]{name}
-		);
+		$browser->position_at($browser->currentfile->{name});
 	}
 	if ($_deferred_refresh & R_DIRCONTENTS) {
 		$directory->readcontents();
@@ -448,11 +458,9 @@ sub refresh {
 	if ($_deferred_refresh & R_DIRFILTER) {
 		$directory->filtercontents();
 	}
-	# TODO from here
-	if ($_deferred_refresh &   $R_STRIDE) {
-		position_cursor() if $position_at ne '';
-		recalc_ptr() unless defined $showncontents[$currentline+$baseindex];
-		%currentfile = %{$showncontents[$currentline+$baseindex]};
+	if ($_deferred_refresh & R_STRIDE) {
+		$browser->position_cursor();
+		$browser->position_cursor('.') unless defined $browser->currentfile;
 	}
 	if ($_deferred_refresh & R_DIRLIST) {
 		$_listing->show();
@@ -467,7 +475,8 @@ sub refresh {
 		$self->path_info();
 	}
 	if ($_deferred_refresh & R_HEADINGS) {
-		$_frame->show_headings($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
+		$_frame->show_headings(
+			$_pfm->state->{swap_mode}, $_frame->HEADING_DISKINFO);
 	}
 	if ($_deferred_refresh & R_FOOTER) {
 		$_frame->show_footer();
@@ -496,7 +505,6 @@ filesystem.
 
 =cut
 
-# TODO lots
 sub pathline {
 	my ($path, $dev, $displen, $ellipssize) = @_;
 	my $overflow	 = ' ';
@@ -504,7 +512,7 @@ sub pathline {
 	my $normaldevlen = 12;
 	my $actualdevlen = max($normaldevlen, length($dev));
 	# the three in the next exp is the length of the overflow char plus the '[]'
-	my $maxpathlen   = $screenwidth - $actualdevlen -3;
+	my $maxpathlen   = $_screenwidth - $actualdevlen -3;
 	my ($restpathlen, $disppath);
 	$dev = $dev . ' 'x max($actualdevlen -length($dev), 0);
 	FIT: {
@@ -529,7 +537,7 @@ sub pathline {
 				# impossible to replace; just truncate
 				# this is the case for e.g. /usr/some_ridiculously_long_directory_name
 				$disppath = substr($disppath.$path, 0, $maxpathlen);
-				$overflow = $NAMETOOLONGCHAR;
+				$overflow = $_listing->NAMETOOLONGCHAR;
 				last FIT;
 			}
 			# pathname component candidate for replacement found; name will fit

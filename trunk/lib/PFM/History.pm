@@ -230,7 +230,7 @@ should be used for the command prompt, then instructs Term::ReadLine to use thes
 
 sub setornaments {
 	my $self = shift;
-	my $color = $_pfm->config->{framecolors}{$_pfm->state->color_mode}{message};
+	my $color = $_pfm->config->{framecolors}{$_pfm->state->{color_mode}}{message};
 	my @cols;
 	unless (exists $ENV{PERL_RL}) {
 		# this would have been nice, however,

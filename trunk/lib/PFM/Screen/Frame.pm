@@ -54,7 +54,8 @@ use constant {
 
 my %ONOFF = ('' => 'off', 0 => 'off', 1 => 'on');
 
-my ($_pfm, $_currentpan);
+my ($_pfm, $_screen,
+	$_currentpan);
 
 ##########################################################################
 # private subs
@@ -68,7 +69,8 @@ Called from the constructor.
 
 sub _init {
 	my ($self, $pfm) = @_;
-	$_pfm = $pfm;
+	$_pfm    = $pfm;
+	$_screen = $pfm->screen;
 }
 
 =item _maxpan()
@@ -183,7 +185,7 @@ sub show {
 	my $self = shift;
 	$self->show_menu();
 	# TODO @layoutfieldswithinfo
-	$self->show_headings($_pfm->state->{swap_mode}, HEADING_DISKINFO, @layoutfieldswithinfo);
+	$self->show_headings($_pfm->state->{swap_mode}, HEADING_DISKINFO);
 	$self->show_footer();
 	return $self;
 }
@@ -199,24 +201,24 @@ sub show_menu {
 	my ($pos, $menu, $menulength, $vscreenwidth, $color, $do_multi);
 	$mode ||= ($_pfm->state->{multiple_mode} * MENU_MULTI);
 	$do_multi = $mode & MENU_MULTI;
-	$vscreenwidth = $_pfm->screen->screenwidth - 9 * $do_multi;
+	$vscreenwidth = $_screen->screenwidth - 9 * $do_multi;
 	$menu         = $self->_fitbanner($self->_getmenu($mode), $vscreenwidth);
 	$menulength   = length($menu);
 	if ($menulength < $vscreenwidth) {
 		$menu .= ' ' x ($vscreenwidth - $menulength);
 	}
-	$_pfm->screen->at(0,0);
+	$_screen->at(0,0);
 	if ($do_multi) {
 		$color = $_pfm->config->{framecolors}{$_pfm->state->color_mode}{multi};
-		$_pfm->screen->putcolored($color, 'Multiple');
+		$_screen->putcolored($color, 'Multiple');
 	}
 	$color = $_pfm->config->{framecolors}{$_pfm->state->color_mode}{menu};
-	$_pfm->screen->color($color)->puts(' ' x $do_multi)->puts($menu)->bold();
+	$_screen->color($color)->puts(' ' x $do_multi)->puts($menu)->bold();
 	while ($menu =~ /[[:upper:]<>](?!nclude\?)/g) {
 		$pos = pos($menu) -1;
-		$_pfm->screen->at(0, $pos + 9*$do_multi)->puts(substr($menu, $pos, 1));
+		$_screen->at(0, $pos + 9*$do_multi)->puts(substr($menu, $pos, 1));
 	}
-	$_pfm->screen->reset()->normal();
+	$_screen->reset()->normal();
 	return $menulength;
 }
 
@@ -227,11 +229,11 @@ Displays the column headings.
 =cut
 
 # TODO move to Screen::Listing
-sub show_headings { # swap_mode, extra field, @layoutfieldswithinfo
-	my ($self, $smode, $info, @fields) = @_;
+sub show_headings { # swap_mode, extra field
+	my ($self, $smode, $info) = @_;
+	my @fields = @{$_screen->listing->layoutfieldswithinfo};
 	my ($linecolor, $diskinfo, $padding);
-	# TODO $infolength
-	$padding = ' ' x ($infolength - 14);
+	$padding = ' ' x ($_screen->diskinfo->infolength - 14);
 	for ($info) {
 		$_ == HEADING_DISKINFO	and $diskinfo = "$padding     disk info";
 		$_ == HEADING_SORT		and $diskinfo = "sort mode     $padding";
@@ -242,15 +244,15 @@ sub show_headings { # swap_mode, extra field, @layoutfieldswithinfo
 	$FIELDHEADINGS{diskinfo} = $diskinfo;
 #	$FIELDHEADINGS{display} = $FIELDHEADINGS{name} . ' (' . $sort_mode . ('%','')[$white_mode] . ('.','')[$dot_mode] . ')';
 	$linecolor = $smode
-		? $_pfm->config->framecolors->{$_pfm->state->color_mode}{swap}
-		: $_pfm->config->framecolors->{$_pfm->state->color_mode}{headings};
+		? $_pfm->config->framecolors->{$_pfm->state->{color_mode}}{swap}
+		: $_pfm->config->framecolors->{$_pfm->state->{color_mode}}{headings};
 #	$screen->bold()			if ($linecolor =~ /bold/);
 #	$screen->reverse()		if ($linecolor =~ /reverse/);
 #	$screen->underline()	if ($linecolor =~ /under(line|score)/);
 	$screen->term()->Tputs('us', 1, *STDOUT)
 							if ($linecolor =~ /under(line|score)/);
 	$screen->at(2,0)
-		->putcolored($linecolor, formatted($currentformatlinewithinfo, @FIELDHEADINGS{@fields}))
+		->putcolored($linecolor, formatted($_pfm->screen->listing->currentformatlinewithinfo, @FIELDHEADINGS{@fields}))
 		->reset()->normal();
 }
 
@@ -262,7 +264,7 @@ Displays the footer, i.e. the last line on screen with the status info.
 
 sub show_footer {
 	my $self	  = shift;
-	my $screen	  = $_pfm->screen;
+	my $screen	  = $_screen;
 	my $width	  = $screen->screenwidth;
 	my $footer	  = $self->_fitbanner($self->_getfooter(), $width);
 	my $padding	  = ' ' x ($width - length $footer);
@@ -285,15 +287,14 @@ Pans the menu and footer according to the key pressed.
 
 sub pan {
 	my ($self, $key, $mode) = @_;
-	my $screen = $_pfm->screen;
-	my $width  = $screen->screenwidth - 9 * $_pfm->state->{multiple_mode};
-	my $count  = max(
+	my $width = $_screen->screenwidth - 9 * $_pfm->state->{multiple_mode};
+	my $count = max(
 		$self->_maxpan($self->_getmenu($mode), $width),
 		$self->_maxpan($self->_getfooter(), $width)
 	);
 	$_currentpan = $_currentpan - ($key eq '<' and $_currentpan > 0)
 								+ ($key eq '>' and $_currentpan < $count);
-	$screen->set_deferred_refresh($screen->R_MENU | $screen->R_FOOTER);
+	$_screen->set_deferred_refresh($_screen->R_MENU | $_screen->R_FOOTER);
 }
 
 ##########################################################################

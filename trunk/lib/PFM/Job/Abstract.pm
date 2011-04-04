@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Job::Bazaar 0.01
+# @(#) PFM::Job::Abstract 0.01
 #
-# Name:			PFM::Job::Bazaar.pm
+# Name:			PFM::Job::Abstract.pm
 # Version:		0.01
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-03-27
+# Date:			2010-04-03
 #
 
 ##########################################################################
@@ -16,11 +16,11 @@
 
 =head1 NAME
 
-PFM::Job::Bazaar
+PFM::Job::Abstract
 
 =head1 DESCRIPTION
 
-PFM Job class for Bazaar commands.
+Abstract PFM Job class for defining a common interface to Jobs.
 
 =head1 METHODS
 
@@ -31,24 +31,14 @@ PFM Job class for Bazaar commands.
 ##########################################################################
 # declarations
 
-package PFM::Job::Bazaar;
+package PFM::Job::Abstract;
 
-use base 'PFM::Job::Abstract';
+use Carp;
 
-my $_command = 'bzr status -S';
+use base 'PFM::Abstract';
 
 ##########################################################################
 # private subs
-
-=item _init()
-
-Initializes new instances. Called from the constructor.
-
-=cut
-
-sub _init {
-	my $self = shift;
-}
 
 ##########################################################################
 # constructor, getters and setters
@@ -58,12 +48,14 @@ sub _init {
 
 sub start {
 	my $self = shift;
-	#TODO
+	my $class = ref($self) || $self;
+	croak("$class does not implement a start() method");
 }
 
 sub poll {
 	my $self = shift;
-	#TODO
+	my $class = ref($self) || $self;
+	croak("$class does not implement a poll() method");
 }
 
 ##########################################################################
