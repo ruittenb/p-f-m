@@ -87,6 +87,16 @@ sub _set_term_history {
 ##########################################################################
 # constructor, getters and setters
 
+=item keyboard()
+
+Getter for the Term::ReadLine::Gnu object.
+
+=cut
+
+sub keyboard {
+	return $_keyboard;
+}
+
 ##########################################################################
 # public subs
 

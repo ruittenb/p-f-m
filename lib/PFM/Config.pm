@@ -30,7 +30,41 @@ use constant {
 	CONFIGDIRMODE	=> 0700,
 };
 
-my ($_configfilename, %_pfmrc);
+my %RDEVTOMAJOR = (
+	default	=> 2 **  8,
+	aix		=> 2 ** 16,
+	irix	=> 2 ** 18,
+	solaris	=> 2 ** 18,
+	sunos	=> 2 ** 18,
+	dec_osf	=> 2 ** 20,
+	tru64	=> 2 ** 20, # correct value for $OSNAME on Tru64?
+	hpux	=> 2 ** 24,
+);
+
+# AIX,BSD,Tru64	: du gives blocks, du -k kbytes
+# Solaris		: du gives kbytes
+# HP			: du gives blocks,               du -b blocks in swap(?)
+# Linux			: du gives blocks, du -k kbytes, du -b bytes
+# Darwin		: du gives blocks, du -k kbytes
+# the ${e} is replaced later
+my %DUCMDS = (
+	default	=> q(du -sk ${e}2 | awk '{ printf "%d", 1024 * $1 }'),
+	solaris	=> q(du -s  ${e}2 | awk '{ printf "%d", 1024 * $1 }'),
+	sunos	=> q(du -s  ${e}2 | awk '{ printf "%d", 1024 * $1 }'),
+	hpux	=> q(du -s  ${e}2 | awk '{ printf "%d",  512 * $1 }'),
+	linux	=> q(du -sb ${e}2),
+#	aix		=> can use the default
+#	freebsd	=> can use the default
+#	netbsd	=> can use the default
+#	dec_osf	=> can use the default unless proven otherwise
+#	beos	=> can use the default unless proven otherwise
+#	irix	=> can use the default unless proven otherwise
+#	sco		=> can use the default unless proven otherwise
+#	darwin	=> can use the default
+	# MSWin32, os390 etc. not supported
+);
+
+my ($_pfm, $_configfilename, %_pfmrc);
 
 ##########################################################################
 # private subs
@@ -42,9 +76,10 @@ Initializes new instances. Called from the constructor.
 =cut
 
 sub _init {
-	my $self = shift;
+	my ($self, $pfm) = @_;
+	$_pfm = $pfm;
 	$_configfilename =
-		$ENV{PFMRC} ? $ENV{PFMRC} : "$CONFIGDIRNAME/$CONFIGFILENAME";
+		$ENV{PFMRC} ? $ENV{PFMRC} : CONFIGDIRNAME . "/$CONFIGFILENAME";
 }
 
 =item _copyright()
@@ -54,17 +89,19 @@ Prints a short copyright message. Called at startup.
 =cut
 
 sub _copyright {
-	my ($self, $pfm) = @_;
+	my ($self) = @_;
 	# lookalike to DOS version :)
 	# note that configured colors are not yet known
-	$pfm->screen
+	my $lastyear = $_pfm->{LASTYEAR};
+	my $version  = $_pfm->{VERSION};
+	$_pfm->screen
 		->at(0,0)->clreol()->cyan()
-				 ->puts("PFM $VERSION for Unix and Unix-like OS's.")
-		->at(1,0)->puts("Copyright (c) 1999-$LASTYEAR Rene Uittenbogaard")
+				 ->puts("PFM $version for Unix and Unix-like OS's.")
+		->at(1,0)->puts("Copyright (c) 1999-$lastyear Rene Uittenbogaard")
 		->at(2,0)->puts("This software comes with no warranty: " .
 						"see the file COPYING for details.")
 		->reset()->normal();
-	return $pfm->screen->key_pressed($_[0]);
+	return $_pfm->screen->key_pressed($_[0]);
 }
 
 =item _parse_colorsets()
@@ -73,6 +110,7 @@ Parses the colorsets defined in the F<.pfmrc>.
 
 =cut
 
+# TODO
 sub _parse_colorsets {
 	if (isyes($pfmrc{importlscolors}) and $ENV{LS_COLORS} || $ENV{LS_COLOURS}){
 		$pfmrc{'dircolors[ls_colors]'} =  $ENV{LS_COLORS} || $ENV{LS_COLOURS};
@@ -138,7 +176,9 @@ Returns a string indicating which F<.pfmrc> is currently being used.
 sub explain {
 	my $self = shift;
 	return "Configuration options will be read from \$PFMRC " .
-		($ENV{PFMRC} ? "($ENV{PFMRC})" : "or $CONFIGDIRNAME/$CONFIGFILENAME");
+		($ENV{PFMRC}
+			? "($ENV{PFMRC})"
+			: "or " . CONFIGDIRNAME . "/$CONFIGFILENAME");
 }
 
 =item read()
@@ -148,12 +188,12 @@ Reads in the F<.pfmrc> file. If none exists, a default F<.pfmrc> is written.
 =cut
 
 sub read {
-	my ($self, $pfm, $read_first) = @_;
+	my ($self, $read_first) = @_;
 	%_pfmrc = ();
 	unless (-r $_configfilename) {
-		unless ($ENV{PFMRC} || -d $CONFIGDIRNAME) {
+		unless ($ENV{PFMRC} || -d CONFIGDIRNAME) {
 			# create the directory only if $ENV{PFMRC} is not set
-			mkdir $CONFIGDIRNAME, $CONFIGDIRMODE;
+			mkdir CONFIGDIRNAME, CONFIGDIRMODE;
 		}
 		$self->write_default();
 	}
@@ -163,136 +203,154 @@ sub read {
 			# is read in using UTF-8
 			no locale;
 			if (/# Version ([\w.]+)$/ and
-				$1 lt $pfm->{VERSION} and $read_first)
+				$1 lt $_pfm->{VERSION} and $read_first)
 			{
 				# will not be in message color: usecolor not yet parsed
-				$pfm->screen->neat_error(
-					"Warning: your $CONFIGFILENAME version $1 may be "
+				$_pfm->screen->neat_error(
+					"Warning: your $_configfilename version $1 may be "
 				.	"outdated.\r\nPlease see pfm(1), under DIAGNOSIS."
 				);
-				$pfm->screen->key_pressed($IMPORTANTDELAY);
+				$_pfm->screen->important_delay();
 			}
 			s/#.*//;
 			if (s/\\\n?$//) { $_ .= <PFMRC>; redo; }
 #			if (/^\s*([^:[\s]+(?:\[[^]]+\])?)\s*:\s*(.*)$/o) {
 			if (/^[ \t]*([^: \t[]+(?:\[[^]]+\])?)[ \t]*:[ \t]*(.*)$/o) {
 #				print STDERR "-$1";
-				$pfmrc{$1} = $2;
+				$_pfmrc{$1} = $2;
 			}
 		}
 		close PFMRC;
 	}
 }
 
-sub parse { # $readflag - show copyright only on startup (first read)
+sub parse {
 	my ($self, $show_copyright) = @_;
 	local $_;
-	my ($termkeys, $oldkey);
-	%dircolors = %framecolors = %filetypeflags = ();
+	my $e;
+	$self->{dircolors}     = {};
+	$self->{framecolors}   = {};
+	$self->{filetypeflags} = {};
 	# 'usecolor' - find out when color must be turned _off_
-	if (defined($ENV{ANSI_COLORS_DISABLED}) or isno($pfmrc{usecolor})) {
-		$pfm->screen->colorizable(0);
-	} elsif ($pfmrc{usecolor} eq 'force') {
-		$pfm->screen->colorizable(1);
+	if (defined($ENV{ANSI_COLORS_DISABLED}) or isno($_pfmrc{usecolor})) {
+		$_pfm->screen->colorizable(0);
+	} elsif ($_pfmrc{usecolor} eq 'force') {
+		$_pfm->screen->colorizable(1);
 	}
 	# 'copyrightdelay', 'cursorveryvisible', 'erase', 'keymap'
-	$self->_copyright($pfmrc{copyrightdelay}, $pfm) if $show_copyright;
-	$cursorveryvisible = isyes($pfmrc{cursorveryvisible});
-	system ('tput', $cursorveryvisible ? 'cvvis' : 'cnorm');
-	system ('stty', 'erase', $pfmrc{erase})	if defined($pfmrc{erase});
-	$kbd->set_keymap($pfmrc{keymap})		if $pfmrc{keymap};
+	$self->_copyright($_pfmrc{copyrightdelay}) if $show_copyright;
+	$self->{cursorveryvisible} = isyes($_pfmrc{cursorveryvisible});
+	system ('tput', $_pfmrc{cursorveryvisible} ? 'cvvis' : 'cnorm');
+	system ('stty', 'erase', $_pfmrc{erase}) if defined($_pfmrc{erase});
+	$_pfm->history->keyboard->set_keymap($_pfmrc{keymap}) if $_pfmrc{keymap};
 	# time/date format for clock and timestamps
-	$pfmrc{clockdateformat} ||= '%Y %b %d';
-	$pfmrc{clocktimeformat} ||= '%H:%M:%S';
-	$pfmrc{timestampformat} ||= '%y %b %d %H:%M';
-	# some configuration options are NOT fetched into common scalars
-	# (e.g. confirmquit) - however, they remain accessable in %pfmrc
-	# don't change initialized settings that are modifiable by key commands
-	$check_for_updates  = isyes($pfmrc{checkforupdates});
-	$clsonexit			= isyes($pfmrc{clsonexit});
-	$waitlaunchexec		= isyes($pfmrc{waitlaunchexec});
-	$autowritehistory	= isyes($pfmrc{autowritehistory});
-	$autoexitmultiple	= isyes($pfmrc{autoexitmultiple});
-	$mouseturnoff		= isyes($pfmrc{mouseturnoff});
-	$swap_persistent	= isyes($pfmrc{persistentswap});
-	$trspace			= isyes($pfmrc{translatespace}) ? ' ' : '';
-	$dotdot_mode		= isyes($pfmrc{dotdotmode});
-	$autorcs			= isyes($pfmrc{autorcs});
-	$remove_marks_ok	= isyes($pfmrc{remove_marks_ok});
-	$white_mode			= isyes($pfmrc{defaultwhitemode})	if !defined $white_mode;
-	$dot_mode			= isyes($pfmrc{defaultdotmode})		if !defined $dot_mode;
-	$clobber_mode		= isyes($pfmrc{defaultclobber})		if !defined $clobber_mode;
-	$sort_mode			= $pfmrc{defaultsortmode}	|| 'n'	if !defined $sort_mode;
-	$radix_mode			= $pfmrc{defaultradix}		|| 'hex'	if !defined $radix_mode;
-	$path_mode			= $pfmrc{defaultpathmode}	|| 'log'	if !defined $path_mode;
-	$currentlayout		= $pfmrc{defaultlayout}		||  0		if !defined $currentlayout;
-	$e					= $pfmrc{escapechar}		|| '=';
-	$rdevtomajor		= $RDEVTOMAJOR{$^O} || $RDEVTOMAJOR{default};
-	$ducmd				= $pfmrc{ducmd} || $DUCMDS{$^O} || $DUCMDS{default};
-	$ducmd				=~ s/\$\{e\}/$e/g;
-	$mouse_mode			= $pfmrc{defaultmousemode}	|| 'xterm' if !defined $mouse_mode;
-	$mouse_mode			= ($mouse_mode eq 'xterm' && isxterm($ENV{TERM})) || isyes($mouse_mode);
-	# shouldn't this be !defined $pfmrc{altscreen_mode} ?
-	$altscreen_mode		= $pfmrc{altscreenmode}		|| 'xterm' if !defined $altscreen_mode;
-	$altscreen_mode		= ($altscreen_mode eq 'xterm' && isxterm($ENV{TERM})) || isyes($altscreen_mode);
-	$chdirautocmd		= $pfmrc{chdirautocmd};
-	$rcscmd				= $pfmrc{rcscmd} || 'svn status';
-	($windowcmd)		= ($pfmrc{windowcmd}) ||
-						  ($^O eq 'linux' ? 'gnome-terminal -e' : 'xterm -e');
-	($printcmd)			= ($pfmrc{printcmd}) ||
-						  ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER} ${e}2" : "lpr ${e}2");
-	$showlockchar		= ( $pfmrc{showlock} eq 'sun' && $^O =~ /sun|solaris/i
-						  or isyes($pfmrc{showlock}) ) ? 'l' : 'S';
-	$ident_mode			= $IDENTMODES{$pfmrc{defaultident}} || 0 if !defined $ident_mode;
-	$viewer				= $pfmrc{viewer} || 'xv';
-	$editor				= $ENV{VISUAL} || $ENV{EDITOR}  || $pfmrc{editor} || 'vi';
-	$pager				= $ENV{PAGER}  || $pfmrc{pager} || ($^O =~ /linux/i ? 'less' : 'more');
+	$self->{clockdateformat}	= $_pfmrc{clockdateformat} || '%Y %b %d';
+	$self->{clocktimeformat}	= $_pfmrc{clocktimeformat} || '%H:%M:%S';
+	$self->{timestampformat}	= $_pfmrc{timestampformat} || '%y %b %d %H:%M';
+	# Some configuration options are NOT fetched into common scalars
+	# (e.g. confirmquit) - however, they remain accessable in %_pfmrc.
+	# Don't change settings back to the defaults if they may have
+	# been modified by key commands.
+	$self->{check_for_updates}	= isyes($_pfmrc{checkforupdates});
+	$self->{clsonexit}			= isyes($_pfmrc{clsonexit});
+	$self->{waitlaunchexec}		= isyes($_pfmrc{waitlaunchexec});
+	$self->{autowritehistory}	= isyes($_pfmrc{autowritehistory});
+	$self->{autoexitmultiple}	= isyes($_pfmrc{autoexitmultiple});
+	$self->{mouseturnoff}		= isyes($_pfmrc{mouseturnoff});
+	$self->{swap_persistent}	= isyes($_pfmrc{persistentswap});
+	$self->{trspace}			= isyes($_pfmrc{translatespace}) ? ' ' : '';
+	$self->{dotdot_mode}		= isyes($_pfmrc{dotdotmode});
+	$self->{autorcs}			= isyes($_pfmrc{autorcs});
+	$self->{remove_marks_ok}	= isyes($_pfmrc{remove_marks_ok});
+	$self->{white_mode}			= isyes($_pfmrc{defaultwhitemode})	if !defined $self->{white_mode};
+	$self->{dot_mode}			= isyes($_pfmrc{defaultdotmode})	if !defined $self->{dot_mode};
+	$self->{clobber_mode}		= isyes($_pfmrc{defaultclobber})	if !defined $self->{clobber_mode};
+	$self->{sort_mode}			= $_pfmrc{defaultsortmode} || 'n'	if !defined $self->{sort_mode};
+	$self->{radix_mode}			= $_pfmrc{defaultradix}    || 'hex'	if !defined $self->{radix_mode};
+	$self->{path_mode}			= $_pfmrc{defaultpathmode} || 'log'	if !defined $self->{path_mode};
+	$self->{currentlayout}		= $_pfmrc{defaultlayout}   ||  0	if !defined $self->{currentlayout};
+	$self->{escapechar} = $e	= $_pfmrc{escapechar}      || '=';
+	$self->{rdevtomajor}		= $RDEVTOMAJOR{$^O} || $RDEVTOMAJOR{default};
+	$self->{ducmd}				= $_pfmrc{ducmd} || $DUCMDS{$^O} || $DUCMDS{default};
+	$self->{ducmd}				=~ s/\$\{e\}/${e}/g;
+	$self->{mouse_mode}			= $_pfmrc{defaultmousemode} || 'xterm' if !defined $self->{mouse_mode};
+	$self->{mouse_mode}			= ($self->{mouse_mode}      eq 'xterm' && isxterm($ENV{TERM}))
+								|| isyes($self->{mouse_mode});
+	$self->{altscreen_mode}		= $_pfmrc{altscreenmode}    || 'xterm';
+	$self->{altscreen_mode}		= ($self->{altscreen_mode}  eq 'xterm' && isxterm($ENV{TERM}))
+								|| isyes($self->{altscreen_mode});
+	$self->{chdirautocmd}		= $_pfmrc{chdirautocmd};
+	$self->{rcscmd}				= $_pfmrc{rcscmd} || 'svn status';
+	$self->{windowcmd}			= $_pfmrc{windowcmd}
+								|| ($^O eq 'linux' ? 'gnome-terminal -e' : 'xterm -e');
+	$self->{printcmd}			= $_pfmrc{printcmd}
+								|| ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER} ${e}2" : "lpr ${e}2");
+	$self->{showlockchar}		= ( $_pfmrc{showlock} eq 'sun' && $^O =~ /sun|solaris/i
+								or isyes($_pfmrc{showlock}) ) ? 'l' : 'S';
+	$self->{ident_mode}			= $_pfm->screen->diskinfo->IDENTMODES->{$_pfmrc{defaultident}}
+								|| 0 if !defined $self->{ident_mode};
+	$self->{viewer}				= $_pfmrc{viewer} || 'xv';
+	$self->{editor}				= $ENV{VISUAL} || $ENV{EDITOR}   || $_pfmrc{editor} || 'vi';
+	$self->{pager}				= $ENV{PAGER}  || $_pfmrc{pager} || ($^O =~ /linux/i ? 'less' : 'more');
 	# flags
-	if ($pfmrc{filetypeflags} eq 'dirs') {
-		%filetypeflags = ( d => $FILETYPEFLAGS{d} );
-	} elsif (isyes($pfmrc{filetypeflags})) {
-		%filetypeflags = %FILETYPEFLAGS;
+	if (isyes($_pfmrc{filetypeflags})) {
+		$self->{filetypeflags} = $_pfm->screen->listing->FILETYPEFLAGS;
+	} elsif ($_pfmrc{filetypeflags} eq 'dirs') {
+		$self->{filetypeflags} = { d => $_pfm->screen->listing->FILETYPEFLAGS->{d} };
 	} else {
-		%filetypeflags = ();
+		$self->{filetypeflags} = {};
 	}
 	# split 'columnlayouts'
-	@columnlayouts     = split(/:/, ( $pfmrc{columnlayouts}
-		? $pfmrc{columnlayouts}
-		:	'* nnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss mmmmmmmmmmmmmmmm pppppppppp ffffffffffffff:'
-		.	'* nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss mmmmmmmmmmmmmmmm ffffffffffffff:'
-		.	'* nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss uuuuuuuu pppppppppp ffffffffffffff:'
-	));
+	$self->{columnlayouts} = [
+		$_pfmrc{columnlayouts}
+			? split(/:/, $_pfmrc{columnlayouts})
+			:('* nnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss mmmmmmmmmmmmmmmm pppppppppp ffffffffffffff'
+			, '* nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss mmmmmmmmmmmmmmmm ffffffffffffff'
+			, '* nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss uuuuuuuu pppppppppp ffffffffffffff')
+	];
+}
+
+# TODO
+sub apply {
+	my $self = shift;
+	my $termkeys;
 	# additional key definitions 'keydef'
-	if ($termkeys = $pfmrc{'keydef[*]'} .':'. $pfmrc{"keydef[$ENV{TERM}]"}) {
+	if ($termkeys = $_pfmrc{'keydef[*]'} .':'. $_pfmrc{"keydef[$ENV{TERM}]"}) {
 		$termkeys =~ s/(\\e|\^\[)/\e/gi;
-		# this does not allow : chars to appear in escape sequences!
+		# this does not allow colons (:) to appear in escape sequences!
 		foreach (split /:/, $termkeys) {
-			/^(\w+)=(.*)/ and $scr->def_key($1, $2);
+			/^(\w+)=(.*)/ and $_pfm->screen->def_key($1, $2);
 		}
 	}
-	# init colorsets, ornaments, ident, formatlines, enable mouse
 	$self->_parse_colorsets();
+	# init colorsets, ornaments, ident, formatlines, enable mouse
 	setornaments();
-	initident();
+	$_pfm->screen->diskinfo->{ident_mode} = $self->{ident_mode}; # TODO but it cycles in parse()
+	$_pfm->screen->diskinfo->initident();
 	makeformatlines();
-	mouseenable($mouse_mode);
-	alternate_screen($ALTERNATE_ON) if $altscreen_mode;
+	$_pfm->screen->mouse_enable()	if $self->{mouse_mode};
+	$_pfm->screen->alternate_on()	if $self->{altscreen_mode};
 }
 
 sub write_default {
+	my ($self) = @_;
 	my @resourcefile;
 	my $secs_per_32_days = 60 * 60 * 24 * 32;
 	my $maxdatelen = 0;
-	# the default layouts assume that the default timestamp format is 15 chars wide.
-	# find out if this is enough, taking the current locale into account.
+	my $version = $_pfm->{VERSION};
+	local $_;
+	# The default layouts assume that the default timestamp format
+	# is 15 chars wide.
+	# Find out if this is enough, taking the current locale into account.
 	foreach (0 .. 11) {
-		$maxdatelen = max($maxdatelen, length strftime("%b", gmtime($secs_per_32_days * $_)));
+		$maxdatelen = max($maxdatelen,
+			length strftime("%b", gmtime($secs_per_32_days * $_)));
 	}
 	$maxdatelen -= 3;
-	if (open MKPFMRC, '>' . whichconfigfile()) {
+	if (open MKPFMRC, ">$_configfilename") {
 		# both __DATA__ and __END__ markers are used at the same time
-		while (($_ = <DATA>) !~ /^__END__$/) {
-			s/^(##? Version )x$/$1$VERSION/m;
+		while (($_ = <DATA>) !~ /^__END__/) {
+			s/^(##? Version )x/$1$version/m;
 			if ($^O =~ /linux/i) {
 				s{^(\s*(?:your\[[[:alpha:]]\]|launch\[[^]]+\])\s*:\s*\w+.*?\s+)more(\s*)$}
 				 {$1less$2}mg;
@@ -889,6 +947,6 @@ launch[video/x-msvideo]           : divxPlayer =2 &
 ## vim: set filetype=xdefaults: # fairly close
 __END__
 
-# we need 5 lines so that vim does not read the line above.
+# we need 5 lines so that vim does not read the modeline above.
 
 # vim: set tabstop=4 shiftwidth=4:

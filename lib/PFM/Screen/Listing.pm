@@ -19,6 +19,22 @@ package PFM::Screen::Listing;
 
 use base 'PFM::Abstract';
 
+use constant FILETYPEFLAGS => {
+	# ls(1)
+	x => '*',
+	d => '/',
+	l => '@',
+	p => '|',
+   's'=> '=',
+	D => '>',
+	w => '%',
+	# tcsh(1)
+	b => '#',
+	c => '%',
+	n => ':',
+	# => '+', # Hidden directory (AIX only) or context dependent (HP/UX only)
+};
+
 my ($_pfm, $_layout);
 
 ##########################################################################

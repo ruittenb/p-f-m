@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Application 2010-03-27 v2.00.3
+# @(#) PFM::Application 2010-03-27 v2.00.5
 #
 # Name:			PFM::Application.pm
-# Version:		2.00.3
+# Version:		2.00.5
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-03-27
@@ -20,10 +20,12 @@ require 5.008;
 
 use base 'PFM::Abstract';
 
+use PFM::State;
+use PFM::Config;
 use PFM::Screen;
 use PFM::Browser;
 use PFM::CommandHandler;
-use PFM::State;
+use PFM::History;
 use Getopt::Long;
 use Cwd;
 
@@ -219,6 +221,7 @@ Instantiates the necessary objects.
 sub bootstrap {
 	my $self = shift;
 	my ($startingdir, $swapstartdir, $startinglayout,
+		$currentdir,
 		$opt_version, $opt_help, $invalid, $state);
 	
 	# hand over the application object to the other classes
@@ -236,9 +239,6 @@ sub bootstrap {
 	exit 1					if $invalid;
 	exit 0					if $opt_help || $opt_version;
 	
-	$startingdir = shift @ARGV;
-	$_state[0]->currentdir($startingdir);
-	
 	$_commandhandler = new PFM::CommandHandler($self);
 	$_history		 = new PFM::History($self);
 	$_browser		 = new PFM::Browser($self);
@@ -251,19 +251,25 @@ sub bootstrap {
 	$_config->parse($self, $_config->SHOW_COPYRIGHT);
 	$_history->read();
 	$_screen->draw_frame();
-#	# now find starting directory TODO
-	if ($_config->) {
-		push @_states, new PFM::State($self, 1);
-		$_state[1]->currentdir($swapstartdir);
+	
+	$currentdir = getcwd();
+	# TODO
+#	$oldcurrentdir = $currentdir;
+	$startingdir = shift @ARGV;
+	if ($startingdir ne '') {
+		unless ($_states[0]->mychdir($startingdir)) {
+			$_screen->at(0,0)->clreol();
+			$_screen->display_error("$startingdir: $! - using .");
+			$_screen->important_delay();
+		}
+	} else {
+		$_states[0]->currentdir($currentdir);
 	}
-#	$oldcurrentdir = $currentdir = getcwd();
-#	if ($startingdir ne '') {
-#		unless (mychdir($startingdir)) {
-#			$scr->at(0,0)->clreol();
-#			display_error("$startingdir: $! - using .");
-#			$scr->key_pressed($IMPORTANTDELAY);
-#		}
-#	}
+	
+	if (defined $swapstartdir) {
+		push @_states, new PFM::State($self, 1);
+		$_states[1]->currentdir($swapstartdir);
+	}
 	$_bootstrapped = 1;
 }
 

@@ -249,25 +249,24 @@ my $DFCMD				= ($^O eq 'hpux') ? 'bdf' : ($^O eq 'sco') ? 'dfspace' : 'df -k';
 
 #my $XTERMS				= qr/^(.*xterm.*|rxvt.*|gnome|kterm)$/;
 my @SYMBOLIC_MODES		= qw(--- --x -w- -wx r-- r-x rw- rwx);
-my %IDENTMODES			= ( user => 0, host => 1, 'user@host' => 2);
+#my %IDENTMODES			= ( user => 0, host => 1, 'user@host' => 2);
 my %NUMFORMATS			= ( 'hex' => '%#04lx', 'oct' => '%03lo');
 
-my %FILETYPEFLAGS		= (
-	# ls(1)
-	x => '*',
-	d => '/',
-	l => '@',
-	p => '|',
-   's'=> '=',
-	D => '>',
-	w => '%',
-	# tcsh(1)
-	b => '#',
-	c => '%',
-	n => ':',
-	# => '+', # Hidden directory (AIX only) or context dependent (HP/UX only)
-
-);
+#my %FILETYPEFLAGS		= (
+#	# ls(1)
+#	x => '*',
+#	d => '/',
+#	l => '@',
+#	p => '|',
+#   's'=> '=',
+#	D => '>',
+#	w => '%',
+#	# tcsh(1)
+#	b => '#',
+#	c => '%',
+#	n => ':',
+#	# => '+', # Hidden directory (AIX only) or context dependent (HP/UX only)
+#);
 
 my @SORTMODES = (
 	 n =>'Name',		N =>' reverse',
@@ -297,39 +296,39 @@ my %CMDESCAPES = (
 	'v' => 'viewer',
 );
 
-# AIX,BSD,Tru64	: du gives blocks, du -k kbytes
-# Solaris		: du gives kbytes
-# HP			: du gives blocks,               du -b something unwanted
-# Linux			: du gives blocks, du -k kbytes, du -b bytes
-# Darwin		: du gives blocks, du -k kbytes
-# the ${e} is replaced later
-my %DUCMDS = (
-	default	=> q(du -sk ${e}2 | awk '{ printf "%d", 1024 * $1 }'),
-	solaris	=> q(du -s  ${e}2 | awk '{ printf "%d", 1024 * $1 }'),
-	sunos	=> q(du -s  ${e}2 | awk '{ printf "%d", 1024 * $1 }'),
-	hpux	=> q(du -s  ${e}2 | awk '{ printf "%d",  512 * $1 }'),
-	linux	=> q(du -sb ${e}2),
-#	aix		=> can use the default
-#	freebsd	=> can use the default
-#	netbsd	=> can use the default unless proven otherwise
-#	dec_osf	=> can use the default unless proven otherwise
-#	beos	=> can use the default unless proven otherwise
-#	irix	=> can use the default unless proven otherwise
-#	sco		=> can use the default unless proven otherwise
-#	darwin	=> can use the default
-	# MSWin32, os390 etc. not supported
-);
+## AIX,BSD,Tru64	: du gives blocks, du -k kbytes
+## Solaris		: du gives kbytes
+## HP			: du gives blocks,               du -b something unwanted
+## Linux			: du gives blocks, du -k kbytes, du -b bytes
+## Darwin		: du gives blocks, du -k kbytes
+## the ${e} is replaced later
+#my %DUCMDS = (
+#	default	=> q(du -sk ${e}2 | awk '{ printf "%d", 1024 * $1 }'),
+#	solaris	=> q(du -s  ${e}2 | awk '{ printf "%d", 1024 * $1 }'),
+#	sunos	=> q(du -s  ${e}2 | awk '{ printf "%d", 1024 * $1 }'),
+#	hpux	=> q(du -s  ${e}2 | awk '{ printf "%d",  512 * $1 }'),
+#	linux	=> q(du -sb ${e}2),
+##	aix		=> can use the default
+##	freebsd	=> can use the default
+##	netbsd	=> can use the default unless proven otherwise
+##	dec_osf	=> can use the default unless proven otherwise
+##	beos	=> can use the default unless proven otherwise
+##	irix	=> can use the default unless proven otherwise
+##	sco		=> can use the default unless proven otherwise
+##	darwin	=> can use the default
+#	# MSWin32, os390 etc. not supported
+#);
 
-my %RDEVTOMAJOR = (
-	default	=> 2 **  8,
-	aix		=> 2 ** 16,
-	irix	=> 2 ** 18,
-	solaris	=> 2 ** 18,
-	sunos	=> 2 ** 18,
-	dec_osf	=> 2 ** 20,
-	tru64	=> 2 ** 20, # correct value for $OSNAME on Tru64?
-	hpux	=> 2 ** 24,
-);
+#my %RDEVTOMAJOR = (
+#	default	=> 2 **  8,
+#	aix		=> 2 ** 16,
+#	irix	=> 2 ** 18,
+#	solaris	=> 2 ** 18,
+#	sunos	=> 2 ** 18,
+#	dec_osf	=> 2 ** 20,
+#	tru64	=> 2 ** 20, # correct value for $OSNAME on Tru64?
+#	hpux	=> 2 ** 24,
+#);
 
 my %LAYOUTFIELDS = (
 	'*' => 'selected',
@@ -379,9 +378,9 @@ my %FIELDHEADINGS = (
 	diskinfo		=> 'disk info',
 );
 
-my $screenheight	= 20;    # inner height
-my $screenwidth		= 80;    # terminal width
-my $position_at		= '.';   # start with cursor here
+#my $screenheight	= 20;    # inner height
+#my $screenwidth		= 80;    # terminal width
+#my $position_at		= '.';   # start with cursor here
 
 #my (@command_history, @mode_history, @path_history, @regex_history,
 #	@perlcmd_history, @time_history);
@@ -1968,7 +1967,7 @@ sub escape_middle {
 # user commands
 
 sub handlequit { # key
-	return $R_QUIT if isno($pfmrc{confirmquit});
+	return $R_QUIT if isno($_pfm->config->{confirmquit});
 	return $R_QUIT if $_[0] eq 'Q'; # quick quit
 	return $R_QUIT if ($pfmrc{confirmquit} =~ /marked/i and !mark_info());
 	$scr->at(0,0)->clreol();
