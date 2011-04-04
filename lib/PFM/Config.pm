@@ -52,17 +52,6 @@ use constant {
 	CONFIGDIRMODE	=> 0700,
 };
 
-my %RDEVTOMAJOR = (
-	default	=> 2 **  8,
-	aix		=> 2 ** 16,
-	irix	=> 2 ** 18,
-	solaris	=> 2 ** 18,
-	sunos	=> 2 ** 18,
-	dec_osf	=> 2 ** 20,
-	tru64	=> 2 ** 20, # correct value for $OSNAME on Tru64?
-	hpux	=> 2 ** 24,
-);
-
 # AIX,BSD,Tru64	: du gives blocks, du -k kbytes
 # Solaris		: du gives kbytes
 # HP			: du gives blocks,               du -b blocks in swap(?)
@@ -294,17 +283,16 @@ sub parse {
 	$self->{autorcs}			= isyes($_pfmrc{autorcs});
 	$self->{remove_marks_ok}	= isyes($_pfmrc{remove_marks_ok});
 	$self->{clickiskeypresstoo}	= isyes($_pfmrc{clickiskeypresstoo} || 'yes');
-	$self->{clobber_mode}		= ifnotdefined($commandhandler->clobber_mode, isyes($_pfmrc{defaultclobber}));
-	$self->{currentlayout}		= ifnotdefined($screen->listing->layout, $_pfmrc{defaultlayout}   ||  0);
-	$self->{white_mode}			= ifnotdefined($state->{white_mode},     isyes($_pfmrc{defaultwhitemode}));
-	$self->{dot_mode}			= ifnotdefined($state->{dot_mode},       isyes($_pfmrc{defaultdotmode}));
-	$self->{sort_mode}			= ifnotdefined($state->{sort_mode},      $_pfmrc{defaultsortmode} || 'n');
-	$self->{radix_mode}			= ifnotdefined($state->{radix_mode},     $_pfmrc{defaultradix}    || 'hex');
-	$self->{path_mode}			= ifnotdefined($state->{path_mode},      $_pfmrc{defaultpathmode} || 'log');
+	$self->{clobber_mode}		= ifnotdefined($commandhandler->clobber_mode,isyes($_pfmrc{defaultclobber}));
+	$self->{path_mode}			= ifnotdefined($state->directory->path_mode, $_pfmrc{defaultpathmode} || 'log');
+	$self->{currentlayout}		= ifnotdefined($screen->listing->layout,     $_pfmrc{defaultlayout}   ||  0);
+	$self->{white_mode}			= ifnotdefined($state->{white_mode},         isyes($_pfmrc{defaultwhitemode}));
+	$self->{dot_mode}			= ifnotdefined($state->{dot_mode},           isyes($_pfmrc{defaultdotmode}));
+	$self->{sort_mode}			= ifnotdefined($state->{sort_mode},          $_pfmrc{defaultsortmode} || 'n');
+	$self->{radix_mode}			= ifnotdefined($state->{radix_mode},         $_pfmrc{defaultradix}    || 'hex');
 	$self->{ident_mode}			= ifnotdefined($diskinfo->ident_mode,
 								  $diskinfo->IDENTMODES->{$_pfmrc{defaultident}} || 0);
 	$self->{escapechar} = $e	= $_pfmrc{escapechar} || '=';
-	$self->{rdevtomajor}		= $RDEVTOMAJOR{$^O} || $RDEVTOMAJOR{default};
 	$self->{ducmd}				= $_pfmrc{ducmd} || $DUCMDS{$^O} || $DUCMDS{default};
 	$self->{ducmd}				=~ s/\$\{e\}/${e}/g;
 	$self->{mouse_mode}			= $_pfm->browser->mouse_mode || $_pfmrc{defaultmousemode} || 'xterm';
@@ -353,6 +341,7 @@ sub apply {
 	my $self = shift;
 	my ($termkeys, $newcolormode);
 	my $screen = $_pfm->screen;
+	my $state  = $_pfm->state;
 	# keymap, erase
 	system ('stty', 'erase', $_pfmrc{erase}) if defined($_pfmrc{erase});
 	$_pfm->history->keyboard->set_keymap($_pfmrc{keymap}) if $_pfmrc{keymap};
@@ -384,7 +373,12 @@ sub apply {
 	$screen->listing->makeformatlines();
 	$screen->mouse_enable()	if $self->{mouse_mode};
 	$screen->alternate_on()	if $self->{altscreen_mode};
-	# TODO hand variables over to $_pfm->state
+	# hand variables over to the state
+	$state->{dot_mode}         = $self->{dot_mode};
+	$state->{radix_mode}       = $self->{radix_mode};
+	$state->{sort_mode}        = $self->{sort_mode};
+	$state->{white_mode}       = $self->{white_mode};
+	$state->directory->path_mode($self->{path_mode});
 }
 
 =item write_default()

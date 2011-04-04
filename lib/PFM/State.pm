@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::State 0.01
+# @(#) PFM::State 0.12
 #
 # Name:			PFM::State.pm
-# Version:		0.01
+# Version:		0.12
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-08
+# Date:			2010-04-10
 #
 
 ##########################################################################
@@ -58,14 +58,15 @@ sub _init {
 	$_directory				= new PFM::Directory($pfm);
 	$self->{multiple_mode}	= 0;
 	$self->{swap_mode}		= $swap_mode;
-	# TODO some of these may have to be moved elsewhere.
-
-	$self->{dot_mode}		= undef; # Screen::Listing
-	$self->{path_mode}		= undef; # Directory
-	$self->{radix_mode}		= undef; # Screen::Listing
-	$self->{sort_mode}		= 'n'; # Screen::Listing
-	$self->{white_mode}		= undef; # Screen::Listing
-
+	$self->{dot_mode}		= undef;
+	$self->{radix_mode}		= undef;
+	$self->{sort_mode}		= undef;
+	$self->{white_mode}		= undef;
+	# path_mode    sits in PFM::Directory
+	# color_mode   sits in PFM::Screen
+	# ident_mode   sits in PFM::Screen::Diskinfo
+	# mouse_mode   sits in PFM::Browser
+	# clobber_mode sits in PFM::CommandHandler
 }
 
 ##########################################################################

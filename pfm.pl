@@ -3,10 +3,10 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.01.7
+# Version:		2.01.8
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-07
+# Date:			2010-04-10
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				    [ -l, --layout <number> ]
 #				pfm { -v, --version | -h, --help }
@@ -28,7 +28,7 @@ our $ROFFVERSION = '
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.01.7
+.ds Vw @(#) pfm.pl 2.01.8
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -47,7 +47,9 @@ use PFM::Application;
 my $pfm;
 
 END {
-	# in case something goes wrong
+	# in case something goes wrong:
+	# alternate screen off, 'cooked' mode
+	print "\e[?47l" unless $ENV{PFMDEBUG}; # TODO
 	system qw(stty -raw echo);
 }
 

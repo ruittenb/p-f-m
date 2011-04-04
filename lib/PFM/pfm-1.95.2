@@ -1449,10 +1449,10 @@ sub convwhite {
 #	$scr->reset()->normal()->at($currentline + $BASELINE, $cursorcol);
 #}
 #
-sub markcurrentline { # letter
-	$scr->at($currentline + $BASELINE, $cursorcol)->puts($_[0]);
-}
-
+#sub markcurrentline { # letter
+#	$scr->at($currentline + $BASELINE, $cursorcol)->puts($_[0]);
+#}
+#
 #sub pressanykey {
 #	putmessage("\r\n*** Hit any key to continue ***");
 #	stty_raw($TERM_RAW);
@@ -1903,16 +1903,16 @@ sub escape_middle {
 ##########################################################################
 # user commands
 
-sub handlequit { # key
-	return $R_QUIT if isno($_pfm->config->{confirmquit});
-	return $R_QUIT if $_[0] eq 'Q'; # quick quit
-	return $R_QUIT if ($pfmrc{confirmquit} =~ /marked/i and !mark_info());
-	$scr->at(0,0)->clreol();
-	putmessage('Are you sure you want to quit [Y/N]? ');
-	my $sure = $scr->getch();
-	return +($sure =~ /y/i) ? $R_QUIT : $R_MENU;
-}
-
+#sub handlequit { # key
+#	return $R_QUIT if isno($_pfm->config->{confirmquit});
+#	return $R_QUIT if $_[0] eq 'Q'; # quick quit
+#	return $R_QUIT if ($pfmrc{confirmquit} =~ /marked/i and !mark_info());
+#	$scr->at(0,0)->clreol();
+#	putmessage('Are you sure you want to quit [Y/N]? ');
+#	my $sure = $scr->getch();
+#	return +($sure =~ /y/i) ? $R_QUIT : $R_MENU;
+#}
+#
 sub handlemultiple {
 	toggle($multiple_mode);
 	return $R_MENU;
@@ -2318,19 +2318,19 @@ sub handlefind_incremental {
 #	return $R_CLRSCR;
 #}
 #
-sub handleperlcommand {
-	my $perlcmd;
-	markcurrentline('@'); # disregard multiple_mode
-	$scr->at(0,0)->clreol()->putcolored($framecolors{$color_mode}{message}, 'Enter Perl command:')
-		->at($PATHLINE,0)->clreol();
-	stty_raw($TERM_COOKED);
-	$perlcmd = readintohist(\@perlcmd_history);
-	stty_raw($TERM_RAW);
-	eval $perlcmd;
-	display_error($@) if $@;
-	return $R_SCREEN;
-}
-
+#sub handleperlcommand {
+#	my $perlcmd;
+#	markcurrentline('@'); # disregard multiple_mode
+#	$scr->at(0,0)->clreol()->putcolored($framecolors{$color_mode}{message}, 'Enter Perl command:')
+#		->at($PATHLINE,0)->clreol();
+#	stty_raw($TERM_COOKED);
+#	$perlcmd = readintohist(\@perlcmd_history);
+#	stty_raw($TERM_RAW);
+#	eval $perlcmd;
+#	display_error($@) if $@;
+#	return $R_SCREEN;
+#}
+#
 sub handlemoreshow {
 	my ($newname, $do_a_refresh);
 	my $prompt = 'Directory Pathname: ';
@@ -3193,42 +3193,42 @@ sub handleshow {
 	return $R_CLRSCR;
 }
 
-sub handlehelp {
-	$scr->clrscr()->cooked();
-	print map { substr($_, 8)."\n" } split("\n", <<'    _eoHelp_');
-        --------------------------------------------------------------------------------
-        a     Attrib         mb  Bookmark         up, down arrow   move one line        
-        c     Copy           mc  Config pfm       k, j             move one line        
-        d DEL Delete         me  Edit new file    -, +             move ten lines       
-        e     Edit           mf  make FIFO        CTRL-E, CTRL-Y   scroll dir one line  
-        f /   find           mh  spawn sHell      CTRL-U, CTRL-D   move half a page     
-        g     tarGet         mk  Kill children    CTRL-B, CTRL-F   move a full page     
-        i     Include        mm  Make new dir     PgUp, PgDn       move a full page     
-        L     symLink        mp  Physical path    HOME, END        move to top, bottom  
-        n     Name           ms  Show directory   SPACE            mark file & advance  
-        o     cOmmand        mt  alTernate scrn   right arrow, l   enter dir            
-        p     Print          mv  sVn status all   left arrow, h    leave dir            
-        q Q   (Quick) quit   mw  Write history    ENTER            enter dir; launch    
-        r     Rename        --------------------  ESC, BS          leave dir            
-        s     Show           =   ident           ---------------------------------------
-        t     Time           *   radix            F1  help            F7  swap mode     
-        u     Uid            !   clobber          F2  prev dir        F8  mark file     
-        v     sVn status     @   perlcmd          F3  redraw screen   F9  cycle layouts 
-        w     unWhiteout     .   dotfiles         F4  cycle colors    F10 multiple mode 
-        x     eXclude        %   whiteout         F5  reread dir      F11 restat file   
-        y     Your command   "   paths log/phys   F6  sort dir        F12 toggle mouse  
-        z     siZe           ?   help             <   commands left   >   commands right
-        --------------------------------------------------------------------------------
-    _eoHelp_
-#	$scr->at(12,0)->putcolored('bold yellow', 'q     Quit')->at(23,0);
-	$scr->puts("F1 or ? for more elaborate help, any other key for next screen ")->raw();
-	if ($scr->getch() =~ /(k1|\?)/) {
-		system qw(man pfm); # how unsubtle :-)
-	}
-	credits();
-	return $R_CLRSCR;
-}
-
+#sub handlehelp {
+#	$scr->clrscr()->cooked();
+#	print map { substr($_, 8)."\n" } split("\n", <<'    _eoHelp_');
+#        --------------------------------------------------------------------------------
+#        a     Attrib         mb  Bookmark         up, down arrow   move one line        
+#        c     Copy           mc  Config pfm       k, j             move one line        
+#        d DEL Delete         me  Edit new file    -, +             move ten lines       
+#        e     Edit           mf  make FIFO        CTRL-E, CTRL-Y   scroll dir one line  
+#        f /   find           mh  spawn sHell      CTRL-U, CTRL-D   move half a page     
+#        g     tarGet         mk  Kill children    CTRL-B, CTRL-F   move a full page     
+#        i     Include        mm  Make new dir     PgUp, PgDn       move a full page     
+#        L     symLink        mp  Physical path    HOME, END        move to top, bottom  
+#        n     Name           ms  Show directory   SPACE            mark file & advance  
+#        o     cOmmand        mt  alTernate scrn   right arrow, l   enter dir            
+#        p     Print          mv  sVn status all   left arrow, h    leave dir            
+#        q Q   (Quick) quit   mw  Write history    ENTER            enter dir; launch    
+#        r     Rename        --------------------  ESC, BS          leave dir            
+#        s     Show           =   ident           ---------------------------------------
+#        t     Time           *   radix            F1  help            F7  swap mode     
+#        u     Uid            !   clobber          F2  prev dir        F8  mark file     
+#        v     sVn status     @   perlcmd          F3  redraw screen   F9  cycle layouts 
+#        w     unWhiteout     .   dotfiles         F4  cycle colors    F10 multiple mode 
+#        x     eXclude        %   whiteout         F5  reread dir      F11 restat file   
+#        y     Your command   "   paths log/phys   F6  sort dir        F12 toggle mouse  
+#        z     siZe           ?   help             <   commands left   >   commands right
+#        --------------------------------------------------------------------------------
+#    _eoHelp_
+##	$scr->at(12,0)->putcolored('bold yellow', 'q     Quit')->at(23,0);
+#	$scr->puts("F1 or ? for more elaborate help, any other key for next screen ")->raw();
+#	if ($scr->getch() =~ /(k1|\?)/) {
+#		system qw(man pfm); # how unsubtle :-)
+#	}
+#	credits();
+#	return $R_CLRSCR;
+#}
+#
 sub handletime {
 	my ($newtime, $loopfile, $do_this, $index, $do_a_refresh, @cmdopts);
 	my $prompt = "Put date/time [[CC]YY]-MM-DD hh:mm[.ss]: ";
@@ -3800,7 +3800,7 @@ sub filetypeflag {
 #		}
 #	}
 #}
-
+#
 #sub filterdir {
 #	return grep { $dot_mode   || $_->{name} =~ /^(\.\.?|[^\.].*)$/
 #		   and    $white_mode || $_->{type} ne 'w'
@@ -3821,17 +3821,17 @@ sub filetypeflag {
 #	}
 #}
 #
-sub init_filesystem_info {
-	my (@dflist, %tdisk);
-	chop (@dflist = (`$DFCMD .`, ''));
-	shift @dflist;
-	$dflist[0] .= $dflist[1]; # in case filesystem info wraps onto next line
-	@tdisk{qw/device total used avail/} = split (/\s+/, $dflist[0]);
-	$tdisk{avail} = $tdisk{total} - $tdisk{used} if $tdisk{avail} =~ /%/;
-	@tdisk{qw/mountpoint/} = $dflist[0] =~ /(\S*)$/;
-	return %tdisk;
-}
-
+#sub init_filesystem_info {
+#	my (@dflist, %tdisk);
+#	chop (@dflist = (`$DFCMD .`, ''));
+#	shift @dflist;
+#	$dflist[0] .= $dflist[1]; # in case filesystem info wraps onto next line
+#	@tdisk{qw/device total used avail/} = split (/\s+/, $dflist[0]);
+#	$tdisk{avail} = $tdisk{total} - $tdisk{used} if $tdisk{avail} =~ /%/;
+#	@tdisk{qw/mountpoint/} = $dflist[0] =~ /(\S*)$/;
+#	return %tdisk;
+#}
+#
 sub find_best_find_match {
 	my ($seek, $rec) = @_;
 	my ($first, $second, $char);
@@ -3893,17 +3893,17 @@ sub position_cursor_find_incremental {
 #	return validate_position(); # refresh flag
 #}
 #
-sub set_argv0 {
-	# this may be helpful for sysadmins trying to unmount a filesystem
-	$0 = 'pfm [on ' . ( $disk{device} eq 'none' ? $disk{mountpoint}
-												: $disk{device} ) . ']';
-}
-
+#sub set_argv0 {
+#	# this may be helpful for sysadmins trying to unmount a filesystem
+#	$0 = 'pfm [on ' . ( $disk{device} eq 'none' ? $disk{mountpoint}
+#												: $disk{device} ) . ']';
+#}
+#
 #sub recalc_ptr {
 #	$position_at = '.';
 #	return position_cursor(); # refresh flag
 #}
-
+#
 #sub showdiskinfo {
 #	my $spaces = ' ' x $infolength;
 #	# gap is not filled in yet
@@ -3921,7 +3921,7 @@ sub set_argv0 {
 #		$scr->at($_, $infocol)->puts($spaces);
 #	}
 #}
-
+#
 ##########################################################################
 # directory browsing main routine
 #
@@ -3957,44 +3957,44 @@ sub set_argv0 {
 # $R_CHDIR		 # combination of R_NEWDIR, R_DIRCONTENTS, R_DIRSORT, R_SCREEN
 # $R_INIT_SWAP	 # after reading the directory, we should be swapped immediately
 # $R_QUIT		 # exit from program
-
-sub browse {
-	my $wantrefresh = shift;
-	my $key;
-	STRIDE: until ($wantrefresh & $R_QUIT) {
-		if ($wantrefresh &   $R_NEWDIR) {
-			$wantrefresh &= ~$R_NEWDIR;
-			# it's dangerous to leave multiple_mode on when changing directories
-			# 'autoexitmultiple' is only for leaving it on between commands
-			$multiple_mode = 0;
-			$currentdir    = getcwd() if $path_mode eq 'phys';
+#
+#sub browse {
+#	my $wantrefresh = shift;
+#	my $key;
+#	STRIDE: until ($wantrefresh & $R_QUIT) {
+#		if ($wantrefresh &   $R_NEWDIR) {
+#			$wantrefresh &= ~$R_NEWDIR;
+#			# it's dangerous to leave multiple_mode on when changing directories
+#			# 'autoexitmultiple' is only for leaving it on between commands
+#			$multiple_mode = 0;
+#			$currentdir    = getcwd() if $path_mode eq 'phys';
 #			%disk          = init_filesystem_info();
-			#set_argv0();
-			# this test is nested so that it does not get executed every time
-			if ($wantrefresh &   $R_INIT_SWAP) {
-				$wantrefresh &= ~$R_INIT_SWAP;
-				# if $swapstartdir is set, we will make a first pass through
-				# this then{} construct: it reads the main dircontents
-				# and calls handleswap(), which detects $swapstartdir and
-				# swaps forward, and subsequently erases $swapstartdir.
-				# if 'persistentswap' is on, R_INIT_SWAP will be set again,
-				# which will take us on a second pass through this
-				# then{} construct, and we will be swapped back.
-				# the swapback does not set R_INIT_SWAP again.
-				init_dircount();
-				# first pass, read main dir.
-				# second pass, read swap dir.
-				@dircontents  = sort as_requested readcontents($currentdir);
-				%currentfile  = %{$dircontents[$currentline+$baseindex]};
-				$wantrefresh |= handleswap();
-				unless ($swap_mode) {
-					# on second pass, flag that the main dir
-					# does not need reading any more
-					$wantrefresh &= ~($R_DIRCONTENTS | $R_DIRSORT);
-				}
-				redo STRIDE;
-			}
-		}
+#			#set_argv0();
+#			# this test is nested so that it does not get executed every time
+#			if ($wantrefresh &   $R_INIT_SWAP) {
+#				$wantrefresh &= ~$R_INIT_SWAP;
+#				# if $swapstartdir is set, we will make a first pass through
+#				# this then{} construct: it reads the main dircontents
+#				# and calls handleswap(), which detects $swapstartdir and
+#				# swaps forward, and subsequently erases $swapstartdir.
+#				# if 'persistentswap' is on, R_INIT_SWAP will be set again,
+#				# which will take us on a second pass through this
+#				# then{} construct, and we will be swapped back.
+#				# the swapback does not set R_INIT_SWAP again.
+#				init_dircount();
+#				# first pass, read main dir.
+#				# second pass, read swap dir.
+#				@dircontents  = sort as_requested readcontents($currentdir);
+#				%currentfile  = %{$dircontents[$currentline+$baseindex]};
+#				$wantrefresh |= handleswap();
+#				unless ($swap_mode) {
+#					# on second pass, flag that the main dir
+#					# does not need reading any more
+#					$wantrefresh &= ~($R_DIRCONTENTS | $R_DIRSORT);
+#				}
+#				redo STRIDE;
+#			}
+#		}
 #		# draw frame as soon as possible: this looks better on slower terminals
 #		if ($wantrefresh &   $R_CLEAR) {
 #			$wantrefresh &= ~$R_CLEAR;
@@ -4062,75 +4062,74 @@ sub browse {
 #		}
 #		if ($wasresized) {
 #			$wantrefresh |= handleresize();
-		# the next line contains an assignment on purpose
-		} elsif (length($scr->{IN}) || $scr->key_pressed() and $key = $scr->getch()) {
-			highlightline($HIGHLIGHT_OFF);
-			mouseenable($MOUSE_OFF) if $mouseturnoff;
-			KEY: for ($key) {
-				# order is determined by (supposed) frequency of use
-				/^(?:ku|kd|pgup|pgdn|[-+jk\cF\cB\cD\cU]|home|end)$/io
-								and $wantrefresh |= handlemove($_),		 last KEY;
-				/^(?:kr|kl|[h\e\cH])$/io
-								and $wantrefresh |= handleentry($_),	 last KEY;
-				/^[\cE\cY]$/o	and $wantrefresh |= handlescroll($_),	 last KEY;
-				/^l$/o			and $wantrefresh |= handlekeyell($_),	 last KEY;
-				/^ $/o			and $wantrefresh |= handleadvance($_),	 last KEY;
-				/^k5$/o			and $wantrefresh |= handlerefresh(),	 last KEY;
-				/^[cr]$/io		and $wantrefresh |= handlecopyrename($_),last KEY;
-				/^[yo]$/io		and $wantrefresh |= handlecommand($_),	 last KEY;
-				/^e$/io			and $wantrefresh |= handleedit(),		 last KEY;
-				/^d(el)?$/io	and $wantrefresh |= handledelete(),		 last KEY;
-				/^[ix]$/io		and $wantrefresh |= handleinclude($_),	 last KEY;
-				/^\r$/io		and $wantrefresh |= handleenter(),		 last KEY;
-				/^s$/io			and $wantrefresh |= handleshow(),		 last KEY;
-				/^kmous$/o		and $wantrefresh |= handlemousedown(),	 last KEY;
-				/^k7$/o			and $wantrefresh |= handleswap(),		 last KEY;
-				/^k10$/o		and $wantrefresh |= handlemultiple(),	 last KEY;
-				/^m$/io			and $wantrefresh |= handlemore(),		 last KEY;
-				/^p$/io			and $wantrefresh |= handleprint(),		 last KEY;
-				/^L$/o			and $wantrefresh |= handlesymlink(),	 last KEY;
-				/^n$/io			and $wantrefresh |= handlename($_),		 last KEY;
-				/^k8$/o			and $wantrefresh |= handleselect(),		 last KEY;
-				/^k11$/o		and $wantrefresh |= handlerestat(),		 last KEY;
-				/^[\/f]$/io		and $wantrefresh |= handlefind(),		 last KEY;
-				/^[<>]$/io		and $wantrefresh |= handlepan($_, 0),	 last KEY;
-				/^k3|\cL|\cR/o	and $wantrefresh |= handlefit(),		 last KEY;
-				/^t$/io			and $wantrefresh |= handletime(),		 last KEY;
-				/^a$/io			and $wantrefresh |= handlechmod(),		 last KEY;
-				/^q$/io			and $wantrefresh |= handlequit($_),		 last KEY;
-				/^k6$/o			and $wantrefresh |= handlesort(),		 last KEY;
-				/^(?:k1|\?)$/o	and $wantrefresh |= handlehelp(),		 last KEY;
-				/^k2$/o			and $wantrefresh |= handlecdold(),		 last KEY;
-				/^\.$/o			and $wantrefresh |= handledot(),		 last KEY;
-				/^k9$/o			and $wantrefresh |= handlelayouts(),	 last KEY;
-				/^k4$/o			and $wantrefresh |= handlecolor(),		 last KEY;
-				/^\@$/o			and $wantrefresh |= handleperlcommand(), last KEY;
-				/^u$/io			and $wantrefresh |= handlechown(),		 last KEY;
-				/^v$/io			and $wantrefresh |= handlercs(),		 last KEY;
-				/^z$/io			and $wantrefresh |= handlesize(),		 last KEY;
-				/^g$/io			and $wantrefresh |= handletarget(),		 last KEY;
-				/^k12$/o		and $wantrefresh |= handlemouse(),		 last KEY;
-				/^=$/o			and $wantrefresh |= handleident(),		 last KEY;
-				/^\*$/o			and $wantrefresh |= handleradix(),		 last KEY;
-				/^!$/o			and $wantrefresh |= handleclobber(),	 last KEY;
-				/^"$/o			and $wantrefresh |= handlepathmode(),	 last KEY;
-				/^w$/io			and $wantrefresh |= handleunwo(),		 last KEY;
-				/^%$/io			and $wantrefresh |= handlewhiteout(),	 last KEY;
-				# invalid keypress: cursor position needs no checking
-				$wantrefresh &= ~$R_STRIDE;
-			} # switch KEY
-		} # if key_pressed
-	} # until QUIT
-}
-
+#		# the next line contains an assignment on purpose
+#		} elsif (length($scr->{IN}) || $scr->key_pressed() and $key = $scr->getch()) {
+#			highlightline($HIGHLIGHT_OFF);
+#			mouseenable($MOUSE_OFF) if $mouseturnoff;
+#			KEY: for ($key) {
+#				# order is determined by (supposed) frequency of use
+#				/^(?:ku|kd|pgup|pgdn|[-+jk\cF\cB\cD\cU]|home|end)$/io
+#								and $wantrefresh |= handlemove($_),		 last KEY;
+#				/^(?:kr|kl|[h\e\cH])$/io
+#								and $wantrefresh |= handleentry($_),	 last KEY;
+#				/^[\cE\cY]$/o	and $wantrefresh |= handlescroll($_),	 last KEY;
+#				/^l$/o			and $wantrefresh |= handlekeyell($_),	 last KEY;
+#				/^ $/o			and $wantrefresh |= handleadvance($_),	 last KEY;
+#				/^k5$/o			and $wantrefresh |= handlerefresh(),	 last KEY;
+#				/^[cr]$/io		and $wantrefresh |= handlecopyrename($_),last KEY;
+#				/^[yo]$/io		and $wantrefresh |= handlecommand($_),	 last KEY;
+#				/^e$/io			and $wantrefresh |= handleedit(),		 last KEY;
+#				/^d(el)?$/io	and $wantrefresh |= handledelete(),		 last KEY;
+#				/^[ix]$/io		and $wantrefresh |= handleinclude($_),	 last KEY;
+#				/^\r$/io		and $wantrefresh |= handleenter(),		 last KEY;
+#				/^s$/io			and $wantrefresh |= handleshow(),		 last KEY;
+#				/^kmous$/o		and $wantrefresh |= handlemousedown(),	 last KEY;
+#				/^k7$/o			and $wantrefresh |= handleswap(),		 last KEY;
+#				/^k10$/o		and $wantrefresh |= handlemultiple(),	 last KEY;
+#				/^m$/io			and $wantrefresh |= handlemore(),		 last KEY;
+#				/^p$/io			and $wantrefresh |= handleprint(),		 last KEY;
+#				/^L$/o			and $wantrefresh |= handlesymlink(),	 last KEY;
+#				/^n$/io			and $wantrefresh |= handlename($_),		 last KEY;
+#				/^k8$/o			and $wantrefresh |= handleselect(),		 last KEY;
+#				/^k11$/o		and $wantrefresh |= handlerestat(),		 last KEY;
+#				/^[\/f]$/io		and $wantrefresh |= handlefind(),		 last KEY;
+#				/^[<>]$/io		and $wantrefresh |= handlepan($_, 0),	 last KEY;
+#				/^k3|\cL|\cR/o	and $wantrefresh |= handlefit(),		 last KEY;
+#				/^t$/io			and $wantrefresh |= handletime(),		 last KEY;
+#				/^a$/io			and $wantrefresh |= handlechmod(),		 last KEY;
+#				/^q$/io			and $wantrefresh |= handlequit($_),		 last KEY;
+#				/^k6$/o			and $wantrefresh |= handlesort(),		 last KEY;
+#				/^(?:k1|\?)$/o	and $wantrefresh |= handlehelp(),		 last KEY;
+#				/^k2$/o			and $wantrefresh |= handlecdold(),		 last KEY;
+#				/^\.$/o			and $wantrefresh |= handledot(),		 last KEY;
+#				/^k9$/o			and $wantrefresh |= handlelayouts(),	 last KEY;
+#				/^k4$/o			and $wantrefresh |= handlecolor(),		 last KEY;
+#				/^\@$/o			and $wantrefresh |= handleperlcommand(), last KEY;
+#				/^u$/io			and $wantrefresh |= handlechown(),		 last KEY;
+#				/^v$/io			and $wantrefresh |= handlercs(),		 last KEY;
+#				/^z$/io			and $wantrefresh |= handlesize(),		 last KEY;
+#				/^g$/io			and $wantrefresh |= handletarget(),		 last KEY;
+#				/^k12$/o		and $wantrefresh |= handlemouse(),		 last KEY;
+#				/^=$/o			and $wantrefresh |= handleident(),		 last KEY;
+#				/^\*$/o			and $wantrefresh |= handleradix(),		 last KEY;
+#				/^!$/o			and $wantrefresh |= handleclobber(),	 last KEY;
+#				/^"$/o			and $wantrefresh |= handlepathmode(),	 last KEY;
+#				/^w$/io			and $wantrefresh |= handleunwo(),		 last KEY;
+#				/^%$/io			and $wantrefresh |= handlewhiteout(),	 last KEY;
+#				# invalid keypress: cursor position needs no checking
+#				$wantrefresh &= ~$R_STRIDE;
+#			} # switch KEY
+#		} # if key_pressed
+#	} # until QUIT
+#}
+#
 ##########################################################################
 # main() is not of type void
-
+#
 #globalinit();
-browse($R_CHDIR | ($R_INIT_SWAP * defined $swapstartdir));
+#browse($R_CHDIR | ($R_INIT_SWAP * defined $swapstartdir));
 #goodbye();
-exit 0;
-
+#exit 0;
+#
 # vim:     set tabstop=4 shiftwidth=4 noexpandtab:
 # vim>600: set foldmethod=indent nofoldenable:
-

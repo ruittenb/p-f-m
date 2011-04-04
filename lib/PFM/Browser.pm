@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Browser 0.01
+# @(#) PFM::Browser 0.34
 #
 # Name:			PFM::Browser.pm
-# Version:		0.01
+# Version:		0.34
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-01
+# Date:			2010-04-10
 #
 
 ##########################################################################
@@ -157,43 +157,6 @@ sub mouse_mode {
 ##########################################################################
 # public subs
 
-=item browse()
-
-This sub, the main browse loop, is the heart of pfm. It has the
-following structure:
-
-  do {
-    refresh everything flagged for refreshing;
-    wait for keypress-, mousedown- or resize-event;
-    handle the request;
-  } until quit was requested.
-
-=cut
-
-sub browse {
-	my $self = shift;
-	my ($event, $quit);
-	until ($quit) {
-		$_screen->refresh();
-		# normally, the current cursor position must be validated every pass
-		$_screen->set_deferred_refresh($_screen->R_STRIDE);
-		$_screen->listing->highlight_on();
-		# don't send mouse escapes to the terminal if not necessary
-		if ($_mouse_mode && $_pfm->config->{mouseturnoff}) {
-			$_screen->mouse_enable();
-		}
-		# enter main wait loop
-		$event = $self->_wait_loop();
-		if ($_screen->wasresized) {
-			$_screen->handleresize();
-		} else {
-			# TODO fetch keypress etc
-
-			$quit = $_pfm->commandhandler->handle($event);
-		}
-	}
-}
-
 =item validate_position()
 
 Checks if the current cursor position and the current file lie within
@@ -250,6 +213,55 @@ sub position_cursor {
 	}
 	$_position_at = '';
 	$self->validate_position(); # refresh flag
+}
+
+=item browse()
+
+This sub, the main browse loop, is the heart of pfm. It has the
+following structure:
+
+  do {
+    refresh everything flagged for refreshing;
+    wait for keypress-, mousedown- or resize-event;
+    handle the request;
+  } until quit was requested.
+
+=cut
+
+sub browse {
+	my $self = shift;
+	my ($event, $valid_input);
+	# optimize by fetching used objects
+	my $commandhandler = $_pfm->commandhandler;
+	my $listing        = $_screen->listing;
+	my $mouseturnoff   = $_pfm->config->{mouseturnoff};
+	until ($valid_input eq 'quit') {
+		$_screen->refresh();
+		$listing->highlight_on();
+		# don't send mouse escapes to the terminal if not necessary
+		$_screen->mouse_enable() if ($_mouse_mode && $mouseturnoff);
+		# enter main wait loop
+		$event = $self->_wait_loop();
+		# the main wait loop is exited on a resize event or
+		# on keyboard/mouse input
+		if ($_screen->wasresized) {
+			$_screen->handleresize();
+		# old code: why do it like this?
+#		# the next line contains an assignment on purpose
+#		} elsif (length($_screen->{IN}) || $_screen->key_pressed() and $key = $_screen->getch()) {
+		} else {
+			# must be keyboard/mouse input here
+			$event = $_screen->getch();
+			$listing->highlight_off();
+			$_screen->mouse_disable() if $mouseturnoff;
+			# the next line contains an assignment on purpose
+			if ($valid_input = $commandhandler->handle($event)) {
+				# if the received input was valid, then the current
+				# cursor position must be validated again
+				$_screen->set_deferred_refresh($_screen->R_STRIDE);
+			}
+		}
+	}
 }
 
 ##########################################################################

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Application 2.01.4
+# @(#) PFM::Application 2.01.8
 #
 # Name:			PFM::Application.pm
-# Version:		2.01.4
+# Version:		2.01.8
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-04
+# Date:			2010-04-10
 #
 
 ##########################################################################
@@ -66,6 +66,7 @@ Initializes new instances. Called from the constructor.
 sub _init {
 	my $self = shift;
 	($self->{VERSION}, $self->{LASTYEAR}) = $self->_findversion();
+	$self->{LATEST_VERSION} = '';
 }
 
 =item _findversionfromfile()
@@ -166,8 +167,8 @@ sub _goodbye {
 					->at($_screen->PATHLINE, 0);
 		}
 	}
-	$self->_write_cwd();
-	$self->_write_history() if $_config->{autowritehistory};
+	$_history->write_dirs();
+	$_history->write() if $_config->{autowritehistory};
 	if ($state->{altscreen_mode} or !$_config->{clsonexit}) {
 		$_screen->at($_screen->screenheight + $_screen->BASELINE + 1, 0)
 				->clreol();
