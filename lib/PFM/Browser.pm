@@ -34,7 +34,7 @@ Initializes new instances. Called from the constructor.
 =cut
 
 sub _init {
-	my ($self, $_pfm)	= @_;
+	my ($self, $pfm)	= @_;
 	$_pfm				= $pfm;
 	$_currentline		= 0;
 	$_baseindex			= 0;

@@ -44,7 +44,7 @@ my %HISTORIES = (
 	history_path	=> \@_path_history,
 	history_regex	=> \@_regex_history,
 	history_time	=> \@_time_history,
-	history_perlcmd	=> \@_perlcmd_history
+	history_perlcmd	=> \@_perlcmd_history,
 );
 
 my $MAXHISTSIZE	= 70;
@@ -101,10 +101,10 @@ sub read {
 	my $hfile;
 	my $escape = $_pfm->config->{e};
 	# some defaults
-	@command_history = ('du -ks * | sort -n', "man ${escape}1");
-	@mode_history	 = ('755', '644');
-	@path_history	 = ('/', $ENV{HOME});
-	@regex_history	 = ('\.jpg$');
+	@_command_history = ('du -ks * | sort -n', "man ${escape}1");
+	@_mode_history	 = ('755', '644');
+	@_path_history	 = ('/', $ENV{HOME});
+	@_regex_history	 = ('\.jpg$');
 #	@time_history;
 #	@perlcmd_history;
 	foreach (keys(%HISTORIES)) {
@@ -154,7 +154,7 @@ sub write_dirs {
 	my $configdirname = $_pfm->config->CONFIGDIRNAME;
 	my $swap_state	  = $_pfm->state(1);
 	
-	if (open CWDFILE, ">$configdirname/$CWDFILENAME")) {
+	if (open CWDFILE, ">$configdirname/$CWDFILENAME") {
 		print CWDFILE $_pfm->state->currentdir, "\n";
 		close CWDFILE;
 	} else {

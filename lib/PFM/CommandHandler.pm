@@ -19,6 +19,7 @@ package PFM::CommandHandler;
 use base 'PFM::Abstract';
 
 use Term::ReadLine;
+use Config;
 
 my ($_pfm,
 	@_signame, $_white_cmd, @_unwo_cmd);
@@ -96,7 +97,7 @@ Prints elaborate info about pfm. Called from help().
 sub _credits {
 	my $self = shift;
 	$_pfm->screen->clrscr();
-	$_pfm->screen->stty_raw($TERM_COOKED);
+	$_pfm->screen->stty_raw($_pfm->screen->TERM_COOKED);
 	my $name = $_pfm->screen->colored('bold', 'pfm');
 	print <<"_eoCredits_";
 
@@ -123,7 +124,7 @@ sub _credits {
 
                                                          any key to exit to $name
 _eoCredits_
-	$_pfm->screen->stty_raw($TERM_RAW)->getch();
+	$_pfm->screen->stty_raw($_pfm->screen->TERM_RAW)->getch();
 }
 
 ##########################################################################

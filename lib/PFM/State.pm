@@ -43,7 +43,7 @@ sub _init {
 	$self->{currentlayout}	= 0;
 	$self->{mouse_mode}		= 0;
 	$self->{clobber_mode}	= 0;
-	$self->{dot_mode}}		= 0;
+	$self->{dot_mode}		= 0;
 	$self->{white_mode}		= 0;
 	$self->{path_mode}		= 0;
 	$self->{radix_mode}		= 0;
