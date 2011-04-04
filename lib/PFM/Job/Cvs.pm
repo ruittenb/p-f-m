@@ -35,7 +35,9 @@ package PFM::Job::Cvs;
 
 use base 'PFM::Job::Abstract';
 
-my $_command = 'cvs -n -q update -l';
+use strict;
+
+my $_COMMAND = 'cvs -n -q update'; # add -l for local (no subdirs)
 
 ##########################################################################
 # private subs

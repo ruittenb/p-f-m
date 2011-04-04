@@ -38,6 +38,10 @@ use base 'PFM::Abstract';
 
 use PFM::Util;
 
+use POSIX qw(strftime mktime);
+
+use strict;
+
 use constant {
 	READ_AGAIN		=> 0,
 	READ_FIRST		=> 1,
@@ -97,7 +101,7 @@ sub _init {
 	my ($self, $pfm) = @_;
 	$_pfm = $pfm;
 	$_configfilename =
-		$ENV{PFMRC} ? $ENV{PFMRC} : CONFIGDIRNAME . "/$CONFIGFILENAME";
+		$ENV{PFMRC} ? $ENV{PFMRC} : CONFIGDIRNAME . "/" . CONFIGFILENAME;
 }
 
 =item _copyright()
@@ -114,7 +118,7 @@ sub _copyright {
 	my $version  = $_pfm->{VERSION};
 	$_pfm->screen
 		->at(0,0)->clreol()->cyan()
-				 ->puts("PFM $version for Unix and Unix-like OS's.")
+				 ->puts("PFM $version for Unix and Unix-like operating systems.")
 		->at(1,0)->puts("Copyright (c) 1999-$lastyear Rene Uittenbogaard")
 		->at(2,0)->puts("This software comes with no warranty: " .
 						"see the file COPYING for details.")
@@ -129,6 +133,7 @@ Parses the colorsets defined in the F<.pfmrc>.
 =cut
 
 sub _parse_colorsets {
+	my $self = shift;
 	if (isyes($_pfmrc{importlscolors}) and $ENV{LS_COLORS} || $ENV{LS_COLOURS}){
 		$_pfmrc{'dircolors[ls_colors]'} =  $ENV{LS_COLORS} || $ENV{LS_COLOURS};
 	}
@@ -194,7 +199,7 @@ sub give_location {
 	return "Configuration options will be read from \$PFMRC " .
 		($ENV{PFMRC}
 			? "($ENV{PFMRC})"
-			: "or " . CONFIGDIRNAME . "/$CONFIGFILENAME");
+			: "or " . CONFIGDIRNAME . "/" . CONFIGFILENAME);
 }
 
 =item read()

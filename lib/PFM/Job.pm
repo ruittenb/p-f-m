@@ -37,6 +37,8 @@ package PFM::Job;
 
 use base 'PFM::Abstract';
 
+use strict;
+
 my @_jobs;
 
 ##########################################################################

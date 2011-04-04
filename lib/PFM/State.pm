@@ -37,6 +37,8 @@ use base 'PFM::Abstract';
 
 use PFM::Directory;
 
+use strict;
+
 my ($_pfm, $_directory,
 	$_position);
 
@@ -46,12 +48,14 @@ my ($_pfm, $_directory,
 =item _init()
 
 Initializes new instances. Called from the constructor.
+Instantiates a PFM::Directory object.
 
 =cut
 
 sub _init {
 	my ($self, $pfm, $swap_mode) = @_;
 	$_pfm					= $pfm;
+	$_directory				= new PFM::Directory($pfm);
 	$self->{multiple_mode}	= 0;
 	$self->{swap_mode}		= $swap_mode;
 	# TODO some of these may have to be moved elsewhere.

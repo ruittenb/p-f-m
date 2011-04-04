@@ -36,6 +36,8 @@ package PFM::History;
 
 use base 'PFM::Abstract';
 
+use strict;
+
 use constant {
 	HISTORY_COMMAND	=> 'history_command',
 	HISTORY_MODE	=> 'history_mode',
@@ -87,7 +89,7 @@ sub _init {
 =item _set_term_history()
 
 Uses the history list to initialise keyboard history in
-Term::ReadLine::Gnu. This fails silently if our current
+Term::ReadLine. This fails silently if our current
 implementation of Term::ReadLine doesn't support the setHistory()
 method.
 
@@ -106,7 +108,7 @@ sub _set_term_history {
 
 =item keyboard()
 
-Getter for the Term::ReadLine::Gnu object.
+Getter for the Term::ReadLine object.
 
 =cut
 
@@ -239,7 +241,7 @@ sub setornaments {
 		push @cols, 'md' if ($color =~ /bold/);
 		push @cols, 'us' if ($color =~ /under(line|score)/);
 #		$kbd->ornaments(join(';', @cols) . ',me,,');
-		$_pfw->history->ornaments($cols[0] . ',me,,');
+		$_keyboard->ornaments($cols[0] . ',me,,');
 	}
 }
 

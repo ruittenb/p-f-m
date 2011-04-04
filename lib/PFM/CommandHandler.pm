@@ -36,7 +36,11 @@ package PFM::CommandHandler;
 use base 'PFM::Abstract';
 
 use Term::ReadLine;
+
+use POSIX qw(strftime mktime);
 use Config;
+
+use strict;
 
 my ($_pfm,
 	@_signame, $_white_cmd, @_unwo_cmd);
@@ -113,9 +117,10 @@ Prints elaborate info about pfm. Called from help().
 
 sub _credits {
 	my $self = shift;
-	$_pfm->screen->clrscr();
-	$_pfm->screen->stty_raw($_pfm->screen->TERM_COOKED);
-	my $name = $_pfm->screen->colored('bold', 'pfm');
+	my $screen = $_pfm->screen;
+	$screen->clrscr();
+	$screen->stty_raw($screen->TERM_COOKED);
+	my $name = $screen->colored('bold', 'pfm');
 	print <<"_eoCredits_";
 
 
@@ -141,24 +146,24 @@ sub _credits {
 
                                                          any key to exit to $name
 _eoCredits_
-	$_pfm->screen->stty_raw($_pfm->screen->TERM_RAW)->getch();
+	$screen->stty_raw($screen->TERM_RAW)->getch();
 }
 
 ##########################################################################
 # constructor, getters and setters
 
-##########################################################################
-# public subs
+=item whitecommand()
 
-=item whitesupport()
-
-Returns a boolean indicating if this system supports whiteout commands.
+Getter for the command for listing whiteouts.
 
 =cut
 
-sub whitesupport {
-	return ($_white_cmd ne '');
+sub whitecommand {
+	return $_white_cmd;
 }
+
+##########################################################################
+# public subs
 
 =item handle()
 
@@ -172,7 +177,7 @@ sub handle {
 
 =item handlepan()
 
-Handle the pan keys B<E<lt>> and B<E<gt>>.
+Handles the pan keys B<E<lt>> and B<E<gt>>.
 
 =cut
 
@@ -180,6 +185,12 @@ sub handlepan {
 	my ($self, $key, $mode) = @_;
 	$_pfm->screen->frame->pan($key, $mode);
 }
+
+=item handlelayouts()
+
+Handles moving on to the next configured layout.
+
+=cut
 
 sub handlelayouts {
 	my $self = shift;

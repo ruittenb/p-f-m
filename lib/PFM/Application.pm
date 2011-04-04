@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Application 0.50
+# @(#) PFM::Application 2.01.4
 #
 # Name:			PFM::Application.pm
-# Version:		0.50
+# Version:		2.01.4
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-02
+# Date:			2010-04-04
 #
 
 ##########################################################################
@@ -43,6 +43,7 @@ use PFM::Screen;
 use PFM::Browser;
 use PFM::CommandHandler;
 use PFM::History;
+use PFM::Job;
 use Getopt::Long;
 use Cwd;
 
@@ -51,9 +52,8 @@ use strict;
 
 use constant PFM_URL => 'http://p-f-m.sourceforge.net/';
 
-my ($_bootstrapped,
-	$_browser, $_screen, $_commandhandler, $_config, $_history,
-	@_states,
+my ($_browser, $_screen, $_commandhandler, $_config, $_history, $_job,
+	$_bootstrapped, @_states,
 );
 
 ##########################################################################
@@ -70,14 +70,14 @@ sub _init {
 	($self->{VERSION}, $self->{LASTYEAR}) = $self->_findversion();
 }
 
-=item _findversion()
+=item _findversionfromfile()
 
 Reads the current file and parses it to find the current version and
 last change date. These are returned as an array.
 
 =cut
 
-sub _findversion {
+sub _findversionfromfile {
 	my $self    = shift;
 	my $version = 'unknown';
 	# default year, in case the year cannot be determined
@@ -91,6 +91,22 @@ sub _findversion {
 		}
 		close SELF;
 	}
+	return ($version, $year);
+}
+
+=item _findversion()
+
+Determines the current version from the ROFFVERSION variable in the main package.
+
+=cut
+
+sub _findversion {
+	my $self    = shift;
+	my ($version) = ($main::ROFFVERSION =~ /^\.ds Vw \S+ pfm.pl ([a-z0-9.]+)$/ms);
+	my ($year)    = ($main::ROFFVERSION =~ /^\.ds Yr (\d+)$/ms);
+	# default values, in case they cannot be determined
+	$version  ||= 'unknown';
+	$year     ||= 3 * 10 * 67;
 	return ($version, $year);
 }
 
@@ -124,7 +140,7 @@ Prints version information.
 
 sub _printversion {
 	my $self = shift;
-	print "pfm ", $self->{VERSION}, "\n";
+	print "pfm ", $self->{VERSION}, "\r\n";
 }
 
 =item _goodbye()
@@ -244,8 +260,9 @@ sub bootstrap {
 	
 	# hand over the application object to the other classes
 	# for easy access.
-	$_screen	 = new PFM::Screen($self);
-	push @_states, new PFM::State($self);
+	$_states[0]	= new PFM::State($self);
+	$_screen	= new PFM::Screen($self);
+	$_screen->at($_screen->rows(), 0);
 	
 	Getopt::Long::Configure(qw'bundling permute');
 	GetOptions ('s|swap=s'   => \$swapstartdir,
@@ -257,9 +274,12 @@ sub bootstrap {
 	exit 1					if $invalid;
 	exit 0					if $opt_help || $opt_version;
 	
+	# hand over the application object to the other classes
+	# for easy access.
 	$_commandhandler = new PFM::CommandHandler($self);
 	$_history		 = new PFM::History($self);
 	$_browser		 = new PFM::Browser($self);
+	$_job			 = new PFM::Job($self);
 	
 	$_screen->listing->layout($startinglayout);
 	$_screen->clrscr();
@@ -271,25 +291,30 @@ sub bootstrap {
 	$_history->read();
 	$_screen->show_frame();
 	
+	# 'old' directory
 	$currentdir = getcwd();
-	# TODO
-#	$oldcurrentdir = $currentdir;
+	$_states[2] = new PFM::State($self);
+	$_states[2]->currentdir($currentdir);
+	$_states[2]->prepare();
+	# main directory
 	$startingdir = shift @ARGV;
 	if ($startingdir ne '') {
+		# $_states[0] has already been instantiated
 		unless ($_states[0]->currentdir($startingdir)) {
 			$_screen->at(0,0)->clreol();
 			$_screen->display_error("$startingdir: $! - using .");
 			$_screen->important_delay();
 		}
 	} else {
-		$_states[0]->currentdir($currentdir);
+		$_states[0] = $_states[2]->clone();
 	}
-	
+	# swap directory
 	if (defined $swapstartdir) {
-		push @_states, new PFM::State($self, 1);
+		$_states[1] = new PFM::State($self, 1);
 		$_states[1]->currentdir($swapstartdir);
 		$_states[1]->prepare();
 	}
+	# done
 	$_bootstrapped = 1;
 }
 

@@ -37,6 +37,8 @@ package PFM::Browser;
 
 use base 'PFM::Abstract';
 
+use strict;
+
 my ($_pfm, $_screen,
 	$_currentline, $_baseindex, $_position_at);
 

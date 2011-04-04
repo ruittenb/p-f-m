@@ -1,6 +1,6 @@
 
 
-Package: pfm-2.00.8
+Package: pfm-2.01.4
 
 
 This package is available from http://sourceforge.net/projects/p-f-m/
@@ -15,7 +15,7 @@ gcc                        ?
       Term-ScreenColor     1.09          1.10
   readline                 4.1           5
     Term-ReadLine-Gnu      1.09          1.19
-      pfm                  -             2.00.8
+      pfm                  -             2.01.4
 
 If you run Ubuntu, it is advisable to install the following packages:
 
