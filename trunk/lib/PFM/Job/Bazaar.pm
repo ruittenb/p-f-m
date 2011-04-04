@@ -35,7 +35,9 @@ package PFM::Job::Bazaar;
 
 use base 'PFM::Job::Abstract';
 
-my $_command = 'bzr status -S';
+use strict;
+
+my $_COMMAND = 'bzr status -S';
 
 ##########################################################################
 # private subs
@@ -49,6 +51,10 @@ Initializes new instances. Called from the constructor.
 sub _init {
 	my $self = shift;
 }
+
+# ruitten@visnet:/home/ruitten/Desktop/working/alice$ bzr status -S
+# ?   backup.bzr/
+#  M  static/media/index.php
 
 ##########################################################################
 # constructor, getters and setters

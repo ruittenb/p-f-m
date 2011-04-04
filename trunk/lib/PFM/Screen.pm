@@ -40,6 +40,8 @@ use PFM::Screen::Frame;
 use PFM::Screen::Listing;
 use PFM::Screen::Diskinfo;
 
+use strict;
+
 use constant {
 	NAMETOOLONGCHAR => '+',
 	ERRORDELAY		=> 1,		# in seconds (fractions allowed)
@@ -91,9 +93,9 @@ and PFM::Screen::Listing object.
 sub _init {
 	my ($self, $pfm) = @_;
 	$_pfm		= $pfm;
-	$_frame		= new PFM::Screen::Frame($pfm);
-	$_listing	= new PFM::Screen::Listing($pfm);
-	$_diskinfo	= new PFM::Screen::Diskinfo($pfm);
+	$_frame		= new PFM::Screen::Frame(   $pfm, $self);
+	$_listing	= new PFM::Screen::Listing( $pfm, $self);
+	$_diskinfo	= new PFM::Screen::Diskinfo($pfm, $self);
 	$SIG{WINCH} = \&_resizecatcher;
 }
 
@@ -336,11 +338,15 @@ Displays a message in the configured message color.
 =cut
 
 sub putmessage {
-	my $self = shift;
-	$self->putcolored(
-		$_pfm->config->{framecolors}{$_pfm->state->{color_mode}}{message},
-		@_
-	);
+	my ($self, $message) = @_;
+	my $framecolors = $_pfm->config->{framecolors};
+	if ($framecolors) {
+		$self->putcolored(
+			$framecolors->{$_pfm->state->{color_mode}}{message},
+			$message);
+	} else {
+		$self->puts($message);
+	}
 }
 
 =item pressanykey()
@@ -371,6 +377,25 @@ sub pressanykey {
 	$self->handleresize() if $_wasresized;
 }
 
+=item ok_to_remove_marks()
+
+Prompts the user for confirmation since they are about to lose
+their marks in the current directory.
+
+=cut
+
+sub ok_to_remove_marks {
+	my $self = shift;
+	my $sure;
+	if ($_pfm->config->{remove_marks_ok} or !$_diskinfo->mark_info()) {
+		return 1;
+	}
+	$self->at(0,0)->clreol()->putmessage('OK to remove marks [Y/N]? ');
+	$sure = $self->getch();
+	$_frame->show_menu();
+	return ($sure =~ /y/i);
+}
+
 =item display_error()
 
 Displays an error and waits for a key to be pressed.
@@ -382,6 +407,24 @@ sub display_error {
 	my $self = shift;
 	$self->putmessage(@_);
 	return $self->error_delay();
+}
+
+=item neat_error()
+
+Displays an error and waits for a key to be pressed.
+Returns the keypress.
+
+=cut
+
+sub neat_error {
+	my $self = shift;
+	$self->at(0,0)->clreol()->display_error(@_);
+	if ($_pfm->state->{multiple_mode}) {
+		$self->set_deferred_refresh(R_PATHINFO);
+	} else {
+		$self->set_deferred_refresh(R_FRAME);
+	}
+	return $self;
 }
 
 =item error_delay()
@@ -526,7 +569,7 @@ sub pathline {
 				# this is the case for e.g. /some_ridiculously_long_directory_name
 				$disppath = substr($path, 0, $maxpathlen);
 				$$displen = $maxpathlen;
-				$overflow = $NAMETOOLONGCHAR;
+				$overflow = NAMETOOLONGCHAR;
 				last FIT;
 			}
 			($disppath, $path) = ($1, $2);

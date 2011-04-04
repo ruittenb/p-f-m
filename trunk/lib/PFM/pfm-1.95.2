@@ -21,70 +21,6 @@
 #				strict
 # Description:	Personal File Manager for Unix/Linux
 #
-# TOTEST:
-#		fix error handling in eval($do_this) and display_error()
-#			partly implemented in handlecopyrename
-#		fixed sysread() and buffering
-#
-#		test major/minor numbers on DU 4.0E, Tru64, Sun (cannot test: no system available)
-# TODO:
-#		more consistent use of at(1,0) and at(0,0)
-#		sub fileforall(sub) ?
-#		cache color codes?
-#		use SIGINT for interrupt single, SIGQUIT for interrupt multi?
-#		bug: 'f' field in layout: characters in the 'gap' between filerecord & infocolumn
-#			are not cleared when switching columnformats -> insert an artificial "gap" field?
-#
-#		does DFCMD handle columns correctly on AIX?  @tdisk{qw/device total used avail/}
-#			prove1sup7:/home/ruittenb>df -k 
-#			Filesystem  1024-blocks   Free  %Used   Iused  %Iused  Mounted on
-#			/dev/hd4          45056   3528    93%    1389      7%  /
-#			/dev/hd2         303104  31984    90%   10081     14%  /usr
-#
-#		in chmod(directory): recursively descend? y/n
-#		implement escape char fixes to Term::Screen in Term::ScreenColor
-#
-#		fix timetouchformat. see shar(1) archives
-#			if touch -am -t 200112312359.59 $$.touch >/dev/null 2>&1 && test ! -f 200112312359.59 -a -f $$.touch; then
-#			shar_touch='touch -am -t $1$2$3$4$5$6.$7 "$8"'
-#			elif touch -am 123123592001.59 $$.touch >/dev/null 2>&1 && test ! -f 123123592001.59 -a ! -f 123123592001.5 -a -f $$.touch; then
-#			shar_touch='touch -am $3$4$5$6$1$2.$7 "$8"'
-#			elif touch -am 1231235901 $$.touch >/dev/null 2>&1 && test ! -f 1231235901 -a -f $$.touch; then
-#			shar_touch='touch -am $3$4$5$6$2 "$8"'
-#			else
-#			shar_touch=:
-#			echo
-#			$echo 'WARNING: not restoring timestamps.  Consider getting and'
-#			$echo "installing GNU \`touch', distributed in GNU File Utilities..."
-#			echo
-#			fi
-#			rm -f 200112312359.59 123123592001.59 123123592001.5 1231235901 $$.touch
-#
-#		cp -pr copies symlinks to symlinks - ?
-#			recursive directory copy? Ask to follow?
-#		change (U)id command to request changing the symlink?
-#		(B)abel option? tr/[:upper:]/[:lower:]/, s/^pfm/pfm-/
-#
-#		(L)ink (R)el to current dir does not restat()
-#		tar(G)et in multiple mode does not re-readlink()
-#		(U) in multiple mode does not restat()
-#		handletime does not restat() in multiple mode, nor resort
-#
-#		in handledelete: test if deleted file is a whiteout after deletion
-#		after rename: position_at new name?
-#		use the nameindexmap from handledelete() more globally?
-#			in handlecopyrename()? in handlefind() in handlesymlink?
-#			in dirlookup? in handlemorefifo?
-#			use in conjunction with 'keeplostfiles' option?
-#
-#		stat_entry() must *not* rebuild the selected_nr and total_nr lists:
-#			this messes up with e.g. cOmmand -> cp \2 /somewhere/else
-#			(which is, therefore, still buggy). this is closely related to:
-#		sub countcontents is not used
-#		make F11 respect multiple mode? (marked+oldmarked, not removing marks)
-#		hierarchical sort? e.g. 'sen' (size,ext,name)
-#		window sizing problems on Sun 5.6?
-#		include acl commands?
 
 ##########################################################################
 # main data structures:
@@ -104,15 +40,15 @@
 
 ##########################################################################
 # requirements
-
-require 5.006;
-
-use Term::ScreenColor;
-use Term::ReadLine;
-use Getopt::Long;
+#
+#require 5.006;
+#
+#use Term::ScreenColor;
+#use Term::ReadLine;
+#use Getopt::Long;
 use POSIX qw(strftime mktime);
-use Config;
-use Cwd;
+#use Config;
+#use Cwd;
 use locale;
 #use strict;
 #use warnings;
@@ -132,10 +68,10 @@ our($FALSE,
 #	$ALTERNATE_ON,
 #	$TERM_RAW,
 #	$TERM_COOKED,
-	$FILENAME_SHORT,
-	$FILENAME_LONG,
-	$HIGHLIGHT_OFF,
-	$HIGHLIGHT_ON,
+#	$FILENAME_SHORT,
+#	$FILENAME_LONG,
+#	$HIGHLIGHT_OFF,
+#	$HIGHLIGHT_ON,
 #	$TIME_FILE,
 #	$TIME_CLOCK,
 #	$HEADER_SINGLE,
@@ -186,8 +122,8 @@ our($FALSE,
 #*ALTERNATE_ON	= \1;
 #*TERM_RAW		= \0;
 #*TERM_COOKED	= \1;
-*FILENAME_SHORT	= \0;
-*FILENAME_LONG	= \1;
+#*FILENAME_SHORT	= \0;
+#*FILENAME_LONG	= \1;
 #*HIGHLIGHT_OFF	= \0;
 #*HIGHLIGHT_ON	= \1;
 #*TIME_FILE		= \0;
@@ -351,33 +287,33 @@ my %LAYOUTFIELDS = (
 	'f' => 'diskinfo',
 );
 
-my %FIELDHEADINGS = (
-	selected		=> ' ',
-	name			=> 'filename',
-	display			=> 'filename',
-	name_too_long	=> ' ',
-	size			=> 'size',
-	size_num		=> 'size',
-	size_power		=> ' ',
-	grand			=> 'total',
-	grand_num		=> 'total',
-	grand_power		=> ' ',
-	inode			=> 'inode',
-	mode			=> 'perm',
-	atime			=> 'date/atime',
-	mtime			=> 'date/mtime',
-	ctime			=> 'date/ctime',
-	atimestring		=> 'date/atime',
-	mtimestring		=> 'date/mtime',
-	ctimestring		=> 'date/ctime',
-	uid				=> 'userid',
-	gid				=> 'groupid',
-	nlink			=> 'lnks',
-	rdev			=> 'dev',
-	svn				=> 'svn',
-	diskinfo		=> 'disk info',
-);
-
+#my %FIELDHEADINGS = (
+#	selected		=> ' ',
+#	name			=> 'filename',
+#	display			=> 'filename',
+#	name_too_long	=> ' ',
+#	size			=> 'size',
+#	size_num		=> 'size',
+#	size_power		=> ' ',
+#	grand			=> 'total',
+#	grand_num		=> 'total',
+#	grand_power		=> ' ',
+#	inode			=> 'inode',
+#	mode			=> 'perm',
+#	atime			=> 'date/atime',
+#	mtime			=> 'date/mtime',
+#	ctime			=> 'date/ctime',
+#	atimestring		=> 'date/atime',
+#	mtimestring		=> 'date/mtime',
+#	ctimestring		=> 'date/ctime',
+#	uid				=> 'userid',
+#	gid				=> 'groupid',
+#	nlink			=> 'lnks',
+#	rdev			=> 'dev',
+#	svn				=> 'svn',
+#	diskinfo		=> 'disk info',
+#);
+#
 #my $screenheight	= 20;    # inner height
 #my $screenwidth		= 80;    # terminal width
 #my $position_at		= '.';   # start with cursor here
@@ -394,36 +330,36 @@ my %FIELDHEADINGS = (
 #	history_perlcmd	=> \@perlcmd_history
 #);
 #
-my (
-	# lookup tables
-	%usercache, %groupcache, %pfmrc, @signame, %dircolors, %framecolors,
-	# screen- and keyboard objects, screen parameters
-	$scr, $kbd, $wasresized, $wasquit, $currentpan,
-	# modes
-	$sort_mode, $multiple_mode, $swap_mode, $dot_mode, $dotdot_mode, $white_mode,
-	$mouse_mode, $color_mode, $ident_mode, $radix_mode, $clobber_mode, $path_mode,
-	$altscreen_mode,
-	# dir- and disk info
-	$currentdir, $oldcurrentdir, @dircontents, @showncontents, %currentfile,
-	%disk, $swap_state, %total_nr_of, %selected_nr_of, $ident,
-	# cursor position
-	$currentline, $baseindex, $cursorcol, $filenamecol, $infocol, $filerecordcol,
-	# misc config options
-	$editor, $pager, $viewer, $windowcmd, $printcmd, $ducmd, $chdirautocmd, $e,
-	$autoexitmultiple, $cursorveryvisible, $clsonexit, $rdevtomajor, $trspace,
-	$autowritehistory, $swap_persistent, $mouseturnoff, $showlockchar,
-	@colorsetnames, %filetypeflags, $swapstartdir, $waitlaunchexec,
-	$remove_marks_ok,
-	# layouts and formatting
-	$currentformatline, $currentformatlinewithinfo, $currentlayout, $formatname,
-	@layoutfields, @layoutfieldswithinfo, @columnlayouts,
-	$maxfilenamelength, $maxfilesizelength, $maxgrandtotallength, $infolength,
-	# rcs
-	$rcsbuffer, $rcsrunning, $rcs_need_refresh, $rcscmd, $autorcs,
-	# misc
-	$white_cmd, @unwo_cmd, $check_for_updates,
-);
-
+#my (
+#	# lookup tables
+#	%usercache, %groupcache, %pfmrc, @signame, %dircolors, %framecolors,
+#	# screen- and keyboard objects, screen parameters
+#	$scr, $kbd, $wasresized, $wasquit, $currentpan,
+#	# modes
+#	$sort_mode, $multiple_mode, $swap_mode, $dot_mode, $dotdot_mode, $white_mode,
+#	$mouse_mode, $color_mode, $ident_mode, $radix_mode, $clobber_mode, $path_mode,
+#	$altscreen_mode,
+#	# dir- and disk info
+#	$currentdir, $oldcurrentdir, @dircontents, @showncontents, %currentfile,
+#	%disk, $swap_state, %total_nr_of, %selected_nr_of, $ident,
+#	# cursor position
+#	$currentline, $baseindex, $cursorcol, $filenamecol, $infocol, $filerecordcol,
+#	# misc config options
+#	$editor, $pager, $viewer, $windowcmd, $printcmd, $ducmd, $chdirautocmd, $e,
+#	$autoexitmultiple, $cursorveryvisible, $clsonexit, $rdevtomajor, $trspace,
+#	$autowritehistory, $swap_persistent, $mouseturnoff, $showlockchar,
+#	@colorsetnames, %filetypeflags, $swapstartdir, $waitlaunchexec,
+#	$remove_marks_ok,
+#	# layouts and formatting
+#	$currentformatline, $currentformatlinewithinfo, $currentlayout, $formatname,
+#	@layoutfields, @layoutfieldswithinfo, @columnlayouts,
+#	$maxfilenamelength, $maxfilesizelength, $maxgrandtotallength, $infolength,
+#	# rcs
+#	$rcsbuffer, $rcsrunning, $rcs_need_refresh, $rcscmd, $autorcs,
+#	# misc
+#	$white_cmd, @unwo_cmd, $check_for_updates,
+#);
+#
 ##########################################################################
 # read/write resource file and history file
 
@@ -1155,7 +1091,7 @@ sub reformat {
 		@{$_}{qw(grand_num grand_power)} =
 			fit2limit($_->{grand}, $maxgrandtotallength);
 		@{$_}{qw(atimestr ctimestr mtimestr)} =
-			map { time2str($_, $TIME_FILE) } @{$_}{qw(atime ctime mtime)};
+			map { $_pfm->directory->stamp2str($_) } @{$_}{qw(atime ctime mtime)};
 	}
 }
 
@@ -1181,10 +1117,10 @@ sub copyback {
 	$dircontents[dirlookup($_[0], @dircontents)] = $showncontents[$currentline+$baseindex];
 }
 
-sub isorphan {
-	return ! -e $_[0];
-}
-
+#sub isorphan {
+#	return ! -e $_[0];
+#}
+#
 #sub resizecatcher {
 #	$wasresized = 1;
 #	$SIG{WINCH} = \&resizecatcher;
@@ -1338,29 +1274,29 @@ sub convwhite {
 #	$scr->putcolored($framecolors{$color_mode}{message}, @_);
 #}
 
-sub decidecolor {
-	my $f = shift;
-	$f->{type}	eq 'w'			and return $dircolors{$color_mode}{wh};
-	$f->{nlink} ==  0 			and return $dircolors{$color_mode}{lo};
-	$f->{type}	eq 'd'			and return $dircolors{$color_mode}{di};
-	$f->{type}	eq 'l'			and return $dircolors{$color_mode}
-											{ isorphan($f->{name}) ? 'or' : 'ln' };
-	$f->{type}	eq 'b'			and return $dircolors{$color_mode}{bd};
-	$f->{type}	eq 'c'			and return $dircolors{$color_mode}{cd};
-	$f->{type}	eq 'p'			and return $dircolors{$color_mode}{pi};
-	$f->{type}	eq 's'			and return $dircolors{$color_mode}{so};
-	$f->{type}	eq 'D'			and return $dircolors{$color_mode}{'do'};
-	$f->{type}	eq 'n'			and return $dircolors{$color_mode}{nt};
-	$f->{mode}	=~ /[xst]/		and return $dircolors{$color_mode}{ex};
-	$f->{name}	=~ /(\.\w+)$/	and return $dircolors{$color_mode}{$1};
-}
-
-sub applycolor {
-	my ($line, $length, %file) = @_;
-	$length = $length ? 255 : $maxfilenamelength-1;
-	$scr->at($line, $filenamecol)->putcolored(decidecolor(\%file), substr($file{name}, 0, $length));
-}
-
+#sub decidecolor {
+#	my $f = shift;
+#	$f->{type}	eq 'w'			and return $dircolors{$color_mode}{wh};
+#	$f->{nlink} ==  0 			and return $dircolors{$color_mode}{lo};
+#	$f->{type}	eq 'd'			and return $dircolors{$color_mode}{di};
+#	$f->{type}	eq 'l'			and return $dircolors{$color_mode}
+#											{ isorphan($f->{name}) ? 'or' : 'ln' };
+#	$f->{type}	eq 'b'			and return $dircolors{$color_mode}{bd};
+#	$f->{type}	eq 'c'			and return $dircolors{$color_mode}{cd};
+#	$f->{type}	eq 'p'			and return $dircolors{$color_mode}{pi};
+#	$f->{type}	eq 's'			and return $dircolors{$color_mode}{so};
+#	$f->{type}	eq 'D'			and return $dircolors{$color_mode}{'do'};
+#	$f->{type}	eq 'n'			and return $dircolors{$color_mode}{nt};
+#	$f->{mode}	=~ /[xst]/		and return $dircolors{$color_mode}{ex};
+#	$f->{name}	=~ /(\.\w+)$/	and return $dircolors{$color_mode}{$1};
+#}
+#
+#sub applycolor {
+#	my ($line, $length, %file) = @_;
+#	$length = $length ? 255 : $maxfilenamelength-1;
+#	$scr->at($line, $filenamecol)->putcolored(decidecolor(\%file), substr($file{name}, 0, $length));
+#}
+#
 ##########################################################################
 # small printing routines
 
@@ -1371,83 +1307,83 @@ sub applycolor {
 #	return $currentlayout;
 #}
 
-sub makeformatlines {
-	my ($squeezedlayoutline, $currentlayoutline, $firstwronglayout, $prev, $letter, $trans, $temp);
-	LAYOUT: {
-		$currentlayoutline = $columnlayouts[validate_layoutnum()];
-		unless ($currentlayoutline =~ /n/o
-		    and $currentlayoutline =~ /(^f|f$)/o
-			and $currentlayoutline =~ /\*/o)
-		{
-			$firstwronglayout ||= $currentlayout || '0 but true';
-			$scr->at(0,0)->clreol();
-			display_error("Bad layout #$currentlayout: a mandatory field is missing");
-			$scr->key_pressed($IMPORTANTDELAY);
-			$currentlayout++;
-			if (validate_layoutnum() != $firstwronglayout) {
-				redo LAYOUT;
-			} else {
-				alternate_screen($ALTERNATE_OFF);
-				$scr->clrscr()->at(0,0)
-				    ->puts("Fatal error: No valid layout defined in " . whichconfigfile())
-					->at(1,0);
-				stty_raw($TERM_COOKED);
-				mouseenable($MOUSE_OFF);
-				exit 2;
-			}
-		}
-	}
-	# layouts are all based on a screenwidth of 80: elongate filename field
-	$currentlayoutline =~ s/n/'n' x ($screenwidth - 79)/e;
-	# find out the length of the filename, filesize, grand total and info fields
-	$infolength			=		($currentlayoutline =~ tr/f//);
-	$maxfilenamelength	=		($currentlayoutline =~ tr/n//);
-	$maxfilesizelength	= 10 ** ($currentlayoutline =~ tr/s// -1) -1;
-	if ($maxfilesizelength < 2) { $maxfilesizelength = 2 }
-	$maxgrandtotallength = 10 ** ($currentlayoutline =~ tr/z// -1) -1;
-	if ($maxgrandtotallength < 2) { $maxgrandtotallength = 2 }
-	# provide N, S and Z fields
-	# N = overflow char for name
-	# S = power of 1024 for size
-	# Z = power of 1024 for grand total
-	$currentlayoutline =~ s/n(?!n)/N/io;
-	$currentlayoutline =~ s/s(?!s)/S/io;
-	$currentlayoutline =~ s/z(?!z)/Z/io;
-#	$currentlayoutline =~ s/(\s+)f/'F'x length($1) . 'f'/e;
-#	$currentlayoutline =~ s/f(\s+)/'f' . 'F'x length($1)/e;
-#	$gaplength = 
-	($temp = $currentlayoutline) =~ s/[^f].*//;
-	$filerecordcol	= length $temp;
-	$cursorcol		= index($currentlayoutline, '*');
-	$filenamecol	= index($currentlayoutline, 'n');
-	$infocol		= index($currentlayoutline, 'f');
-#	$gapcol			= index($currentlayoutline, 'F');
-	foreach ($cursorcol, $filenamecol, $infocol, $filerecordcol) {
-		if ($_ < 0) { $_ = 0 }
-	}
-	# determine the layout field set (no spaces)
-	($squeezedlayoutline = $currentlayoutline) =~ tr/*nNsSzZugpacmdilvf /*nNsSzZugpacmdilvf/ds;
-	($formatname = $squeezedlayoutline) =~ s/[*SNZ]//g;
-	@layoutfields         = map { $LAYOUTFIELDS{$_} } grep { !/f/ } (split //, $squeezedlayoutline);
-	@layoutfieldswithinfo = map { $LAYOUTFIELDS{$_} }               (split //, $squeezedlayoutline);
-	# make the formatline
-	$currentformatlinewithinfo = $currentformatline = $prev = '';
-	foreach $letter (split //, $currentlayoutline) {
-		if ($letter eq ' ') {
-			$currentformatlinewithinfo .= ' ';
-		} elsif ($prev ne $letter) {
-			$currentformatlinewithinfo .= '@';
-		} else {
-			($trans = $letter) =~ tr{*nNsSzZugpacmdilvf}
-									{<<<><><<<<<<<<>><<};
-			$currentformatlinewithinfo .= $trans;
-		}
-		$prev = $letter;
-	}
-	substr($currentformatline = $currentformatlinewithinfo, $infocol, $infolength, '');
-	return $currentformatline;
-}
-
+#sub makeformatlines {
+#	my ($squeezedlayoutline, $currentlayoutline, $firstwronglayout, $prev, $letter, $trans, $temp);
+#	LAYOUT: {
+#		$currentlayoutline = $columnlayouts[validate_layoutnum()];
+#		unless ($currentlayoutline =~ /n/o
+#		    and $currentlayoutline =~ /(^f|f$)/o
+#			and $currentlayoutline =~ /\*/o)
+#		{
+#			$firstwronglayout ||= $currentlayout || '0 but true';
+#			$scr->at(0,0)->clreol();
+#			display_error("Bad layout #$currentlayout: a mandatory field is missing");
+#			$scr->key_pressed($IMPORTANTDELAY);
+#			$currentlayout++;
+#			if (validate_layoutnum() != $firstwronglayout) {
+#				redo LAYOUT;
+#			} else {
+#				alternate_screen($ALTERNATE_OFF);
+#				$scr->clrscr()->at(0,0)
+#				    ->puts("Fatal error: No valid layout defined in " . whichconfigfile())
+#					->at(1,0);
+#				stty_raw($TERM_COOKED);
+#				mouseenable($MOUSE_OFF);
+#				exit 2;
+#			}
+#		}
+#	}
+#	# layouts are all based on a screenwidth of 80: elongate filename field
+#	$currentlayoutline =~ s/n/'n' x ($screenwidth - 79)/e;
+#	# find out the length of the filename, filesize, grand total and info fields
+#	$infolength			=		($currentlayoutline =~ tr/f//);
+#	$maxfilenamelength	=		($currentlayoutline =~ tr/n//);
+#	$maxfilesizelength	= 10 ** ($currentlayoutline =~ tr/s// -1) -1;
+#	if ($maxfilesizelength < 2) { $maxfilesizelength = 2 }
+#	$maxgrandtotallength = 10 ** ($currentlayoutline =~ tr/z// -1) -1;
+#	if ($maxgrandtotallength < 2) { $maxgrandtotallength = 2 }
+#	# provide N, S and Z fields
+#	# N = overflow char for name
+#	# S = power of 1024 for size
+#	# Z = power of 1024 for grand total
+#	$currentlayoutline =~ s/n(?!n)/N/io;
+#	$currentlayoutline =~ s/s(?!s)/S/io;
+#	$currentlayoutline =~ s/z(?!z)/Z/io;
+##	$currentlayoutline =~ s/(\s+)f/'F'x length($1) . 'f'/e;
+##	$currentlayoutline =~ s/f(\s+)/'f' . 'F'x length($1)/e;
+##	$gaplength = 
+#	($temp = $currentlayoutline) =~ s/[^f].*//;
+#	$filerecordcol	= length $temp;
+#	$cursorcol		= index($currentlayoutline, '*');
+#	$filenamecol	= index($currentlayoutline, 'n');
+#	$infocol		= index($currentlayoutline, 'f');
+##	$gapcol			= index($currentlayoutline, 'F');
+#	foreach ($cursorcol, $filenamecol, $infocol, $filerecordcol) {
+#		if ($_ < 0) { $_ = 0 }
+#	}
+#	# determine the layout field set (no spaces)
+#	($squeezedlayoutline = $currentlayoutline) =~ tr/*nNsSzZugpacmdilvf /*nNsSzZugpacmdilvf/ds;
+#	($formatname = $squeezedlayoutline) =~ s/[*SNZ]//g;
+#	@layoutfields         = map { $LAYOUTFIELDS{$_} } grep { !/f/ } (split //, $squeezedlayoutline);
+#	@layoutfieldswithinfo = map { $LAYOUTFIELDS{$_} }               (split //, $squeezedlayoutline);
+#	# make the formatline
+#	$currentformatlinewithinfo = $currentformatline = $prev = '';
+#	foreach $letter (split //, $currentlayoutline) {
+#		if ($letter eq ' ') {
+#			$currentformatlinewithinfo .= ' ';
+#		} elsif ($prev ne $letter) {
+#			$currentformatlinewithinfo .= '@';
+#		} else {
+#			($trans = $letter) =~ tr{*nNsSzZugpacmdilvf}
+#									{<<<><><<<<<<<<>><<};
+#			$currentformatlinewithinfo .= $trans;
+#		}
+#		$prev = $letter;
+#	}
+#	substr($currentformatline = $currentformatlinewithinfo, $infocol, $infolength, '');
+#	return $currentformatline;
+#}
+#
 #sub pathline {
 #	my ($path, $dev, $displen, $ellipssize) = @_;
 #	my $overflow	 = ' ';
@@ -1509,7 +1445,7 @@ sub makeformatlines {
 #							if ($linecolor =~ /under(line|score)/);
 #	}
 #	$scr->putcolored($linecolor, fileline(\%currentfile, @layoutfields));
-#	applycolor($currentline + $BASELINE, $FILENAME_SHORT, %currentfile);
+#	applycolor($currentline + $BASELINE, $FILENAME_SHORT, \%currentfile);
 #	$scr->reset()->normal()->at($currentline + $BASELINE, $cursorcol);
 #}
 #
@@ -1539,28 +1475,28 @@ sub markcurrentline { # letter
 #	return $scr->key_pressed($ERRORDELAY); # return value often discarded by caller
 #}
 #
-sub neat_error {
-	$scr->at(0,0)->clreol();
-	display_error($_[0]);
-	if ($multiple_mode) {
-		return $R_PATHINFO;
-	} else {
-		return $R_FRAME;
-	}
-}
-
-sub ok_to_remove_marks {
-	my $sure;
-	if (!$remove_marks_ok and mark_info()) {
-		$scr->at(0,0)->clreol();
-		putmessage('OK to remove marks [Y/N]? ');
-		$sure = $scr->getch();
-		show_menu();
-		return ($sure =~ /y/i);
-	}
-	return 1;
-}
-
+#sub neat_error {
+#	$scr->at(0,0)->clreol();
+#	display_error($_[0]);
+#	if ($multiple_mode) {
+#		return $R_PATHINFO;
+#	} else {
+#		return $R_FRAME;
+#	}
+#}
+#
+#sub ok_to_remove_marks {
+#	my $sure;
+#	if (!$remove_marks_ok and mark_info()) {
+#		$scr->at(0,0)->clreol();
+#		putmessage('OK to remove marks [Y/N]? ');
+#		$sure = $scr->getch();
+#		show_menu();
+#		return ($sure =~ /y/i);
+#	}
+#	return 1;
+#}
+#
 sub promptforboundarytime {
 	my $prompt = ($_[0] eq 'a' ? 'After' : 'Before')
 			   . " modification time CCYY-MM-DD hh:mm[.ss]: ";
@@ -2249,7 +2185,7 @@ sub handlesize {
 				->puts(fileline($tempfile, @layoutfields));
 			markcurrentline('Z');
 			applycolor($currentline + $BASELINE, $FILENAME_SHORT,
-					   %currentfile);
+					   \%currentfile);
 			$scr->getch();
 		}
 		return $loopfile;
@@ -2716,7 +2652,7 @@ sub handlename {
 	}
 	$line = $otherfile{name} . filetypeflag(\%otherfile) . (length($otherfile{target}) ? ' -> ' . $otherfile{target} : '');
 	$scr->at($currentline+$BASELINE, $filenamecol)->putcolored($framecolors{$color_mode}{highlight}, $line, " \cH");
-	applycolor($currentline+$BASELINE, $FILENAME_LONG, %otherfile); # resets colors to normal
+	applycolor($currentline+$BASELINE, $FILENAME_LONG, \%otherfile); # resets colors to normal
 	if ($scr->noecho()->getch() eq '*') {
 		handleradix();
 		show_footer();

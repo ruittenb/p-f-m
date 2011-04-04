@@ -38,10 +38,16 @@ use base 'PFM::Abstract';
 
 use PFM::Util;
 
+use POSIX qw(strftime);
+
+use strict;
+
 use constant {
 	SLOWENTRIES         => 300,
 	MAJORMINORSEPARATOR => ',',
 };
+
+my @SYMBOLIC_MODES = qw(--- --x -w- -wx r-- r-x rw- rwx);
 
 my ($_pfm, $_path,
 	@_dircontents, @_showncontents, %_selected_nr_of, %_total_nr_of,
@@ -225,7 +231,7 @@ and executes the 'chdirautocmd' from the F<.pfmrc> file.
 
 sub chdir {
 	my ($self, $target) = @_;
-	my $result;
+	my ($result, $chdirautocmd);
 	my $screen = $_pfm->screen;
 	if ($target eq '') {
 		$target = $ENV{HOME};
@@ -244,7 +250,7 @@ sub chdir {
 	}
 	$target = canonicalize_path($target);
 	if ($result = chdir $target and $target ne $_path) {
-		$_pfm->state(2) = $_pfm->state;
+		$_pfm->state(2) = $_pfm->state->clone();
 		# TODO store _path in state->_position
 		$_path = $target;
 		$chdirautocmd = $_pfm->config->chdirautocmd;
@@ -252,6 +258,51 @@ sub chdir {
 		$screen->set_deferred_refresh($screen->R_CHDIR);
 	}
 	return $result;
+}
+
+=item mode2str()
+
+Converts a numeric file mode (permission bits) to a symbolic one
+(I<e.g.> C<drwxr-x--->).
+
+=cut
+
+sub mode2str {
+	my ($self, $nummode) = shift;
+	my $strmode;
+	my $octmode = sprintf("%lo", $nummode);
+	$octmode	=~ /(\d\d?)(\d)(\d)(\d)(\d)$/;
+	$strmode	= substr('-pc?d?b?-nl?sDw?', oct($1) & 017, 1)
+				. $SYMBOLIC_MODES[$3] . $SYMBOLIC_MODES[$4] . $SYMBOLIC_MODES[$5];
+	# 0000                000000  unused
+	# 1000  S_IFIFO   p|  010000  fifo (named pipe)
+	# 2000  S_IFCHR   c   020000  character special
+	# 3000  S_IFMPC       030000  multiplexed character special (V7)
+	# 4000  S_IFDIR   d/  040000  directory
+	# 5000  S_IFNAM       050000  XENIX named special file with two subtypes,
+	#                             distinguished by st_rdev values 1,2:
+	# 0001  S_INSEM   s   000001    semaphore
+	# 0002  S_INSHD   m   000002    shared data
+	# 6000  S_IFBLK   b   060000  block special
+	# 7000  S_IFMPB       070000  multiplexed block special (V7)
+	# 8000  S_IFREG   -   100000  regular
+	# 9000  S_IFNWK   n   110000  network special (HP-UX)
+	# a000  S_IFLNK   l@  120000  symbolic link
+	# b000  S_IFSHAD      130000  Solaris ACL shadow inode,not seen by userspace
+	# c000  S_IFSOCK  s=  140000  socket
+	# d000  S_IFDOOR  D>  150000  Solaris door
+	# e000  S_IFWHT   w%  160000  BSD whiteout
+	#
+	if ($2 & 4) { substr($strmode,3,1) =~ tr/-x/Ss/ }
+	if ($2 & 2) {
+		if ($_pfm->config->{showlockchar} eq 'l') {
+			substr($strmode,6,1) =~ tr/-x/ls/;
+		} else {
+			substr($strmode,6,1) =~ tr/-x/Ss/;
+		}
+	}
+	if ($2 & 1) { substr($strmode,9,1) =~ tr/-x/Tt/ }
+	return $strmode;
 }
 
 =item stat_entry()
@@ -267,6 +318,7 @@ sub stat_entry {
 	# a new directory) or kept intact (when re-statting)
 	my ($self, $entry, $selected_flag) = @_;
 	my ($ptr, $name_too_long, $target);
+	my %filetypeflags = $_pfm->config->{filetypeflags};
 	my ($device, $inode, $mode, $nlink, $uid, $gid, $rdev, $size,
 		$atime, $mtime, $ctime, $blksize, $blocks) = lstat $entry;
 	$ptr = {
@@ -278,14 +330,18 @@ sub stat_entry {
 		inode		=> $inode,
 		nlink		=> $nlink,
 		rdev		=> $rdev,
-		selected	=> $selected_flag,	grand_power	=> ' ',
-		atime		=> $atime,			size		=> $size,
-		mtime		=> $mtime,			blocks		=> $blocks,
-		ctime		=> $ctime,			blksize		=> $blksize,
+		selected	=> $selected_flag,
+		atime		=> $atime,
+		mtime		=> $mtime,
+		ctime		=> $ctime,
+		grand_power	=> ' ',
+		size		=> $size,
+		blocks		=> $blocks,
+		blksize		=> $blksize,
 		svn			=> '-',
-		atimestring => time2str($atime, TIME_FILE),
-		mtimestring => time2str($mtime, TIME_FILE),
-		ctimestring => time2str($ctime, TIME_FILE),
+		atimestring => $self->stamp2str($atime),
+		mtimestring => $self->stamp2str($mtime),
+		ctimestring => $self->stamp2str($ctime),
 	};
 	@{$ptr}{qw(size_num size_power)} =
 		fit2limit($size, $_pfm->state->listing->maxfilesizelength);
@@ -297,15 +353,27 @@ sub stat_entry {
 	} elsif ($ptr->{type} eq '-' and $ptr->{mode} =~ /.[xst]/) {
 		$ptr->{display} = $entry . $filetypeflags{'x'};
 	} elsif ($ptr->{type} =~ /[bc]/) {
-		$ptr->{size_num} = sprintf("%d", $rdev / $rdevtomajor) . MAJORMINORSEPARATOR . ($rdev % $rdevtomajor);
+		$ptr->{size_num} = sprintf("%d", $rdev / $_pfm->config->{rdevtomajor}) . MAJORMINORSEPARATOR . ($rdev % $_pfm->config->{rdevtomajor});
 		$ptr->{display} = $entry . $filetypeflags{$ptr->{type}};
 	} else {
 		$ptr->{display} = $entry . $filetypeflags{$ptr->{type}};
 	}
 	$ptr->{name_too_long} = length($ptr->{display}) > $_pfm->state->listing->maxfilenamelength-1
 							? $_pfm->state->listing->NAMETOOLONGCHAR : ' ';
-	$total_nr_of{ $ptr->{type} }++; # this is wrong! e.g. after cOmmand
+	$_total_nr_of{ $ptr->{type} }++; # this is wrong! e.g. after cOmmand
 	return $ptr;
+}
+
+=item stamp2str()
+
+Formats a timestamp for printing.
+
+=cut
+
+
+sub stamp2str {
+	my ($self, $time) = @_;
+	return strftime($_pfm->config->{timestampformat}, localtime $time);
 }
 
 =item init_dircount()
@@ -347,13 +415,14 @@ sub readcontents {
 	my (@contents, $entry);
 	my @allentries = ();
 	my @white_entries = ();
+	my $whitecommand = $_pfm->commandhandler->whitecommand;
 	my $screen = $_pfm->screen;
 	%_usercache = %_groupcache = ();
 	if (opendir CURRENT, '.') { # was $_path
 		@allentries = readdir CURRENT;
 		closedir CURRENT;
-		if ($white_cmd) {
-			@white_entries = `$white_cmd .`;
+		if ($whitecommand) {
+			@white_entries = `$whitecommand .`;
 		}
 	} else {
 		$screen->at(0,0)->clreol()->display_error("Cannot read . : $!");

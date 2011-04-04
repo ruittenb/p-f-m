@@ -35,6 +35,8 @@ package PFM::Job::CheckUpdates;
 
 use base 'PFM::Job::Abstract';
 
+use strict;
+
 ##########################################################################
 # private subs
 
@@ -59,10 +61,10 @@ sub start {
 	#TODO
 }
 
-#sub poll {
-#	my $self = shift;
-#	#TODO
-#}
+sub poll {
+	my $self = shift;
+	#TODO
+}
 
 ##########################################################################
 

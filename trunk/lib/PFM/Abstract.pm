@@ -36,10 +36,13 @@ package PFM::Abstract;
 
 use Carp;
 
+use strict;
+
 ##########################################################################
 # private subs
 
 sub _init() {
+	carp('_init() not defined');
 }
 
 ##########################################################################
@@ -61,6 +64,24 @@ sub new {
 	bless($self, $type);
 	$self->_init(@_);
 	return $self;
+}
+
+=item clone()
+
+Clone one object to create an independent one. References
+stored in the object will be copied as-is to the clone.
+
+=cut
+
+sub clone {
+	my $self  = shift;
+	my $type  = ref $self;
+	my $clone = { %$self };
+	unless ($type) {
+		croak("clone() cannot be called statically (there is nothing to clone)");
+	}
+	bless($clone, $type);
+	return $clone;
 }
 
 ##########################################################################

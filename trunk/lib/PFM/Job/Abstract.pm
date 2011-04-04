@@ -34,6 +34,7 @@ Abstract PFM Job class for defining a common interface to Jobs.
 package PFM::Job::Abstract;
 
 use Carp;
+use strict;
 
 use base 'PFM::Abstract';
 

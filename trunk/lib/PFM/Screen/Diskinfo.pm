@@ -36,6 +36,9 @@ package PFM::Screen::Diskinfo;
 
 use base 'PFM::Abstract';
 
+use locale;
+use strict;
+
 use constant {
 	DISKINFOLINE	=> 4,
 	DIRINFOLINE		=> 9,
@@ -59,9 +62,9 @@ Initializes new instances. Called from the constructor.
 =cut
 
 sub _init {
-	my ($self, $pfm) = @_;
-	$_pfm    = $pfm;
-	$_screen = $pfm->screen;
+	my ($self, $pfm, $screen) = @_;
+	$_pfm        = $pfm;
+	$_screen     = $screen;
 	$_ident_mode = 0;
 }
 
@@ -140,7 +143,7 @@ sub initident {
 	chomp ($_ident  = getpwuid($>)  ) unless $_ident_mode == 1;
 	chomp ($_ident  = `hostname`    )     if $_ident_mode == 1;
 	chomp ($_ident .= '@'.`hostname`)     if $_ident_mode == 2;
-	$screen->set_deferred_refresh($screen->R_DISKINFO | $screen->R_FOOTER);
+	$_screen->set_deferred_refresh($_screen->R_DISKINFO | $_screen->R_FOOTER);
 }
 
 ##########################################################################
@@ -181,9 +184,10 @@ Clears the entire diskinfo column.
 =cut
 
 sub clearcolumn {
+	my $self = shift;
 	my $spaces = ' ' x $_infolength;
-	foreach (BASELINE .. BASELINE + $screen->screenheight) {
-		$screen->at($_, $_infocol)->puts($spaces);
+	foreach ($_screen->BASELINE .. $_screen->BASELINE+$_screen->screenheight) {
+		$_screen->at($_, $_infocol)->puts($spaces);
 	}
 }
 
@@ -194,7 +198,8 @@ Displays the hostname, username or username@hostname.
 =cut
 
 sub user_info {
-	$screen->at(USERINFOLINE, $_infocol)
+	my $self = shift;
+	$_screen->at(USERINFOLINE, $_infocol)
 		->putcolored(($> ? 'normal' : 'red'), $self->_str_informatted($_ident));
 }
 
@@ -205,6 +210,7 @@ Displays the filesystem usage.
 =cut
 
 sub disk_info {
+	my $self = shift;
 	my @desc		= ('K tot','K usd','K avl');
 	my @values		= @{$_pfm->state->directory->disk}{qw/total used avail/};
 	my $startline	= DISKINFOLINE;
@@ -230,6 +236,7 @@ Displays the number of directory entries of different types.
 =cut
 
 sub dir_info {
+	my $self = shift;
 	my @desc   = ('files','dirs ','symln','spec ');
 	my %total_nr_of = %{$_pfm->state->directory->total_nr_of};
 	my @values = @total_nr_of{'-','d','l'};
@@ -257,6 +264,7 @@ Displays the number of directory entries that have been marked.
 =cut
 
 sub mark_info {
+	my $self = shift;
 	my @desc = ('bytes','files','dirs ','symln','spec ');
 	my %selected_nr_of = %{$_pfm->state->directory->selected_nr_of};
 	my @values = @selected_nr_of{'bytes','-','d','l'};
@@ -286,13 +294,15 @@ Displays the clock in the diskinfo column.
 =cut
 
 sub clock_info {
-	my ($date, $time);
+	my $self = shift;
 	my $line = DATEINFOLINE;
-	($date, $time) = time2str(time, TIME_CLOCK);
-	if ($screen->rows() > 24) {
-		$screen->at($line++, $_infocol)->puts($self->_str_informatted($date));
+	my $now = time;
+	my $date = strftime($_pfm->config->{clockdateformat}, localtime $now),
+	my $time = strftime($_pfm->config->{clocktimeformat}, localtime $now);
+	if ($_screen->rows() > 24) {
+		$_screen->at($line++, $_infocol)->puts($self->_str_informatted($date));
 	}
-	$screen->at($line++, $_infocol)->puts($self->_str_informatted($time));
+	$_screen->at($line, $_infocol)->puts($self->_str_informatted($time));
 }
 
 ##########################################################################

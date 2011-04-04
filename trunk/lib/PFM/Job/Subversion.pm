@@ -35,7 +35,9 @@ package PFM::Job::Subversion;
 
 use base 'PFM::Job::Abstract';
 
-my $_command = 'svn status';
+use strict;
+
+my $_COMMAND = 'svn status';
 
 ##########################################################################
 # private subs

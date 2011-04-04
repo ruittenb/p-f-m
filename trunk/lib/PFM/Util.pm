@@ -38,17 +38,13 @@ use base 'Exporter';
 
 use Carp;
 
-use constant {
-	TIME_FILE	=> 0,
-	TIME_CLOCK	=> 1,
-};
+use strict;
 
 our @EXPORT = qw(min max inhibit triggle toggle isyes isno basename dirname
 				 isxterm formatted time2str fit2limit canonicalize_path
-				 mode2str TIME_FILE TIME_CLOCK);
+				 isorphan TIME_FILE TIME_CLOCK);
 
 my $XTERMS = qr/^(.*xterm.*|rxvt.*|gnome.*|kterm)$/;
-my @SYMBOLIC_MODES = qw(--- --x -w- -wx r-- r-x rw- rwx);
 
 ##########################################################################
 # private subs
@@ -166,24 +162,6 @@ sub formatted (@) {
 	return $^A;
 }
 
-=item time2str()
-
-Formats a time for printing. Can be used for timestamps (with the TIME_FILE
-flag) or for the on-screen clock (with TIME_CLOCK).
-
-=cut
-
-# TODO pfmrc
-sub time2str {
-	my ($time, $flag) = @_;
-	if ($flag == TIME_FILE) {
-		return strftime ($pfmrc{timestampformat}, localtime $time);
-	} else {
-		return strftime ($pfmrc{clockdateformat}, localtime $time),
-			   strftime ($pfmrc{clocktimeformat}, localtime $time);
-	}
-}
-
 =item fit2limit()
 
 Fits a file size into a certain number of characters by converting it
@@ -229,50 +207,14 @@ sub canonicalize_path {
 	return $path;
 }
 
-=item mode2str()
+=item isorphan()
 
-Converts a numeric file mode (permission bits) to a symbolic one
-(I<e.g.> C<drwxr-x--->).
+Returns if a symlink is an orphan symlink or not.
 
 =cut
 
-sub mode2str {
-	# concerning acls, see http://compute.cnr.berkeley.edu/cgi-bin/man-cgi?ls+1
-	my $strmode;
-	my $nummode = shift; # || 0;
-	my $octmode = sprintf("%lo", $nummode);
-	$octmode	=~ /(\d\d?)(\d)(\d)(\d)(\d)$/;
-	$strmode	= substr('-pc?d?b?-nl?sDw?', oct($1) & 017, 1)
-				. $SYMBOLIC_MODES[$3] . $SYMBOLIC_MODES[$4] . $SYMBOLIC_MODES[$5];
-	# 0000                000000  unused
-	# 1000  S_IFIFO   p|  010000  fifo (named pipe)
-	# 2000  S_IFCHR   c   020000  character special
-	# 3000  S_IFMPC       030000  multiplexed character special (V7)
-	# 4000  S_IFDIR   d/  040000  directory
-	# 5000  S_IFNAM       050000  XENIX named special file with two subtypes,
-	#                             distinguished by st_rdev values 1,2:
-	# 0001  S_INSEM   s   000001    semaphore
-	# 0002  S_INSHD   m   000002    shared data
-	# 6000  S_IFBLK   b   060000  block special
-	# 7000  S_IFMPB       070000  multiplexed block special (V7)
-	# 8000  S_IFREG   -   100000  regular
-	# 9000  S_IFNWK   n   110000  network special (HP-UX)
-	# a000  S_IFLNK   l@  120000  symbolic link
-	# b000  S_IFSHAD      130000  Solaris ACL shadow inode,not seen by userspace
-	# c000  S_IFSOCK  s=  140000  socket
-	# d000  S_IFDOOR  D>  150000  Solaris door
-	# e000  S_IFWHT   w%  160000  BSD whiteout
-	#
-	if ($2 & 4) { substr($strmode,3,1) =~ tr/-x/Ss/ }
-	if ($2 & 2) {
-		if ($pfmrc{showlockchar} eq 'l') {
-			substr($strmode,6,1) =~ tr/-x/ls/;
-		} else {
-			substr($strmode,6,1) =~ tr/-x/Ss/;
-		}
-	}
-	if ($2 & 1) { substr($strmode,9,1) =~ tr/-x/Tt/ }
-	return $strmode;
+sub isorphan {
+	return ! -e $_[0];
 }
 
 ##########################################################################

@@ -38,6 +38,9 @@ use base 'PFM::Abstract';
 
 use PFM::Util;
 
+use locale;
+use strict;
+
 use constant {
 	MENU_SINGLE			=> 0,
 	MENU_MULTI			=> 1,
@@ -54,6 +57,33 @@ use constant {
 
 my %ONOFF = ('' => 'off', 0 => 'off', 1 => 'on');
 
+my %_fieldheadings = (
+	selected		=> ' ',
+	name			=> 'filename',
+	display			=> 'filename',
+	name_too_long	=> ' ',
+	size			=> 'size',
+	size_num		=> 'size',
+	size_power		=> ' ',
+	grand			=> 'total',
+	grand_num		=> 'total',
+	grand_power		=> ' ',
+	inode			=> 'inode',
+	mode			=> 'perm',
+	atime			=> 'date/atime',
+	mtime			=> 'date/mtime',
+	ctime			=> 'date/ctime',
+	atimestring		=> 'date/atime',
+	mtimestring		=> 'date/mtime',
+	ctimestring		=> 'date/ctime',
+	uid				=> 'userid',
+	gid				=> 'groupid',
+	nlink			=> 'lnks',
+	rdev			=> 'dev',
+	svn				=> 'svn',
+	diskinfo		=> 'disk info',
+);
+
 my ($_pfm, $_screen,
 	$_currentpan);
 
@@ -68,9 +98,9 @@ Called from the constructor.
 =cut
 
 sub _init {
-	my ($self, $pfm) = @_;
+	my ($self, $pfm, $screen) = @_;
 	$_pfm    = $pfm;
-	$_screen = $pfm->screen;
+	$_screen = $screen;
 }
 
 =item _maxpan()
@@ -161,7 +191,7 @@ sub _getfooter {
 	.		" F12-Mouse[$ONOFF{$state{mouse_mode}}]"
 	.		" !-Clobber[$ONOFF{$state{clobber_mode}}]"
 	.		" .-Dotfiles[$ONOFF{$state{dot_mode}}]"
-	.		($_pfm->commandhandler->whitesupport
+	.		($_pfm->commandhandler->whitecommand
 				? " %-Whiteouts[$ONOFF{$state{white_mode}}]" : '')
 	.		" \"-Pathnames[$state{path_mode}]"
 	.		" *-Radix[$state{radix_mode}]"
@@ -171,6 +201,16 @@ sub _getfooter {
 
 ##########################################################################
 # constructor, getters and setters
+
+=item fieldheadings()
+
+Getter for the hash that defines the column headings to be printed.
+
+=cut
+
+sub fieldheadings {
+	return \%_fieldheadings;
+}
 
 ##########################################################################
 # public subs
@@ -184,7 +224,6 @@ Displays menu, footer and headings.
 sub show {
 	my $self = shift;
 	$self->show_menu();
-	# TODO @layoutfieldswithinfo
 	$self->show_headings($_pfm->state->{swap_mode}, HEADING_DISKINFO);
 	$self->show_footer();
 	return $self;
@@ -228,11 +267,10 @@ Displays the column headings.
 
 =cut
 
-# TODO move to Screen::Listing
-sub show_headings { # swap_mode, extra field
-	my ($self, $smode, $info) = @_;
-	my @fields = @{$_screen->listing->layoutfieldswithinfo};
+sub show_headings {
+	my ($self, $swapmode, $info) = @_;
 	my ($linecolor, $diskinfo, $padding);
+	my @fields = @{$_screen->listing->layoutfieldswithinfo};
 	$padding = ' ' x ($_screen->diskinfo->infolength - 14);
 	for ($info) {
 		$_ == HEADING_DISKINFO	and $diskinfo = "$padding     disk info";
@@ -241,18 +279,21 @@ sub show_headings { # swap_mode, extra field
 		$_ == HEADING_YCOMMAND	and $diskinfo = "your commands $padding";
 		$_ == HEADING_ESCAPE	and $diskinfo = "esc legend    $padding";
 	}
-	$FIELDHEADINGS{diskinfo} = $diskinfo;
-#	$FIELDHEADINGS{display} = $FIELDHEADINGS{name} . ' (' . $sort_mode . ('%','')[$white_mode] . ('.','')[$dot_mode] . ')';
-	$linecolor = $smode
+	$_fieldheadings{diskinfo} = $diskinfo;
+#	$_fieldheadings{display} = sprintf('%s (%s%s%s)', $_fieldheadings{name},
+#		$sort_mode, ('%','')[$white_mode], ('.','')[$dot_mode]);
+	$linecolor = $swapmode
 		? $_pfm->config->framecolors->{$_pfm->state->{color_mode}}{swap}
 		: $_pfm->config->framecolors->{$_pfm->state->{color_mode}}{headings};
-#	$screen->bold()			if ($linecolor =~ /bold/);
-#	$screen->reverse()		if ($linecolor =~ /reverse/);
-#	$screen->underline()	if ($linecolor =~ /under(line|score)/);
-	$screen->term()->Tputs('us', 1, *STDOUT)
+#	$_screen->bold()		if ($linecolor =~ /bold/);
+#	$_screen->reverse()		if ($linecolor =~ /reverse/);
+#	$_screen->underline()	if ($linecolor =~ /under(line|score)/);
+	$_screen->term()->Tputs('us', 1, *STDOUT)
 							if ($linecolor =~ /under(line|score)/);
-	$screen->at(2,0)
-		->putcolored($linecolor, formatted($_pfm->screen->listing->currentformatlinewithinfo, @FIELDHEADINGS{@fields}))
+	$_screen->at(2,0)
+		->putcolored($linecolor, formatted(
+			$_pfm->screen->listing->currentformatlinewithinfo,
+			@_fieldheadings{@fields}))
 		->reset()->normal();
 }
 
