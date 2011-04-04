@@ -1,13 +1,12 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2010-03-30 v2.00.7
 #
 # Name:			pfm
-# Version:		2.00.7
+# Version:		2.00.8
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-03-30
+# Date:			2010-04-01
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				    [ -l, --layout <number> ]
 #				pfm { -v, --version | -h, --help }
@@ -21,9 +20,26 @@
 #
 
 ##########################################################################
+# version macros for *roff
+
+$VERSION='
+
+=pod
+
+=for roff
+.ds Yr 2010
+.ds Vw @(#) pfm.pl 2.00.8
+.de Vp
+This manual pertains to \f(CWpfm\fP version \\$3.
+..
+.hy 0 \" hyphenation off
+
+=cut ';
+
+##########################################################################
 # declarations
 
-use lib '/home/ruitten/Desktop/projects/pfm-2.00.7/lib';
+use lib '/home/ruitten/Desktop/projects/pfm-2.00.8/lib';
 
 use PFM::Application;
 
@@ -818,7 +834,7 @@ in the current directory path will be preserved.
 
 Toggle show/hide whiteout files.
 
-=item B<*>
+=item B<S< *>>
 
 Toggle the radix used by the B<N>ame command.
 
@@ -836,7 +852,7 @@ Scroll the header and footer, in order to view all available commands.
 
 =item B<=>
 
-Switch between displaying the username, the hostname, or username@hostname.
+Cycle through displaying the username, the hostname, or username@hostname.
 
 =item B<E<gt>>
 
@@ -1316,8 +1332,6 @@ The editor to be used for the B<E>dit command. Overridden by VISUAL.
 
 =item B<LC_MESSAGES>
 
-=for comment =item B<LC_MONETARY>
-
 =item B<LC_NUMERIC>
 
 =item B<LC_TIME>
@@ -1388,14 +1402,16 @@ line. You may use the terminal kill character (usually B<CTRL-U>) for this
 (see stty(1)).
 
 The author once almost pressed B<ENTER> when logged in as root and with
-the cursor next to F</sbin/reboot>. You have been warned.
+the cursor on the file F</sbin/reboot>. You have been warned.
 
 The smallest terminal size supported is 80x24. The display will be messed
 up if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.95.2.
+=for roff
+.PP \" display the 'pertains to'-macro
+.Vp \*(Vw
 
 =head1 AUTHOR and COPYRIGHT
 
@@ -1407,12 +1423,12 @@ This manual pertains to C<pfm> version 1.95.2.
 .ie \n(.g .ds e' \('e
 .el       .ds e' e\*'
 ..
-Copyright \*(co 1999-2010, Ren\*(e' Uittenbogaard
+Copyright \*(co 1999-\*(Yr, Ren\*(e' Uittenbogaard
 (ruittenb@users.sourceforge.net).
-.PP \
+.PP
 
 =for html
-Copyright &copy; 1999-2010, Ren&eacute; Uittenbogaard
+Copyright &copy; Ren&eacute; Uittenbogaard
 (ruittenb&#64;users.sourceforge.net).
 
 All rights reserved. This program is free software; you can redistribute
@@ -1426,8 +1442,13 @@ with kind permission of the original authors.
 =head1 SEE ALSO
 
 The documentation on PFMS<.>COM. The manual pages for chmod(1), file(1),
-less(1), locale(7), lpr(1), touch(1), vi(1), Term::ScreenColor(3pm),
-Term::ReadLine(3pm), and Term::Screen(3pm).
+less(1), locale(7), lpr(1), touch(1), vi(1).
+
+For programmers: Term::Screen(3pm), Term::ScreenColor(3pm),
+Term::ReadLine(3pm), PFM::Abstract(3pm), PFM::Application(3pm),
+PFM::Browser(3pm), PFM::CommandHandler(3pm), PFM::Config(3pm),
+PFM::Directory(3pm), PFM::History(3pm), PFM::Job(3pm),
+PFM::Screen(3pm), PFM::State(3pm) and PFM::Util(3pm).
 
 =cut
 

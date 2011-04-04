@@ -2,7 +2,7 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
-<title>pfm - Personal File Manager for Linux/Unix</title>
+<title>C&lt;pfm&gt; - Personal File Manager for Linux/Unix</title>
 <meta http-equiv="content-type" content="text/html; charset=utf-8" />
 <link rev="made" href="mailto:root@localhost" />
 </head>
@@ -728,7 +728,7 @@ in the current directory path will be preserved.</p>
 <dd>
 <p>Toggle show/hide whiteout files.</p>
 </dd>
-<dt><strong><a name="_" class="item"><strong>*</strong></a></strong></dt>
+<dt><strong><a name="_" class="item"><strong>&nbsp;*</strong></a></strong></dt>
 
 <dd>
 <p>Toggle the radix used by the <strong>N</strong>ame command.</p>
@@ -751,7 +751,7 @@ in the current directory path will be preserved.</p>
 <dt><strong><a name="_" class="item"><strong>=</strong></a></strong></dt>
 
 <dd>
-<p>Switch between displaying the username, the hostname, or username@hostname.</p>
+<p>Cycle through displaying the username, the hostname, or username@hostname.</p>
 </dd>
 <dt><strong><a name="_" class="item"><strong>&gt;</strong></a></strong></dt>
 
@@ -1232,19 +1232,18 @@ pressing <strong>ESC</strong>. For most commands, you will need to clear the hal
 line. You may use the terminal kill character (usually <strong>CTRL-U</strong>) for this
 (see stty(1)).</p>
 <p>The author once almost pressed <strong>ENTER</strong> when logged in as root and with
-the cursor next to <em class="file">/sbin/reboot</em>. You have been warned.</p>
+the cursor on the file <em class="file">/sbin/reboot</em>. You have been warned.</p>
 <p>The smallest terminal size supported is 80x24. The display will be messed
 up if you resize your terminal window to a smaller size.</p>
 <p>
 </p>
 <hr />
 <h1><a name="version">VERSION</a></h1>
-<p>This manual pertains to <code>pfm</code> version 1.95.2.</p>
 <p>
 </p>
 <hr />
 <h1><a name="author_and_copyright">AUTHOR and COPYRIGHT</a></h1>
-Copyright &copy; 1999-2010, Ren&eacute; Uittenbogaard
+Copyright &copy; Ren&eacute; Uittenbogaard
 (ruittenb&#64;users.sourceforge.net).<p>All rights reserved. This program is free software; you can redistribute
 it and/or modify it under the terms described by the GNU General Public
 License version 2.</p>
@@ -1256,8 +1255,12 @@ with kind permission of the original authors.</p>
 <hr />
 <h1><a name="see_also">SEE ALSO</a></h1>
 <p>The documentation on PFM.COM. The manual pages for <code>chmod(1)</code>, <code>file(1)</code>,
-<code>less(1)</code>, <code>locale(7)</code>, <code>lpr(1)</code>, <code>touch(1)</code>, <code>vi(1)</code>, Term::ScreenColor(3pm),
-Term::ReadLine(3pm), and Term::Screen(3pm).</p>
+<code>less(1)</code>, <code>locale(7)</code>, <code>lpr(1)</code>, <code>touch(1)</code>, <code>vi(1)</code>.</p>
+<p>For programmers: Term::Screen(3pm), Term::ScreenColor(3pm),
+Term::ReadLine(3pm), PFM::Abstract(3pm), PFM::Application(3pm),
+PFM::Browser(3pm), PFM::CommandHandler(3pm), PFM::Config(3pm),
+PFM::Directory(3pm), PFM::History(3pm), PFM::Job(3pm),
+PFM::Screen(3pm), PFM::State(3pm) and PFM::Util(3pm).</p>
 
 </body>
 
