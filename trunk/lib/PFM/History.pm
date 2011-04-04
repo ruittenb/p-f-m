@@ -1,43 +1,42 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Abstract 2010-03-27 v0.01
+# @(#) PFM::History 2010-03-27 v0.01
 #
-# Name:			PFM::Abstract.pm
+# Name:			PFM::History.pm
 # Version:		0.01
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-03-27
-# Description:	The PFM Abstract class that defines shared functions.
+# Description:	PFM History class.
+#				Reads and writes history files.
 #
 
 ##########################################################################
 # declarations
 
-package PFM::Abstract;
+package PFM::History;
 
-use Carp;
+use base 'PFM::Abstract';
 
 ##########################################################################
 # private subs
 
-##########################################################################
-# constructor, getters and setters
+=item _init()
 
-sub new {
-	my $type = shift;
-	if ($type eq __PACKAGE__) {
-		croak(__PACKAGE__, ' should not be instantiated');
-	}
-	$type = ref($type) || $type;
-	my $self = {};
-	bless($self, $type);
-	$self->_init(@_);
-	return $self;
+Initializes new instances. Called from the constructor.
+
+=cut
+
+sub _init {
 }
 
 ##########################################################################
+# constructor, getters and setters
+
+##########################################################################
 # public subs
+
 
 ##########################################################################
 

@@ -13,14 +13,18 @@
 
 =pod
 
-=head1 PFM::Util
+=head1 NAME
+
+PFM::Util
+
+=head1 DESCRIPTION
 
 Static class derived from Exporter that provides some practical
 utility functions.
 
-=head1 Methods
+=head1 METHODS
 
-=over 4
+=over
 
 =cut
 
@@ -34,7 +38,7 @@ use base 'Exporter';
 use Carp;
 
 our @EXPORT = qw(min max inhibit triggle toggle isxterm isyes isno
-				 svnmaxchar svnmax);
+				 formatted svnmaxchar svnmax);
 
 my $XTERMS = qr/^(.*xterm.*|rxvt.*|gnome.*|kterm)$/;
 
@@ -51,7 +55,9 @@ sub new {
 ##########################################################################
 # public subs
 
-=item min(), max()
+=item min()
+
+=item max()
 
 Determine the minimum or maximum numeric value out of two.
 
@@ -76,7 +82,9 @@ sub inhibit($$) {
 	return !$_[0] && $_[1];
 }
 
-=item toggle(), triggle()
+=item toggle()
+
+=item triggle()
 
 Determine the next value in a cyclic two/three-state system.
 
@@ -101,7 +109,9 @@ sub isxterm($) {
 	return $_[0] =~ $XTERMS;
 }
 
-=item isyes(), isno()
+=item isyes()
+
+=item isno()
 
 Determine if a certain string value is equivalent to boolean false or true.
 
@@ -115,7 +125,21 @@ sub isno($) {
 	return $_[0] =~ /^(0|n|no|false|off|never)$/;
 }
 
-=item svnmaxchar(), svnmax()
+=item formatted()
+
+Returns a line that has been formatted using Perl formatting algorithm.
+
+=cut
+
+sub formatted {
+	local $^A = '';
+	formline(shift(), @_);
+	return $^A;
+}
+
+=item svnmaxchar()
+
+=item svnmax()
 
 Determine which svn status character has the higher priority
 and should be displayed.
@@ -148,7 +172,7 @@ sub svnmax($$) {
 
 =back
 
-=head1 See also
+=head1 SEE ALSO
 
 pfm(1).
 

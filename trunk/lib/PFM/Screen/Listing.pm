@@ -1,40 +1,38 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Abstract 2010-03-27 v0.01
+# @(#) PFM::Screen::Listing 2010-03-27 v0.01
 #
-# Name:			PFM::Abstract.pm
+# Name:			PFM::Screen::Listing.pm
 # Version:		0.01
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-03-27
-# Description:	The PFM Abstract class that defines shared functions.
+# Description:	PFM Listing class, handles the display of a
+#				PFM::Directory object on screen
 #
 
 ##########################################################################
 # declarations
 
-package PFM::Abstract;
+package PFM::Screen::Listing;
 
-use Carp;
+use base 'PFM::Abstract';
 
 ##########################################################################
 # private subs
 
+=item _init()
+
+Initializes new instances. Called from the constructor.
+
+=cut
+
+sub _init {
+}
+
 ##########################################################################
 # constructor, getters and setters
-
-sub new {
-	my $type = shift;
-	if ($type eq __PACKAGE__) {
-		croak(__PACKAGE__, ' should not be instantiated');
-	}
-	$type = ref($type) || $type;
-	my $self = {};
-	bless($self, $type);
-	$self->_init(@_);
-	return $self;
-}
 
 ##########################################################################
 # public subs

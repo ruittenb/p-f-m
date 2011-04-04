@@ -17,6 +17,8 @@
 
 package PFM::Directory;
 
+use base 'PFM::Abstract';
+
 ##########################################################################
 # private subs
 
