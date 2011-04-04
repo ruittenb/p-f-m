@@ -17,6 +17,8 @@
 
 package PFM::State;
 
+use base 'PFM::Abstract';
+
 ##########################################################################
 # private subs
 

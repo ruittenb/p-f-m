@@ -1,17 +1,18 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2010-03-27 v2.00.2
+# @(#) pfm.pl 2010-03-27 v2.00.3
 #
 # Name:			pfm
-# Version:		2.00.2
+# Version:		2.00.3
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-03-27
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				    [ -l, --layout <number> ]
 #				pfm { -v, --version | -h, --help }
-# Requires:		Term::ReadLine (preferably Term::ReadLine::Gnu)
+# Requires:		PFM::Application
+#				Term::ReadLine (preferably Term::ReadLine::Gnu)
 #				Term::ScreenColor
 #				Getopt::Long
 #				LWP::Simple
@@ -22,7 +23,7 @@
 ##########################################################################
 # declarations
 
-use lib '/home/ruitten/Desktop/projects/pfm-2.00.2/lib';
+use lib '/home/ruitten/Desktop/projects/pfm-2.00.3/lib';
 
 use PFM::Application;
 

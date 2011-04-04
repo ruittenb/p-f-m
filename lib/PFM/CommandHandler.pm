@@ -16,9 +16,11 @@
 
 package PFM::CommandHandler;
 
+use base 'PFM::Abstract';
+
 use Term::ReadLine;
 
-my ($_bootstrapped, $_keyboard);
+my ($_pfm, $_keyboard);
 
 ##########################################################################
 # private subs
@@ -30,7 +32,9 @@ Initializes new instances. Called from the constructor.
 =cut
 
 sub _init {
-	my $self = shift;
+	my ($self, $pfm) = @_;
+	$_pfm      = $pfm;
+	$_keyboard = new Term::ReadLine('pfm');
 }
 
 =item _credits()
@@ -40,16 +44,16 @@ Prints elaborate info about pfm. Called from help().
 =cut
 
 sub _credits {
-	my ($self, $pfm) = @_;
-	$pfm->screen->clrscr();
-	$pfm->screen->stty_raw($TERM_COOKED);
-	my $name = $pfm->screen->colored('bold', 'pfm');
+	my $self = shift;
+	$_pfm->screen->clrscr();
+	$_pfm->screen->stty_raw($TERM_COOKED);
+	my $name = $_pfm->screen->colored('bold', 'pfm');
 	print <<"_eoCredits_";
 
 
-             $name for Unix and Unix-like OS's.  Version $pfm->{VERSION}
+             $name for Unix and Unix-like OS's.  Version $_pfm->{VERSION}
              Original idea/design: Paul R. Culley and Henk de Heer
-             Author and Copyright (c) 1999-$self->{LASTYEAR} Rene Uittenbogaard
+             Author and Copyright (c) 1999-$_pfm->{LASTYEAR} Rene Uittenbogaard
 
 
        $name is distributed under the GNU General Public License version 2.
@@ -69,7 +73,18 @@ sub _credits {
 
                                                          any key to exit to $name
 _eoCredits_
-	$pfm->screen->stty_raw($TERM_RAW)->getch();
+	$_pfm->screen->stty_raw($TERM_RAW)->getch();
+}
+
+=item handlepan()
+
+Handle the pan keys B<E<lt>> and B<E<gt>>.
+
+=cut
+
+sub handlepan {
+	my ($self, $key, $mode) = @_;
+	$_pfm->screen->frame->pan($key, $mode);
 }
 
 ##########################################################################
@@ -77,14 +92,6 @@ _eoCredits_
 
 ##########################################################################
 # public subs
-
-sub bootstrap {
-	my $self = shift;
-	carp("$self::".(caller(0))[3]."() cannot be called statically")
-		unless ref $self;
-	$self->{_kbd}          = new Term::ReadLine('pfm');
-	$self->{_bootstrapped} = 1;
-}
 
 ##########################################################################
 

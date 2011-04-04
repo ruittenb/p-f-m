@@ -21,10 +21,10 @@ use base 'PFM::Abstract';
 use PFM::Util;
 
 use constant {
-	RE_READ			= 0,
-	FIRST_READ		= 1,
-	NO_COPYRIGHT	= 0,
-	SHOW_COPYRIGHT	= 1,
+	READ_AGAIN		=> 0,
+	READ_FIRST		=> 1,
+	NO_COPYRIGHT	=> 0,
+	SHOW_COPYRIGHT	=> 1,
 };
 
 my ($_configfilename, %_pfmrc);
@@ -149,7 +149,7 @@ Reads in the F<.pfmrc> file. If none exists, a default F<.pfmrc> is written.
 =cut
 
 sub read {
-	my ($self, $pfm, $first_read) = @_;
+	my ($self, $pfm, $read_first) = @_;
 	%_pfmrc = ();
 	unless (-r $_configfilename) {
 		unless ($ENV{PFMRC} || -d $CONFIGDIRNAME) {
@@ -164,7 +164,7 @@ sub read {
 			# is read in using UTF-8
 			no locale;
 			if (/# Version ([\w.]+)$/ and
-				$1 lt $pfm->{VERSION} and $first_read)
+				$1 lt $pfm->{VERSION} and $read_first)
 			{
 				# will not be in message color: usecolor not yet parsed
 				$pfm->screen->neat_error(

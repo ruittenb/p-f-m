@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Frame 2010-03-27 v0.01
+# @(#) PFM::Screen::Frame 2010-03-27 v0.01
 #
 # Name:			PFM::Screen::Frame.pm
 # Version:		0.01
@@ -16,6 +16,10 @@
 # declarations
 
 package PFM::Screen::Frame;
+
+use base 'PFM::Abstract';
+
+use PFM::Util;
 
 use constant {
 	MENU_SINGLE			=> 0,
@@ -33,17 +37,21 @@ use constant {
 
 my %ONOFF = ('' => 'off', 0 => 'off', 1 => 'on');
 
+my ($_pfm, $_currentpan);
+
 ##########################################################################
 # private subs
 
 =item _init()
 
-Initializes new instances. Called from the constructor.
+Initializes new instances by storing the application object.
+Called from the constructor.
 
 =cut
 
 sub _init {
-	my $self = shift;
+	my ($self, $pfm) = @_;
+	$_pfm = $pfm;
 }
 
 =item _maxpan()
@@ -53,37 +61,23 @@ Determines how many times a banner (menu or footer) can be panned.
 =cut
 
 sub _maxpan {
-	my ($self, $temp, $width) = @_;
+	my ($self, $banner, $width) = @_;
 	my $panspace;
 	# this is an assignment on purpose
-	if ($panspace = 2 * (length($temp) > $width)) {
+	if ($panspace = 2 * (length($banner) > $width)) {
 		eval "
-			\$temp =~ s/^((?:\\S+ )+?).{1,".($width - $panspace)."}\$/\$1/;
+			\$banner =~ s/^((?:\\S+ )+?).{1,".($width - $panspace)."}\$/\$1/;
 		";
-		return $temp =~ tr/ //;
+		return $banner =~ tr/ //;
 	} else {
 		return 0;
 	};
 }
 
-sub handlepan {
-	my ($key, $mode) = @_;
-	my $width = $screenwidth - 9 * $multiple_mode;
-	my $count   = max(
-		$self->_maxpan(header($mode), $width),
-		$self->_maxpan(footer(), $width)
-	);
-	$currentpan = $currentpan - ($key =~ /</ and $currentpan > 0)
-							  + ($key =~ />/ and $currentpan < $count);
-	return $R_HEADER | $R_FOOTER;
-}
-
-
-
 =item _fitbanner()
 
-Chops off part of the "banner" (menu or footer), so that its width
-will fit on the screen.
+Chops off part of the "banner" (menu or footer), and returns the part that
+will fit on the screen. Pan key marks B<E<lt>> and B<E<gt>> will be added.
 
 =cut
 
@@ -91,14 +85,15 @@ sub _fitbanner {
 	my ($self, $banner, $virtwidth) = @_;
 	my ($maxwidth, $spcount);
 	if (length($banner) > $virtwidth) {
-#		$spcount  = maxpan($banner, $virtwidth);
-#		$maxwidth = $virtwidth -2*($currentpan > 0) -2*($currentpan < $spcount);
-#		$banner  .= ' ';
-#		eval "
-#			\$banner =~ s/^(?:\\S+ ){$currentpan,}?(.{1,$maxwidth}) .*/\$1/;
-#		";
-#		if ($currentpan > 0       ) { $banner  = '< ' . $banner; }
-#		if ($currentpan < $spcount) { $banner .= ' >'; }
+		$spcount  = $self->_maxpan($banner, $virtwidth);
+		$maxwidth = $virtwidth	- 2 * ($_currentpan > 0)
+								- 2 * ($_currentpan < $spcount);
+		$banner  .= ' ';
+		eval "
+			\$banner =~ s/^(?:\\S+ ){$_currentpan,}?(.{1,$maxwidth}) .*/\$1/;
+		";
+		if ($_currentpan > 0       ) { $banner  = '< ' . $banner; }
+		if ($_currentpan < $spcount) { $banner .= ' >'; }
 	}
 	return $banner;
 }
@@ -136,25 +131,23 @@ Returns the footer for the current application state.
 =cut
 
 sub _getfooter {
-	my ($self, $pfm) = @_;
-	my %state = %{$pfm->state};
-	return sprintf(
-		'F1-Help F2-Back F3-Redraw F4-Color[%s] F5-Reread F6-Sort[%s]'
-	.	' F7-Swap[%s] F8-Include F9-Layout[%s] F10-Multiple[%s]'
-	.	' F11-Restat F12-Mouse[%s] !-Clobber[%s] .-Dotfiles[%s]%s'
-	.	' "-Pathnames[%s] *-Radix[%s]',
-		$state{color_mode},
-		$state{sort_mode},
-		$ONOFF{$state{swap_mode}},
-		$state{currentlayout},
-		$ONOFF{$state{multiple_mode}},
-		$ONOFF{$state{mouse_mode}},
-		$ONOFF{$state{clobber_mode}},
-		$ONOFF{$state{dot_mode}},
-	 	($white_cmd ? " %-Whiteouts[$ONOFF{$state{white_mode}}]" : ''),
-		$state{path_mode},
-		$state{radix_mode},
-	);
+	my $self = shift;
+	my %state = %{$_pfm->state};
+	return	"F1-Help F2-Back F3-Redraw"
+	.		" F4-Color[$state{color_mode}] F5-Reread"
+	.		" F6-Sort[$state{sort_mode}]"
+	.		" F7-Swap[$ONOFF{$state{swap_mode}}] F8-Include"
+	.		" F9-Layout[$state{currentlayout}]" # $layoutname ?
+	.		" F10-Multiple[$ONOFF{$state{multiple_mode}}] F11-Restat"
+	.		" F12-Mouse[$ONOFF{$state{mouse_mode}}]"
+	.		" !-Clobber[$ONOFF{$state{clobber_mode}}]"
+	.		" .-Dotfiles[$ONOFF{$state{dot_mode}}]"
+	# TODO white_cmd
+	.		($white_cmd ? " %-Whiteouts[$ONOFF{$state{white_mode}}]" : '')
+	.		" \"-Pathnames[$state{path_mode}]"
+	.		" *-Radix[$state{radix_mode}]"
+#	.		" =-Ident[$state{ident_mode}]"
+	;
 }
 
 ##########################################################################
@@ -170,10 +163,11 @@ Draws menu, footer and headings.
 =cut
 
 sub draw {
-	my ($self, $pfm) = @_;
-	$self->draw_menu($pfm);
-	$self->draw_headings($swap_mode, HEADING_DISKINFO, @layoutfieldswithinfo);
-	$self->draw_footer($pfm);
+	my $self = shift;
+	$self->draw_menu();
+	# TODO @layoutfieldswithinfo
+	$self->draw_headings($_pfm->state->{swap_mode}, HEADING_DISKINFO, @layoutfieldswithinfo);
+	$self->draw_footer();
 	return $self;
 }
 
@@ -184,28 +178,28 @@ Draws the menu, i.e., the top line on the screen.
 =cut
 
 sub draw_menu {
-	my ($self, $pfm, $mode) = @_;
+	my ($self, $mode) = @_;
 	my ($pos, $menu, $menulength, $vscreenwidth, $color, $do_multi);
-	$mode ||= ($pfm->state->{multiple_mode} * MENU_MULTI);
+	$mode ||= ($_pfm->state->{multiple_mode} * MENU_MULTI);
 	$do_multi = $mode & MENU_MULTI;
-	$vscreenwidth = $pfm->screen->screenwidth - 9 * $do_multi;
+	$vscreenwidth = $_pfm->screen->screenwidth - 9 * $do_multi;
 	$menu         = $self->_fitbanner($self->_getmenu($mode), $vscreenwidth);
 	$menulength   = length($menu);
 	if ($menulength < $vscreenwidth) {
 		$menu .= ' ' x ($vscreenwidth - $menulength);
 	}
-	$pfm->screen->at(0,0);
+	$_pfm->screen->at(0,0);
 	if ($do_multi) {
-		$color = $pfm->config->{framecolors}{$pfm->state->color_mode}{multi};
-		$pfm->screen->putcolored($color, 'Multiple');
+		$color = $_pfm->config->{framecolors}{$_pfm->state->color_mode}{multi};
+		$_pfm->screen->putcolored($color, 'Multiple');
 	}
-	$color = $pfm->config->{framecolors}{$pfm->state->color_mode}{menu};
-	$pfm->screen->color($color)->puts(' ' x $do_multi)->puts($menu)->bold();
+	$color = $_pfm->config->{framecolors}{$_pfm->state->color_mode}{menu};
+	$_pfm->screen->color($color)->puts(' ' x $do_multi)->puts($menu)->bold();
 	while ($menu =~ /[[:upper:]<>](?!nclude\?)/g) {
 		$pos = pos($menu) -1;
-		$pfm->screen->at(0, $pos + 9*$do_multi)->puts(substr($menu, $pos, 1));
+		$_pfm->screen->at(0, $pos + 9*$do_multi)->puts(substr($menu, $pos, 1));
 	}
-	$pfm->screen->reset()->normal();
+	$_pfm->screen->reset()->normal();
 	return $menulength;
 }
 
@@ -215,27 +209,31 @@ Draws the column headings.
 
 =cut
 
+# TODO move to Screen::Listing
 sub draw_headings { # swap_mode, extra field, @layoutfieldswithinfo
-	my ($smode, $info, @fields) = @_;
-	my $linecolor;
-#	for ($info) {
-#		$_ == $HEADING_DISKINFO	and $FIELDHEADINGS{diskinfo} = ' ' x ($infolength-14) . '     disk info';
-#		$_ == $HEADING_SORT		and $FIELDHEADINGS{diskinfo} = 'sort mode     ' . ' ' x ($infolength-14);
-#		$_ == $HEADING_SIGNAL		and $FIELDHEADINGS{diskinfo} = '  nr signal   ' . ' ' x ($infolength-14);
-#		$_ == $HEADING_YCOMMAND	and $FIELDHEADINGS{diskinfo} = 'your commands ' . ' ' x ($infolength-14);
-#		$_ == $HEADING_ESCAPE		and $FIELDHEADINGS{diskinfo} = 'esc legend    ' . ' ' x ($infolength-14);
-#	}
-##	$FIELDHEADINGS{display} = $FIELDHEADINGS{name} . ' (' . $sort_mode . ('%','')[$white_mode] . ('.','')[$dot_mode] . ')';
-#	$linecolor = $smode ? $framecolors{$color_mode}{swap}
-#						: $framecolors{$color_mode}{headings};
-#	$scr->bold()		if ($linecolor =~ /bold/);
-#	$scr->reverse()		if ($linecolor =~ /reverse/);
-##	$scr->underline()	if ($linecolor =~ /under(line|score)/);
-#	$scr->term()->Tputs('us', 1, *STDOUT)
-#						if ($linecolor =~ /under(line|score)/);
-#	$scr->at(2,0)
-#		->putcolored($linecolor, formatted($currentformatlinewithinfo, @FIELDHEADINGS{@fields}))
-#		->reset()->normal();
+	my ($self, $smode, $info, @fields) = @_;
+	my ($linecolor, $diskinfo, $padding);
+	# TODO $infolength
+	$padding = ' ' x ($infolength - 14);
+	for ($info) {
+		$_ == HEADING_DISKINFO	and $diskinfo = "$padding     disk info";
+		$_ == HEADING_SORT		and $diskinfo = "sort mode     $padding";
+		$_ == HEADING_SIGNAL	and $diskinfo = "  nr signal   $padding";
+		$_ == HEADING_YCOMMAND	and $diskinfo = "your commands $padding";
+		$_ == HEADING_ESCAPE	and $diskinfo = "esc legend    $padding";
+	}
+	$FIELDHEADINGS{diskinfo} = $diskinfo;
+#	$FIELDHEADINGS{display} = $FIELDHEADINGS{name} . ' (' . $sort_mode . ('%','')[$white_mode] . ('.','')[$dot_mode] . ')';
+	$linecolor = $smode ? $_pfm->config->framecolors{$_pfm->state->color_mode}{swap}
+						: $_pfm->config->framecolors{$_pfm->state->color_mode}{headings};
+#	$screen->bold()			if ($linecolor =~ /bold/);
+#	$screen->reverse()		if ($linecolor =~ /reverse/);
+#	$screen->underline()	if ($linecolor =~ /under(line|score)/);
+	$screen->term()->Tputs('us', 1, *STDOUT)
+							if ($linecolor =~ /under(line|score)/);
+	$screen->at(2,0)
+		->putcolored($linecolor, formatted($currentformatlinewithinfo, @FIELDHEADINGS{@fields}))
+		->reset()->normal();
 }
 
 =item draw_footer()
@@ -245,20 +243,41 @@ Draws the footer, i.e. the last line on screen with the status info.
 =cut
 
 sub draw_footer {
-	my ($self, $pfm) = @_;
-	my $screen = $pfm->screen;
-	my $screenwidth = $screen->screenwidth;
-	my $footer = $self->_fitbanner($self->_getfooter(), $screenwidth);
-	my $padding = ' ' x ($screenwidth - length $footer);
-	my $linecolor = $pfm->config->{framecolors}{$pfm->state->color_mode}{footer};
-	$screen->bold()			if ($linecolor =~ /bold/);
-	$screen->reverse()		if ($linecolor =~ /reverse/);
+	my $self	  = shift;
+	my $screen	  = $_pfm->screen;
+	my $width	  = $screen->screenwidth;
+	my $footer	  = $self->_fitbanner($self->_getfooter(), $width);
+	my $padding	  = ' ' x ($width - length $footer);
+	my $linecolor =
+		$_pfm->config->{framecolors}{$_pfm->state->color_mode}{footer};
+#	$screen->bold()			if ($linecolor =~ /bold/);
+#	$screen->reverse()		if ($linecolor =~ /reverse/);
 #	$screen->underline()	if ($linecolor =~ /under(line|score)/);
 	$screen->term()->Tputs('us', 1, *STDOUT)
 							if ($linecolor =~ /under(line|score)/);
-	$screen->at($screen->BASELINE + $screen->screenheight + 1,0)
+	$screen->at($screen->BASELINE + $screen->screenheight + 1, 0)
 		->putcolored($linecolor, $footer, $padding))->reset()->normal();
 }
+
+=item pan()
+
+Pans the menu and footer according to the key pressed.
+
+=cut
+
+sub pan {
+	my ($self, $key, $mode) = @_;
+	my $screen = $_pfm->screen;
+	my $width  = $screen->screenwidth - 9 * $_pfm->state->{multiple_mode};
+	my $count  = max(
+		$self->_maxpan($self->_getmenu($mode), $width),
+		$self->_maxpan($self->_getfooter(), $width)
+	);
+	$_currentpan = $_currentpan - ($key eq '<' and $_currentpan > 0)
+								+ ($key eq '>' and $_currentpan < $count);
+	$screen->set_deferred_refresh($screen->R_MENU | $screen->R_FOOTER);
+}
+
 ##########################################################################
 
 1;

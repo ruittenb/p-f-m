@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Application 2010-03-27 v2.00.1
+# @(#) PFM::Application 2010-03-27 v2.00.3
 #
 # Name:			PFM::Application.pm
-# Version:		2.00.1
+# Version:		2.00.3
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-03-27
@@ -246,8 +246,10 @@ sub bootstrap {
 	my $self = shift;
 	my ($startingdir, $opt_version, $opt_help, $invalid);
 
-	$_screen         = new PFM::Screen();
-	$_commandhandler = new PFM::CommandHandler();
+	# hand over the application object to the other classes
+	# for easy access.
+	$_screen         = new PFM::Screen($self);
+	$_commandhandler = new PFM::CommandHandler($self);
 	$_state          = new PFM::State();
 
 	Getopt::Long::Configure(qw'bundling permute');
@@ -268,11 +270,10 @@ sub bootstrap {
 	$_swap_mode	 = 0;
 	$_swap_state	= new PFM::State();
 #	@signame		= init_signames();
-#	$currentpan		= 0;
 #	$baseindex		= 0;
 	$self->_find_white_commands();
 	$_config = new PFM::Config();
-	$_config->read( $self, $_config->FIRST_READ);
+	$_config->read( $self, $_config->READ_FIRST);
 	$_config->parse($self, $_config->SHOW_COPYRIGHT);
 #	read_history();
 	$_screen->draw_frame();
@@ -308,7 +309,7 @@ sub run {
 	# TODO
 
 	$self->_goodbye();
-	$self->_check_for_updates() if $_config{check_for_updates};
+	$self->_check_for_updates() if $_config->{check_for_updates};
 }
 
 ##########################################################################

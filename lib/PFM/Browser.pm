@@ -20,6 +20,8 @@
 
 package PFM::Browser;
 
+use base 'PFM::Abstract';
+
 use PFM::Directory;
 
 ##########################################################################
