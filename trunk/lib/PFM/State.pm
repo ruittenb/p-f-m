@@ -39,8 +39,7 @@ use PFM::Directory;
 
 use strict;
 
-my ($_pfm, $_directory,
-	$_position);
+my $_pfm;
 
 ##########################################################################
 # private subs
@@ -55,7 +54,10 @@ Instantiates a PFM::Directory object.
 sub _init {
 	my ($self, $pfm, $swap_mode) = @_;
 	$_pfm					= $pfm;
-	$_directory				= new PFM::Directory($pfm);
+	$self->{_directory}		= new PFM::Directory($pfm);
+	# We might not have useful values for these yet since the config file
+	# might not have been read yet.
+	$self->{_position}		= '.';
 	$self->{multiple_mode}	= 0;
 	$self->{swap_mode}		= $swap_mode;
 	$self->{dot_mode}		= undef;
@@ -69,19 +71,33 @@ sub _init {
 	# clobber_mode sits in PFM::CommandHandler
 }
 
+=item _clone()
+
+Clones an existing instance. Creates a new PFM::Directory object.
+
+=cut
+
+sub _clone {
+	my ($self, $origin, $pfm, $swap_mode) = @_;
+	$self->{swap_mode}		= $swap_mode; # TODO move this to Browser
+	$self->{_directory}		= $origin->directory->clone($pfm);
+#	$self->currentdir($origin->currentdir);
+#	$self->prepare();
+}
+
 ##########################################################################
 # constructor, getters and setters
 
 =item directory()
 
-Getter/setter for the PFM::Directory object.
+Getter for the PFM::Directory object.
 
 =cut
 
 sub directory {
 	my ($self, $value) = @_;
-	$_directory = $value if defined $value;
-	return $_directory;
+#	$self->{_directory} = $value if defined $value;
+	return $self->{_directory};
 }
 
 =item currentdir()
@@ -92,8 +108,8 @@ If a new directory is provided, it will be passed to PFM::Directory.
 =cut
 
 sub currentdir {
-	my ($self, $value) = @_;
-	return $_directory->path($value);
+	my ($self, $value, $force) = @_;
+	return $self->{_directory}->path($value, $force);
 }
 
 ##########################################################################
@@ -108,11 +124,12 @@ is not to be displayed on-screen right away.
 
 sub prepare {
 	my $self = shift;
-	$_directory->init_dircount();
-	$_directory->readcontents();
-	$_directory->sortcontents();
-	$_directory->filtercontents();
-	$_position = '.';
+	$self->{dot_mode}	= $_pfm->config->{dot_mode};
+	$self->{radix_mode}	= $_pfm->config->{radix_mode};
+	$self->{sort_mode}	= $_pfm->config->{sort_mode};
+	$self->{white_mode}	= $_pfm->config->{white_mode};
+	$self->{_position}	= '.';
+	$self->{_directory}->prepare();
 }
 
 ##########################################################################

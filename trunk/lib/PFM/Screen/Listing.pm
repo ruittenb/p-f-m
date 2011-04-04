@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Screen::Listing 0.01
+# @(#) PFM::Screen::Listing 0.14
 #
 # Name:			PFM::Screen::Listing.pm
-# Version:		0.01
+# Version:		0.14
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-03-27
+# Date:			2010-04-10
 #
 
 ##########################################################################
@@ -501,6 +501,31 @@ sub markcurrentline {
 	my ($self, $letter) = @_;
 	$_screen->at($_pfm->browser->currentline + $_screen->BASELINE, $_cursorcol)
 		->puts($letter);
+}
+
+=item reformat()
+
+Adjusts the visual representation of the directory contents according
+to the new layout.
+
+=cut
+
+sub reformat {
+#	my $self = shift;
+	my $dircontents = $_pfm->state->directory->dircontents;
+	return unless @$dircontents; # may not have been initialized yet
+	foreach (@$dircontents) {
+		$_->{name_too_long} = length($_->{display}) > $_maxfilenamelength-1
+			? NAMETOOLONGCHAR : ' ';
+		unless ($_->{type} =~ /[bc]/) {
+			@{$_}{qw(size_num size_power)} =
+				fit2limit($_->{size}, $_maxfilesizelength);
+		}
+		@{$_}{qw(grand_num grand_power)} =
+			fit2limit($_->{grand}, $_maxgrandtotallength);
+		@{$_}{qw(atimestr ctimestr mtimestr)} =
+			map { $_pfm->directory->stamp2str($_) } @{$_}{qw(atime ctime mtime)};
+	}
 }
 
 ##########################################################################

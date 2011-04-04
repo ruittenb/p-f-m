@@ -50,6 +50,15 @@ Stub init method to ensure it exists.
 sub _init() {
 }
 
+=item _clone()
+
+Stub clone method to ensure it exists.
+
+=cut
+
+sub _clone() {
+}
+
 ##########################################################################
 # constructor, getters and setters
 
@@ -81,12 +90,13 @@ stored in the object will be copied as-is to the clone.
 sub clone {
 	my $self  = shift;
 	my $type  = ref $self;
-	my $clone = { %$self };
 	unless ($type) {
 		croak("clone() cannot be called statically " .
 			"(it needs an object to clone)");
 	}
+	my $clone = { %$self };
 	bless($clone, $type);
+	$clone->_clone($self, @_);
 	return $clone;
 }
 

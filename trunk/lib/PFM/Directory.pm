@@ -36,6 +36,9 @@ package PFM::Directory;
 
 use base 'PFM::Abstract';
 
+use PFM::Job::Subversion;
+use PFM::Job::Cvs;
+use PFM::Job::Bazaar;
 use PFM::Util;
 
 use POSIX qw(strftime);
@@ -62,9 +65,10 @@ my %RDEVTOMAJOR = (
 	hpux	=> 2 ** 24,
 );
 
-my ($_pfm, $_path,
-	@_dircontents, @_showncontents, %_selected_nr_of, %_total_nr_of,
-	%_usercache, %_groupcache, %_disk, $_rdevtomajor, $_path_mode);
+my $RDEVTOMAJOR = $RDEVTOMAJOR{$^O} || $RDEVTOMAJOR{default};
+
+my ($_pfm,
+	$_path_mode);
 
 ##########################################################################
 # private subs
@@ -76,10 +80,20 @@ Initializes new instances. Called from the constructor.
 =cut
 
 sub _init {
-	my ($self, $pfm, $path)	= @_;
-	$_pfm		  = $pfm;
-	$_path		  = $path;
-	$_rdevtomajor = $RDEVTOMAJOR{$^O} || $RDEVTOMAJOR{default};
+	my ($self, $pfm, $path)	 = @_;
+	$_pfm					 = $pfm;
+	$self->{_path}			 = $path;
+	$self->{_dircontents}	 = [];
+	$self->{_showncontents}	 = [];
+	$self->{_selected_nr_of} = {};
+	$self->{_total_nr_of}	 = {};
+	$self->{_usercache}		 = {};
+	$self->{_groupcache}	 = {};
+	$self->{_disk}			 = {};
+}
+
+sub _clone {
+	# TODO
 }
 
 =item _find_uid()
@@ -93,14 +107,16 @@ and caches the result.
 
 sub _find_uid {
 	my ($self, $uid) = @_;
-	return $_usercache{$uid} ||
-		+($_usercache{$uid} = (defined($uid) ? getpwuid($uid) : '') || $uid);
+	return $self->{_usercache}{$uid} ||
+		+($self->{_usercache}{$uid} =
+			(defined($uid) ? getpwuid($uid) : '') || $uid);
 }
 
 sub _find_gid {
 	my ($self, $gid) = @_;
-	return $_groupcache{$gid} ||
-		+($_groupcache{$gid} = (defined($gid) ? getgrgid($gid) : '') || $gid);
+	return $self->{_groupcache}{$gid} ||
+		+($self->{_groupcache}{$gid} =
+			(defined($gid) ? getgrgid($gid) : '') || $gid);
 }
 
 =item _by_sort_mode()
@@ -166,10 +182,12 @@ sub _init_filesystem_info {
 	chop (@dflist = (`$DFCMD .`, ''));
 	shift @dflist; # skip header
 	$dflist[0] .= $dflist[1]; # in case filesystem info wraps onto next line
-	@_disk{qw/device total used avail/} = split (/\s+/, $dflist[0]);
-	$_disk{avail} = $_disk{total} - $_disk{used} if $_disk{avail} =~ /%/;
-	@_disk{qw/mountpoint/} = $dflist[0] =~ /(\S*)$/;
-	return \%_disk;
+	@{$self->{_disk}}{qw/device total used avail/} = split (/\s+/, $dflist[0]);
+	if ($self->{_disk}{avail} =~ /%/) {
+		$self->{_disk}{avail} = $self->{_disk}{total} - $self->{_disk}{used};
+	}
+	$self->{_disk}{qw/mountpoint/} = ($dflist[0] =~ /(\S*)$/);
+	return $self->{_disk};
 }
 
 ##########################################################################
@@ -184,37 +202,37 @@ PFM::Directory::chdir(), and will return the success status.
 =cut
 
 sub path {
-	my ($self, $target) = @_;
+	my ($self, $target, $force) = @_;
 	if (defined $target) {
-		return $self->chdir($target);
+		return $self->chdir($target, $force);
 	}
-	return $_path;
+	return $self->{_path};
 }
 
 =item dircontents()
 
-Getter/setter for the @_dircontents variable, which contains the
+Getter/setter for the $_dircontents variable, which points to the
 complete array of files in the directory.
 
 =cut
 
 sub dircontents {
-	my ($self, @value) = @_;
-	@_dircontents = @value if @value;
-	return \@_dircontents;
+	my ($self, $value) = @_;
+	$self->{_dircontents} = $value if defined $value;
+	return $self->{_dircontents};
 }
 
 =item showncontents()
 
-Getter/setter for the @_showncontents variable, which contains an
+Getter/setter for the $_showncontents variable, which points to the
 array of the files shown on-screen.
 
 =cut
 
 sub showncontents {
-	my ($self, @value) = @_;
-	@_showncontents = @value if @value;
-	return \@_showncontents;
+	my ($self, $value) = @_;
+	$self->{_showncontents} = $value if defined $value;
+	return $self->{_showncontents};
 }
 
 =item total_nr_of()
@@ -225,7 +243,7 @@ of each type there are.
 =cut
 
 sub total_nr_of {
-	return \%_total_nr_of;
+	return $_[0]->{_total_nr_of};
 }
 
 =item selected_nr_of()
@@ -236,7 +254,7 @@ of each type have been selected.
 =cut
 
 sub selected_nr_of {
-	return \%_selected_nr_of;
+	return $_[0]->{_selected_nr_of};
 }
 
 =item disk()
@@ -247,7 +265,7 @@ usage, mountpoint and device.
 =cut
 
 sub disk {
-	return \%_disk;
+	return $_[0]->{_disk};
 }
 
 =item mountpoint()
@@ -258,8 +276,8 @@ Getter/setter for the mountpoint on which the current directory is situated.
 
 sub mountpoint {
 	my ($self, $value) = @_;
-	$_disk{mountpoint} = $value if defined $value;
-	return $_disk{mountpoint};
+	$self->{_disk}{mountpoint} = $value if defined $value;
+	return $self->{_disk}{mountpoint};
 }
 
 =item device()
@@ -270,8 +288,8 @@ Getter/setter for the device on which the current directory is situated.
 
 sub device {
 	my ($self, $value) = @_;
-	$_disk{device} = $value if defined $value;
-	return $_disk{device};
+	$self->{_disk}{device} = $value if defined $value;
+	return $self->{_disk}{device};
 }
 
 =item path_mode()
@@ -282,12 +300,28 @@ Getter/setter for the path mode setting (physical or logical).
 
 sub path_mode {
 	my ($self, $value) = @_;
-	$_path_mode = $value if defined $value;
-	return $_path_mode;
+	$self->{_path_mode} = $value if defined $value;
+	return $self->{_path_mode};
 }
 
 ##########################################################################
 # public subs
+
+=item prepare()
+
+Prepares the contents of this directory object. Called in case this state
+is not to be displayed on-screen right away.
+
+=cut
+
+sub prepare {
+	my $self = shift;
+	$self->path_mode($_pfm->config->{path_mode});
+	$self->init_dircount();
+	$self->readcontents();
+	$self->sortcontents();
+	$self->filtercontents();
+}
 
 =item chdir()
 
@@ -298,13 +332,14 @@ and executes the 'chdirautocmd' from the F<.pfmrc> file.
 =cut
 
 sub chdir {
-	my ($self, $target) = @_;
+	my ($self, $target, $force) = @_;
 	my ($result, $chdirautocmd);
 	my $screen = $_pfm->screen;
+	my $path = $self->{_path};
 	if ($target eq '') {
 		$target = $ENV{HOME};
 	} elsif (-d $target and $target !~ m!^/!) {
-		$target = "$_path/$target";
+		$target = "$path/$target";
 	} elsif ($target !~ m!/!) {
 		foreach (split /:/, $ENV{CDPATH}) {
 			if (-d "$_/$target") {
@@ -317,12 +352,12 @@ sub chdir {
 		}
 	}
 	$target = canonicalize_path($target);
-	if ($result = chdir $target and $target ne $_path) {
-		$_pfm->state(2, $_pfm->state->clone());
+	if ($result = chdir $target and ($force or $target ne $path)) {
+		$_pfm->state($_pfm->S_BACK, $_pfm->state->clone($_pfm));
 		if ($_path_mode eq 'phys') {
-			$_path = getcwd();
+			$self->{_path} = getcwd();
 		} else {
-			$_path = $target;
+			$self->{_path} = $target;
 		}
 		$chdirautocmd = $_pfm->config->{chdirautocmd};
 		system("$chdirautocmd") if length($chdirautocmd);
@@ -384,7 +419,6 @@ Initializes the current file information by performing a stat() on it.
 
 =cut
 
-# TODO
 sub stat_entry {
 	# the selected_flag argument is used to have the caller specify whether
 	# the 'selected' field of the file info should be cleared (when reading
@@ -426,16 +460,16 @@ sub stat_entry {
 	} elsif ($ptr->{type} eq '-' and $ptr->{mode} =~ /.[xst]/) {
 		$ptr->{display} = $entry . $filetypeflags{'x'};
 	} elsif ($ptr->{type} =~ /[bc]/) {
-		$ptr->{size_num} = sprintf("%d", $rdev / $_rdevtomajor) .
-							MAJORMINORSEPARATOR . ($rdev % $_rdevtomajor);
+		$ptr->{size_num} = sprintf("%d", $rdev / $RDEVTOMAJOR) .
+							MAJORMINORSEPARATOR . ($rdev % $RDEVTOMAJOR);
 		$ptr->{display} = $entry . $filetypeflags{$ptr->{type}};
 	} else {
 		$ptr->{display} = $entry . $filetypeflags{$ptr->{type}};
 	}
 	$ptr->{name_too_long} =
 		length($ptr->{display}) > $_pfm->screen->listing->maxfilenamelength-1
-			? $_pfm->state->listing->NAMETOOLONGCHAR : ' ';
-	$_total_nr_of{$ptr->{type} }++; # TODO this is wrong! e.g. after cOmmand
+			? $_pfm->screen->listing->NAMETOOLONGCHAR : ' ';
+	$self->{_total_nr_of}{$ptr->{type}}++; # TODO this is wrong! e.g. after cOmmand
 	# maybe provide a flag argument to distinguish between stat/restat?
 	return $ptr;
 }
@@ -460,9 +494,11 @@ directory by zeroing them out.
 =cut
 
 sub init_dircount {
-	%_selected_nr_of = %_total_nr_of =
-		( d=>0, '-'=>0, l=>0, c=>0, b=>0, D=>0,
-		  p=>0, 's'=>0, n=>0, w=>0, bytes => 0 );
+	my $self = shift;
+	%{$self->{_selected_nr_of}} =
+		%{$self->{_total_nr_of}} =
+			( d=>0, '-'=>0, l=>0, c=>0, b=>0, D=>0,
+			  p=>0, 's'=>0, n=>0, w=>0, bytes => 0 );
 }
 
 =item countcontents()
@@ -475,8 +511,8 @@ sub countcontents {
 	my $self = shift;
 	$self->init_dircount();
 	foreach my $i (0..$#_) {
-		$_total_nr_of   {$_[$i]{type}}++;
-		$_selected_nr_of{$_[$i]{type}}++ if ($_[$i]{selected} eq '*');
+		$self->{_total_nr_of   }{$_[$i]{type}}++;
+		$self->{_selected_nr_of}{$_[$i]{type}}++ if ($_[$i]{selected} eq '*');
 	}
 }
 
@@ -493,9 +529,11 @@ sub readcontents {
 	my @white_entries = ();
 	my $whitecommand = $_pfm->commandhandler->whitecommand;
 	my $screen = $_pfm->screen;
-	@_dircontents = @_showncontents = ();
-	%_usercache = %_groupcache = ();
-	if (opendir CURRENT, '.') { # was $_path
+	$self->{_dircontents}   = [];
+	$self->{_showncontents} = [];
+	%{$self->{_usercache}}  = ();
+	%{$self->{_groupcache}} = ();
+	if (opendir CURRENT, '.') { # was $self->{_path}
 		@allentries = readdir CURRENT;
 		closedir CURRENT;
 		if ($whitecommand) {
@@ -515,18 +553,17 @@ sub readcontents {
 	}
 	foreach $entry (@allentries) {
 		# have the mark cleared on first stat with ' '
-		push @_dircontents, $self->stat_entry($entry, ' ');
+		push @{$self->{_dircontents}}, $self->stat_entry($entry, ' ');
 	}
 	foreach $entry (@white_entries) {
 		$entry = $self->stat_entry($entry, ' ');
 		$entry->{type} = 'w';
 		substr($entry->{mode}, 0, 1) = 'w';
-		push @_dircontents, $entry;
+		push @{$self->{_dircontents}}, $entry;
 	}
 	$screen->set_deferred_refresh($screen->R_MENU | $screen->R_HEADINGS);
-	# TODO decide if and which
-	$_pfm->jobhandler->start('Subversion') if $_pfm->config->{autorcs};
-	return @_dircontents;
+	$self->checkrcsapplicable($self->{_path}) if $_pfm->config->{autorcs};
+	return $self->{_dircontents};
 }
 
 =item sortcontents()
@@ -536,7 +573,8 @@ Sorts the directory's contents according to the selected sort mode.
 =cut
 
 sub sortcontents {
-	@_dircontents = sort _by_sort_mode @_dircontents;
+	my $self = shift;
+	@{$self->{_dircontents}} = sort _by_sort_mode @{$self->{_dircontents}};
 }
 
 =item filtercontents()
@@ -547,10 +585,34 @@ Filters the directory contents according to the filter modes
 =cut
 
 sub filtercontents {
-	@_showncontents = grep {
+	my $self = shift;
+	@{$self->{_showncontents}} = grep {
 		$_pfm->state->{dot_mode}   || $_->{name} =~ /^(\.\.?|[^\.].*)$/ and
 		$_pfm->state->{white_mode} || $_->{type} ne 'w'
-	} @_dircontents;
+	} @{$self->{_dircontents}};
+}
+
+=item checkrcsapplicable
+
+Checks if any rcs jobs are applicable for this directory,
+and starts them.
+
+=cut
+
+sub checkrcsapplicable {
+	my ($self, $path) = @_;
+	if (PFM::Job::Subversion->isapplicable($path)) {
+		$_pfm->jobhandler->start('Subversion');
+		return;
+	}
+	if (PFM::Job::Cvs->isapplicable($path)) {
+		$_pfm->jobhandler->start('Cvs');
+		return;
+	}
+	if (PFM::Job::Bazaar->isapplicable($path)) {
+		$_pfm->jobhandler->start('Bazaar');
+		return;
+	}
 }
 
 ##########################################################################

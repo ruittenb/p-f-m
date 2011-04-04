@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::CommandHandler 0.01
+# @(#) PFM::CommandHandler 0.08
 #
 # Name:			PFM::CommandHandler.pm
-# Version:		0.01
+# Version:		0.08
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-01
+# Date:			2010-04-10
 #
 
 ##########################################################################
@@ -36,7 +36,8 @@ package PFM::CommandHandler;
 use base 'PFM::Abstract';
 
 use PFM::Util;
-use PFM::History;
+use PFM::History;	# imports the H_* constants
+use PFM::Screen;	# imports the R_* constants
 
 use POSIX qw(strftime mktime);
 use Config;
@@ -309,6 +310,7 @@ Handles the B<@> command (execute Perl command).
 sub handleperlcommand {
 #	my $self = shift;
 	my $perlcmd;
+	my $s = $_screen; # for ease of use when debugging
 	$_screen->listing->markcurrentline('@'); # disregard multiple_mode
 	$_screen->at(0,0)->clreol()->putmessage('Enter Perl command:')
 		->at($_screen->PATHLINE,0)->clreol()->stty_cooked();
@@ -320,41 +322,41 @@ sub handleperlcommand {
 }
 
 sub handlehelp {
-#	my $self = shift;
+	my $self = shift;
 	$_screen->clrscr()->stty_cooked();
 	print map { substr($_, 8)."\n" } split("\n", <<'    _eoHelp_');
         --------------------------------------------------------------------------------
-        a     Attrib         mb  Bookmark         up, down arrow   move one line        
-        c     Copy           mc  Config pfm       k, j             move one line        
-        d DEL Delete         me  Edit new file    -, +             move ten lines       
-        e     Edit           mf  make FIFO        CTRL-E, CTRL-Y   scroll dir one line  
-        f /   find           mh  spawn sHell      CTRL-U, CTRL-D   move half a page     
-        g     tarGet         mk  Kill children    CTRL-B, CTRL-F   move a full page     
-        i     Include        mm  Make new dir     PgUp, PgDn       move a full page     
-        L     symLink        mp  Physical path    HOME, END        move to top, bottom  
-        n     Name           ms  Show directory   SPACE            mark file & advance  
-        o     cOmmand        mt  alTernate scrn   right arrow, l   enter dir            
-        p     Print          mv  sVn status all   left arrow, h    leave dir            
-        q Q   (Quick) quit   mw  Write history    ENTER            enter dir; launch    
-        r     Rename        --------------------  ESC, BS          leave dir            
-        s     Show           =   ident           ---------------------------------------
-        t     Time           *   radix            F1  help            F7  swap mode     
-        u     Uid            !   clobber          F2  prev dir        F8  mark file     
-        v     sVn status     @   perlcmd          F3  redraw screen   F9  cycle layouts 
-        w     unWhiteout     .   dotfiles         F4  cycle colors    F10 multiple mode 
-        x     eXclude        %   whiteout         F5  reread dir      F11 restat file   
-        y     Your command   "   paths log/phys   F6  sort dir        F12 toggle mouse  
-        z     siZe           ?   help             <   commands left   >   commands right
+        a     Attrib         mb  Bookmark          up, down arrow   move one line       
+        c     Copy           mc  Config pfm        k, j             move one line       
+        d DEL Delete         me  Edit new file     -, +             move ten lines      
+        e     Edit           mf  make FIFO         CTRL-E, CTRL-Y   scroll dir one line 
+        f /   Find           mh  spawn sHell       CTRL-U, CTRL-D   move half a page    
+        g     tarGet         mk  Kill children     CTRL-B, CTRL-F   move a full page    
+        i     Include        mm  Make new dir      PgUp, PgDn       move a full page    
+        L     symLink        mp  Physical path     HOME, END        move to top, bottom 
+        n     Name           ms  Show directory    SPACE            mark file & advance 
+        o     cOmmand        mt  alTernate scrn    right arrow, l   enter dir           
+        p     Print          mv  Vers status all   left arrow, h    leave dir           
+        q Q   (Quick) quit   mw  Write history     ENTER            enter dir; launch   
+        r     Rename        ---------------------  ESC, BS          leave dir           
+        s     Show           !   toggle clobber   --------------------------------------
+        t     Time           *   toggle radix      F1  help           F7  swap mode     
+        u     Uid            "   toggle pathmode   F2  prev dir       F8  mark file     
+        v     Vers status    =   cycle idents      F3  redraw screen  F9  cycle layouts 
+        w     unWhiteout     .   filter dotfiles   F4  cycle colors   F10 multiple mode 
+        x     eXclude        %   filter whiteouts  F5  reread dir     F11 restat file   
+        y     Your command   @   perl command      F6  sort dir       F12 toggle mouse  
+        z     siZe           ?   help              <   commands left  >   commands right
         --------------------------------------------------------------------------------
     _eoHelp_
 #	$_screen->at(12,0)->putcolored('bold yellow', 'q Q   (Quick) quit')->at(23,0);
 	$_screen->puts("F1 or ? for more elaborate help, any other key for next screen ")
 		->stty_raw();
-	if ($scr->getch() =~ /(k1|\?)/) {
+	if ($_screen->getch() =~ /(k1|\?)/) {
 		system qw(man pfm); # how unsubtle :-)
 	}
-	credits();
-	return $R_CLRSCR;
+	$self->_credits();
+	$_screen->set_deferred_refresh(R_CLRSCR);
 }
 
 ##########################################################################
