@@ -104,7 +104,7 @@ sub _usage {
 	my $self      = shift;
 	my $directory = $_screen->colored('underline', 'directory');
 	my $number    = $_screen->colored('underline', 'number');
-	my $config    = new PFM::Config();
+	my $config    = new PFM::Config($self);
 	print "Usage: pfm [ -l, --layout $number ]",
 		  "[ $directory ] [ -s, --swap $directory ]\n",
 		  "       pfm { -h, --help | -v, --version }\n\n",
@@ -264,7 +264,7 @@ sub bootstrap {
 	$_screen->listing->layout($startinglayout);
 	$_screen->clrscr();
 	$_screen->calculate_dimensions();
-	$_config = new PFM::Config();
+	$_config = new PFM::Config($self);
 	$_config->read( $self, $_config->READ_FIRST);
 	$_config->parse($self, $_config->SHOW_COPYRIGHT);
 	$_history->read();

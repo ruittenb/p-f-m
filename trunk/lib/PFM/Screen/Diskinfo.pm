@@ -130,6 +130,9 @@ sub initident {
 ##########################################################################
 # public subs
 
+1;
+__DATA__
+
 =item show()
 
 Displays the entire diskinfo column.
@@ -180,6 +183,7 @@ sub user_info {
 		->putcolored(($> ? 'normal' : 'red'), $self->_str_informatted($_ident));
 }
 
+# TODO
 sub disk_info { # %disk{ total, used, avail }
 	my @desc		= ('K tot','K usd','K avl');
 	my @values		= %_pfm->state->disk{qw/total used avail/};
@@ -199,6 +203,7 @@ sub disk_info { # %disk{ total, used, avail }
 	}
 }
 
+# TODO
 sub dir_info {
 	my @desc   = ('files','dirs ','symln','spec ');
 	my @values = @total_nr_of{'-','d','l'};
@@ -215,6 +220,7 @@ sub dir_info {
 	}
 }
 
+# TODO
 sub mark_info {
 	my @desc = ('bytes','files','dirs ','symln','spec ');
 	my @values = @selected_nr_of{'bytes','-','d','l'};
