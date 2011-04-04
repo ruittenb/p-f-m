@@ -43,14 +43,14 @@ use PFM::Screen;
 use PFM::Browser;
 use PFM::CommandHandler;
 use PFM::History;
-use PFM::Job;
+use PFM::JobHandler;
 use Getopt::Long;
 use Cwd;
 
 use locale;
 use strict;
 
-my ($_browser, $_screen, $_commandhandler, $_config, $_history, $_job,
+my ($_browser, $_screen, $_commandhandler, $_config, $_history, $_jobhandler,
 	$_bootstrapped, @_states, $_latest_version,
 );
 
@@ -186,12 +186,12 @@ sub _goodbye {
 
 =item history()
 
-=item job()
+=item jobhandler()
 
 =item browser()
 
 Getters for the objects: PFM::Screen, PFM::CommandHandler, PFM::Config,
-PFM::History, PFM::Job and PFM::Browser.
+PFM::History, PFM::JobHandler and PFM::Browser.
 
 =item state()
 
@@ -216,8 +216,8 @@ sub history {
 	return $_history;
 }
 
-sub job {
-	return $_job;
+sub jobhandler {
+	return $_jobhandler;
 }
 
 sub browser {
@@ -276,7 +276,7 @@ sub bootstrap {
 	$_commandhandler = new PFM::CommandHandler($self);
 	$_history		 = new PFM::History($self);
 	$_browser		 = new PFM::Browser($self);
-	$_job			 = new PFM::Job($self);
+	$_jobhandler	 = new PFM::JobHandler($self);
 
 	$_screen->listing->layout($startinglayout);
 	$_screen->clrscr();
@@ -288,7 +288,7 @@ sub bootstrap {
 	$_history->read();
 	$_screen->show_frame();
 	$_latest_version = '';
-	$_job->start('CheckUpdates');
+	$_jobhandler->start('CheckUpdates');
 	
 	# 'old' directory
 	$currentdir = getcwd();

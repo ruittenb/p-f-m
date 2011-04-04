@@ -11,8 +11,8 @@ install:
 	@echo "Please use the script 'install.sh' to install pfm."
 
 man: Abstract.3pm Application.3pm Browser.3pm CommandHandler.3pm \
-Config.3pm Directory.3pm History.3pm Job.3pm Screen.3pm State.3pm Util.3pm
-	make -C Job man
+Config.3pm Directory.3pm History.3pm JobHandler.3pm Screen.3pm State.3pm Util.3pm
+	make -C JobHandler man
 	make -C Screen man
 
 doc: man
@@ -25,7 +25,7 @@ test:
 	perl -I.. -cw Config.pm
 	perl -I.. -cw Directory.pm
 	perl -I.. -cw History.pm
-	perl -I.. -cw Job.pm
+	perl -I.. -cw JobHandler.pm
 	perl -I.. -cw Screen.pm
 	perl -I.. -cw State.pm
 	perl -I.. -cw Util.pm

@@ -247,38 +247,43 @@ sub read {
 
 =item parse()
 
-Process the settings from the F<.pfmrc> file.
+Processes the settings from the F<.pfmrc> file.
 
 =cut
 
 sub parse {
 	my ($self, $show_copyright) = @_;
-	local $_;
+	my $state          = $_pfm->state;
+	my $screen         = $_pfm->screen;
+	my $diskinfo       = $screen->diskinfo;
+	my $commandhandler = $_pfm->commandhandler;
 	my $e;
+	local $_;
 	$self->{dircolors}     = {};
 	$self->{framecolors}   = {};
 	$self->{filetypeflags} = {};
 	# 'usecolor' - find out when color must be turned _off_
+	# we want to do this _now_ so that the copyright message is colored.
 	if (defined($ENV{ANSI_COLORS_DISABLED}) or isno($_pfmrc{usecolor})) {
-		$_pfm->screen->colorizable(0);
+		$screen->colorizable(0);
 	} elsif ($_pfmrc{usecolor} eq 'force') {
-		$_pfm->screen->colorizable(1);
+		$screen->colorizable(1);
 	}
-	# 'copyrightdelay', 'cursorveryvisible', 'erase', 'keymap'
-	$self->_copyright($_pfmrc{copyrightdelay}) if $show_copyright;
-	$self->{cursorveryvisible} = isyes($_pfmrc{cursorveryvisible});
+	# do 'cvvis' _now_ so that the copyright message shows the new cursor.
 	system ('tput', $_pfmrc{cursorveryvisible} ? 'cvvis' : 'cnorm');
-	system ('stty', 'erase', $_pfmrc{erase}) if defined($_pfmrc{erase});
-	$_pfm->history->keyboard->set_keymap($_pfmrc{keymap}) if $_pfmrc{keymap};
+	# copyright message
+	$self->_copyright($_pfmrc{copyrightdelay}) if $show_copyright;
 	# time/date format for clock and timestamps
 	$self->{clockdateformat}	= $_pfmrc{clockdateformat} || '%Y %b %d';
 	$self->{clocktimeformat}	= $_pfmrc{clocktimeformat} || '%H:%M:%S';
 	$self->{timestampformat}	= $_pfmrc{timestampformat} || '%y %b %d %H:%M';
-	# Some configuration options are NOT fetched into common scalars
-	# (e.g. confirmquit) - however, they remain accessable in %_pfmrc.
+	# Some configuration options are NOT fetched into class members
+	# - however, they remain accessable in %_pfmrc.
 	# Don't change settings back to the defaults if they may have
 	# been modified by key commands.
+	$self->{cursorveryvisible}	= isyes($_pfmrc{cursorveryvisible});
 	$self->{clsonexit}			= isyes($_pfmrc{clsonexit});
+	$self->{confirmquit}		= isyes($_pfmrc{confirmquit});
 	$self->{waitlaunchexec}		= isyes($_pfmrc{waitlaunchexec});
 	$self->{autowritehistory}	= isyes($_pfmrc{autowritehistory});
 	$self->{autoexitmultiple}	= isyes($_pfmrc{autoexitmultiple});
@@ -289,19 +294,21 @@ sub parse {
 	$self->{autorcs}			= isyes($_pfmrc{autorcs});
 	$self->{remove_marks_ok}	= isyes($_pfmrc{remove_marks_ok});
 	$self->{clickiskeypresstoo}	= isyes($_pfmrc{clickiskeypresstoo} || 'yes');
-	$self->{white_mode}			= $state->{white_mode} || isyes($_pfmrc{defaultwhitemode});
-	$self->{dot_mode}			= isyes($_pfmrc{defaultdotmode})	if !defined $self->{dot_mode};
-	$self->{clobber_mode}		= isyes($_pfmrc{defaultclobber})	if !defined $self->{clobber_mode};
-	$self->{sort_mode}			= $_pfmrc{defaultsortmode} || 'n'	if !defined $self->{sort_mode};
-	$self->{radix_mode}			= $_pfmrc{defaultradix}    || 'hex'	if !defined $self->{radix_mode};
-	$self->{path_mode}			= $_pfmrc{defaultpathmode} || 'log'	if !defined $self->{path_mode};
-	$self->{currentlayout}		= $_pfmrc{defaultlayout}   ||  0	if !defined $self->{currentlayout};
-	$self->{escapechar} = $e	= $_pfmrc{escapechar}      || '=';
+	$self->{clobber_mode}		= ifnotdefined($commandhandler->clobber_mode, isyes($_pfmrc{defaultclobber}));
+	$self->{currentlayout}		= ifnotdefined($screen->listing->layout, $_pfmrc{defaultlayout}   ||  0);
+	$self->{white_mode}			= ifnotdefined($state->{white_mode},     isyes($_pfmrc{defaultwhitemode}));
+	$self->{dot_mode}			= ifnotdefined($state->{dot_mode},       isyes($_pfmrc{defaultdotmode}));
+	$self->{sort_mode}			= ifnotdefined($state->{sort_mode},      $_pfmrc{defaultsortmode} || 'n');
+	$self->{radix_mode}			= ifnotdefined($state->{radix_mode},     $_pfmrc{defaultradix}    || 'hex');
+	$self->{path_mode}			= ifnotdefined($state->{path_mode},      $_pfmrc{defaultpathmode} || 'log');
+	$self->{ident_mode}			= ifnotdefined($diskinfo->ident_mode,
+								  $diskinfo->IDENTMODES->{$_pfmrc{defaultident}} || 0);
+	$self->{escapechar} = $e	= $_pfmrc{escapechar} || '=';
 	$self->{rdevtomajor}		= $RDEVTOMAJOR{$^O} || $RDEVTOMAJOR{default};
 	$self->{ducmd}				= $_pfmrc{ducmd} || $DUCMDS{$^O} || $DUCMDS{default};
 	$self->{ducmd}				=~ s/\$\{e\}/${e}/g;
-	$self->{mouse_mode}			= $_pfmrc{defaultmousemode} || 'xterm' if !defined $self->{mouse_mode};
-	$self->{mouse_mode}			= ($self->{mouse_mode}      eq 'xterm' && isxterm($ENV{TERM}))
+	$self->{mouse_mode}			= $_pfm->browser->mouse_mode || $_pfmrc{defaultmousemode} || 'xterm';
+	$self->{mouse_mode}			= ($self->{mouse_mode} eq 'xterm' && isxterm($ENV{TERM}))
 								|| isyes($self->{mouse_mode});
 	$self->{altscreen_mode}		= $_pfmrc{altscreenmode}    || 'xterm';
 	$self->{altscreen_mode}		= ($self->{altscreen_mode}  eq 'xterm' && isxterm($ENV{TERM}))
@@ -313,16 +320,14 @@ sub parse {
 								|| ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER} ${e}2" : "lpr ${e}2");
 	$self->{showlockchar}		= ( $_pfmrc{showlock} eq 'sun' && $^O =~ /sun|solaris/i
 								or isyes($_pfmrc{showlock}) ) ? 'l' : 'S';
-	$self->{ident_mode}			= $_pfm->screen->diskinfo->IDENTMODES->{$_pfmrc{defaultident}}
-								|| 0 if !defined $self->{ident_mode};
 	$self->{viewer}				= $_pfmrc{viewer} || 'xv';
 	$self->{editor}				= $ENV{VISUAL} || $ENV{EDITOR}   || $_pfmrc{editor} || 'vi';
 	$self->{pager}				= $ENV{PAGER}  || $_pfmrc{pager} || ($^O =~ /linux/i ? 'less' : 'more');
 	# flags
 	if (isyes($_pfmrc{filetypeflags})) {
-		$self->{filetypeflags} = $_pfm->screen->listing->FILETYPEFLAGS;
+		$self->{filetypeflags} = $screen->listing->FILETYPEFLAGS;
 	} elsif ($_pfmrc{filetypeflags} eq 'dirs') {
-		$self->{filetypeflags} = { d => $_pfm->screen->listing->FILETYPEFLAGS->{d} };
+		$self->{filetypeflags} = { d => $screen->listing->FILETYPEFLAGS->{d} };
 	} else {
 		$self->{filetypeflags} = {};
 	}
@@ -339,14 +344,18 @@ sub parse {
 
 =item apply()
 
-Propagate the settings from the F<.pfmrc> file to the other classes.
+Propagates the settings from the F<.pfmrc> file to the application
+and other classes.
 
 =cut
 
 sub apply {
 	my $self = shift;
-	my $termkeys;
+	my ($termkeys, $newcolormode);
 	my $screen = $_pfm->screen;
+	# keymap, erase
+	system ('stty', 'erase', $_pfmrc{erase}) if defined($_pfmrc{erase});
+	$_pfm->history->keyboard->set_keymap($_pfmrc{keymap}) if $_pfmrc{keymap};
 	# additional key definitions 'keydef'
 	if ($termkeys = $_pfmrc{'keydef[*]'} .':'. $_pfmrc{"keydef[$ENV{TERM}]"}) {
 		$termkeys =~ s/(\\e|\^\[)/\e/gi;
@@ -355,24 +364,32 @@ sub apply {
 			/^(\w+)=(.*)/ and $screen->def_key($1, $2);
 		}
 	}
+	# determine color_mode if unset
+	$newcolormode =
+		(length($screen->color_mode)
+			? $screen->color_mode
+			: (defined($ENV{ANSI_COLORS_DISABLED})
+				? 'off'
+				: length($_pfmrc{defaultcolorset})
+					? $_pfmrc{defaultcolorset}
+					: (defined $self->{dircolors}{ls_colors}
+						? 'ls_colors'
+						: $self->{colorsetnames}[0])));
 	# init colorsets, ornaments, ident, formatlines, enable mouse
-	$_pfm->history->setornaments();
+	$screen->color_mode($newcolormode);
+	$_pfm->history->setornaments($self->{framecolors}{$newcolormode}{message});
+	$_pfm->commandhandler->clobber_mode($self->{clobber_mode});
 	$screen->diskinfo->ident_mode($self->{ident_mode});
+	$screen->listing->layout($self->{defaultlayout});
 	$screen->listing->makeformatlines();
 	$screen->mouse_enable()	if $self->{mouse_mode};
 	$screen->alternate_on()	if $self->{altscreen_mode};
 	# TODO hand variables over to $_pfm->state
-	# now set color_mode if unset
-	$_pfm->state->{color_mode} ||= defined($ENV{ANSI_COLORS_DISABLED})
-		? 'off'
-		: $_pfmrc{defaultcolorset} || (defined $self->{dircolors}{ls_colors}
-									? 'ls_colors'
-									: $self->{colorsetnames}[0]);
 }
 
 =item write_default()
 
-Write a default config file in case none exists.
+Writes a default config file in case none exists.
 
 =cut
 
@@ -436,6 +453,9 @@ __DATA__
 ##########################################################################
 ## general
 
+## use xterm alternate screen buffer (yes,no,xterm) (default: only in xterm)
+altscreenmode:xterm
+
 ## should we exit from multiple file mode after executing a command?
 autoexitmultiple:yes
 
@@ -444,9 +464,6 @@ autorcs:yes
 
 ## write history files automatically upon exit
 autowritehistory:no
-
-## use xterm alternate screen buffer (yes,no,xterm) (default: only in xterm)
-altscreenmode:xterm
 
 ## command to perform automatically after every chdir()
 #chdirautocmd:printf "\033]0;pfm - $(basename $(pwd))\007"

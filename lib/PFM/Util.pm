@@ -42,7 +42,7 @@ use strict;
 
 our @EXPORT = qw(min max inhibit triggle toggle isyes isno basename dirname
 				 isxterm formatted time2str fit2limit canonicalize_path
-				 isorphan TIME_FILE TIME_CLOCK);
+				 isorphan ifnotdefined TIME_FILE TIME_CLOCK);
 
 my $XTERMS = qr/^(.*xterm.*|rxvt.*|gnome.*|kterm)$/;
 
@@ -169,8 +169,8 @@ to a number with kilo (mega, giga, ...) specification.
 
 =cut
 
-sub fit2limit {
-	my ($self, $size_num, $limit) = @_;
+sub fit2limit ($$) {
+	my ($size_num, $limit) = @_;
 	my $size_power = ' ';
 	while ($size_num > $limit) {
 		$size_num = int($size_num/1024);
@@ -186,7 +186,7 @@ but does not resolve symlinks.
 
 =cut
 
-sub canonicalize_path {
+sub canonicalize_path ($) {
 	# works like realpath() but does not resolve symlinks
 	my $path = shift;
 	1 while $path =~ s!/\./!/!g;
@@ -213,8 +213,20 @@ Returns if a symlink is an orphan symlink or not.
 
 =cut
 
-sub isorphan {
+sub isorphan ($) {
 	return ! -e $_[0];
+}
+
+=item ifnotdefined()
+
+Emulates the perl 5.10 C<//> operator (returns the first argument
+if it is defined, otherwise the second).
+
+=cut
+
+sub ifnotdefined ($$) {
+	my ($a, $b) = @_;
+	return (defined($a) ? $a : $b);
 }
 
 ##########################################################################

@@ -39,6 +39,7 @@ use base qw(PFM::Abstract Term::ScreenColor);
 use PFM::Screen::Frame;
 use PFM::Screen::Listing;
 use PFM::Screen::Diskinfo;
+use PFM::Util;
 
 use strict;
 
@@ -77,6 +78,7 @@ use constant R_CHDIR  => R_NEWDIR | R_DIRCONTENTS | R_DIRSORT | R_SCREEN | R_STR
 
 my ($_pfm, $_frame, $_listing, $_diskinfo,
 	$_screenwidth, $_screenheight, $_deferred_refresh, $_wasresized,
+	$_color_mode,
 );
 
 ##########################################################################
@@ -183,6 +185,19 @@ sub wasresized {
 	my ($self, $value) = @_;
 	$_wasresized = $value if defined $value;
 	return $_wasresized;
+}
+
+=item color_mode()
+
+Getter/setter for the choice of color mode (I<e.g.> 'dark', 'light',
+'ls_colors').
+
+=cut
+
+sub color_mode {
+	my ($self, $value) = @_;
+	$_color_mode = $value if defined $value;
+	return $_color_mode;
 }
 
 ##########################################################################
@@ -342,7 +357,7 @@ sub putmessage {
 	my $framecolors = $_pfm->config->{framecolors};
 	if ($framecolors) {
 		$self->putcolored(
-			$framecolors->{$_pfm->state->{color_mode}}{message},
+			$framecolors->{$_color_mode}{message},
 			$message);
 	} else {
 		$self->puts($message);
@@ -359,7 +374,7 @@ sub pressanykey {
 	my $self = shift;
 	$self->putmessage("\r\n*** Hit any key to continue ***");
 	$self->stty_raw();
-	if ($_pfm->state->{mouse_mode} && $_pfm->config->{clickiskeypresstoo}) {
+	if ($_pfm->browser->{mouse_mode} && $_pfm->config->{clickiskeypresstoo}) {
 		$self->mouse_enable();
 	} else {
 		$self->mouse_disable();
@@ -372,7 +387,7 @@ sub pressanykey {
 	# the output of the following command should start on a new line.
 	# does this work correctly in TERM_RAW mode?
 	$self->puts("\n");
-	$self->mouse_enable() if $_pfm->state->{mouse_mode};
+	$self->mouse_enable() if $_pfm->browser->{mouse_mode};
 	$self->alternate_on() if $_pfm->config->{altscreen_mode};
 	$self->handleresize() if $_wasresized;
 }
@@ -490,7 +505,7 @@ sub refresh {
 		$_deferred_refresh & R_DIRSORT)
 	{
 		$directory->init_dircount();
-		$browser->position_at($browser->currentfile->{name});
+		$browser->position_at($browser->currentfile->{name}) unless $browser->position_at();
 	}
 	if ($_deferred_refresh & R_DIRCONTENTS) {
 		$directory->readcontents();
@@ -509,7 +524,7 @@ sub refresh {
 		$_listing->show();
 	}
 	if ($_deferred_refresh & R_DISKINFO) {
-		$_pfm->diskinfo->show();
+		$_pfm->screen->diskinfo->show();
 	}
 	if ($_deferred_refresh & R_MENU) {
 		$_frame->show_menu();
@@ -549,7 +564,7 @@ filesystem.
 =cut
 
 sub pathline {
-	my ($path, $dev, $displen, $ellipssize) = @_;
+	my ($self, $path, $dev, $displen, $ellipssize) = @_;
 	my $overflow	 = ' ';
 	my $ELLIPSIS	 = '..';
 	my $normaldevlen = 12;

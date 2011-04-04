@@ -181,7 +181,7 @@ my $LOSTMSG				= '';   # was ' (file lost)'; # now shown through coloring
 #my $MARKINFOLINE		= 15;
 #my $USERINFOLINE		= 21;
 #my $DATEINFOLINE		= 22;
-my $DFCMD				= ($^O eq 'hpux') ? 'bdf' : ($^O eq 'sco') ? 'dfspace' : 'df -k';
+#my $DFCMD				= ($^O eq 'hpux') ? 'bdf' : ($^O eq 'sco') ? 'dfspace' : 'df -k';
 
 #my $XTERMS				= qr/^(.*xterm.*|rxvt.*|gnome|kterm)$/;
 #my @SYMBOLIC_MODES		= qw(--- --x -w- -wx r-- r-x rw- rwx);
@@ -3821,7 +3821,7 @@ sub filetypeflag {
 #	}
 #}
 #
-sub get_filesystem_info {
+sub init_filesystem_info {
 	my (@dflist, %tdisk);
 	chop (@dflist = (`$DFCMD .`, ''));
 	shift @dflist;
@@ -3968,7 +3968,7 @@ sub browse {
 			# 'autoexitmultiple' is only for leaving it on between commands
 			$multiple_mode = 0;
 			$currentdir    = getcwd() if $path_mode eq 'phys';
-			%disk          = get_filesystem_info();
+#			%disk          = init_filesystem_info();
 			#set_argv0();
 			# this test is nested so that it does not get executed every time
 			if ($wantrefresh &   $R_INIT_SWAP) {

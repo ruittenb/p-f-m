@@ -36,6 +36,9 @@ package PFM::Screen::Diskinfo;
 
 use base 'PFM::Abstract';
 
+use PFM::Util;
+use POSIX qw(strftime);
+
 use locale;
 use strict;
 
@@ -248,9 +251,9 @@ sub dir_info {
 			   + $total_nr_of{'n'};
 	my $startline = DIRINFOLINE;
 	my $heading = 'Directory('
-				.  $_pfm->state->sort_mode
-				. ($_pfm->state->white_mode ? '' : '%')
-				. ($_pfm->state->dot_mode ? '' : '.') . ')';
+				.  $_pfm->state->{sort_mode}
+				. ($_pfm->state->{white_mode} ? '' : '%')
+				. ($_pfm->state->{dot_mode} ? '' : '.') . ')';
 	$_screen->at($startline-1, $_infocol)
 			->puts($self->_str_informatted($heading));
 	foreach (0..3) {

@@ -49,6 +49,8 @@ use constant {
 
 my @SYMBOLIC_MODES = qw(--- --x -w- -wx r-- r-x rw- rwx);
 
+my $DFCMD = ($^O eq 'hpux') ? 'bdf' : ($^O eq 'sco') ? 'dfspace' : 'df -k';
+
 my ($_pfm, $_path,
 	@_dircontents, @_showncontents, %_selected_nr_of, %_total_nr_of,
 	%_usercache, %_groupcache, %_disk);
@@ -140,6 +142,24 @@ sub _by_sort_mode {
 	}
 }
 
+=item _init_filesystem_info
+
+Determines the current filesystem usage and stores it in an internal hash.
+
+=cut
+
+sub _init_filesystem_info {
+	my $self = shift;
+	my @dflist;
+	chop (@dflist = (`$DFCMD .`, ''));
+	shift @dflist; # skip header
+	$dflist[0] .= $dflist[1]; # in case filesystem info wraps onto next line
+	@_disk{qw/device total used avail/} = split (/\s+/, $dflist[0]);
+	$_disk{avail} = $_disk{total} - $_disk{used} if $_disk{avail} =~ /%/;
+	$_disk{mountpoint} = $dflist[0] =~ /(\S*)$/;
+	return \%_disk;
+}
+
 ##########################################################################
 # constructor, getters and setters
 
@@ -218,6 +238,30 @@ sub disk {
 	return \%_disk;
 }
 
+=item mountpoint()
+
+Getter/setter for the mountpoint on which the current directory is situated.
+
+=cut
+
+sub mountpoint {
+	my ($self, $value) = @_;
+	$_disk{mountpoint} = $value if defined $value;
+	return $_disk{mountpoint};
+}
+
+=item device()
+
+Getter/setter for the device on which the current directory is situated.
+
+=cut
+
+sub device {
+	my ($self, $value) = @_;
+	$_disk{device} = $value if defined $value;
+	return $_disk{device};
+}
+
 ##########################################################################
 # public subs
 
@@ -256,6 +300,7 @@ sub chdir {
 		$chdirautocmd = $_pfm->config->{chdirautocmd};
 		system("$chdirautocmd") if length($chdirautocmd);
 		$screen->set_deferred_refresh($screen->R_CHDIR);
+		$self->_init_filesystem_info();
 	}
 	return $result;
 }
@@ -448,7 +493,7 @@ sub readcontents {
 	}
 	$screen->set_deferred_refresh($screen->R_MENU | $screen->R_HEADINGS);
 	# TODO
-	$_pfm->job->start('Subversion') if $_pfm->config->{autorcs};
+	$_pfm->jobhandler->start('Subversion') if $_pfm->config->{autorcs};
 	return @contents;
 }
 

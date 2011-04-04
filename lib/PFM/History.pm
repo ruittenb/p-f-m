@@ -226,15 +226,17 @@ sub input { # \@history, $prompt, [$default_input]
 
 =item setornaments()
 
-Determines from the config file settings which ornaments (bold, italic, underline)
-should be used for the command prompt, then instructs Term::ReadLine to use these.
+Determines from the config file settings which ornaments (bold, italic,
+underline) should be used for the command prompt, then instructs
+Term::ReadLine to use these.
 
 =cut
 
 sub setornaments {
-	my $self = shift;
-	my $color = $_pfm->config->{framecolors}{$_pfm->state->{color_mode}}{message};
+	my ($self, $color) = shift;
 	my @cols;
+	$color ||=
+		$_pfm->config->{framecolors}{$_pfm->screen->color_mode}{message};
 	unless (exists $ENV{PERL_RL}) {
 		# this would have been nice, however,
 		# readline processes only the first (=most important) capability
