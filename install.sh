@@ -2,7 +2,7 @@
 ############################################################################
 #
 # Name:         install.sh
-# Version:      0.24
+# Version:      0.25
 # Authors:      Rene Uittenbogaard
 # Date:         2010-03-28
 # Usage:        sh install.sh
@@ -12,12 +12,12 @@
 #		Suggestions for improvement are welcome!
 #
 
-VERSION='1.95.4a'
-
 ###############################################################################
 # helper functions
 
 install_prepare() {
+	VERSION=$(awk '/@[(]#[)]/ { print $5 }' pfm.pl)
+	echo "Starting installation of pfm $VERSION"
 	if echo -n '' | grep n >/dev/null; then
 		# echo -n does not suppress newline
 		n=
@@ -270,8 +270,18 @@ download_and_install_perl_module() {
 }
 
 install_pfm() {
-	make
-	make install
+	wheel=`awk -F: '$3 == 0 {print $1}' /etc/group`
+	modulesdir=/usr/local/share/pfm/PFM/
+	mkdir -p -m 755 /usr/local/bin/ /usr/local/man/man1/
+	install -o root -g $wheel -m 755 pfm       /usr/local/bin/
+	install -o root -g $wheel -m 644 doc/pfm.1 /usr/local/man/man1/
+	mkdir -p -m 755 $modulesdir /usr/local/man/man3/
+	for i in share/PFM/*.pm; do
+		install -o root -g $wheel -m 644 $i $modulesdir
+	done
+	for i in doc/*.3pm; do
+		install -o root -g $wheel -m 644 $i /usr/local/man/man3
+	done
 }
 
 check_date_locale() {
@@ -307,10 +317,10 @@ check_pfmrc() {
 		echo "any configuration file updates."
 		return
 	fi
-	repairs="$(
-		( cd repair; ls ) | perl -nle 's/\.pl$//; print if ($_ gt "repair-'$oldversion'" and $_ le "repair-'$VERSION'");'
+	updates="$(
+		( cd update; ls ) | perl -nle 's/\.pl$//; print if ($_ gt "update-'$oldversion'" and $_ le "update-'$VERSION'");'
 	)"
-	if [ ! "$repairs" ]; then
+	if [ ! "$updates" ]; then
 		return
 	fi
 	echo
@@ -328,9 +338,9 @@ check_pfmrc() {
 	cp -i "$pfmrc" "$newpfmrc"
 	echo
 	echo "Config file backed up as '$newpfmrc'."
-	echo "$repairs" | while read repair; do
-		perl -pi repair/$repair "$pfmrc"
-		v=${repair#repair-}; v=${v%.pl}
+	echo "$updates" | while read update; do
+		perl -pi update/$update "$pfmrc"
+		v=${update#update-}; v=${v%.pl}
 		echo "Successfully updated to $v"
 	done
 	perl -pi "s/^(## Version ).*/$1$VERSION/" "$pfmrc"
@@ -349,6 +359,7 @@ check_package readline
 # check, download and install the Perl modules
 
 check_cpan
+check_perl_module Term::Cap         || download_and_install_perl_module Term::Cap
 check_perl_module Term::Screen      || download_and_install_perl_module Term::Screen
 check_perl_module Term::ScreenColor || download_and_install_perl_module Term::ScreenColor
 check_perl_module_term_readline_gnu || download_and_install_perl_module Term::ReadLine::Gnu

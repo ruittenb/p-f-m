@@ -1,8 +1,17 @@
+TERM_CAP=Term-Cap-1.12
 TERM_SCREEN=Term-Screen-1.03
 TERM_SCREENCOLOR=Term-ScreenColor-1.20
 TERM_READLINE_GNU=Term-ReadLine-Gnu-1.20
 
-all: Term-Screen Term-ScreenColor Term-ReadLine-Gnu
+all: Term-Cap Term-Screen Term-Screen-Uni Term-ScreenColor Term-ReadLine-Gnu
+
+Term-Cap:
+	@echo 'Checking installation of Term::Cap...'
+	@if perl -MTerm::Cap -e1 2>/dev/null; then :; \
+	else \
+		gunzip < $(TERM_CAP).tar.gz | tar xvf - ; \
+		( cd $(TERM_CAP); perl Makefile.PL; make all install ) \
+	fi
 
 Term-Screen:
 	@echo 'Checking installation of Term::Screen...'
@@ -32,5 +41,5 @@ Term-ReadLine-Gnu:
 		make all test install ) \
 	fi
 
-.PHONY: Term-Screen Term-ScreenColor Term-ReadLine-Gnu
+.PHONY: Term-Cap Term-Screen Term-ScreenColor Term-ReadLine-Gnu
 

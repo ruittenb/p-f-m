@@ -1,19 +1,14 @@
+PODOPTS=--release=' ' --center=' ' --date=`date +%Y-%m-%d` --section=$(SECTION)
 WHEEL=`awk -F: '$$3 == 0 {print $$1}' /etc/group`
 
 default:
 	@echo "use 'make install' to install"
 
 install: pfm pfm.1 listwhite
-	mkdir -p -m 755 /usr/local/bin/ /usr/local/man/man1/
-	install -o root -g $(WHEEL) -m 755 pfm   /usr/local/bin/
-	install -o root -g $(WHEEL) -m 644 pfm.1 /usr/local/man/man1/
-	@echo
-	@echo If you are upgrading from a previous version, please read the README file.
-	@echo It contains important information about the configuration file.
-	@echo
+	./install.sh
 
 listwhite:
 	make -C listwhite
 
-pfm.1:
-	pod2man pfm
+man:
+	pod2man $(PODOPTS) pfm

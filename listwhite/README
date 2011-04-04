@@ -1,4 +1,4 @@
 
 listwhite is a tool for listing the names of whiteout files.
-This is *only* needed for filesystems that support this feature.
+This is *only* necessary on filesystems that support this feature.
 

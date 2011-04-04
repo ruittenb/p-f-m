@@ -124,11 +124,17 @@
 .\" ========================================================================
 .\"
 .IX Title "PFM 1"
-.TH PFM 1 "2010-04-17" " " " "
+.TH PFM 1 "2010-04-01" " " " "
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
 .nh
+.ds Yr 2010
+.ds Vw @(#) pfm.pl 2.00.8
+.de Vp
+This manual pertains to \f(CWpfm\fP version \\$3.
+..
+.hy 0 \" hyphenation off
 .SH "NAME"
 \&\f(CW\*(C`pfm\*(C'\fR \- Personal File Manager for Linux/Unix
 .SH "SYNOPSIS"
@@ -646,7 +652,7 @@ in the current directory path will be preserved.
 .IP "\fB%\fR" 4
 .IX Item "%"
 Toggle show/hide whiteout files.
-.IP "\fB*\fR" 4
+.IP "\fB\ *\fR" 4
 .IX Item "*"
 Toggle the radix used by the \fBN\fRame command.
 .IP "\fB.\fR" 4
@@ -660,7 +666,7 @@ Identical to \fBF\fRind (see above).
 Scroll the header and footer, in order to view all available commands.
 .IP "\fB=\fR" 4
 .IX Item "="
-Switch between displaying the username, the hostname, or username@hostname.
+Cycle through displaying the username, the hostname, or username@hostname.
 .IP "\fB>\fR" 4
 .IX Item ">"
 Scroll the header and footer, in order to view all available commands.
@@ -1035,13 +1041,14 @@ line. You may use the terminal kill character (usually \fBCTRL-U\fR) for this
 (see \fIstty\fR\|(1)).
 .PP
 The author once almost pressed \fB\s-1ENTER\s0\fR when logged in as root and with
-the cursor next to \fI/sbin/reboot\fR. You have been warned.
+the cursor on the file \fI/sbin/reboot\fR. You have been warned.
 .PP
 The smallest terminal size supported is 80x24. The display will be messed
 up if you resize your terminal window to a smaller size.
 .SH "VERSION"
 .IX Header "VERSION"
-This manual pertains to \f(CW\*(C`pfm\*(C'\fR version 1.95.4.
+.PP \" display the 'pertains to'-macro
+.Vp \*(Vw
 .SH "AUTHOR and COPYRIGHT"
 .IX Header "AUTHOR and COPYRIGHT"
 .PP \" display the authors
@@ -1051,9 +1058,9 @@ This manual pertains to \f(CW\*(C`pfm\*(C'\fR version 1.95.4.
 .ie \n(.g .ds e' \('e
 .el       .ds e' e\*'
 ..
-Copyright \*(co 1999-2010, Ren\*(e' Uittenbogaard
+Copyright \*(co 1999-\*(Yr, Ren\*(e' Uittenbogaard
 (ruittenb@users.sourceforge.net).
-.PP \
+.PP
 All rights reserved. This program is free software; you can redistribute
 it and/or modify it under the terms described by the \s-1GNU\s0 General Public
 License version 2.
@@ -1064,5 +1071,10 @@ with kind permission of the original authors.
 .SH "SEE ALSO"
 .IX Header "SEE ALSO"
 The documentation on \s-1PFM\s0.COM. The manual pages for \fIchmod\fR\|(1), \fIfile\fR\|(1),
-\&\fIless\fR\|(1), \fIlocale\fR\|(7), \fIlpr\fR\|(1), \fItouch\fR\|(1), \fIvi\fR\|(1), \fITerm::ScreenColor\fR\|(3pm),
-\&\fITerm::ReadLine\fR\|(3pm), and \fITerm::Screen\fR\|(3pm).
+\&\fIless\fR\|(1), \fIlocale\fR\|(7), \fIlpr\fR\|(1), \fItouch\fR\|(1), \fIvi\fR\|(1).
+.PP
+For programmers: \fITerm::Screen\fR\|(3pm), \fITerm::ScreenColor\fR\|(3pm),
+\&\fITerm::ReadLine\fR\|(3pm), \fIPFM::Abstract\fR\|(3pm), \fIPFM::Application\fR\|(3pm),
+\&\fIPFM::Browser\fR\|(3pm), \fIPFM::CommandHandler\fR\|(3pm), \fIPFM::Config\fR\|(3pm),
+\&\fIPFM::Directory\fR\|(3pm), \fIPFM::History\fR\|(3pm), \fIPFM::Job\fR\|(3pm),
+\&\fIPFM::Screen\fR\|(3pm), \fIPFM::State\fR\|(3pm) and \fIPFM::Util\fR\|(3pm).
