@@ -142,8 +142,8 @@ sub _getfooter {
 	.		" F12-Mouse[$ONOFF{$state{mouse_mode}}]"
 	.		" !-Clobber[$ONOFF{$state{clobber_mode}}]"
 	.		" .-Dotfiles[$ONOFF{$state{dot_mode}}]"
-	# TODO white_cmd
-	.		($white_cmd ? " %-Whiteouts[$ONOFF{$state{white_mode}}]" : '')
+	.		($_pfm->commandhandler->whitesupport
+				? " %-Whiteouts[$ONOFF{$state{white_mode}}]" : '')
 	.		" \"-Pathnames[$state{path_mode}]"
 	.		" *-Radix[$state{radix_mode}]"
 #	.		" =-Ident[$state{ident_mode}]"
@@ -224,8 +224,9 @@ sub draw_headings { # swap_mode, extra field, @layoutfieldswithinfo
 	}
 	$FIELDHEADINGS{diskinfo} = $diskinfo;
 #	$FIELDHEADINGS{display} = $FIELDHEADINGS{name} . ' (' . $sort_mode . ('%','')[$white_mode] . ('.','')[$dot_mode] . ')';
-	$linecolor = $smode ? $_pfm->config->framecolors{$_pfm->state->color_mode}{swap}
-						: $_pfm->config->framecolors{$_pfm->state->color_mode}{headings};
+	$linecolor = $smode
+		? $_pfm->config->framecolors->{$_pfm->state->color_mode}{swap}
+		: $_pfm->config->framecolors->{$_pfm->state->color_mode}{headings};
 #	$screen->bold()			if ($linecolor =~ /bold/);
 #	$screen->reverse()		if ($linecolor =~ /reverse/);
 #	$screen->underline()	if ($linecolor =~ /under(line|score)/);
@@ -256,7 +257,7 @@ sub draw_footer {
 	$screen->term()->Tputs('us', 1, *STDOUT)
 							if ($linecolor =~ /under(line|score)/);
 	$screen->at($screen->BASELINE + $screen->screenheight + 1, 0)
-		->putcolored($linecolor, $footer, $padding))->reset()->normal();
+		->putcolored($linecolor, $footer, $padding)->reset()->normal();
 }
 
 =item pan()

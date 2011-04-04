@@ -122,16 +122,16 @@ use locale;
 
 our($FALSE,
 	$TRUE,
-	$READ_FIRST,
-	$READ_AGAIN,
+#	$READ_FIRST,
+#	$READ_AGAIN,
 	$QUOTE_OFF,
 	$QUOTE_ON,
-	$MOUSE_OFF,
-	$MOUSE_ON,
-	$ALTERNATE_OFF,
-	$ALTERNATE_ON,
-	$TERM_RAW,
-	$TERM_COOKED,
+#	$MOUSE_OFF,
+#	$MOUSE_ON,
+#	$ALTERNATE_OFF,
+#	$ALTERNATE_ON,
+#	$TERM_RAW,
+#	$TERM_COOKED,
 	$FILENAME_SHORT,
 	$FILENAME_LONG,
 	$HIGHLIGHT_OFF,
@@ -149,22 +149,22 @@ our($FALSE,
 #	$TITLE_SIGNAL,
 #	$TITLE_SORT,
 #	$TITLE_ESCAPE,
-	$R_NOP,
-	$R_STRIDE,
-	$R_MENU,
-	$R_PATHINFO,
-	$R_HEADINGS,
-	$R_FOOTER,
-	$R_DIRFILTER,
-	$R_DIRLIST,
-	$R_DISKINFO,
-	$R_DIRSORT,
-	$R_CLEAR,
-	$R_DIRCONTENTS,
-	$R_NEWDIR,
-	$R_INIT_SWAP,
-	$R_QUIT,
-);
+#	$R_NOP,
+#	$R_STRIDE,
+#	$R_MENU,
+#	$R_PATHINFO,
+#	$R_HEADINGS,
+#	$R_FOOTER,
+#	$R_DIRFILTER,
+#	$R_DIRLIST,
+#	$R_DISKINFO,
+#	$R_DIRSORT,
+#	$R_CLEAR,
+#	$R_DIRCONTENTS,
+#	$R_NEWDIR,
+#	$R_INIT_SWAP,
+#	$R_QUIT,
+#);
 
 #END {
 #	# in case something goes wrong
@@ -229,14 +229,14 @@ our($FALSE,
 #my $CONFIGDIRNAME		= "$ENV{HOME}/.pfm";
 #my $CONFIGFILENAME		= '.pfmrc';
 #my $CONFIGDIRMODE		= 0700;
-my $CWDFILENAME			= 'cwd';
-my $SWDFILENAME			= 'swd';
+#my $CWDFILENAME			= 'cwd';
+#my $SWDFILENAME			= 'swd';
 my $LOSTMSG				= '';   # was ' (file lost)'; # now shown through coloring
 my $MAJORMINORSEPARATOR	= ',';
 my $NAMETOOLONGCHAR		= '+';
-my $MAXHISTSIZE			= 70;
-my $ERRORDELAY			= 1;    # in seconds (fractions allowed)
-my $IMPORTANTDELAY		= 2;    # extra time for important errors
+#my $MAXHISTSIZE			= 70;
+#my $ERRORDELAY			= 1;    # in seconds (fractions allowed)
+#my $IMPORTANTDELAY		= 2;    # extra time for important errors
 my $SLOWENTRIES			= 300;
 #my $PATHLINE			= 1;
 #my $BASELINE			= 3;
@@ -383,18 +383,18 @@ my $screenheight	= 20;    # inner height
 my $screenwidth		= 80;    # terminal width
 my $position_at		= '.';   # start with cursor here
 
-my (@command_history, @mode_history, @path_history, @regex_history,
-	@perlcmd_history, @time_history);
-
-my %HISTORIES = (
-	history_command	=> \@command_history,
-	history_mode	=> \@mode_history,
-	history_path	=> \@path_history,
-	history_regex	=> \@regex_history,
-	history_time	=> \@time_history,
-	history_perlcmd	=> \@perlcmd_history
-);
-
+#my (@command_history, @mode_history, @path_history, @regex_history,
+#	@perlcmd_history, @time_history);
+#
+#my %HISTORIES = (
+#	history_command	=> \@command_history,
+#	history_mode	=> \@mode_history,
+#	history_path	=> \@path_history,
+#	history_regex	=> \@regex_history,
+#	history_time	=> \@time_history,
+#	history_perlcmd	=> \@perlcmd_history
+#);
+#
 my (
 	# lookup tables
 	%usercache, %groupcache, %pfmrc, @signame, %dircolors, %framecolors,
@@ -627,57 +627,57 @@ my (
 #		: $pfmrc{defaultcolorset} || (defined $dircolors{ls_colors} ? 'ls_colors' : $colorsetnames[0]);
 #}
 
-sub write_history {
-	my $failed;
-	$scr->at(0,0)->clreol();
-	foreach (keys(%HISTORIES)) {
-		if (open (HISTFILE, ">$CONFIGDIRNAME/$_")) {
-			print HISTFILE join "\n", @{$HISTORIES{$_}}, '';
-			close HISTFILE;
-		} elsif (!$failed) {
-			putmessage("Unable to save (part of) history: $!");
-			$failed++; # warn only once
-		}
-	}
-	putmessage('History written successfully') unless $failed;
-	$scr->key_pressed($ERRORDELAY);
-	$scr->key_pressed($IMPORTANTDELAY) if $failed;
-	return $R_MENU;
-}
-
-sub read_history {
-	my $hfile;
-	# some defaults - set them here because $e is known only now
-	@command_history = ('du -ks * | sort -n', "man ${e}1");
-	@mode_history	 = ('755', '644');
-	@path_history	 = ('/', $ENV{HOME});
-	@regex_history	 = ('\.jpg$');
-#	@time_history;
-#	@perlcmd_history;
-	foreach (keys(%HISTORIES)) {
-		$hfile = "$CONFIGDIRNAME/$_";
-		if (-s $hfile and open (HISTFILE, $hfile)) {
-			chomp( @{$HISTORIES{$_}} = <HISTFILE> );
-			close HISTFILE;
-		}
-	}
-}
-
-sub write_cwd {
-	if (open CWDFILE,">$CONFIGDIRNAME/$CWDFILENAME") {
-		print CWDFILE $currentdir, "\n";
-		close CWDFILE;
-	} else {
-		putmessage("Unable to create $CONFIGDIRNAME/$CWDFILENAME: $!\n");
-	}
-	if ($swap_state && $swap_persistent && open SWDFILE,">$CONFIGDIRNAME/$SWDFILENAME") {
-		print SWDFILE $swap_state->{path}, "\n";
-		close SWDFILE;
-	} else {
-		unlink "$CONFIGDIRNAME/$SWDFILENAME";
-	}
-}
-
+#sub write_history {
+#	my $failed;
+#	$scr->at(0,0)->clreol();
+#	foreach (keys(%HISTORIES)) {
+#		if (open (HISTFILE, ">$CONFIGDIRNAME/$_")) {
+#			print HISTFILE join "\n", @{$HISTORIES{$_}}, '';
+#			close HISTFILE;
+#		} elsif (!$failed) {
+#			putmessage("Unable to save (part of) history: $!");
+#			$failed++; # warn only once
+#		}
+#	}
+#	putmessage('History written successfully') unless $failed;
+#	$scr->key_pressed($ERRORDELAY);
+#	$scr->key_pressed($IMPORTANTDELAY) if $failed;
+#	return $R_MENU;
+#}
+#
+#sub read_history {
+#	my $hfile;
+#	# some defaults - set them here because $e is known only now
+#	@command_history = ('du -ks * | sort -n', "man ${e}1");
+#	@mode_history	 = ('755', '644');
+#	@path_history	 = ('/', $ENV{HOME});
+#	@regex_history	 = ('\.jpg$');
+##	@time_history;
+##	@perlcmd_history;
+#	foreach (keys(%HISTORIES)) {
+#		$hfile = "$CONFIGDIRNAME/$_";
+#		if (-s $hfile and open (HISTFILE, $hfile)) {
+#			chomp( @{$HISTORIES{$_}} = <HISTFILE> );
+#			close HISTFILE;
+#		}
+#	}
+#}
+#
+#sub write_cwd {
+#	if (open CWDFILE,">$CONFIGDIRNAME/$CWDFILENAME") {
+#		print CWDFILE $currentdir, "\n";
+#		close CWDFILE;
+#	} else {
+#		putmessage("Unable to create $CONFIGDIRNAME/$CWDFILENAME: $!\n");
+#	}
+#	if ($swap_state && $swap_persistent && open SWDFILE,">$CONFIGDIRNAME/$SWDFILENAME") {
+#		print SWDFILE $swap_state->{path}, "\n";
+#		close SWDFILE;
+#	} else {
+#		unlink "$CONFIGDIRNAME/$SWDFILENAME";
+#	}
+#}
+#
 ##########################################################################
 # some translations
 
@@ -706,16 +706,16 @@ sub find_gid {
 	return $groupcache{$gid} || +($groupcache{$gid} = scalar(defined($gid) ? getgrgid($gid) : '') || $gid);
 }
 
-sub init_signames {
-	my $i = 0;
-	my @signame;
-	foreach (split(/ /, $Config{sig_name})) {
-#		$signo{$name} = $i;
-		$signame[$i++] = $_;
-	}
-	return @signame;
-}
-
+#sub init_signames {
+#	my $i = 0;
+#	my @signame;
+#	foreach (split(/ /, $Config{sig_name})) {
+##		$signo{$name} = $i;
+#		$signame[$i++] = $_;
+#	}
+#	return @signame;
+#}
+#
 sub setornaments {
 	my $messcolor = $framecolors{$color_mode}{message};
 	my @cols;
@@ -922,79 +922,79 @@ sub expand_escapes { # quoteif, command, \%currentfile
 ##########################################################################
 # more translations
 
-sub readintohist { # \@history, $prompt, [$default_input]
-	local $SIG{INT} = 'IGNORE'; # do not interrupt pfm
-	my $history	= shift;
-	my $prompt	= shift || '';
-	my $input	= shift || '';
-	set_term_history($kbd, @$history);
-	$input = $kbd->readline($prompt, $input);
-	if ($input =~ /\S/ and $input ne ${$history}[-1]) {
-		push (@$history, $input);
-		shift (@$history) if ($#$history > $MAXHISTSIZE);
-	}
-	return $input;
-}
-
-sub set_term_history {
-	my $keyboard = shift;
-#	my $h    = _history_file;
-#	if ( $keyboard->Features->{readHistory} ) {
-#		$keyboard->ReadHistory($h);
+#sub readintohist { # \@history, $prompt, [$default_input]
+#	local $SIG{INT} = 'IGNORE'; # do not interrupt pfm
+#	my $history	= shift;
+#	my $prompt	= shift || '';
+#	my $input	= shift || '';
+#	set_term_history($kbd, @$history);
+#	$input = $kbd->readline($prompt, $input);
+#	if ($input =~ /\S/ and $input ne ${$history}[-1]) {
+#		push (@$history, $input);
+#		shift (@$history) if ($#$history > $MAXHISTSIZE);
 #	}
-#	elsif ( $keyboard->Features->{setHistory} ) {
-#		if ( -e $h ) {
-#			my @h = File::Slurp::read_file($h);
-#			chomp @h;
-#			$keyboard->SetHistory(@h);
+#	return $input;
+#}
+#
+#sub set_term_history {
+#	my $keyboard = shift;
+##	my $h    = _history_file;
+##	if ( $keyboard->Features->{readHistory} ) {
+##		$keyboard->ReadHistory($h);
+##	}
+##	elsif ( $keyboard->Features->{setHistory} ) {
+##		if ( -e $h ) {
+##			my @h = File::Slurp::read_file($h);
+##			chomp @h;
+##			$keyboard->SetHistory(@h);
+##		}
+##	}
+#	if ($keyboard->Features->{setHistory}) {
+#		$keyboard->SetHistory(@_);
+#	}
+#	# else fail silently
+#	return $keyboard;
+#}
+#
+#sub mychdir {
+#	my $goal = $_[0];
+#	my $result;
+#	if ($goal eq '') {
+#		$goal = $ENV{HOME};
+#	} elsif (-d $goal and $goal !~ m!^/!) {
+#		$goal = "$currentdir/$goal";
+#	} elsif ($goal !~ m!/!) {
+#		foreach (split /:/, $ENV{CDPATH}) {
+#			if (-d "$_/$goal") {
+#				$goal = "$_/$goal";
+#				$scr->at(0,0)->clreol();
+#				display_error("Using $goal");
+#				$scr->at(0,0);
+#				last;
+#			}
 #		}
 #	}
-	if ($keyboard->Features->{setHistory}) {
-		$keyboard->SetHistory(@_);
-	}
-	# else fail silently
-	return $keyboard;
-}
-
-sub mychdir {
-	my $goal = $_[0];
-	my $result;
-	if ($goal eq '') {
-		$goal = $ENV{HOME};
-	} elsif (-d $goal and $goal !~ m!^/!) {
-		$goal = "$currentdir/$goal";
-	} elsif ($goal !~ m!/!) {
-		foreach (split /:/, $ENV{CDPATH}) {
-			if (-d "$_/$goal") {
-				$goal = "$_/$goal";
-				$scr->at(0,0)->clreol();
-				display_error("Using $goal");
-				$scr->at(0,0);
-				last;
-			}
-		}
-	}
-	$goal = canonicalize_path($goal);
-	if ($result = chdir $goal and $goal ne $currentdir) {
-		$oldcurrentdir = $currentdir;
-		$currentdir = $goal;
-		system("$chdirautocmd") if length($chdirautocmd);
-	}
-	return $result;
-}
-
-sub dirname {
-	$_[0] =~ m!^(.*)/.+?!;
-	return length($1) ? $1
-					  : $_[0] =~ m!^/! ? '/'
-									   : '.';
-}
-
-sub basename {
-	$_[0] =~ /\/([^\/]*)\/?$/; # ok, it has LTS but this looks better in vim
-	return length($1) ? $1 : $_[0];
-}
-
+#	$goal = canonicalize_path($goal);
+#	if ($result = chdir $goal and $goal ne $currentdir) {
+#		$oldcurrentdir = $currentdir;
+#		$currentdir = $goal;
+#		system("$chdirautocmd") if length($chdirautocmd);
+#	}
+#	return $result;
+#}
+#
+#sub dirname {
+#	$_[0] =~ m!^(.*)/.+?!;
+#	return length($1) ? $1
+#					  : $_[0] =~ m!^/! ? '/'
+#									   : '.';
+#}
+#
+#sub basename {
+#	$_[0] =~ /\/([^\/]*)\/?$/; # ok, it has LTS but this looks better in vim
+#	return length($1) ? $1 : $_[0];
+#}
+#
 sub reversepath {
 	# reverses the path from target to symlink, returns the path from symlink to target
 	my ($symlink_target_abs, $symlink_name_rel) = map { canonicalize_path($_) } @_;
@@ -1185,11 +1185,11 @@ sub isorphan {
 	return ! -e $_[0];
 }
 
-sub resizecatcher {
-	$wasresized = 1;
-	$SIG{WINCH} = \&resizecatcher;
-}
-
+#sub resizecatcher {
+#	$wasresized = 1;
+#	$SIG{WINCH} = \&resizecatcher;
+#}
+#
 sub quitcatcher {
 	$wasquit = 1;
 #	$SIG{QUIT} = \&quitcatcher;
@@ -1334,9 +1334,9 @@ sub convwhite {
 ##########################################################################
 # apply color
 
-sub putmessage {
-	$scr->putcolored($framecolors{$color_mode}{message}, @_);
-}
+#sub putmessage {
+#	$scr->putcolored($framecolors{$color_mode}{message}, @_);
+#}
 
 sub decidecolor {
 	my $f = shift;
@@ -1364,12 +1364,12 @@ sub applycolor {
 ##########################################################################
 # small printing routines
 
-sub validate_layoutnum {
-	while ($currentlayout > $#columnlayouts) {
-		$currentlayout -= @columnlayouts;
-	}
-	return $currentlayout;
-}
+#sub validate_layoutnum {
+#	while ($currentlayout > $#columnlayouts) {
+#		$currentlayout -= @columnlayouts;
+#	}
+#	return $currentlayout;
+#}
 
 sub makeformatlines {
 	my ($squeezedlayoutline, $currentlayoutline, $firstwronglayout, $prev, $letter, $trans, $temp);
@@ -1494,9 +1494,7 @@ sub pathline {
 
 sub fileline { # $currentfile, @layoutfields
 	my ($currentfile, @fields) = @_;
-	$^A = '';
-	formline($currentformatline, @{$currentfile}{@fields});
-	return $^A;
+	return formatted($currentformatline, @{$currentfile}{@fields});
 }
 
 sub highlightline { # true/false
@@ -1536,11 +1534,11 @@ sub pressanykey {
 	return 0;
 }
 
-sub display_error {
-	putmessage(@_);
-	return $scr->key_pressed($ERRORDELAY); # return value often discarded by caller
-}
-
+#sub display_error {
+#	putmessage(@_);
+#	return $scr->key_pressed($ERRORDELAY); # return value often discarded by caller
+#}
+#
 sub neat_error {
 	$scr->at(0,0)->clreol();
 	display_error($_[0]);
@@ -1984,12 +1982,17 @@ sub handlemultiple {
 	return $R_MENU;
 }
 
-sub handlelayouts {
-	$currentlayout++;
-	makeformatlines();
-	reformat();
-	return $R_SCREEN;
-}
+#sub handlelayouts {
+#	$currentlayout++;
+#	$_screen->listing->layout($startinglayout);
+#}
+#
+#sub layout {
+#	$currentlayout++;
+#	makeformatlines();
+#	reformat();
+#	return $R_SCREEN;
+#}
 
 sub handlerefresh {
 	return ok_to_remove_marks() ? $R_DIRCONTENTS | $R_DIRSORT | $R_SCREEN
@@ -3998,25 +4001,25 @@ sub showdiskinfo {
 # should be refreshed.
 # the following are valid return values:
 #
-# $R_NOP    (=0) : no action was required, wait for new key
-# $R_STRIDE		 : refresh %currentfile, validate cursor position (always done)
-# $R_MENU		 : reprint the header
-# $R_PATHINFO	 : reprint the pathinfo
-# $R_HEADINGS		 : reprint the title
-# $R_FOOTER		 : reprint the footer
-# $R_FRAME		 : combination of R_MENU, R_PATHINFO, R_HEADINGS and R_FOOTER
-# $R_DISKINFO	 : reprint the disk- and directory info column
-# $R_DIRLIST	 : redisplay directory listing
-# $R_DIRFILTER	 : decide which entries to display (init @showncontents)
-# $R_SCREEN		 : combination of R_DIRFILTER, R_DIRLIST, R_DISKINFO and R_FRAME
-# $R_CLEAR		 : clear the screen
-# $R_CLRSCR		 : combination of R_CLEAR and R_SCREEN
-# $R_DIRSORT	 : resort @dircontents
-# $R_DIRCONTENTS : reread directory contents
-# $R_NEWDIR		 : re-init directory-specific vars
-# $R_CHDIR		 : combination of R_NEWDIR, R_DIRCONTENTS, R_DIRSORT, R_SCREEN
-# $R_INIT_SWAP	 : after reading the directory, we should be swapped immediately
-# $R_QUIT		 : exit from program
+# $R_NOP    (=0) # no action was required, wait for new key
+# $R_STRIDE		 # refresh %currentfile, validate cursor position (always done)
+# $R_MENU		 # reprint the menu (header)
+# $R_PATHINFO	 # reprint the pathinfo
+# $R_HEADINGS	 # reprint the headings
+# $R_FOOTER		 # reprint the footer
+# $R_FRAME		 # combination of R_MENU, R_PATHINFO, R_HEADINGS and R_FOOTER
+# $R_DISKINFO	 # reprint the disk- and directory info column
+# $R_DIRLIST	 # redisplay directory listing
+# $R_DIRFILTER	 # decide which entries to display (init @showncontents)
+# $R_SCREEN		 # combination of R_DIRFILTER, R_DIRLIST, R_DISKINFO and R_FRAME
+# $R_CLEAR		 # clear the screen
+# $R_CLRSCR		 # combination of R_CLEAR and R_SCREEN
+# $R_DIRSORT	 # resort @dircontents
+# $R_DIRCONTENTS # reread directory contents
+# $R_NEWDIR		 # re-init directory-specific vars
+# $R_CHDIR		 # combination of R_NEWDIR, R_DIRCONTENTS, R_DIRSORT, R_SCREEN
+# $R_INIT_SWAP	 # after reading the directory, we should be swapped immediately
+# $R_QUIT		 # exit from program
 
 sub browse {
 	my $wantrefresh = shift;

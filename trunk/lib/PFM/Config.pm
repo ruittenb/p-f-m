@@ -25,13 +25,12 @@ use constant {
 	READ_FIRST		=> 1,
 	NO_COPYRIGHT	=> 0,
 	SHOW_COPYRIGHT	=> 1,
+	CONFIGDIRNAME	=> "$ENV{HOME}/.pfm",
+	CONFIGFILENAME	=> '.pfmrc',
+	CONFIGDIRMODE	=> 0700,
 };
 
 my ($_configfilename, %_pfmrc);
-
-my $CONFIGDIRNAME		= "$ENV{HOME}/.pfm";
-my $CONFIGFILENAME		= '.pfmrc';
-my $CONFIGDIRMODE		= 0700;
 
 ##########################################################################
 # private subs
@@ -381,7 +380,8 @@ cursorveryvisible:yes
 ## initial setting for automatically clobbering existing files (toggle with !)
 defaultclobber:no
 
-## initial colorset to pick from the various colorsets defined below (cycle with F4)
+## initial colorset to pick from the various colorsets defined below
+## (cycle with F4)
 defaultcolorset:dark
 
 ## show dot files initially? (hide them otherwise, toggle with . key)
@@ -390,16 +390,20 @@ defaultdotmode:yes
 ## initial ident mode (user, host, or user@host, cycle with = key)
 defaultident:user
 
-## initial layout to pick from the array 'columnlayouts' (see below) (cycle with F9)
+## initial layout to pick from the array 'columnlayouts' (see below)
+## (cycle with F9)
 defaultlayout:0
 
-## initially turn on mouse support? (yes,no,xterm) (default: only in xterm) (toggle with F12)
+## initially turn on mouse support? (yes,no,xterm) (default: only in xterm)
+## (toggle with F12)
 defaultmousemode:xterm
 
-## initially display logical or physical paths? (log,phys) (default: log) (toggle with ")
+## initially display logical or physical paths? (log,phys) (default: log)
+## (toggle with ")
 defaultpathmode:log
 
-## initial radix that Name will use to display non-ascii chars with (hex,oct) (toggle with *)
+## initial radix that Name will use to display non-ascii chars with (hex,oct)
+## (toggle with *)
 defaultradix:hex
 
 ## initial sort mode (nNmMeEfFsSzZiItTdDaA) (default: n) (select with F6)
@@ -423,8 +427,8 @@ editor:vi
 ## the erase character for your terminal (default: don't set)
 #erase:^H
 
-## the character that pfm recognizes as special abbreviation character (default =)
-## previous versions used \ (note that this leads to confusing results)
+## the character that pfm recognizes as special abbreviation character
+## (default =). Previous versions used \ but this leads to confusing results.
 #escapechar:=
 #escapechar:\
 
@@ -563,8 +567,9 @@ pi=yellow on black:so=bold magenta:\
 do=bold magenta:nt=bold magenta:wh=bold black on white:\
 *.cmd=bold green:*.exe=bold green:*.com=bold green:*.btm=bold green:\
 *.bat=bold green:*.pas=green:*.c=magenta:*.h=magenta:*.pm=cyan:*.pl=cyan:\
-*.htm=bold yellow:*.phtml=bold yellow:*.html=bold yellow:*.php=yellow:*.tar=bold red:\
-*.tgz=bold red:*.arj=bold red:*.taz=bold red:*.lzh=bold red:*.zip=bold red:*.rar=bold red:\
+*.htm=bold yellow:*.phtml=bold yellow:*.html=bold yellow:*.php=yellow:\
+*.tar=bold red:*.tgz=bold red:*.arj=bold red:*.taz=bold red:*.lzh=bold red:\
+*.zip=bold red:*.rar=bold red:\
 *.z=bold red:*.Z=bold red:*.gz=bold red:*.bz2=bold red:*.deb=red:*.rpm=red:\
 *.pkg=red:*.jpg=bold magenta:*.gif=bold magenta:*.bmp=bold magenta:\
 *.xbm=bold magenta:*.xpm=bold magenta:*.png=bold magenta:\
@@ -577,9 +582,11 @@ pi=reset yellow on black:so=bold magenta:\
 do=bold magenta:nt=bold magenta:wh=bold white on black:\
 *.cmd=bold green:*.exe=bold green:*.com=bold green:*.btm=bold green:\
 *.bat=bold green:*.pas=green:*.c=magenta:*.h=magenta:*.pm=on cyan:*.pl=on cyan:\
-*.htm=black on yellow:*.phtml=black on yellow:*.html=black on yellow:*.php=black on yellow:\
-*.tar=bold red:*.tgz=bold red:*.arj=bold red:*.taz=bold red:*.lzh=bold red:*.zip=bold red:\
-*.rar=bold red:*.z=bold red:*.Z=bold red:*.gz=bold red:*.bz2=bold red:*.deb=red:*.rpm=red:\
+*.htm=black on yellow:*.phtml=black on yellow:*.html=black on yellow:\
+*.php=black on yellow:
+*.tar=bold red:*.tgz=bold red:*.arj=bold red:*.taz=bold red:*.lzh=bold red:\
+*.zip=bold red:*.rar=bold red:\
+*.z=bold red:*.Z=bold red:*.gz=bold red:*.bz2=bold red:*.deb=red:*.rpm=red:\
 *.pkg=red:*.jpg=bold magenta:*.gif=bold magenta:*.bmp=bold magenta:\
 *.xbm=bold magenta:*.xpm=bold magenta:*.png=bold magenta:\
 *.mpg=bold white on blue:*.avi=bold white on blue:\
@@ -824,7 +831,7 @@ launch[application/x-arj]         : unarj x =2
 launch[application/x-befunge]     : mtfi =2
 launch[application/x-bzip2]       : bunzip2 =2
 launch[application/x-c]           : gcc -o =1 =2
-launch[application/x-chem]        : chem =2 | groff -pteR -mm > =1.ps; gv =1.ps &
+launch[application/x-chem]        : chem =2|groff -pteR -mm > =1.ps; gv =1.ps &
 launch[application/x-compress]    : uncompress =2
 launch[application/x-intercal]    : ick =2
 launch[application/x-deb]         : dpkg -L =2

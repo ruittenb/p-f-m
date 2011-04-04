@@ -20,7 +20,8 @@ use base 'PFM::Abstract';
 
 use Term::ReadLine;
 
-my ($_pfm, $_keyboard);
+my ($_pfm,
+	@_signame, $_white_cmd, @_unwo_cmd);
 
 ##########################################################################
 # private subs
@@ -33,8 +34,57 @@ Initializes new instances. Called from the constructor.
 
 sub _init {
 	my ($self, $pfm) = @_;
-	$_pfm      = $pfm;
-	$_keyboard = new Term::ReadLine('pfm');
+	$_pfm = $pfm;
+	$self->_init_signames();
+	$self->_init_white_commands();
+}
+
+=item _init_signames()
+
+Initializes the array of signal names. Called from _init().
+
+=cut
+
+sub _init_signames {
+	my $self = shift;
+	my $i = 0;
+	foreach (split(/ /, $Config{sig_name})) {
+		$_signame[$i++] = $_;
+	}
+}
+
+=item _init_white_commands()
+
+Finds out which commands should be used for listing and deleting whiteouts.
+Called from _init().
+
+=cut
+
+sub _find_white_commands {
+	my $self = shift;
+	my $white_cmd = '';
+	my @unwo_cmd  = ();
+	foreach (split /:/, $ENV{PATH}) {
+		if (!@unwo_cmd) {
+			if (-f "$_/unwhiteout") {
+				@unwo_cmd = qw(unwhiteout);
+			} elsif (-f "$_/unwo") {
+				@unwo_cmd = qw(unwo);
+			}
+		}
+		if (!$white_cmd) {
+			if (-f "$_/listwhite") {
+				$white_cmd = 'listwhite';
+			} elsif (-f "$_/lsw") {
+				$white_cmd = 'lsw';
+			}
+		}
+	}
+	unless (@unwo_cmd) {
+		@unwo_cmd = qw(rm -W);
+	}
+	$_white_cmd = $white_cmd;
+	@_unwo_cmd  = @unwo_cmd;
 }
 
 =item _credits()
@@ -76,6 +126,22 @@ _eoCredits_
 	$_pfm->screen->stty_raw($TERM_RAW)->getch();
 }
 
+##########################################################################
+# constructor, getters and setters
+
+##########################################################################
+# public subs
+
+=item whitesupport()
+
+Returns a boolean indicating if this system supports whiteout commands.
+
+=cut
+
+sub whitesupport {
+	return ($_white_cmd ne '');
+}
+
 =item handlepan()
 
 Handle the pan keys B<E<lt>> and B<E<gt>>.
@@ -87,11 +153,10 @@ sub handlepan {
 	$_pfm->screen->frame->pan($key, $mode);
 }
 
-##########################################################################
-# constructor, getters and setters
-
-##########################################################################
-# public subs
+sub handlelayouts {
+	my $self = shift;
+	$_pfm->screen->listing->show_next_layout();
+}
 
 ##########################################################################
 

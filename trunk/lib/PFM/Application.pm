@@ -33,8 +33,9 @@ use strict;
 use constant PFM_URL => 'http://p-f-m.sourceforge.net/';
 
 my ($_bootstrapped,
-	$_browser, $_screen, $_commandhandler, $_config, $_state, $_swap_state,
-	$_swap_mode);
+	$_browser, $_screen, $_commandhandler, $_config, $_history,
+	@_states,
+);
 
 ##########################################################################
 # private subs
@@ -60,7 +61,8 @@ last change date. These are returned as an array.
 sub _findversion {
 	my $self    = shift;
 	my $version = 'unknown';
-	my $year    = 3 * 10 * 67; # default, in case the year cannot be determined
+	# default year, in case the year cannot be determined
+	my $year    = 3 * 10 * 67;
 	# the pragma 'locale' causes problems when the source is read in using UTF-8
 	no locale;
 	if (open (SELF, __FILE__)) {
@@ -71,41 +73,6 @@ sub _findversion {
 		close SELF;
 	}
 	return ($version, $year);
-}
-
-=item _find_white_commands()
-
-Finds out which commands should be used for listing and deleting whiteouts.
-
-=cut
-
-sub _find_white_commands {
-	# TODO should this be split up? in CommandHandler?
-	my $self = shift;
-	my ($white_cmd, @unwo_cmd);
-	$white_cmd = '';
-	@unwo_cmd  = ();
-	foreach (split /:/, $ENV{PATH}) {
-		if (!@unwo_cmd) {
-			if (-f "$_/unwhiteout") {
-				@unwo_cmd = qw(unwhiteout);
-			} elsif (-f "$_/unwo") {
-				@unwo_cmd = qw(unwo);
-			}
-		}
-		if (!$white_cmd) {
-			if (-f "$_/listwhite") {
-				$white_cmd = 'listwhite';
-			} elsif (-f "$_/lsw") {
-				$white_cmd = 'lsw';
-			}
-		}
-	}
-	unless (@unwo_cmd) {
-		@unwo_cmd = qw(rm -W);
-	}
-	$_white_cmd = $white_cmd;
-	@_unwo_cmd  = @unwo_cmd;
 }
 
 =item _usage()
@@ -149,13 +116,14 @@ Prints a goodbye message and restores the screen to a usable state.
 =cut
 
 sub _goodbye {
-	my $self = shift;
-	my $bye  = 'Goodbye from your Personal File Manager!';
+	my $self  = shift;
+	my $bye   = 'Goodbye from your Personal File Manager!';
+	my $state = $_states[0];
 	$_screen->stty_cooked();
 	$_screen->mouse_disable();
 	$_screen->alternate_off();
 	system qw(tput cnorm) if $_config->{cursorveryvisible};
-	if ($_state->{altscreen_mode}) {
+	if ($state->{altscreen_mode}) {
 		print "\n";
 	} else {
 		if ($_config->{clsonexit}) {
@@ -167,7 +135,7 @@ sub _goodbye {
 	}
 	$self->_write_cwd();
 	$self->_write_history() if $_config->{autowritehistory};
-	if ($_state->{altscreen_mode} or !$_config->{clsonexit}) {
+	if ($state->{altscreen_mode} or !$_config->{clsonexit}) {
 		$_screen->at($_screen->screenheight + $_screen->BASELINE + 1, 0)
 				->clreol();
 	}
@@ -200,36 +168,42 @@ sub _check_for_updates {
 
 =item screen()
 
-Getter/setter for the PFM::Screen object.
+=item commandhandler()
+
+=item config()
+
+=item history()
+
+Getters for the PFM::Screen, PFM::CommandHandler, PFM::Config and
+PFM::History objects.
+
+=item state()
+
+Getter for the current PFM::State object. If an argument is provided,
+it indicates which item from the state stack is to be returned.
 
 =cut
 
 sub screen {
-	my ($self, $value) = @_;
-	$_screen = $value if defined $value;
 	return $_screen;
 }
 
-=item config()
-
-Getter for the PFM::Config object.
-
-=cut
+sub commandhandler {
+	return $_commandhandler;
+}
 
 sub config {
-	my ($self, $value) = @_;
 	return $_config;
 }
 
-=item state()
-
-Getter for the PFM::State object.
-
-=cut
+sub history {
+	return $_history;
+}
 
 sub state {
 	my ($self, $value) = @_;
-	return $_state;
+	$value ||= 0;
+	return $_states[$value];
 }
 
 ##########################################################################
@@ -244,40 +218,44 @@ Instantiates the necessary objects.
 
 sub bootstrap {
 	my $self = shift;
-	my ($startingdir, $opt_version, $opt_help, $invalid);
-
+	my ($startingdir, $swapstartdir, $startinglayout,
+		$opt_version, $opt_help, $invalid, $state);
+	
 	# hand over the application object to the other classes
 	# for easy access.
-	$_screen         = new PFM::Screen($self);
-	$_commandhandler = new PFM::CommandHandler($self);
-	$_state          = new PFM::State();
-
+	$_screen	 = new PFM::Screen($self);
+	push @_states, new PFM::State($self);
+	
 	Getopt::Long::Configure(qw'bundling permute');
 	GetOptions ('s|swap=s'   => \$swapstartdir,
-				'l|layout=i' => \$currentlayout,
+				'l|layout=i' => \$startinglayout,
 				'h|help'     => \$opt_help,
-				'v|version'  => \$opt_version) or $invalid = 2;
+				'v|version'  => \$opt_version) or $invalid = 1;
 	$self->_usage()			if $opt_help;
 	$self->_printversion()	if $opt_version;
 	exit 1					if $invalid;
 	exit 0					if $opt_help || $opt_version;
-
-	# TODO
-#	$startingdir = shift @ARGV;
-#	$SIG{WINCH}  = \&resizecatcher;
+	
+	$startingdir = shift @ARGV;
+	$_state[0]->currentdir($startingdir);
+	
+	$_commandhandler = new PFM::CommandHandler($self);
+	$_history		 = new PFM::History($self);
+	$_browser		 = new PFM::Browser($self);
+	
+	$_screen->listing->layout($startinglayout);
 	$_screen->clrscr();
 	$_screen->recalculate_dimensions();
-	$_swap_mode	 = 0;
-	$_swap_state	= new PFM::State();
-#	@signame		= init_signames();
-#	$baseindex		= 0;
-	$self->_find_white_commands();
 	$_config = new PFM::Config();
 	$_config->read( $self, $_config->READ_FIRST);
 	$_config->parse($self, $_config->SHOW_COPYRIGHT);
-#	read_history();
+	$_history->read();
 	$_screen->draw_frame();
-#	# now find starting directory
+#	# now find starting directory TODO
+	if ($_config->) {
+		push @_states, new PFM::State($self, 1);
+		$_state[1]->currentdir($swapstartdir);
+	}
 #	$oldcurrentdir = $currentdir = getcwd();
 #	if ($startingdir ne '') {
 #		unless (mychdir($startingdir)) {
@@ -286,10 +264,6 @@ sub bootstrap {
 #			$scr->key_pressed($IMPORTANTDELAY);
 #		}
 #	}
-
-
-	$_browser = new PFM::Browser();
-
 	$_bootstrapped = 1;
 }
 
@@ -304,9 +278,6 @@ sub run {
 	$self->bootstrap() if !$_bootstrapped;
 
 	#TODO
-	$_screen->demo();
-	$_commandhandler->demo();
-	# TODO
 
 	$self->_goodbye();
 	$self->_check_for_updates() if $_config->{check_for_updates};

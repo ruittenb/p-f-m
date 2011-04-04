@@ -37,8 +37,8 @@ use base 'Exporter';
 
 use Carp;
 
-our @EXPORT = qw(min max inhibit triggle toggle isxterm isyes isno
-				 formatted svnmaxchar svnmax);
+our @EXPORT = qw(min max inhibit triggle toggle isyes isno basename dirname
+				 isxterm formatted svnmaxchar svnmax);
 
 my $XTERMS = qr/^(.*xterm.*|rxvt.*|gnome.*|kterm)$/;
 
@@ -107,6 +107,27 @@ Determines if a certain value for $ENV{TERM} is compatible with 'xterm'.
 
 sub isxterm($) {
 	return $_[0] =~ $XTERMS;
+}
+
+=item basename()
+
+=item dirname()
+
+Determine the filename without directory (basename) or directoryname
+containing the file (dirname) for the specified path.
+
+=cut
+
+sub dirname {
+	$_[0] =~ m!^(.*)/.+?!;
+	return length($1) ? $1
+					  : $_[0] =~ m!^/! ? '/'
+									   : '.';
+}
+
+sub basename {
+	$_[0] =~ m{/([^/]*)/?$};
+	return length($1) ? $1 : $_[0];
 }
 
 =item isyes()
