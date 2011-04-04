@@ -1,7 +1,7 @@
 TERM_CAP=Term-Cap-1.12
 TERM_SCREEN=Term-Screen-1.03
-TERM_SCREENCOLOR=Term-ScreenColor-1.20
-TERM_READLINE_GNU=Term-ReadLine-Gnu-1.20
+TERM_SCREENCOLOR=Term-ScreenColor-1.10
+TERM_READLINE_GNU=Term-ReadLine-Gnu-1.19
 
 all: Term-Cap Term-Screen Term-Screen-Uni Term-ScreenColor Term-ReadLine-Gnu
 

@@ -1,9 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
+# @(#) pfm.pl 2010-04-01 v2.00.9
 #
 # Name:			pfm
-# Version:		2.00.8
+# Version:		2.00.9
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-04-01
@@ -22,13 +23,13 @@
 ##########################################################################
 # version macros for *roff
 
-$VERSION='
+our $PODVERSION = '
 
 =pod
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.00.8
+.ds Vw @(#) pfm.pl 2.00.9
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -1449,6 +1450,8 @@ Term::ReadLine(3pm), PFM::Abstract(3pm), PFM::Application(3pm),
 PFM::Browser(3pm), PFM::CommandHandler(3pm), PFM::Config(3pm),
 PFM::Directory(3pm), PFM::History(3pm), PFM::Job(3pm),
 PFM::Screen(3pm), PFM::State(3pm) and PFM::Util(3pm).
+
+L<http://p-f-m.sourceforge.net/>
 
 =cut
 

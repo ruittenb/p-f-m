@@ -190,8 +190,8 @@ our($FALSE,
 *FILENAME_LONG	= \1;
 *HIGHLIGHT_OFF	= \0;
 *HIGHLIGHT_ON	= \1;
-*TIME_FILE		= \0;
-*TIME_CLOCK		= \1;
+#*TIME_FILE		= \0;
+#*TIME_CLOCK		= \1;
 #*HEADER_SINGLE	= \0;
 #*HEADER_MULTI	= \1;
 #*HEADER_MORE	= \2;
@@ -715,19 +715,19 @@ sub find_gid {
 #	return @signame;
 #}
 #
-sub setornaments {
-	my $messcolor = $framecolors{$color_mode}{message};
-	my @cols;
-	unless (exists $ENV{PERL_RL}) {
-		# this would have been nice, however,
-		# readline processes only the first (=most important) capability
-		push @cols, 'mr' if ($messcolor =~ /reverse/);
-		push @cols, 'md' if ($messcolor =~ /bold/);
-		push @cols, 'us' if ($messcolor =~ /under(line|score)/);
-#		$kbd->ornaments(join(';', @cols) . ',me,,');
-		$kbd->ornaments($cols[0] . ',me,,');
-	}
-}
+#sub setornaments {
+#	my $messcolor = $framecolors{$color_mode}{message};
+#	my @cols;
+#	unless (exists $ENV{PERL_RL}) {
+#		# this would have been nice, however,
+#		# readline processes only the first (=most important) capability
+#		push @cols, 'mr' if ($messcolor =~ /reverse/);
+#		push @cols, 'md' if ($messcolor =~ /bold/);
+#		push @cols, 'us' if ($messcolor =~ /under(line|score)/);
+##		$kbd->ornaments(join(';', @cols) . ',me,,');
+#		$kbd->ornaments($cols[0] . ',me,,');
+#	}
+#}
 
 #sub formatted {
 #	local $^A = '';
@@ -735,16 +735,16 @@ sub setornaments {
 #	return $^A;
 #}
 
-sub time2str {
-	my ($time, $flag) = @_;
-	if ($flag == $TIME_FILE) {
-		return strftime ($pfmrc{timestampformat}, localtime $time);
-	} else {
-		return strftime ($pfmrc{clockdateformat}, localtime $time),
-			   strftime ($pfmrc{clocktimeformat}, localtime $time);
-	}
-}
-
+#sub time2str {
+#	my ($time, $flag) = @_;
+#	if ($flag == $TIME_FILE) {
+#		return strftime ($pfmrc{timestampformat}, localtime $time);
+#	} else {
+#		return strftime ($pfmrc{clockdateformat}, localtime $time),
+#			   strftime ($pfmrc{clocktimeformat}, localtime $time);
+#	}
+#}
+#
 sub mode2str {
 	my $strmode;
 	my $nummode = shift; # || 0;
@@ -1516,23 +1516,23 @@ sub markcurrentline { # letter
 	$scr->at($currentline + $BASELINE, $cursorcol)->puts($_[0]);
 }
 
-sub pressanykey {
-	putmessage("\r\n*** Hit any key to continue ***");
-	stty_raw($TERM_RAW);
-	mouseenable($MOUSE_ON) if $mouse_mode && $mouseturnoff;
-	if ($scr->getch() eq 'kmous') {
-		$scr->getch(); # discard mouse info: co-ords and button
-		$scr->getch();
-		$scr->getch();
-	};
-	# the output of the following command should start on a new line
-	# does not work correctly in TERM_RAW mode
-#	$scr->puts("\n");
-	alternate_screen($ALTERNATE_ON) if $altscreen_mode;
-	return handleresize() if $wasresized;
-	return 0;
-}
-
+#sub pressanykey {
+#	putmessage("\r\n*** Hit any key to continue ***");
+#	stty_raw($TERM_RAW);
+#	mouseenable($MOUSE_ON) if $mouse_mode && $mouseturnoff;
+#	if ($scr->getch() eq 'kmous') {
+#		$scr->getch(); # discard mouse info: co-ords and button
+#		$scr->getch();
+#		$scr->getch();
+#	};
+#	# the output of the following command should start on a new line
+#	# does not work correctly in TERM_RAW mode
+##	$scr->puts("\n");
+#	alternate_screen($ALTERNATE_ON) if $altscreen_mode;
+#	return handleresize() if $wasresized;
+#	return 0;
+#}
+#
 #sub display_error {
 #	putmessage(@_);
 #	return $scr->key_pressed($ERRORDELAY); # return value often discarded by caller
@@ -1592,12 +1592,12 @@ sub promptforwildfilename {
 	return $wildfilename;
 }
 
-sub clearcolumn {
-	my $spaces = ' ' x $infolength;
-	foreach ($BASELINE .. $BASELINE+$screenheight) {
-		$scr->at($_, $infocol)->puts($spaces);
-	}
-}
+#sub clearcolumn {
+#	my $spaces = ' ' x $infolength;
+#	foreach ($BASELINE .. $BASELINE+$screenheight) {
+#		$scr->at($_, $infocol)->puts($spaces);
+#	}
+#}
 
 #sub path_info {
 #	$scr->at($PATHLINE, 0)->puts(pathline($currentdir, $disk{'device'}));
@@ -1820,14 +1820,14 @@ sub clearcolumn {
 ##########################################################################
 # system information
 
-sub str_informatted {
-	formatted('@' . '>' x ($infolength-1), @_);
-}
-
-sub data_informatted {
-	formatted('@' . '>' x ($infolength-7) . ' @<<<<<', @_);
-}
-
+#sub str_informatted {
+#	formatted('@' . '>' x ($infolength-1), @_);
+#}
+#
+#sub data_informatted {
+#	formatted('@' . '>' x ($infolength-7) . ' @<<<<<', @_);
+#}
+#
 #sub user_info {
 #	$scr->at($USERINFOLINE, $infocol)->putcolored(($> ? 'normal' : 'red'), str_informatted($ident));
 #}
@@ -2009,12 +2009,12 @@ sub handlecolor {
 	return $R_SCREEN;
 }
 
-sub initident {
-	chomp ($ident  = getpwuid($>)  ) unless $ident_mode == 1;
-	chomp ($ident  = `hostname`    )     if $ident_mode == 1;
-	chomp ($ident .= '@'.`hostname`)     if $ident_mode == 2;
-	return $R_DISKINFO | $R_FOOTER;
-}
+#sub initident {
+#	chomp ($ident  = getpwuid($>)  ) unless $ident_mode == 1;
+#	chomp ($ident  = `hostname`    )     if $ident_mode == 1;
+#	chomp ($ident .= '@'.`hostname`)     if $ident_mode == 2;
+#	return $R_DISKINFO | $R_FOOTER;
+#}
 
 sub handleident {
 	triggle($ident_mode);
@@ -2037,13 +2037,13 @@ sub handleradix {
 	return $R_FOOTER;
 }
 
-sub handleresize {
-	$wasresized = 0;
-	handlefit();
-	validate_position();
-	return $R_CLRSCR;
-}
-
+#sub handleresize {
+#	$wasresized = 0;
+#	handlefit();
+#	validate_position();
+#	return $R_CLRSCR;
+#}
+#
 sub preparercscol {
 	my $file = shift;
 	my (%nameindexmap, $count);
@@ -2366,21 +2366,21 @@ sub handlefind_incremental {
 	return $R_MENU;
 }
 
-sub handlefit {
-	$scr->resize();
-	my $newheight = $scr->rows();
-	my $newwidth  = $scr->cols();
-	if ($newheight || $newwidth) {
-#		$ENV{ROWS}    = $newheight;
-#		$ENV{COLUMNS} = $newwidth;
-		$screenheight = $newheight - $BASELINE - 2;
-		$screenwidth  = $newwidth;
-	}
-	makeformatlines();
-	reformat();
-	return $R_CLRSCR;
-}
-
+#sub handlefit {
+#	$scr->resize();
+#	my $newheight = $scr->rows();
+#	my $newwidth  = $scr->cols();
+#	if ($newheight || $newwidth) {
+##		$ENV{ROWS}    = $newheight;
+##		$ENV{COLUMNS} = $newwidth;
+#		$screenheight = $newheight - $BASELINE - 2;
+#		$screenwidth  = $newwidth;
+#	}
+#	makeformatlines();
+#	reformat();
+#	return $R_CLRSCR;
+#}
+#
 sub handleperlcommand {
 	my $perlcmd;
 	markcurrentline('@'); # disregard multiple_mode
@@ -3376,6 +3376,7 @@ sub handlecopyrename {
 	expand_3456_escapes($QUOTE_OFF, ($testname = $newname), \%currentfile);
 	# assignment on purpose, executed before evaluation of return value
 	return $R_MENU | $multi2single if $multi2single = multi_to_single($testname);
+	$scr->at(1,0)->clreol() unless $clobber_mode;
 	$do_this = sub {
 #		if ($state eq 'C' and $loopfile->{type} =~ /[ld]/ ) { # move this outsde of do_this
 #			# AIX: cp -r follows symlink
@@ -3458,27 +3459,27 @@ sub handleselect {
 	return $R_DISKINFO;
 }
 
-sub validate_position {
-	# requirement: $showncontents[$currentline+$baseindex] is defined
-	my $do_a_refresh;
-	if ($currentline < 0) {
-		$baseindex    += $currentline;
-		$baseindex     < 0 and $baseindex = 0;
-		$currentline   = 0;
-		$do_a_refresh |= $R_DIRLIST;
-	}
-	if ($currentline > $screenheight) {
-		$baseindex    += $currentline - $screenheight;
-		$currentline   = $screenheight;
-		$do_a_refresh |= $R_DIRLIST;
-	}
-	if ($currentline + $baseindex > $#showncontents) {
-		$currentline   = $#showncontents - $baseindex;
-		$do_a_refresh |= $R_DIRLIST;
-	}
-	return $do_a_refresh;
-}
-
+#sub validate_position {
+#	# requirement: $showncontents[$currentline+$baseindex] is defined
+#	my $do_a_refresh;
+#	if ($currentline < 0) {
+#		$baseindex    += $currentline;
+#		$baseindex     < 0 and $baseindex = 0;
+#		$currentline   = 0;
+#		$do_a_refresh |= $R_DIRLIST;
+#	}
+#	if ($currentline > $screenheight) {
+#		$baseindex    += $currentline - $screenheight;
+#		$currentline   = $screenheight;
+#		$do_a_refresh |= $R_DIRLIST;
+#	}
+#	if ($currentline + $baseindex > $#showncontents) {
+#		$currentline   = $#showncontents - $baseindex;
+#		$do_a_refresh |= $R_DIRLIST;
+#	}
+#	return $do_a_refresh;
+#}
+#
 sub handlescroll {
 	local $_ = $_[0];
 	return 0 if (/\cE/ && $baseindex == $#showncontents && $currentline == 0)

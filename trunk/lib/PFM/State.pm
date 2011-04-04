@@ -1,16 +1,32 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::State 2010-03-27 v0.01
+# @(#) PFM::State 0.01
 #
 # Name:			PFM::State.pm
 # Version:		0.01
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-03-27
-# Description:	PFM class used for storing the current state of the
-#				application.
+# Date:			2010-04-01
 #
+
+##########################################################################
+
+=pod
+
+=head1 NAME
+
+PFM::State
+
+=head1 DESCRIPTION
+
+PFM class used for storing the current state of the application.
+
+=head1 METHODS
+
+=over
+
+=cut
 
 ##########################################################################
 # declarations
