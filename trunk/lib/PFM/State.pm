@@ -56,19 +56,19 @@ sub _init {
 	my ($self, $pfm, $swap_mode) = @_;
 	$_pfm					= $pfm;
 	$_directory				= new PFM::Directory($pfm);
-	$self->{multiple_mode}	= 0;
+	$self->{multiple_mode}	= undef;
 	$self->{swap_mode}		= $swap_mode;
 	# TODO some of these may have to be moved elsewhere.
-	$self->{color_mode}		= 0; # Screen
-	$self->{sort_mode}		= 0; # Screen::Listing
-	$self->{currentlayout}	= 0; # Screen::Listing
-	$self->{mouse_mode}		= 0; # Browser
-	$self->{clobber_mode}	= 0; # CommandHandler
-	$self->{dot_mode}		= 0; # Screen::Listing
-	$self->{white_mode}		= 0; # Screen::Listing
-	$self->{path_mode}		= 0; # Directory
-	$self->{radix_mode}		= 0; # Screen::Listing
-#	$self->{ident_mode}		= 0; # Screen::Diskinfo
+	$self->{color_mode}		= undef; # Screen
+	$self->{sort_mode}		= undef; # Screen::Listing
+	$self->{currentlayout}	= undef; # Screen::Listing
+	$self->{mouse_mode}		= undef; # Browser
+	$self->{clobber_mode}	= undef; # CommandHandler
+	$self->{dot_mode}		= undef; # Screen::Listing
+	$self->{white_mode}		= undef; # Screen::Listing
+	$self->{path_mode}		= undef; # Directory
+	$self->{radix_mode}		= undef; # Screen::Listing
+#	$self->{ident_mode}		= undef; # Screen::Diskinfo
 }
 
 ##########################################################################

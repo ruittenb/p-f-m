@@ -64,10 +64,33 @@ use constant FILETYPEFLAGS => {
 	# => '+', # Hidden directory (AIX only) or context dependent (HP/UX only)
 };
 
+my %LAYOUTFIELDS = (
+	'*' => 'selected',
+	'n' => 'display',
+	'N' => 'name_too_long',
+	's' => 'size_num',
+	'S' => 'size_power',
+	'z' => 'grand_num',
+	'Z' => 'grand_power',
+	'u' => 'uid',
+	'g' => 'gid',
+	'p' => 'mode',
+	'a' => 'atimestring',
+	'c' => 'ctimestring',
+	'm' => 'mtimestring',
+	'l' => 'nlink',
+	'i' => 'inode',
+	'd' => 'rdev',
+	'v' => 'svn',
+	'f' => 'diskinfo',
+);
+
 my ($_pfm, $_screen,
 	$_layout, $_cursorcol, @_layoutfields, @_layoutfieldswithinfo,
-	$_filerecordcol, $_filenamecol, $_maxfilenamelength,
+	$_filerecordcol, $_filenamecol,
+	$_maxfilenamelength, $_maxfilesizelength, $_maxgrandtotallength,
 	$_currentformatline, $_currentformatlinewithinfo,
+	$_formatname,
 );
 
 ##########################################################################
@@ -179,7 +202,9 @@ Getter/setter for the column of the cursor in the current layout.
 
 sub cursorcol {
 	my ($self, $value) = @_;
-	$_cursorcol = $value if defined $value;
+	if (defined $value) {
+		$_cursorcol = $value >= 0 ? $value : 0;
+	}
 	return $_cursorcol;
 }
 
@@ -191,7 +216,9 @@ Getter/setter for the column of the file record in the current layout.
 
 sub filerecordcol {
 	my ($self, $value) = @_;
-	$_filerecordcol = $value if defined $value;
+	if (defined $value) {
+		$_filerecordcol = $value >= 0 ? $value : 0;
+	}
 	return $_filerecordcol;
 }
 
@@ -203,7 +230,9 @@ Getter/setter for the column of the filename in the current layout.
 
 sub filenamecol {
 	my ($self, $value) = @_;
-	$_filenamecol = $value if defined $value;
+	if (defined $value) {
+		$_filenamecol = $value >= 0 ? $value : 0;
+	}
 	return $_filenamecol;
 }
 
@@ -267,6 +296,31 @@ sub maxfilenamelength {
 	my ($self, $value) = @_;
 	$_maxfilenamelength = $value if defined $value;
 	return $_maxfilenamelength;
+}
+
+=item maxfilesizelength()
+
+Getter/setter for the length of the filesize field in the current layout.
+
+=cut
+
+sub maxfilesizelength {
+	my ($self, $value) = @_;
+	$_maxfilesizelength = $value if defined $value;
+	return $_maxfilesizelength;
+}
+
+=item maxgrandtotallength()
+
+Getter/setter for the length of the 'siZe' (grand total) field in the
+current layout.
+
+=cut
+
+sub maxgrandtotallength {
+	my ($self, $value) = @_;
+	$_maxgrandtotallength = $value if defined $value;
+	return $_maxgrandtotallength;
 }
 
 ##########################################################################
@@ -354,11 +408,10 @@ Parses the configured layouts.
 
 =cut
 
-# TODO lots
 sub makeformatlines {
 	my $self = shift;
 	my ($squeezedlayoutline, $currentlayoutline, $firstwronglayout, $prev,
-		$letter, $trans, $temp);
+		$letter, $trans, $temp, $infocol, $infolength);
 	my $columnlayouts = $_pfm->config->{columnlayouts};
 	LAYOUT: {
 		$currentlayoutline = $columnlayouts->[$self->_validate_layoutnum()];
@@ -366,34 +419,37 @@ sub makeformatlines {
 		    and $currentlayoutline =~ /(^f|f$)/o
 			and $currentlayoutline =~ /\*/o)
 		{
-			$firstwronglayout ||= $currentlayout || '0 but true';
-			$scr->at(0,0)->clreol();
-			display_error("Bad layout #$currentlayout: a mandatory field is missing");
-			$scr->key_pressed($IMPORTANTDELAY);
-			$currentlayout++;
-			if (validate_layoutnum() != $firstwronglayout) {
+			$firstwronglayout ||= $_layout || '0 but true';
+			$_screen->at(0,0)->clreol()
+				->display_error(
+					"Bad layout #$_layout: a mandatory field is missing")
+				->important_delay();
+			$_layout++;
+			if ($self->_validate_layoutnum() != $firstwronglayout) {
 				redo LAYOUT;
 			} else {
-				alternate_screen($ALTERNATE_OFF);
-				$_screen->clrscr()->at(0,0)
+				$_screen
+					->alternate_off()
+					->clrscr()->at(0,0)
 				    ->puts("Fatal error: No valid layout defined in "
 						. $_pfm->config->give_location())
 					->at(1,0)
-					->stty_raw($TERM_COOKED)
+					->stty_cooked()
 					->mouse_disable();
 				exit 2;
 			}
 		}
 	}
 	# layouts are all based on a screenwidth of 80: elongate filename field
-	$currentlayoutline =~ s/n/'n' x ($screenwidth - 79)/e;
+	$currentlayoutline =~ s/n/'n' x ($_screen->screenwidth - 79)/e;
 	# find out the length of the filename, filesize, grand total and info fields
-	$infolength			=		($currentlayoutline =~ tr/f//);
-	$maxfilenamelength	=		($currentlayoutline =~ tr/n//);
-	$maxfilesizelength	= 10 ** ($currentlayoutline =~ tr/s// -1) -1;
-	if ($maxfilesizelength < 2) { $maxfilesizelength = 2 }
-	$maxgrandtotallength = 10 ** ($currentlayoutline =~ tr/z// -1) -1;
-	if ($maxgrandtotallength < 2) { $maxgrandtotallength = 2 }
+	$infolength =
+	$_screen->diskinfo->infolength($infolength = $currentlayoutline =~ tr/f//);
+	$_maxfilenamelength =           ($currentlayoutline =~ tr/n//);
+	$_maxfilesizelength =     10 ** ($currentlayoutline =~ tr/s// -1) -1;
+	if ($_maxfilesizelength < 2)   { $_maxfilesizelength = 2 }
+	$_maxgrandtotallength =   10 ** ($currentlayoutline =~ tr/z// -1) -1;
+	if ($_maxgrandtotallength < 2) { $_maxgrandtotallength = 2 }
 	# provide N, S and Z fields
 	# N = overflow char for name
 	# S = power of 1024 for size
@@ -405,35 +461,34 @@ sub makeformatlines {
 #	$currentlayoutline =~ s/f(\s+)/'f' . 'F'x length($1)/e;
 #	$gaplength = 
 	($temp = $currentlayoutline) =~ s/[^f].*//;
-	$filerecordcol	= length $temp;
-	$cursorcol		= index($currentlayoutline, '*');
-	$filenamecol	= index($currentlayoutline, 'n');
-	$infocol		= index($currentlayoutline, 'f');
+	$self->filerecordcol(length $temp);
+	$self->cursorcol(index($currentlayoutline, '*'));
+	$self->filenamecol(index($currentlayoutline, 'n'));
+	$_screen->diskinfo->infocol($infocol = index($currentlayoutline, 'f'));
 #	$gapcol			= index($currentlayoutline, 'F');
-	foreach ($cursorcol, $filenamecol, $infocol, $filerecordcol) {
-		if ($_ < 0) { $_ = 0 }
-	}
 	# determine the layout field set (no spaces)
-	($squeezedlayoutline = $currentlayoutline) =~ tr/*nNsSzZugpacmdilvf /*nNsSzZugpacmdilvf/ds;
-	($formatname = $squeezedlayoutline) =~ s/[*SNZ]//g;
-	@layoutfields         = map { $LAYOUTFIELDS{$_} } grep { !/f/ } (split //, $squeezedlayoutline);
-	@layoutfieldswithinfo = map { $LAYOUTFIELDS{$_} }               (split //, $squeezedlayoutline);
+	($squeezedlayoutline = $currentlayoutline) =~
+		tr/*nNsSzZugpacmdilvf /*nNsSzZugpacmdilvf/ds;
+	($_formatname = $squeezedlayoutline) =~ s/[*SNZ]//g;
+	@_layoutfields         = map { $LAYOUTFIELDS{$_} } grep { !/f/ } (split //, $squeezedlayoutline);
+	@_layoutfieldswithinfo = map { $LAYOUTFIELDS{$_} }               (split //, $squeezedlayoutline);
 	# make the formatline
-	$currentformatlinewithinfo = $currentformatline = $prev = '';
+	$_currentformatlinewithinfo = $_currentformatline = $prev = '';
 	foreach $letter (split //, $currentlayoutline) {
 		if ($letter eq ' ') {
-			$currentformatlinewithinfo .= ' ';
+			$_currentformatlinewithinfo .= ' ';
 		} elsif ($prev ne $letter) {
-			$currentformatlinewithinfo .= '@';
+			$_currentformatlinewithinfo .= '@';
 		} else {
 			($trans = $letter) =~ tr{*nNsSzZugpacmdilvf}
 									{<<<><><<<<<<<<>><<};
-			$currentformatlinewithinfo .= $trans;
+			$_currentformatlinewithinfo .= $trans;
 		}
 		$prev = $letter;
 	}
-	substr($currentformatline = $currentformatlinewithinfo, $infocol, $infolength, '');
-	return $currentformatline;
+	$_currentformatline = $_currentformatlinewithinfo;
+	substr($_currentformatline, $infocol, $infolength, '');
+	return $_currentformatline;
 }
 
 
