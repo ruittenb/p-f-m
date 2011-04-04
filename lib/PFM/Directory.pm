@@ -38,7 +38,8 @@ use base 'PFM::Abstract';
 
 use PFM::Util;
 
-my ($_pfm, $_path, @_dircontents, @_showncontents);
+my ($_pfm, $_path,
+	@_dircontents, @_showncontents, %_selected_nr_of, %_total_nr_of);
 
 ##########################################################################
 # private subs
@@ -51,8 +52,6 @@ Initializes new instances. Called from the constructor.
 
 sub _init {
 	my ($self, $pfm, $path)	= shift;
-	$self->{selected_nr_of}	= {};
-	$self->{total_nr_of}	= {};
 	$_pfm					= $pfm;
 	$_path					= $path;
 }
@@ -136,7 +135,7 @@ complete array of files in the directory.
 sub dircontents {
 	my ($self, @value) = @_;
 	@_dircontents = @value if @value;
-	return [ @_dircontents ];
+	return \@_dircontents;
 }
 
 =item showncontents()
@@ -149,7 +148,31 @@ array of the files shown on-screen.
 sub showncontents {
 	my ($self, @value) = @_;
 	@_showncontents = @value if @value;
-	return [ @_showncontents ];
+	return \@_showncontents;
+}
+
+=item total_nr_of()
+
+Getter for the hash which keeps track of how many directory entities
+of each type there are.
+
+=cut
+
+sub total_nr_of {
+	my ($self) = @_;
+	return \%_total_nr_of;
+}
+
+=item selected_nr_of()
+
+Getter for the hash which keeps track of how many directory entities
+of each type have been selected.
+
+=cut
+
+sub selected_nr_of {
+	my ($self) = @_;
+	return \%_selected_nr_of;
 }
 
 ##########################################################################
@@ -188,17 +211,17 @@ sub chdir {
 }
 
 sub init_dircount {
-	$self->{total_nr_of} = { d=>0, l=>0, '-'=>0, c=>0, b=>0, D=>0,
-							 p=>0, 's'=>0, n=>0, w=>0, bytes => 0 };
-	%{$self->{selected_nr_of}} = %{$self->{total_nr_of}};
+	%_selected_nr_of = %_total_nr_of =
+		( d=>0, '-'=>0, l=>0, c=>0, b=>0, D=>0,
+		  p=>0, 's'=>0, n=>0, w=>0, bytes => 0 );
 }
 
 #TODO
 sub countdircontents {
 	$self->init_dircount();
 	foreach my $i (0..$#_) {
-		$total_nr_of   {$_[$i]{type}}++;
-		$selected_nr_of{$_[$i]{type}}++ if ($_[$i]{selected} eq '*');
+		$_total_nr_of   {$_[$i]{type}}++;
+		$_selected_nr_of{$_[$i]{type}}++ if ($_[$i]{selected} eq '*');
 	}
 }
 
