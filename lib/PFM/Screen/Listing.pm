@@ -1,16 +1,32 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Screen::Listing 2010-03-27 v0.01
+# @(#) PFM::Screen::Listing 0.01
 #
 # Name:			PFM::Screen::Listing.pm
 # Version:		0.01
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-03-27
-# Description:	PFM Listing class, handles the display of a
-#				PFM::Directory object on screen
 #
+
+##########################################################################
+
+=pod
+
+=head1 NAME
+
+PFM::Screen::Listing
+
+=head1 DESCRIPTION
+
+PFM class for displaying a PFM::Directory object on the screen.
+
+=head1 METHODS
+
+=over
+
+=cut
 
 ##########################################################################
 # declarations
@@ -104,6 +120,28 @@ sub cursorcol {
 ##########################################################################
 # public subs
 
+=item show()
+
+Displays the directory listing.
+
+=cut
+
+# TODO massage
+sub show {
+	my $self = shift;
+	my $contents = $_pfm->directory->showncontents;
+	foreach my $i ($baseindex .. $baseindex+$screenheight) {
+		unless ($i > $#contents) {
+			$scr->at($i+$BASELINE-$baseindex,$filerecordcol)
+				->puts(fileline($contents[$i], @layoutfields));
+			applycolor($i+$BASELINE-$baseindex, $FILENAME_SHORT, %{$contents[$i]});
+		} else {
+			$scr->at($i+$BASELINE-$baseindex,$filerecordcol)
+				->puts(' 'x($screenwidth - $infolength));
+		}
+	}
+}
+}
 ##########################################################################
 
 =back

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Application 2010-03-27 v2.00.8
+# @(#) PFM::Application 0.50
 #
 # Name:			PFM::Application.pm
-# Version:		2.00.8
+# Version:		0.50
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-03-27
+# Date:			2010-04-02
 #
 
 ##########################################################################
@@ -265,17 +265,18 @@ sub bootstrap {
 	$_screen->clrscr();
 	$_screen->calculate_dimensions();
 	$_config = new PFM::Config($self);
-	$_config->read( $self, $_config->READ_FIRST);
-	$_config->parse($self, $_config->SHOW_COPYRIGHT);
+	$_config->read( $_config->READ_FIRST);
+	$_config->parse($_config->SHOW_COPYRIGHT);
+	$_config->apply();
 	$_history->read();
-	$_screen->draw_frame();
+	$_screen->show_frame();
 	
 	$currentdir = getcwd();
 	# TODO
 #	$oldcurrentdir = $currentdir;
 	$startingdir = shift @ARGV;
 	if ($startingdir ne '') {
-		unless ($_states[0]->mychdir($startingdir)) {
+		unless ($_states[0]->currentdir($startingdir)) {
 			$_screen->at(0,0)->clreol();
 			$_screen->display_error("$startingdir: $! - using .");
 			$_screen->important_delay();
@@ -287,6 +288,7 @@ sub bootstrap {
 	if (defined $swapstartdir) {
 		push @_states, new PFM::State($self, 1);
 		$_states[1]->currentdir($swapstartdir);
+		$_states[1]->prepare();
 	}
 	$_bootstrapped = 1;
 }

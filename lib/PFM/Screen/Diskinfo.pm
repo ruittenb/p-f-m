@@ -1,17 +1,33 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Screen::Diskinfo 2010-03-27 v0.01
+# @(#) PFM::Screen::Diskinfo 0.04
 #
 # Name:			PFM::Screen::Diskinfo.pm
-# Version:		0.01
+# Version:		0.04
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-03-27
-# Description:	PFM Diskinfo class, handles the display of
-#				disk-related information, marked files,
-#				identity and clock
+# Date:			2010-04-03
 #
+
+##########################################################################
+
+=pod
+
+=head1 NAME
+
+PFM::Screen::Diskinfo
+
+=head1 DESCRIPTION
+
+PFM class for displaying disk usage information, directory information,
+a count of marked files, identity and clock.
+
+=head1 METHODS
+
+=over
+
+=cut
 
 ##########################################################################
 # declarations
@@ -130,32 +146,31 @@ sub initident {
 ##########################################################################
 # public subs
 
-1;
-__DATA__
-
 =item show()
 
 Displays the entire diskinfo column.
 
 =cut
 
-# TODO too much
 sub show {
 	my $self = shift;
 	my $spaces = ' ' x $_infolength;
+	my $filerecordcol     = $_screen->listing->filerecordcol;
+	my $currentformatline = $_screen->listing->currentformatline;
 	# gap is not filled in yet
-	my $gap = ' ' x (max($_infocol-length($currentformatline)-$filerecordcol,
-						 $filerecordcol-$_infolength));
-	$self->disk_info(%disk);
+	my $gap = ' ' x (max(
+		$_infocol-length($currentformatline)-$filerecordcol,
+		$filerecordcol-$_infolength));
+	$self->disk_info();
 	$_screen->at(DIRINFOLINE-2, $_infocol)->puts($spaces);
-	$self->dir_info(%total_nr_of);
+	$self->dir_info();
 	$_screen->at(MARKINFOLINE-2, $_infocol)->puts($spaces);
-	$self->mark_info(%selected_nr_of);
+	$self->mark_info();
 	$_screen->at(USERINFOLINE-1, $_infocol)->puts($spaces);
-	user_info();
-	clock_info();
-	foreach (DATEINFOLINE+2 .. $BASELINE+$screenheight) {
-		$scr->at($_, $_infocol)->puts($spaces);
+	$self->user_info();
+	$self->clock_info();
+	foreach (DATEINFOLINE+2 .. $_screen->BASELINE + $_screen->screenheight) {
+		$_screen->at($_, $_infocol)->puts($spaces);
 	}
 }
 
@@ -183,59 +198,82 @@ sub user_info {
 		->putcolored(($> ? 'normal' : 'red'), $self->_str_informatted($_ident));
 }
 
-# TODO
-sub disk_info { # %disk{ total, used, avail }
+=item disk_info()
+
+Displays the filesystem usage.
+
+=cut
+
+sub disk_info {
 	my @desc		= ('K tot','K usd','K avl');
-	my @values		= %_pfm->state->disk{qw/total used avail/};
-	my $startline	= $DISKINFOLINE;
+	my @values		= @{$_pfm->state->directory->disk}{qw/total used avail/};
+	my $startline	= DISKINFOLINE;
 	# I played with vt100 boxes once,      lqqqqk
 	# but I hated it.                      x    x
 	# In case someone wants to try:        mqqqqj
-#	$scr->at($startline-1,$_infocol)->puts("\cNlqq\cO Disk space");
-	$scr->at($startline-1, $_infocol)->puts($self->_str_informatted('Disk space'));
+#	$_screen->at($startline-1,$_infocol)->puts("\cNlqq\cO Disk space");
+	$_screen->at($startline-1, $_infocol)->puts($self->_str_informatted('Disk space'));
 	foreach (0..2) {
 		while ($values[$_] > 99_999) {
 			$values[$_] /= 1024;
 			$desc[$_] =~ tr/KMGTPEZ/MGTPEZY/;
 		}
-		$scr->at($startline+$_, $_infocol)
-			->puts($self->_data_informatted(int($values[$_]), $desc[$_]));
+		$_screen->at($startline + $_, $_infocol)
+				->puts($self->_data_informatted(int($values[$_]), $desc[$_]));
 	}
 }
 
-# TODO
+=item dir_info()
+
+Displays the number of directory entries of different types.
+
+=cut
+
 sub dir_info {
 	my @desc   = ('files','dirs ','symln','spec ');
+	my %total_nr_of = %{$_pfm->state->directory->total_nr_of};
 	my @values = @total_nr_of{'-','d','l'};
 	$values[3] = $total_nr_of{'c'} + $total_nr_of{'b'}
 			   + $total_nr_of{'p'} + $total_nr_of{'s'}
 			   + $total_nr_of{'D'} + $total_nr_of{'w'}
 			   + $total_nr_of{'n'};
-	my $startline = $DIRINFOLINE;
-	$scr->at($startline-1, $_infocol)
-		->puts($self->_str_informatted("Directory($sort_mode" . ($white_mode ? '' : '%') . ($dot_mode ? '' : '.') . ")"));
+	my $startline = DIRINFOLINE;
+	my $heading = 'Directory('
+				.  $_pfm->state->sort_mode
+				. ($_pfm->state->white_mode ? '' : '%')
+				. ($_pfm->state->dot_mode ? '' : '.') . ')';
+	$_screen->at($startline-1, $_infocol)
+			->puts($self->_str_informatted($heading));
 	foreach (0..3) {
-		$scr->at($startline+$_, $_infocol)
-			->puts($self->_data_informatted($values[$_],$desc[$_]));
+		$_screen->at($startline + $_, $_infocol)
+				->puts($self->_data_informatted($values[$_], $desc[$_]));
 	}
 }
 
-# TODO
+=item mark_info()
+
+Displays the number of directory entries that have been marked.
+
+=cut
+
 sub mark_info {
 	my @desc = ('bytes','files','dirs ','symln','spec ');
+	my %selected_nr_of = %{$_pfm->state->directory->selected_nr_of};
 	my @values = @selected_nr_of{'bytes','-','d','l'};
 	$values[4] = $selected_nr_of{'c'} + $selected_nr_of{'b'}
 			   + $selected_nr_of{'p'} + $selected_nr_of{'s'}
 			   + $selected_nr_of{'D'} + $selected_nr_of{'w'}
 			   + $selected_nr_of{'n'};
-	my $startline = $MARKINFOLINE;
+	my $startline = MARKINFOLINE;
+	my $heading = 'Marked files';
 	my $total = 0;
 	$values[0] = join ('', fit2limit($values[0], 9_999_999));
 	$values[0] =~ s/ $//;
-	$scr->at($startline-1, $_infocol)->puts($self->_str_informatted('Marked files'));
+	$_screen->at($startline-1, $_infocol)
+			->puts($self->_str_informatted($heading));
 	foreach (0..4) {
-		$scr->at($startline+$_, $_infocol)
-			->puts($self->_data_informatted($values[$_], $desc[$_]));
+		$_screen->at($startline + $_, $_infocol)
+				->puts($self->_data_informatted($values[$_], $desc[$_]));
 		$total += $values[$_] if $_;
 	}
 	return $total;

@@ -80,7 +80,7 @@
 #		stat_entry() must *not* rebuild the selected_nr and total_nr lists:
 #			this messes up with e.g. cOmmand -> cp \2 /somewhere/else
 #			(which is, therefore, still buggy). this is closely related to:
-#		sub countdircontents is not used
+#		sub countcontents is not used
 #		make F11 respect multiple mode? (marked+oldmarked, not removing marks)
 #		hierarchical sort? e.g. 'sen' (size,ext,name)
 #		window sizing problems on Sun 5.6?
@@ -136,8 +136,8 @@ our($FALSE,
 	$FILENAME_LONG,
 	$HIGHLIGHT_OFF,
 	$HIGHLIGHT_ON,
-	$TIME_FILE,
-	$TIME_CLOCK,
+#	$TIME_FILE,
+#	$TIME_CLOCK,
 #	$HEADER_SINGLE,
 #	$HEADER_MULTI,
 #	$HEADER_MORE,
@@ -776,17 +776,17 @@ sub mode2str {
 	return $strmode;
 }
 
-sub fit2limit {
-	my $size_power = ' ';
-	# size_num might be uninitialized or major/minor
-	my ($size_num, $limit) = @_;
-	while ($size_num > $limit) {
-		$size_num = int($size_num/1024);
-		$size_power =~ tr/KMGTPEZ/MGTPEZY/ || do { $size_power = 'K' };
-	}
-	return ($size_num, $size_power);
-}
-
+#sub fit2limit {
+#	my $size_power = ' ';
+#	# size_num might be uninitialized or major/minor
+#	my ($size_num, $limit) = @_;
+#	while ($size_num > $limit) {
+#		$size_num = int($size_num/1024);
+#		$size_power =~ tr/KMGTPEZ/MGTPEZY/ || do { $size_power = 'K' };
+#	}
+#	return ($size_num, $size_power);
+#}
+#
 sub condquotemeta { # condition, string
 	return $_[0] ? quotemeta($_[1]) : $_[1];
 }
@@ -1554,7 +1554,7 @@ sub ok_to_remove_marks {
 		$scr->at(0,0)->clreol();
 		putmessage('OK to remove marks [Y/N]? ');
 		$sure = $scr->getch();
-		draw_menu();
+		show_menu();
 		return ($sure =~ /y/i);
 	}
 	return 1;
@@ -1567,7 +1567,7 @@ sub promptforboundarytime {
 	$scr->at(0,0)->clreol();
 	stty_raw($TERM_COOKED);
 	$boundarytime = readintohist(\@time_history, $prompt);
-	# draw_menu is done in handleinclude
+	# show_menu is done in handleinclude
 	stty_raw($TERM_RAW);
 	$boundarytime =~ tr/0-9.//dc;
 	$boundarytime =~ /(....)(..)(..)(..)(..)(\...)?$/;
@@ -1581,7 +1581,7 @@ sub promptforwildfilename {
 	$scr->at(0,0)->clreol();
 	stty_raw($TERM_COOKED);
 	$wildfilename = readintohist(\@regex_history, $prompt);
-	# draw_menu is done in handleinclude
+	# show_menu is done in handleinclude
 	stty_raw($TERM_RAW);
 	eval "/$wildfilename/";
 	if ($@) {
@@ -1623,12 +1623,12 @@ sub promptforwildfilename {
 #}
 #
 #sub draw_frame {
-#	draw_menu();
-#	draw_headings($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
-#	draw_footer();
+#	show_menu();
+#	show_headings($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
+#	show_footer();
 #}
 #
-#sub draw_headings { # swap_mode, extra field, @layoutfieldswithinfo
+#sub show_headings { # swap_mode, extra field, @layoutfieldswithinfo
 #	my ($smode, $info, @fields) = @_;
 #	my $linecolor;
 #	for ($info) {
@@ -1670,7 +1670,7 @@ sub promptforwildfilename {
 #	}
 #}
 #
-#sub draw_menu { # <special header mode>
+#sub show_menu { # <special header mode>
 #	my $mode    = $_[0] || ($multiple_mode * $HEADER_MULTI);
 #	my $domulti = $mode & $HEADER_MULTI;
 #	my ($pos, $header, $headerlength, $vscreenwidth);
@@ -1707,7 +1707,7 @@ sub promptforwildfilename {
 #	;
 #}
 #
-#sub draw_footer {
+#sub show_footer {
 #	my $footer = fitbanner(footer(), $screenwidth);
 #	my $linecolor;
 #	$linecolor = $framecolors{$color_mode}{footer};
@@ -2068,7 +2068,7 @@ sub handlercspipe {
 		$topdir, $dirindex, $oldval, $svnfieldtitle);
 	#
 	if (!$rcsrunning and $rcs_need_refresh) {
-		printdircontents(@showncontents);
+		$_listing->show();
 		highlightline($HIGHLIGHT_ON);
 		$rcs_need_refresh = 0;
 		return;
@@ -2110,7 +2110,7 @@ sub handlercspipe {
 			}
 		}
 		%currentfile = %{$showncontents[$currentline+$baseindex]};
-		printdircontents(@showncontents);
+		$_listing->show();
 		highlightline($HIGHLIGHT_ON);
 		# there might be more data (which we want to read now)
 		# or the pipe may be empty (then we want to close it)
@@ -2120,7 +2120,7 @@ sub handlercspipe {
 		close RCSPIPE;
 		$rcsrunning = 0;
 		$FIELDHEADINGS{'svn'} =~ s/!+$//;
-		draw_headings($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
+		show_headings($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
 	}
 }
 
@@ -2360,7 +2360,7 @@ sub handlefind_incremental {
 		position_cursor_find_incremental();
 		%currentfile = %{$showncontents[$currentline+$baseindex]};
 #		if (!$scr->key_pressed(0)) {
-			printdircontents(@showncontents);
+			$_listing->show();
 #		}
 	}
 	return $R_MENU;
@@ -2522,7 +2522,7 @@ sub handlemorekill {
 	my $prompt    = 'Signal to send to child processes: ';
 	my $signal    = 'TERM';
 	my $err;
-	draw_headings($swap_mode, $TITLE_SIGNAL, @layoutfieldswithinfo);
+	show_headings($swap_mode, $TITLE_SIGNAL, @layoutfieldswithinfo);
 	clearcolumn();
 	foreach (1 .. min($#signame, $screenheight)+1) {
 		$scr->at($printline++, $infocol)->puts(sprintf('  %2d %s', $_, $signame[$_]));
@@ -2556,7 +2556,7 @@ sub handlemorealtscreen {
 }
 
 sub handlemorephyspath {
-	draw_menu();
+	show_menu();
 	$scr->at(0,0)->clreol();
 	putmessage('Current physical path:');
 	$scr->at($PATHLINE, 0)->puts(pathline(getcwd(), $disk{'device'}));
@@ -2587,7 +2587,7 @@ sub handlemorercsopen {
 sub handlemore {
 	local $_;
 	my $do_a_refresh = $R_MENU;
-	my $headerlength = draw_menu($HEADER_MORE);
+	my $headerlength = show_menu($HEADER_MORE);
 	my $key;
 	$scr->noecho();
 	MOREKEY: {
@@ -2609,8 +2609,8 @@ sub handlemore {
 			/^k$/io		and $do_a_refresh |= handlemorekill(),				last MOREKEY;
 			/^[<>]$/io	and do {
 								handlepan($_, $HEADER_MORE);
-								$headerlength = draw_menu($HEADER_MORE);
-								draw_footer();
+								$headerlength = show_menu($HEADER_MORE);
+								show_footer();
 								redo MOREKEY;
 			};
 		}
@@ -2626,7 +2626,7 @@ sub handleinclude { # include/exclude flag (from keypress)
 	our ($wildfilename, $boundarytime, $entry);
 	# $wildfilename could have been declared using my(), but that will prevent
 	# changes in its value to be noticed by the anonymous sub
-	$headerlength = draw_menu($HEADER_INCLUDE);
+	$headerlength = show_menu($HEADER_INCLUDE);
 	# modify header to say "exclude" when 'x' was pressed
 	if ($exin =~ /x/i) {
 		$scr->at(0,0)->putcolored($framecolors{$color_mode}{header}, 'Ex');
@@ -2718,7 +2718,7 @@ sub handlename {
 	applycolor($currentline+$BASELINE, $FILENAME_LONG, %otherfile); # resets colors to normal
 	if ($scr->noecho()->getch() eq '*') {
 		handleradix();
-		draw_footer();
+		show_footer();
 		$scr->echo()->at($currentline+$BASELINE, $filenamecol)->puts(' ' x length $line);
 		goto &handlename;
 	}
@@ -2734,8 +2734,8 @@ sub handlesort {
 	my $printline = $BASELINE;
 	my %sortmodes = @SORTMODES;
 	my ($i, $key, $headerlength);
-	$headerlength = draw_menu($HEADER_SORT);
-	draw_headings($swap_mode, $TITLE_SORT, @layoutfieldswithinfo);
+	$headerlength = show_menu($HEADER_SORT);
+	show_headings($swap_mode, $TITLE_SORT, @layoutfieldswithinfo);
 	clearcolumn();
 	# we can't use foreach (keys %SORTMODES) because we would lose ordering
 	foreach (grep { ($i += 1) %= 2 } @SORTMODES) { # keep keys, skip values
@@ -2767,7 +2767,7 @@ sub handlesymlink {
 	my @lncmd = $clobber_mode ? qw(ln -f) : qw(ln);
 	my $do_a_refresh = $multiple_mode ? $R_DIRLIST | $R_MENU : $R_MENU;
 	markcurrentline('L') unless $multiple_mode;
-	$headerlength = draw_menu($HEADER_LNKTYPE);
+	$headerlength = show_menu($HEADER_LNKTYPE);
 	$absrel = lc $scr->at(0, $headerlength+1)->getch();
 	return $R_MENU unless $absrel =~ /^[arh]$/;
 	push @lncmd, '-s' if $absrel !~ /h/;
@@ -3038,7 +3038,7 @@ sub handlecommand { # Y or O
 	markcurrentline(uc($_[0])) unless $multiple_mode;
 	clearcolumn();
 	if ($_[0] =~ /y/i) { # Your
-		draw_headings($swap_mode, $TITLE_YCOMMAND, @layoutfieldswithinfo);
+		show_headings($swap_mode, $TITLE_YCOMMAND, @layoutfieldswithinfo);
 		foreach (sort alphabetically keys %pfmrc) {
 			if (/^your\[[[:alpha:]]\]$/ && $printline <= $BASELINE+$screenheight) {
 				$printstr = $pfmrc{$_};
@@ -3054,7 +3054,7 @@ sub handlecommand { # Y or O
 		return $R_DISKINFO | $R_FRAME unless $command = $pfmrc{"your[$key]"};
 		stty_raw($TERM_COOKED);
 	} else { # cOmmand
-		draw_headings($swap_mode, $TITLE_ESCAPE, @layoutfieldswithinfo);
+		show_headings($swap_mode, $TITLE_ESCAPE, @layoutfieldswithinfo);
 		foreach (sort escape_middle keys %CMDESCAPES, $e) {
 			if ($printline <= $BASELINE+$screenheight) {
 				$scr->at($printline++, $infocol)->puts(sprintf(' %1s%1s %s', $e, $_, $CMDESCAPES{$_} || "literal $e"));
@@ -3715,7 +3715,7 @@ sub handleentry {
 	unless ($success) {
 		$scr->at(0,0)->clreol();
 		display_error($!);
-		draw_menu();
+		show_menu();
 	}
 	return $success ? $R_CHDIR : $R_STRIDE;
 }
@@ -3814,7 +3814,7 @@ sub filetypeflag {
 #	my @allentries = ();
 #	my @white_entries = ();
 #	%usercache = %groupcache = ();
-##	draw_headings($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
+##	show_headings($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
 #	if (opendir CURRENT, "$_[0]") {
 #		@allentries = readdir CURRENT;
 #		closedir CURRENT;
@@ -3845,24 +3845,24 @@ sub filetypeflag {
 #		substr($entry->{mode}, 0, 1) = 'w';
 #		push @contents, $entry;
 #	}
-#	draw_menu();
+#	show_menu();
 #	handlemorercsopen() if $autorcs;
-#	draw_headings($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
+#	show_headings($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
 #	return @contents;
 #}
 #
-sub printdircontents { # @contents
-	foreach my $i ($baseindex .. $baseindex+$screenheight) {
-		unless ($i > $#_) {
-			$scr->at($i+$BASELINE-$baseindex,$filerecordcol)
-				->puts(fileline($_[$i], @layoutfields));
-			applycolor($i+$BASELINE-$baseindex, $FILENAME_SHORT, %{$_[$i]});
-		} else {
-			$scr->at($i+$BASELINE-$baseindex,$filerecordcol)
-				->puts(' 'x($screenwidth - $infolength));
-		}
-	}
-}
+#sub printdircontents { # @contents
+#	foreach my $i ($baseindex .. $baseindex+$screenheight) {
+#		unless ($i > $#_) {
+#			$scr->at($i+$BASELINE-$baseindex,$filerecordcol)
+#				->puts(fileline($_[$i], @layoutfields));
+#			applycolor($i+$BASELINE-$baseindex, $FILENAME_SHORT, %{$_[$i]});
+#		} else {
+#			$scr->at($i+$BASELINE-$baseindex,$filerecordcol)
+#				->puts(' 'x($screenwidth - $infolength));
+#		}
+#	}
+#}
 
 #sub filterdir {
 #	return grep { $dot_mode   || $_->{name} =~ /^(\.\.?|[^\.].*)$/
@@ -3876,7 +3876,7 @@ sub printdircontents { # @contents
 #						D=>0, p=>0, 's'=>0, n=>0, w=>0, bytes => 0);
 #}
 #
-#sub countdircontents {
+#sub countcontents {
 #	init_dircount();
 #	foreach my $i (0..$#_) {
 #		$total_nr_of   {$_[$i]{type}}++;
@@ -4091,7 +4091,7 @@ sub browse {
 #		}
 #		if ($wantrefresh &   $R_DIRLIST) {
 #			$wantrefresh &= ~$R_DIRLIST;
-#			printdircontents(@showncontents);
+#			$_listing->show();
 #		}
 #		if ($wantrefresh &   $R_DISKINFO) {
 #			$wantrefresh &= ~$R_DISKINFO;
@@ -4099,7 +4099,7 @@ sub browse {
 #		}
 #		if ($wantrefresh &   $R_MENU) {
 #			$wantrefresh &= ~$R_MENU;
-#			draw_menu();
+#			show_menu();
 #		}
 #		if ($wantrefresh &   $R_PATHINFO) {
 #			$wantrefresh &= ~$R_PATHINFO;
@@ -4107,11 +4107,11 @@ sub browse {
 #		}
 #		if ($wantrefresh &   $R_HEADINGS) {
 #			$wantrefresh &= ~$R_HEADINGS;
-#			draw_headings($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
+#			show_headings($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
 #		}
 #		if ($wantrefresh &   $R_FOOTER) {
 #			$wantrefresh &= ~$R_FOOTER;
-#			draw_footer();
+#			show_footer();
 #		}
 #		# normally, the current cursor position must be validated every pass
 #		$wantrefresh |= $R_STRIDE;

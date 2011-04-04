@@ -123,29 +123,56 @@
 .rm #[ #] #H #V #F C
 .\" ========================================================================
 .\"
-.IX Title "State 3pm"
-.TH State 3pm "2010-04-02" " " " "
+.IX Title "Diskinfo 3pm"
+.TH Diskinfo 3pm "2010-04-02" " " " "
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
 .nh
-.SH "NAME"
-PFM::State
-.SH "DESCRIPTION"
-.IX Header "DESCRIPTION"
-\&\s-1PFM\s0 class used for storing the current state of the application.
-.SH "METHODS"
-.IX Header "METHODS"
 .IP "\fI_init()\fR" 4
 .IX Item "_init()"
 Initializes new instances. Called from the constructor.
-.IP "\fIdirectory()\fR" 4
-.IX Item "directory()"
-Getter/setter for the PFM::Directory object.
-.IP "\fIcurrentdir()\fR" 4
-.IX Item "currentdir()"
-Getter/setter for the current directory path.
-If a new directory is provided, it will be passed to PFM::Directory.
+.IP "\fI_str_informatted()\fR" 4
+.IX Item "_str_informatted()"
+.PD 0
+.IP "\fI_data_informatted()\fR" 4
+.IX Item "_data_informatted()"
+.PD
+Formats lines for printing in the diskinfo area.
+.IP "\fIinfocol()\fR" 4
+.IX Item "infocol()"
+Getter/setter for the infocol variable, that controls in which terminal
+column the diskinfo area starts.
+.IP "\fIinfolength()\fR" 4
+.IX Item "infolength()"
+Getter/setter for the infolength variable, that indicates the width
+of the diskinfo area, in characters.
+.IP "\fIident_mode()\fR" 4
+.IX Item "ident_mode()"
+Getter/setter for the ident_mode variable, which controls whether
+to display just the username, just the hostname or both.
+.IP "\fIinitident()\fR" 4
+.IX Item "initident()"
+Translates the ident mode to the actual ident string
+displayed on screen.
+.IP "\fIshow()\fR" 4
+.IX Item "show()"
+Displays the entire diskinfo column.
+.IP "\fIclearcolumn()\fR" 4
+.IX Item "clearcolumn()"
+Clears the entire diskinfo column.
+.IP "\fIuser_info()\fR" 4
+.IX Item "user_info()"
+Displays the hostname, username or username@hostname.
+.IP "\fIclock_info()\fR" 4
+.IX Item "clock_info()"
+Displays the clock in the diskinfo column.
 .SH "SEE ALSO"
 .IX Header "SEE ALSO"
-\&\fIpfm\fR\|(1).
+\&\fIpfm\fR\|(1), \fIPFM::Screen\fR\|(3pm).
+.SH "POD ERRORS"
+.IX Header "POD ERRORS"
+Hey! \fBThe above document had some coding errors, which are explained below:\fR
+.IP "Around line 39:" 4
+.IX Item "Around line 39:"
+\&'=item' outside of any '=over'

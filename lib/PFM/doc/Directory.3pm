@@ -124,25 +124,53 @@
 .\" ========================================================================
 .\"
 .IX Title "Directory 3pm"
-.TH Directory 3pm "2010-04-01" " " " "
+.TH Directory 3pm "2010-04-02" " " " "
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
 .nh
+.SH "NAME"
+PFM::Directory
+.SH "DESCRIPTION"
+.IX Header "DESCRIPTION"
+\&\s-1PFM\s0 Directory class, containing the directory contents and the
+actions that can be performed on them.
+.SH "METHODS"
+.IX Header "METHODS"
 .IP "\fI_init()\fR" 4
 .IX Item "_init()"
 Initializes new instances. Called from the constructor.
+.IP "\fI_by_sort_mode()\fR" 4
+.IX Item "_by_sort_mode()"
+Sorts two directory entries according to the selected sort mode.
 .IP "\fIpath()\fR" 4
 .IX Item "path()"
 Getter/setter for the current directory path.
 Setting the current directory in this way is identical to calling
 \&\fIPFM::Directory::chdir()\fR, and will return the success status.
+.IP "\fIdircontents()\fR" 4
+.IX Item "dircontents()"
+Getter/setter for the \f(CW@_dircontents\fR variable, which contains the
+complete array of files in the directory.
+.IP "\fIshowncontents()\fR" 4
+.IX Item "showncontents()"
+Getter/setter for the \f(CW@_showncontents\fR variable, which contains an
+array of the files shown on-screen.
+.IP "\fItotal_nr_of()\fR" 4
+.IX Item "total_nr_of()"
+Getter for the hash which keeps track of how many directory entities
+of each type there are.
+.IP "\fIselected_nr_of()\fR" 4
+.IX Item "selected_nr_of()"
+Getter for the hash which keeps track of how many directory entities
+of each type have been selected.
+.IP "\fIsortcontents()\fR" 4
+.IX Item "sortcontents()"
+Sorts the directory's contents according to the selected sort mode.
+.IP "\fIfiltercontents()\fR" 4
+.IX Item "filtercontents()"
+Filters the directory contents according to the filter modes
+(displays or hides dotfiles and whiteouts).
 .SH "SEE ALSO"
 .IX Header "SEE ALSO"
 \&\fIpfm\fR\|(1).
-.SH "POD ERRORS"
-.IX Header "POD ERRORS"
-Hey! \fBThe above document had some coding errors, which are explained below:\fR
-.IP "Around line 29:" 4
-.IX Item "Around line 29:"
-\&'=item' outside of any '=over'

@@ -124,11 +124,18 @@
 .\" ========================================================================
 .\"
 .IX Title "CommandHandler 3pm"
-.TH CommandHandler 3pm "2010-04-01" " " " "
+.TH CommandHandler 3pm "2010-04-02" " " " "
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
 .nh
+.SH "NAME"
+PFM::CommandHandler
+.SH "DESCRIPTION"
+.IX Header "DESCRIPTION"
+\&\s-1PFM\s0 Class for executing user commands.
+.SH "METHODS"
+.IX Header "METHODS"
 .IP "\fI_init()\fR" 4
 .IX Item "_init()"
 Initializes new instances. Called from the constructor.
@@ -151,12 +158,9 @@ Finds out how an event should be handled, and acts on it.
 .IP "\fIhandlepan()\fR" 4
 .IX Item "handlepan()"
 Handle the pan keys \fB<\fR and \fB>\fR.
+.IP "\fIhandlefit()\fR" 4
+.IX Item "handlefit()"
+Recalculate the screen size and adjust the layouts.
 .SH "SEE ALSO"
 .IX Header "SEE ALSO"
 \&\fIpfm\fR\|(1).
-.SH "POD ERRORS"
-.IX Header "POD ERRORS"
-Hey! \fBThe above document had some coding errors, which are explained below:\fR
-.IP "Around line 30:" 4
-.IX Item "Around line 30:"
-\&'=item' outside of any '=over'

@@ -284,6 +284,7 @@ sub parse {
 	$self->{dotdot_mode}		= isyes($_pfmrc{dotdotmode});
 	$self->{autorcs}			= isyes($_pfmrc{autorcs});
 	$self->{remove_marks_ok}	= isyes($_pfmrc{remove_marks_ok});
+	$self->{clickiskeypresstoo}	= isyes($_pfmrc{clickiskeypresstoo} || 'yes');
 	$self->{white_mode}			= isyes($_pfmrc{defaultwhitemode})	if !defined $self->{white_mode};
 	$self->{dot_mode}			= isyes($_pfmrc{defaultdotmode})	if !defined $self->{dot_mode};
 	$self->{clobber_mode}		= isyes($_pfmrc{defaultclobber})	if !defined $self->{clobber_mode};
@@ -450,6 +451,9 @@ altscreenmode:xterm
 
 ## automatically check for updates on exit (default: no)
 checkforupdates:yes
+
+## Must 'Hit any key to continue' also accept mouse clicks?
+#clickiskeypresstoo:yes
 
 ## clock date/time format; see strftime(3).
 ## %x and %X provide properly localized time and date.

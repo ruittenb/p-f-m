@@ -1,15 +1,32 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Job::Bazaar 2010-03-27 v0.01
+# @(#) PFM::Job::Bazaar 0.01
 #
 # Name:			PFM::Job::Bazaar.pm
 # Version:		0.01
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-03-27
-# Description:	PFM Job class for Bazaar commands.
 #
+
+##########################################################################
+
+=pod
+
+=head1 NAME
+
+PFM::Job::Bazaar
+
+=head1 DESCRIPTION
+
+PFM Job class for Bazaar commands.
+
+=head1 METHODS
+
+=over
+
+=cut
 
 ##########################################################################
 # declarations

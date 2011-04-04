@@ -37,6 +37,8 @@ package PFM::Job;
 
 use base 'PFM::Abstract';
 
+my @_jobs;
+
 ##########################################################################
 # private subs
 
@@ -57,7 +59,8 @@ sub _init {
 # public subs
 
 sub start {
-	my $self = shift;
+	my ($self, $class, @args) = @_;
+	my $job = eval "return new PFM::Job::$class(".@args.')';
 	#TODO
 }
 

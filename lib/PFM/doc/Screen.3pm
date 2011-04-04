@@ -124,7 +124,7 @@
 .\" ========================================================================
 .\"
 .IX Title "Screen 3pm"
-.TH Screen 3pm "2010-04-01" " " " "
+.TH Screen 3pm "2010-04-02" " " " "
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -166,6 +166,27 @@ Getters/setters for the dimensions of the screen.
 .PD
 Getters for the PFM::Screen::Frame, PFM::Screen::Listing
 and PFM::Screen::Diskinfo objects.
+.IP "\fIstty_raw()\fR" 4
+.IX Item "stty_raw()"
+.PD 0
+.IP "\fIstty_cooked()\fR" 4
+.IX Item "stty_cooked()"
+.PD
+Set the terminal to \fIraw\fR or \fIcooked\fR mode.
+.IP "\fImouse_enable()\fR" 4
+.IX Item "mouse_enable()"
+.PD 0
+.IP "\fImouse_disable()\fR" 4
+.IX Item "mouse_disable()"
+.PD
+Tell the terminal to start/stop receiving information about the mouse.
+.IP "\fIalternate_on()\fR" 4
+.IX Item "alternate_on()"
+.PD 0
+.IP "\fIalternate_off()\fR" 4
+.IX Item "alternate_off()"
+.PD
+Switch to alternate terminal screen and back.
 .IP "\fIcalculate_dimensions()\fR" 4
 .IX Item "calculate_dimensions()"
 Calculates the height and width of the screen.
@@ -176,6 +197,9 @@ Recalculates the screen size and adjust the layouts.
 .IX Item "handleresize()"
 Makes the contents fit on the screen again after a resize. Validates
 the cursor position.
+.IP "\fIpending_input()\fR" 4
+.IX Item "pending_input()"
+Returns a boolean indicating that there is input ready to be processed.
 .IP "\fIdraw_frame()\fR" 4
 .IX Item "draw_frame()"
 Dispatches a request to redraw the frame to the PFM::Screen::Frame object.
@@ -207,7 +231,7 @@ Flags a screen element as 'needs to be redrawn'.
 Flags a screen element as 'does not need to be redrawn'.
 .IP "\fIrefresh()\fR" 4
 .IX Item "refresh()"
-Redraws all screen elements that need to be redrawn.
+Redraws all screen elements that have been flagged as 'in need to be redrawn'.
 .SH "SEE ALSO"
 .IX Header "SEE ALSO"
 \&\fIpfm\fR\|(1).

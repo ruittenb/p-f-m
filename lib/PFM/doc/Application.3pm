@@ -124,7 +124,7 @@
 .\" ========================================================================
 .\"
 .IX Title "Application 3pm"
-.TH Application 3pm "2010-04-01" " " " "
+.TH Application 3pm "2010-04-02" " " " "
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -133,7 +133,7 @@
 PFM::Application
 .SH "DESCRIPTION"
 .IX Header "DESCRIPTION"
-This is the \s-1PFM\s0 application class that holds everything together.
+This is the \s-1PFM\s0 application class that holds all pfm elements together.
 .SH "METHODS"
 .IX Header "METHODS"
 .IP "\fI_init()\fR" 4
@@ -179,7 +179,8 @@ Initializes the application.
 Instantiates the necessary objects.
 .IP "\fIrun()\fR" 4
 .IX Item "run()"
-Runs the application. Calls \fIbootstrap()\fR if that has not been done yet.
+Runs the application. Calls \fIbootstrap()\fR first, if that has not
+been done yet.
 .SH "SEE ALSO"
 .IX Header "SEE ALSO"
 \&\fIpfm\fR\|(1).

@@ -16,3 +16,5 @@ man: pfm
 
 doc: man
 
+test: pfm.pl
+	perl -cw pfm.pl
