@@ -44,7 +44,7 @@ use constant {
 };
 
 our @EXPORT = qw(min max inhibit triggle toggle isyes isno basename dirname
-				 isxterm formatted svnmaxchar svnmax time2str
+				 isxterm formatted svnmaxchar svnmax time2str fit2limit
 				 TIME_FILE TIME_CLOCK);
 
 my $XTERMS = qr/^(.*xterm.*|rxvt.*|gnome.*|kterm)$/;
@@ -211,6 +211,27 @@ sub time2str {
 		return strftime ($pfmrc{clockdateformat}, localtime $time),
 			   strftime ($pfmrc{clocktimeformat}, localtime $time);
 	}
+}
+
+=item fit2limit()
+
+Fits a file size into a certain number of characters by converting it
+to a number with kilo (mega, giga, ...) specification.
+
+=cut
+
+sub fit2limit {
+	my ($self, $size_num, $limit) = @_;
+	my $size_power = ' ';
+	# size_num might be uninitialized or major/minor
+	if (!defined($size_num) or $size_num =~ m!\D!) {
+		return ($size_num, ' ');
+	}
+	while ($size_num > $limit) {
+		$size_num = int($size_num/1024);
+		$size_power =~ tr/ KMGTPEZ/KMGTPEZY/;
+	}
+	return ($size_num, $size_power);
 }
 
 ##########################################################################

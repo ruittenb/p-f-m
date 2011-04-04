@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2010-04-02 v2.01.1
+# @(#) pfm.pl 2010-04-02 v2.01.2
 #
 # Name:			pfm
-# Version:		2.01.1
+# Version:		2.01.2
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-01
+# Date:			2010-04-02
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				    [ -l, --layout <number> ]
 #				pfm { -v, --version | -h, --help }
@@ -29,7 +29,7 @@ our $ROFFVERSION = '
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.01.1
+.ds Vw @(#) pfm.pl 2.01.2
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -40,7 +40,7 @@ This manual pertains to \f(CWpfm\fP version \\$3.
 ##########################################################################
 # declarations
 
-use lib '/home/ruitten/Desktop/projects/pfm-2.01.1/lib';
+use lib '/home/ruitten/Desktop/projects/pfm-2.01.2/lib';
 
 use PFM::Application;
 

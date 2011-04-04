@@ -30,8 +30,8 @@
 .    if (\n(.H=4u)&(1m=20u) .ds -- \(*W\h'-12u'\(*W\h'-8u'-\"  diablo 12 pitch
 .    ds L" ""
 .    ds R" ""
-.\"    ds C` ""
-.\"    ds C' ""
+.    ds C` 
+.    ds C' 
 'br\}
 .el\{\
 .    ds -- \|\(em\|
@@ -60,7 +60,7 @@
 ..
 .\}
 .\"
-.\" Accent mark definitions (ms.acc 1.5 88/02/08 SMI; from UCB 4.2).
+.\" Accent mark definitions (@(#)ms.acc 1.5 88/02/08 SMI; from UCB 4.2).
 .\" Fear.  Run.  Save yourself.  No user-serviceable parts.
 .    \" fudge factors for nroff and troff
 .if n \{\
@@ -123,29 +123,23 @@
 .rm #[ #] #H #V #F C
 .\" ========================================================================
 .\"
-.IX Title "State 3pm"
-.TH State 3pm "2010-04-02" " " " "
+.IX Title "Abstract 3pm"
+.TH Abstract 3pm "2010-04-02" " " " "
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
 .nh
 .SH "NAME"
-PFM::State
+PFM::Abstract
 .SH "DESCRIPTION"
 .IX Header "DESCRIPTION"
-\&\s-1PFM\s0 class used for storing the current state of the application.
+The \s-1PFM\s0 Abstract class from which the other classes are derived.
+It defines shared functions.
 .SH "METHODS"
 .IX Header "METHODS"
-.IP "\fI_init()\fR" 4
-.IX Item "_init()"
-Initializes new instances. Called from the constructor.
-.IP "\fIdirectory()\fR" 4
-.IX Item "directory()"
-Getter/setter for the PFM::Directory object.
-.IP "\fIcurrentdir()\fR" 4
-.IX Item "currentdir()"
-Getter/setter for the current directory path.
-If a new directory is provided, it will be passed to PFM::Directory.
+.IP "\fInew()\fR" 4
+.IX Item "new()"
+Constructor for all classes based on PFM::Abstract.
 .SH "SEE ALSO"
 .IX Header "SEE ALSO"
 \&\fIpfm\fR\|(1).

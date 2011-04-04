@@ -39,7 +39,8 @@ use base 'PFM::Abstract';
 use PFM::Util;
 
 my ($_pfm, $_path,
-	@_dircontents, @_showncontents, %_selected_nr_of, %_total_nr_of);
+	@_dircontents, @_showncontents, %_selected_nr_of, %_total_nr_of,
+	%_disk);
 
 ##########################################################################
 # private subs
@@ -159,7 +160,6 @@ of each type there are.
 =cut
 
 sub total_nr_of {
-	my ($self) = @_;
 	return \%_total_nr_of;
 }
 
@@ -171,8 +171,18 @@ of each type have been selected.
 =cut
 
 sub selected_nr_of {
-	my ($self) = @_;
 	return \%_selected_nr_of;
+}
+
+=item disk()
+
+Getter for the hash which keeps track of filesystem information:
+usage, mountpoint and device.
+
+=cut
+
+sub disk {
+	return \%_disk;
 }
 
 ##########################################################################
@@ -202,6 +212,7 @@ sub chdir {
 	if ($result = chdir $target and $target ne $_path) {
 		#TODO define constants for oldcwd
 		$_pfm->state(2) = $self;
+		# TODO store _path in state->_position
 		$_path = $target;
 		$chdirautocmd = $_pfm->config->chdirautocmd;
 		system("$chdirautocmd") if length($chdirautocmd);
@@ -216,8 +227,14 @@ sub init_dircount {
 		  p=>0, 's'=>0, n=>0, w=>0, bytes => 0 );
 }
 
-#TODO
-sub countdircontents {
+=item countcontents()
+
+Counts the total number of entries of each type in the current directory.
+
+=cut
+
+sub countcontents {
+	my $self = shift;
 	$self->init_dircount();
 	foreach my $i (0..$#_) {
 		$_total_nr_of   {$_[$i]{type}}++;
@@ -262,9 +279,9 @@ sub readcontents {
 		substr($entry->{mode}, 0, 1) = 'w';
 		push @contents, $entry;
 	}
-	draw_menu();
+	show_menu();
 	handlemorercsopen() if $autorcs;
-	draw_headings($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
+	show_headings($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
 	return @contents;
 }
 

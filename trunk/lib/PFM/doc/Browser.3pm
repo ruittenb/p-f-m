@@ -124,7 +124,7 @@
 .\" ========================================================================
 .\"
 .IX Title "Browser 3pm"
-.TH Browser 3pm "2010-04-01" " " " "
+.TH Browser 3pm "2010-04-02" " " " "
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -133,18 +133,22 @@
 PFM::Browser
 .SH "DESCRIPTION"
 .IX Header "DESCRIPTION"
-This class is responsible for executing the main browsing loop of pfm:
-.IP "\-" 4
-wait for keypress
-.IP "\-" 4
-dispatch command to CommandHandler
-.IP "\-" 4
-refresh screen
+This class is responsible for executing the main browsing loop of pfm,
+which loops over: waiting for a keypress, dispatching the command to
+the CommandHandler, and refreshing the screen.
 .SH "METHODS"
 .IX Header "METHODS"
 .IP "\fI_init()\fR" 4
 .IX Item "_init()"
 Initializes new instances. Called from the constructor.
+.IP "\fI_wait_loop()\fR" 4
+.IX Item "_wait_loop()"
+Waits for keyboard input. In unused time, poll jobs and update
+the on-screen clock.
+.IP "\fIposition_at()\fR" 4
+.IX Item "position_at()"
+Getter/setter for the position_at variable, which controls to which file
+the cursor should go as soon as the main browse loop is resumed.
 .IP "\fIbrowse()\fR" 4
 .IX Item "browse()"
 This sub, the main browse loop, is the heart of pfm. It has the
@@ -157,6 +161,11 @@ following structure:
 \&    handle the request;
 \&  } until quit was requested.
 .Ve
+.IP "\fIvalidate_position()\fR" 4
+.IX Item "validate_position()"
+Checks if the current cursor position and the current file lie within
+the screen window. If not, the screen window is repositioned so that the
+cursor is on-screen.
 .SH "SEE ALSO"
 .IX Header "SEE ALSO"
 \&\fIpfm\fR\|(1).

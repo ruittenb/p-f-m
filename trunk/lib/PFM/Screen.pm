@@ -21,8 +21,7 @@ PFM::Screen
 
 =head1 DESCRIPTION
 
-PFM class used for coordinating the drawing of all elements on
-the screen.
+PFM class used for coordinating how all elements are displayed on screen.
 
 =head1 METHODS
 
@@ -293,15 +292,15 @@ sub pending_input {
 	return (length($self->{IN}) || $_wasresized || $self->key_pressed($delay));
 }
 
-=item draw_frame()
+=item show_frame()
 
-Dispatches a request to redraw the frame to the PFM::Screen::Frame object.
+Uses the PFM::Screen::Frame object to redisplay the frame.
 
 =cut
 
-sub draw_frame {
+sub show_frame {
 	my $self = shift;
-	$_frame->draw();
+	$_frame->show();
 	return $self;
 }
 
@@ -340,17 +339,20 @@ sub pressanykey {
 	my $self = shift;
 	$self->putmessage("\r\n*** Hit any key to continue ***");
 	$self->stty_raw();
-	if ($_pfm->state->{mouse_mode} && $_pfm->config->{mouseturnoff}) {
-		$self->mouse_enable()
+	if ($_pfm->state->{mouse_mode} && $_pfm->config->{clickiskeypresstoo}) {
+		$self->mouse_enable();
+	} else {
+		$self->mouse_disable();
 	}
 	if ($self->getch() eq 'kmous') {
 		$self->getch(); # discard mouse info: co-ords and button
 		$self->getch();
 		$self->getch();
 	};
-	# the output of the following command should start on a new line
+	# the output of the following command should start on a new line.
 	# does this work correctly in TERM_RAW mode?
 	$scr->puts("\n");
+	$self->mouse_enable() if $_pfm->state->{mouse_mode};
 	$self->alternate_on() if $_pfm->config->{altscreen_mode};
 	$self->handleresize() if $_wasresized;
 }
@@ -410,7 +412,7 @@ sub unset_deferred_refresh {
 
 =item refresh()
 
-Redraws all screen elements that have been flagged as 'in need to be redrawn'.
+Redisplays all screen elements that have been flagged as 'needs to be redrawn'.
 
 =cut
 
@@ -419,12 +421,12 @@ sub refresh {
 	my $directory = $_pfm->state->directory;
 	my $browser   = $_pfm->browser;
 	
-	# draw frame as soon as possible: this looks better on slower terminals
+	# show frame as soon as possible: this looks better on slow terminals
 	if ($_deferred_refresh & R_CLEAR) {
 		$self->clrscr();
 	}
 	if ($_deferred_refresh & R_FRAME) {
-		$_frame->draw();
+		$_frame->show();
 	}
 	# now in order of severity
 	if ($_deferred_refresh & R_DIRCONTENTS or
@@ -453,29 +455,90 @@ sub refresh {
 		%currentfile = %{$showncontents[$currentline+$baseindex]};
 	}
 	if ($_deferred_refresh & R_DIRLIST) {
-		printdircontents(@showncontents);
+		$_listing->show();
 	}
 	if ($_deferred_refresh & R_DISKINFO) {
-		showdiskinfo();
+		$_pfm->diskinfo->show();
 	}
 	if ($_deferred_refresh & R_MENU) {
-		$_frame->draw_menu();
+		$_frame->show_menu();
 	}
 	if ($_deferred_refresh & R_PATHINFO) {
-		path_info();
+		$self->path_info();
 	}
 	if ($_deferred_refresh & R_HEADINGS) {
-		$_frame->draw_headings($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
+		$_frame->show_headings($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
 	}
 	if ($_deferred_refresh & R_FOOTER) {
-		$_frame->draw_footer();
+		$_frame->show_footer();
 	}
 	$_deferred_refresh = 0;
 }
 
+=item path_info()
+
+Redisplays information about the current directory path and the current
+filesystem.
+
+=cut
+
 sub path_info {
-	#TODO variables
-	$self->at(PATHLINE, 0)->puts(pathline($directory->path, $disk{'device'}));
+	my $self = shift;
+	my $directory = $_pfm->state->directory;
+	$self->at(PATHLINE, 0)
+		 ->puts($self->pathline($directory->path, $directory->device));
+}
+
+=item pathline()
+
+Formats the information about the current directory path and the current
+filesystem.
+
+=cut
+
+# TODO lots
+sub pathline {
+	my ($path, $dev, $displen, $ellipssize) = @_;
+	my $overflow	 = ' ';
+	my $ELLIPSIS	 = '..';
+	my $normaldevlen = 12;
+	my $actualdevlen = max($normaldevlen, length($dev));
+	# the three in the next exp is the length of the overflow char plus the '[]'
+	my $maxpathlen   = $screenwidth - $actualdevlen -3;
+	my ($restpathlen, $disppath);
+	$dev = $dev . ' 'x max($actualdevlen -length($dev), 0);
+	FIT: {
+		# the next line is supposed to contain an assignment
+		unless (length($path) <= $maxpathlen and $disppath = $path) {
+			# no fit: try to replace (part of) the name with ..
+			# we will try to keep the first part e.g. /usr1/ because this often
+			# shows the filesystem we're on; and as much as possible of the end
+			unless ($path =~ /^(\/[^\/]+?\/)(.+)/) {
+				# impossible to replace; just truncate
+				# this is the case for e.g. /some_ridiculously_long_directory_name
+				$disppath = substr($path, 0, $maxpathlen);
+				$$displen = $maxpathlen;
+				$overflow = $NAMETOOLONGCHAR;
+				last FIT;
+			}
+			($disppath, $path) = ($1, $2);
+			$$displen = length($disppath);
+			# the one being subtracted is for the '/' char in the next match
+			$restpathlen = $maxpathlen -length($disppath) -length($ELLIPSIS) -1;
+			unless ($path =~ /(.*?)(\/.{1,$restpathlen})$/) {
+				# impossible to replace; just truncate
+				# this is the case for e.g. /usr/some_ridiculously_long_directory_name
+				$disppath = substr($disppath.$path, 0, $maxpathlen);
+				$overflow = $NAMETOOLONGCHAR;
+				last FIT;
+			}
+			# pathname component candidate for replacement found; name will fit
+			$disppath .= $ELLIPSIS . $2;
+			$$ellipssize = length($1) - length($ELLIPSIS);
+		}
+	}
+	return $disppath . ' 'x max($maxpathlen -length($disppath), 0)
+		 . $overflow . "[$dev]";
 }
 
 ##########################################################################

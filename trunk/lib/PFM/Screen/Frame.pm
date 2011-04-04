@@ -1,16 +1,33 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Screen::Frame 2010-03-27 v0.01
+# @(#) PFM::Screen::Frame 0.04
 #
 # Name:			PFM::Screen::Frame.pm
-# Version:		0.01
+# Version:		0.04
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-03-27
-# Description:	Subclass of PFM::Screen, used for drawing a frame
-#				(menubar, footer and column headings)
+# Date:			2010-04-03
 #
+
+##########################################################################
+
+=pod
+
+=head1 NAME
+
+PFM::Screen::Frame
+
+=head1 DESCRIPTION
+
+PFM class for drawing a frame (menubar, footer and column headings)
+and panning it.
+
+=head1 METHODS
+
+=over
+
+=cut
 
 ##########################################################################
 # declarations
@@ -156,28 +173,28 @@ sub _getfooter {
 ##########################################################################
 # public subs
 
-=item draw()
+=item show()
 
-Draws menu, footer and headings.
+Displays menu, footer and headings.
 
 =cut
 
-sub draw {
+sub show {
 	my $self = shift;
-	$self->draw_menu();
+	$self->show_menu();
 	# TODO @layoutfieldswithinfo
-	$self->draw_headings($_pfm->state->{swap_mode}, HEADING_DISKINFO, @layoutfieldswithinfo);
-	$self->draw_footer();
+	$self->show_headings($_pfm->state->{swap_mode}, HEADING_DISKINFO, @layoutfieldswithinfo);
+	$self->show_footer();
 	return $self;
 }
 
-=item draw_menu()
+=item show_menu()
 
-Draws the menu, i.e., the top line on the screen.
+Displays the menu, i.e., the top line on the screen.
 
 =cut
 
-sub draw_menu {
+sub show_menu {
 	my ($self, $mode) = @_;
 	my ($pos, $menu, $menulength, $vscreenwidth, $color, $do_multi);
 	$mode ||= ($_pfm->state->{multiple_mode} * MENU_MULTI);
@@ -203,14 +220,14 @@ sub draw_menu {
 	return $menulength;
 }
 
-=item draw_headings()
+=item show_headings()
 
-Draws the column headings.
+Displays the column headings.
 
 =cut
 
 # TODO move to Screen::Listing
-sub draw_headings { # swap_mode, extra field, @layoutfieldswithinfo
+sub show_headings { # swap_mode, extra field, @layoutfieldswithinfo
 	my ($self, $smode, $info, @fields) = @_;
 	my ($linecolor, $diskinfo, $padding);
 	# TODO $infolength
@@ -237,13 +254,13 @@ sub draw_headings { # swap_mode, extra field, @layoutfieldswithinfo
 		->reset()->normal();
 }
 
-=item draw_footer()
+=item show_footer()
 
-Draws the footer, i.e. the last line on screen with the status info.
+Displays the footer, i.e. the last line on screen with the status info.
 
 =cut
 
-sub draw_footer {
+sub show_footer {
 	my $self	  = shift;
 	my $screen	  = $_pfm->screen;
 	my $width	  = $screen->screenwidth;

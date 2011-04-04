@@ -37,7 +37,8 @@ use base 'PFM::Abstract';
 
 use PFM::Directory;
 
-my ($_pfm, $_directory);
+my ($_pfm, $_directory,
+	$_position);
 
 ##########################################################################
 # private subs
@@ -95,6 +96,22 @@ sub currentdir {
 
 ##########################################################################
 # public subs
+
+=item prepare()
+
+Prepares the contents of this state object. Called in case this state
+is not to be displayed on-screen right away.
+
+=cut
+
+sub prepare {
+	my $self = shift;
+	$_directory->init_dircount();
+	$_directory->readcontents();
+	$_directory->sortcontents();
+	$_directory->filtercontents();
+	$_position = '.';
+}
 
 ##########################################################################
 

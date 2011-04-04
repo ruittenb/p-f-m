@@ -1,20 +1,37 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Job::Svn 2010-03-27 v0.01
+# @(#) PFM::Job::Subversion 0.01
 #
-# Name:			PFM::Job::Svn.pm
+# Name:			PFM::Job::Subversion.pm
 # Version:		0.01
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-03-27
-# Description:	PFM Job class for Subversion commands.
+# Date:			2010-04-03
 #
+
+##########################################################################
+
+=pod
+
+=head1 NAME
+
+PFM::Job::Subversion
+
+=head1 DESCRIPTION
+
+PFM Job class for Subversion commands.
+
+=head1 METHODS
+
+=over
+
+=cut
 
 ##########################################################################
 # declarations
 
-package PFM::Job::Svn;
+package PFM::Job::Subversion;
 
 use base 'PFM::Abstract';
 
