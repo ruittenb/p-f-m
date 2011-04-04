@@ -1,15 +1,32 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::CommandHandler 2010-03-27 v0.01
+# @(#) PFM::CommandHandler 0.01
 #
 # Name:			PFM::CommandHandler.pm
 # Version:		0.01
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-03-27
-# Description:	PFM class used for executing user commands
+# Date:			2010-04-01
 #
+
+##########################################################################
+
+=pod
+
+=head1 NAME
+
+PFM::CommandHandler
+
+=head1 DESCRIPTION
+
+PFM Class for executing user commands.
+
+=head1 METHODS
+
+=over
+
+=cut
 
 ##########################################################################
 # declarations
@@ -143,6 +160,16 @@ sub whitesupport {
 	return ($_white_cmd ne '');
 }
 
+=item handle()
+
+Finds out how an event should be handled, and acts on it.
+
+=cut
+
+sub handle {
+	# TODO
+}
+
 =item handlepan()
 
 Handle the pan keys B<E<lt>> and B<E<gt>>.
@@ -158,6 +185,18 @@ sub handlelayouts {
 	my $self = shift;
 	$_pfm->screen->listing->show_next_layout();
 }
+
+=item handlefit()
+
+Recalculate the screen size and adjust the layouts.
+
+=cut
+
+sub handlefit {
+	my $self = shift;
+	$_pfm->screen->fit();
+}
+
 
 ##########################################################################
 

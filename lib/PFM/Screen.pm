@@ -1,16 +1,34 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Screen 2010-03-27 v0.01
+# @(#) PFM::Screen 0.03
 #
 # Name:			PFM::Screen.pm
-# Version:		0.01
+# Version:		0.03
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-03-27
+# Date:			2010-04-01
 # Requires:		Term::ScreenColor
-# Description:	PFM class used for controlling the screen.
 #
+
+##########################################################################
+
+=pod
+
+=head1 NAME
+
+PFM::Screen
+
+=head1 DESCRIPTION
+
+PFM class used for coordinating the drawing of all elements on
+the screen.
+
+=head1 METHODS
+
+=over
+
+=cut
 
 ##########################################################################
 # declarations
@@ -39,7 +57,7 @@ use constant {
 	R_DIRLIST		=> 64,		# redisplay directory listing
 	R_DIRFILTER		=> 128,		# decide which entries to display (init @showncontents)
 #	R_SCREEN					# combines R_DIRFILTER, R_DIRLIST, R_DISKINFO and R_FRAME
-	R_CLEAR			=> 256,		# clear the screen
+	R_CLEAR			=> 255,		# clear the screen
 #	R_CLRSCR					# combines R_CLEAR and R_SCREEN
 	R_DIRSORT		=> 512,		# resort @dircontents
 	R_DIRCONTENTS	=> 1024,	# reread directory contents
@@ -191,10 +209,52 @@ sub alternate_off {
 	return $self;
 }
 
-sub recalculate_dimensions {
+=item calculate_dimensions()
+
+Calculates the height and width of the screen.
+
+=cut
+
+sub calculate_dimensions {
 	my $self = shift;
-	if ($self->rows()) { $_screenheight = $self->rows() - BASELINE - 2 }
-	if ($self->cols()) { $_screenwidth  = $self->cols() }
+	my $newheight = $self->rows();
+	my $newwidth  = $self->cols();
+	if ($newheight || $newwidth) {
+#		$ENV{ROWS}    = $newheight;
+#		$ENV{COLUMNS} = $newwidth;
+		$_screenheight = $newheight - BASELINE - 2;
+		$_screenwidth  = $newwidth;
+	}
+	return $self;
+}
+
+=item fit()
+
+Recalculates the screen size and adjust the layouts.
+
+=cut
+
+sub fit {
+	my $self = shift;
+	$self->resize();
+	$self->calculate_dimensions();
+	$self->listing->makeformatlines();
+	$self->listing->reformat();
+	$self->set_deferred_refresh(R_CLRSCR);
+}
+
+=item handleresize()
+
+Makes the contents fit on the screen again after a resize. Validates
+the cursor position.
+
+=cut
+
+sub handleresize {
+	my $self = shift;
+	$_wasresized = 0;
+	$self->fit();
+	$_pfm->browser->validate_position();
 	return $self;
 }
 
@@ -233,6 +293,31 @@ sub putmessage {
 		$_pfm->config->{framecolors}{$_pfm->state->{color_mode}}{message},
 		@_
 	);
+}
+
+=item pressanykey()
+
+Displays a message and waits for a key to be pressed.
+
+=cut
+
+sub pressanykey {
+	my $self = shift;
+	$self->putmessage("\r\n*** Hit any key to continue ***");
+	$self->stty_raw();
+	if ($_pfm->state->{mouse_mode} && $_pfm->config->{mouseturnoff}) {
+		$self->mouse_enable()
+	}
+	if ($self->getch() eq 'kmous') {
+		$self->getch(); # discard mouse info: co-ords and button
+		$self->getch();
+		$self->getch();
+	};
+	# the output of the following command should start on a new line
+	# does this work correctly in TERM_RAW mode?
+	$scr->puts("\n");
+	$self->alternate_on() if $_pfm->config->{altscreen_mode};
+	$self->handleresize() if $_wasresized;
 }
 
 =item display_error()
@@ -276,6 +361,18 @@ sub set_deferred_refresh {
 	return $self;
 }
 
+=item unset_deferred_refresh()
+
+Flags a screen element as 'does not need to be redrawn'.
+
+=cut
+
+sub unset_deferred_refresh {
+	my ($self, $bits) = @_;
+	$_deferred_refresh &= ~$bits;
+	return $self;
+}
+
 =item refresh()
 
 Redraws all screen elements that need to be redrawn.
@@ -294,7 +391,11 @@ sub refresh {
 	# now in order of severity
 	if ($_deferred_refresh & R_DIRCONTENTS) {
 		$_pfm->state->directory->init_dircount();
-		$position_at  = $showncontents[$currentline+$baseindex]{name} unless length($position_at);
+
+		$_pfm->browser->position_at(
+			$showncontents[$currentline+$baseindex]{name}
+		) unless length($position_at);
+		# move to Directony
 		@dircontents  = getdircontents($currentdir);
 	}
 	if ($_deferred_refresh & $R_DIRSORT) {

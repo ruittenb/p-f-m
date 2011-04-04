@@ -1,15 +1,16 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Util 2010-03-27 v0.01
+# @(#) PFM::Util 0.06
 #
 # Name:			PFM::Util.pm
-# Version:		0.01
+# Version:		0.06
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-03-27
-# Description:	PFM Util class, containing utility functions.
+# Date:			2010-04-01
 #
+
+##########################################################################
 
 =pod
 
@@ -20,7 +21,7 @@ PFM::Util
 =head1 DESCRIPTION
 
 Static class derived from Exporter that provides some practical
-utility functions.
+utility functions for pfm.
 
 =head1 METHODS
 
@@ -37,8 +38,14 @@ use base 'Exporter';
 
 use Carp;
 
+use constant {
+	TIME_FILE	=> 0,
+	TIME_CLOCK	=> 1,
+};
+
 our @EXPORT = qw(min max inhibit triggle toggle isyes isno basename dirname
-				 isxterm formatted svnmaxchar svnmax);
+				 isxterm formatted svnmaxchar svnmax time2str
+				 TIME_FILE TIME_CLOCK);
 
 my $XTERMS = qr/^(.*xterm.*|rxvt.*|gnome.*|kterm)$/;
 
@@ -187,6 +194,23 @@ sub svnmax ($$) {
 	substr($res,1,1) = svnmaxchar(substr($old,1,1), substr($new,1,1));
 	substr($res,2,1) ||= substr($new,2,1);
 	return $res;
+}
+
+=item time2str()
+
+Formats a time for printing. Can be used for timestamps (with the TIME_FILE
+flag) or for the on-screen clock (with TIME_CLOCK).
+
+=cut
+
+sub time2str {
+	my ($time, $flag) = @_;
+	if ($flag == $TIME_FILE) {
+		return strftime ($pfmrc{timestampformat}, localtime $time);
+	} else {
+		return strftime ($pfmrc{clockdateformat}, localtime $time),
+			   strftime ($pfmrc{clocktimeformat}, localtime $time);
+	}
 }
 
 ##########################################################################

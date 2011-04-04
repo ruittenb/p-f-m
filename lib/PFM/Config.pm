@@ -1,15 +1,33 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Config 2010-03-27 v0.01
+# @(#) PFM::Config 0.10
 #
 # Name:			PFM::Config.pm
-# Version:		0.01
+# Version:		0.10
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-03-27
-# Description:	PFM class used for handling and parsing the config file.
+# Date:			2010-04-01
 #
+
+##########################################################################
+
+=pod
+
+=head1 NAME
+
+PFM::Config
+
+=head1 DESCRIPTION
+
+PFM Config class, used for reading and parsing the F<.pfmrc> config file,
+creating a default one, and storing the configuration in memory.
+
+=head1 METHODS
+
+=over
+
+=cut
 
 ##########################################################################
 # declarations
@@ -110,43 +128,40 @@ Parses the colorsets defined in the F<.pfmrc>.
 
 =cut
 
-# TODO
 sub _parse_colorsets {
-	if (isyes($pfmrc{importlscolors}) and $ENV{LS_COLORS} || $ENV{LS_COLOURS}){
-		$pfmrc{'dircolors[ls_colors]'} =  $ENV{LS_COLORS} || $ENV{LS_COLOURS};
+	if (isyes($_pfmrc{importlscolors}) and $ENV{LS_COLORS} || $ENV{LS_COLOURS}){
+		$_pfmrc{'dircolors[ls_colors]'} =  $ENV{LS_COLORS} || $ENV{LS_COLOURS};
 	}
-	$pfmrc{'dircolors[off]'}   = '';
-	$pfmrc{'framecolors[off]'} =
+	$_pfmrc{'dircolors[off]'}   = '';
+	$_pfmrc{'framecolors[off]'} =
 		'headings=reverse:swap=reverse:footer=reverse:highlight=bold:';
 	# this %{{ }} construct keeps values unique
-	@colorsetnames = keys %{{
-		map { /\[(\w+)\]/; $1, '' }
-		grep { /^(dir|frame)colors\[[^*]/ } keys(%pfmrc)
-	}};
+	$self->{colorsetnames} = [
+		keys %{{
+			map { /\[(\w+)\]/; $1, '' }
+			grep { /^(dir|frame)colors\[[^*]/ } keys(%_pfmrc)
+		}}
+	];
 	# keep the default outside of @colorsetnames
-	defined($pfmrc{'dircolors[*]'})   or $pfmrc{'dircolors[*]'}   = '';
-	defined($pfmrc{'framecolors[*]'}) or $pfmrc{'framecolors[*]'} =
+	defined($_pfmrc{'dircolors[*]'})   or $_pfmrc{'dircolors[*]'}   = '';
+	defined($_pfmrc{'framecolors[*]'}) or $_pfmrc{'framecolors[*]'} =
 		'menu=white on blue:multi=bold reverse cyan on white:'
 	.	'headings=bold reverse cyan on white:swap=reverse black on cyan:'
 	.	'footer=bold reverse blue on white:message=bold cyan:highlight=bold:';
-	foreach (@colorsetnames) {
+	foreach (@{$self->{colorsetnames}}) {
 		# should there be no dircolors[thisname], use the default
-		defined($pfmrc{"dircolors[$_]"})
-			or $pfmrc{"dircolors[$_]"} = $pfmrc{'dircolors[*]'};
-		while ($pfmrc{"dircolors[$_]"} =~ /([^:=*]+)=([^:=]+)/g ) {
-			$dircolors{$_}{$1} = $2;
+		defined($_pfmrc{"dircolors[$_]"})
+			or $_pfmrc{"dircolors[$_]"} = $_pfmrc{'dircolors[*]'};
+		while ($_pfmrc{"dircolors[$_]"} =~ /([^:=*]+)=([^:=]+)/g ) {
+			$self->{dircolors}{$_}{$1} = $2;
 		}
 		# should there be no framecolors[thisname], use the default
-		defined($pfmrc{"framecolors[$_]"})
-			or $pfmrc{"framecolors[$_]"} = $pfmrc{'framecolors[*]'};
-		while ($pfmrc{"framecolors[$_]"} =~ /([^:=*]+)=([^:=]+)/g ) {
-			$framecolors{$_}{$1} = $2;
+		defined($_pfmrc{"framecolors[$_]"})
+			or $_pfmrc{"framecolors[$_]"} = $_pfmrc{'framecolors[*]'};
+		while ($_pfmrc{"framecolors[$_]"} =~ /([^:=*]+)=([^:=]+)/g ) {
+			$self->{framecolors}{$_}{$1} = $2;
 		}
 	}
-	# now set color_mode if unset
-	$color_mode ||= defined($ENV{ANSI_COLORS_DISABLED})
-		? 'off'
-		: $pfmrc{defaultcolorset} || (defined $dircolors{ls_colors} ? 'ls_colors' : $colorsetnames[0]);
 }
 
 ##########################################################################
@@ -167,13 +182,14 @@ sub configfilename {
 ##########################################################################
 # public subs
 
-=item explain()
+=item give_location()
 
-Returns a string indicating which F<.pfmrc> is currently being used.
+Returns a message string for the user indicating which F<.pfmrc>
+is currently being used.
 
 =cut
 
-sub explain {
+sub give_location {
 	my $self = shift;
 	return "Configuration options will be read from \$PFMRC " .
 		($ENV{PFMRC}
@@ -223,6 +239,12 @@ sub read {
 		close PFMRC;
 	}
 }
+
+=item parse()
+
+Process the settings from the F<.pfmrc> file.
+
+=cut
 
 sub parse {
 	my ($self, $show_copyright) = @_;
@@ -308,29 +330,47 @@ sub parse {
 			, '* nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss mmmmmmmmmmmmmmmm ffffffffffffff'
 			, '* nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss uuuuuuuu pppppppppp ffffffffffffff')
 	];
+	$self->_parse_colorsets();
 }
 
-# TODO
+=item apply()
+
+Propagate the settings from the F<.pfmrc> file to the other classes.
+
+=cut
+
 sub apply {
 	my $self = shift;
 	my $termkeys;
+	my $screen = $_pfm->screen;
 	# additional key definitions 'keydef'
 	if ($termkeys = $_pfmrc{'keydef[*]'} .':'. $_pfmrc{"keydef[$ENV{TERM}]"}) {
 		$termkeys =~ s/(\\e|\^\[)/\e/gi;
 		# this does not allow colons (:) to appear in escape sequences!
 		foreach (split /:/, $termkeys) {
-			/^(\w+)=(.*)/ and $_pfm->screen->def_key($1, $2);
+			/^(\w+)=(.*)/ and $screen->def_key($1, $2);
 		}
 	}
-	$self->_parse_colorsets();
 	# init colorsets, ornaments, ident, formatlines, enable mouse
-	setornaments();
-	$_pfm->screen->diskinfo->{ident_mode} = $self->{ident_mode}; # TODO but it cycles in parse()
-	$_pfm->screen->diskinfo->initident();
-	makeformatlines();
-	$_pfm->screen->mouse_enable()	if $self->{mouse_mode};
-	$_pfm->screen->alternate_on()	if $self->{altscreen_mode};
+	$_pfm->history->setornaments();
+	$screen->diskinfo->ident_mode($self->{ident_mode});
+	$screen->listing->makeformatlines();
+	$screen->mouse_enable()	if $self->{mouse_mode};
+	$screen->alternate_on()	if $self->{altscreen_mode};
+	# TODO hand variables over to $_pfm->state
+	# now set color_mode if unset
+	$_pfm->state->color_mode ||= defined($ENV{ANSI_COLORS_DISABLED})
+		? 'off'
+		: $_pfmrc{defaultcolorset} || (defined $self->{dircolors}{ls_colors}
+									? 'ls_colors'
+									: $self->{colorsetnames}[0]);
 }
+
+=item write_default()
+
+Write a default config file in case none exists.
+
+=cut
 
 sub write_default {
 	my ($self) = @_;
@@ -946,6 +986,8 @@ launch[video/x-msvideo]           : divxPlayer =2 &
 
 ## vim: set filetype=xdefaults: # fairly close
 __END__
+
+=back
 
 =head1 SEE ALSO
 

@@ -1,16 +1,33 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::History 2010-03-27 v0.02
+# @(#) PFM::History 0.02
 #
 # Name:			PFM::History.pm
 # Version:		0.02
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-03-27
-# Description:	PFM History class.
-#				Reads and writes history files.
+# Date:			2010-04-01
 #
+
+##########################################################################
+
+=pod
+
+=head1 NAME
+
+PFM::History
+
+=head1 DESCRIPTION
+
+PFM History class. Reads and writes history files, holds the histories
+in memory, and coordinates how Term::ReadLine handles them.
+
+=head1 METHODS
+
+=over
+
+=cut
 
 ##########################################################################
 # declarations
@@ -202,6 +219,28 @@ sub input { # \@history, $prompt, [$default_input]
 		shift (@$history) if ($#$history > $MAXHISTSIZE);
 	}
 	return $input;
+}
+
+=item setornaments()
+
+Determines from the config file settings which ornaments (bold, italic, underline)
+should be used for the command prompt, then instructs Term::ReadLine to use these.
+
+=cut
+
+sub setornaments {
+	my $self = shift;
+	my $color = $_pfm->config->{framecolors}{$_pfm->state->color_mode}{message};
+	my @cols;
+	unless (exists $ENV{PERL_RL}) {
+		# this would have been nice, however,
+		# readline processes only the first (=most important) capability
+		push @cols, 'mr' if ($color =~ /reverse/);
+		push @cols, 'md' if ($color =~ /bold/);
+		push @cols, 'us' if ($color =~ /under(line|score)/);
+#		$kbd->ornaments(join(';', @cols) . ',me,,');
+		$_pfw->history->ornaments($cols[0] . ',me,,');
+	}
 }
 
 ##########################################################################

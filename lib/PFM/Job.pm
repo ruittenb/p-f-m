@@ -1,18 +1,34 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Job 2010-03-27 v0.01
+# @(#) PFM::Job 0.01
 #
 # Name:			PFM::Job.pm
 # Version:		0.01
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-03-27
-# Description:	PFM Job class. Supports:
-#				- firing off commands in the background
-#				- polling if output is available
-#				- returning output to the application
 #
+
+##########################################################################
+
+=pod
+
+=head1 NAME
+
+PFM::Job
+
+=head1 DESCRIPTION
+
+PFM Job class, used for: firing off commands in the background,
+polling them to see if output is available, and returning their
+output to the application.
+
+=head1 METHODS
+
+=over
+
+=cut
 
 ##########################################################################
 # declarations

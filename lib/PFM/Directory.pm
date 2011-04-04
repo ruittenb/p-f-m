@@ -1,16 +1,33 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Directory 2010-03-27 v0.01
+# @(#) PFM::Directory 0.01
 #
 # Name:			PFM::Directory.pm
 # Version:		0.01
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-03-27
-# Description:	PFM Directory class, containing the directory
-#				contents and the actions that can be performed on them.
+# Date:			2010-04-01
 #
+
+##########################################################################
+
+=pod
+
+=head1 NAME
+
+PFM::Directory
+
+=head1 DESCRIPTION
+
+PFM Directory class, containing the directory contents and the
+actions that can be performed on them.
+
+=head1 METHODS
+
+=over
+
+=cut
 
 ##########################################################################
 # declarations
@@ -21,7 +38,7 @@ use base 'PFM::Abstract';
 
 use PFM::Util;
 
-my ($_pfm, $_path);
+my ($_pfm, $_path, @_dircontents, @_showncontents);
 
 ##########################################################################
 # private subs
@@ -58,6 +75,33 @@ sub path {
 	}
 	return $_path;
 }
+
+=item dircontents()
+
+Getter/setter for the @_dircontents variable, which contains the
+complete array of files in the directory.
+
+=cut
+
+sub dircontents {
+	my ($self, @value) = @_;
+	@_dircontents = @value if defined @value;
+	return @_dircontents;
+}
+
+=item showncontents()
+
+Getter/setter for the @_showncontents variable, which contains an
+array of the files shown on-screen.
+
+=cut
+
+sub showncontents {
+	my ($self, @value) = @_;
+	@_showncontents = @value if defined @value;
+	return @_showncontents;
+}
+
 ##########################################################################
 # public subs
 

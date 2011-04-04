@@ -1,15 +1,33 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Abstract 2010-03-27 v0.01
+# @(#) PFM::Abstract 0.01
 #
 # Name:			PFM::Abstract.pm
 # Version:		0.01
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-03-27
-# Description:	The PFM Abstract class that defines shared functions.
+# Date:			2010-04-01
 #
+
+##########################################################################
+
+=pod
+
+=head1 NAME
+
+PFM::Abstract
+
+=head1 DESCRIPTION
+
+The PFM Abstract class from which the other classes are derived.
+It defines shared functions.
+
+=head1 METHODS
+
+=over
+
+=cut
 
 ##########################################################################
 # declarations

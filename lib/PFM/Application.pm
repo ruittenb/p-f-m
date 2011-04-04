@@ -8,8 +8,25 @@
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-03-27
-# Description:	The PFM application.
 #
+
+##########################################################################
+
+=pod
+
+=head1 NAME
+
+PFM::Application
+
+=head1 DESCRIPTION
+
+This is the PFM application class that holds all pfm elements together.
+
+=head1 METHODS
+
+=over
+
+=cut
 
 ##########################################################################
 # declarations
@@ -96,7 +113,7 @@ sub _usage {
 		  "    -l, --layout $number  : startup with specified layout\n",
 		  "    -s, --swap $directory : specify swap directory\n",
 		  "    -v, --version        : print version information and exit\n",
-		  $config->explain(), "\n";
+		  $config->give_location(), "\n";
 }
 
 =item _printversion()
@@ -150,6 +167,7 @@ is a newer version. Reports this version to the user.
 
 =cut
 
+# TODO move this to a job so we can set a timeout too.
 sub _check_for_updates {
 	use LWP::Simple;
 	my $self = shift;
@@ -245,7 +263,7 @@ sub bootstrap {
 	
 	$_screen->listing->layout($startinglayout);
 	$_screen->clrscr();
-	$_screen->recalculate_dimensions();
+	$_screen->calculate_dimensions();
 	$_config = new PFM::Config();
 	$_config->read( $self, $_config->READ_FIRST);
 	$_config->parse($self, $_config->SHOW_COPYRIGHT);
@@ -275,7 +293,8 @@ sub bootstrap {
 
 =item run()
 
-Runs the application. Calls bootstrap() if that has not been done yet.
+Runs the application. Calls bootstrap() first, if that has not
+been done yet.
 
 =cut
 

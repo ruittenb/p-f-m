@@ -1,4 +1,5 @@
-PODOPTS=--release=' ' --center=' ' --date=`date +%Y-%m-%d` --section=$(SECTION)
+SECTION=1
+PODOPTS=--release=' ' --center=' ' --quotes=none --date=`date +%Y-%m-%d` --section=$(SECTION)
 WHEEL=`awk -F: '$$3 == 0 {print $$1}' /etc/group`
 
 default:
@@ -12,3 +13,6 @@ listwhite:
 
 man:
 	pod2man $(PODOPTS) pfm
+
+doc: man
+
