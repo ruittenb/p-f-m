@@ -1900,50 +1900,50 @@ sub promptforwildfilename {
 ##########################################################################
 # sorting subs
 
-sub as_requested {
-	my ($exta, $extb);
-	if ($dotdot_mode) {
-		# Oleg Bartunov requested to have . and .. unsorted (always at the top)
-		if    ($a->{name} eq '.' ) { return -1 }
-		elsif ($b->{name} eq '.' ) { return  1 }
-		elsif ($a->{name} eq '..') { return -1 }
-		elsif ($b->{name} eq '..') { return  1 }
-	}
-	SWITCH:
-	for ($sort_mode) {
-		/n/ and return		$a->{name}  cmp		$b->{name},	last SWITCH;
-		/N/ and return		$b->{name}  cmp		$a->{name},	last SWITCH;
-		/m/ and return	 lc($a->{name}) cmp  lc($b->{name}),last SWITCH;
-		/M/ and return	 lc($b->{name}) cmp  lc($a->{name}),last SWITCH;
-		/d/ and return		$a->{mtime} <=>		$b->{mtime},last SWITCH;
-		/D/ and return		$b->{mtime} <=>		$a->{mtime},last SWITCH;
-		/a/ and return		$a->{atime} <=>		$b->{atime},last SWITCH;
-		/A/ and return		$b->{atime} <=>		$a->{atime},last SWITCH;
-		/s/ and return		$a->{size}  <=>		$b->{size},	last SWITCH;
-		/S/ and return		$b->{size}  <=>		$a->{size},	last SWITCH;
-		/z/ and return		$a->{grand} <=>		$b->{grand},last SWITCH;
-		/Z/ and return		$b->{grand} <=>		$a->{grand},last SWITCH;
-		/i/ and return		$a->{inode} <=>		$b->{inode},last SWITCH;
-		/I/ and return		$b->{inode} <=>		$a->{inode},last SWITCH;
-#		/v/ and return		$a->{svn}   <=>		$b->{svn},  last SWITCH;
-#		/V/ and return		$b->{svn}   <=>		$a->{svn},  last SWITCH;
-		/t/ and return $a->{type}.$a->{name}
-									  cmp $b->{type}.$b->{name}, last SWITCH;
-		/T/ and return $b->{type}.$b->{name}
-									  cmp $a->{type}.$a->{name}, last SWITCH;
-		/[ef]/i and do {
-			 if ($a->{name} =~ /^(.*)(\.[^\.]+)$/) { $exta = $2."\0377".$1 }
-											 else { $exta = "\0377".$a->{name} }
-			 if ($b->{name} =~ /^(.*)(\.[^\.]+)$/) { $extb = $2."\0377".$1 }
-											 else { $extb = "\0377".$b->{name} }
-			 /e/ and return    $exta  cmp    $extb, 		last SWITCH;
-			 /E/ and return    $extb  cmp    $exta, 		last SWITCH;
-			 /f/ and return lc($exta) cmp lc($extb),		last SWITCH;
-			 /F/ and return lc($extb) cmp lc($exta),		last SWITCH;
-		};
-	}
-}
-
+#sub as_requested {
+#	my ($exta, $extb);
+#	if ($dotdot_mode) {
+#		# Oleg Bartunov requested to have . and .. unsorted (always at the top)
+#		if    ($a->{name} eq '.' ) { return -1 }
+#		elsif ($b->{name} eq '.' ) { return  1 }
+#		elsif ($a->{name} eq '..') { return -1 }
+#		elsif ($b->{name} eq '..') { return  1 }
+#	}
+#	SWITCH:
+#	for ($sort_mode) {
+#		/n/ and return		$a->{name}  cmp		$b->{name},	last SWITCH;
+#		/N/ and return		$b->{name}  cmp		$a->{name},	last SWITCH;
+#		/m/ and return	 lc($a->{name}) cmp  lc($b->{name}),last SWITCH;
+#		/M/ and return	 lc($b->{name}) cmp  lc($a->{name}),last SWITCH;
+#		/d/ and return		$a->{mtime} <=>		$b->{mtime},last SWITCH;
+#		/D/ and return		$b->{mtime} <=>		$a->{mtime},last SWITCH;
+#		/a/ and return		$a->{atime} <=>		$b->{atime},last SWITCH;
+#		/A/ and return		$b->{atime} <=>		$a->{atime},last SWITCH;
+#		/s/ and return		$a->{size}  <=>		$b->{size},	last SWITCH;
+#		/S/ and return		$b->{size}  <=>		$a->{size},	last SWITCH;
+#		/z/ and return		$a->{grand} <=>		$b->{grand},last SWITCH;
+#		/Z/ and return		$b->{grand} <=>		$a->{grand},last SWITCH;
+#		/i/ and return		$a->{inode} <=>		$b->{inode},last SWITCH;
+#		/I/ and return		$b->{inode} <=>		$a->{inode},last SWITCH;
+##		/v/ and return		$a->{svn}   <=>		$b->{svn},  last SWITCH;
+##		/V/ and return		$b->{svn}   <=>		$a->{svn},  last SWITCH;
+#		/t/ and return $a->{type}.$a->{name}
+#									  cmp $b->{type}.$b->{name}, last SWITCH;
+#		/T/ and return $b->{type}.$b->{name}
+#									  cmp $a->{type}.$a->{name}, last SWITCH;
+#		/[ef]/i and do {
+#			 if ($a->{name} =~ /^(.*)(\.[^\.]+)$/) { $exta = $2."\0377".$1 }
+#											 else { $exta = "\0377".$a->{name} }
+#			 if ($b->{name} =~ /^(.*)(\.[^\.]+)$/) { $extb = $2."\0377".$1 }
+#											 else { $extb = "\0377".$b->{name} }
+#			 /e/ and return    $exta  cmp    $extb, 		last SWITCH;
+#			 /E/ and return    $extb  cmp    $exta, 		last SWITCH;
+#			 /f/ and return lc($exta) cmp lc($extb),		last SWITCH;
+#			 /F/ and return lc($extb) cmp lc($exta),		last SWITCH;
+#		};
+#	}
+#}
+#
 sub by_name {
 	return $a->{name} cmp $b->{name};
 }
@@ -3809,48 +3809,48 @@ sub filetypeflag {
 	}
 }
 
-sub getdircontents { # (current)directory
-	my (@contents, $entry);
-	my @allentries = ();
-	my @white_entries = ();
-	%usercache = %groupcache = ();
+#sub readcontents { # (current)directory
+#	my (@contents, $entry);
+#	my @allentries = ();
+#	my @white_entries = ();
+#	%usercache = %groupcache = ();
+##	draw_headings($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
+#	if (opendir CURRENT, "$_[0]") {
+#		@allentries = readdir CURRENT;
+#		closedir CURRENT;
+#		if ($white_cmd) {
+#			@white_entries = `$white_cmd $_[0]`;
+#		}
+#	} else {
+#		$scr->at(0,0)->clreol();
+#		display_error("Cannot read . : $!");
+#	}
+#	# next lines also correct for directories with no entries at all
+#	# (this is sometimes the case on NTFS filesystems: why?)
+#	if ($#allentries < 0) {
+#		@allentries = ('.', '..');
+#	}
+##	local $SIG{INT} = sub { return @contents };
+#	if ($#allentries > $SLOWENTRIES) {
+#		# don't use display_error here because that would just cost more time
+#		$scr->at(0,0)->clreol()->putcolored($framecolors{$color_mode}{message}, 'Please Wait');
+#	}
+#	foreach $entry (@allentries) {
+#		# have the mark cleared on first stat with ' '
+#		push @contents, stat_entry($entry, ' ');
+#	}
+#	foreach $entry (@white_entries) {
+#		$entry = stat_entry($entry, ' ');
+#		$entry->{type} = 'w';
+#		substr($entry->{mode}, 0, 1) = 'w';
+#		push @contents, $entry;
+#	}
+#	draw_menu();
+#	handlemorercsopen() if $autorcs;
 #	draw_headings($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
-	if (opendir CURRENT, "$_[0]") {
-		@allentries = readdir CURRENT;
-		closedir CURRENT;
-		if ($white_cmd) {
-			@white_entries = `$white_cmd $_[0]`;
-		}
-	} else {
-		$scr->at(0,0)->clreol();
-		display_error("Cannot read . : $!");
-	}
-	# next lines also correct for directories with no entries at all
-	# (this is sometimes the case on NTFS filesystems: why?)
-	if ($#allentries < 0) {
-		@allentries = ('.', '..');
-	}
-#	local $SIG{INT} = sub { return @contents };
-	if ($#allentries > $SLOWENTRIES) {
-		# don't use display_error here because that would just cost more time
-		$scr->at(0,0)->clreol()->putcolored($framecolors{$color_mode}{message}, 'Please Wait');
-	}
-	foreach $entry (@allentries) {
-		# have the mark cleared on first stat with ' '
-		push @contents, stat_entry($entry, ' ');
-	}
-	foreach $entry (@white_entries) {
-		$entry = stat_entry($entry, ' ');
-		$entry->{type} = 'w';
-		substr($entry->{mode}, 0, 1) = 'w';
-		push @contents, $entry;
-	}
-	draw_menu();
-	handlemorercsopen() if $autorcs;
-	draw_headings($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
-	return @contents;
-}
-
+#	return @contents;
+#}
+#
 sub printdircontents { # @contents
 	foreach my $i ($baseindex .. $baseindex+$screenheight) {
 		unless ($i > $#_) {
@@ -3864,12 +3864,12 @@ sub printdircontents { # @contents
 	}
 }
 
-sub filterdir {
-	return grep { $dot_mode   || $_->{name} =~ /^(\.\.?|[^\.].*)$/
-		   and    $white_mode || $_->{type} ne 'w'
-	} @_;
-}
-
+#sub filterdir {
+#	return grep { $dot_mode   || $_->{name} =~ /^(\.\.?|[^\.].*)$/
+#		   and    $white_mode || $_->{type} ne 'w'
+#	} @_;
+#}
+#
 #sub init_dircount {
 #	%selected_nr_of =
 #	%total_nr_of    = ( d=>0, l=>0, '-'=>0, c=>0, b=>0,
@@ -4047,7 +4047,7 @@ sub browse {
 				init_dircount();
 				# first pass, read main dir.
 				# second pass, read swap dir.
-				@dircontents  = sort as_requested getdircontents($currentdir);
+				@dircontents  = sort as_requested readcontents($currentdir);
 				%currentfile  = %{$dircontents[$currentline+$baseindex]};
 				$wantrefresh |= handleswap();
 				unless ($swap_mode) {
@@ -4072,7 +4072,7 @@ sub browse {
 #			$wantrefresh &= ~$R_DIRCONTENTS;
 #			init_dircount();
 #			$position_at  = $showncontents[$currentline+$baseindex]{name} unless length($position_at);
-#			@dircontents  = getdircontents($currentdir);
+#			@dircontents  = readcontents($currentdir);
 #		}
 #		if ($wantrefresh &   $R_DIRSORT) {
 #			$wantrefresh &= ~$R_DIRSORT;
@@ -4113,16 +4113,16 @@ sub browse {
 #			$wantrefresh &= ~$R_FOOTER;
 #			draw_footer();
 #		}
-		# normally, the current cursor position must be validated every pass
-		$wantrefresh |= $R_STRIDE;
-		# don't send mouse escapes to the terminal if not necessary
-		highlightline($HIGHLIGHT_ON);
-		mouseenable($MOUSE_ON) if $mouse_mode && $mouseturnoff;
-		MAIN_WAIT_LOOP: until (length($scr->{IN}) || $wasresized || $scr->key_pressed(1)) {
-			clock_info();
-			handlepipes();
-			$scr->at($currentline+$BASELINE, $cursorcol);
-		}
+#		# normally, the current cursor position must be validated every pass
+#		$wantrefresh |= $R_STRIDE;
+#		# don't send mouse escapes to the terminal if not necessary
+#		highlightline($HIGHLIGHT_ON);
+#		mouseenable($MOUSE_ON) if $mouse_mode && $mouseturnoff;
+#		MAIN_WAIT_LOOP: until (length($scr->{IN}) || $wasresized || $scr->key_pressed(1)) {
+#			clock_info();
+#			handlepipes();
+#			$scr->at($currentline+$BASELINE, $cursorcol);
+#		}
 		if ($wasresized) {
 			$wantrefresh |= handleresize();
 		# the next line contains an assignment on purpose

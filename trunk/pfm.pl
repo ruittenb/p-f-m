@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2010-04-01 v2.00.9
+# @(#) pfm.pl 2010-04-02 v2.01.0
 #
 # Name:			pfm
-# Version:		2.00.9
+# Version:		2.01.0
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-04-01
@@ -23,13 +23,13 @@
 ##########################################################################
 # version macros for *roff
 
-our $PODVERSION = '
+our $ROFFVERSION = '
 
 =pod
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.00.9
+.ds Vw @(#) pfm.pl 2.01.0
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -40,7 +40,7 @@ This manual pertains to \f(CWpfm\fP version \\$3.
 ##########################################################################
 # declarations
 
-use lib '/home/ruitten/Desktop/projects/pfm-2.00.8/lib';
+use lib '/home/ruitten/Desktop/projects/pfm-2.01.0/lib';
 
 use PFM::Application;
 
@@ -1451,7 +1451,7 @@ PFM::Browser(3pm), PFM::CommandHandler(3pm), PFM::Config(3pm),
 PFM::Directory(3pm), PFM::History(3pm), PFM::Job(3pm),
 PFM::Screen(3pm), PFM::State(3pm) and PFM::Util(3pm).
 
-L<http://p-f-m.sourceforge.net/>
+The pfm project page: http://sourceforge.net/projects/p-f-m/
 
 =cut
 
