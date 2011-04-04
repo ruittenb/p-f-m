@@ -545,7 +545,7 @@ sub refresh {
 	}
 	if ($_deferred_refresh & R_HEADINGS) {
 		$_frame->show_headings(
-			$_pfm->state->{swap_mode}, $_frame->HEADING_DISKINFO);
+			$_pfm->browser->swap_mode, $_frame->HEADING_DISKINFO);
 	}
 	if ($_deferred_refresh & R_FOOTER) {
 		$_frame->show_footer();

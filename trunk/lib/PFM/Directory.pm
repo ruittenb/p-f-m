@@ -92,10 +92,6 @@ sub _init {
 	$self->{_disk}			 = {};
 }
 
-sub _clone {
-	# TODO
-}
-
 =item _find_uid()
 
 =item _find_gid()
@@ -376,7 +372,7 @@ Converts a numeric file mode (permission bits) to a symbolic one
 =cut
 
 sub mode2str {
-	my ($self, $nummode) = shift;
+	my ($self, $nummode) = @_;
 	my $strmode;
 	my $octmode = sprintf("%lo", $nummode);
 	$octmode	=~ /(\d\d?)(\d)(\d)(\d)(\d)$/;
@@ -425,7 +421,7 @@ sub stat_entry {
 	# a new directory) or kept intact (when re-statting)
 	my ($self, $entry, $selected_flag) = @_;
 	my ($ptr, $name_too_long, $target);
-	my %filetypeflags = $_pfm->config->{filetypeflags};
+	my %filetypeflags = %{$_pfm->config->{filetypeflags}};
 	my ($device, $inode, $mode, $nlink, $uid, $gid, $rdev, $size,
 		$atime, $mtime, $ctime, $blksize, $blocks) = lstat $entry;
 	$ptr = {

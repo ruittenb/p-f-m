@@ -129,24 +129,24 @@ Turns highlight on/off on the line with the cursor.
 
 =cut
 
-sub _highlightline { # true/false
+sub _highlightline {
 	my ($self, $on) = @_;
-	my $currentline = $_pfm->browser->currentline;
+	my $screenline  = $_pfm->browser->currentline + $_screen->BASELINE;
 	my $currentfile = $_pfm->browser->currentfile;
 	my $linecolor;
-	$_screen->at($_pfm->browser->currentline + $_screen->BASELINE, $_filerecordcol);
+	$_screen->at($screenline, $_filerecordcol);
 	if ($on == HIGHLIGHT_ON) {
 		$linecolor =
 			$_pfm->config->{framecolors}{$_screen->color_mode}{highlight};
-#		$_screen->bold()			if ($linecolor =~ /bold/);
+#		$_screen->bold()		if ($linecolor =~ /bold/);
 #		$_screen->reverse()		if ($linecolor =~ /reverse/);
 #		$_screen->underline()	if ($linecolor =~ /under(line|score)/);
 		$_screen->term()->Tputs('us', 1, *STDOUT)
 							if ($linecolor =~ /under(line|score)/);
 	}
-	$_screen->putcolored($linecolor, fileline($currentfile));
-	$self->applycolor($_pfm->browser->currentline + $_screen->BASELINE, FILENAME_SHORT, $currentfile);
-	$_screen->reset()->normal()->at($currentline + $_screen->BASELINE, $_cursorcol);
+	$_screen->putcolored($linecolor, $self->fileline($currentfile));
+	$self->applycolor($screenline, FILENAME_SHORT, $currentfile);
+	$_screen->reset()->normal()->at($screenline, $_cursorcol);
 }
 
 =item _decidecolor()
@@ -156,21 +156,22 @@ Decides which color should be used on a particular file.
 =cut
 
 sub _decidecolor {
-	my ($self, $f) = @_;
-	my %dircolors  = $_pfm->config->{dircolors}{$_screen->color_mode};
-	$f->{type}	eq 'w'			and return $dircolors{wh};
-	$f->{nlink} ==  0 			and return $dircolors{lo};
-	$f->{type}	eq 'd'			and return $dircolors{di};
-	$f->{type}	eq 'l'			and return $dircolors{
-											isorphan($f->{name}) ?'or':'ln' };
-	$f->{type}	eq 'b'			and return $dircolors{bd};
-	$f->{type}	eq 'c'			and return $dircolors{cd};
-	$f->{type}	eq 'p'			and return $dircolors{pi};
-	$f->{type}	eq 's'			and return $dircolors{so};
-	$f->{type}	eq 'D'			and return $dircolors{'do'};
-	$f->{type}	eq 'n'			and return $dircolors{nt};
-	$f->{mode}	=~ /[xst]/		and return $dircolors{ex};
-	$f->{name}	=~ /(\.\w+)$/	and return $dircolors{$1};
+	my $self =  $_[0];
+	my %f   = %{$_[1]};
+	my %dircolors  = %{$_pfm->config->{dircolors}{$_screen->color_mode}};
+	$f{type}  eq 'w'			and return $dircolors{wh};
+	$f{nlink} ==  0 			and return $dircolors{lo};
+	$f{type}  eq 'd'			and return $dircolors{di};
+	$f{type}  eq 'l'			and return $dircolors{
+										isorphan($f{name}) ?'or':'ln' };
+	$f{type}  eq 'b'			and return $dircolors{bd};
+	$f{type}  eq 'c'			and return $dircolors{cd};
+	$f{type}  eq 'p'			and return $dircolors{pi};
+	$f{type}  eq 's'			and return $dircolors{so};
+	$f{type}  eq 'D'			and return $dircolors{'do'};
+	$f{type}  eq 'n'			and return $dircolors{nt};
+	$f{mode}  =~ /[xst]/		and return $dircolors{ex};
+	$f{name}  =~ /(\.\w+)$/		and return $dircolors{$1};
 }
 
 ##########################################################################
@@ -366,7 +367,7 @@ sub show {
 	foreach my $i ($baseindex .. $baseindex+$_screen->screenheight) {
 		$_screen->at($i+$baseline-$baseindex, $_filerecordcol);
 		unless ($i > $#$contents) {
-			$_screen->puts(fileline($$contents[$i]));
+			$_screen->puts($self->fileline($$contents[$i]));
 			$self->applycolor(
 				$i+$baseline-$baseindex, FILENAME_SHORT, $$contents[$i]);
 		} else {
@@ -512,7 +513,8 @@ to the new layout.
 
 sub reformat {
 #	my $self = shift;
-	my $dircontents = $_pfm->state->directory->dircontents;
+	my $directory = $_pfm->state->directory;
+	my $dircontents = $directory->dircontents;
 	return unless @$dircontents; # may not have been initialized yet
 	foreach (@$dircontents) {
 		$_->{name_too_long} = length($_->{display}) > $_maxfilenamelength-1
@@ -524,7 +526,7 @@ sub reformat {
 		@{$_}{qw(grand_num grand_power)} =
 			fit2limit($_->{grand}, $_maxgrandtotallength);
 		@{$_}{qw(atimestr ctimestr mtimestr)} =
-			map { $_pfm->directory->stamp2str($_) } @{$_}{qw(atime ctime mtime)};
+			map { $directory->stamp2str($_) } @{$_}{qw(atime ctime mtime)};
 	}
 }
 

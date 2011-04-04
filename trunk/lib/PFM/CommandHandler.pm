@@ -7,7 +7,7 @@
 # Version:		0.08
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-10
+# Date:			2010-04-12
 #
 
 ##########################################################################
@@ -190,14 +190,14 @@ Finds out how an event should be handled, and acts on it.
 
 sub handle {
 	my ($self, $event) = @_;
-	my $res = 1; # assume the event was valid
+	my $valid = 1; # assume the event was valid
 	for ($event) {
 		# order is determined by (supposed) frequency of use
 #		/^(?:ku|kd|pgup|pgdn|[-+jk\cF\cB\cD\cU]|home|end)$/io
 #							and $self->handlemove($_),			last;
 #		/^(?:kr|kl|[h\e\cH])$/io
 #							and $self->handleentry($_),			last;
-#		/^[\cE\cY]$/o		and $self->handlescroll($_),		last;
+		/^[\cE\cY]$/o		and $self->handlescroll($_),		last;
 #		/^l$/o				and $self->handlekeyell($_),		last;
 #		/^ $/o				and $self->handleadvance($_),		last;
 #		/^k5$/o				and $self->handlerefresh(),			last;
@@ -220,13 +220,13 @@ sub handle {
 #		/^[\/f]$/io			and $self->handlefind(),			last;
 		/^[<>]$/io			and $self->handlepan($_,
 								$_screen->frame->MENU_SINGLE),	last;
-#		/^(?:k3|\cL|\cR)$/o	and $self->handlefit(),				last;
+		/^(?:k3|\cL|\cR)$/o	and $self->handlefit(),				last;
 #		/^t$/io				and $self->handletime(),			last;
 #		/^a$/io				and $self->handlechmod(),			last;
-		/^q$/io				and $res = $self->handlequit($_),	last;
+		/^q$/io				and $valid = $self->handlequit($_),	last;
 #		/^k6$/o				and $self->handlesort(),			last;
 		/^(?:k1|\?)$/o		and $self->handlehelp(),			last;
-#		/^k2$/o				and $self->handlecdold(),			last;
+		/^k2$/o				and $self->handlecdback(),			last;
 #		/^\.$/o				and $self->handledot(),				last;
 #		/^k9$/o				and $self->handlelayouts(),			last;
 #		/^k4$/o				and $self->handlecolor(),			last;
@@ -242,9 +242,9 @@ sub handle {
 #		/^"$/o				and $self->handlepathmode(),		last;
 #		/^w$/io				and $self->handleunwo(),			last;
 #		/^%$/o				and $self->handlewhiteout(),		last;
-		$res = 0; # invalid key
+		$valid = 0; # invalid key
 	}
-	return $res;
+	return $valid;
 }
 
 =item handlepan()
@@ -256,6 +256,43 @@ Handles the pan keys B<E<lt>> and B<E<gt>>.
 sub handlepan {
 	my ($self, $key, $mode) = @_;
 	$_screen->frame->pan($key, $mode);
+}
+
+=item handlescroll()
+
+Handles ctrl-E and ctrl-Y.
+
+=cut
+
+sub handlescroll {
+	my ($self, $key) = @_;
+	my $up = ($key =~ /^\cE$/o);
+	my $browser     = $_pfm->browser;
+	my $baseindex   = $browser->baseindex;
+	my $currentline = $browser->currentline;
+	return 0 if ( $up and
+				  $baseindex == $#{$_pfm->state->directory->showncontents} and
+				  $currentline == 0)
+			 or (!$up and $baseindex == 0);
+	my $displacement = $up - ! $up;
+	$browser->baseindex($baseindex + $displacement);
+#	$baseindex   += $displacement;
+#	$currentline -= $displacement if $currentline-$displacement >= 0
+#								 and $currentline-$displacement <= $screenheight;
+#	validate_position();
+	$_screen->set_deferred_refresh($_screen->R_DIRLIST);
+}
+
+=item handlecdback()
+
+Handles the back command (B<F2>).
+
+=cut
+
+sub handlecdback {
+	my $self = shift;
+	$_pfm->swap_states($_pfm->S_MAIN, $_pfm->S_BACK);
+	$_screen->set_deferred_refresh(R_CHDIR);
 }
 
 =item handlelayouts()

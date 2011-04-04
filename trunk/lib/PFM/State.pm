@@ -52,14 +52,13 @@ Instantiates a PFM::Directory object.
 =cut
 
 sub _init {
-	my ($self, $pfm, $swap_mode) = @_;
+	my ($self, $pfm) = @_;
 	$_pfm					= $pfm;
 	$self->{_directory}		= new PFM::Directory($pfm);
 	# We might not have useful values for these yet since the config file
 	# might not have been read yet.
 	$self->{_position}		= '.';
 	$self->{multiple_mode}	= 0;
-	$self->{swap_mode}		= $swap_mode;
 	$self->{dot_mode}		= undef;
 	$self->{radix_mode}		= undef;
 	$self->{sort_mode}		= undef;
@@ -68,6 +67,7 @@ sub _init {
 	# color_mode   sits in PFM::Screen
 	# ident_mode   sits in PFM::Screen::Diskinfo
 	# mouse_mode   sits in PFM::Browser
+	# swap_mode    sits in PFM::Browser
 	# clobber_mode sits in PFM::CommandHandler
 }
 
@@ -78,11 +78,8 @@ Clones an existing instance. Creates a new PFM::Directory object.
 =cut
 
 sub _clone {
-	my ($self, $origin, $pfm, $swap_mode) = @_;
-	$self->{swap_mode}		= $swap_mode; # TODO move this to Browser
-	$self->{_directory}		= $origin->directory->clone($pfm);
-#	$self->currentdir($origin->currentdir);
-#	$self->prepare();
+	my ($self, $origin, $pfm) = @_;
+	$self->{_directory} = $origin->directory->clone($pfm);
 }
 
 ##########################################################################
@@ -96,7 +93,7 @@ Getter for the PFM::Directory object.
 
 sub directory {
 	my ($self, $value) = @_;
-#	$self->{_directory} = $value if defined $value;
+	$self->{_directory} = $value if defined $value;
 	return $self->{_directory};
 }
 

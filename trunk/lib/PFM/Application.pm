@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Application 2.01.9
+# @(#) PFM::Application 2.01.8
 #
 # Name:			PFM::Application.pm
-# Version:		2.01.9
+# Version:		2.01.8
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-10
+# Date:			2010-04-12
 #
 
 ##########################################################################
@@ -249,6 +249,17 @@ sub latest_version {
 ##########################################################################
 # public subs
 
+=item swap_states()
+
+Swaps two state objects in the array @_states.
+
+=cut
+
+sub swap_states {
+	my ($self, $first, $second) = @_;
+	@_states[$first, $second] = @_states[$second, $first];
+}
+
 =item bootstrap()
 
 Initializes the application.
@@ -293,15 +304,19 @@ sub bootstrap {
 	$_config->parse($_config->SHOW_COPYRIGHT);
 	$_config->apply();
 	$_history->read();
-	$_screen->show_frame();
 	$_latest_version = '';
 	$_jobhandler->start('CheckUpdates');
 	
 	# 'old' directory
+	# TODO state[S_BACK] niet in elkaar knutselen!
+	# deze wordt automatisch gezet wanneer state[S_MAIN] een
+	# chdir() doet
 	$currentdir = getcwd();
-	$_states[S_BACK] = new PFM::State($self);
-	$_states[S_BACK]->currentdir($currentdir);
-	$_states[S_BACK]->prepare();
+	$_states[S_MAIN]->currentdir($currentdir);
+	$_states[S_MAIN]->prepare();
+#	$_states[S_BACK] = new PFM::State($self);
+#	$_states[S_BACK]->currentdir($currentdir);
+#	$_states[S_BACK]->prepare();
 	# main directory
 	$startingdir = shift @ARGV;
 	if ($startingdir ne '') {
@@ -312,9 +327,9 @@ sub bootstrap {
 			$_screen->important_delay();
 		}
 	} else {
-		$_states[S_MAIN] = $_states[S_BACK]->clone($self);
-		$_states[S_MAIN]->currentdir($currentdir);
-		$_states[S_MAIN]->prepare();
+		$_states[S_BACK] = $_states[S_MAIN]->clone($self, 0);
+#		$_states[S_MAIN]->currentdir($currentdir);
+#		$_states[S_MAIN]->prepare();
 	}
 	# swap directory
 	if (defined $swapstartdir) {
