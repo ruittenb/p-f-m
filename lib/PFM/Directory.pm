@@ -93,7 +93,30 @@ sub chdir {
 	return $result;
 }
 
+sub init_dircount {
+	$self->{total_nr_of} = { d=>0, l=>0, '-'=>0, c=>0, b=>0, D=>0,
+							 p=>0, 's'=>0, n=>0, w=>0, bytes => 0 };
+	%{$self->{selected_nr_of}} = %{$self->{total_nr_of}};
+}
+
+#TODO
+sub countdircontents {
+	$self->init_dircount();
+	foreach my $i (0..$#_) {
+		$total_nr_of   {$_[$i]{type}}++;
+		$selected_nr_of{$_[$i]{type}}++ if ($_[$i]{selected} eq '*');
+	}
+}
+
 ##########################################################################
+
+=back
+
+=head1 SEE ALSO
+
+pfm(1).
+
+=cut
 
 1;
 

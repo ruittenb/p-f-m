@@ -947,6 +947,10 @@ launch[video/x-msvideo]           : divxPlayer =2 &
 ## vim: set filetype=xdefaults: # fairly close
 __END__
 
-# we need 5 lines so that vim does not read the modeline above.
+=head1 SEE ALSO
+
+pfm(1).
+
+=cut
 
 # vim: set tabstop=4 shiftwidth=4:

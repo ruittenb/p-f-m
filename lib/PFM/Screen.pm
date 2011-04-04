@@ -28,11 +28,6 @@ use constant {
 	IMPORTANTDELAY	=> 2,	# extra time for important errors
 	PATHLINE		=> 1,
 	BASELINE		=> 3,
-	DISKINFOLINE	=> 4,
-	DIRINFOLINE		=> 9,
-	MARKINFOLINE	=> 15,
-	USERINFOLINE	=> 21,
-	DATEINFOLINE	=> 22,
 	R_NOP			=> 0,		# no action was required, wait for new key
 	R_STRIDE		=> 1,		# refresh currentfile, validate cursor position (always done)
 	R_MENU			=> 2,		# reprint the menu (header)
@@ -80,6 +75,7 @@ sub _init {
 	$_pfm		= $pfm;
 	$_frame		= new PFM::Screen::Frame($pfm);
 	$_listing	= new PFM::Screen::Listing($pfm);
+	$_diskinfo	= new PFM::Screen::Diskinfo($pfm);
 	$SIG{WINCH} = \&_resizecatcher;
 }
 
@@ -96,6 +92,22 @@ sub _resizecatcher {
 
 ##########################################################################
 # constructor, getters and setters
+
+=item new()
+
+Specific constructor for PFM::Screen. Constructs an object based on
+Term::ScreenColor.
+
+=cut
+
+sub new {
+	my $type = shift;
+	$type = ref($type) || $type;
+	my $self = new Term::ScreenColor();
+	bless($self, $type);
+	$self->_init(@_);
+	return $self;
+}
 
 =item screenwidth()
 
@@ -272,10 +284,68 @@ Redraws all screen elements that need to be redrawn.
 
 sub refresh {
 	my $self = shift;
-	# TODO
+	# draw frame as soon as possible: this looks better on slower terminals
+	if ($_deferred_refresh & R_CLEAR) {
+		$self->clrscr();
+	}
+	if ($_deferred_refresh & R_FRAME) {
+		$_frame->draw();
+	}
+	# now in order of severity
+	if ($_deferred_refresh & R_DIRCONTENTS) {
+		$_pfm->state->directory->init_dircount();
+		$position_at  = $showncontents[$currentline+$baseindex]{name} unless length($position_at);
+		@dircontents  = getdircontents($currentdir);
+	}
+	if ($_deferred_refresh & $R_DIRSORT) {
+		$position_at  = $showncontents[$currentline+$baseindex]{name} unless length($position_at);
+		@dircontents  = sort as_requested @dircontents;
+	}
+	if ($_deferred_refresh & R_DIRFILTER) {
+		@showncontents = filterdir(@dircontents);
+	}
+	if ($_deferred_refresh &   $R_STRIDE) {
+		$_deferred_refresh &= ~$R_STRIDE;
+		position_cursor() if $position_at ne '';
+		recalc_ptr() unless defined $showncontents[$currentline+$baseindex];
+		%currentfile = %{$showncontents[$currentline+$baseindex]};
+	}
+	if ($_deferred_refresh &   $R_DIRLIST) {
+		$_deferred_refresh &= ~$R_DIRLIST;
+		printdircontents(@showncontents);
+	}
+	if ($_deferred_refresh &   $R_DISKINFO) {
+		$_deferred_refresh &= ~$R_DISKINFO;
+		showdiskinfo();
+	}
+	if ($_deferred_refresh & R_MENU) {
+		$_frame->draw_menu();
+	}
+	if ($_deferred_refresh & R_PATHINFO) {
+		path_info();
+	}
+	if ($_deferred_refresh & R_HEADINGS) {
+		$_frame->draw_headings($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
+	}
+	if ($_deferred_refresh & R_FOOTER) {
+		$_frame->draw_footer();
+	}
+	$_deferred_refresh = 0;
 }
 
+sub path_info {
+	#TODO variables
+	$self->at(PATHLINE, 0)->puts(pathline($currentdir, $disk{'device'}));
+}
 ##########################################################################
+
+=back
+
+=head1 SEE ALSO
+
+pfm(1).
+
+=cut
 
 1;
 
