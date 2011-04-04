@@ -99,8 +99,9 @@ Called from the constructor.
 
 sub _init {
 	my ($self, $pfm, $screen) = @_;
-	$_pfm    = $pfm;
-	$_screen = $screen;
+	$_pfm        = $pfm;
+	$_screen     = $screen;
+	$_currentpan = 0;
 }
 
 =item _maxpan()
@@ -112,7 +113,7 @@ Determines how many times a banner (menu or footer) can be panned.
 sub _maxpan {
 	my ($self, $banner, $width) = @_;
 	my $panspace;
-	# this is an assignment on purpose
+	# the next line is an assignment on purpose
 	if ($panspace = 2 * (length($banner) > $width)) {
 		eval "
 			\$banner =~ s/^((?:\\S+ )+?).{1,".($width - $panspace)."}\$/\$1/;

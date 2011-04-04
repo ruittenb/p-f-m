@@ -33,13 +33,25 @@ Abstract PFM Job class for defining a common interface to Jobs.
 
 package PFM::Job::Abstract;
 
+use base 'PFM::Abstract';
+
 use Carp;
 use strict;
 
-use base 'PFM::Abstract';
-
 ##########################################################################
 # private subs
+
+=item _init()
+
+Initialize the 'running' flag.
+
+=cut
+
+sub _init() {
+	my $self = shift;
+	$self->{running} = 0;
+	$self->SUPER::_init();
+}
 
 ##########################################################################
 # constructor, getters and setters

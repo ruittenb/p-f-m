@@ -50,10 +50,8 @@ use Cwd;
 use locale;
 use strict;
 
-use constant PFM_URL => 'http://p-f-m.sourceforge.net/';
-
 my ($_browser, $_screen, $_commandhandler, $_config, $_history, $_job,
-	$_bootstrapped, @_states,
+	$_bootstrapped, @_states, $_latest_version,
 );
 
 ##########################################################################
@@ -174,29 +172,7 @@ sub _goodbye {
 		$_screen->at($_screen->screenheight + $_screen->BASELINE + 1, 0)
 				->clreol();
 	}
-}
-
-=item _check_for_updates()
-
-Tries to connect to the URL of the pfm project page to see if there
-is a newer version. Reports this version to the user.
-
-=cut
-
-# TODO move this to a job so we can set a timeout too.
-sub _check_for_updates {
-	use LWP::Simple;
-	my $self = shift;
-	my $latest_version;
-	my $pfmpage = get(PFM_URL);
-	($latest_version = $pfmpage) =~
-		s/.*?latest version \(v?([\w.]+)\).*/$1/s;
-	if ($latest_version gt $self->{VERSION}) {
-		$_screen->putmessage(
-			"There is a newer version ($latest_version) available at "
-		.	PFM_URL . "\n"
-		);
-	}
+	$_screen->putmessage($_latest_version) if $_latest_version;
 }
 
 ##########################################################################
@@ -257,6 +233,12 @@ sub state {
 	return $_states[$index];
 }
 
+sub latest_version {
+	my ($self, $value) = @_;
+	$_latest_version = $value if defined $value;
+	return $_latest_version;
+}
+
 ##########################################################################
 # public subs
 
@@ -295,7 +277,7 @@ sub bootstrap {
 	$_history		 = new PFM::History($self);
 	$_browser		 = new PFM::Browser($self);
 	$_job			 = new PFM::Job($self);
-	
+
 	$_screen->listing->layout($startinglayout);
 	$_screen->clrscr();
 	$_screen->calculate_dimensions();
@@ -305,6 +287,8 @@ sub bootstrap {
 	$_config->apply();
 	$_history->read();
 	$_screen->show_frame();
+	$_latest_version = '';
+	$_job->start('CheckUpdates');
 	
 	# 'old' directory
 	$currentdir = getcwd();
@@ -343,10 +327,8 @@ been done yet.
 sub run {
 	my $self = shift;
 	$self->bootstrap() if !$_bootstrapped;
-	
 	$_browser->browse();
 	$self->_goodbye();
-	$self->_check_for_updates() if $_config->{check_for_updates};
 }
 
 ##########################################################################

@@ -35,8 +35,6 @@ package PFM::CommandHandler;
 
 use base 'PFM::Abstract';
 
-use Term::ReadLine;
-
 use POSIX qw(strftime mktime);
 use Config;
 

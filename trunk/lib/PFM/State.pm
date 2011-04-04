@@ -56,11 +56,11 @@ sub _init {
 	my ($self, $pfm, $swap_mode) = @_;
 	$_pfm					= $pfm;
 	$_directory				= new PFM::Directory($pfm);
-	$self->{multiple_mode}	= undef;
+	$self->{multiple_mode}	= 0;
 	$self->{swap_mode}		= $swap_mode;
 	# TODO some of these may have to be moved elsewhere.
-	$self->{color_mode}		= undef; # Screen
-	$self->{sort_mode}		= undef; # Screen::Listing
+	$self->{color_mode}		= 0; # Screen
+	$self->{sort_mode}		= 'n'; # Screen::Listing
 	$self->{currentlayout}	= undef; # Screen::Listing
 	$self->{mouse_mode}		= undef; # Browser
 	$self->{clobber_mode}	= undef; # CommandHandler

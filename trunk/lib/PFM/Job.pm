@@ -20,9 +20,8 @@ PFM::Job
 
 =head1 DESCRIPTION
 
-PFM Job class, used for: firing off commands in the background,
-polling them to see if output is available, and returning their
-output to the application.
+PFM Job class, used to fire off commands in the background and to
+poll them to see if output is available.
 
 =head1 METHODS
 
@@ -39,7 +38,7 @@ use base 'PFM::Abstract';
 
 use strict;
 
-my @_jobs;
+my ($_pfm, @_jobs);
 
 ##########################################################################
 # private subs
@@ -51,7 +50,8 @@ Initializes new instances. Called from the constructor.
 =cut
 
 sub _init {
-	my $self = shift;
+	my ($self, $pfm) = @_;
+	$_pfm = $pfm;
 }
 
 ##########################################################################
@@ -60,15 +60,39 @@ sub _init {
 ##########################################################################
 # public subs
 
+=item start()
+
+Starts one job with the name specified. Adds the job to the internal
+job stack.
+
+=cut
+
 sub start {
 	my ($self, $class, @args) = @_;
-	my $job = eval "return new PFM::Job::$class(".@args.')';
-	#TODO
+	$class =~ tr/a-zA-Z0-9_//cd;
+	$class = "PFM::Job::$class";
+	my $job = eval "use $class; return $class->new($_pfm);";
+	push @_jobs, $job;
+	$job->start(@args);
+	return $job;
 }
 
-sub poll {
+=item pollall()
+
+Polls all jobs on the stack for output. If they are done, they are removed
+from the stack. Returns the number of running jobs. It is the job's
+responsability to return data to the application.
+
+=cut
+
+sub pollall {
 	my $self = shift;
-	#TODO
+	foreach my $i (0..$#_jobs) {
+		unless ($_jobs[$i]->poll()) {
+			delete $_jobs[$i];
+		}
+	}
+	return scalar @_jobs;
 }
 
 ##########################################################################

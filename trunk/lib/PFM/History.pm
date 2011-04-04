@@ -36,6 +36,8 @@ package PFM::History;
 
 use base 'PFM::Abstract';
 
+use Term::ReadLine;
+
 use strict;
 
 use constant {
@@ -47,9 +49,8 @@ use constant {
 	HISTORY_PERLCMD	=> 'history_perlcmd',
 };
 
-my ($_pfm, $_keyboard);
-
-my (@_command_history,
+my ($_pfm, $_keyboard,
+	@_command_history,
 	@_mode_history,
 	@_path_history,
 	@_regex_history,

@@ -325,7 +325,7 @@ sub stat_entry {
 		name		=> $entry,
 		uid			=> $self->_find_uid($uid),
 		gid			=> $self->_find_gid($gid),
-		mode		=> mode2str($mode),
+		mode		=> $self->mode2str($mode),
 		device		=> $device,
 		inode		=> $inode,
 		nlink		=> $nlink,
