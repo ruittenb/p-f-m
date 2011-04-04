@@ -11,8 +11,8 @@ install: pfm pfm.1 listwhite
 listwhite:
 	make -C listwhite
 
-man:
-	pod2man $(PODOPTS) pfm
+man: pfm
+	/usr/bin/pod2man $(PODOPTS) pfm > pfm.1
 
 doc: man
 

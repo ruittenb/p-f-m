@@ -173,6 +173,14 @@ sub diskinfo {
 ##########################################################################
 # public subs
 
+=item stty_raw()
+
+=item stty_cooked()
+
+Set the terminal to I<raw> or I<cooked> mode.
+
+=cut
+
 sub stty_raw {
 	my $self = shift;
 	system qw(stty raw -echo);
@@ -185,6 +193,14 @@ sub stty_cooked {
 	$self->echo();
 }
 
+=item mouse_enable()
+
+=item mouse_disable()
+
+Tell the terminal to start/stop receiving information about the mouse.
+
+=cut
+
 sub mouse_enable {
 	my $self = shift;
 	print "\e[?9h";
@@ -196,6 +212,14 @@ sub mouse_disable {
 	print "\e[?9l";
 	return $self;
 }
+
+=item alternate_on()
+
+=item alternate_off()
+
+Switch to alternate terminal screen and back.
+
+=cut
 
 sub alternate_on {
 	my $self = shift;
@@ -256,6 +280,17 @@ sub handleresize {
 	$self->fit();
 	$_pfm->browser->validate_position();
 	return $self;
+}
+
+=item pending_input()
+
+Returns a boolean indicating that there is input ready to be processed.
+
+=cut
+
+sub pending_input {
+	my ($self, $delay) = @_;
+	return (length($self->{IN}) || $_wasresized || $self->key_pressed($delay));
 }
 
 =item draw_frame()
@@ -375,12 +410,15 @@ sub unset_deferred_refresh {
 
 =item refresh()
 
-Redraws all screen elements that need to be redrawn.
+Redraws all screen elements that have been flagged as 'in need to be redrawn'.
 
 =cut
 
 sub refresh {
-	my $self = shift;
+	my $self      = shift;
+	my $directory = $_pfm->state->directory;
+	my $browser   = $_pfm->browser;
+	
 	# draw frame as soon as possible: this looks better on slower terminals
 	if ($_deferred_refresh & R_CLEAR) {
 		$self->clrscr();
@@ -389,34 +427,35 @@ sub refresh {
 		$_frame->draw();
 	}
 	# now in order of severity
-	if ($_deferred_refresh & R_DIRCONTENTS) {
-		$_pfm->state->directory->init_dircount();
-
-		$_pfm->browser->position_at(
-			$showncontents[$currentline+$baseindex]{name}
-		) unless length($position_at);
-		# move to Directony
-		@dircontents  = getdircontents($currentdir);
+	if ($_deferred_refresh & R_DIRCONTENTS or
+		$_deferred_refresh & R_DIRSORT)
+	{
+		$directory->init_dircount();
+		$browser->position_at(
+			$directory->showncontents->[
+				$browser->_currentline + $browser->_baseindex
+			]{name}
+		);
 	}
-	if ($_deferred_refresh & $R_DIRSORT) {
-		$position_at  = $showncontents[$currentline+$baseindex]{name} unless length($position_at);
-		@dircontents  = sort as_requested @dircontents;
+	if ($_deferred_refresh & R_DIRCONTENTS) {
+		$directory->readcontents();
+	}
+	if ($_deferred_refresh & R_DIRSORT) {
+		$directory->sortcontents();
 	}
 	if ($_deferred_refresh & R_DIRFILTER) {
-		@showncontents = filterdir(@dircontents);
+		$directory->filtercontents();
 	}
+	# TODO from here
 	if ($_deferred_refresh &   $R_STRIDE) {
-		$_deferred_refresh &= ~$R_STRIDE;
 		position_cursor() if $position_at ne '';
 		recalc_ptr() unless defined $showncontents[$currentline+$baseindex];
 		%currentfile = %{$showncontents[$currentline+$baseindex]};
 	}
-	if ($_deferred_refresh &   $R_DIRLIST) {
-		$_deferred_refresh &= ~$R_DIRLIST;
+	if ($_deferred_refresh & R_DIRLIST) {
 		printdircontents(@showncontents);
 	}
-	if ($_deferred_refresh &   $R_DISKINFO) {
-		$_deferred_refresh &= ~$R_DISKINFO;
+	if ($_deferred_refresh & R_DISKINFO) {
 		showdiskinfo();
 	}
 	if ($_deferred_refresh & R_MENU) {
@@ -436,8 +475,9 @@ sub refresh {
 
 sub path_info {
 	#TODO variables
-	$self->at(PATHLINE, 0)->puts(pathline($currentdir, $disk{'device'}));
+	$self->at(PATHLINE, 0)->puts(pathline($directory->path, $disk{'device'}));
 }
+
 ##########################################################################
 
 =back

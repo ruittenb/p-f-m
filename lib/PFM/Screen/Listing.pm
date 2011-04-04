@@ -35,7 +35,7 @@ use constant FILETYPEFLAGS => {
 	# => '+', # Hidden directory (AIX only) or context dependent (HP/UX only)
 };
 
-my ($_pfm, $_layout);
+my ($_pfm, $_layout, $_cursorcol);
 
 ##########################################################################
 # private subs
@@ -87,6 +87,18 @@ sub show_next_layout {
 	$self->makeformatlines();
 	$self->reformat();
 	$screen->set_deferred_refresh($screen->R_SCREEN);
+}
+
+=item cursorcol()
+
+Getter/setter for the current cursor column on-screen.
+
+=cut
+
+sub cursorcol {
+	my ($self, $value) = @_;
+	$_cursorcol = $value if defined $value;
+	return $_cursorcol;
 }
 
 ##########################################################################

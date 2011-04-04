@@ -56,7 +56,22 @@ sub _init {
 	$_position_at    = '.';
 }
 
+=item _wait_loop()
+
+Waits for keyboard input. In unused time, poll jobs and update
+the on-screen clock.
+
+=cut
+
 sub _wait_loop {
+	my $self = shift;
+	my $screen = $_pfm->screen;
+	until ($screen->pending_input(1)) {
+		$screen->diskinfo->clock_info();
+		$_pfm->job->pollall(); # was handlepipes(); # $self->job->pollall()?
+		$screen->at(
+			$_currentline + $screen->BASELINE, $screen->listing->cursorcol);
+	}
 }
 
 ##########################################################################
@@ -70,8 +85,10 @@ the cursor should go as soon as the main browse loop is resumed.
 =cut
 
 sub position_at {
-	my ($self, $value) = @_;
-	$_position_at = $value if defined $value;
+	my ($self, $value, $force) = @_;
+	if (defined($value) and ($force or $_position_at eq '')) {
+		$_position_at = $value;
+	}
 	return $_position_at;
 }
 
@@ -96,7 +113,19 @@ sub browse {
 	my ($event, $quit);
 	until ($quit) {
 		$_pfm->screen->refresh();
+		# normally, the current cursor position must be validated every pass
+		$_pfm->screen->set_deferred_refresh($_pfm->screen->R_STRIDE);
+		#TODO
+		highlightline($HIGHLIGHT_ON);
+		# don't send mouse escapes to the terminal if not necessary
+		if ($_pfm->state->{mouse_mode} && $_pfm->config->{mouseturnoff}) {
+			$_pfm->screen->mouse_enable();
+		}
+		# enter main wait loop
 		$event = $self->_wait_loop();
+		if ($wasresized) {
+			$wantrefresh |= handleresize();
+		}
 		$quit  = $_pfm->commandhandler->handle($event);
 	}
 }
