@@ -40,7 +40,7 @@ use base 'PFM::Abstract';
 use strict;
 
 my ($_pfm, $_screen,
-	$_currentline, $_baseindex, $_position_at);
+	$_currentline, $_baseindex, $_position_at, $_mouse_mode);
 
 ##########################################################################
 # private subs
@@ -58,6 +58,7 @@ sub _init {
 	$_currentline	 = 0;
 	$_baseindex		 = 0;
 	$_position_at    = '.';
+	$_mouse_mode     = 0;
 }
 
 =item _wait_loop()
@@ -71,7 +72,7 @@ sub _wait_loop {
 	my $self = shift;
 	until ($_screen->pending_input(1)) {
 		$_screen->diskinfo->clock_info();
-		$_pfm->job->pollall();
+		$_pfm->jobhandler->pollall();
 		$_screen->at(
 			$_currentline + $_screen->BASELINE, $_screen->listing->cursorcol);
 	}
@@ -90,6 +91,21 @@ sub currentfile {
 	my ($self) = @_;
 	return $_pfm->state->directory->showncontents
 		->[$_currentline + $_baseindex];
+}
+
+=item currentline()
+
+Getter/setter for the current line number of the cursor.
+
+=cut
+
+sub currentline {
+	my ($self, $value) = @_;
+	if (defined $value) {
+		$_currentline = $value;
+		$self->validate_position();
+	}
+	return $_currentline;
 }
 
 =item baseindex()
@@ -122,6 +138,22 @@ sub position_at {
 	return $_position_at;
 }
 
+=item mouse_mode()
+
+Getter/setter for the mouse_mode variable, which indicates if mouse clicks
+are to be intercepted by the application.
+
+=cut
+
+sub mouse_mode {
+	my ($self, $value) = @_;
+	if (defined($value)) {
+		$_mouse_mode = $value;
+		$_screen->set_deferred_refresh($_screen->R_FOOTER);
+	}
+	return $_mouse_mode;
+}
+
 ##########################################################################
 # public subs
 
@@ -147,7 +179,7 @@ sub browse {
 		$_screen->set_deferred_refresh($_screen->R_STRIDE);
 		$_screen->listing->highlight_on();
 		# don't send mouse escapes to the terminal if not necessary
-		if ($_pfm->state->{mouse_mode} && $_pfm->config->{mouseturnoff}) {
+		if ($_mouse_mode && $_pfm->config->{mouseturnoff}) {
 			$_screen->mouse_enable();
 		}
 		# enter main wait loop
@@ -204,7 +236,7 @@ sub position_cursor {
 	my ($self, $target) = @_;
 	$_position_at = $target if (defined $target and $target ne '');
 	return if $_position_at eq '';
-	my @showncontents = @{$_pfm->directory->showncontents};
+	my @showncontents = @{$_pfm->state->directory->showncontents};
 	$_currentline     = 0;
 	$_baseindex       = 0 if $_position_at eq '..'; # descending into this dir
 	ANYENTRY: {

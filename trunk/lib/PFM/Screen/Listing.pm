@@ -48,22 +48,6 @@ use constant {
 	FILENAME_LONG	=> 1,
 };
 
-use constant FILETYPEFLAGS => {
-	# ls(1)
-	x => '*',
-	d => '/',
-	l => '@',
-	p => '|',
-   's'=> '=',
-	D => '>',
-	w => '%',
-	# tcsh(1)
-	b => '#',
-	c => '%',
-	n => ':',
-	# => '+', # Hidden directory (AIX only) or context dependent (HP/UX only)
-};
-
 my %LAYOUTFIELDS = (
 	'*' => 'selected',
 	'n' => 'display',
@@ -84,6 +68,22 @@ my %LAYOUTFIELDS = (
 	'v' => 'svn',
 	'f' => 'diskinfo',
 );
+
+use constant FILETYPEFLAGS => {
+	 # ls(1)
+	 x => '*',
+	 d => '/',
+	 l => '@',
+	 p => '|',
+	's'=> '=',
+	 D => '>',
+	 w => '%',
+	 # tcsh(1)
+	 b => '#',
+	 c => '%',
+	 n => ':',
+	 # => '+', # Hidden directory (AIX only) or context dependent (HP/UX only)
+};
 
 my ($_pfm, $_screen,
 	$_layout, $_cursorcol, @_layoutfields, @_layoutfieldswithinfo,
@@ -137,14 +137,14 @@ sub _highlightline { # true/false
 	$_screen->at($_pfm->browser->currentline + $_screen->BASELINE, $_filerecordcol);
 	if ($on == HIGHLIGHT_ON) {
 		$linecolor =
-			$_pfm->config->{framecolors}{$_pfm->state->{color_mode}}{highlight};
+			$_pfm->config->{framecolors}{$_screen->color_mode}{highlight};
 #		$_screen->bold()			if ($linecolor =~ /bold/);
 #		$_screen->reverse()		if ($linecolor =~ /reverse/);
 #		$_screen->underline()	if ($linecolor =~ /under(line|score)/);
 		$_screen->term()->Tputs('us', 1, *STDOUT)
 							if ($linecolor =~ /under(line|score)/);
 	}
-	$_screen->putcolored($linecolor, fileline($currentfile, @_layoutfields));
+	$_screen->putcolored($linecolor, fileline($currentfile));
 	$self->applycolor($_pfm->browser->currentline + $_screen->BASELINE, FILENAME_SHORT, $currentfile);
 	$_screen->reset()->normal()->at($currentline + $_screen->BASELINE, $_cursorcol);
 }
@@ -157,7 +157,7 @@ Decides which color should be used on a particular file.
 
 sub _decidecolor {
 	my ($self, $f) = @_;
-	my %dircolors  = $_pfm->config->{dircolors}{$_pfm->state->{color_mode}};
+	my %dircolors  = $_pfm->config->{dircolors}{$_screen->color_mode};
 	$f->{type}	eq 'w'			and return $dircolors{wh};
 	$f->{nlink} ==  0 			and return $dircolors{lo};
 	$f->{type}	eq 'd'			and return $dircolors{di};
@@ -360,7 +360,7 @@ Displays the directory listing.
 
 sub show {
 	my $self = shift;
-	my $contents  = $_pfm->directory->showncontents;
+	my $contents  = $_pfm->state->directory->showncontents;
 	my $baseindex = $_pfm->browser->baseindex;
 	my $baseline  = $_screen->BASELINE;
 	foreach my $i ($baseindex .. $baseindex+$_screen->screenheight) {

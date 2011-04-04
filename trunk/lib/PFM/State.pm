@@ -7,7 +7,7 @@
 # Version:		0.01
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-01
+# Date:			2010-04-08
 #
 
 ##########################################################################
@@ -59,16 +59,13 @@ sub _init {
 	$self->{multiple_mode}	= 0;
 	$self->{swap_mode}		= $swap_mode;
 	# TODO some of these may have to be moved elsewhere.
-	$self->{color_mode}		= 0; # Screen
-	$self->{sort_mode}		= 'n'; # Screen::Listing
-	$self->{currentlayout}	= undef; # Screen::Listing
-	$self->{mouse_mode}		= undef; # Browser
-	$self->{clobber_mode}	= undef; # CommandHandler
+
 	$self->{dot_mode}		= undef; # Screen::Listing
-	$self->{white_mode}		= undef; # Screen::Listing
 	$self->{path_mode}		= undef; # Directory
 	$self->{radix_mode}		= undef; # Screen::Listing
-#	$self->{ident_mode}		= undef; # Screen::Diskinfo
+	$self->{sort_mode}		= 'n'; # Screen::Listing
+	$self->{white_mode}		= undef; # Screen::Listing
+
 }
 
 ##########################################################################

@@ -41,7 +41,7 @@ use Config;
 use strict;
 
 my ($_pfm,
-	@_signame, $_white_cmd, @_unwo_cmd);
+	@_signame, $_white_cmd, @_unwo_cmd, $_clobber_mode);
 
 ##########################################################################
 # private subs
@@ -158,6 +158,19 @@ Getter for the command for listing whiteouts.
 
 sub whitecommand {
 	return $_white_cmd;
+}
+
+=item clobber_mode()
+
+Getter/setter for the clobber mode, which determines if files will be
+overwritten without confirmation.
+
+=cut
+
+sub clobber_mode {
+	my ($self, $value) = @_;
+	$_clobber_mode = $value if defined $value;
+	return $_clobber_mode;
 }
 
 ##########################################################################

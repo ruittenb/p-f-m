@@ -3,7 +3,7 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.01.6
+# Version:		2.01.7
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-04-07
@@ -28,7 +28,7 @@ our $ROFFVERSION = '
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.01.6
+.ds Vw @(#) pfm.pl 2.01.7
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
