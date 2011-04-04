@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Application 2.01.8
+# @(#) PFM::Application 2.01.9
 #
 # Name:			PFM::Application.pm
-# Version:		2.01.8
+# Version:		2.01.9
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-04-10
@@ -49,6 +49,12 @@ use Cwd;
 
 use locale;
 use strict;
+
+use constant {
+	S_MAIN		=> 0,
+	S_SWAP		=> 1,
+	S_BACK		=> 2,
+};
 
 my ($_browser, $_screen, $_commandhandler, $_config, $_history, $_jobhandler,
 	$_bootstrapped, @_states, $_latest_version,
@@ -152,7 +158,7 @@ Prints a goodbye message and restores the screen to a usable state.
 sub _goodbye {
 	my $self  = shift;
 	my $bye   = 'Goodbye from your Personal File Manager!';
-	my $state = $_states[0];
+	my $state = $_states[S_MAIN];
 	$_screen->stty_cooked();
 	$_screen->mouse_disable();
 	$_screen->alternate_off();
@@ -227,7 +233,7 @@ sub browser {
 
 sub state {
 	my ($self, $index, $value) = @_;
-	$index ||= 0;
+	$index ||= S_MAIN;
 	if (defined $value) {
 		$_states[$index] = $value;
 	}
@@ -258,8 +264,8 @@ sub bootstrap {
 	
 	# hand over the application object to the other classes
 	# for easy access.
-	$_states[0]	= new PFM::State($self);
-	$_screen	= new PFM::Screen($self);
+	$_states[S_MAIN] = new PFM::State($self);
+	$_screen		 = new PFM::Screen($self);
 	$_screen->at($_screen->rows(), 0);
 	
 	Getopt::Long::Configure(qw'bundling permute');
@@ -278,7 +284,7 @@ sub bootstrap {
 	$_history		 = new PFM::History($self);
 	$_browser		 = new PFM::Browser($self);
 	$_jobhandler	 = new PFM::JobHandler($self);
-
+	
 	$_screen->listing->layout($startinglayout);
 	$_screen->clrscr();
 	$_screen->calculate_dimensions();
@@ -293,26 +299,28 @@ sub bootstrap {
 	
 	# 'old' directory
 	$currentdir = getcwd();
-	$_states[2] = new PFM::State($self);
-	$_states[2]->currentdir($currentdir);
-	$_states[2]->prepare();
+	$_states[S_BACK] = new PFM::State($self);
+	$_states[S_BACK]->currentdir($currentdir);
+	$_states[S_BACK]->prepare();
 	# main directory
 	$startingdir = shift @ARGV;
 	if ($startingdir ne '') {
 		# $_states[0] has already been instantiated
-		unless ($_states[0]->currentdir($startingdir)) {
+		unless ($_states[S_MAIN]->currentdir($startingdir)) {
 			$_screen->at(0,0)->clreol();
 			$_screen->display_error("$startingdir: $! - using .");
 			$_screen->important_delay();
 		}
 	} else {
-		$_states[0] = $_states[2]->clone();
+		$_states[S_MAIN] = $_states[S_BACK]->clone($self);
+		$_states[S_MAIN]->currentdir($currentdir);
+		$_states[S_MAIN]->prepare();
 	}
 	# swap directory
 	if (defined $swapstartdir) {
-		$_states[1] = new PFM::State($self, 1);
-		$_states[1]->currentdir($swapstartdir);
-		$_states[1]->prepare();
+		$_states[S_SWAP] = new PFM::State($self, 1);
+		$_states[S_SWAP]->currentdir($swapstartdir);
+		$_states[S_SWAP]->prepare();
 	}
 	# done
 	$_bootstrapped = 1;

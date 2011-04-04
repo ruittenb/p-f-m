@@ -1080,21 +1080,21 @@ sub include { # $entry
 	$entry->{type} =~ /-/ and $selected_nr_of{bytes} += $entry->{size};
 }
 
-sub reformat {
-	foreach (@dircontents) {
-		$_->{name_too_long} = length($_->{display}) > $maxfilenamelength-1
-			? $NAMETOOLONGCHAR : ' ';
-		unless ($_->{type} =~ /[bc]/) {
-			@{$_}{qw(size_num size_power)} =
-				fit2limit($_->{size}, $maxfilesizelength);
-		}
-		@{$_}{qw(grand_num grand_power)} =
-			fit2limit($_->{grand}, $maxgrandtotallength);
-		@{$_}{qw(atimestr ctimestr mtimestr)} =
-			map { $_pfm->directory->stamp2str($_) } @{$_}{qw(atime ctime mtime)};
-	}
-}
-
+#sub reformat {
+#	foreach (@dircontents) {
+#		$_->{name_too_long} = length($_->{display}) > $maxfilenamelength-1
+#			? $NAMETOOLONGCHAR : ' ';
+#		unless ($_->{type} =~ /[bc]/) {
+#			@{$_}{qw(size_num size_power)} =
+#				fit2limit($_->{size}, $maxfilesizelength);
+#		}
+#		@{$_}{qw(grand_num grand_power)} =
+#			fit2limit($_->{grand}, $maxgrandtotallength);
+#		@{$_}{qw(atimestr ctimestr mtimestr)} =
+#			map { $_pfm->directory->stamp2str($_) } @{$_}{qw(atime ctime mtime)};
+#	}
+#}
+#
 sub dirlookup {
 	# this assumes that the entry will be found
 	my ($name, @array) = @_;

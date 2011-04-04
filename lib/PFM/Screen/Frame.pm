@@ -183,21 +183,22 @@ Returns the footer for the current application state.
 sub _getfooter {
 	my $self = shift;
 	my %state = %{$_pfm->state};
-	return	"F1-Help F2-Back F3-Redraw"
+	my $f =	"F1-Help F2-Back F3-Redraw"
 	.		" F4-Color[".$_screen->color_mode."] F5-Reread"
 	.		" F6-Sort[$state{sort_mode}]"
 	.		" F7-Swap[$ONOFF{$state{swap_mode}}] F8-Include"
-	.		" F9-Layout[$state{currentlayout}]" # $layoutname ?
+	.		" F9-Layout[".$_screen->listing->layout."]" # $layoutname ?
 	.		" F10-Multiple[$ONOFF{$state{multiple_mode}}] F11-Restat"
 	.		" F12-Mouse[$ONOFF{$state{mouse_mode}}]"
 	.		" !-Clobber[".$ONOFF{$_pfm->commandhandler->clobber_mode}."]"
 	.		" .-Dotfiles[$ONOFF{$state{dot_mode}}]"
 	.		($_pfm->commandhandler->whitecommand
 				? " %-Whiteouts[$ONOFF{$state{white_mode}}]" : '')
-	.		" \"-Pathnames[$state{path_mode}]"
+	.		" \"-Pathnames[".$_pfm->state->directory->path_mode."]"
 	.		" *-Radix[$state{radix_mode}]"
 #	.		" =-Ident[$state{ident_mode}]"
 	;
+	return $f;
 }
 
 ##########################################################################

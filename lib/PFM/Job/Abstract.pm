@@ -59,6 +59,10 @@ sub _init() {
 ##########################################################################
 # public subs
 
+sub isapplicable {
+	return 0;
+}
+
 sub start {
 	my $self = shift;
 	my $class = ref($self) || $self;

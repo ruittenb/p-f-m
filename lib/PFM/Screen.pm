@@ -44,7 +44,6 @@ use PFM::Util;
 use strict;
 
 use constant {
-	NAMETOOLONGCHAR => '+',
 	ERRORDELAY		=> 1,		# in seconds (fractions allowed)
 	IMPORTANTDELAY	=> 2,		# extra time for important errors
 	PATHLINE		=> 1,
@@ -60,12 +59,12 @@ use constant {
 	R_DIRLIST		=> 64,		# redisplay directory listing
 	R_DIRFILTER		=> 128,		# decide which entries to display (init @showncontents)
 #	R_SCREEN					# combines R_DIRFILTER, R_DIRLIST, R_DISKINFO and R_FRAME
-	R_CLEAR			=> 255,		# clear the screen
+	R_CLEAR			=> 256,		# clear the screen
 #	R_CLRSCR					# combines R_CLEAR and R_SCREEN
 	R_DIRSORT		=> 512,		# resort @dircontents
 	R_DIRCONTENTS	=> 1024,	# reread directory contents
-#	R_NEWDIR					# re-init directory-specific vars
-	R_CHDIR			=> 2048,	# combines R_NEWDIR, R_DIRCONTENTS, R_DIRSORT, R_SCREEN
+	R_NEWDIR		=> 2048,	# re-init directory-specific vars
+#	R_CHDIR						# combines R_NEWDIR, R_DIRCONTENTS, R_DIRSORT, R_SCREEN
 };
 
 # needs new invocations because of the calculations
@@ -596,7 +595,7 @@ sub pathline {
 				# this is the case for e.g. /some_ridiculously_long_directory_name
 				$disppath = substr($path, 0, $maxpathlen);
 				$$displen = $maxpathlen;
-				$overflow = NAMETOOLONGCHAR;
+				$overflow = $_listing->NAMETOOLONGCHAR;
 				last FIT;
 			}
 			($disppath, $path) = ($1, $2);

@@ -369,8 +369,7 @@ sub apply {
 	$_pfm->history->setornaments($self->{framecolors}{$newcolormode}{message});
 	$_pfm->commandhandler->clobber_mode($self->{clobber_mode});
 	$screen->diskinfo->ident_mode($self->{ident_mode});
-	$screen->listing->layout($self->{defaultlayout});
-	$screen->listing->makeformatlines();
+	$screen->listing->layout($self->{currentlayout});
 	$screen->mouse_enable()	if $self->{mouse_mode};
 	$screen->alternate_on()	if $self->{altscreen_mode};
 	# hand variables over to the state
