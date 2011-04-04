@@ -278,7 +278,6 @@ sub parse {
 	# (e.g. confirmquit) - however, they remain accessable in %_pfmrc.
 	# Don't change settings back to the defaults if they may have
 	# been modified by key commands.
-	$self->{check_for_updates}	= isyes($_pfmrc{checkforupdates});
 	$self->{clsonexit}			= isyes($_pfmrc{clsonexit});
 	$self->{waitlaunchexec}		= isyes($_pfmrc{waitlaunchexec});
 	$self->{autowritehistory}	= isyes($_pfmrc{autowritehistory});
@@ -290,7 +289,7 @@ sub parse {
 	$self->{autorcs}			= isyes($_pfmrc{autorcs});
 	$self->{remove_marks_ok}	= isyes($_pfmrc{remove_marks_ok});
 	$self->{clickiskeypresstoo}	= isyes($_pfmrc{clickiskeypresstoo} || 'yes');
-	$self->{white_mode}			= isyes($_pfmrc{defaultwhitemode})	if !defined $self->{white_mode};
+	$self->{white_mode}			= $state->{white_mode} || isyes($_pfmrc{defaultwhitemode});
 	$self->{dot_mode}			= isyes($_pfmrc{defaultdotmode})	if !defined $self->{dot_mode};
 	$self->{clobber_mode}		= isyes($_pfmrc{defaultclobber})	if !defined $self->{clobber_mode};
 	$self->{sort_mode}			= $_pfmrc{defaultsortmode} || 'n'	if !defined $self->{sort_mode};
@@ -308,7 +307,6 @@ sub parse {
 	$self->{altscreen_mode}		= ($self->{altscreen_mode}  eq 'xterm' && isxterm($ENV{TERM}))
 								|| isyes($self->{altscreen_mode});
 	$self->{chdirautocmd}		= $_pfmrc{chdirautocmd};
-	$self->{rcscmd}				= $_pfmrc{rcscmd} || 'svn status';
 	$self->{windowcmd}			= $_pfmrc{windowcmd}
 								|| ($^O eq 'linux' ? 'gnome-terminal -e' : 'xterm -e');
 	$self->{printcmd}			= $_pfmrc{printcmd}
@@ -454,9 +452,6 @@ altscreenmode:xterm
 #chdirautocmd:printf "\033]0;pfm - $(basename $(pwd))\007"
 #chdirautocmd:xtitle "pfm - $(hostname):$(pwd)"
 
-## automatically check for updates on exit (default: no)
-checkforupdates:yes
-
 ## Must 'Hit any key to continue' also accept mouse clicks?
 #clickiskeypresstoo:yes
 
@@ -583,9 +578,6 @@ persistentswap:yes
 ## if $PRINTER is set:   'lpr -P$PRINTER =2'
 ## if $PRINTER is unset: 'lpr =2'
 #printcmd:lp -d$PRINTER =2
-
-## command to use for requesting the file status in your rcs system.
-rcscmd:svn status
 
 ## suppress the prompt "OK to remove marks?"
 #remove_marks_ok:no

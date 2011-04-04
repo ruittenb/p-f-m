@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Abstract 0.01
+# @(#) PFM::Abstract 0.06
 #
 # Name:			PFM::Abstract.pm
-# Version:		0.01
+# Version:		0.06
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-01
+# Date:			2010-04-07
 #
 
 ##########################################################################
@@ -41,8 +41,13 @@ use strict;
 ##########################################################################
 # private subs
 
+=item _init()
+
+Stub init method to ensure it exists.
+
+=cut
+
 sub _init() {
-	carp('_init() not defined');
 }
 
 ##########################################################################
@@ -78,7 +83,8 @@ sub clone {
 	my $type  = ref $self;
 	my $clone = { %$self };
 	unless ($type) {
-		croak("clone() cannot be called statically (there is nothing to clone)");
+		croak("clone() cannot be called statically " .
+			"(it needs an object to clone)");
 	}
 	bless($clone, $type);
 	return $clone;
