@@ -40,7 +40,7 @@ use base 'PFM::Abstract';
 use strict;
 
 my ($_pfm, $_screen,
-	$_currentline, $_baseindex, $_position_at, $_mouse_mode);
+	$_currentline, $_baseindex, $_position_at, $_mouse_mode, $_swap_mode);
 
 ##########################################################################
 # private subs
@@ -53,12 +53,13 @@ Initializes new instances. Called from the constructor.
 
 sub _init {
 	my ($self, $pfm) = @_;
-	$_pfm			 = $pfm;
-	$_screen		 = $pfm->screen;
-	$_currentline	 = 0;
-	$_baseindex		 = 0;
-	$_position_at    = '.';
-	$_mouse_mode     = 0;
+	$_pfm		  = $pfm;
+	$_screen	  = $pfm->screen;
+	$_currentline = 0;
+	$_baseindex	  = 0;
+	$_position_at = '.';
+	$_mouse_mode  = 0;
+	$_swap_mode   = 0;
 }
 
 =item _wait_loop()
@@ -152,6 +153,22 @@ sub mouse_mode {
 		$_screen->set_deferred_refresh($_screen->R_FOOTER);
 	}
 	return $_mouse_mode;
+}
+
+=item swap_mode()
+
+Getter/setter for the swap_mode variable, which indicates if the browser
+considers its current directory as 'swap' directory.
+
+=cut
+
+sub swap_mode {
+	my ($self, $value) = @_;
+	if (defined($value)) {
+		$_swap_mode = $value;
+		$_screen->set_deferred_refresh($_screen->R_FRAME);
+	}
+	return $_swap_mode;
 }
 
 ##########################################################################

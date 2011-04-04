@@ -2221,15 +2221,15 @@ sub handledot {
 	return $R_DIRLIST | $R_DIRFILTER | $R_DISKINFO | $R_FOOTER;
 }
 
-sub handlecdold {
-	if (ok_to_remove_marks()) {
-		mychdir($oldcurrentdir);
-		return $R_CHDIR;
-	} else {
-		return $R_MENU;
-	}
-}
-
+#sub handlecdold {
+#	if (ok_to_remove_marks()) {
+#		mychdir($oldcurrentdir);
+#		return $R_CHDIR;
+#	} else {
+#		return $R_MENU;
+#	}
+#}
+#
 #sub handlepan {
 #	my ($key, $mode) = @_;
 #	my $width = $screenwidth - 9 * $multiple_mode;
@@ -3417,19 +3417,19 @@ sub handleselect {
 #	return $do_a_refresh;
 #}
 #
-sub handlescroll {
-	local $_ = $_[0];
-	return 0 if (/\cE/ && $baseindex == $#showncontents && $currentline == 0)
-			 or (/\cY/ && $baseindex == 0);
-	my $displacement = -(/^\cY$/)
-					   +(/^\cE$/);
-	$baseindex   += $displacement;
-	$currentline -= $displacement if $currentline-$displacement >= 0
-								 and $currentline-$displacement <= $screenheight;
-#	validate_position();
-	return $R_DIRLIST;
-}
-
+#sub handlescroll {
+#	local $_ = $_[0];
+#	return 0 if (/\cE/ && $baseindex == $#showncontents && $currentline == 0)
+#			 or (/\cY/ && $baseindex == 0);
+#	my $displacement = -(/^\cY$/)
+#					   +(/^\cE$/);
+#	$baseindex   += $displacement;
+#	$currentline -= $displacement if $currentline-$displacement >= 0
+#								 and $currentline-$displacement <= $screenheight;
+##	validate_position();
+#	return $R_DIRLIST;
+#}
+#
 sub handlemove {
 	local $_ = $_[0];
 	my $displacement =	-10*(/^-$/)  -(/^(?:ku|k)$/   )

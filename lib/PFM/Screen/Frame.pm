@@ -186,7 +186,7 @@ sub _getfooter {
 	my $f =	"F1-Help F2-Back F3-Redraw"
 	.		" F4-Color[".$_screen->color_mode."] F5-Reread"
 	.		" F6-Sort[$state{sort_mode}]"
-	.		" F7-Swap[$ONOFF{$state{swap_mode}}] F8-Include"
+	.		" F7-Swap[".$ONOFF{$_pfm->browser->swap_mode}."] F8-Include"
 	.		" F9-Layout[".$_screen->listing->layout."]" # $layoutname ?
 	.		" F10-Multiple[$ONOFF{$state{multiple_mode}}] F11-Restat"
 	.		" F12-Mouse[$ONOFF{$state{mouse_mode}}]"

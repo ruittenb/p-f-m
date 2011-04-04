@@ -235,7 +235,7 @@ Term::ReadLine to use these.
 =cut
 
 sub setornaments {
-	my ($self, $color) = shift;
+	my ($self, $color) = @_;
 	my @cols;
 	$color ||=
 		$_pfm->config->{framecolors}{$_pfm->screen->color_mode}{message};
