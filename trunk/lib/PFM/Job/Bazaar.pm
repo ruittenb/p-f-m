@@ -1,29 +1,24 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Browser 2010-03-27 v0.01
+# @(#) PFM::Job::Bazaar 2010-03-27 v0.01
 #
-# Name:			PFM::Browser.pm
+# Name:			PFM::Job::Bazaar.pm
 # Version:		0.01
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-03-27
-# Description:	PFM Browser class. This class is responsible for
-#				executing the main browsing loop:
-#				- wait for keypress
-#				- dispatch command to CommandHandler
-#				- refresh screen
+# Description:	PFM Job class for Bazaar commands.
 #
 
 ##########################################################################
 # declarations
 
-package PFM::Browser;
+package PFM::Job::Bazaar;
 
 use base 'PFM::Abstract';
 
-my ($_pfm, $_currentline, $_baseindex);
-my $position_at = '.';   # start with cursor here # TODO???
+my $_command = 'bzr status -S';
 
 ##########################################################################
 # private subs
@@ -35,10 +30,7 @@ Initializes new instances. Called from the constructor.
 =cut
 
 sub _init {
-	my ($self, $pfm)	= @_;
-	$_pfm				= $pfm;
-	$_currentline		= 0;
-	$_baseindex			= 0;
+	my $self = shift;
 }
 
 ##########################################################################
@@ -47,7 +39,12 @@ sub _init {
 ##########################################################################
 # public subs
 
-sub browse {
+sub start {
+	my $self = shift;
+	#TODO
+}
+
+sub poll {
 	my $self = shift;
 	#TODO
 }

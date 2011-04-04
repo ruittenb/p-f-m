@@ -61,7 +61,7 @@ Called from _init().
 
 =cut
 
-sub _find_white_commands {
+sub _init_white_commands {
 	my $self = shift;
 	my $white_cmd = '';
 	my @unwo_cmd  = ();

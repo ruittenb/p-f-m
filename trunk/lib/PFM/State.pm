@@ -38,16 +38,16 @@ sub _init {
 	$self->{multiple_mode}	= 0;
 	$self->{swap_mode}		= $swap_mode;
 	# TODO some of these may have to be moved elsewhere.
-	$self->{color_mode}		= 0;
-	$self->{sort_mode}		= 0;
-	$self->{currentlayout}	= 0;
-	$self->{mouse_mode}		= 0;
-	$self->{clobber_mode}	= 0;
-	$self->{dot_mode}		= 0;
-	$self->{white_mode}		= 0;
-	$self->{path_mode}		= 0;
-	$self->{radix_mode}		= 0;
-	$self->{ident_mode}		= 0;
+	$self->{color_mode}		= 0; # Screen
+	$self->{sort_mode}		= 0; # Screen::Listing
+	$self->{currentlayout}	= 0; # Screen::Listing
+	$self->{mouse_mode}		= 0; # Browser
+	$self->{clobber_mode}	= 0; # CommandHandler
+	$self->{dot_mode}		= 0; # Screen::Listing
+	$self->{white_mode}		= 0; # Screen::Listing
+	$self->{path_mode}		= 0; # Directory
+	$self->{radix_mode}		= 0; # Screen::Listing
+#	$self->{ident_mode}		= 0; # Screen::Diskinfo
 }
 
 ##########################################################################

@@ -34,9 +34,8 @@ Initializes new instances. Called from the constructor.
 
 sub _init {
 	my ($self, $pfm, $path)	= shift;
-	my %empty_hash			= ();
-	$self->{selected_nr_of}	= %empty_hash;
-	$self->{total_nr_of}	= %empty_hash;
+	$self->{selected_nr_of}	= {};
+	$self->{total_nr_of}	= {};
 	$_pfm					= $pfm;
 	$_path					= $path;
 }
@@ -48,14 +47,14 @@ sub _init {
 
 Getter/setter for the current directory path.
 Setting the current directory in this way is identical to calling
-PFM::Directory::chdir().
+PFM::Directory::chdir(), and will return the success status.
 
 =cut
 
 sub path {
-	my ($self, $value) = @_;
-	if (defined $value) {
-		$self->chdir($value);
+	my ($self, $target) = @_;
+	if (defined $target) {
+		return $self->chdir($target);
 	}
 	return $_path;
 }
@@ -63,31 +62,33 @@ sub path {
 # public subs
 
 sub chdir {
-	my ($self, $goal) = @_;
+	my ($self, $target) = @_;
 	my $result;
-	if ($goal eq '') {
-		$goal = $ENV{HOME};
-	} elsif (-d $goal and $goal !~ m!^/!) {
-		$goal = "$_path/$goal";
-	} elsif ($goal !~ m!/!) {
+	my $screen = $_pfm->screen;
+	if ($target eq '') {
+		$target = $ENV{HOME};
+	} elsif (-d $target and $target !~ m!^/!) {
+		$target = "$_path/$target";
+	} elsif ($target !~ m!/!) {
 		foreach (split /:/, $ENV{CDPATH}) {
-			if (-d "$_/$goal") {
-				$goal = "$_/$goal";
-				$_pfm->screen->at(0,0)->clreol();
-				$_pfm->screen->display_error("Using $goal");
-				$_pfm->screen->at(0,0);
+			if (-d "$_/$target") {
+				$target = "$_/$target";
+				$screen->at(0,0)->clreol();
+				$screen->display_error("Using $target");
+				$screen->at(0,0);
 				last;
 			}
 		}
 	}
 	#TODO canonicalize_path
-	$goal = canonicalize_path($goal);
-	if ($result = chdir $goal and $goal ne $_path) {
-		#TODO oldcurr
-		$oldcurrentdir = $_path;
-		$_path = $goal;
-		#TODO chdirautocmd
+	$target = canonicalize_path($target);
+	if ($result = chdir $target and $target ne $_path) {
+		#TODO define constants for oldcwd
+		$_pfm->state(2) = $self;
+		$_path = $target;
+		$chdirautocmd = $_pfm->config->chdirautocmd;
 		system("$chdirautocmd") if length($chdirautocmd);
+		$screen->set_deferred_refresh($screen->R_CHDIR);
 	}
 	return $result;
 }

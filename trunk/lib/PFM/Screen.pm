@@ -21,6 +21,7 @@ use base qw(PFM::Abstract Term::ScreenColor);
 
 use PFM::Screen::Frame;
 use PFM::Screen::Listing;
+use PFM::Screen::Diskinfo;
 
 use constant {
 	ERRORDELAY		=> 1,	# in seconds (fractions allowed)
@@ -59,7 +60,7 @@ use constant R_SCREEN => R_DIRFILTER | R_DIRLIST | R_DISKINFO | R_FRAME;
 use constant R_CLRSCR => R_CLEAR | R_SCREEN;
 use constant R_CHDIR  => R_NEWDIR | R_DIRCONTENTS | R_DIRSORT | R_SCREEN | R_STRIDE;
 
-my ($_pfm, $_frame, $_listing,
+my ($_pfm, $_frame, $_listing, $_diskinfo,
 	$_screenwidth, $_screenheight, $_deferred_refresh, $_wasresized,
 );
 
@@ -118,7 +119,12 @@ sub screenheight {
 
 =item frame()
 
-Getter for the PFM::Screen::Frame object.
+=item listing()
+
+=item diskinfo()
+
+Getters for the PFM::Screen::Frame, PFM::Screen::Listing
+and PFM::Screen::Diskinfo objects.
 
 =cut
 
@@ -126,14 +132,12 @@ sub frame {
 	return $_frame;
 }
 
-=item listing()
-
-Getter for the PFM::Screen::Listing object.
-
-=cut
-
 sub listing {
 	return $_listing;
+}
+
+sub diskinfo {
+	return $_diskinfo;
 }
 
 ##########################################################################
