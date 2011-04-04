@@ -282,14 +282,21 @@ Runs the application. Calls bootstrap() if that has not been done yet.
 sub run {
 	my $self = shift;
 	$self->bootstrap() if !$_bootstrapped;
-
-	#TODO
-
+	
+	$_browser->browse();
 	$self->_goodbye();
 	$self->_check_for_updates() if $_config->{check_for_updates};
 }
 
 ##########################################################################
+
+=back
+
+=head1 SEE ALSO
+
+pfm(1).
+
+=cut
 
 1;
 

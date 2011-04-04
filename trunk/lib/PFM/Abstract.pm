@@ -24,6 +24,12 @@ use Carp;
 ##########################################################################
 # constructor, getters and setters
 
+=item new()
+
+Constructor for all classes based on PFM::Abstract.
+
+=cut
+
 sub new {
 	my $type = shift;
 	if ($type eq __PACKAGE__) {
@@ -40,6 +46,14 @@ sub new {
 # public subs
 
 ##########################################################################
+
+=back
+
+=head1 SEE ALSO
+
+pfm(1).
+
+=cut
 
 1;
 

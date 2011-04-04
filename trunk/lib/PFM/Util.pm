@@ -63,11 +63,11 @@ Determine the minimum or maximum numeric value out of two.
 
 =cut
 
-sub min($$) {
+sub min ($$) {
 	return +($_[1] < $_[0]) ? $_[1] : $_[0];
 }
 
-sub max($$) {
+sub max ($$) {
 	return +($_[1] > $_[0]) ? $_[1] : $_[0];
 }
 
@@ -78,7 +78,7 @@ defined as ((not $a) and $b).
 
 =cut
 
-sub inhibit($$) {
+sub inhibit ($$) {
 	return !$_[0] && $_[1];
 }
 
@@ -90,11 +90,11 @@ Determine the next value in a cyclic two/three-state system.
 
 =cut
 
-sub toggle($) {
+sub toggle ($) {
 	$_[0] = !$_[0];
 }
 
-sub triggle($) {
+sub triggle ($) {
 	++$_[0] > 2 and $_[0] = 0;
 	return $_[0];
 }
@@ -105,27 +105,27 @@ Determines if a certain value for $ENV{TERM} is compatible with 'xterm'.
 
 =cut
 
-sub isxterm($) {
+sub isxterm ($) {
 	return $_[0] =~ $XTERMS;
 }
 
-=item basename()
-
 =item dirname()
+
+=item basename()
 
 Determine the filename without directory (basename) or directoryname
 containing the file (dirname) for the specified path.
 
 =cut
 
-sub dirname {
+sub dirname ($) {
 	$_[0] =~ m!^(.*)/.+?!;
 	return length($1) ? $1
 					  : $_[0] =~ m!^/! ? '/'
 									   : '.';
 }
 
-sub basename {
+sub basename ($) {
 	$_[0] =~ m{/([^/]*)/?$};
 	return length($1) ? $1 : $_[0];
 }
@@ -138,11 +138,11 @@ Determine if a certain string value is equivalent to boolean false or true.
 
 =cut
 
-sub isyes($) {
+sub isyes ($) {
 	return $_[0] =~ /^(1|y|yes|true|on|always)$/i;
 }
 
-sub isno($) {
+sub isno ($) {
 	return $_[0] =~ /^(0|n|no|false|off|never)$/;
 }
 
@@ -152,7 +152,7 @@ Returns a line that has been formatted using Perl formatting algorithm.
 
 =cut
 
-sub formatted {
+sub formatted (@) {
 	local $^A = '';
 	formline(shift(), @_);
 	return $^A;
@@ -167,7 +167,7 @@ and should be displayed.
 
 =cut
 
-sub svnmaxchar($$) {
+sub svnmaxchar ($$) {
 	my ($a, $b) = @_;
 	if ($a eq 'C' or $b eq 'C') {
 		return 'C';
@@ -180,7 +180,7 @@ sub svnmaxchar($$) {
 	}
 }
 
-sub svnmax($$) {
+sub svnmax ($$) {
 	my ($old, $new) = @_;
 	my $res = $old;
 	substr($res,0,1) = svnmaxchar(substr($old,0,1), substr($new,0,1));

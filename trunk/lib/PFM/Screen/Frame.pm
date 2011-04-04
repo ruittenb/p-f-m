@@ -281,6 +281,14 @@ sub pan {
 
 ##########################################################################
 
+=back
+
+=head1 SEE ALSO
+
+pfm(1), PFM::Screen(3pm).
+
+=cut
+
 1;
 
 # vim: set tabstop=4 shiftwidth=4:

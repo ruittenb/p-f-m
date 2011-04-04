@@ -1599,9 +1599,9 @@ sub clearcolumn {
 	}
 }
 
-sub path_info {
-	$scr->at($PATHLINE, 0)->puts(pathline($currentdir, $disk{'device'}));
-}
+#sub path_info {
+#	$scr->at($PATHLINE, 0)->puts(pathline($currentdir, $disk{'device'}));
+#}
 
 ##########################################################################
 # headers, footers
@@ -1828,75 +1828,75 @@ sub data_informatted {
 	formatted('@' . '>' x ($infolength-7) . ' @<<<<<', @_);
 }
 
-sub user_info {
-	$scr->at($USERINFOLINE, $infocol)->putcolored(($> ? 'normal' : 'red'), str_informatted($ident));
-}
-
-sub disk_info { # %disk{ total, used, avail }
-	my @desc		= ('K tot','K usd','K avl');
-	my @values		= @disk{qw/total used avail/};
-	my $startline	= $DISKINFOLINE;
-	# I played with vt100 boxes once,      lqqqqk
-	# but I hated it.                      x    x
-	# In case someone wants to try:        mqqqqj
-#	$scr->at($startline-1,$infocol)->puts("\cNlqq\cO Disk space");
-	$scr->at($startline-1, $infocol)->puts(str_informatted('Disk space'));
-	foreach (0..2) {
-		while ($values[$_] > 99_999) {
-			$values[$_] /= 1024;
-			$desc[$_] =~ tr/KMGTPEZ/MGTPEZY/;
-		}
-		$scr->at($startline+$_, $infocol)
-			->puts(data_informatted(int($values[$_]), $desc[$_]));
-	}
-}
-
-sub dir_info {
-	my @desc   = ('files','dirs ','symln','spec ');
-	my @values = @total_nr_of{'-','d','l'};
-	$values[3] = $total_nr_of{'c'} + $total_nr_of{'b'}
-			   + $total_nr_of{'p'} + $total_nr_of{'s'}
-			   + $total_nr_of{'D'} + $total_nr_of{'w'}
-			   + $total_nr_of{'n'};
-	my $startline = $DIRINFOLINE;
-	$scr->at($startline-1, $infocol)
-		->puts(str_informatted("Directory($sort_mode" . ($white_mode ? '' : '%') . ($dot_mode ? '' : '.') . ")"));
-	foreach (0..3) {
-		$scr->at($startline+$_, $infocol)
-			->puts(data_informatted($values[$_],$desc[$_]));
-	}
-}
-
-sub mark_info {
-	my @desc = ('bytes','files','dirs ','symln','spec ');
-	my @values = @selected_nr_of{'bytes','-','d','l'};
-	$values[4] = $selected_nr_of{'c'} + $selected_nr_of{'b'}
-			   + $selected_nr_of{'p'} + $selected_nr_of{'s'}
-			   + $selected_nr_of{'D'} + $selected_nr_of{'w'}
-			   + $selected_nr_of{'n'};
-	my $startline = $MARKINFOLINE;
-	my $total = 0;
-	$values[0] = join ('', fit2limit($values[0], 9_999_999));
-	$values[0] =~ s/ $//;
-	$scr->at($startline-1, $infocol)->puts(str_informatted('Marked files'));
-	foreach (0..4) {
-		$scr->at($startline+$_, $infocol)
-			->puts(data_informatted($values[$_], $desc[$_]));
-		$total += $values[$_] if $_;
-	}
-	return $total;
-}
-
-sub clock_info {
-	my ($date, $time);
-	my $line = $DATEINFOLINE;
-	($date, $time) = time2str(time, $TIME_CLOCK);
-	if ($scr->rows() > 24) {
-		$scr->at($line++, $infocol)->puts(str_informatted($date));
-	}
-	$scr->at($line++, $infocol)->puts(str_informatted($time));
-}
-
+#sub user_info {
+#	$scr->at($USERINFOLINE, $infocol)->putcolored(($> ? 'normal' : 'red'), str_informatted($ident));
+#}
+#
+#sub disk_info { # %disk{ total, used, avail }
+#	my @desc		= ('K tot','K usd','K avl');
+#	my @values		= @disk{qw/total used avail/};
+#	my $startline	= $DISKINFOLINE;
+#	# I played with vt100 boxes once,      lqqqqk
+#	# but I hated it.                      x    x
+#	# In case someone wants to try:        mqqqqj
+##	$scr->at($startline-1,$infocol)->puts("\cNlqq\cO Disk space");
+#	$scr->at($startline-1, $infocol)->puts(str_informatted('Disk space'));
+#	foreach (0..2) {
+#		while ($values[$_] > 99_999) {
+#			$values[$_] /= 1024;
+#			$desc[$_] =~ tr/KMGTPEZ/MGTPEZY/;
+#		}
+#		$scr->at($startline+$_, $infocol)
+#			->puts(data_informatted(int($values[$_]), $desc[$_]));
+#	}
+#}
+#
+#sub dir_info {
+#	my @desc   = ('files','dirs ','symln','spec ');
+#	my @values = @total_nr_of{'-','d','l'};
+#	$values[3] = $total_nr_of{'c'} + $total_nr_of{'b'}
+#			   + $total_nr_of{'p'} + $total_nr_of{'s'}
+#			   + $total_nr_of{'D'} + $total_nr_of{'w'}
+#			   + $total_nr_of{'n'};
+#	my $startline = $DIRINFOLINE;
+#	$scr->at($startline-1, $infocol)
+#		->puts(str_informatted("Directory($sort_mode" . ($white_mode ? '' : '%') . ($dot_mode ? '' : '.') . ")"));
+#	foreach (0..3) {
+#		$scr->at($startline+$_, $infocol)
+#			->puts(data_informatted($values[$_],$desc[$_]));
+#	}
+#}
+#
+#sub mark_info {
+#	my @desc = ('bytes','files','dirs ','symln','spec ');
+#	my @values = @selected_nr_of{'bytes','-','d','l'};
+#	$values[4] = $selected_nr_of{'c'} + $selected_nr_of{'b'}
+#			   + $selected_nr_of{'p'} + $selected_nr_of{'s'}
+#			   + $selected_nr_of{'D'} + $selected_nr_of{'w'}
+#			   + $selected_nr_of{'n'};
+#	my $startline = $MARKINFOLINE;
+#	my $total = 0;
+#	$values[0] = join ('', fit2limit($values[0], 9_999_999));
+#	$values[0] =~ s/ $//;
+#	$scr->at($startline-1, $infocol)->puts(str_informatted('Marked files'));
+#	foreach (0..4) {
+#		$scr->at($startline+$_, $infocol)
+#			->puts(data_informatted($values[$_], $desc[$_]));
+#		$total += $values[$_] if $_;
+#	}
+#	return $total;
+#}
+#
+#sub clock_info {
+#	my ($date, $time);
+#	my $line = $DATEINFOLINE;
+#	($date, $time) = time2str(time, $TIME_CLOCK);
+#	if ($scr->rows() > 24) {
+#		$scr->at($line++, $infocol)->puts(str_informatted($date));
+#	}
+#	$scr->at($line++, $infocol)->puts(str_informatted($time));
+#}
+#
 ##########################################################################
 # sorting subs
 
@@ -3869,20 +3869,20 @@ sub filterdir {
 	} @_;
 }
 
-sub init_dircount {
-	%selected_nr_of =
-	%total_nr_of    = ( d=>0, l=>0, '-'=>0, c=>0, b=>0,
-						D=>0, p=>0, 's'=>0, n=>0, w=>0, bytes => 0);
-}
-
-sub countdircontents {
-	init_dircount();
-	foreach my $i (0..$#_) {
-		$total_nr_of   {$_[$i]{type}}++;
-		$selected_nr_of{$_[$i]{type}}++ if ($_[$i]{selected} eq '*');
-	}
-}
-
+#sub init_dircount {
+#	%selected_nr_of =
+#	%total_nr_of    = ( d=>0, l=>0, '-'=>0, c=>0, b=>0,
+#						D=>0, p=>0, 's'=>0, n=>0, w=>0, bytes => 0);
+#}
+#
+#sub countdircontents {
+#	init_dircount();
+#	foreach my $i (0..$#_) {
+#		$total_nr_of   {$_[$i]{type}}++;
+#		$selected_nr_of{$_[$i]{type}}++ if ($_[$i]{selected} eq '*');
+#	}
+#}
+#
 sub get_filesystem_info {
 	my (@dflist, %tdisk);
 	chop (@dflist = (`$DFCMD .`, ''));
@@ -3966,23 +3966,23 @@ sub recalc_ptr {
 	return position_cursor(); # refresh flag
 }
 
-sub showdiskinfo {
-	my $spaces = ' ' x $infolength;
-	# gap is not filled in yet
-	my $gap = ' ' x (max($infocol-length($currentformatline)-$filerecordcol,
-						 $filerecordcol-$infolength));
-	disk_info(%disk);
-	$scr->at($DIRINFOLINE-2, $infocol)->puts($spaces);
-	dir_info(%total_nr_of);
-	$scr->at($MARKINFOLINE-2, $infocol)->puts($spaces);
-	mark_info(%selected_nr_of);
-	$scr->at($USERINFOLINE-1, $infocol)->puts($spaces);
-	user_info();
-	clock_info();
-	foreach ($DATEINFOLINE+2 .. $BASELINE+$screenheight) {
-		$scr->at($_, $infocol)->puts($spaces);
-	}
-}
+#sub showdiskinfo {
+#	my $spaces = ' ' x $infolength;
+#	# gap is not filled in yet
+#	my $gap = ' ' x (max($infocol-length($currentformatline)-$filerecordcol,
+#						 $filerecordcol-$infolength));
+#	disk_info(%disk);
+#	$scr->at($DIRINFOLINE-2, $infocol)->puts($spaces);
+#	dir_info(%total_nr_of);
+#	$scr->at($MARKINFOLINE-2, $infocol)->puts($spaces);
+#	mark_info(%selected_nr_of);
+#	$scr->at($USERINFOLINE-1, $infocol)->puts($spaces);
+#	user_info();
+#	clock_info();
+#	foreach ($DATEINFOLINE+2 .. $BASELINE+$screenheight) {
+#		$scr->at($_, $infocol)->puts($spaces);
+#	}
+#}
 
 ##########################################################################
 # directory browsing main routine
@@ -4057,61 +4057,61 @@ sub browse {
 				redo STRIDE;
 			}
 		}
-		# draw frame as soon as possible: this looks better on slower terminals
-		if ($wantrefresh &   $R_CLEAR) {
-			$wantrefresh &= ~$R_CLEAR;
-			$scr->clrscr();
-		}
-		if ($wantrefresh & $R_FRAME) {
-			$wantrefresh &= ~($R_HEADINGS | $R_MENU | $R_FOOTER);
-			draw_frame();
-		}
-		# now in order of severity
-		if ($wantrefresh &   $R_DIRCONTENTS) {
-			$wantrefresh &= ~$R_DIRCONTENTS;
-			init_dircount();
-			$position_at  = $showncontents[$currentline+$baseindex]{name} unless length($position_at);
-			@dircontents  = getdircontents($currentdir);
-		}
-		if ($wantrefresh &   $R_DIRSORT) {
-			$wantrefresh &= ~$R_DIRSORT;
-			$position_at  = $showncontents[$currentline+$baseindex]{name} unless length($position_at);
-			@dircontents  = sort as_requested @dircontents;
-		}
-		if ($wantrefresh &   $R_DIRFILTER) {
-			$wantrefresh &= ~$R_DIRFILTER;
-			@showncontents = filterdir(@dircontents);
-		}
-		if ($wantrefresh &   $R_STRIDE) {
-			$wantrefresh &= ~$R_STRIDE;
-			position_cursor() if $position_at ne '';
-			recalc_ptr() unless defined $showncontents[$currentline+$baseindex];
-			%currentfile = %{$showncontents[$currentline+$baseindex]};
-		}
-		if ($wantrefresh &   $R_DIRLIST) {
-			$wantrefresh &= ~$R_DIRLIST;
-			printdircontents(@showncontents);
-		}
-		if ($wantrefresh &   $R_DISKINFO) {
-			$wantrefresh &= ~$R_DISKINFO;
-			showdiskinfo();
-		}
-		if ($wantrefresh &   $R_MENU) {
-			$wantrefresh &= ~$R_MENU;
-			draw_menu();
-		}
-		if ($wantrefresh &   $R_PATHINFO) {
-			$wantrefresh &= ~$R_PATHINFO;
-			path_info();
-		}
-		if ($wantrefresh &   $R_HEADINGS) {
-			$wantrefresh &= ~$R_HEADINGS;
-			draw_headings($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
-		}
-		if ($wantrefresh &   $R_FOOTER) {
-			$wantrefresh &= ~$R_FOOTER;
-			draw_footer();
-		}
+#		# draw frame as soon as possible: this looks better on slower terminals
+#		if ($wantrefresh &   $R_CLEAR) {
+#			$wantrefresh &= ~$R_CLEAR;
+#			$scr->clrscr();
+#		}
+#		if ($wantrefresh & $R_FRAME) {
+#			$wantrefresh &= ~($R_HEADINGS | $R_MENU | $R_FOOTER);
+#			draw_frame();
+#		}
+#		# now in order of severity
+#		if ($wantrefresh &   $R_DIRCONTENTS) {
+#			$wantrefresh &= ~$R_DIRCONTENTS;
+#			init_dircount();
+#			$position_at  = $showncontents[$currentline+$baseindex]{name} unless length($position_at);
+#			@dircontents  = getdircontents($currentdir);
+#		}
+#		if ($wantrefresh &   $R_DIRSORT) {
+#			$wantrefresh &= ~$R_DIRSORT;
+#			$position_at  = $showncontents[$currentline+$baseindex]{name} unless length($position_at);
+#			@dircontents  = sort as_requested @dircontents;
+#		}
+#		if ($wantrefresh &   $R_DIRFILTER) {
+#			$wantrefresh &= ~$R_DIRFILTER;
+#			@showncontents = filterdir(@dircontents);
+#		}
+#		if ($wantrefresh &   $R_STRIDE) {
+#			$wantrefresh &= ~$R_STRIDE;
+#			position_cursor() if $position_at ne '';
+#			recalc_ptr() unless defined $showncontents[$currentline+$baseindex];
+#			%currentfile = %{$showncontents[$currentline+$baseindex]};
+#		}
+#		if ($wantrefresh &   $R_DIRLIST) {
+#			$wantrefresh &= ~$R_DIRLIST;
+#			printdircontents(@showncontents);
+#		}
+#		if ($wantrefresh &   $R_DISKINFO) {
+#			$wantrefresh &= ~$R_DISKINFO;
+#			showdiskinfo();
+#		}
+#		if ($wantrefresh &   $R_MENU) {
+#			$wantrefresh &= ~$R_MENU;
+#			draw_menu();
+#		}
+#		if ($wantrefresh &   $R_PATHINFO) {
+#			$wantrefresh &= ~$R_PATHINFO;
+#			path_info();
+#		}
+#		if ($wantrefresh &   $R_HEADINGS) {
+#			$wantrefresh &= ~$R_HEADINGS;
+#			draw_headings($swap_mode, $TITLE_DISKINFO, @layoutfieldswithinfo);
+#		}
+#		if ($wantrefresh &   $R_FOOTER) {
+#			$wantrefresh &= ~$R_FOOTER;
+#			draw_footer();
+#		}
 		# normally, the current cursor position must be validated every pass
 		$wantrefresh |= $R_STRIDE;
 		# don't send mouse escapes to the terminal if not necessary
@@ -4188,9 +4188,9 @@ sub browse {
 ##########################################################################
 # main() is not of type void
 
-globalinit();
+#globalinit();
 browse($R_CHDIR | ($R_INIT_SWAP * defined $swapstartdir));
-goodbye();
+#goodbye();
 exit 0;
 
 # vim:     set tabstop=4 shiftwidth=4 noexpandtab:

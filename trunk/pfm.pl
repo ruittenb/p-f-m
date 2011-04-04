@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2010-03-27 v2.00.6
+# @(#) pfm.pl 2010-03-30 v2.00.7
 #
 # Name:			pfm
-# Version:		2.00.6
+# Version:		2.00.7
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-03-27
+# Date:			2010-03-30
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				    [ -l, --layout <number> ]
 #				pfm { -v, --version | -h, --help }
@@ -23,7 +23,7 @@
 ##########################################################################
 # declarations
 
-use lib '/home/ruitten/Desktop/projects/pfm-2.00.6/lib';
+use lib '/home/ruitten/Desktop/projects/pfm-2.00.7/lib';
 
 use PFM::Application;
 
