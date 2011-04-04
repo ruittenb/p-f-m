@@ -22,7 +22,7 @@ package PFM::Browser;
 
 use base 'PFM::Abstract';
 
-use PFM::Directory;
+my ($_pfm, $_currentline, $_baseindex);
 
 ##########################################################################
 # private subs
@@ -34,7 +34,10 @@ Initializes new instances. Called from the constructor.
 =cut
 
 sub _init {
-	my $self = shift;
+	my ($self, $_pfm)	= @_;
+	$_pfm				= $pfm;
+	$_currentline		= 0;
+	$_baseindex			= 0;
 }
 
 ##########################################################################

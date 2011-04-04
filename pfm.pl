@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2010-03-27 v2.00.3
+# @(#) pfm.pl 2010-03-27 v2.00.4
 #
 # Name:			pfm
-# Version:		2.00.3
+# Version:		2.00.4
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-03-27
@@ -23,7 +23,7 @@
 ##########################################################################
 # declarations
 
-use lib '/home/ruitten/Desktop/projects/pfm-2.00.3/lib';
+use lib '/home/ruitten/Desktop/projects/pfm-2.00.4/lib';
 
 use PFM::Application;
 
