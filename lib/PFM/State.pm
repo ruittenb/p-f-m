@@ -73,13 +73,14 @@ sub _init {
 
 =item _clone()
 
-Clones an existing instance. Creates a new PFM::Directory object.
+Performs one phase of the cloning process by cloning an existing
+PFM::Directory instance.
 
 =cut
 
 sub _clone {
-	my ($self, $origin, $pfm) = @_;
-	$self->{_directory} = $origin->directory->clone($pfm);
+	my ($self, $original, @args) = @_;
+	$self->{_directory} = $original->{_directory}->clone(@args);
 }
 
 ##########################################################################
@@ -120,13 +121,13 @@ is not to be displayed on-screen right away.
 =cut
 
 sub prepare {
-	my $self = shift;
+	my ($self, $path) = @_;
 	$self->{dot_mode}	= $_pfm->config->{dot_mode};
 	$self->{radix_mode}	= $_pfm->config->{radix_mode};
 	$self->{sort_mode}	= $_pfm->config->{sort_mode};
 	$self->{white_mode}	= $_pfm->config->{white_mode};
 	$self->{_position}	= '.';
-	$self->{_directory}->prepare();
+	$self->{_directory}->prepare($path);
 }
 
 ##########################################################################

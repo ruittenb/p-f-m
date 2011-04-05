@@ -1,11 +1,22 @@
+2.02.2
+
+* moved sort info to heading of 'filename' column.
+
+2.02.1
+
+* changed F2 (back) to a swap between states instead of just a reminder
+  of the old directory name
+
 2.01.7
 
 * removed 'checkforupdates' configuration option; instead, start the
   check in the background as soon as pfm is started.
+* fixed bug where major/minor numbers of device files were lost
+  after a window resize
 
 2.01.2
 
-* added 'clickiskeypresstoo' config option
+* added 'clickiskeypresstoo' configuration option
 
 2.00.0
 

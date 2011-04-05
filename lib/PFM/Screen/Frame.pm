@@ -161,15 +161,15 @@ sub _getmenu {
 		return	'Sort by: Name, Extension, Size, Date, Type, Inode '
 		.		'(ignorecase, reverse):';
 	} elsif ($mode & MENU_MORE) {
-		return	'Bookmark Config Edit-new mkFifo sHell Kill-chld Mkdir '
-		.		'Physical-path Show-dir sVn Write-hist alTscreen';
+		return	'Bookmark Config Edit-any mkFifo sHell Kill-chld Mkdir '
+		.		'Physical-path Show-dir Versions Write-hist alTscreen';
 	} elsif ($mode & MENU_INCLUDE) {
 		return	'Include? Every, Oldmarks, After, Before, User or Files only:';
 	} elsif ($mode & MENU_LNKTYPE) {
 		return	'Absolute, Relative symlink or Hard link:';
 	} else {
 		return	'Attribute Copy Delete Edit Find tarGet Include Link More Name'
-		.		' cOmmand Print Quit Rename Show Time User sVn unWhiteout'
+		.		' cOmmand Print Quit Rename Show Time User Versions unWhiteout'
 		.		' eXclude Your-command siZe';
 	}
 }
@@ -186,7 +186,7 @@ sub _getfooter {
 	my $f =	"F1-Help F2-Back F3-Redraw"
 	.		" F4-Color[".$_screen->color_mode."] F5-Reread"
 	.		" F6-Sort[$state{sort_mode}]"
-	.		" F7-Swap[".$ONOFF{$_pfm->browser->swap_mode}."] F8-Include"
+	.		" F7-Swap[".$ONOFF{$_pfm->browser->swap_mode}."] F8-In/Exclude"
 	.		" F9-Layout[".$_screen->listing->layout."]" # $layoutname ?
 	.		" F10-Multiple[$ONOFF{$state{multiple_mode}}] F11-Restat"
 	.		" F12-Mouse[$ONOFF{$state{mouse_mode}}]"
@@ -273,6 +273,7 @@ sub show_headings {
 	my ($self, $swapmode, $info) = @_;
 	my ($linecolor, $diskinfo, $padding);
 	my @fields = @{$_screen->listing->layoutfieldswithinfo};
+	my $state  = $_pfm->state;
 	$padding = ' ' x ($_screen->diskinfo->infolength - 14);
 	for ($info) {
 		$_ == HEADING_DISKINFO	and $diskinfo = "$padding     disk info";
@@ -282,8 +283,11 @@ sub show_headings {
 		$_ == HEADING_ESCAPE	and $diskinfo = "esc legend    $padding";
 	}
 	$_fieldheadings{diskinfo} = $diskinfo;
-#	$_fieldheadings{display} = sprintf('%s (%s%s%s)', $_fieldheadings{name},
-#		$sort_mode, ('%','')[$white_mode], ('.','')[$dot_mode]);
+	$_fieldheadings{display} = sprintf(
+		'%s (%s%s)',
+		$_fieldheadings{name},
+		($state->{white_mode} ? '' : '%'),
+		($state->{dot_mode}   ? '' : '.'));
 	$linecolor = $swapmode
 		? $_pfm->config->{framecolors}->{$_screen->color_mode}{swap}
 		: $_pfm->config->{framecolors}->{$_screen->color_mode}{headings};

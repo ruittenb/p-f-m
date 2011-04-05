@@ -307,35 +307,31 @@ sub bootstrap {
 	$_latest_version = '';
 	$_jobhandler->start('CheckUpdates');
 	
-	# 'old' directory
-	# TODO state[S_BACK] niet in elkaar knutselen!
-	# deze wordt automatisch gezet wanneer state[S_MAIN] een
-	# chdir() doet
+	# current directory - MAIN for the time being
 	$currentdir = getcwd();
-	$_states[S_MAIN]->currentdir($currentdir);
-	$_states[S_MAIN]->prepare();
+	$_states[S_MAIN]->prepare($currentdir);
 #	$_states[S_BACK] = new PFM::State($self);
 #	$_states[S_BACK]->currentdir($currentdir);
 #	$_states[S_BACK]->prepare();
-	# main directory
+	# do we have a starting directory?
 	$startingdir = shift @ARGV;
 	if ($startingdir ne '') {
-		# $_states[0] has already been instantiated
+		# if so, make it MAIN; currentdir becomes BACK
 		unless ($_states[S_MAIN]->currentdir($startingdir)) {
 			$_screen->at(0,0)->clreol();
 			$_screen->display_error("$startingdir: $! - using .");
 			$_screen->important_delay();
 		}
 	} else {
-		$_states[S_BACK] = $_states[S_MAIN]->clone($self, 0);
+		# if not, clone MAIN to BACK
+		$_states[S_BACK] = $_states[S_MAIN]->clone($self);
 #		$_states[S_MAIN]->currentdir($currentdir);
 #		$_states[S_MAIN]->prepare();
 	}
 	# swap directory
 	if (defined $swapstartdir) {
-		$_states[S_SWAP] = new PFM::State($self, 1);
-		$_states[S_SWAP]->currentdir($swapstartdir);
-		$_states[S_SWAP]->prepare();
+		$_states[S_SWAP] = new PFM::State($self);
+		$_states[S_SWAP]->prepare($swapstartdir);
 	}
 	# done
 	$_bootstrapped = 1;
