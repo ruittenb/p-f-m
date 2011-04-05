@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Browser 0.34
+# @(#) PFM::Browser 0.36
 #
 # Name:			PFM::Browser.pm
-# Version:		0.34
+# Version:		0.36
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-10
+# Date:			2010-04-13
 #
 
 ##########################################################################
@@ -22,7 +22,7 @@ PFM::Browser
 
 This class is responsible for executing the main browsing loop of pfm,
 which loops over: waiting for a keypress, dispatching the command to
-the CommandHandler, and refreshing the screen.
+the command handler, and refreshing the screen.
 
 =head1 METHODS
 
@@ -122,6 +122,21 @@ sub baseindex {
 		$self->validate_position();
 	}
 	return $_baseindex;
+}
+
+=item setview()
+
+Setter for both the cursor line and screen window at once.
+
+=cut
+
+sub setview {
+	my ($self, $line, $index) = @_;
+	return 0 unless (defined($line) && defined($index));
+	$_currentline = $line;
+	$_baseindex   = $index;
+	$self->validate_position();
+	$_screen->set_deferred_refresh($_screen->R_DIRLIST);
 }
 
 =item position_at()
@@ -229,7 +244,7 @@ sub position_cursor {
 		$_baseindex = 0;
 	}
 	$_position_at = '';
-	$self->validate_position(); # refresh flag
+	$self->validate_position();
 }
 
 =item browse()
@@ -263,9 +278,6 @@ sub browse {
 		# on keyboard/mouse input
 		if ($_screen->wasresized) {
 			$_screen->handleresize();
-		# old code: why do it like this?
-#		# the next line contains an assignment on purpose
-#		} elsif (length($_screen->{IN}) || $_screen->key_pressed() and $key = $_screen->getch()) {
 		} else {
 			# must be keyboard/mouse input here
 			$event = $_screen->getch();

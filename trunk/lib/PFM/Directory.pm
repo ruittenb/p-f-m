@@ -92,6 +92,24 @@ sub _init {
 	$self->{_disk}			 = {};
 }
 
+=item _clone()
+
+Performs one phase of the cloning process by cloning an existing
+PFM::Directory instance.
+
+=cut
+
+sub _clone {
+	my ($self, $original, @args) = @_;
+	$self->{_dircontents}	 = [ @{$original->{_dircontents}	} ];
+	$self->{_showncontents}	 = [ @{$original->{_showncontents}	} ];
+	$self->{_selected_nr_of} = { %{$original->{_selected_nr_of}	} };
+	$self->{_total_nr_of}	 = { %{$original->{_total_nr_of}	} };
+	$self->{_usercache}		 = { %{$original->{_usercache}		} };
+	$self->{_groupcache}	 = { %{$original->{_groupcache}		} };
+	$self->{_disk}			 = { %{$original->{_disk}			} };
+}
+
 =item _find_uid()
 
 =item _find_gid()
@@ -175,14 +193,15 @@ Determines the current filesystem usage and stores it in an internal hash.
 sub _init_filesystem_info {
 	my $self = shift;
 	my @dflist;
-	chop (@dflist = (`$DFCMD .`, ''));
+	chop (@dflist = (`$DFCMD \Q$self->{_path}\E`, ''));
 	shift @dflist; # skip header
 	$dflist[0] .= $dflist[1]; # in case filesystem info wraps onto next line
 	@{$self->{_disk}}{qw/device total used avail/} = split (/\s+/, $dflist[0]);
 	if ($self->{_disk}{avail} =~ /%/) {
 		$self->{_disk}{avail} = $self->{_disk}{total} - $self->{_disk}{used};
 	}
-	$self->{_disk}{qw/mountpoint/} = ($dflist[0] =~ /(\S*)$/);
+	$dflist[0] =~ /(\S*)$/;
+	$self->{_disk}{mountpoint} = $1;
 	return $self->{_disk};
 }
 
@@ -198,9 +217,9 @@ PFM::Directory::chdir(), and will return the success status.
 =cut
 
 sub path {
-	my ($self, $target, $force) = @_;
-	if (defined $target) {
-		return $self->chdir($target, $force);
+	my $self = shift;
+	if (@_) {
+		return $self->chdir(@_);
 	}
 	return $self->{_path};
 }
@@ -311,8 +330,10 @@ is not to be displayed on-screen right away.
 =cut
 
 sub prepare {
-	my $self = shift;
+	my ($self, $path) = @_;
 	$self->path_mode($_pfm->config->{path_mode});
+	$self->{_path} = $path;
+	$self->_init_filesystem_info();
 	$self->init_dircount();
 	$self->readcontents();
 	$self->sortcontents();
@@ -328,7 +349,7 @@ and executes the 'chdirautocmd' from the F<.pfmrc> file.
 =cut
 
 sub chdir {
-	my ($self, $target, $force) = @_;
+	my ($self, $target, $swapping) = @_;
 	my ($result, $chdirautocmd);
 	my $screen = $_pfm->screen;
 	my $path = $self->{_path};
@@ -348,8 +369,10 @@ sub chdir {
 		}
 	}
 	$target = canonicalize_path($target);
-	if ($result = chdir $target and ($force or $target ne $path)) {
-		$_pfm->state($_pfm->S_BACK, $_pfm->state->clone($_pfm));
+	if ($result = chdir $target and $target ne $path) {
+		unless ($swapping) {
+			$_pfm->state($_pfm->S_BACK, $_pfm->state->clone($_pfm));
+		}
 		if ($_path_mode eq 'phys') {
 			$self->{_path} = getcwd();
 		} else {
@@ -357,8 +380,12 @@ sub chdir {
 		}
 		$chdirautocmd = $_pfm->config->{chdirautocmd};
 		system("$chdirautocmd") if length($chdirautocmd);
-		$screen->set_deferred_refresh($screen->R_CHDIR);
-		$self->_init_filesystem_info();
+		if ($swapping) {
+			$screen->set_deferred_refresh($screen->R_SCREEN);
+		} else {
+			$screen->set_deferred_refresh($screen->R_CHDIR);
+			$self->_init_filesystem_info();
+		}
 		# TODO store position_at in state->_position
 	}
 	return $result;
@@ -529,7 +556,9 @@ sub readcontents {
 	$self->{_showncontents} = [];
 	%{$self->{_usercache}}  = ();
 	%{$self->{_groupcache}} = ();
-	if (opendir CURRENT, '.') { # was $self->{_path}
+	# don't use '.' as the directory path to open: we may be just
+	# prepare()ing this object without actually entering the directory
+	if (opendir CURRENT, $self->{_path}) {
 		@allentries = readdir CURRENT;
 		closedir CURRENT;
 		if ($whitecommand) {

@@ -3430,20 +3430,20 @@ sub handleselect {
 #	return $R_DIRLIST;
 #}
 #
-sub handlemove {
-	local $_ = $_[0];
-	my $displacement =	-10*(/^-$/)  -(/^(?:ku|k)$/   )
-						+10*(/^\+$/) +(/^(?:kd|j| )$/)
-						+$screenheight*(/\cF|pgdn/)
-						-$screenheight*(/\cB|pgup/)
-						+int($screenheight*(/\cD/)/2)
-						-int($screenheight*(/\cU/)/2)
-						-($currentline    +$baseindex)              *(/^home$/)
-						+($#showncontents -$currentline -$baseindex)*(/^end$/ );
-	$currentline += $displacement;
-	return validate_position();
-}
-
+#sub handlemove {
+#	local $_ = $_[0];
+#	my $displacement =	-10*(/^-$/)  -(/^(?:ku|k)$/   )
+#						+10*(/^\+$/) +(/^(?:kd|j| )$/)
+#						+$screenheight*(/\cF|pgdn/)
+#						-$screenheight*(/\cB|pgup/)
+#						+int($screenheight*(/\cD/)/2)
+#						-int($screenheight*(/\cU/)/2)
+#						-($currentline    +$baseindex)              *(/^home$/)
+#						+($#showncontents -$currentline -$baseindex)*(/^end$/ );
+#	$currentline += $displacement;
+#	return validate_position();
+#}
+#
 sub launchtype {
 	my $do_this;
 	if (exists $pfmrc{"launch[$_[0]]"}) {

@@ -82,21 +82,22 @@ sub new {
 
 =item clone()
 
-Clone one object to create an independent one. References
-stored in the object will be copied as-is to the clone.
+Clone one object to create an independent one. By calling
+the _clone() method, each class can define which contained objects
+must be recursively cloned.
 
 =cut
 
 sub clone {
-	my $self  = shift;
-	my $type  = ref $self;
+	my $original = shift;
+	my $type     = ref $original;
 	unless ($type) {
 		croak("clone() cannot be called statically " .
 			"(it needs an object to clone)");
 	}
-	my $clone = { %$self };
+	my $clone = { %$original };
 	bless($clone, $type);
-	$clone->_clone($self, @_);
+	$clone->_clone($original, @_);
 	return $clone;
 }
 

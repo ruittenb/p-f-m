@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::CommandHandler 0.08
+# @(#) PFM::CommandHandler 0.10
 #
 # Name:			PFM::CommandHandler.pm
-# Version:		0.08
+# Version:		0.10
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-12
+# Date:			2010-04-13
 #
 
 ##########################################################################
@@ -36,8 +36,9 @@ package PFM::CommandHandler;
 use base 'PFM::Abstract';
 
 use PFM::Util;
-use PFM::History;	# imports the H_* constants
-use PFM::Screen;	# imports the R_* constants
+#use PFM::Application;	# imports the S_* constants
+use PFM::History;		# imports the H_* constants
+use PFM::Screen;		# imports the R_* constants
 
 use POSIX qw(strftime mktime);
 use Config;
@@ -193,8 +194,8 @@ sub handle {
 	my $valid = 1; # assume the event was valid
 	for ($event) {
 		# order is determined by (supposed) frequency of use
-#		/^(?:ku|kd|pgup|pgdn|[-+jk\cF\cB\cD\cU]|home|end)$/io
-#							and $self->handlemove($_),			last;
+		/^(?:ku|kd|pgup|pgdn|[-+jk\cF\cB\cD\cU]|home|end)$/io
+							and $self->handlemove($_),			last;
 #		/^(?:kr|kl|[h\e\cH])$/io
 #							and $self->handleentry($_),			last;
 		/^[\cE\cY]$/o		and $self->handlescroll($_),		last;
@@ -260,27 +261,56 @@ sub handlepan {
 
 =item handlescroll()
 
-Handles ctrl-E and ctrl-Y.
+Handles B<CTRL-E> and B<CTRL-Y>, which scroll the current window on the
+directory.
 
 =cut
 
 sub handlescroll {
 	my ($self, $key) = @_;
 	my $up = ($key =~ /^\cE$/o);
-	my $browser     = $_pfm->browser;
-	my $baseindex   = $browser->baseindex;
-	my $currentline = $browser->currentline;
+	my $screenheight  = $_screen->screenheight;
+	my $browser       = $_pfm->browser;
+	my $baseindex     = $browser->baseindex;
+	my $currentline   = $browser->currentline;
+	my $showncontents = $_pfm->state->directory->showncontents;
 	return 0 if ( $up and
-				  $baseindex == $#{$_pfm->state->directory->showncontents} and
+				  $baseindex == $#$showncontents and
 				  $currentline == 0)
 			 or (!$up and $baseindex == 0);
 	my $displacement = $up - ! $up;
-	$browser->baseindex($baseindex + $displacement);
-#	$baseindex   += $displacement;
-#	$currentline -= $displacement if $currentline-$displacement >= 0
-#								 and $currentline-$displacement <= $screenheight;
-#	validate_position();
-	$_screen->set_deferred_refresh($_screen->R_DIRLIST);
+	$baseindex   += $displacement;
+	$currentline -= $displacement if $currentline-$displacement >= 0
+								 and $currentline-$displacement <= $screenheight;
+	$browser->setview($currentline, $baseindex);
+}
+
+=item handlemove()
+
+Handles the keys which move around in the current directory.
+
+=cut
+
+sub handlemove {
+	my ($self, $key) = @_;
+	local $_ = $key;
+	my $screenheight  = $_screen->screenheight;
+	my $browser       = $_pfm->browser;
+	my $baseindex     = $browser->baseindex;
+	my $currentline   = $browser->currentline;
+	my $showncontents = $_pfm->state->directory->showncontents;
+	my $displacement  =
+			- (/^(?:ku|k)$/o  )
+			+ (/^(?:kd|j| )$/o)
+			- (/^-$/o)			* 10
+			+ (/^\+$/o)			* 10
+			- (/\cB|pgup/o)		* $screenheight
+			+ (/\cF|pgdn/o)		* $screenheight
+			- (/\cU/o)			* int($screenheight/2)
+			+ (/\cD/o)			* int($screenheight/2)
+			- (/^home$/o)		* ( $currentline +$baseindex)
+			+ (/^end$/o )		* (-$currentline -$baseindex +$#$showncontents);
+	$browser->currentline($currentline + $displacement);
 }
 
 =item handlecdback()
@@ -291,8 +321,29 @@ Handles the back command (B<F2>).
 
 sub handlecdback {
 	my $self = shift;
-	$_pfm->swap_states($_pfm->S_MAIN, $_pfm->S_BACK);
-	$_screen->set_deferred_refresh(R_CHDIR);
+	my $backdir = $_pfm->state($_pfm->S_BACK)->directory->path;
+	my $chdirautocmd;
+	if (chdir $backdir) {
+		$_pfm->swap_states($_pfm->S_MAIN, $_pfm->S_BACK);
+		$chdirautocmd = $_pfm->config->{chdirautocmd};
+		system("$chdirautocmd") if length($chdirautocmd);
+		$_screen->set_deferred_refresh(R_SCREEN);
+	} else {
+		$_screen->set_deferred_refresh(R_MENU);
+	}
+}
+
+=item handlerefresh()
+
+Handles the command to refresh the current directory.
+
+=cut
+
+sub handlerefresh {
+#	my $self = shift;
+	if (ok_to_remove_marks()) {
+		$_screen->set_deferred_refresh(R_DIRCONTENTS | R_DIRSORT | R_SCREEN);
+	}
 }
 
 =item handlelayouts()
@@ -334,7 +385,7 @@ sub handlequit {
 		->putmessage('Are you sure you want to quit [Y/N]? ');
 	my $sure = $_screen->getch();
 	return 'quit' if ($sure =~ /y/i);
-	$_screen->set_deferred_refresh($_screen->R_MENU);
+	$_screen->set_deferred_refresh(R_MENU);
 	return 0;
 }
 
@@ -355,7 +406,7 @@ sub handleperlcommand {
 	$_screen->stty_raw();
 	eval $perlcmd;
 	$_screen->display_error($@) if $@;
-	$_screen->set_deferred_refresh($_screen->R_SCREEN);
+	$_screen->set_deferred_refresh(R_SCREEN);
 }
 
 sub handlehelp {
@@ -363,9 +414,9 @@ sub handlehelp {
 	$_screen->clrscr()->stty_cooked();
 	print map { substr($_, 8)."\n" } split("\n", <<'    _eoHelp_');
         --------------------------------------------------------------------------------
-        a     Attrib         mb  Bookmark          up, down arrow   move one line       
+        a     Attrib         mb  make Bookmark     up, down arrow   move one line       
         c     Copy           mc  Config pfm        k, j             move one line       
-        d DEL Delete         me  Edit new file     -, +             move ten lines      
+        d DEL Delete         me  Edit any file     -, +             move ten lines      
         e     Edit           mf  make FIFO         CTRL-E, CTRL-Y   scroll dir one line 
         f /   Find           mh  spawn sHell       CTRL-U, CTRL-D   move half a page    
         g     tarGet         mk  Kill children     CTRL-B, CTRL-F   move a full page    
@@ -373,13 +424,13 @@ sub handlehelp {
         L     symLink        mp  Physical path     HOME, END        move to top, bottom 
         n     Name           ms  Show directory    SPACE            mark file & advance 
         o     cOmmand        mt  alTernate scrn    right arrow, l   enter dir           
-        p     Print          mv  Vers status all   left arrow, h    leave dir           
+        p     Print          mv  Versn status all  left arrow, h    leave dir           
         q Q   (Quick) quit   mw  Write history     ENTER            enter dir; launch   
         r     Rename        ---------------------  ESC, BS          leave dir           
         s     Show           !   toggle clobber   --------------------------------------
         t     Time           *   toggle radix      F1  help           F7  swap mode     
         u     Uid            "   toggle pathmode   F2  prev dir       F8  mark file     
-        v     Vers status    =   cycle idents      F3  redraw screen  F9  cycle layouts 
+        v     Versn status   =   cycle idents      F3  redraw screen  F9  cycle layouts 
         w     unWhiteout     .   filter dotfiles   F4  cycle colors   F10 multiple mode 
         x     eXclude        %   filter whiteouts  F5  reread dir     F11 restat file   
         y     Your command   @   perl command      F6  sort dir       F12 toggle mouse  
