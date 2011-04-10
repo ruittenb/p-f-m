@@ -211,17 +211,18 @@ the appropriate history.
 
 =cut
 
-sub input { # $history, $prompt, [$default_input]
+sub input { # $history, $prompt [, $default_input [, $history_input]]
 	local $SIG{INT} = 'IGNORE'; # do not interrupt pfm
-	my ($self, $history, $prompt, $input) = @_;
+	my ($self, $history, $prompt, $input, $histpush) = @_;
 	$history = $HISTORIES{$history};
 	$prompt ||= '';
 	$input  ||= '';
 	$self->_set_term_history(@$history);
+	push(@$history, $histpush) if (defined $histpush and $histpush ne '');
 	$input = $_keyboard->readline($prompt, $input);
 	if ($input =~ /\S/ and $input ne ${$history}[-1]) {
-		push (@$history, $input);
-		shift (@$history) if ($#$history > $MAXHISTSIZE);
+		push(@$history, $input);
+		shift(@$history) while ($#$history > $MAXHISTSIZE);
 	}
 	return $input;
 }

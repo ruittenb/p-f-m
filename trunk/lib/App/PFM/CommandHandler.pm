@@ -46,8 +46,10 @@ use Config;
 use strict;
 
 use constant {
-	QUOTE_OFF => 0,
-	QUOTE_ON  => 1,
+	QUOTE_OFF    => 0,
+	QUOTE_ON     => 1,
+	REFRESH_HUSH => 0,
+	REFRESH_ASK  => 1,
 };
 
 my %NUMFORMATS = ( 'hex' => '%#04lx', 'oct' => '%03lo');
@@ -271,6 +273,30 @@ sub _expand_escapes { # quoteif, command, \%currentfile
 	/ge;
 }
 
+=item _multi_to_single()
+
+Checks if the destination of a multifile operation is a single file
+(not allowed).
+
+=cut
+
+sub _multi_to_single {
+	my ($self, $testname) = @_;
+	my $e  = $_pfm->config->{e};
+	my $qe = quotemeta $e;
+	$_screen->set_deferred_refresh(R_PATHINFO);
+	if ($_pfm->state->{multiple_mode} and
+		$testname !~ /(?<!$qe)(?:$qe$qe)*${e}[127]/ and !-d $testname)
+	{
+		$_screen->at(0,0)->putmessage(
+			'Cannot do multifile operation when destination is single file.'
+		)->at(0,0)->pressanykey();
+		#path_info(); # necessary?
+		return 1;
+	}
+	return 0;
+}
+
 =item _followmode()
 
 Fetches the mode of the file, or of the target if it is a symlink.
@@ -339,8 +365,8 @@ Handles unimplemented commands.
 
 sub not_implemented {
 	my ($self) = @_;
-	$_screen->at(0,0)->clreol()->display_error('Command not implemented');
-	$_screen->set_deferred_refresh(R_MENU);
+	$_screen->at(0,0)->clreol()->display_error('Command not implemented')
+		->set_deferred_refresh(R_MENU);
 }
 
 =item handle()
@@ -931,14 +957,8 @@ Re-executes a stat() on the current (or selected) files.
 =cut
 
 sub handlerestat {
-	my ($self) = @_;
-#	my $directory   = $_pfm->state->directory;
+#	my ($self) = @_;
 	$_pfm->state->directory->apply(sub {});
-#	my $currentfile = $_pfm->browser->currentfile;
-#	$directory->unregister($self);
-#	$currentfile->stat_entry($self->{name}, '?', $currentfile->{selected});
-#	$directory->register($self);
-#	$_pfm->browser->currentfile->stat_entry();
 }
 
 =item handlelink()
@@ -949,7 +969,78 @@ Handles the uppercase C<L> key: create hard or symbolic link.
 
 sub handlelink {
 	my ($self) = @_;
-	$self->not_implemented(); # TODO
+	my ($newname, $do_this, $targetstring, $testname, $headerlength,
+		$absrel, $histpush);
+	my @lncmd = $_clobber_mode ? qw(ln -f) : qw(ln);
+	
+	if ($_pfm->state->{multiple_mode}) {
+		$_screen->set_deferred_refresh(R_MENU | R_DIRLIST);
+	} else {
+		$_screen->set_deferred_refresh(R_MENU);
+		$_screen->listing->markcurrentline('L');
+		$histpush = $_pfm->browser->currentfile->{name};
+	}
+	
+	$headerlength = $_screen->frame->show_menu($_screen->frame->MENU_LNKTYPE);
+	$absrel = lc $_screen->at(0, $headerlength+1)->getch();
+	return unless $absrel =~ /^[arh]$/;
+	push @lncmd, '-s' if $absrel !~ /h/;
+	
+	$_screen->clear_footer()->at(0,0)->clreol()->cooked_echo();
+	my $prompt = 'Name of new '.
+		( $absrel eq 'r' ? 'relative symbolic'
+		: $absrel eq 'a' ? 'absolute symbolic' : 'hard') . ' link: ';
+	
+	chomp($newname = $_pfm->history->input(H_PATH, $prompt, '', $histpush));
+	$_screen->raw_noecho();
+	return if ($newname eq '');
+	$newname = canonicalize_path($newname);
+	# expand \[3456] at this point as a test, but not \[1278]
+	$self->_expand_3456_escapes(
+		QUOTE_OFF, ($testname = $newname), $_pfm->browser->currentfile);
+	return if $self->_multi_to_single($testname);
+	
+	$do_this = sub {
+		my $file = shift;
+		my $newnameexpanded = $newname;
+		my $currentdir      = $_pfm->state->directory->path;
+		my ($simpletarget, $simplename);
+		# $self is the CommandHandler (because closure)
+		$self->_expand_escapes($self->QUOTE_OFF, $newnameexpanded, $file);
+		if (-d $newnameexpanded) {
+			# make sure $newname is a file (not a directory)
+			$newnameexpanded .= '/'.$file->{name};
+		}
+		if ($absrel eq 'r') {
+			if ($newnameexpanded =~ m!^/!) {
+				# absolute: first eliminate identical pathname prefix
+				($simpletarget, $simplename) = reducepaths(
+					$currentdir.'/'.$file->{name}, $newnameexpanded);
+				# now make absolute path relative
+				$simpletarget =~ s!^/!!;
+				$simpletarget =~ s![^/]+!..!g;
+				$simpletarget = dirname($simpletarget);
+				# and reverse it
+				$targetstring = reversepath(
+					$currentdir.'/'.$file->{name}, "$simpletarget/$simplename");
+			} else {
+				# relative: reverse path
+				$targetstring = reversepath(
+					$currentdir.'/'.$file->{name}, $newnameexpanded);
+			}
+		} else { # $absrel eq 'a'
+			# hand over an absolute path
+			$targetstring = $currentdir.'/'.$file->{name};
+		}
+		if (system @lncmd, $targetstring, $newnameexpanded) {
+			$_screen->neat_error('Linking failed');
+		} elsif ($newnameexpanded !~ m!/!) {
+			# is newname present in @dircontents? push otherwise
+			$_pfm->state->directory
+				->addifabsent($newnameexpanded, '', ' ', REFRESH_ASK);
+		}
+	};
+	$_pfm->state->directory->apply($do_this);
 }
 
 =item handlesort()
