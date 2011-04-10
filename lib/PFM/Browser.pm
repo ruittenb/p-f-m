@@ -57,8 +57,8 @@ sub _init {
 	$_screen	  = $pfm->screen;
 	$_currentline = 0;
 	$_baseindex	  = 0;
-	$_position_at = '.';
-	$_mouse_mode  = 0;
+	$_position_at = '';
+	$_mouse_mode  = undef;
 	$_swap_mode   = 0;
 }
 

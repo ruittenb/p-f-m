@@ -3,7 +3,7 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.02.2
+# Version:		2.02.3
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-04-13
@@ -28,7 +28,7 @@ our $ROFFVERSION = '
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.02.2
+.ds Vw @(#) pfm.pl 2.02.3
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -39,7 +39,7 @@ This manual pertains to \f(CWpfm\fP version \\$3.
 ##########################################################################
 # declarations
 
-use lib '/home/ruitten/Desktop/projects/pfm2/lib';
+use lib '/home/ruitten/Desktop/projects/pfmproject/pfm2/lib';
 use strict;
 
 use PFM::Application;

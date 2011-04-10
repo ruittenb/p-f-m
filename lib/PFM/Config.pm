@@ -146,9 +146,11 @@ sub _parse_colorsets {
 		# should there be no dircolors[thisname], use the default
 		defined($_pfmrc{"dircolors[$_]"})
 			or $_pfmrc{"dircolors[$_]"} = $_pfmrc{'dircolors[*]'};
+		$self->{dircolors}{$_} = {};
 		while ($_pfmrc{"dircolors[$_]"} =~ /([^:=*]+)=([^:=]+)/g ) {
 			$self->{dircolors}{$_}{$1} = $2;
 		}
+		$self->{framecolors}{$_} = {};
 		# should there be no framecolors[thisname], use the default
 		defined($_pfmrc{"framecolors[$_]"})
 			or $_pfmrc{"framecolors[$_]"} = $_pfmrc{'framecolors[*]'};

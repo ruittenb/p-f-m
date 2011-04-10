@@ -371,7 +371,7 @@ sub chdir {
 	$target = canonicalize_path($target);
 	if ($result = chdir $target and $target ne $path) {
 		unless ($swapping) {
-			$_pfm->state($_pfm->S_BACK, $_pfm->state->clone($_pfm));
+			$_pfm->state($_pfm->S_PREV, $_pfm->state->clone($_pfm));
 		}
 		if ($_path_mode eq 'phys') {
 			$self->{_path} = getcwd();
@@ -562,7 +562,7 @@ sub readcontents {
 		@allentries = readdir CURRENT;
 		closedir CURRENT;
 		if ($whitecommand) {
-			@white_entries = `$whitecommand .`;
+			@white_entries = `$whitecommand \Q$self->{_path}`;
 		}
 	} else {
 		$screen->at(0,0)->clreol()->display_error("Cannot read . : $!");

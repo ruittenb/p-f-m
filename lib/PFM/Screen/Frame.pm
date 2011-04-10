@@ -183,7 +183,7 @@ Returns the footer for the current application state.
 sub _getfooter {
 	my $self = shift;
 	my %state = %{$_pfm->state};
-	my $f =	"F1-Help F2-Back F3-Redraw"
+	my $f =	"F1-Help F2-Prev F3-Redraw"
 	.		" F4-Color[".$_screen->color_mode."] F5-Reread"
 	.		" F6-Sort[$state{sort_mode}]"
 	.		" F7-Swap[".$ONOFF{$_pfm->browser->swap_mode}."] F8-In/Exclude"
@@ -271,7 +271,7 @@ Displays the column headings.
 
 sub show_headings {
 	my ($self, $swapmode, $info) = @_;
-	my ($linecolor, $diskinfo, $padding);
+	my ($linecolor, $diskinfo, $padding, $filters);
 	my @fields = @{$_screen->listing->layoutfieldswithinfo};
 	my $state  = $_pfm->state;
 	$padding = ' ' x ($_screen->diskinfo->infolength - 14);
@@ -283,11 +283,10 @@ sub show_headings {
 		$_ == HEADING_ESCAPE	and $diskinfo = "esc legend    $padding";
 	}
 	$_fieldheadings{diskinfo} = $diskinfo;
-	$_fieldheadings{display} = sprintf(
-		'%s (%s%s)',
-		$_fieldheadings{name},
-		($state->{white_mode} ? '' : '%'),
-		($state->{dot_mode}   ? '' : '.'));
+	$filters = ($state->{white_mode} ? '' : '%')
+			 . ($state->{dot_mode}   ? '' : '.');
+	$_fieldheadings{display} = $_fieldheadings{name} .
+		($filters ? " (filtered:$filters)" : '');
 	$linecolor = $swapmode
 		? $_pfm->config->{framecolors}->{$_screen->color_mode}{swap}
 		: $_pfm->config->{framecolors}->{$_screen->color_mode}{headings};
@@ -298,7 +297,7 @@ sub show_headings {
 							if ($linecolor =~ /under(line|score)/);
 	$_screen->at(2,0)
 		->putcolored($linecolor, formatted(
-			$_pfm->screen->listing->currentformatlinewithinfo,
+			$_screen->listing->currentformatlinewithinfo,
 			@_fieldheadings{@fields}))
 		->reset()->normal();
 }
@@ -311,19 +310,32 @@ Displays the footer, i.e. the last line on screen with the status info.
 
 sub show_footer {
 	my $self	  = shift;
-	my $screen	  = $_screen;
-	my $width	  = $screen->screenwidth;
+	my $width	  = $_screen->screenwidth;
 	my $footer	  = $self->_fitbanner($self->_getfooter(), $width);
 	my $padding	  = ' ' x ($width - length $footer);
 	my $linecolor =
 		$_pfm->config->{framecolors}{$_screen->color_mode}{footer};
-#	$screen->bold()			if ($linecolor =~ /bold/);
-#	$screen->reverse()		if ($linecolor =~ /reverse/);
-#	$screen->underline()	if ($linecolor =~ /under(line|score)/);
-	$screen->term()->Tputs('us', 1, *STDOUT)
-							if ($linecolor =~ /under(line|score)/);
-	$screen->at($screen->BASELINE + $screen->screenheight + 1, 0)
+#	$_screen->term()->Tputs('us', 1, *STDOUT)
+#							if ($linecolor =~ /under(line|score)/);
+	$_screen->at($_screen->BASELINE + $_screen->screenheight + 1, 0)
 		->putcolored($linecolor, $footer, $padding)->reset()->normal();
+}
+
+=item clear_footer()
+
+Clears the footer.
+
+=cut
+
+sub clear_footer {
+	my $self	  = shift;
+	my $padding	  = ' ' x ($_screen->screenwidth);
+	my $linecolor =
+		$_pfm->config->{framecolors}{$_screen->color_mode}{footer};
+#	$_screen->term()->Tputs('us', 1, *STDOUT)
+#							if ($linecolor =~ /under(line|score)/);
+	$_screen->at($_screen->BASELINE + $_screen->screenheight + 1, 0)
+		->putcolored($linecolor, $padding)->reset()->normal();
 }
 
 =item pan()
