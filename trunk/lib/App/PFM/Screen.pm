@@ -301,6 +301,10 @@ sub fit {
 	$self->listing->makeformatlines();
 	$self->listing->reformat();
 	$self->set_deferred_refresh(R_CLRSCR);
+	# be careful here because the Screen object is instantiated
+	# before the browser and history objects.
+	$_pfm->browser and $_pfm->browser->validate_position();
+	$_pfm->history and $_pfm->history->handleresize();
 }
 
 =item handleresize()
@@ -314,7 +318,6 @@ sub handleresize {
 	my $self = shift;
 	$_wasresized = 0;
 	$self->fit();
-	$_pfm->browser->validate_position();
 	return $self;
 }
 

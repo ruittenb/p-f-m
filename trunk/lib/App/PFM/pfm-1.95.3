@@ -2150,11 +2150,11 @@ sub handlemousedown {
 	return $do_a_refresh;
 }
 
-sub handleadvance {
-	my     $do_a_refresh = handleselect();
-	return $do_a_refresh | handlemove(@_); # pass ' ' key on
-}
-
+#sub handleadvance {
+#	my     $do_a_refresh = handleselect();
+#	return $do_a_refresh | handlemove(@_); # pass ' ' key on
+#}
+#
 sub handlesize {
 	my ($recursivesize, $command, $tempfile, $do_this);
 	my ($index, $loopfile);
@@ -2644,7 +2644,7 @@ sub handlercs {
 }
 
 sub handlename {
-	markcurrentline(uc($_[0])); # disregard multiple_mode
+	markcurrentline('N'); # disregard multiple_mode
 	my $numformat = $NUMFORMATS{$radix_mode};
 	my %otherfile = %currentfile;
 	my $line;
@@ -2691,17 +2691,17 @@ sub handlesort {
 	return $R_DIRSORT | $R_SCREEN;
 }
 
-sub handlekeyell {
-	# small l only
-	if ($currentfile{type} eq 'd') {
-		# this automagically passes the 'l' key in $_[0] to handleentry()
-		goto &handleentry;
-	} else {
-		goto &handlesymlink;
-	}
-}
-
-sub handlesymlink {
+#sub handlekeyell {
+#	# small l only
+#	if ($currentfile{type} eq 'd') {
+#		# this automagically passes the 'l' key in $_[0] to handleentry()
+#		goto &handleentry;
+#	} else {
+#		goto &handlelink;
+#	}
+#}
+#
+sub handlelink {
 	my ($newname, $loopfile, $do_this, $multi2single, $index, $newnameexpanded,
 		$targetstring, $findindex, $testname, $headerlength, $absrel,
 		$simpletarget, $simplename);
@@ -3388,32 +3388,32 @@ sub handlecopyrename {
 	return $do_a_refresh;
 }
 
-sub handlerestat {
-	# i have seen these commands somewhere before..
-	my $currentfile = $dircontents[$currentline+$baseindex];
-	restat_copyback();
-	return $R_STRIDE;
-}
-
-sub handleselect {
-	# we cannot use %currentfile because we don't want to modify a copy
-	my $file          = $showncontents[$currentline+$baseindex];
-	my $was_selected  = $file->{selected} =~ /\*/;
-	$file->{selected} = substr('* ', $was_selected, 1);
-	if ($was_selected) {
-		$selected_nr_of{$file->{type}}--;
-		$file->{type} =~ /-/ and $selected_nr_of{bytes} -= $file->{size};
-	} else {
-		$selected_nr_of{$file->{type}}++;
-		$file->{type} =~ /-/ and $selected_nr_of{bytes} += $file->{size};
-	}
-	# we need %currentfile set, so highlightline() can show the 'selected' status
-	%currentfile = %$file;
-	copyback($file->{name});
-	highlightline($HIGHLIGHT_OFF);
-	return $R_DISKINFO;
-}
-
+#sub handlerestat {
+#	# i have seen these commands somewhere before..
+#	my $currentfile = $dircontents[$currentline+$baseindex];
+#	restat_copyback();
+#	return $R_STRIDE;
+#}
+#
+#sub handleselect {
+#	# we cannot use %currentfile because we don't want to modify a copy
+#	my $file          = $showncontents[$currentline+$baseindex];
+#	my $was_selected  = $file->{selected} =~ /\*/;
+#	$file->{selected} = substr('* ', $was_selected, 1);
+#	if ($was_selected) {
+#		$selected_nr_of{$file->{type}}--;
+#		$file->{type} =~ /-/ and $selected_nr_of{bytes} -= $file->{size};
+#	} else {
+#		$selected_nr_of{$file->{type}}++;
+#		$file->{type} =~ /-/ and $selected_nr_of{bytes} += $file->{size};
+#	}
+#	# we need %currentfile set, so highlightline() can show the 'selected' status
+#	%currentfile = %$file;
+#	copyback($file->{name});
+#	highlightline($HIGHLIGHT_OFF);
+#	return $R_DISKINFO;
+#}
+#
 #sub validate_position {
 #	# requirement: $showncontents[$currentline+$baseindex] is defined
 #	my $do_a_refresh;
@@ -4112,7 +4112,7 @@ sub filetypeflag {
 #				/^k10$/o		and $wantrefresh |= handlemultiple(),	 last KEY;
 #				/^m$/io			and $wantrefresh |= handlemore(),		 last KEY;
 #				/^p$/io			and $wantrefresh |= handleprint(),		 last KEY;
-#				/^L$/o			and $wantrefresh |= handlesymlink(),	 last KEY;
+#				/^L$/o			and $wantrefresh |= handlelink(),	 last KEY;
 #				/^n$/io			and $wantrefresh |= handlename($_),		 last KEY;
 #				/^k8$/o			and $wantrefresh |= handleselect(),		 last KEY;
 #				/^k11$/o		and $wantrefresh |= handlerestat(),		 last KEY;

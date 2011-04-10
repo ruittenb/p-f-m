@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::History 0.02
+# @(#) App::PFM::History 0.08
 #
 # Name:			App::PFM::History.pm
-# Version:		0.02
+# Version:		0.08
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-01
+# Date:			2010-04-27
 #
 
 ##########################################################################
@@ -248,6 +248,17 @@ sub setornaments {
 #		$kbd->ornaments(join(';', @cols) . ',me,,');
 		$_keyboard->ornaments($cols[0] . ',me,,');
 	}
+}
+
+=item handleresize()
+
+Tells the readline library that the screen size has changed.
+
+=cut
+
+sub handleresize {
+	my ($self) = @_;
+	$_keyboard->resize_terminal();
 }
 
 ##########################################################################

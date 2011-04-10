@@ -183,6 +183,18 @@ sub whitecommand {
 ##########################################################################
 # public subs
 
+=item not_implemented()
+
+Handles unimplemented commands.
+
+=cut
+
+sub not_implemented {
+	my ($self) = @_;
+	$_screen->at(0,0)->clreol()->display_error('Command not implemented');
+	$_screen->set_deferred_refresh(R_MENU);
+}
+
 =item handle()
 
 Finds out how an event should be handled, and acts on it.
@@ -199,8 +211,8 @@ sub handle {
 		/^(?:kr|kl|[h\e\cH])$/io
 							and $self->handleentry($_),			last;
 		/^[\cE\cY]$/o		and $self->handlescroll($_),		last;
-#		/^l$/o				and $self->handlekeyell($_),		last;
-#		/^ $/o				and $self->handleadvance($_),		last;
+		/^l$/o				and $self->handlekeyell($_),		last;
+		/^ $/o				and $self->handleadvance($_),		last;
 		/^k5$/o				and $self->handlerefresh(),			last;
 #		/^[cr]$/io			and $self->handlecopyrename($_),	last;
 #		/^[yo]$/io			and $self->handlecommand($_),		last;
@@ -214,10 +226,10 @@ sub handle {
 #		/^k10$/o			and $self->handlemultiple(),		last;
 #		/^m$/io				and $self->handlemore(),			last;
 #		/^p$/io				and $self->handleprint(),			last;
-#		/^L$/o				and $self->handlesymlink(),			last;
-#		/^n$/io				and $self->handlename($_),			last;
-#		/^k8$/o				and $self->handleselect(),			last;
-#		/^k11$/o			and $self->handlerestat(),			last;
+		/^L$/o				and $self->handlelink(),			last;
+#		/^n$/io				and $self->handlename(),			last;
+		/^k8$/o				and $self->handleselect(),			last;
+		/^k11$/o			and $self->handlerestat(),			last;
 #		/^[\/f]$/io			and $self->handlefind(),			last;
 		/^[<>]$/io			and $self->handlepan($_,
 								$_screen->frame->MENU_SINGLE),	last;
@@ -227,7 +239,7 @@ sub handle {
 		/^q$/io				and $valid = $self->handlequit($_),	last;
 #		/^k6$/o				and $self->handlesort(),			last;
 		/^(?:k1|\?)$/o		and $self->handlehelp(),			last;
-		/^k2$/o				and $self->handlecdprev(),			last;
+		/^k2$/o				and $self->handleprev(),			last;
 		/^\.$/o				and $self->handledot(),				last;
 		/^k9$/o				and $self->handlelayouts(),			last;
 		/^k4$/o				and $self->handlecolor(),			last;
@@ -313,13 +325,13 @@ sub handlemove {
 	$browser->currentline($currentline + $displacement);
 }
 
-=item handlecdprev()
+=item handleprev()
 
 Handles the B<previous> command (B<F2>).
 
 =cut
 
-sub handlecdprev {
+sub handleprev {
 	my $self = shift;
 	my $browser = $_pfm->browser;
 	my $prevdir = $_pfm->state($_pfm->S_PREV)->directory->path;
@@ -520,6 +532,7 @@ sub handleperlcommand {
 	my $directory      = $state->directory;
 	my $jobhandler     = $_pfm->jobhandler;
 	my $commandhandler = $_pfm->commandhandler;
+	my $history        = $_pfm->history;
 	# now do!
 	$_screen->listing->markcurrentline('@'); # disregard multiple_mode
 	$_screen->clear_footer()
@@ -601,6 +614,83 @@ sub handleentry {
 		$_screen->set_deferred_refresh(R_MENU);
 	}
 	return $success;
+}
+
+=item handleselect()
+
+Handles marking (including or excluding) a file.
+
+=cut
+
+sub handleselect {
+	my ($self) = @_;
+	my $currentfile  = $_pfm->browser->currentfile;
+	my $was_selected = $currentfile->{selected} eq App::PFM::Directory->MARK;
+	if ($was_selected) {
+		$_pfm->state->directory->exclude($currentfile, ' ');
+	} else {
+		$_pfm->state->directory->include($currentfile);
+	}
+	# redraw the line now, because we could be moving on
+	# to the next file now (space command)
+	$_screen->listing->highlight_off();
+}
+
+=item handleadvance()
+
+Handles the space key: mark a file and advance to the next one.
+
+=cut
+
+sub handleadvance {
+	my ($self, $key) = @_;
+	$self->handleselect();
+	$self->handlemove($key); # pass space key on
+}
+
+=item handlekeyell()
+
+Handles the lowercase B<l> key: enter the directory or create a link.
+
+=cut
+
+sub handlekeyell {
+	my ($self) = @_;
+	# small l only
+	if ($_pfm->browser->currentfile->{type} eq 'd') {
+		# this automagically passes the args to handleentry()
+		goto &handleentry;
+	} else {
+		goto &handlelink;
+	}
+}
+
+=item handlerestat()
+
+Re-executes a stat() on the current (or selected) files.
+
+=cut
+
+sub handlerestat {
+	my ($self) = @_;
+#	my $directory   = $_pfm->state->directory;
+	$_pfm->state->directory->apply(sub {});
+#	my $currentfile = $_pfm->browser->currentfile;
+#	$directory->unregister($self);
+#	$currentfile->stat_entry($self->{name}, '?', $currentfile->{selected});
+#	$directory->register($self);
+#	$_pfm->browser->currentfile->stat_entry();
+}
+
+=item handlelink()
+
+Handles the uppercase C<L> key: create hard or symbolic link.
+
+=cut
+
+sub handlelink {
+	my ($self) = @_;
+	$self->not_implemented(); # TODO
 }
 
 ##########################################################################

@@ -280,6 +280,29 @@ sub format {
 	$self->{color} = $self->_decidecolor();
 }
 
+=item apply()
+
+Applies the supplied function to the current file.
+
+=cut
+
+sub apply {
+	my ($self, $do_this, @args) = @_;
+	my $state       = $_pfm->state;
+	my $directory   = $state->directory;
+	my $currentfile = $self;
+	my $to_mark;
+	$directory->unregister($self);
+	$do_this->(@args);
+	if ($state->{multiple_mode}) {
+		$to_mark = $directory->OLDMARK;
+	} else {
+		$to_mark = $self->{selected};
+	}
+	$self->stat_entry($self->{name}, '?', $to_mark);
+	$directory->register($self);
+}
+
 ##########################################################################
 
 =back

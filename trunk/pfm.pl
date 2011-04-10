@@ -3,10 +3,10 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.02.7
+# Version:		2.02.8
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-24
+# Date:			2010-04-26
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				    [ -l, --layout <number> ]
 #				pfm { -v, --version | -h, --help }
@@ -28,7 +28,7 @@ our $ROFFVERSION = '
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.02.7
+.ds Vw @(#) pfm.pl 2.02.8
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -688,11 +688,11 @@ can use. Enter B<.> to set the mtime to the current date and time.
 Change ownership of a file. Note that many Unix variants do not allow normal
 (non-C<root>) users to change ownership. Symbolic links will be followed.
 
-=item B<sVn>
+=item B<Version>
 
-Updates the current file with Subversion status information. The command
-to use can be configured in the F<.pfmrc> with the 'rcscmd' option.
-See also B<M>ore - sB<V>n.
+Updates the current file with RCS status information. C<pfm> will examine
+the current directory to figure out which versioning system is used.
+See also B<M>ore - B<V>ersion.
 
 =item B<unWhiteout>
 
@@ -792,9 +792,9 @@ You will be asked for the directory you want to view. Note that this
 command is different from B<F7> because this will not change your current
 swap directory status.
 
-=item B<sVn>
+=item B<Version>
 
-Updates the current directory with Subversion status information.
+Updates the current directory with RCS status information.
 If you set the 'autorcs' option in your F<.pfmrc>, this will automatically
 be done every time C<pfm> shows directory contents.
 
