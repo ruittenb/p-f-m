@@ -21,7 +21,7 @@
 #				strict
 # Description:	Personal File Manager for Unix/Linux
 #
-
+#
 ##########################################################################
 # main data structures:
 #
@@ -37,7 +37,7 @@
 #			  {selected}
 #			  {size}
 #			  {type}
-
+#
 ##########################################################################
 # requirements
 #
@@ -101,12 +101,12 @@ our($FALSE,
 #	$R_INIT_SWAP,
 #	$R_QUIT,
 #);
-
+#
 #END {
 #	# in case something goes wrong
 #	system qw(stty -raw echo);
 #}
-
+#
 ##########################################################################
 # declarations and initialization
 
@@ -182,12 +182,12 @@ my $LOSTMSG				= '';   # was ' (file lost)'; # now shown through coloring
 #my $USERINFOLINE		= 21;
 #my $DATEINFOLINE		= 22;
 #my $DFCMD				= ($^O eq 'hpux') ? 'bdf' : ($^O eq 'sco') ? 'dfspace' : 'df -k';
-
+#
 #my $XTERMS				= qr/^(.*xterm.*|rxvt.*|gnome|kterm)$/;
 #my @SYMBOLIC_MODES		= qw(--- --x -w- -wx r-- r-x rw- rwx);
 #my %IDENTMODES			= ( user => 0, host => 1, 'user@host' => 2);
-my %NUMFORMATS			= ( 'hex' => '%#04lx', 'oct' => '%03lo');
-
+#my %NUMFORMATS			= ( 'hex' => '%#04lx', 'oct' => '%03lo');
+#
 #my %FILETYPEFLAGS		= (
 #	# ls(1)
 #	x => '*',
@@ -203,20 +203,20 @@ my %NUMFORMATS			= ( 'hex' => '%#04lx', 'oct' => '%03lo');
 #	n => ':',
 #	# => '+', # Hidden directory (AIX only) or context dependent (HP/UX only)
 #);
-
-my @SORTMODES = (
-	 n =>'Name',		N =>' reverse',
-	'm'=>' ignorecase',	M =>' rev+igncase',
-	 e =>'Extension',	E =>' reverse',
-	 f =>' ignorecase',	F =>' rev+igncase',
-	 d =>'Date/mtime',	D =>' reverse',
-	 a =>'date/Atime',	A =>' reverse',
-	's'=>'Size',		S =>' reverse',
-	'z'=>'siZe total',	Z =>' reverse',
-	 t =>'Type',		T =>' reverse',
-	 i =>'Inode',		I =>' reverse',
-#	 v =>'sVn',			V =>' reverse',
-);
+#
+#my @SORTMODES = (
+#	 n =>'Name',		N =>' reverse',
+#	'm'=>' ignorecase',	M =>' rev+igncase',
+#	 e =>'Extension',	E =>' reverse',
+#	 f =>' ignorecase',	F =>' rev+igncase',
+#	 d =>'Date/mtime',	D =>' reverse',
+#	 a =>'date/Atime',	A =>' reverse',
+#	's'=>'Size',		S =>' reverse',
+#	'z'=>'siZe total',	Z =>' reverse',
+#	 t =>'Type',		T =>' reverse',
+#	 i =>'Inode',		I =>' reverse',
+##	 v =>'sVn',			V =>' reverse',
+#);
 
 my %CMDESCAPES = (
 	'1' => 'name',
@@ -254,7 +254,7 @@ my %CMDESCAPES = (
 ##	darwin	=> can use the default
 #	# MSWin32, os390 etc. not supported
 #);
-
+#
 #my %RDEVTOMAJOR = (
 #	default	=> 2 **  8,
 #	aix		=> 2 ** 16,
@@ -265,7 +265,7 @@ my %CMDESCAPES = (
 #	tru64	=> 2 ** 20, # correct value for $OSNAME on Tru64?
 #	hpux	=> 2 ** 24,
 #);
-
+#
 #my %LAYOUTFIELDS = (
 #	'*' => 'selected',
 #	'n' => 'display',
@@ -317,7 +317,7 @@ my %CMDESCAPES = (
 #my $screenheight	= 20;    # inner height
 #my $screenwidth		= 80;    # terminal width
 #my $position_at		= '.';   # start with cursor here
-
+#
 #my (@command_history, @mode_history, @path_history, @regex_history,
 #	@perlcmd_history, @time_history);
 #
@@ -362,11 +362,11 @@ my %CMDESCAPES = (
 #
 ##########################################################################
 # read/write resource file and history file
-
+#
 #sub whichconfigfile {
 #	return $ENV{PFMRC} ? $ENV{PFMRC} : "$CONFIGDIRNAME/$CONFIGFILENAME";
 #}
-
+#
 #sub write_pfmrc {
 #	my @resourcefile;
 #	my $secs_per_32_days = 60 * 60 * 24 * 32;
@@ -395,7 +395,7 @@ my %CMDESCAPES = (
 #		close MKPFMRC;
 #	} # no success? well, that's just too bad
 #}
-
+#
 #sub PFM::Config::read {
 #	%pfmrc = ();
 #	unless (-r whichconfigfile()) {
@@ -523,7 +523,7 @@ my %CMDESCAPES = (
 #	mouseenable($mouse_mode);
 #	alternate_screen($ALTERNATE_ON) if $altscreen_mode;
 #}
-
+#
 #sub parse_colorsets {
 #	if (isyes($pfmrc{importlscolors}) and $ENV{LS_COLORS} || $ENV{LS_COLOURS}){
 #		$pfmrc{'dircolors[ls_colors]'} =  $ENV{LS_COLORS} || $ENV{LS_COLOURS};
@@ -561,7 +561,7 @@ my %CMDESCAPES = (
 #		? 'off'
 #		: $pfmrc{defaultcolorset} || (defined $dircolors{ls_colors} ? 'ls_colors' : $colorsetnames[0]);
 #}
-
+#
 #sub write_history {
 #	my $failed;
 #	$scr->at(0,0)->clreol();
@@ -615,7 +615,7 @@ my %CMDESCAPES = (
 #
 ##########################################################################
 # some translations
-
+#
 #sub getversion {
 #	my $ver  = 'unknown';
 #	my $year = 7*7*41; # don't edit this. If the year cannot be read, at least this is correct
@@ -664,13 +664,13 @@ my %CMDESCAPES = (
 #		$kbd->ornaments($cols[0] . ',me,,');
 #	}
 #}
-
+#
 #sub formatted {
 #	local $^A = '';
 #	formline(shift(), @_);
 #	return $^A;
 #}
-
+#
 #sub time2str {
 #	my ($time, $flag) = @_;
 #	if ($flag == $TIME_FILE) {
@@ -722,7 +722,7 @@ my %CMDESCAPES = (
 #	}
 #	return ($size_num, $size_power);
 #}
-#
+
 sub condquotemeta { # condition, string
 	return $_[0] ? quotemeta($_[1]) : $_[1];
 }
@@ -856,7 +856,7 @@ sub expand_escapes { # quoteif, command, \%currentfile
 #
 ##########################################################################
 # more translations
-
+#
 #sub readintohist { # \@history, $prompt, [$default_input]
 #	local $SIG{INT} = 'IGNORE'; # do not interrupt pfm
 #	my $history	= shift;
@@ -929,7 +929,7 @@ sub expand_escapes { # quoteif, command, \%currentfile
 #	$_[0] =~ /\/([^\/]*)\/?$/; # ok, it has LTS but this looks better in vim
 #	return length($1) ? $1 : $_[0];
 #}
-#
+
 sub reversepath {
 	# reverses the path from target to symlink, returns the path from symlink to target
 	my ($symlink_target_abs, $symlink_name_rel) = map { canonicalize_path($_) } @_;
@@ -1913,11 +1913,11 @@ sub escape_middle {
 #	return +($sure =~ /y/i) ? $R_QUIT : $R_MENU;
 #}
 #
-sub handlemultiple {
-	toggle($multiple_mode);
-	return $R_MENU;
-}
-
+#sub handlemultiple {
+#	toggle($multiple_mode);
+#	return $R_MENU;
+#}
+#
 #sub handlelayouts {
 #	$currentlayout++;
 #	$_screen->listing->layout($startinglayout);
@@ -2643,54 +2643,54 @@ sub handlercs {
 	return $do_a_refresh;
 }
 
-sub handlename {
-	markcurrentline('N'); # disregard multiple_mode
-	my $numformat = $NUMFORMATS{$radix_mode};
-	my %otherfile = %currentfile;
-	my $line;
-	for ($otherfile{name}, $otherfile{target}) {
-		s/\\/\\\\/;
-		# this is highly magical
-		s{([${trspace}\177[:cntrl:]]|[^[:ascii:]])}
-		 {'\\' . sprintf($numformat, unpack('C', $1))}eg;
-	}
-	$line = $otherfile{name} . filetypeflag(\%otherfile) . (length($otherfile{target}) ? ' -> ' . $otherfile{target} : '');
-	$scr->at($currentline+$BASELINE, $filenamecol)->putcolored($framecolors{$color_mode}{highlight}, $line, " \cH");
-	applycolor($currentline+$BASELINE, $FILENAME_LONG, \%otherfile); # resets colors to normal
-	if ($scr->noecho()->getch() eq '*') {
-		handleradix();
-		show_footer();
-		$scr->echo()->at($currentline+$BASELINE, $filenamecol)->puts(' ' x length $line);
-		goto &handlename;
-	}
-	if ($filenamecol < $infocol && $filenamecol+length($line) >= $infocol or $filenamecol+length($line) >= $screenwidth) {
-		return $R_CLRSCR;
-	} else {
-		return $R_STRIDE;
-	}
-}
-
-sub handlesort {
-	# TODO: sort by 'v' and 'V' doesn't work: dir. is read fresh before sorting
-	my $printline = $BASELINE;
-	my %sortmodes = @SORTMODES;
-	my ($i, $key, $headerlength);
-	$headerlength = show_menu($HEADER_SORT);
-	show_headings($swap_mode, $HEADING_SORT);
-	clearcolumn();
-	# we can't use foreach (keys %SORTMODES) because we would lose ordering
-	foreach (grep { ($i += 1) %= 2 } @SORTMODES) { # keep keys, skip values
-		$scr->at($printline++, $infocol)->puts(sprintf('%1s %s', $_, $sortmodes{$_}));
-	}
-	$key = $scr->at(0, $headerlength+1)->getch();
-	clearcolumn();
-	if ($sortmodes{$key}) {
-		$sort_mode   = $key;
-		$position_at = $currentfile{name};
-	}
-	return $R_DIRSORT | $R_SCREEN;
-}
-
+#sub handlename {
+#	markcurrentline('N'); # disregard multiple_mode
+#	my $numformat = $NUMFORMATS{$radix_mode};
+#	my %otherfile = %currentfile;
+#	my $line;
+#	for ($otherfile{name}, $otherfile{target}) {
+#		s/\\/\\\\/;
+#		# this is highly magical
+#		s{([${trspace}\177[:cntrl:]]|[^[:ascii:]])}
+#		 {'\\' . sprintf($numformat, unpack('C', $1))}eg;
+#	}
+#	$line = $otherfile{name} . filetypeflag(\%otherfile) . (length($otherfile{target}) ? ' -> ' . $otherfile{target} : '');
+#	$scr->at($currentline+$BASELINE, $filenamecol)->putcolored($framecolors{$color_mode}{highlight}, $line, " \cH");
+#	applycolor($currentline+$BASELINE, $FILENAME_LONG, \%otherfile); # resets colors to normal
+#	if ($scr->noecho()->getch() eq '*') {
+#		handleradix();
+#		show_footer();
+#		$scr->echo()->at($currentline+$BASELINE, $filenamecol)->puts(' ' x length $line);
+#		goto &handlename;
+#	}
+#	if ($filenamecol < $infocol && $filenamecol+length($line) >= $infocol or $filenamecol+length($line) >= $screenwidth) {
+#		return $R_CLRSCR;
+#	} else {
+#		return $R_STRIDE;
+#	}
+#}
+#
+#sub handlesort {
+#	# TODO: sort by 'v' and 'V' doesn't work: dir. is read fresh before sorting
+#	my $printline = $BASELINE;
+#	my %sortmodes = @SORTMODES;
+#	my ($i, $key, $headerlength);
+#	$headerlength = show_menu($HEADER_SORT);
+#	show_headings($swap_mode, $HEADING_SORT);
+#	clearcolumn();
+#	# we can't use foreach (keys %SORTMODES) because we would lose ordering
+#	foreach (grep { ($i += 1) %= 2 } @SORTMODES) { # keep keys, skip values
+#		$scr->at($printline++, $infocol)->puts(sprintf('%1s %s', $_, $sortmodes{$_}));
+#	}
+#	$key = $scr->at(0, $headerlength+1)->getch();
+#	clearcolumn();
+#	if ($sortmodes{$key}) {
+#		$sort_mode   = $key;
+#		$position_at = $currentfile{name};
+#	}
+#	return $R_DIRSORT | $R_SCREEN;
+#}
+#
 #sub handlekeyell {
 #	# small l only
 #	if ($currentfile{type} eq 'd') {
@@ -3761,15 +3761,15 @@ sub handlepathjump {
 #	return $ptr;
 #}
 #
-sub filetypeflag {
-	my $file = shift;
-	if ($file->{type} eq '-' and $file->{mode} =~ /.[xst]/) {
-		return $filetypeflags{'x'};
-	} else {
-		return $filetypeflags{$file->{type}};
-	}
-}
-
+#sub filetypeflag {
+#	my $file = shift;
+#	if ($file->{type} eq '-' and $file->{mode} =~ /.[xst]/) {
+#		return $filetypeflags{'x'};
+#	} else {
+#		return $filetypeflags{$file->{type}};
+#	}
+#}
+#
 #sub readcontents { # (current)directory
 #	my (@contents, $entry);
 #	my @allentries = ();

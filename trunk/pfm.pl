@@ -3,10 +3,10 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.02.8
+# Version:		2.02.9
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-26
+# Date:			2010-04-27
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				    [ -l, --layout <number> ]
 #				pfm { -v, --version | -h, --help }
@@ -22,19 +22,19 @@
 ##########################################################################
 # version macros for *roff
 
-our $ROFFVERSION = '
+our $ROFFVERSION = <<'=cut';
 
 =pod
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.02.8
+.ds Vw @(#) pfm.pl 2.02.9
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
 .hy 0 \" hyphenation off
 
-=cut ';
+=cut
 
 ##########################################################################
 # declarations
@@ -49,7 +49,7 @@ my $pfm;
 END {
 	# in case something goes wrong:
 	# alternate screen off, 'cooked' mode
-	print "\e[?47l" unless $ENV{PFMDEBUG}; # TODO
+	print "\e[?47l";
 	system qw(stty -raw echo);
 }
 
@@ -103,9 +103,9 @@ many comments on the available options, and is therefore supposed to be
 self-explanatory. C<pfm> will issue a warning if the config file version
 is older than the version of C<pfm> you are running. In this case, please
 let C<pfm> create a new default config file and compare the changes with
-your own settings, so that you do not miss any new config options or
-format changes. See also the B<C>onfig command under MORE COMMANDS below,
-and DIAGNOSIS.
+your own settings, so that you do not miss out on any new config options
+or format changes. See also the B<C>onfig command under MORE COMMANDS
+below, and DIAGNOSIS.
 
 There are two commandline options that specify starting directories.
 The C<CDPATH> environment variable is taken into account when C<pfm>
@@ -1449,11 +1449,11 @@ with kind permission of the original authors.
 The documentation on PFMS<.>COM. The manual pages for chmod(1), file(1),
 less(1), locale(7), lpr(1), touch(1), vi(1).
 
-For programmers: Term::Screen(3pm), Term::ScreenColor(3pm),
-Term::ReadLine(3pm), PFM::Abstract(3pm), PFM::Application(3pm),
-PFM::Browser(3pm), PFM::CommandHandler(3pm), PFM::Config(3pm),
-PFM::Directory(3pm), PFM::History(3pm), PFM::Job(3pm),
-PFM::Screen(3pm), PFM::State(3pm) and PFM::Util(3pm).
+For developers: Term::Screen(3pm), Term::ScreenColor(3pm),
+Term::ReadLine(3pm), App::PFM::Abstract(3pm), App::PFM::Application(3pm),
+App::PFM::Browser(3pm), App::PFM::CommandHandler(3pm), App::PFM::Config(3pm),
+App::PFM::Directory(3pm), App::PFM::History(3pm), App::PFM::Job(3pm),
+App::PFM::Screen(3pm), App::PFM::State(3pm) and App::PFM::Util(3pm).
 
 The pfm project page: http://sourceforge.net/projects/p-f-m/
 

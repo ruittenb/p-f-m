@@ -123,10 +123,9 @@ Print usage information: commandline options and F<.pfmrc> file.
 
 sub _usage {
 	my $self      = shift;
-	my $ul        = $_screen->underline2esc();
-	my $normal    = $_screen->normal2esc();
-	my $directory = "${ul}directory${normal}";
-	my $number    = "${ul}number${normal}";
+	$_screen->colorizable(1);
+	my $directory = $_screen->colored('underline', 'directory');
+	my $number    = $_screen->colored('underline', 'number');
 	my $config    = new App::PFM::Config($self);
 	print "Usage: pfm [ -l, --layout $number ] ",
 		  "[ $directory ] [ -s, --swap $directory ]\n",
@@ -301,7 +300,7 @@ sub bootstrap {
 				'l|layout=i' => \$startinglayout,
 				'h|help'     => \$opt_help,
 				'v|version'  => \$opt_version) or $invalid = 1;
-	$self->_usage()			if $opt_help;
+	$self->_usage()			if $opt_help || $invalid;
 	$self->_printversion()	if $opt_version;
 	exit 1					if $invalid;
 	exit 0					if $opt_help || $opt_version;

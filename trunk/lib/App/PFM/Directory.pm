@@ -128,8 +128,8 @@ sub _by_sort_mode {
 		/Z/ and return		$b->{grand} <=>		$a->{grand},last SWITCH;
 		/i/ and return		$a->{inode} <=>		$b->{inode},last SWITCH;
 		/I/ and return		$b->{inode} <=>		$a->{inode},last SWITCH;
-#		/v/ and return		$a->{rcs}   <=>		$b->{rcs},  last SWITCH;
-#		/V/ and return		$b->{rcs}   <=>		$a->{rcs},  last SWITCH;
+		/v/ and return		$a->{rcs}   cmp		$b->{rcs},  last SWITCH;
+		/V/ and return		$b->{rcs}   cmp		$a->{rcs},  last SWITCH;
 		/t/ and return $a->{type}.$a->{name}
 									  cmp $b->{type}.$b->{name}, last SWITCH;
 		/T/ and return $b->{type}.$b->{name}

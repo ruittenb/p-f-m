@@ -45,6 +45,22 @@ use Config;
 
 use strict;
 
+my %NUMFORMATS = ( 'hex' => '%#04lx', 'oct' => '%03lo');
+
+my @SORTMODES = (
+	 n =>'Name',		N =>' reverse',
+	'm'=>' ignorecase',	M =>' rev+igncase',
+	 e =>'Extension',	E =>' reverse',
+	 f =>' ignorecase',	F =>' rev+igncase',
+	 d =>'Date/mtime',	D =>' reverse',
+	 a =>'date/Atime',	A =>' reverse',
+	's'=>'Size',		S =>' reverse',
+	'z'=>'siZe total',	Z =>' reverse',
+	 t =>'Type',		T =>' reverse',
+	 i =>'Inode',		I =>' reverse',
+	 v =>'Version',		V =>' reverse',
+);
+
 my ($_pfm, $_screen,
 	@_signame, $_white_cmd, @_unwo_cmd, $_clobber_mode);
 
@@ -223,11 +239,11 @@ sub handle {
 #		/^s$/io				and $self->handleshow(),			last;
 #		/^kmous$/o			and $self->handlemousedown(),		last;
 #		/^k7$/o				and $self->handleswap(),			last;
-#		/^k10$/o			and $self->handlemultiple(),		last;
+		/^k10$/o			and $self->handlemultiple(),		last;
 #		/^m$/io				and $self->handlemore(),			last;
 #		/^p$/io				and $self->handleprint(),			last;
 		/^L$/o				and $self->handlelink(),			last;
-#		/^n$/io				and $self->handlename(),			last;
+		/^n$/io				and $self->handlename(),			last;
 		/^k8$/o				and $self->handleselect(),			last;
 		/^k11$/o			and $self->handlerestat(),			last;
 #		/^[\/f]$/io			and $self->handlefind(),			last;
@@ -237,7 +253,7 @@ sub handle {
 #		/^t$/io				and $self->handletime(),			last;
 #		/^a$/io				and $self->handlechmod(),			last;
 		/^q$/io				and $valid = $self->handlequit($_),	last;
-#		/^k6$/o				and $self->handlesort(),			last;
+		/^k6$/o				and $self->handlesort(),			last;
 		/^(?:k1|\?)$/o		and $self->handlehelp(),			last;
 		/^k2$/o				and $self->handleprev(),			last;
 		/^\.$/o				and $self->handledot(),				last;
@@ -379,6 +395,18 @@ sub handlewhiteout {
 	toggle($_pfm->state->{white_mode});
 	$browser->position_at($browser->currentfile->{name});
 	$_screen->set_deferred_refresh(R_SCREEN);
+}
+
+=item handlemultiple()
+
+Toggles multiple mode.
+
+=cut
+
+sub handlemultiple {
+	toggle($_pfm->state->{multiple_mode});
+	$_screen->set_deferred_refresh(R_MENU);
+
 }
 
 =item handledot()
@@ -691,6 +719,84 @@ Handles the uppercase C<L> key: create hard or symbolic link.
 sub handlelink {
 	my ($self) = @_;
 	$self->not_implemented(); # TODO
+}
+
+=item handlesort()
+
+Handles sorting the current directory.
+
+=cut
+
+sub handlesort {
+	my ($self) = @_;
+	my $printline = $_screen->BASELINE;
+	my $infocol   = $_screen->diskinfo->infocol;
+	my $frame     = $_screen->frame;
+	my %sortmodes = @SORTMODES;
+	my ($i, $key, $menulength);
+	$menulength = $frame->show_menu($frame->MENU_SORT);
+	$frame->show_headings($_pfm->browser->swap_mode, $frame->HEADING_SORT);
+	$_screen->frame->clear_footer();
+	$_screen->diskinfo->clearcolumn();
+	# we can't use foreach (keys %SORTMODES) because we would lose ordering
+	foreach (grep { ($i += 1) %= 2 } @SORTMODES) { # keep keys, skip values
+		$_screen->at($printline++, $infocol)
+			->puts(sprintf('%1s %s', $_, $sortmodes{$_}));
+	}
+	$key = $_screen->at(0, $menulength)->getch();
+	$_screen->diskinfo->clearcolumn();
+	if ($sortmodes{$key}) {
+		$_pfm->state->{sort_mode} = $key;
+		$_pfm->browser->position_at($_pfm->browser->currentfile->{name});
+	}
+	$_screen->set_deferred_refresh(R_DIRSORT | R_SCREEN);
+}
+
+=item handlename()
+
+Shows all chacacters of the filename in a readable manner.
+
+=cut
+
+sub handlename {
+	my ($self) = @_;
+	my $numformat   = $NUMFORMATS{$_pfm->state->{radix_mode}};
+	my $browser     = $_pfm->browser;
+	my $workfile    = $browser->currentfile->clone();
+	my $baseindex   = $browser->baseindex;
+	my $screenline  = $browser->currentline + $_screen->BASELINE;
+	my $filenamecol = $_screen->listing->filenamecol;
+	my $trspace     = $_pfm->config->{trspace};
+	my ($line, $linecolor);
+	$_screen->listing->markcurrentline('@'); # disregard multiple_mode
+#	$_screen->clear_footer();
+	for ($workfile->{name}, $workfile->{target}) {
+		s/\\/\\\\/;
+		s{([${trspace}\177[:cntrl:]]|[^[:ascii:]])}
+		 {'\\' . sprintf($numformat, unpack('C', $1))}eg;
+	}
+	$line = $workfile->{name} . $workfile->filetypeflag() .
+			(length($workfile->{target}) ? ' -> ' . $workfile->{target} : '');
+	$linecolor =
+		$_pfm->config->{framecolors}{$_screen->color_mode}{highlight};
+	
+	$_screen->at($screenline, $filenamecol)
+		->putcolored($linecolor, $line, " \cH");
+	$_screen->listing->applycolor(
+		$screenline, $_screen->listing->FILENAME_LONG, $workfile);
+	if ($_screen->noecho()->getch() eq '*') {
+		$self->handleradix();
+		$_screen->frame->show_footer();
+		$_screen->echo()->at($screenline, $filenamecol)
+			->puts(' ' x length $line);
+		goto &handlename;
+	}
+	if ($filenamecol < $_screen->diskinfo->infocol &&
+		$filenamecol + length($line) >= $_screen->diskinfo->infocol or
+		$filenamecol + length($line) >= $_screen->screenwidth)
+	{
+		$_screen->set_deferred_refresh(R_CLRSCR);
+	}
 }
 
 ##########################################################################
