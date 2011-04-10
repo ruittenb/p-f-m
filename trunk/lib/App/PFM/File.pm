@@ -92,6 +92,30 @@ sub _clone {
 	# TODO
 }
 
+=item _decidecolor()
+
+Decides which color should be used on a particular file.
+
+=cut
+
+sub _decidecolor {
+	my ($self) = @_;
+	my %dircolors  = %{$_pfm->config->{dircolors}{$_pfm->screen->color_mode}};
+	$self->{type}  eq 'w'			and return $dircolors{wh};
+	$self->{nlink} ==  0 			and return $dircolors{lo};
+	$self->{type}  eq 'd'			and return $dircolors{di};
+	$self->{type}  eq 'l'			and return $dircolors{
+										isorphan($self->{name}) ?'or':'ln' };
+	$self->{type}  eq 'b'			and return $dircolors{bd};
+	$self->{type}  eq 'c'			and return $dircolors{cd};
+	$self->{type}  eq 'p'			and return $dircolors{pi};
+	$self->{type}  eq 's'			and return $dircolors{so};
+	$self->{type}  eq 'D'			and return $dircolors{'do'};
+	$self->{type}  eq 'n'			and return $dircolors{nt};
+	$self->{mode}  =~ /[xst]/		and return $dircolors{ex};
+	$self->{name}  =~ /(\.\w+)$/	and return $dircolors{$1};
+}
+
 ##########################################################################
 # constructor, getters and setters
 
@@ -187,8 +211,6 @@ sub stat_entry {
 			}
 			if ($iswhite eq 'w' or grep /$entry/, @white_entries) {
 				$mode = 0160000;
-#				$entry->{type} = 'w';
-#				substr($entry->{mode}, 0, 1) = 'w';
 			}
 		}
 	}
@@ -205,18 +227,15 @@ sub stat_entry {
 		atime		=> $atime,
 		mtime		=> $mtime,
 		ctime		=> $ctime,
+		grand		=> '',
 		grand_power	=> ' ',
 		size		=> $size,
 		blocks		=> $blocks,
 		blksize		=> $blksize,
-		svn			=> '-',
-		atimestring => $self->stamp2str($atime),
-		mtimestring => $self->stamp2str($mtime),
-		ctimestring => $self->stamp2str($ctime),
+		rcs			=> '-',
 	};
 	@{$self}{keys %$ptr} = values %$ptr;
-	@{$self}{qw(size_num size_power)} =
-		fit2limit($size, $_pfm->screen->listing->maxfilesizelength);
+
 	$self->{type} = substr($self->{mode}, 0, 1);
 	if ($self->{type} eq 'l') {
 		$self->{target}  = readlink($self->{name});
@@ -231,9 +250,7 @@ sub stat_entry {
 	} else {
 		$self->{display} = $entry . $filetypeflags{$self->{type}};
 	}
-	$self->{name_too_long} =
-		length($self->{display}) > $_pfm->screen->listing->maxfilenamelength-1
-			? $_pfm->screen->listing->NAMETOOLONGCHAR : ' ';
+	$self->format();
 	return $self;
 }
 
@@ -244,8 +261,23 @@ Format the fields according to the current screen size.
 =cut
 
 sub format {
-	my ($self) = @_;
+	my ($self)  = @_;
+	my $listing = $_pfm->screen->listing;
 
+	unless ($self->{type} =~ /[bc]/) {
+		@{$self}{qw(size_num size_power)} =
+			fit2limit($self->{size}, $listing->maxfilesizelength);
+		@{$self}{qw(grand_num grand_power)} =
+			fit2limit($self->{grand}, $listing->maxgrandtotallength);
+	}
+
+	$self->{atimestring}   = $self->stamp2str($self->{atime});
+	$self->{mtimestring}   = $self->stamp2str($self->{mtime});
+	$self->{ctimestring}   = $self->stamp2str($self->{ctime});
+	$self->{name_too_long} =
+		length($self->{display}) > $listing->maxfilenamelength-1
+			? $listing->NAMETOOLONGCHAR : ' ';
+	$self->{color} = $self->_decidecolor();
 }
 
 ##########################################################################

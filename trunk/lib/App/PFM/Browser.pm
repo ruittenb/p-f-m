@@ -227,7 +227,7 @@ sub validate_position {
 
 =item position_cursor()
 
-Position the cursor at a specific file.
+Positions the cursor at a specific file.
 
 =cut
 
@@ -238,17 +238,87 @@ sub position_cursor {
 	my @showncontents = @{$_pfm->state->directory->showncontents};
 	$_currentline     = 0;
 	$_baseindex       = 0 if $_position_at eq '..'; # descending into this dir
-	ANYENTRY: {
+	POSITION_ENTRY: {
 		for (0..$#showncontents) {
 			if ($_position_at eq $showncontents[$_]{name}) {
 				$_currentline = $_ - $_baseindex;
-				last ANYENTRY;
+				last POSITION_ENTRY;
 			}
 		}
 		$_baseindex = 0;
 	}
 	$_position_at = '';
 	$self->validate_position();
+}
+
+=item position_cursor_fuzzy()
+
+Positions the cursor at the file with the closest matching name.
+Used by incremental find.
+
+=cut
+
+sub position_cursor_fuzzy {
+	my ($self, $target) = @_;
+	$_position_at = $target if (defined $target and $target ne '');
+	return if $_position_at eq '';
+
+	my @showncontents = @{$_pfm->state->directory->showncontents};
+	my ($criterion, $i);
+
+	if ($_pfm->state->{sort_mode} eq 'n') {
+		$criterion = sub {
+			return ($_position_at le substr($_[0], 0, length($_position_at)));
+		};
+	} else {
+		# sort_mode eq 'N'
+		$criterion = sub {
+			return ($_position_at ge substr($_[0], 0, length($_position_at)));
+		};
+	}
+
+	$_currentline = 0;
+	if ($#showncontents > 1) {
+		POSITION_ENTRY_FUZZY: {
+			for $i (1..$#showncontents) {
+				if ($criterion->($showncontents[$i]{name})) {
+					$_currentline =
+						$self->find_best_find_match(
+							$_position_at,
+							$showncontents[$i-1]{name},
+							$showncontents[$i  ]{name}
+						)
+						+ $i - 1 - $_baseindex;
+					last POSITION_ENTRY_FUZZY;
+				}
+			}
+			$_currentline = $#showncontents - $_baseindex;
+		}
+	}
+	$_position_at = '';
+	$self->validate_position();
+}
+
+=item find_best_find_match()
+
+Decides which file out of two is the best match, I<e.g.> if there are
+two files C<Contractor.php> and C<Dealer.php>, and 'Coz' is given,
+this method decides that C<Contractor.php> is the better match.
+
+=cut
+
+sub find_best_find_match {
+	my ($self, $seek, $first, $second) = @_;
+	my $char;
+	for ($char = length($seek); $char > 0; $char--) {
+		if (substr($first,  0, $char) eq substr($seek, 0, $char)) {
+			return 0;
+		}
+		if (substr($second, 0, $char) eq substr($seek, 0, $char)) {
+			return 1;
+		}
+	}
+	return 1;
 }
 
 =item browse()

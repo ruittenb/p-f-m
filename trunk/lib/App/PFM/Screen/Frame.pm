@@ -80,7 +80,7 @@ my %_fieldheadings = (
 	gid				=> 'groupid',
 	nlink			=> 'lnks',
 	rdev			=> 'dev',
-	svn				=> 'svn',
+	rcs				=> 'vers',
 	diskinfo		=> 'disk info',
 );
 
@@ -162,14 +162,14 @@ sub _getmenu {
 		.		'(ignorecase, reverse):';
 	} elsif ($mode & MENU_MORE) {
 		return	'Bookmark Config Edit-any mkFifo sHell Kill-chld Mkdir '
-		.		'Physical-path Show-dir Versions Write-hist alTscreen';
+		.		'Physical-path Show-dir Version Write-hist alTscreen';
 	} elsif ($mode & MENU_INCLUDE) {
 		return	'Include? Every, Oldmarks, After, Before, User or Files only:';
 	} elsif ($mode & MENU_LNKTYPE) {
 		return	'Absolute, Relative symlink or Hard link:';
 	} else {
 		return	'Attribute Copy Delete Edit Find tarGet Include Link More Name'
-		.		' cOmmand Print Quit Rename Show Time User Versions unWhiteout'
+		.		' cOmmand Print Quit Rename Show Time User Version unWhiteout'
 		.		' eXclude Your-command siZe';
 	}
 }
@@ -286,7 +286,7 @@ sub show_headings {
 	$filters = ($state->{white_mode} ? '' : '%')
 			 . ($state->{dot_mode}   ? '' : '.');
 	$_fieldheadings{display} = $_fieldheadings{name} .
-		($filters ? " (filtered:$filters)" : '');
+		($filters ? " (filtered)" : '');
 	$linecolor = $swapmode
 		? $_pfm->config->{framecolors}->{$_screen->color_mode}{swap}
 		: $_pfm->config->{framecolors}->{$_screen->color_mode}{headings};

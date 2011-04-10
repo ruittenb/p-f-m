@@ -1952,28 +1952,28 @@ sub handlemultiple {
 #	chomp ($ident .= '@'.`hostname`)     if $ident_mode == 2;
 #	return $R_DISKINFO | $R_FOOTER;
 #}
-
-sub handleident {
-	triggle($ident_mode);
-	goto &initident;
-}
-
-sub handleclobber {
-	toggle($clobber_mode);
-	return $R_FOOTER;
-}
-
-sub handlepathmode {
-	$path_mode  = $path_mode eq 'phys' ? 'log' : 'phys';
-	$currentdir = getcwd() if $path_mode eq 'phys';
-	return $R_FOOTER | $R_PATHINFO;
-}
-
-sub handleradix {
-	$radix_mode = $radix_mode eq 'hex' ? 'oct' : 'hex';
-	return $R_FOOTER;
-}
-
+#
+#sub handleident {
+#	triggle($ident_mode);
+#	goto &initident;
+#}
+#
+#sub handleclobber {
+#	toggle($clobber_mode);
+#	return $R_FOOTER;
+#}
+#
+#sub handlepathmode {
+#	$path_mode  = $path_mode eq 'phys' ? 'log' : 'phys';
+#	$currentdir = getcwd() if $path_mode eq 'phys';
+#	return $R_FOOTER | $R_PATHINFO;
+#}
+#
+#sub handleradix {
+#	$radix_mode = $radix_mode eq 'hex' ? 'oct' : 'hex';
+#	return $R_FOOTER;
+#}
+#
 #sub handleresize {
 #	$wasresized = 0;
 #	handlefit();
@@ -2295,7 +2295,7 @@ sub handlefind_incremental {
 			$findme .= $k;
 		}
 		$position_at = $findme;
-		position_cursor_find_incremental();
+		position_cursor_fuzzy();
 		%currentfile = %{$showncontents[$currentline+$baseindex]};
 #		if (!$scr->key_pressed(0)) {
 			$_listing->show();
@@ -3856,51 +3856,51 @@ sub filetypeflag {
 #	return %tdisk;
 #}
 #
-sub find_best_find_match {
-	my ($seek, $rec) = @_;
-	my ($first, $second, $char);
-	if ($rec == 0) {
-		return -$baseindex;
-	}
-	$first  = $showncontents[$rec-1]{name};
-	$second = $showncontents[$rec  ]{name};
-	for ($char = length($seek); $char > 0; $char--) {
-		if (substr($first,  0, $char) eq substr($seek, 0, $char)) {
-			return $rec -1 - $baseindex;
-		}
-		if (substr($second, 0, $char) eq substr($seek, 0, $char)) {
-			return $currentline = $rec - $baseindex;
-		}
-	}
-	return $rec - $baseindex;
-}
-
-sub position_cursor_find_incremental {
-	my $criterion;
-	$currentline = 0;
-	if ($sort_mode eq 'n') {
-		$criterion = sub {
-			return ($position_at le substr($_[0], 0, length($position_at)));
-		};
-	} else {
-		# $sort_mode eq 'N'
-		$criterion = sub {
-			return ($position_at ge substr($_[0], 0, length($position_at)));
-		};
-	}
-	ANYENTRYFIND: {
-		for (0..$#showncontents) {
-			if ($criterion->($showncontents[$_]{name})) {
-				$currentline = find_best_find_match($position_at, $_);
-				last ANYENTRYFIND;
-			}
-		}
-		$currentline = $#showncontents - $baseindex;
-	}
-	$position_at = '';
-	return validate_position(); # refresh flag
-}
-
+#sub find_best_find_match {
+#	my ($seek, $rec) = @_;
+#	my ($first, $second, $char);
+#	if ($rec == 0) {
+#		return -$baseindex;
+#	}
+#	$first  = $showncontents[$rec-1]{name};
+#	$second = $showncontents[$rec  ]{name};
+#	for ($char = length($seek); $char > 0; $char--) {
+#		if (substr($first,  0, $char) eq substr($seek, 0, $char)) {
+#			return $rec -1 - $baseindex;
+#		}
+#		if (substr($second, 0, $char) eq substr($seek, 0, $char)) {
+#			return $currentline = $rec - $baseindex;
+#		}
+#	}
+#	return $rec - $baseindex;
+#}
+#
+#sub position_cursor_fuzzy {
+#	my $criterion;
+#	$currentline = 0;
+#	if ($sort_mode eq 'n') {
+#		$criterion = sub {
+#			return ($position_at le substr($_[0], 0, length($position_at)));
+#		};
+#	} else {
+#		# $sort_mode eq 'N'
+#		$criterion = sub {
+#			return ($position_at ge substr($_[0], 0, length($position_at)));
+#		};
+#	}
+#	ANYENTRYFIND: {
+#		for (0..$#showncontents) {
+#			if ($criterion->($showncontents[$_]{name})) {
+#				$currentline = find_best_find_match($position_at, $_);
+#				last ANYENTRYFIND;
+#			}
+#		}
+#		$currentline = $#showncontents - $baseindex;
+#	}
+#	$position_at = '';
+#	return validate_position(); # refresh flag
+#}
+#
 #sub position_cursor {
 #	$currentline = 0;
 #	$baseindex   = 0 if $position_at eq '..'; # descending into this dir
@@ -4046,7 +4046,7 @@ sub position_cursor_find_incremental {
 #		}
 #		if ($wantrefresh &   $R_STRIDE) {
 #			$wantrefresh &= ~$R_STRIDE;
-#			position_cursor() if $position_at ne '';
+#			position_cursor_fuzzy($position_at) if $position_at ne '';
 #			recalc_ptr() unless defined $showncontents[$currentline+$baseindex];
 #			%currentfile = %{$showncontents[$currentline+$baseindex]};
 #		}

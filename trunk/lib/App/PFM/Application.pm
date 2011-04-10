@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.02.06
+# @(#) App::PFM::Application 2.02.7
 #
 # Name:			App::PFM::Application.pm
-# Version:		2.02.6
+# Version:		2.02.7
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-16
+# Date:			2010-04-21
 #
 
 ##########################################################################
@@ -123,17 +123,19 @@ Print usage information: commandline options and F<.pfmrc> file.
 
 sub _usage {
 	my $self      = shift;
-	my $directory = $_screen->colored('underline', 'directory');
-	my $number    = $_screen->colored('underline', 'number');
+	my $ul        = $_screen->underline2esc();
+	my $normal    = $_screen->normal2esc();
+	my $directory = "${ul}directory${normal}";
+	my $number    = "${ul}number${normal}";
 	my $config    = new App::PFM::Config($self);
-	print "Usage: pfm [ -l, --layout $number ]",
+	print "Usage: pfm [ -l, --layout $number ] ",
 		  "[ $directory ] [ -s, --swap $directory ]\n",
 		  "       pfm { -h, --help | -v, --version }\n\n",
 		  "    $directory            : specify starting directory\n",
 		  "    -h, --help           : print this help and exit\n",
 		  "    -l, --layout $number  : startup with specified layout\n",
 		  "    -s, --swap $directory : specify swap directory\n",
-		  "    -v, --version        : print version information and exit\n",
+		  "    -v, --version        : print version information and exit\n\n",
 		  $config->give_location(), "\n";
 }
 
@@ -292,7 +294,7 @@ sub bootstrap {
 	# for easy access.
 	$_states[S_MAIN] = new App::PFM::State($self);
 	$_screen		 = new App::PFM::Screen($self);
-	$_screen->at($_screen->rows(), 0);
+	$_screen->at($_screen->rows(), 0)->cooked();
 	
 	Getopt::Long::Configure(qw'bundling permute');
 	GetOptions ('s|swap=s'   => \$swapstartdir,
@@ -311,7 +313,7 @@ sub bootstrap {
 	$_browser		 = new App::PFM::Browser($self);
 	$_jobhandler	 = new App::PFM::JobHandler($self);
 	
-	$_screen->clrscr();
+	$_screen->clrscr()->raw();
 	$_screen->calculate_dimensions();
 	$_config = new App::PFM::Config($self);
 	$_config->read( $_config->READ_FIRST);

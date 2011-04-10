@@ -327,14 +327,6 @@ Returns a boolean indicating that there is input ready to be processed.
 sub pending_input {
 	my ($self, $delay) = @_;
 	my $input_ready = length($self->{IN}) || $_wasresized || $self->key_pressed($delay);
-
-#my ($readfields, $select_ready);	# TODO DEBUG
-#vec( $readfields, fileno(STDIN), 1 ) = 1;    # set up to check STDIN # TODO DEBUG
-##eval { $select_ready = select( $readfields, undef, undef, 0 ); }; # TODO DEBUG
-#eval { $select_ready = select( $readfields, undef, $readfields, 0 ); }; # TODO DEBUG
-#$self->at(21,0)->puts("key_pressed:$input_ready:select:$select_ready:")->clreol(); # TODO DEBUG
-#sleep 1 if $input_ready; # TODO DEBUG
-
 	return $input_ready;
 }
 
@@ -381,6 +373,7 @@ sub select_next_color {
 	$_color_mode = $colorsetnames[$index];
 	$self->color_mode($_color_mode);
 	$_pfm->history->setornaments();
+	$self->listing->reformat();
 
 }
 
@@ -575,7 +568,7 @@ sub refresh {
 		$directory->filtercontents();
 	}
 	if ($_deferred_refresh & R_STRIDE) {
-		$browser->position_cursor();
+		$browser->position_cursor_fuzzy();
 		$browser->position_cursor('.') unless defined $browser->currentfile;
 	}
 	if ($_deferred_refresh & R_DIRLIST) {

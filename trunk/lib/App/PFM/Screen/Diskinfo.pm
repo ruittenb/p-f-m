@@ -151,6 +151,21 @@ sub initident {
 	$_screen->set_deferred_refresh($_screen->R_DISKINFO | $_screen->R_FOOTER);
 }
 
+=item select_next_ident()
+
+Cycles through showing the username, hostname or both.
+
+=cut
+
+sub select_next_ident {
+	my ($self) = @_;
+	if (++$_ident_mode > 2) {
+		$_ident_mode = 0;
+	}
+	$self->initident();
+	return $_ident_mode;
+}
+
 ##########################################################################
 # public subs
 
@@ -250,10 +265,12 @@ sub dir_info {
 			   + $total_nr_of{'D'} + $total_nr_of{'w'}
 			   + $total_nr_of{'n'};
 	my $startline = DIRINFOLINE;
-	my $heading = 'Directory('
-				.  $_pfm->state->{sort_mode}
-				. ($_pfm->state->{white_mode} ? '' : '%')
-				. ($_pfm->state->{dot_mode} ? '' : '.') . ')';
+	my $heading = 'Directory';
+#	my $heading = 'Directory'
+#				. '('
+#				.  $_pfm->state->{sort_mode}
+#				. ($_pfm->state->{white_mode} ? '' : '%')
+#				. ($_pfm->state->{dot_mode} ? '' : '.') . ')';
 	$_screen->at($startline-1, $_infocol)
 			->puts($self->_str_informatted($heading));
 	foreach (0..3) {

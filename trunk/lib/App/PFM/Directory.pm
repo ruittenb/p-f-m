@@ -42,6 +42,7 @@ use App::PFM::Job::Bazaar;
 use App::PFM::Job::Git;
 use App::PFM::File;
 use App::PFM::Util;
+use POSIX qw(getcwd);
 
 use strict;
 
@@ -127,8 +128,8 @@ sub _by_sort_mode {
 		/Z/ and return		$b->{grand} <=>		$a->{grand},last SWITCH;
 		/i/ and return		$a->{inode} <=>		$b->{inode},last SWITCH;
 		/I/ and return		$b->{inode} <=>		$a->{inode},last SWITCH;
-#		/v/ and return		$a->{svn}   <=>		$b->{svn},  last SWITCH;
-#		/V/ and return		$b->{svn}   <=>		$a->{svn},  last SWITCH;
+#		/v/ and return		$a->{rcs}   <=>		$b->{rcs},  last SWITCH;
+#		/V/ and return		$b->{rcs}   <=>		$a->{rcs},  last SWITCH;
 		/t/ and return $a->{type}.$a->{name}
 									  cmp $b->{type}.$b->{name}, last SWITCH;
 		/T/ and return $b->{type}.$b->{name}
@@ -277,7 +278,12 @@ Getter/setter for the path mode setting (physical or logical).
 
 sub path_mode {
 	my ($self, $value) = @_;
-	$self->{_path_mode} = $value if defined $value;
+	if (defined $value) {
+		my $screen = $_pfm->screen;
+		$self->{_path_mode} = $value;
+		$self->{_path} = getcwd() if $self->{_path_mode} eq 'phys';
+		$screen->set_deferred_refresh($screen->R_FOOTER | $screen->R_PATHINFO);
+	}
 	return $self->{_path_mode};
 }
 

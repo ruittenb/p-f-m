@@ -237,10 +237,10 @@ sub handle {
 #		/^z$/io				and $self->handlesize(),			last;
 #		/^g$/io				and $self->handletarget(),			last;
 		/^k12$/o			and $self->handlemouse(),			last;
-#		/^=$/o				and $self->handleident(),			last;
-#		/^\*$/o				and $self->handleradix(),			last;
-#		/^!$/o				and $self->handleclobber(),			last;
-#		/^"$/o				and $self->handlepathmode(),		last;
+		/^=$/o				and $self->handleident(),			last;
+		/^\*$/o				and $self->handleradix(),			last;
+		/^!$/o				and $self->handleclobber(),			last;
+		/^"$/o				and $self->handlepathmode(),		last;
 #		/^w$/io				and $self->handleunwo(),			last;
 		/^%$/o				and $self->handlewhiteout(),		last;
 		$valid = 0; # invalid key
@@ -390,7 +390,7 @@ Cycles through color modes.
 =cut
 
 sub handlecolor {
-#	my $self = shift;
+#	my ($self) = @_;
 	$_screen->select_next_color();
 }
 
@@ -401,7 +401,7 @@ Handles turning mouse mode on or off.
 =cut
 
 sub handlemouse {
-#	my $self = shift;
+#	my ($self) = @_;
 	my $browser = $_pfm->browser;
 	$browser->mouse_mode(!$browser->mouse_mode);
 }
@@ -413,7 +413,7 @@ Handles moving on to the next configured layout.
 =cut
 
 sub handlelayouts {
-#	my $self = shift;
+#	my ($self) = @_;
 	$_screen->listing->select_next_layout();
 }
 
@@ -424,8 +424,59 @@ Recalculates the screen size and adjusts the layouts.
 =cut
 
 sub handlefit {
-#	my $self = shift;
+#	my ($self) = @_;
 	$_screen->fit();
+}
+
+=item handleident()
+
+Calls the diskinfo class to cycle through showing
+the username, hostname or both.
+
+=cut
+
+sub handleident {
+#	my ($self) = @_;
+	$_screen->diskinfo->select_next_ident();
+}
+
+=item handleclobber()
+
+Toggles between clobbering files automatically, or prompting
+before overwrite.
+
+=cut
+
+sub handleclobber {
+#	my ($self) = @_;
+	toggle($_clobber_mode);
+	$_screen->set_deferred_refresh(R_FOOTER);
+}
+
+=item handlepathmode()
+
+Toggles between logical and physical path mode.
+
+=cut
+
+sub handlepathmode {
+#	my ($self) = @_;
+	my $directory = $_pfm->state->directory;
+	$directory->path_mode($directory->path_mode eq 'phys' ? 'log' : 'phys');
+}
+
+=item handleradix()
+
+Toggles between showing nonprintable characters as octal or hexadecimal
+codes in the B<N>ame command.
+
+=cut
+
+sub handleradix {
+#	my ($self) = @_;
+	my $state = $_pfm->state;
+	$state->{radix_mode} = ($state->{radix_mode} eq 'hex' ? 'oct' : 'hex');
+	$_screen->set_deferred_refresh(R_FOOTER);
 }
 
 =item handlequit()
@@ -457,9 +508,19 @@ Handles the B<@> command (execute Perl command).
 =cut
 
 sub handleperlcommand {
-#	my $self = shift;
+	my ($self) = @_;
 	my $perlcmd;
-	my $s = $_screen; # for ease of use when debugging
+	# for ease of use when debugging
+	my $screen         = $_screen;
+	my $listing        = $screen->listing;
+	my $config         = $_pfm->config;
+	my $browser        = $_pfm->browser;
+	my $currentfile    = $browser->currentfile;
+	my $state          = $_pfm->state;
+	my $directory      = $state->directory;
+	my $jobhandler     = $_pfm->jobhandler;
+	my $commandhandler = $_pfm->commandhandler;
+	# now do!
 	$_screen->listing->markcurrentline('@'); # disregard multiple_mode
 	$_screen->clear_footer()
 		->at(0,0)->clreol()->putmessage('Enter Perl command:')
@@ -482,8 +543,8 @@ sub handlehelp {
 	$_screen->clrscr()->stty_cooked();
 	print map { substr($_, 8)."\n" } split("\n", <<'    _eoHelp_');
         --------------------------------------------------------------------------------
-        a     Attrib         mb  make Bookmark     up, down arrow   move one line       
-        c     Copy           mc  Config pfm        k, j             move one line       
+        a     Attrib         mb  make Bookmark     k, up arrow      move one line up    
+        c     Copy           mc  Config pfm        j, down arrow    move one line down  
         d DEL Delete         me  Edit any file     -, +             move ten lines      
         e     Edit           mf  make FIFO         CTRL-E, CTRL-Y   scroll dir one line 
         f /   Find           mh  spawn sHell       CTRL-U, CTRL-D   move half a page    
@@ -491,8 +552,8 @@ sub handlehelp {
         i     Include        mm  Make new dir      PgUp, PgDn       move a full page    
         L     symLink        mp  Physical path     HOME, END        move to top, bottom 
         n     Name           ms  Show directory    SPACE            mark file & advance 
-        o     cOmmand        mt  alTernate scrn    right arrow, l   enter dir           
-        p     Print          mv  Versn status all  left arrow, h    leave dir           
+        o     cOmmand        mt  alTernate scrn    l, right arrow   enter dir           
+        p     Print          mv  Versn status all  h, left arrow    leave dir           
         q Q   (Quick) quit   mw  Write history     ENTER            enter dir; launch   
         r     Rename        ---------------------  ESC, BS          leave dir           
         s     Show           !   toggle clobber   --------------------------------------
@@ -536,8 +597,8 @@ sub handleentry {
 	return if !$_screen->ok_to_remove_marks();
 	$success = $_pfm->state->currentdir($nextdir, 0, $direction);
 	unless ($success) {
-		$_screen->at(0,0)->clreol()->display_error($!)
-				->set_deferred_refresh(R_MENU);
+		$_screen->at(0,0)->clreol()->display_error($!);
+		$_screen->set_deferred_refresh(R_MENU);
 	}
 	return $success;
 }
