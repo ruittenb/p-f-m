@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 0.10
+# @(#) App::PFM::CommandHandler 0.48
 #
 # Name:			App::PFM::CommandHandler
-# Version:		0.10
+# Version:		0.48
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-13
+# Date:			2010-04-30
 #
 
 ##########################################################################
@@ -65,6 +65,8 @@ my @SORTMODES = (
 	 i =>'Inode',		I =>' reverse',
 	 v =>'Version',		V =>' reverse',
 );
+
+our ($command);
 
 my ($_pfm, $_screen,
 	@_signame, $_white_cmd, @_unwo_cmd, $_clobber_mode);
@@ -193,60 +195,82 @@ sub _selectednames {
 	return @res;
 }
 
-#sub expand_replace { # esc-category, namenoext, name, ext
-#	my $qif = shift;
-#	for ($_[0]) {
-#		/1/ and return condquotemeta($qif, $_[1]);
-#		/2/ and return condquotemeta($qif, $_[2]);
-#		/3/ and return condquotemeta($qif, $currentdir);
-#		/4/ and return condquotemeta($qif, $disk{mountpoint});
-#		/5/ and return condquotemeta($qif, $swap_state->{path}) if $swap_state;
-#		/6/ and return condquotemeta($qif, basename($currentdir));
-#		/7/ and return condquotemeta($qif, $_[3]);
-#		/8/ and return join (' ', $self->_selectednames($qif));
-#		/e/ and return condquotemeta($qif, $editor);
-#		/p/ and return condquotemeta($qif, $pager);
-#		/v/ and return condquotemeta($qif, $viewer);
-#		# this also handles the special $e$e case - don't quotemeta() this!
-#		return $_;
-#	}
-#}
-#
-#sub expand_3456_escapes { # quoteif, command, whatever
-#	my $qif = $_[0];
-#	my $qe  = quotemeta $e;
-#	# readline understands ~ notation; now we understand it too
-#	$_[1] =~ s/^~(\/|$)/$ENV{HOME}\//;
-#	# ~user is not replaced if it is not in the passwd file
-#	# the format of passwd(5) dictates that a username cannot contain colons
-#	$_[1] =~ s/^~([^:\/]+)/(getpwnam $1)[7] || "~$1"/e;
-#	# the next generation in quoting
-#	$_[1] =~ s/$qe([^1278])/expand_replace($qif, $1)/ge;
-#}
-#
-#sub expand_escapes { # quoteif, command, \%currentfile
-#	my $qif		= $_[0];
-#	my $name	= $_[2]{name};
-#	my $qe		= quotemeta $e;
-#	my ($namenoext, $ext);
-##	$namenoext = $name =~ /^(.*)\.([^\.]+)$/ ? $1 : $name;
-#	# included '.' in \7
-#	if ($name =~ /^(.*)(\.[^\.]+)$/) {
-#		$namenoext = $1;
-#		$ext = $2;
-#	} else {
-#		$namenoext = $name;
-#		$ext = '';
-#	}
-#	# readline understands ~ notation; now we understand it too
-#	$_[1] =~ s/^~(\/|$)/$ENV{HOME}\//;
-#	# ~user is not replaced if it is not in the passwd file
-#	# the format of passwd(5) dictates that a username cannot contain colons
-#	$_[1] =~ s/^~([^:\/]+)/(getpwnam $1)[7] || "~$1"/e;
-#	# the next generation in quoting
-#	$_[1] =~ s/$qe(.)/expand_replace($qif, $1, $namenoext, $name, $ext)/ge;
-#}
-#
+=item _expand_replace()
+
+Creates a list of names of selected files, for the B<=8> escape.
+
+=cut
+
+sub _expand_replace {
+	my ($self, $qif, $category, $name_no_extension, $name, $extension) = @_;
+	for ($category) {
+		/1/ and return condquotemeta($qif, $name_no_extension);
+		/2/ and return condquotemeta($qif, $name);
+		/3/ and return condquotemeta($qif, $_pfm->state->directory->path);
+		/4/ and return condquotemeta($qif, $_pfm->state->directory->mountpoint);
+		/5/ and $_pfm->state($_pfm->S_SWAP)
+			and return condquotemeta($qif, $_pfm->state($_pfm->S_SWAP)->directory->path);
+		/6/ and return condquotemeta($qif, basename($_pfm->state->directory->path));
+		/7/ and return condquotemeta($qif, $extension);
+		/8/ and return join (' ', $self->_selectednames($qif));
+		/e/ and return condquotemeta($qif, $_pfm->config->{editor});
+		/p/ and return condquotemeta($qif, $_pfm->config->{pager});
+		/v/ and return condquotemeta($qif, $_pfm->config->{viewer});
+		# this also handles the special $e$e case - don't quotemeta() this!
+		return $_;
+	}
+}
+
+=item _expand_3456_escapes()
+
+Fills in the data for the B<=3> .. B<=6> escapes.
+
+=cut
+
+sub _expand_3456_escapes { # quoteif, command
+	my ($self, $qif) = @_;
+	*command = \$_[2];
+	my $qe = quotemeta $_pfm->config->{e};
+	# readline understands ~ notation; now we understand it too
+	$command =~ s/^~(\/|$)/$ENV{HOME}\//;
+	# ~user is not replaced if it is not in the passwd file
+	# the format of passwd(5) dictates that a username cannot contain colons
+	$command =~ s/^~([^:\/]+)/(getpwnam $1)[7] || "~$1"/e;
+	# the next generation in quoting
+	$command =~ s/$qe([^1278])/_expand_replace($self, $qif, $1)/ge;
+}
+
+=item _expand_escapes()
+
+Fills in the data for all escapes.
+
+=cut
+
+sub _expand_escapes { # quoteif, command, \%currentfile
+	my ($self, $qif, undef, $currentfile) = @_;
+	*command	= \$_[2];
+	my $name	= $currentfile->{name};
+	my $qe		= quotemeta $_pfm->config->{e};
+	my ($name_no_extension, $extension);
+	# include '.' in =7
+	if ($name =~ /^(.*)(\.[^\.]+)$/) {
+		$name_no_extension = $1;
+		$extension		   = $2;
+	} else {
+		$name_no_extension = $name;
+		$extension		   = '';
+	}
+	# readline understands ~ notation; now we understand it too
+	$command =~ s/^~(\/|$)/$ENV{HOME}\//;
+	# ~user is not replaced if it is not in the passwd file
+	# the format of passwd(5) dictates that a username cannot contain colons
+	$command =~ s/^~([^:\/]+)/(getpwnam $1)[7] || "~$1"/e;
+	# the next generation in quoting
+	$command =~ s/$qe(.)/
+		_expand_replace($self, $qif, $1, $name_no_extension, $name, $extension)
+	/ge;
+}
+
 ##########################################################################
 # constructor, getters and setters
 
@@ -327,7 +351,7 @@ sub handle {
 		/^k5$/o				and $self->handlerefresh(),			last;
 #		/^[cr]$/io			and $self->handlecopyrename($_),	last;
 #		/^[yo]$/io			and $self->handlecommand($_),		last;
-#		/^e$/io				and $self->handleedit(),			last;
+		/^e$/io				and $self->handleedit(),			last;
 #		/^(?:d|del)$/io		and $self->handledelete(),			last;
 #		/^[ix]$/io			and $self->handleinclude($_),		last;
 #		/^\r$/io			and $self->handleenter(),			last;
@@ -345,8 +369,8 @@ sub handle {
 		/^[<>]$/io			and $self->handlepan($_,
 								$_screen->frame->MENU_SINGLE),	last;
 		/^(?:k3|\cL|\cR)$/o	and $self->handlefit(),				last;
-#		/^t$/io				and $self->handletime(),			last;
-#		/^a$/io				and $self->handlechmod(),			last;
+		/^t$/io				and $self->handletime(),			last;
+		/^a$/io				and $self->handlechmod(),			last;
 		/^q$/io				and $valid = $self->handlequit($_),	last;
 		/^k6$/o				and $self->handlesort(),			last;
 		/^(?:k1|\?)$/o		and $self->handlehelp(),			last;
@@ -355,11 +379,11 @@ sub handle {
 		/^k9$/o				and $self->handlelayouts(),			last;
 		/^k4$/o				and $self->handlecolor(),			last;
 		/^\@$/o				and $self->handleperlcommand(),		last;
-#		/^u$/io				and $self->handlechown(),			last;
+		/^u$/io				and $self->handlechown(),			last;
 #		/^v$/io				and $self->handlercs(),				last;
 #		/^z$/io				and $self->handlesize(),			last;
 #		/^g$/io				and $self->handletarget(),			last;
-		/^k12$/o			and $self->handlemouse(),			last;
+		/^k12$/o			and $self->handlemousemode(),		last;
 		/^=$/o				and $self->handleident(),			last;
 		/^\*$/o				and $self->handleradix(),			last;
 		/^!$/o				and $self->handleclobber(),			last;
@@ -503,7 +527,7 @@ sub handleswap {
 				$_pfm->S_MAIN,
 				$_pfm->state($_pfm->S_SWAP));
 			# destroy the swap state
-			$_pfm->state($_pfm->S_SWAP, undef);
+			$_pfm->state($_pfm->S_SWAP, 0);
 			# continue below
 		}
 		# --------------------------------------------------
@@ -549,13 +573,14 @@ sub handleswap {
 		# toggle swap mode flag
 		$browser->swap_mode(!$browser->swap_mode);
 		# fix destination
-		$self->expand_escapes(QUOTE_OFF, $nextdir, $browser->currentfile);
-		# go there using the directory's chdir() (with $swapping flag)
-		if ($_pfm->state->directory->chdir($nextdir, 1)) {
+		$self->_expand_escapes(QUOTE_OFF, $nextdir, $browser->currentfile);
+		# go there using the directory's chdir() (TODO $swapping flag behavior?)
+		if ($_pfm->state->directory->chdir($nextdir, 0)) {
 			# set the cursor position
 			$browser->baseindex(0);
-#			$_pfm->state->{multiple_mode} = 0;
-#			$_pfm->state->{sort_mode} = $_pfm->config->{defaultsortmode} || 'n';
+			$_pfm->state->{multiple_mode} = 0;
+			$_pfm->state->{sort_mode} = $_pfm->config->{defaultsortmode} || 'n';
+			$_screen->set_deferred_refresh(R_CHDIR);
 		}
 	}
 }
@@ -624,13 +649,13 @@ sub handlecolor {
 	$_screen->select_next_color();
 }
 
-=item handlemouse()
+=item handlemousemode()
 
 Handles turning mouse mode on or off.
 
 =cut
 
-sub handlemouse {
+sub handlemousemode {
 #	my ($self) = @_;
 	my $browser = $_pfm->browser;
 	$browser->mouse_mode(!$browser->mouse_mode);
@@ -1059,6 +1084,131 @@ sub handlefind_incremental {
 		$_screen->listing->show();
 	}
 	$_screen->set_deferred_refresh(R_MENU);
+}
+
+=item handleedit()
+
+Starts the editor for editing the current fileZ<>(s).
+
+=cut
+
+sub handleedit {
+	my ($self) = @_;
+	my $do_this;
+	$_screen->alternate_off()->clrscr()->at(0,0)->cooked_echo();
+	$do_this = sub {
+		my $file = shift;
+		system $_pfm->config->{editor}." \Q$file->{name}\E"
+			and $_pfm->_screen->display_error('Editor failed');
+	};
+	$_pfm->state->directory->apply($do_this);
+	$_screen->alternate_on() if $_pfm->config->{altscreen_mode};
+	$_screen->raw_noecho()->set_deferred_refresh(R_CLRSCR);
+}
+
+=item handlechown()
+
+Handles changing the owner of a file.
+
+=cut
+
+sub handlechown {
+	my ($self) = @_;
+	my ($newuid, $do_this);
+	my $prompt = 'New [user][:group] ';
+	if ($_pfm->state->{multiple_mode}) {
+		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO | R_DIRLIST);
+	} else {
+		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO);
+		$_screen->listing->markcurrentline('U');
+	}
+	$_screen->clear_footer()->at(0,0)->clreol()->cooked_echo();
+	chomp($newuid = $_pfm->history->input(H_MODE, $prompt));
+	$_screen->raw_noecho();
+	return if ($newuid eq '');
+	$do_this = sub {
+		my $file = shift;
+		$_screen->at(1,0)->clreol();
+		if (system ('chown', $newuid, $file->{name})) {
+			$_screen->neat_error('Change owner failed');
+		}
+	};
+	$_pfm->state->directory->apply($do_this);
+}
+
+=item handlechmod()
+
+Handles changing the mode (permission bits) of a file.
+
+=cut
+
+sub handlechmod {
+	my ($self) = @_;
+	my ($newmode, $do_this);
+	my $prompt = 'New mode [ugoa][-=+][rwxslt] or octal: ';
+	if ($_pfm->state->{multiple_mode}) {
+		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO | R_DIRLIST); # R_DIRFILTER?
+	} else {
+		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO);
+		$_screen->listing->markcurrentline('A');
+	}
+	$_screen->clear_footer()->at(0,0)->clreol()->cooked_echo();
+	chomp($newmode = $_pfm->history->input(H_MODE, $prompt));
+	$_screen->raw_noecho();
+	return if ($newmode eq '');
+	if ($newmode =~ s/^\s*(\d+)\s*$/oct($1)/e) {
+		$do_this = sub {
+			my $file = shift;
+			unless (chmod $newmode, $file->{name}) {
+				$_screen->neat_error($!);
+			}
+		};
+	} else {
+		$do_this = sub {
+			my $file = shift;
+			$_screen->at(1,0)->clreol();
+			if (system 'chmod', $newmode, $file->{name}) {
+				$_screen->neat_error('Change mode failed');
+			}
+		};
+	}
+	$_pfm->state->directory->apply($do_this);
+}
+
+=item handletime()
+
+Handles changing the timestamp of a file.
+
+=cut
+
+sub handletime {
+	my ($self) = @_;
+	my ($newtime, $do_this, @cmdopts);
+	my $prompt = "Timestamp [[CC]YY]-MM-DD hh:mm[.ss]: ";
+	if ($_pfm->state->{multiple_mode}) {
+		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO | R_DIRLIST);
+	} else {
+		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO);
+		$_screen->listing->markcurrentline('T');
+	}
+	$_screen->clear_footer()->at(0,0)->clreol()->cooked_echo();
+	$newtime = $_pfm->history->input(H_TIME, $prompt,
+		strftime ("%Y-%m-%d %H:%M.%S", localtime time));
+#	if ($#time_history > 0 and $time_history[-1] eq $time_history[-2]) {
+#		pop @time_history;
+#	}
+	$_screen->raw_noecho();
+	$newtime =~ tr/0-9.//cd;
+	return if ($newtime eq '');
+	@cmdopts = ($newtime eq '.') ? () : ('-t', $newtime);
+	$do_this = sub {
+		my $file = shift;
+		$_screen->at(1,0)->clreol();
+		if (system ('touch', @cmdopts, $file->{name})) {
+			$_screen->neat_error('Set timestamp failed');
+		}
+	};
+	$_pfm->state->directory->apply($do_this);
 }
 
 ##########################################################################

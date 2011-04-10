@@ -226,7 +226,7 @@ Displays menu, footer and headings.
 sub show {
 	my $self = shift;
 	$self->show_menu();
-	$self->show_headings($_pfm->state->{swap_mode}, HEADING_DISKINFO);
+	$self->show_headings($_pfm->browser->swap_mode, HEADING_DISKINFO);
 	$self->show_footer();
 	return $self;
 }
