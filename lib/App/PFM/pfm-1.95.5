@@ -1495,39 +1495,39 @@ sub convwhite {
 #	}
 #	return 1;
 #}
-
-sub promptforboundarytime {
-	my $prompt = ($_[0] eq 'a' ? 'After' : 'Before')
-			   . " modification time CCYY-MM-DD hh:mm[.ss]: ";
-	my $boundarytime;
-	$scr->at(0,0)->clreol();
-	cooked_echo();
-	$boundarytime = readintohist(\@time_history, $prompt);
-	# show_menu is done in handleinclude
-	raw_noecho();
-	$boundarytime =~ tr/0-9.//dc;
-	$boundarytime =~ /(....)(..)(..)(..)(..)(\...)?$/;
-	$boundarytime = mktime($6, $5, $4, $3, $2-1, $1-1900, 0, 0, 0);
-	return $boundarytime;
-}
-
-sub promptforwildfilename {
-	my $prompt = 'Wild filename (regular expression): ';
-	my $wildfilename;
-	$scr->at(0,0)->clreol();
-	cooked_echo();
-	$wildfilename = readintohist(\@regex_history, $prompt);
-	# show_menu is done in handleinclude
-	raw_noecho();
-	eval "/$wildfilename/";
-	if ($@) {
-		display_error($@);
-		$scr->key_pressed($IMPORTANTDELAY);
-		$wildfilename = '^$';   # clear illegal regexp
-	}
-	return $wildfilename;
-}
-
+#
+#sub promptforboundarytime {
+#	my $prompt = ($_[0] eq 'a' ? 'After' : 'Before')
+#			   . " modification time CCYY-MM-DD hh:mm[.ss]: ";
+#	my $boundarytime;
+#	$scr->at(0,0)->clreol();
+#	cooked_echo();
+#	$boundarytime = readintohist(\@time_history, $prompt);
+#	# show_menu is done in handleinclude
+#	raw_noecho();
+#	$boundarytime =~ tr/0-9.//dc;
+#	$boundarytime =~ /(....)(..)(..)(..)(..)(\...)?$/;
+#	$boundarytime = mktime($6, $5, $4, $3, $2-1, $1-1900, 0, 0, 0);
+#	return $boundarytime;
+#}
+#
+#sub promptforwildfilename {
+#	my $prompt = 'Wild filename (regular expression): ';
+#	my $wildfilename;
+#	$scr->at(0,0)->clreol();
+#	cooked_echo();
+#	$wildfilename = readintohist(\@regex_history, $prompt);
+#	# show_menu is done in handleinclude
+#	raw_noecho();
+#	eval "/$wildfilename/";
+#	if ($@) {
+#		display_error($@);
+#		$scr->key_pressed($IMPORTANTDELAY);
+#		$wildfilename = '^$';   # clear illegal regexp
+#	}
+#	return $wildfilename;
+#}
+#
 #sub clearcolumn {
 #	my $spaces = ' ' x $infolength;
 #	foreach ($BASELINE .. $BASELINE+$screenheight) {
@@ -2558,67 +2558,69 @@ sub handlemore {
 	return $do_a_refresh;
 }
 
-sub handleinclude { # include/exclude flag (from keypress)
-	local $_;
-	my $exin = shift;
-	my $do_a_refresh = $R_MENU | $R_PATHINFO;
-	my ($criterion, $headerlength);
-	our ($wildfilename, $boundarytime, $entry);
-	# $wildfilename could have been declared using my(), but that will prevent
-	# changes in its value to be noticed by the anonymous sub
-	$headerlength = show_menu($HEADER_INCLUDE);
-	# modify header to say "exclude" when 'x' was pressed
-	if ($exin =~ /x/i) {
-		$scr->at(0,0)->putcolored($framecolors{$color_mode}{header}, 'Ex');
-	}
-	$exin =~ tr/ix/* /;
-	my $key = lc($scr->at(0, $headerlength+1)->getch());
-	if      ($key eq 'o') { # oldmarks
-		$criterion = sub { $entry->{selected} eq '.' };
-	} elsif ($key eq 'e') { # every
-		$criterion = sub { $entry->{name} !~ /^\.\.?$/ };
-	} elsif ($key eq 'u') { # user only
-		$criterion = sub { $entry->{uid} =~ /$ENV{USER}/ };
-	} elsif ($key =~ /^[ab]$/) { # after/before mtime
-		if ($boundarytime = promptforboundarytime($key)) {
-			# this was the behavior of PFM.COM, IIRC
-			$wildfilename = promptforwildfilename();
-			if ($key eq 'a') {
-				$criterion = sub {
-								$entry->{name} =~ /$wildfilename/
-								and $entry->{mtime} > $boundarytime;
-							};
-			} else {
-				$criterion = sub {
-								$entry->{name} =~ /$wildfilename/
-								and $entry->{mtime} < $boundarytime;
-							};
-			}
-		} # if $boundarytime
-	} elsif ($key eq 'f') { # regular files
-		$wildfilename = promptforwildfilename();
-		# it seems that ("a" =~ //) == false, that comes in handy
-		$criterion    = sub {
-							$entry->{name} =~ /$wildfilename/
-							and $entry->{type} eq '-';
-						};
-	}
-	if ($criterion) {
-		foreach $entry (@showncontents) {
-			if ($criterion->()) {
-				if ($entry->{selected} eq '*' && $exin eq ' ') {
-					exclude($entry);
-				} elsif ($entry->{selected} eq '.' && $exin eq ' ') {
-					$entry->{selected} = $exin;
-				} elsif ($entry->{selected} ne '*' && $exin eq '*') {
-					include($entry);
-				}
-				$do_a_refresh |= $R_SCREEN;
-			}
-		}
-	}
-	return $do_a_refresh;
-}
+#sub handleinclude { # include/exclude flag (from keypress)
+#	local $_;
+#	my $exin = shift;
+#	my $do_a_refresh = $R_MENU | $R_PATHINFO;
+#	my ($criterion, $headerlength);
+#	our ($wildfilename, $boundarytime, $entry);
+#	# $wildfilename could have been declared using my(), but that will prevent
+#	# changes in its value to be noticed by the anonymous sub
+#	$headerlength = show_menu($HEADER_INCLUDE);
+#	# modify header to say "exclude" when 'x' was pressed
+#	if ($exin =~ /x/i) {
+#		$scr->at(0,0)->putcolored($framecolors{$color_mode}{header}, 'Ex');
+#	}
+#	$exin =~ tr/ix/* /;
+#	my $key = lc($scr->at(0, $headerlength+1)->getch());
+#	if      ($key eq 'o') { # oldmarks
+#		$criterion = sub { $entry->{selected} eq $directory->OLDMARK };
+#	} elsif ($key eq 'n') { # newmarks
+#		$criterion = sub { $entry->{selected} eq $directory->NEWMARK };
+#	} elsif ($key eq 'e') { # every
+#		$criterion = sub { $entry->{name} !~ /^\.\.?$/ };
+#	} elsif ($key eq 'u') { # user only
+#		$criterion = sub { $entry->{uid} =~ /$ENV{USER}/ };
+#	} elsif ($key =~ /^[ab]$/) { # after/before mtime
+#		if ($boundarytime = promptforboundarytime($key)) {
+#			# this was the behavior of PFM.COM, IIRC
+#			$wildfilename = promptforwildfilename();
+#			if ($key eq 'a') {
+#				$criterion = sub {
+#								$entry->{name} =~ /$wildfilename/
+#								and $entry->{mtime} > $boundarytime;
+#							};
+#			} else {
+#				$criterion = sub {
+#								$entry->{name} =~ /$wildfilename/
+#								and $entry->{mtime} < $boundarytime;
+#							};
+#			}
+#		} # if $boundarytime
+#	} elsif ($key eq 'f') { # regular files
+#		$wildfilename = promptforwildfilename();
+#		# it seems that ("a" =~ //) == false, that comes in handy
+#		$criterion    = sub {
+#							$entry->{name} =~ /$wildfilename/
+#							and $entry->{type} eq '-';
+#						};
+#	}
+#	if ($criterion) {
+#		foreach $entry (@showncontents) {
+#			if ($criterion->()) {
+#				if ($entry->{selected} eq '*' && $exin eq ' ') {
+#					exclude($entry);
+#				} elsif ($entry->{selected} eq '.' && $exin eq ' ') {
+#					$entry->{selected} = $exin;
+#				} elsif ($entry->{selected} ne '*' && $exin eq '*') {
+#					include($entry);
+#				}
+#				$do_a_refresh |= $R_SCREEN;
+#			}
+#		}
+#	}
+#	return $do_a_refresh;
+#}
 
 sub handlercs {
 	my $do_a_refresh = $R_STRIDE | $R_HEADINGS;
@@ -3346,7 +3348,7 @@ sub handlecopyrename {
 #			$scr->clreol();
 #		} elsif
 		if (system @statecmd, $loopfile->{name}, $newnameexpanded) {
-			$do_a_refresh |= neat_error($state eq 'C' ? 'Copy failed' : 'Move failed');
+			$do_a_refresh |= neat_error($state eq 'C' ? 'Copy failed' : 'Rename failed');
 		} elsif ($newnameexpanded !~ m!/!) {
 			# is newname present in @dircontents? push otherwise
 			$findindex = 0;

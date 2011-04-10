@@ -73,12 +73,12 @@ Initializes new instances. Called from the constructor.
 =cut
 
 sub _init {
-	my ($self, $path, $parent, $white, $mark) = @_;
-	if (defined $parent) {
-		$self->{_parent} = $parent;
+	my ($self, %o) = @_; # ($entry, $parent, $white, $mark)
+	if (defined $o{parent}) {
+		$self->{_parent} = $o{parent};
 	}
-	if (defined $path) {
-		$self->stat_entry($path, $white, $mark);
+	if (defined $o{entry}) {
+		$self->stat_entry($o{entry}, $o{white}, $o{mark});
 	}
 	# the constructor returns $self for us.
 }
@@ -298,7 +298,7 @@ sub apply {
 	$directory->unregister($self);
 	$do_this->($self, @args);
 	if ($state->{multiple_mode}) {
-		$to_mark = $directory->OLDMARK;
+		$to_mark = $directory->M_OLDMARK;
 	} else {
 		$to_mark = $self->{selected};
 	}

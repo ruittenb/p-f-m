@@ -39,6 +39,7 @@ use App::PFM::Util;
 #use App::PFM::Application;	# imports the S_* constants
 use App::PFM::History;		# imports the H_* constants
 use App::PFM::Screen;		# imports the R_* constants
+use App::PFM::Directory;	# imports the M_* constants
 
 use POSIX qw(strftime mktime);
 use Config;
@@ -46,10 +47,10 @@ use Config;
 use strict;
 
 use constant {
-	QUOTE_OFF    => 0,
-	QUOTE_ON     => 1,
-	REFRESH_HUSH => 0,
-	REFRESH_ASK  => 1,
+	QUOTE_OFF	=> 0,
+	QUOTE_ON	=> 1,
+	FALSE		=> 0,
+	TRUE		=> 1,
 };
 
 my %NUMFORMATS = ( 'hex' => '%#04lx', 'oct' => '%03lo');
@@ -189,10 +190,10 @@ sub _selectednames {
 	my ($self, $qif) = @_;
 	my $directory = $_pfm->state->directory;
 	my @res =	map  {
-					$directory->exclude($_, $directory->OLDMARK);
+					$directory->exclude($_, M_OLDMARK);
 					condquotemeta($qif, $_->{name});
 				}
-				grep { $_->{selected} eq $directory->MARK }
+				grep { $_->{selected} eq M_MARK }
 				@{$directory->showncontents};
 	return @res;
 }
@@ -310,6 +311,51 @@ sub _followmode {
 		   : $file->mode2str((stat $file->{name})[2]);
 }
 
+=item _promptforboundarytime()
+
+Prompts for entering a time determining which files should be
+included (marked) or excluded (unmarked).
+
+=cut
+
+sub _promptforboundarytime {
+	my ($self, $key) = @_;
+	my $prompt = ($key eq 'a' ? 'After' : 'Before')
+			   . " modification time CCYY-MM-DD hh:mm[.ss]: ";
+	my $boundarytime;
+	$_screen->at(0,0)->clreol()->cooked_echo();
+	$boundarytime = $_pfm->history->input(H_TIME, $prompt);
+	# show_menu is done in handleinclude
+	$_screen->raw_noecho();
+	$boundarytime =~ tr/0-9.//dc;
+	$boundarytime =~ /(....)(..)(..)(..)(..)(\...)?$/;
+	$boundarytime = mktime($6, $5, $4, $3, $2-1, $1-1900, 0, 0, 0);
+	return $boundarytime;
+}
+
+=item _promptforwildfilename()
+
+Prompts for entering a regular expression determining which files
+should be included (marked) or excluded (unmarked).
+
+=cut
+
+sub _promptforwildfilename {
+	my ($self, $key) = @_;
+	my $prompt = 'Wild filename (regular expression): ';
+	my $wildfilename;
+	$_screen->at(0,0)->clreol()->cooked_echo();
+	$wildfilename = $_pfm->history->input(H_REGEX, $prompt);
+	# show_menu is done in handleinclude
+	$_screen->raw_noecho();
+	eval "/$wildfilename/";
+	if ($@) {
+		$_screen->display_error($@)->key_pressed($_screen->IMPORTANTDELAY);
+		$wildfilename = '^$'; # clear illegal regexp
+	}
+	return $wildfilename;
+}
+
 ##########################################################################
 # constructor, getters and setters
 
@@ -392,7 +438,7 @@ sub handle {
 #		/^[yo]$/io			and $self->handlecommand($_),		last;
 		/^e$/io				and $self->handleedit(),			last;
 #		/^(?:d|del)$/io		and $self->handledelete(),			last;
-#		/^[ix]$/io			and $self->handleinclude($_),		last;
+		/^[ix]$/io			and $self->handleinclude($_),		last;
 #		/^\r$/io			and $self->handleenter(),			last;
 		/^s$/io				and $self->handleshow(),			last;
 #		/^kmous$/o			and $self->handlemousedown(),		last;
@@ -910,7 +956,7 @@ Handles marking (including or excluding) a file.
 sub handleselect {
 	my ($self) = @_;
 	my $currentfile  = $_pfm->browser->currentfile;
-	my $was_selected = $currentfile->{selected} eq App::PFM::Directory->MARK;
+	my $was_selected = $currentfile->{selected} eq M_MARK;
 	if ($was_selected) {
 		$_pfm->state->directory->exclude($currentfile, ' ');
 	} else {
@@ -969,8 +1015,7 @@ Handles the uppercase C<L> key: create hard or symbolic link.
 
 sub handlelink {
 	my ($self) = @_;
-	my ($newname, $do_this, $targetstring, $testname, $headerlength,
-		$absrel, $histpush);
+	my ($newname, $do_this, $testname, $headerlength, $absrel, $histpush);
 	my @lncmd = $_clobber_mode ? qw(ln -f) : qw(ln);
 	
 	if ($_pfm->state->{multiple_mode}) {
@@ -1003,8 +1048,9 @@ sub handlelink {
 	$do_this = sub {
 		my $file = shift;
 		my $newnameexpanded = $newname;
-		my $currentdir      = $_pfm->state->directory->path;
-		my ($simpletarget, $simplename);
+		my $state           = $_pfm->state;
+		my $currentdir      = $state->directory->path;
+		my ($simpletarget, $simplename, $targetstring, $mark);
 		# $self is the CommandHandler (because closure)
 		$self->_expand_escapes($self->QUOTE_OFF, $newnameexpanded, $file);
 		if (-d $newnameexpanded) {
@@ -1036,8 +1082,14 @@ sub handlelink {
 			$_screen->neat_error('Linking failed');
 		} elsif ($newnameexpanded !~ m!/!) {
 			# is newname present in @dircontents? push otherwise
-			$_pfm->state->directory
-				->addifabsent($newnameexpanded, '', ' ', REFRESH_ASK);
+			# TODO if newnameexpanded == swapdir, add there
+			# TODO let cursor follow around
+			$mark = ($state->{multiple_mode}) ? M_NEWMARK : " ";
+			$state->directory->addifabsent(
+				entry   => $newnameexpanded,
+				white   => '',
+				mark    => $mark,
+				refresh => TRUE);
 		}
 	};
 	$_pfm->state->directory->apply($do_this);
@@ -1371,6 +1423,72 @@ sub handleunwo {
 		}
 	};
 	$_pfm->state->directory->apply($do_this);
+}
+
+=item handleinclude()
+
+Handles including (marking) and excluding (unmarking) files.
+
+=cut
+
+sub handleinclude { # include/exclude flag (from keypress)
+	my ($self, $exin) = @_;
+	my ($criterion, $menulength, $key, $wildfilename, $boundarytime, $entry);
+	my $directory = $_pfm->state->directory;
+	$_screen->set_deferred_refresh(R_MENU | R_PATHINFO);
+	$exin = lc $exin;
+	$menulength = $_screen->frame->show_menu(
+		$exin eq 'x'
+		? $_screen->frame->MENU_EXCLUDE
+		: $_screen->frame->MENU_INCLUDE);
+	$key = lc($_screen->at(0, $menulength+1)->getch());
+	if      ($key eq 'o') { # oldmarks
+		$criterion = sub { my $file = shift; $file->{selected} eq M_OLDMARK };
+	} elsif ($key eq 'n') { # newmarks
+		$criterion = sub { my $file = shift; $file->{selected} eq M_NEWMARK };
+	} elsif ($key eq 'e') { # every
+		$criterion = sub { my $file = shift; $file->{name} !~ /^\.\.?$/ };
+	} elsif ($key eq 'u') { # user only
+		$criterion = sub { my $file = shift; $file->{uid} =~ /$ENV{USER}/ };
+	} elsif ($key =~ /^[ab]$/) { # after/before mtime
+		if ($boundarytime = $self->_promptforboundarytime($key)) {
+			# this was the behavior of PFM.COM, IIRC
+			$wildfilename = $self->_promptforwildfilename();
+			if ($key eq 'a') {
+				$criterion = sub {
+					my $file = shift;
+					$file->{name} =~ /$wildfilename/
+						and $file->{mtime} > $boundarytime;
+				};
+			} else {
+				$criterion = sub {
+					my $file = shift;
+					$file->{name} =~ /$wildfilename/
+						and $file->{mtime} < $boundarytime;
+				};
+			}
+		} # if $boundarytime
+	} elsif ($key eq 'f') { # regular files
+		$wildfilename = $self->_promptforwildfilename();
+		# it seems that ("a" =~ //) == false, that comes in handy
+		$criterion = sub {
+			my $file = shift;
+			$file->{name} =~ /$wildfilename/
+				and $file->{type} eq '-';
+		};
+	}
+	if ($criterion) {
+		foreach $entry (@{$directory->showncontents}) {
+			if ($criterion->($entry)) {
+				if ($exin eq 'x') {
+					$directory->exclude($entry);
+				} else {
+					$directory->include($entry);
+				}
+				$_screen->set_deferred_refresh(R_SCREEN);
+			}
+		}
+	}
 }
 
 ##########################################################################
