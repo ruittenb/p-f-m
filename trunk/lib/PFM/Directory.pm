@@ -343,52 +343,59 @@ sub prepare {
 =item chdir()
 
 Tries to change the current working directory, if necessary using B<CDPATH>.
-If successful, it stores the previous state in @PFM::Application::states
+If successful, it stores the previous state in @PFM::Application::_states
 and executes the 'chdirautocmd' from the F<.pfmrc> file.
 
 =cut
 
 sub chdir {
-	my ($self, $target, $swapping) = @_;
-	my ($result, $chdirautocmd);
+	my ($self, $nextdir, $swapping, $direction) = @_;
+	my ($success, $chdirautocmd, $nextpos);
 	my $screen = $_pfm->screen;
-	my $path = $self->{_path};
-	if ($target eq '') {
-		$target = $ENV{HOME};
-	} elsif (-d $target and $target !~ m!^/!) {
-		$target = "$path/$target";
-	} elsif ($target !~ m!/!) {
+	my $prevdir = $self->{_path};
+	if ($nextdir eq '') {
+		$nextdir = $ENV{HOME};
+	} elsif (-d $nextdir and $nextdir !~ m!^/!) {
+		$nextdir = "$prevdir/$nextdir";
+	} elsif ($nextdir !~ m!/!) {
 		foreach (split /:/, $ENV{CDPATH}) {
-			if (-d "$_/$target") {
-				$target = "$_/$target";
+			if (-d "$_/$nextdir") {
+				$nextdir = "$_/$nextdir";
 				$screen->at(0,0)->clreol()
-					->display_error("Using $target")
+					->display_error("Using $nextdir")
 					->at(0,0);
 				last;
 			}
 		}
 	}
-	$target = canonicalize_path($target);
-	if ($result = chdir $target and $target ne $path) {
+	$nextdir = canonicalize_path($nextdir);
+	if ($success = chdir $nextdir and $nextdir ne $prevdir) {
+		# store the cursor position in the state
+		$_pfm->state->{_position} = $_pfm->browser->currentfile->{name};
 		unless ($swapping) {
 			$_pfm->state($_pfm->S_PREV, $_pfm->state->clone($_pfm));
 		}
 		if ($_path_mode eq 'phys') {
 			$self->{_path} = getcwd();
 		} else {
-			$self->{_path} = $target;
+			$self->{_path} = $nextdir;
 		}
-		$chdirautocmd = $_pfm->config->{chdirautocmd};
-		system("$chdirautocmd") if length($chdirautocmd);
+		# restore the cursor position
 		if ($swapping) {
+			$_pfm->browser->position_at($_pfm->state->{_position});
 			$screen->set_deferred_refresh($screen->R_SCREEN);
 		} else {
+			$nextpos = $direction eq 'up'
+				? basename($prevdir)
+				: $direction eq 'down' ? '..' : '.';
+			$_pfm->browser->position_at($nextpos);
 			$screen->set_deferred_refresh($screen->R_CHDIR);
 			$self->_init_filesystem_info();
 		}
-		# TODO store position_at in state->_position
+		$chdirautocmd = $_pfm->config->{chdirautocmd};
+		system("$chdirautocmd") if length($chdirautocmd);
 	}
-	return $result;
+	return $success;
 }
 
 =item mode2str()

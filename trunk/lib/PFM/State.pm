@@ -57,7 +57,7 @@ sub _init {
 	$self->{_directory}		= new PFM::Directory($pfm);
 	# We might not have useful values for these yet since the config file
 	# might not have been read yet.
-	$self->{_position}		= '.';
+	$self->{_position}		= undef;
 	$self->{multiple_mode}	= 0;
 	$self->{dot_mode}		= undef;
 	$self->{radix_mode}		= undef;
@@ -88,7 +88,7 @@ sub _clone {
 
 =item directory()
 
-Getter for the PFM::Directory object.
+Getter/setter for the PFM::Directory object.
 
 =cut
 
@@ -106,8 +106,8 @@ If a new directory is provided, it will be passed to PFM::Directory.
 =cut
 
 sub currentdir {
-	my ($self, $value, $force) = @_;
-	return $self->{_directory}->path($value, $force);
+	my $self = shift;
+	return $self->{_directory}->path(@_);
 }
 
 ##########################################################################

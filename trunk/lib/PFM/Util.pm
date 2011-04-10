@@ -123,7 +123,7 @@ containing the file (dirname) for the specified path.
 =cut
 
 sub dirname ($) {
-	$_[0] =~ m!^(.*)/.+?!;
+	$_[0] =~ m{^(.*)/.+?};
 	return length($1) ? $1
 					  : $_[0] =~ m!^/! ? '/'
 									   : '.';
