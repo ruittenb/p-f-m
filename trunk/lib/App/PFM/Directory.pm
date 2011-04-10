@@ -34,7 +34,7 @@ actions that can be performed on them.
 
 package App::PFM::Directory;
 
-use base 'App::PFM::Abstract';
+use base qw(App::PFM::Abstract Exporter);
 
 use App::PFM::Job::Subversion;
 use App::PFM::Job::Cvs;
@@ -48,10 +48,12 @@ use strict;
 
 use constant {
 	SLOWENTRIES	=> 300,
-	MARK		=> '*',
-	OLDMARK		=> '.',
-	NEWMARK		=> '~',
+	M_MARK		=> '*',
+	M_OLDMARK	=> '.',
+	M_NEWMARK	=> '~',
 };
+
+our @EXPORT = qw(M_MARK M_OLDMARK M_NEWMARK);
 
 my $DFCMD = ($^O eq 'hpux') ? 'bdf' : ($^O eq 'sco') ? 'dfspace' : 'df -k';
 
@@ -396,7 +398,7 @@ sub countcontents {
 	$self->init_dircount();
 	foreach my $i (0..$#_) {
 		$self->{_total_nr_of   }{$_[$i]{type}}++;
-		$self->{_selected_nr_of}{$_[$i]{type}}++ if ($_[$i]{selected} eq MARK);
+		$self->{_selected_nr_of}{$_[$i]{type}}++ if $_[$i]{selected} eq M_MARK;
 	}
 }
 
@@ -439,16 +441,16 @@ sub readcontents {
 	}
 	foreach $entry (@allentries) {
 		# have the mark cleared on first stat with ' '
-		$self->add($entry, '', ' ');
-		#$file = new App::PFM::File($entry, $self->{_path}, '', ' ');
-		#push @{$self->{_dircontents}}, $file;
-		#$self->register($file);
+		$self->add(
+			entry => $entry,
+			white => '',
+			mark  => ' ');
 	}
 	foreach $entry (@white_entries) {
-		$self->add($entry, 'w', ' ');
-		#$file = new App::PFM::File($entry, $self->{_path}, 'w', ' ');
-		#push @{$self->{_dircontents}}, $file;
-		#$self->register($file);
+		$self->add(
+			entry => $entry,
+			white => 'w',
+			mark  => ' ');
 	}
 	$screen->set_deferred_refresh($screen->R_MENU | $screen->R_HEADINGS);
 	$self->checkrcsapplicable() if $_pfm->config->{autorcs};
@@ -488,23 +490,23 @@ Checks if the file is not yet in the directory. If not, add()s it.
 =cut
 
 sub addifabsent {
-	my ($self, $entry, $white, $mark, $flag_refresh) = @_;
+	my ($self, %o) = @_; # ($entry, $white, $mark, $refresh);
 	my $findindex = 0;
 	my $dircount  = $#{$self->{_dircontents}};
 	my $file;
 	$findindex++ while ($findindex <= $dircount and
-					   $entry ne ${$self->{_dircontents}}[$findindex]{name});
+					   $o{entry} ne ${$self->{_dircontents}}[$findindex]{name});
 	if ($findindex > $dircount) {
-		$self->add($entry, $white, $mark, $flag_refresh);
+		$self->add(%o);
 	} else {
 		$file = ${$self->{_dircontents}}[$findindex];
 		$self->unregister($file);
 		# copy $white from caller, it may be a whiteout.
 		# copy $mark  from file (preserve).
-		$file->stat_entry($file->{name}, $white, $file->{selected});
+		$file->stat_entry($file->{name}, $o{white}, $file->{selected});
 		$self->register($file);
 		# flag screen refresh
-		if ($flag_refresh) {
+		if ($o{refresh}) {
 			my $screen = $_pfm->screen;
 			$screen->set_deferred_refresh(
 				$screen->R_DIRLIST | $screen->R_DIRFILTER | $screen->R_DIRSORT);
@@ -519,11 +521,11 @@ Adds the entry as file to the directory. Also calls register().
 =cut
 
 sub add {
-	my ($self, $entry, $white, $mark, $flag_refresh) = @_;
-	my $file = new App::PFM::File($entry, $self->{_path}, $white, $mark);
+	my ($self, %o) = @_; # ($entry, $white, $mark, $refresh);
+	my $file = new App::PFM::File(%o, parent => $self->{_path});
 	push @{$self->{_dircontents}}, $file;
 	$self->register($file);
-	if ($flag_refresh) {
+	if ($o{refresh}) {
 		my $screen = $_pfm->screen;
 		$screen->set_deferred_refresh(
 			$screen->R_DIRLIST | $screen->R_DIRFILTER | $screen->R_DIRSORT);
@@ -539,7 +541,7 @@ Adds the file to the internal counters.
 sub register {
 	my ($self, $entry) = @_;
 	$self->{_total_nr_of}{$entry->{type}}++;
-	if ($entry->{selected} eq MARK) {
+	if ($entry->{selected} eq M_MARK) {
 		$self->include($entry);
 	}
 	$_pfm->screen->set_deferred_refresh($_pfm->screen->R_DISKINFO);
@@ -554,9 +556,9 @@ Removes the file from the internal counters.
 sub unregister {
 	my ($self, $entry) = @_;
 	$self->{_total_nr_of}{$entry->{type}}--;
-	if ($entry->{selected} eq MARK) {
+	if ($entry->{selected} eq M_MARK) {
 		# exclude it but leave the mark in place
-		$self->exclude($entry, MARK);
+		$self->exclude($entry, M_MARK);
 	}
 	$_pfm->screen->set_deferred_refresh($_pfm->screen->R_DISKINFO);
 }
@@ -569,9 +571,10 @@ Marks a file.
 
 sub include {
 	my ($self, $entry) = @_;
-	$entry->{selected} = MARK;
+	return if ($entry->{selected} eq M_MARK);
 	$self->{_selected_nr_of}{$entry->{type}}++;
 	$entry->{type} =~ /-/ and $self->{_selected_nr_of}{bytes} += $entry->{size};
+	$entry->{selected} = M_MARK;
 	$_pfm->screen->set_deferred_refresh($_pfm->screen->R_DISKINFO);
 }
 
@@ -583,10 +586,11 @@ Removes a file's mark.
 
 sub exclude {
 	my ($self, $entry, $oldmark) = @_;
-	$oldmark ||= ' ';
-	$entry->{selected} = $oldmark;
-	$self->{_selected_nr_of}{$entry->{type}}--;
-	$entry->{type} =~ /-/ and $self->{_selected_nr_of}{bytes} -= $entry->{size};
+	if ($entry->{selected} eq M_MARK) {
+		$self->{_selected_nr_of}{$entry->{type}}--;
+		$entry->{type} =~ /-/ and $self->{_selected_nr_of}{bytes} -= $entry->{size};
+	}
+	$entry->{selected} = $oldmark || ' ';
 	$_pfm->screen->set_deferred_refresh($_pfm->screen->R_DISKINFO);
 }
 
@@ -633,7 +637,7 @@ sub apply {
 		my $screen = $_pfm->screen;
 		foreach $i (0 .. $#{$self->{_showncontents}}) {
 			$loopfile = $self->{_showncontents}[$i];
-			if ($loopfile->{selected} eq MARK) {
+			if ($loopfile->{selected} eq M_MARK) {
 				$screen->at($screen->PATHLINE, 0)->clreol()
 					->puts($loopfile->{name})->at($screen->PATHLINE+1, 0);
 				$loopfile->apply($do_this, @args);

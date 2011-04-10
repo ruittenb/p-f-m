@@ -447,7 +447,7 @@ their marks in the current directory.
 sub ok_to_remove_marks {
 	my $self = shift;
 	my $sure;
-	if ($_pfm->config->{remove_marks_ok} or !$_diskinfo->mark_info()) {
+	if ($_pfm->config->{remove_marks_ok} or $_diskinfo->mark_info() <= 0) {
 		return 1;
 	}
 	$_diskinfo->show();

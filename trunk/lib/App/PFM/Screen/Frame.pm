@@ -47,7 +47,8 @@ use constant {
 	MENU_MORE			=> 2,
 	MENU_SORT			=> 4,
 	MENU_INCLUDE		=> 8,
-	MENU_LNKTYPE		=> 16,
+	MENU_EXCLUDE		=> 16,
+	MENU_LNKTYPE		=> 32,
 	HEADING_DISKINFO	=> 0,
 	HEADING_YCOMMAND	=> 1,
 	HEADING_SIGNAL		=> 2,
@@ -161,10 +162,14 @@ sub _getmenu {
 		return	'Sort by: Name, Extension, Size, Date, Type, Inode, Vers '
 		.		'(ignorecase, reverse):';
 	} elsif ($mode & MENU_MORE) {
-		return	'Bookmark Config Edit-any mkFifo sHell Kill-chld Mkdir '
+		return	'Bookmark Config Edit-any mkFifo Go sHell Kill-chld Mkdir '
 		.		'Physical-path Show-dir Version Write-hist alTscreen';
+	} elsif ($mode & MENU_EXCLUDE) {
+		return	'Exclude? Every, Oldmarks, Newmarks, '
+		.		'After, Before, User or Files only:';
 	} elsif ($mode & MENU_INCLUDE) {
-		return	'Include? Every, Oldmarks, After, Before, User or Files only:';
+		return	'Include? Every, Oldmarks, Newmarks, '
+		.		'After, Before, User or Files only:';
 	} elsif ($mode & MENU_LNKTYPE) {
 		return	'Absolute, Relative symlink or Hard link:';
 	} else {
@@ -255,7 +260,7 @@ sub show_menu {
 	}
 	$color = $_pfm->config->{framecolors}{$_screen->color_mode}{menu};
 	$_screen->color($color)->puts(' ' x $do_multi)->puts($menu)->bold();
-	while ($menu =~ /[[:upper:]<>](?!nclude\?)/g) {
+	while ($menu =~ /[[:upper:]<>](?![xn]clude\?)/g) {
 		$pos = pos($menu) -1;
 		$_screen->at(0, $pos + 9*$do_multi)->puts(substr($menu, $pos, 1));
 	}
