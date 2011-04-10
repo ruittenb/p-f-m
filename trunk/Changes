@@ -25,8 +25,8 @@
 
 2.01.7
 
-* removed 'checkforupdates' configuration option; instead, start the
-  check in the background as soon as pfm is started.
+* removed 'checkforupdates' configuration option; pfm will start
+  the check in the background upon startup.
 * fixed bug where major/minor numbers of device files were lost
   after a window resize
 
