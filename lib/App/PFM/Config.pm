@@ -730,7 +730,7 @@ di=bold:ln=underscore:
 ## a    access time              15 (using "%y %b %d %H:%M" if len(%b) == 3)
 ## c    change time              15 (using "%y %b %d %H:%M" if len(%b) == 3)
 ## m    modification time        15 (using "%y %b %d %H:%M" if len(%b) == 3)
-## v    rcs(svn) info            >=4
+## v    versioning info          >=4
 ## d    device                   5?
 ## i    inode                    >=7 (system-dependent)
 ## l    link count               >=5 (system-dependent)

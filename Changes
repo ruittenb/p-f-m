@@ -1,3 +1,7 @@
+2.02.7
+
+* fixed bug with bookkeeping marked files
+
 2.02.6
 
 * changed F2 (previous) so that it remembers the window position

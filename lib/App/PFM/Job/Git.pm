@@ -56,7 +56,7 @@ sub _init {
 #
 #=item _gitmax()
 #
-#Determine which svn status character should be displayed on
+#Determine which status character should be displayed on
 #a directory that holds files with different status characters.
 #For this purpose, a relative priority is defined:
 #

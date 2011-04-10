@@ -65,7 +65,7 @@ my %LAYOUTFIELDS = (
 	'l' => 'nlink',
 	'i' => 'inode',
 	'd' => 'rdev',
-	'v' => 'svn',
+	'v' => 'rcs',
 	'f' => 'diskinfo',
 );
 
@@ -148,32 +148,6 @@ sub _highlightline {
 	$_screen->putcolored($linecolor, $self->fileline($currentfile));
 	$self->applycolor($screenline, FILENAME_SHORT, $currentfile);
 	$_screen->reset()->normal()->at($screenline, $_cursorcol);
-}
-
-=item _decidecolor()
-
-Decides which color should be used on a particular file.
-
-=cut
-
-sub _decidecolor {
-	my $self =  $_[0];
-	my %f   = %{$_[1]};
-	my $dircolors  = $_pfm->config->{dircolors}{$_screen->color_mode};
-	my %dircolors  = %{$_pfm->config->{dircolors}{$_screen->color_mode}};
-	$f{type}  eq 'w'			and return $dircolors{wh};
-	$f{nlink} ==  0 			and return $dircolors{lo};
-	$f{type}  eq 'd'			and return $dircolors{di};
-	$f{type}  eq 'l'			and return $dircolors{
-										isorphan($f{name}) ?'or':'ln' };
-	$f{type}  eq 'b'			and return $dircolors{bd};
-	$f{type}  eq 'c'			and return $dircolors{cd};
-	$f{type}  eq 'p'			and return $dircolors{pi};
-	$f{type}  eq 's'			and return $dircolors{so};
-	$f{type}  eq 'D'			and return $dircolors{'do'};
-	$f{type}  eq 'n'			and return $dircolors{nt};
-	$f{mode}  =~ /[xst]/		and return $dircolors{ex};
-	$f{name}  =~ /(\.\w+)$/		and return $dircolors{$1};
 }
 
 ##########################################################################
@@ -390,7 +364,7 @@ sub applycolor {
 	my $maxlength = $usemax ? 255 : $_maxfilenamelength-1;
 	$_screen->at($line, $_filenamecol)
 		->putcolored(
-			$self->_decidecolor($fileref),
+			$fileref->{color},
 			substr($fileref->{name}, 0, $maxlength));
 }
 
@@ -514,21 +488,12 @@ to the new layout.
 =cut
 
 sub reformat {
-#	my $self = shift;
-	my $directory = $_pfm->state->directory;
+	my ($self)      = @_;
+	my $directory   = $_pfm->state->directory;
 	my $dircontents = $directory->dircontents;
 	return unless @$dircontents; # may not have been initialized yet
 	foreach (@$dircontents) {
-		$_->{name_too_long} = length($_->{display}) > $_maxfilenamelength-1
-			? NAMETOOLONGCHAR : ' ';
-		unless ($_->{type} =~ /[bc]/) {
-			@{$_}{qw(size_num size_power)} =
-				fit2limit($_->{size}, $_maxfilesizelength);
-		}
-		@{$_}{qw(grand_num grand_power)} =
-			fit2limit($_->{grand}, $_maxgrandtotallength);
-		@{$_}{qw(atimestr ctimestr mtimestr)} =
-			map { $directory->stamp2str($_) } @{$_}{qw(atime ctime mtime)};
+		$_->format();
 	}
 }
 
