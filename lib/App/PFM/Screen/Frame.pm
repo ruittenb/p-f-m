@@ -158,7 +158,7 @@ sub _getmenu {
 	my ($self, $mode) = @_;
 	# do not take multiple mode into account at all
 	if		($mode & MENU_SORT) {
-		return	'Sort by: Name, Extension, Size, Date, Type, Inode '
+		return	'Sort by: Name, Extension, Size, Date, Type, Inode, Vers '
 		.		'(ignorecase, reverse):';
 	} elsif ($mode & MENU_MORE) {
 		return	'Bookmark Config Edit-any mkFifo sHell Kill-chld Mkdir '

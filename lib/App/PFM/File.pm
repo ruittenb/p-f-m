@@ -88,8 +88,8 @@ App::PFM::File instance.
 =cut
 
 sub _clone {
-	my ($self, $original, @args) = @_;
-	# TODO
+#	my ($self, $original, @args) = @_;
+	# nothing to do
 }
 
 =item _decidecolor()
@@ -209,7 +209,7 @@ sub stat_entry {
 				@white_entries =
 					map { chop; $_ } `$whitecommand \Q$self->{_parent}\E`;
 			}
-			if ($iswhite eq 'w' or grep /$entry/, @white_entries) {
+			if ($iswhite eq 'w' or grep /^$entry$/, @white_entries) {
 				$mode = 0160000;
 			}
 		}
@@ -237,26 +237,38 @@ sub stat_entry {
 	@{$self}{keys %$ptr} = values %$ptr;
 
 	$self->{type} = substr($self->{mode}, 0, 1);
+	$self->{display} = $entry . $self->filetypeflag();
 	if ($self->{type} eq 'l') {
 		$self->{target}  = readlink($self->{name});
 		$self->{display} = $entry . $filetypeflags{'l'}
 						. ' -> ' . $self->{target};
-	} elsif ($self->{type} eq '-' and $self->{mode} =~ /.[xst]/) {
-		$self->{display} = $entry . $filetypeflags{'x'};
 	} elsif ($self->{type} =~ /[bc]/) {
 		$self->{size_num} = sprintf("%d", $rdev / $RDEVTOMAJOR) .
 							MAJORMINORSEPARATOR . ($rdev % $RDEVTOMAJOR);
-		$self->{display} = $entry . $filetypeflags{$self->{type}};
-	} else {
-		$self->{display} = $entry . $filetypeflags{$self->{type}};
 	}
 	$self->format();
 	return $self;
 }
 
+=item filetypeflag()
+
+Returns the correct flag for this file type.
+
+=cut
+
+sub filetypeflag {
+	my ($self) = @_;
+	my $filetypeflags = $_pfm->config->{filetypeflags};
+	if ($self->{type} eq '-' and $self->{mode} =~ /.[xst]/) {
+		return $filetypeflags->{'x'};
+	} else {
+		return $filetypeflags->{$self->{type}};
+	}
+}
+
 =item format()
 
-Format the fields according to the current screen size.
+Formats the fields according to the current screen size.
 
 =cut
 
@@ -293,7 +305,7 @@ sub apply {
 	my $currentfile = $self;
 	my $to_mark;
 	$directory->unregister($self);
-	$do_this->(@args);
+	$do_this->($self, @args);
 	if ($state->{multiple_mode}) {
 		$to_mark = $directory->OLDMARK;
 	} else {

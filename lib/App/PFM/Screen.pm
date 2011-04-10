@@ -303,7 +303,7 @@ sub fit {
 	$self->set_deferred_refresh(R_CLRSCR);
 	# be careful here because the Screen object is instantiated
 	# before the browser and history objects.
-	$_pfm->browser and $_pfm->browser->validate_position();
+	$_pfm->browser and $_pfm->browser->validate_position(1);
 	$_pfm->history and $_pfm->history->handleresize();
 }
 

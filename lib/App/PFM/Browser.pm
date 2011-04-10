@@ -119,7 +119,7 @@ sub baseindex {
 	my ($self, $value) = @_;
 	if (defined $value) {
 		$_baseindex = $value;
-		$self->validate_position();
+		$self->validate_position(1);
 	}
 	return $_baseindex;
 }
@@ -135,7 +135,7 @@ sub setview {
 	return 0 unless (defined($line) && defined($index));
 	$_currentline = $line;
 	$_baseindex   = $index;
-	$self->validate_position();
+	$self->validate_position(1);
 	$_screen->set_deferred_refresh($_screen->R_DIRLIST);
 }
 
@@ -202,25 +202,32 @@ cursor is on-screen.
 =cut
 
 sub validate_position {
-	my $self = shift;
+	my ($self, $force_list) = @_;
 	# requirement: $showncontents[$_currentline+$_baseindex] is defined
 	my $screen        = $_pfm->screen;
 	my $screenheight  = $screen->screenheight;
+	my $oldbaseindex  = $_baseindex;
 	my @showncontents = @{$_pfm->state->directory->showncontents};
 	
 	if ($_currentline < 0) {
 		$_baseindex  += $_currentline;
 		$_baseindex   < 0 and $_baseindex = 0;
 		$_currentline = 0;
-		$screen->set_deferred_refresh($screen->R_DIRLIST);
+#		$screen->set_deferred_refresh($screen->R_DIRLIST);
 	}
 	if ($_currentline > $screenheight) {
 		$_baseindex  += $_currentline - $screenheight;
 		$_currentline = $screenheight;
-		$screen->set_deferred_refresh($screen->R_DIRLIST);
+#		$screen->set_deferred_refresh($screen->R_DIRLIST);
 	}
 	if ($_currentline + $_baseindex > $#showncontents) {
 		$_currentline = $#showncontents - $_baseindex;
+#		$screen->set_deferred_refresh($screen->R_DIRLIST);
+	}
+	# See if we need to refresh the listing.
+	# By limiting the number of listing-refreshes to when the baseindex
+	# is/might have been changed, browsing becomes snappier.
+	if ($force_list or $oldbaseindex != $_baseindex) {
 		$screen->set_deferred_refresh($screen->R_DIRLIST);
 	}
 }
@@ -248,7 +255,7 @@ sub position_cursor {
 		$_baseindex = 0;
 	}
 	$_position_at = '';
-	$self->validate_position();
+	$self->validate_position(1);
 }
 
 =item position_cursor_fuzzy()
@@ -270,11 +277,12 @@ sub position_cursor_fuzzy {
 		$criterion = sub {
 			return ($_position_at le substr($_[0], 0, length($_position_at)));
 		};
-	} else {
-		# sort_mode eq 'N'
+	} elsif ($_pfm->state->{sort_mode} eq 'N') {
 		$criterion = sub {
 			return ($_position_at ge substr($_[0], 0, length($_position_at)));
 		};
+	} else {
+		goto &position_cursor;
 	}
 
 	$_currentline = 0;
@@ -296,7 +304,7 @@ sub position_cursor_fuzzy {
 		}
 	}
 	$_position_at = '';
-	$self->validate_position();
+	$self->validate_position(1);
 }
 
 =item find_best_find_match()

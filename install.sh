@@ -2,9 +2,9 @@
 ############################################################################
 #
 # Name:         install.sh
-# Version:      0.25
+# Version:      0.26
 # Authors:      Rene Uittenbogaard
-# Date:         2010-03-28
+# Date:         2010-04-27
 # Usage:        sh install.sh
 # Description:  Un*x-like systems can be very diverse.
 #		This script is meant as an example how pfm dependencies
@@ -271,16 +271,13 @@ download_and_install_perl_module() {
 
 install_pfm() {
 	wheel=`awk -F: '$3 == 0 {print $1}' /etc/group`
-	modulesdir=/usr/local/share/pfm/PFM/
+	modulesdir=/usr/local/share//PFM/
 	mkdir -p -m 755 /usr/local/bin/ /usr/local/man/man1/
 	install -o root -g $wheel -m 755 pfm       /usr/local/bin/
 	install -o root -g $wheel -m 644 doc/pfm.1 /usr/local/man/man1/
 	mkdir -p -m 755 $modulesdir /usr/local/man/man3/
-	for i in share/PFM/*.pm; do
+	for i in lib/App/PFM/*.pm; do # TODO not right! 
 		install -o root -g $wheel -m 644 $i $modulesdir
-	done
-	for i in doc/*.3pm; do
-		install -o root -g $wheel -m 644 $i /usr/local/man/man3
 	done
 }
 
