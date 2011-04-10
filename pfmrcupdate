@@ -1,0 +1,124 @@
+#!/usr/bin/env perl
+############################################################################
+#
+# Name:         pfmrcupdate
+# Version:      0.28
+# Authors:      Rene Uittenbogaard
+# Date:         2010-05-02
+# Usage:        pfmrcupdate
+# Description:  Update an existing .pfmrc so that it can be used with
+#		newer versions of pfm.
+#
+
+###############################################################################
+# helper functions
+
+use POSIX qw(mktime strftime);
+use strict;
+use locale;
+
+my $pfmrc = $ENV{PFMRC} || "$ENV{HOME}/.pfm/.pfmrc";
+
+###############################################################################
+# helper functions
+
+sub read_pfmrc {
+    if (open PFMRC, $pfmrc) {
+        while (<PFMRC>) {
+            # the pragma 'locale' used to cause problems when the config
+            # is read in using UTF-8
+            #no locale;
+            if (/# Version ([\w.]+)$/ and
+                $1 lt $_pfm->{VERSION})
+            {
+                # will not be in message color: usecolor not yet parsed
+                $_pfm->screen->neat_error(
+                    "Warning: your $_configfilename version $1 may be "
+                .   "outdated.\r\nPlease see pfm(1), under DIAGNOSIS."
+                );
+                $_pfm->screen->important_delay();
+            }
+            s/#.*//;
+            if (s/\\\n?$//) { $_ .= <PFMRC>; redo; }
+#           if (/^\s*([^:[\s]+(?:\[[^]]+\])?)\s*:\s*(.*)$/o) {
+            if (/^[ \t]*([^: \t[]+(?:\[[^]]+\])?)[ \t]*:[ \t]*(.*)$/o) {
+#               print STDERR "-$1";
+                $_pfmrc{$1} = $2;
+            }
+        }
+        close PFMRC;
+    }
+}
+
+
+sub check_date_locale {
+	my ($mon, $time, $time_str, $maxlength);
+	# mktime(sec, min, hour, mday, mon, year, wday = 0, yday = 0, isdst = -1)
+	foreach $mon (0..11) {
+		$time = mktime(0, 30, 10, 12, $mon, 95);
+		$time_str = strftime('%b', $time);
+		$maxlength = length($time_str) > $maxlength ? length($time_str) : $maxlength;
+	}
+	if ($maxlength > 3) {
+		echo "Warning: some of the short month names in your locale"
+		echo "seem to be longer than 3 characters."
+		echo "The default config file (possibly at ${PFMRC:-$HOME/.pfm/.pfmrc})"
+		echo "does not take this into account."
+		echo "Please verify that your file timestamps don't look truncated,"
+		echo "otherwise please alter the 'columnlayouts' option."
+		return
+	}
+}
+
+sub check_pfmrc {
+	if [ ! -f "$pfmrc" ]; then
+		return
+	fi
+	oldversion="$(awk '/^## Version / { print $3 }' $pfmrc)"
+	if [ -z "$oldversion" ]; then
+		echo "The version number of your config file ('$pfmrc')"
+		echo "could not be determined. Please have pfm create a new one"
+		echo "and compare the old and new ones so that you will not miss"
+		echo "any configuration file updates."
+		return
+	fi
+	updates="$(
+		( cd update; ls ) | perl -nle 's/\.pl$//; print if ($_ gt "update-'$oldversion'" and $_ le "update-'$VERSION'");'
+	)"
+	if [ ! "$updates" ]; then
+		return
+	fi
+	echo
+	echo "You seem to be upgrading from version $oldversion."
+	echo "For the current version ($VERSION), updates to your config file are needed."
+	echo
+	echo "Do you want me to back up your current config file"
+	echo "(located at '$pfmrc')"
+	echo $n "and try to update it? (Yes/No) "
+	read answer
+	if [ "$answer" != y ]; then
+		return
+	fi
+	newpfmrc="$pfmrc.`date +'%Y%m%dT%H%M%S'`"
+	cp -i "$pfmrc" "$newpfmrc"
+	echo
+	echo "Config file backed up as '$newpfmrc'."
+	echo "$updates" | while read update; do
+		perl -pi update/$update "$pfmrc"
+		v=${update#update-}; v=${v%.pl}
+		echo "Successfully updated to $v"
+	done
+	perl -pi "s/^(## Version ).*/$1$VERSION/" "$pfmrc"
+	echo "Successfully updated to $VERSION"
+}
+
+###############################################################################
+# main
+
+# check the installation
+
+check_date_locale();
+check_pfmrc();
+
+# vim: set tabstop=8 shiftwidth=8 noexpandtab:
+

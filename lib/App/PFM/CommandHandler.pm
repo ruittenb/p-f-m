@@ -271,6 +271,19 @@ sub _expand_escapes { # quoteif, command, \%currentfile
 	/ge;
 }
 
+=item _followmode()
+
+Fetches the mode of the file, or of the target if it is a symlink.
+
+=cut
+
+sub _followmode {
+	my ($self, $file) = @_;
+	return $file->{type} ne 'l'
+		   ? $file->{mode}
+		   : $file->mode2str((stat $file->{name})[2]);
+}
+
 ##########################################################################
 # constructor, getters and setters
 
@@ -355,7 +368,7 @@ sub handle {
 #		/^(?:d|del)$/io		and $self->handledelete(),			last;
 #		/^[ix]$/io			and $self->handleinclude($_),		last;
 #		/^\r$/io			and $self->handleenter(),			last;
-#		/^s$/io				and $self->handleshow(),			last;
+		/^s$/io				and $self->handleshow(),			last;
 #		/^kmous$/o			and $self->handlemousedown(),		last;
 		/^k7$/o				and $self->handleswap(),			last;
 		/^k10$/o			and $self->handlemultiple(),		last;
@@ -388,7 +401,7 @@ sub handle {
 		/^\*$/o				and $self->handleradix(),			last;
 		/^!$/o				and $self->handleclobber(),			last;
 		/^"$/o				and $self->handlepathmode(),		last;
-#		/^w$/io				and $self->handleunwo(),			last;
+		/^w$/io				and $self->handleunwo(),			last;
 		/^%$/o				and $self->handlewhiteout(),		last;
 		$valid = 0; # invalid key
 		$_screen->flash();
@@ -502,6 +515,7 @@ sub handleswap {
 	my $swap_persistent = $_pfm->config->{swap_persistent};
 	my $prompt          = 'Directory Pathname: ';
 	my ($nextdir, $chdirautocmd);
+	my $prevstate = $_pfm->state;
 	if ($_pfm->state($_pfm->S_SWAP)) {
 		if ($swap_persistent) {
 			# --------------------------------------------------
@@ -539,6 +553,8 @@ sub handleswap {
 		$nextdir = $_pfm->state->directory->path;
 		# go there using bare chdir() - the state is already up to date
 		if (chdir $nextdir) {
+			# store the previous main state into S_PREV
+			$_pfm->state($_pfm->S_PREV, $prevstate);
 			# restore the cursor position
 			$browser->baseindex(  $_pfm->state->{_baseindex});
 			$browser->position_at($_pfm->state->{_position});
@@ -1099,7 +1115,7 @@ sub handleedit {
 	$do_this = sub {
 		my $file = shift;
 		system $_pfm->config->{editor}." \Q$file->{name}\E"
-			and $_pfm->_screen->display_error('Editor failed');
+			and $_screen->display_error('Editor failed');
 	};
 	$_pfm->state->directory->apply($do_this);
 	$_screen->alternate_on() if $_pfm->config->{altscreen_mode};
@@ -1128,7 +1144,6 @@ sub handlechown {
 	return if ($newuid eq '');
 	$do_this = sub {
 		my $file = shift;
-		$_screen->at(1,0)->clreol();
 		if (system ('chown', $newuid, $file->{name})) {
 			$_screen->neat_error('Change owner failed');
 		}
@@ -1166,7 +1181,6 @@ sub handlechmod {
 	} else {
 		$do_this = sub {
 			my $file = shift;
-			$_screen->at(1,0)->clreol();
 			if (system 'chmod', $newmode, $file->{name}) {
 				$_screen->neat_error('Change mode failed');
 			}
@@ -1194,18 +1208,75 @@ sub handletime {
 	$_screen->clear_footer()->at(0,0)->clreol()->cooked_echo();
 	$newtime = $_pfm->history->input(H_TIME, $prompt,
 		strftime ("%Y-%m-%d %H:%M.%S", localtime time));
-#	if ($#time_history > 0 and $time_history[-1] eq $time_history[-2]) {
-#		pop @time_history;
-#	}
 	$_screen->raw_noecho();
 	$newtime =~ tr/0-9.//cd;
 	return if ($newtime eq '');
 	@cmdopts = ($newtime eq '.') ? () : ('-t', $newtime);
 	$do_this = sub {
 		my $file = shift;
-		$_screen->at(1,0)->clreol();
 		if (system ('touch', @cmdopts, $file->{name})) {
 			$_screen->neat_error('Set timestamp failed');
+		}
+	};
+	$_pfm->state->directory->apply($do_this);
+}
+
+=item handleshow()
+
+Handles displaying the contents of a file.
+
+=cut
+
+sub handleshow {
+	my ($self) = @_;
+	my ($do_this);
+	if ($self->_followmode($_pfm->browser->currentfile) =~ /^d/) {
+		goto &handleentry;
+	}
+	$_screen->clrscr()->at(0,0)->cooked_echo();
+	$do_this = sub {
+		my $file = shift;
+		$_screen->puts($file->{name})
+			->alternate_off();
+		system $_pfm->config->{pager}." \Q$file->{name}\E"
+			and display_error("Pager failed\n");
+		$_screen->alternate_on() if $_pfm->config->{altscreen_mode};
+	};
+	$_pfm->state->directory->apply($do_this);
+	$_screen->raw_noecho()->set_deferred_refresh(R_CLRSCR);
+}
+
+=item handleunwo()
+
+Handles removing a whiteout file.
+
+=cut
+
+sub handleunwo {
+	my ($self) = @_;
+	my ($do_this);
+	my $nowhiteouterror = 'Current file is not a whiteout';
+	if ($_pfm->state->{multiple_mode}) {
+		$_screen->set_deferred_refresh(R_MENU | R_DIRLIST);
+	} else {
+		$_screen->set_deferred_refresh(R_MENU);
+		$_screen->listing->markcurrentline('W');
+	}
+	if (!$_pfm->state->{multiple_mode} and
+		$_pfm->browser->currentfile->{type} ne 'w')
+	{
+		$_screen->at(0,0)->clreol()->display_error($nowhiteouterror);
+		return;
+	}
+	$_screen->at($_screen->PATHLINE,0);
+	$do_this = sub {
+		my $file = shift;
+		if ($file->{type} eq 'w') {
+			if (system(@_unwo_cmd, $file->{name})) {
+				$_screen->neat_error('Whiteout removal failed');
+			}
+		} else {
+			$_screen->neat_error($nowhiteouterror);
 		}
 	};
 	$_pfm->state->directory->apply($do_this);

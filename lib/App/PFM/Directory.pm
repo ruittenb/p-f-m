@@ -312,6 +312,8 @@ sub prepare {
 Tries to change the current working directory, if necessary using B<CDPATH>.
 If successful, it stores the previous state in @App::PFM::Application::_states
 and executes the 'chdirautocmd' from the F<.pfmrc> file.
+The 'swapping' argument can be passed as true to prevent undesired pathname
+parsing during pfm's B<F7> command.
 
 =cut
 
@@ -338,7 +340,8 @@ sub chdir {
 	$nextdir = canonicalize_path($nextdir);
 	if ($success = chdir $nextdir and $nextdir ne $prevdir) {
 		# store the cursor position in the state
-		$_pfm->state->{_position} = $_pfm->browser->currentfile->{name};
+		$_pfm->state->{_position}  = $_pfm->browser->currentfile->{name};
+		$_pfm->state->{_baseindex} = $_pfm->browser->baseindex;
 		unless ($swapping) {
 			$_pfm->state($_pfm->S_PREV, $_pfm->state->clone($_pfm));
 		}
@@ -350,12 +353,14 @@ sub chdir {
 		# restore the cursor position
 		if ($swapping) {
 			$_pfm->browser->position_at($_pfm->state->{_position});
+			$_pfm->browser->baseindex(  $_pfm->state->{_baseindex});
 			$screen->set_deferred_refresh($screen->R_SCREEN);
 		} else {
 			$nextpos = $direction eq 'up'
 				? basename($prevdir)
 				: $direction eq 'down' ? '..' : '.';
 			$_pfm->browser->position_at($nextpos);
+			$_pfm->browser->baseindex(0);
 			$screen->set_deferred_refresh($screen->R_CHDIR);
 			$self->_init_filesystem_info();
 		}
@@ -574,16 +579,21 @@ sub apply {
 	my ($self, $do_this, @args) = @_;
 	my ($i, $loopfile);
 	if ($_pfm->state->{multiple_mode}) {
+		my $screen = $_pfm->screen;
 		foreach $i (0 .. $#{$self->{_showncontents}}) {
 			$loopfile = $self->{_showncontents}[$i];
 			if ($loopfile->{selected} eq MARK) {
+				$screen->at($screen->PATHLINE, 0)->clreol()
+					->puts($loopfile->{name})->at($screen->PATHLINE+1, 0);
 				$loopfile->apply($do_this, @args);
 			}
 		}
+		$_pfm->state->{multiple_mode} = 0 if $_pfm->config->{autoexitmultiple};
 		# TODO if the bloody thing is deleted,
 		# it should be deleted from _dircontents as well (or maybe create
 		# a separate loop for deletions?)
-		$_pfm->screen->set_deferred_refresh($_pfm->screen->R_DIRLIST);
+		$screen->set_deferred_refresh(
+			$screen->R_DIRLIST | $screen->R_PATHINFO | $screen->R_FRAME);
 	} else {
 		$_pfm->browser->currentfile->apply($do_this, @args);
 	}

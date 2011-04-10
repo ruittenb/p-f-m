@@ -3,10 +3,10 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.03.1
+# Version:		2.03.2
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-05-01
+# Date:			2010-05-02
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				    [ -l, --layout <number> ]
 #				pfm { -v, --version | -h, --help }
@@ -22,13 +22,15 @@
 ##########################################################################
 # version macros for *roff
 
+our $VERSION = '2.03.2';
+
 our $ROFFVERSION = <<'=cut';
 
 =pod
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.03.1
+.ds Vw @(#) pfm.pl 2.03.2
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..

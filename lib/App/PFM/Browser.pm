@@ -40,15 +40,15 @@ use base 'App::PFM::Abstract';
 use strict;
 
 our $FIONREAD = 0;
-eval {
-	# changing line 3 in /usr/lib/perl/5.8.8/features.ph from
-	# no warnings 'redefine';
-	# to
-	# no warnings qw(redefine misc);
-	# suppresses the warnings.
-	require 'sys/ioctl.ph';
-	$FIONREAD = FIONREAD();
-};
+#eval {
+#	# changing line 3 in /usr/lib/perl/5.8.8/features.ph from
+#	# no warnings 'redefine';
+#	# to
+#	# no warnings qw(redefine misc);
+#	# suppresses the warnings.
+#	require 'sys/ioctl.ph';
+#	$FIONREAD = FIONREAD();
+#};
 
 my ($_pfm, $_screen,
 	$_currentline, $_baseindex, $_position_at, $_mouse_mode, $_swap_mode);
@@ -388,11 +388,12 @@ sub browse {
 		if ($_screen->wasresized) {
 			$_screen->handleresize();
 		} else {
-#			$_screen->at(0,$self->_burst_size())->puts('#'); # TODO DEBUG
-			if ($self->_burst_size > 30) {		  # TODO experimental
-				$_screen->flush_input()->flash(); # TODO experimental
-				redo;							  # TODO experimental
-			}								      # TODO experimental
+			# the next block is highly experimental - maybe this
+			# could be used to suppress paste actions in command mode
+			if ($self->_burst_size > 30) {		  # experimental
+				$_screen->flush_input()->flash(); # experimental
+				redo;							  # experimental
+			}								      # experimental
 			# must be keyboard/mouse input here
 			$event = $_screen->getch();
 			$listing->highlight_off();

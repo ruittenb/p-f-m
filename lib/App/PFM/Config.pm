@@ -210,10 +210,10 @@ sub read {
 		$self->write_default();
 	}
 	if (open PFMRC, $_configfilename) {
+		# the pragma 'locale' used to cause problems when the config
+		# is read in using UTF-8
+		#no locale;
 		while (<PFMRC>) {
-			# the pragma 'locale' causes problems when the config
-			# is read in using UTF-8
-			no locale;
 			if (/# Version ([\w.]+)$/ and
 				$1 lt $_pfm->{VERSION} and $read_first)
 			{

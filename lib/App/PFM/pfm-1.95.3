@@ -991,7 +991,6 @@ sub reducepaths {
 		$symlink_name_abs   =~ s!^/[^/]+!!;
 	}
 	# one of these could be empty now.
-	# i'm beginning to feel that all this manipulation might be easier with VMS pathnames
 	return $symlink_target_abs, $symlink_name_abs;
 }
 
@@ -1105,18 +1104,18 @@ sub dirlookup {
 	return $found;
 }
 
-sub followmode {
-	my %currentfile = %{$_[0]};
-	return $currentfile{type} ne 'l'
-		   ? $currentfile{mode}
-		   : mode2str((stat $currentfile{name})[2]);
-}
-
-sub copyback {
-	# copy a changed entry from @showncontents back to @dircontents
-	$dircontents[dirlookup($_[0], @dircontents)] = $showncontents[$currentline+$baseindex];
-}
-
+#sub followmode {
+#	my %currentfile = %{$_[0]};
+#	return $currentfile{type} ne 'l'
+#		   ? $currentfile{mode}
+#		   : mode2str((stat $currentfile{name})[2]);
+#}
+#
+#sub copyback {
+#	# copy a changed entry from @showncontents back to @dircontents
+#	$dircontents[dirlookup($_[0], @dircontents)] = $showncontents[$currentline+$baseindex];
+#}
+#
 #sub isorphan {
 #	return ! -e $_[0];
 #}
@@ -2788,49 +2787,49 @@ sub handlelink {
 	return $do_a_refresh;
 }
 
-sub handleunwo {
-	my ($index, $loopfile, $do_this);
-	my $count = 0;
-	my $do_a_refresh = $multiple_mode ? $R_DIRLIST | $R_MENU : $R_MENU;
-	my $nowhiteouterror = 'Current file is not a whiteout';
-	markcurrentline('W') unless $multiple_mode;
-	if ($currentfile{type} ne 'w' and !$multiple_mode) {
-		$scr->at(0,0)->clreol();
-		display_error($nowhiteouterror);
-		return $R_MENU;
-	}
-	$scr->at($PATHLINE,0);
-	$do_this = sub {
-		if ($loopfile->{type} eq 'w') {
-			if (!system(@unwo_cmd, $loopfile->{name})) {
-				$total_nr_of{$loopfile->{type}}--;
-				exclude($loopfile) if $loopfile->{selected} eq '*';
-				restat_copyback(); # TEST
-			} else {
-				$do_a_refresh |= neat_error('Whiteout removal failed');
-			}
-		} else {
-			$do_a_refresh |= neat_error($nowhiteouterror);
-		}
-	};
-	if ($multiple_mode) {
-		for $index (0..$#dircontents) {
-			$loopfile = $dircontents[$index];
-			if ($loopfile->{selected} eq '*') {
-				$scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
-				exclude($loopfile, '.');
-				$do_this->();
-				$dircontents[$index] = stat_entry($loopfile->{name}, $loopfile->{selected});
-			}
-		}
-		$multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
-	} else {
-		$loopfile = \%currentfile;
-		$do_this->();
-		restat_copyback();
-	}
-	return $do_a_refresh;
-}
+#sub handleunwo {
+#	my ($index, $loopfile, $do_this);
+#	my $count = 0;
+#	my $do_a_refresh = $multiple_mode ? $R_DIRLIST | $R_MENU : $R_MENU;
+#	my $nowhiteouterror = 'Current file is not a whiteout';
+#	markcurrentline('W') unless $multiple_mode;
+#	if ($currentfile{type} ne 'w' and !$multiple_mode) {
+#		$scr->at(0,0)->clreol();
+#		display_error($nowhiteouterror);
+#		return $R_MENU;
+#	}
+#	$scr->at($PATHLINE,0);
+#	$do_this = sub {
+#		if ($loopfile->{type} eq 'w') {
+#			if (!system(@unwo_cmd, $loopfile->{name})) {
+#				$total_nr_of{$loopfile->{type}}--;
+#				exclude($loopfile) if $loopfile->{selected} eq '*';
+#				restat_copyback(); # TEST
+#			} else {
+#				$do_a_refresh |= neat_error('Whiteout removal failed');
+#			}
+#		} else {
+#			$do_a_refresh |= neat_error($nowhiteouterror);
+#		}
+#	};
+#	if ($multiple_mode) {
+#		for $index (0..$#dircontents) {
+#			$loopfile = $dircontents[$index];
+#			if ($loopfile->{selected} eq '*') {
+#				$scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
+#				exclude($loopfile, '.');
+#				$do_this->();
+#				$dircontents[$index] = stat_entry($loopfile->{name}, $loopfile->{selected});
+#			}
+#		}
+#		$multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
+#	} else {
+#		$loopfile = \%currentfile;
+#		$do_this->();
+#		restat_copyback();
+#	}
+#	return $do_a_refresh;
+#}
 
 sub handletarget {
 	my ($newtarget, $newtargetexpanded, $oldtargetok, $loopfile, $do_this, $index);
@@ -3185,32 +3184,32 @@ sub handleprint {
 	return $R_SCREEN;
 }
 
-sub handleshow {
-	goto &handleentry if (followmode(\%currentfile) =~ /^d/);
-	my ($loopfile,$index);
-	$scr->clrscr()->at(0,0);
-	cooked_echo();
-	if ($multiple_mode) {
-		for $index (0..$#dircontents) {
-			$loopfile = $dircontents[$index];
-			if ($loopfile->{selected} eq '*') {
-				$scr->puts($loopfile->{name});
-				exclude($loopfile,'.');
-				alternate_screen($ALTERNATE_OFF);
-				system "$pager \Q$loopfile->{name}\E" and display_error("Pager failed\n");
-				alternate_screen($ALTERNATE_ON) if $altscreen_mode;
-			}
-		}
-		$multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
-	} else {
-		alternate_screen($ALTERNATE_OFF);
-		system "$pager \Q$currentfile{name}\E" and display_error("Pager failed\n");
-		alternate_screen($ALTERNATE_ON) if $altscreen_mode;
-	}
-	raw_noecho();
-	return $R_CLRSCR;
-}
-
+#sub handleshow {
+#	goto &handleentry if (followmode(\%currentfile) =~ /^d/);
+#	my ($loopfile,$index);
+#	$scr->clrscr()->at(0,0);
+#	cooked_echo();
+#	if ($multiple_mode) {
+#		for $index (0..$#dircontents) {
+#			$loopfile = $dircontents[$index];
+#			if ($loopfile->{selected} eq '*') {
+#				$scr->puts($loopfile->{name});
+#				exclude($loopfile,'.');
+#				alternate_screen($ALTERNATE_OFF);
+#				system "$pager \Q$loopfile->{name}\E" and display_error("Pager failed\n");
+#				alternate_screen($ALTERNATE_ON) if $altscreen_mode;
+#			}
+#		}
+#		$multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
+#	} else {
+#		alternate_screen($ALTERNATE_OFF);
+#		system "$pager \Q$currentfile{name}\E" and display_error("Pager failed\n");
+#		alternate_screen($ALTERNATE_ON) if $altscreen_mode;
+#	}
+#	raw_noecho();
+#	return $R_CLRSCR;
+#}
+#
 #sub handlehelp {
 #	$scr->clrscr()->cooked();
 #	print map { substr($_, 8)."\n" } split("\n", <<'    _eoHelp_');

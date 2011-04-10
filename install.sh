@@ -2,9 +2,9 @@
 ############################################################################
 #
 # Name:         install.sh
-# Version:      0.26
+# Version:      0.27
 # Authors:      Rene Uittenbogaard
-# Date:         2010-04-27
+# Date:         2010-05-02
 # Usage:        sh install.sh
 # Description:  Un*x-like systems can be very diverse.
 #		This script is meant as an example how pfm dependencies
@@ -271,14 +271,13 @@ download_and_install_perl_module() {
 
 install_pfm() {
 	wheel=`awk -F: '$3 == 0 {print $1}' /etc/group`
-	modulesdir=/usr/local/share//PFM/
+	modulesdir=/usr/local/share/PFM/
 	mkdir -p -m 755 /usr/local/bin/ /usr/local/man/man1/
 	install -o root -g $wheel -m 755 pfm       /usr/local/bin/
 	install -o root -g $wheel -m 644 doc/pfm.1 /usr/local/man/man1/
 	mkdir -p -m 755 $modulesdir /usr/local/man/man3/
-	for i in lib/App/PFM/*.pm; do # TODO not right! 
-		install -o root -g $wheel -m 644 $i $modulesdir
-	done
+	find lib -name '*.pm' -print | cpio -pdvma $modulesdir
+	#install -o root -g $wheel -m 644 $i $modulesdir
 }
 
 check_date_locale() {
@@ -356,6 +355,7 @@ check_package readline
 # check, download and install the Perl modules
 
 check_cpan
+check_perl_module LWP::Simple       || download_and_install_perl_module LWP::Simple
 check_perl_module Term::Cap         || download_and_install_perl_module Term::Cap
 check_perl_module Term::Screen      || download_and_install_perl_module Term::Screen
 check_perl_module Term::ScreenColor || download_and_install_perl_module Term::ScreenColor
