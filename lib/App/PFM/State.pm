@@ -3,7 +3,7 @@
 ##########################################################################
 # @(#) App::PFM::State 0.12
 #
-# Name:			App::PFM::State.pm
+# Name:			App::PFM::State
 # Version:		0.12
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
@@ -97,18 +97,6 @@ sub directory {
 	my ($self, $value) = @_;
 	$self->{_directory} = $value if defined $value;
 	return $self->{_directory};
-}
-
-=item currentdir()
-
-Getter/setter for the current directory path.
-If a new directory is provided, it will be passed to App::PFM::Directory.
-
-=cut
-
-sub currentdir {
-	my $self = shift;
-	return $self->{_directory}->path(@_);
 }
 
 ##########################################################################

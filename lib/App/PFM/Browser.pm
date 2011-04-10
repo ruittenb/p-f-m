@@ -3,7 +3,7 @@
 ##########################################################################
 # @(#) App::PFM::Browser 0.36
 #
-# Name:			App::PFM::Browser.pm
+# Name:			App::PFM::Browser
 # Version:		0.36
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
@@ -39,6 +39,17 @@ use base 'App::PFM::Abstract';
 
 use strict;
 
+our $FIONREAD = 0;
+eval {
+	# changing line 3 in /usr/lib/perl/5.8.8/features.ph from
+	# no warnings 'redefine';
+	# to
+	# no warnings qw(redefine misc);
+	# suppresses the warnings.
+	require 'sys/ioctl.ph';
+	$FIONREAD = FIONREAD();
+};
+
 my ($_pfm, $_screen,
 	$_currentline, $_baseindex, $_position_at, $_mouse_mode, $_swap_mode);
 
@@ -70,13 +81,29 @@ the on-screen clock.
 =cut
 
 sub _wait_loop {
-	my $self = shift;
+#	my ($self) = @_;
+	my $screenline = $_currentline + $_screen->BASELINE;
+	my $cursorcol  = $_screen->listing->cursorcol;
 	until ($_screen->pending_input(1)) {
-		$_screen->diskinfo->clock_info();
 		$_pfm->jobhandler->pollall();
-		$_screen->at(
-			$_currentline + $_screen->BASELINE, $_screen->listing->cursorcol);
+		$_screen->diskinfo->clock_info()
+			->at($screenline, $cursorcol);
 	}
+}
+
+=item _burst_size()
+
+Checks how many characters are waiting for input. This could be used
+to filter out unwanted paste actions when commands are expected.
+
+=cut
+
+sub _burst_size {
+#	my ($self) = @_;
+	return 0 unless $FIONREAD;
+	my $size = pack("L", 0);
+	ioctl(STDIN, $FIONREAD, $size);
+	return unpack("L", $size);
 }
 
 ##########################################################################
@@ -355,12 +382,17 @@ sub browse {
 		$_screen->mouse_enable()
 			if $_mouse_mode && $_pfm->config->{mouseturnoff};
 		# enter main wait loop
-		$event = $self->_wait_loop();
+		$self->_wait_loop();
 		# the main wait loop is exited on a resize event or
 		# on keyboard/mouse input
 		if ($_screen->wasresized) {
 			$_screen->handleresize();
 		} else {
+#			$_screen->at(0,$self->_burst_size())->puts('#'); # TODO DEBUG
+			if ($self->_burst_size > 30) {		  # TODO experimental
+				$_screen->flush_input()->flash(); # TODO experimental
+				redo;							  # TODO experimental
+			}								      # TODO experimental
 			# must be keyboard/mouse input here
 			$event = $_screen->getch();
 			$listing->highlight_off();

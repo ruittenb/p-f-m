@@ -3,7 +3,7 @@
 ##########################################################################
 # @(#) App::PFM::Job::Cvs 0.01
 #
-# Name:			App::PFM::Job::Cvs.pm
+# Name:			App::PFM::Job::Cvs
 # Version:		0.01
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14

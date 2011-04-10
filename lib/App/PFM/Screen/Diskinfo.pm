@@ -3,7 +3,7 @@
 ##########################################################################
 # @(#) App::PFM::Screen::Diskinfo 0.04
 #
-# Name:			App::PFM::Screen::Diskinfo.pm
+# Name:			App::PFM::Screen::Diskinfo
 # Version:		0.04
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
@@ -321,10 +321,12 @@ sub clock_info {
 	my $now = time;
 	my $date = strftime($_pfm->config->{clockdateformat}, localtime $now),
 	my $time = strftime($_pfm->config->{clocktimeformat}, localtime $now);
+	$date = $self->_str_informatted($date);
+	$time = $self->_str_informatted($time);
 	if ($_screen->rows() > 24) {
-		$_screen->at($line++, $_infocol)->puts($self->_str_informatted($date));
+		$_screen->at($line++, $_infocol)->puts($date);
 	}
-	$_screen->at($line, $_infocol)->puts($self->_str_informatted($time));
+	$_screen->at($line, $_infocol)->puts($time);
 }
 
 ##########################################################################

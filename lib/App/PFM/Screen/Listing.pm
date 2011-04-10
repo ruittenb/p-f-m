@@ -3,11 +3,11 @@
 ##########################################################################
 # @(#) App::PFM::Screen::Listing 0.14
 #
-# Name:			App::PFM::Screen::Listing.pm
+# Name:			App::PFM::Screen::Listing
 # Version:		0.14
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-10
+# Date:			2010-04-30
 #
 
 ##########################################################################
@@ -388,18 +388,23 @@ Parses the configured layouts.
 sub makeformatlines {
 	my $self = shift;
 	my ($squeezedlayoutline, $currentlayoutline, $firstwronglayout, $prev,
-		$letter, $trans, $temp, $infocol, $infolength);
+		$letter, $trans, $temp, $infocol, $infolength, $miss);
 	my $columnlayouts = $_pfm->config->{columnlayouts};
 	LAYOUT: {
 		$currentlayoutline = $columnlayouts->[$_layout];
-		unless ($currentlayoutline =~ /n/o
-		    and $currentlayoutline =~ /(^f|f$)/o
-			and $currentlayoutline =~ /\*/o)
-		{
+		$miss =
+			$currentlayoutline !~ /n/o
+			? 'n'
+			: $currentlayoutline !~ /(^f|f$)/o
+			  ? 'f'
+			  : $currentlayoutline !~ /\*/o
+			    ? '*'
+				: '';
+		if ($miss) {
 			$firstwronglayout ||= $_layout || '0 but true';
 			$_screen->at(0,0)->clreol()
 				->display_error(
-					"Bad layout #$_layout: a mandatory field is missing")
+					"Bad layout #$_layout: mandatory field '$miss' is missing")
 				->important_delay();
 			$_layout = $self->_validate_layoutnum($_layout+1);
 			if ($_layout != $firstwronglayout) {
@@ -411,9 +416,9 @@ sub makeformatlines {
 				    ->puts("Fatal error: No valid layout defined in "
 						. $_pfm->config->give_location())
 					->at(1,0)
-					->stty_cooked()
+					->cooked_echo()
 					->mouse_disable();
-				exit 2;
+				die "2:No valid layout";
 			}
 		}
 	}

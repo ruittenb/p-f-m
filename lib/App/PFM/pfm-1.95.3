@@ -46,22 +46,22 @@
 #use Term::ScreenColor;
 #use Term::ReadLine;
 #use Getopt::Long;
-use POSIX qw(strftime mktime);
+#use POSIX qw(strftime mktime);
 #use Config;
 #use Cwd;
-use locale;
+#use locale;
 #use strict;
 #use warnings;
 #use diagnostics;
 #disable diagnostics; # so we can switch it on in '@'
 #$^W = 0;
-
-our($FALSE,
-	$TRUE,
+#
+#our($FALSE,
+#	$TRUE,
 #	$READ_FIRST,
 #	$READ_AGAIN,
-	$QUOTE_OFF,
-	$QUOTE_ON,
+#	$QUOTE_OFF,
+#	$QUOTE_ON,
 #	$MOUSE_OFF,
 #	$MOUSE_ON,
 #	$ALTERNATE_OFF,
@@ -109,13 +109,13 @@ our($FALSE,
 #
 ##########################################################################
 # declarations and initialization
-
-*FALSE			= \0;
-*TRUE			= \1;
+#
+#*FALSE			= \0;
+#*TRUE			= \1;
 #*READ_FIRST		= \0;
 #*READ_AGAIN		= \1;
-*QUOTE_OFF		= \0;
-*QUOTE_ON		= \1;
+#*QUOTE_OFF		= \0;
+#*QUOTE_ON		= \1;
 #*MOUSE_OFF		= \0;
 #*MOUSE_ON		= \1;
 #*ALTERNATE_OFF	= \0;
@@ -722,82 +722,82 @@ my %CMDESCAPES = (
 #	}
 #	return ($size_num, $size_power);
 #}
-
-sub condquotemeta { # condition, string
-	return $_[0] ? quotemeta($_[1]) : $_[1];
-}
-
-sub selectednames {
-	my $qif = $_[0];
-	my @res =	map  {
-					exclude($_, '.');
-					condquotemeta($qif, $_->{name})
-				}
-				grep { $_->{selected} eq '*' }
-				@showncontents;
-#	# 'oldmark' all files at once
-#	foreach (@showncontents) {
-#		if ($_->{selected} eq '*') {
-#			exclude($_{name}, '.');
-#		}
+#
+#sub condquotemeta { # condition, string
+#	return $_[0] ? quotemeta($_[1]) : $_[1];
+#}
+#
+#sub selectednames {
+#	my $qif = $_[0];
+#	my @res =	map  {
+#					exclude($_, '.');
+#					condquotemeta($qif, $_->{name})
+#				}
+#				grep { $_->{selected} eq '*' }
+#				@showncontents;
+##	# 'oldmark' all files at once
+##	foreach (@showncontents) {
+##		if ($_->{selected} eq '*') {
+##			exclude($_{name}, '.');
+##		}
+##	}
+#	return @res;
+#}
+#
+#sub expand_replace { # esc-category, namenoext, name, ext
+#	my $qif = shift;
+#	for ($_[0]) {
+#		/1/ and return condquotemeta($qif, $_[1]);
+#		/2/ and return condquotemeta($qif, $_[2]);
+#		/3/ and return condquotemeta($qif, $currentdir);
+#		/4/ and return condquotemeta($qif, $disk{mountpoint});
+#		/5/ and return condquotemeta($qif, $swap_state->{path}) if $swap_state;
+#		/6/ and return condquotemeta($qif, basename($currentdir));
+#		/7/ and return condquotemeta($qif, $_[3]);
+#		/8/ and return join (' ', selectednames($qif));
+#		/e/ and return condquotemeta($qif, $editor);
+#		/p/ and return condquotemeta($qif, $pager);
+#		/v/ and return condquotemeta($qif, $viewer);
+#		# this also handles the special $e$e case - don't quotemeta() this!
+#		return $_;
 #	}
-	return @res;
-}
-
-sub expand_replace { # esc-category, namenoext, name, ext
-	my $qif = shift;
-	for ($_[0]) {
-		/1/ and return condquotemeta($qif, $_[1]);
-		/2/ and return condquotemeta($qif, $_[2]);
-		/3/ and return condquotemeta($qif, $currentdir);
-		/4/ and return condquotemeta($qif, $disk{mountpoint});
-		/5/ and return condquotemeta($qif, $swap_state->{path}) if $swap_state;
-		/6/ and return condquotemeta($qif, basename($currentdir));
-		/7/ and return condquotemeta($qif, $_[3]);
-		/8/ and return join (' ', selectednames($qif));
-		/e/ and return condquotemeta($qif, $editor);
-		/p/ and return condquotemeta($qif, $pager);
-		/v/ and return condquotemeta($qif, $viewer);
-		# this also handles the special $e$e case - don't quotemeta() this!
-		return $_;
-	}
-}
-
-sub expand_3456_escapes { # quoteif, command, whatever
-	my $qif = $_[0];
-	my $qe  = quotemeta $e;
-	# readline understands ~ notation; now we understand it too
-	$_[1] =~ s/^~(\/|$)/$ENV{HOME}\//;
-	# ~user is not replaced if it is not in the passwd file
-	# the format of passwd(5) dictates that a username cannot contain colons
-	$_[1] =~ s/^~([^:\/]+)/(getpwnam $1)[7] || "~$1"/e;
-	# the next generation in quoting
-	$_[1] =~ s/$qe([^1278])/expand_replace($qif, $1)/ge;
-}
-
-sub expand_escapes { # quoteif, command, \%currentfile
-	my $qif		= $_[0];
-	my $name	= $_[2]{name};
-	my $qe		= quotemeta $e;
-	my ($namenoext, $ext);
-#	$namenoext = $name =~ /^(.*)\.([^\.]+)$/ ? $1 : $name;
-	# included '.' in \7
-	if ($name =~ /^(.*)(\.[^\.]+)$/) {
-		$namenoext = $1;
-		$ext = $2;
-	} else {
-		$namenoext = $name;
-		$ext = '';
-	}
-	# readline understands ~ notation; now we understand it too
-	$_[1] =~ s/^~(\/|$)/$ENV{HOME}\//;
-	# ~user is not replaced if it is not in the passwd file
-	# the format of passwd(5) dictates that a username cannot contain colons
-	$_[1] =~ s/^~([^:\/]+)/(getpwnam $1)[7] || "~$1"/e;
-	# the next generation in quoting
-	$_[1] =~ s/$qe(.)/expand_replace($qif, $1, $namenoext, $name, $ext)/ge;
-}
-
+#}
+#
+#sub expand_3456_escapes { # quoteif, command, whatever
+#	my $qif = $_[0];
+#	my $qe  = quotemeta $e;
+#	# readline understands ~ notation; now we understand it too
+#	$_[1] =~ s/^~(\/|$)/$ENV{HOME}\//;
+#	# ~user is not replaced if it is not in the passwd file
+#	# the format of passwd(5) dictates that a username cannot contain colons
+#	$_[1] =~ s/^~([^:\/]+)/(getpwnam $1)[7] || "~$1"/e;
+#	# the next generation in quoting
+#	$_[1] =~ s/$qe([^1278])/expand_replace($qif, $1)/ge;
+#}
+#
+#sub expand_escapes { # quoteif, command, \%currentfile
+#	my $qif		= $_[0];
+#	my $name	= $_[2]{name};
+#	my $qe		= quotemeta $e;
+#	my ($namenoext, $ext);
+##	$namenoext = $name =~ /^(.*)\.([^\.]+)$/ ? $1 : $name;
+#	# included '.' in \7
+#	if ($name =~ /^(.*)(\.[^\.]+)$/) {
+#		$namenoext = $1;
+#		$ext = $2;
+#	} else {
+#		$namenoext = $name;
+#		$ext = '';
+#	}
+#	# readline understands ~ notation; now we understand it too
+#	$_[1] =~ s/^~(\/|$)/$ENV{HOME}\//;
+#	# ~user is not replaced if it is not in the passwd file
+#	# the format of passwd(5) dictates that a username cannot contain colons
+#	$_[1] =~ s/^~([^:\/]+)/(getpwnam $1)[7] || "~$1"/e;
+#	# the next generation in quoting
+#	$_[1] =~ s/$qe(.)/expand_replace($qif, $1, $namenoext, $name, $ext)/ge;
+#}
+#
 #sub isxterm {
 #	my $termname = shift;
 #	return $termname =~ $XTERMS;
@@ -995,30 +995,30 @@ sub reducepaths {
 	return $symlink_target_abs, $symlink_name_abs;
 }
 
-sub fileforall {
-	my ($index, $loopfile);
-	my ($do_this, $statflag) = @_;
-	if ($multiple_mode) {
-		for $index (0..$#dircontents) {
-			$loopfile = $dircontents[$index];
-			if ($loopfile->{selected} eq '*') {
-				$scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
-				exclude($loopfile, '.');
-				$loopfile = $do_this->($loopfile);
-				if ($statflag) {
-					$dircontents[$index] = stat_entry($loopfile->{name}, $loopfile->{selected});
-				}
-			}
-		}
-		$multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
-	} else {
-		%currentfile = %{ $do_this->(\%currentfile) };
-		if ($statflag) {
-			$showncontents[$currentline+$baseindex] = stat_entry($currentfile{name}, $currentfile{selected});
-		}
-		copyback($currentfile{name});
-	}
-}
+#sub fileforall {
+#	my ($index, $loopfile);
+#	my ($do_this, $statflag) = @_;
+#	if ($multiple_mode) {
+#		for $index (0..$#dircontents) {
+#			$loopfile = $dircontents[$index];
+#			if ($loopfile->{selected} eq '*') {
+#				$scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
+#				exclude($loopfile, '.');
+#				$loopfile = $do_this->($loopfile);
+#				if ($statflag) {
+#					$dircontents[$index] = stat_entry($loopfile->{name}, $loopfile->{selected});
+#				}
+#			}
+#		}
+#		$multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
+#	} else {
+#		%currentfile = %{ $do_this->(\%currentfile) };
+#		if ($statflag) {
+#			$showncontents[$currentline+$baseindex] = stat_entry($currentfile{name}, $currentfile{selected});
+#		}
+#		copyback($currentfile{name});
+#	}
+#}
 
 sub multi_to_single {
 	my $qe = quotemeta $e;
@@ -1035,22 +1035,22 @@ sub multi_to_single {
 	}
 }
 
-sub restat_copyback {
-	$showncontents[$currentline+$baseindex] = stat_entry($currentfile{name}, $currentfile{selected});
-	if (!$rcsrunning and $autorcs) {
-		handlemorercsopen($currentfile{name});
-	}
-	if ($showncontents[$currentline+$baseindex]{nlink} == 0) {
-#		if ($pfmrc{keeplostfiles}) {
-			$showncontents[$currentline+$baseindex]{display} .= $LOSTMSG;
-#		} else {
-#			splice @dircontents, $index, 1;
-#			splice @showncontents, $nameindexmap{$loopfile->{name}}, 1;
-#		}
-	}
-	copyback($currentfile{name});
-}
-
+#sub restat_copyback {
+#	$showncontents[$currentline+$baseindex] = stat_entry($currentfile{name}, $currentfile{selected});
+#	if (!$rcsrunning and $autorcs) {
+#		handlemorercsopen($currentfile{name});
+#	}
+#	if ($showncontents[$currentline+$baseindex]{nlink} == 0) {
+##		if ($pfmrc{keeplostfiles}) {
+#			$showncontents[$currentline+$baseindex]{display} .= $LOSTMSG;
+##		} else {
+##			splice @dircontents, $index, 1;
+##			splice @showncontents, $nameindexmap{$loopfile->{name}}, 1;
+##		}
+#	}
+#	copyback($currentfile{name});
+#}
+#
 #sub maxpan {
 #	my ($temp, $width) = @_;
 #	my $panspace;
@@ -1881,28 +1881,28 @@ sub promptforwildfilename {
 #	}
 #}
 #
-sub by_name {
-	return $a->{name} cmp $b->{name};
-}
-
-sub alphabetically {
-	return uc($a) cmp uc($b) || $a cmp $b;
-}
-
-sub escape_middle {
-	# the sorting of the backslash appears to be locale-dependant
-	if ($a eq "$e$e" && $b =~ /\d/) {
-		return 1;
-	} elsif ($b eq "$e$e" && $a =~ /\d/) {
-		return -1;
-	} else {
-		return $a cmp $b;
-	}
-}
-
+#sub by_name {
+#	return $a->{name} cmp $b->{name};
+#}
+#
+#sub alphabetically {
+#	return uc($a) cmp uc($b) || $a cmp $b;
+#}
+#
+#sub escape_middle {
+#	# the sorting of the backslash appears to be locale-dependant
+#	if ($a eq "$e$e" && $b =~ /\d/) {
+#		return 1;
+#	} elsif ($b eq "$e$e" && $a =~ /\d/) {
+#		return -1;
+#	} else {
+#		return $a cmp $b;
+#	}
+#}
+#
 ##########################################################################
 # user commands
-
+#
 #sub handlequit { # key
 #	return $R_QUIT if isno($_pfm->config->{confirmquit});
 #	return $R_QUIT if $_[0] eq 'Q'; # quick quit
@@ -1929,7 +1929,7 @@ sub escape_middle {
 #	reformat();
 #	return $R_SCREEN;
 #}
-
+#
 #sub handlerefresh {
 #	return ok_to_remove_marks() ? $R_DIRCONTENTS | $R_DIRSORT | $R_SCREEN
 #								: $R_NOP;
@@ -2221,7 +2221,7 @@ sub handlesize {
 #	$_pfm->browser->position_at($_pfmcurrentfile{name});
 #	return $R_DIRLIST | $R_DIRFILTER | $R_DISKINFO | $R_FOOTER;
 #}
-
+#
 #sub handlecdold {
 #	if (ok_to_remove_marks()) {
 #		mychdir($oldcurrentdir);
@@ -2240,70 +2240,70 @@ sub handlesize {
 #	return $R_MENU | $R_FOOTER;
 #}
 #
-sub handlefind {
-	if (lc($sort_mode) eq 'n') {
-		goto &handlefind_incremental;
-	}
-	my $findme;
-	my $prompt = 'File to find: ';
-	$scr->at(0,0)->clreol();
-	stty_raw($TERM_COOKED);
-	($findme = readintohist(\@path_history, $prompt)) =~ s/\/$//;
-	if ($findme =~ /\//) { $findme = basename($findme) };
-	stty_raw($TERM_RAW);
-	return $R_MENU if $findme eq '';
-	FINDENTRY:
-	foreach (sort by_name @showncontents) {
-		last FINDENTRY if $findme le ($position_at = $_->{name});
-#		if (index($_->{name}, $findme) == 0) {
-#			$position_at = $_->{name};
-#			last FINDENTRY;
+#sub handlefind {
+#	if (lc($sort_mode) eq 'n') {
+#		goto &handlefind_incremental;
+#	}
+#	my $findme;
+#	my $prompt = 'File to find: ';
+#	$scr->at(0,0)->clreol();
+#	stty_raw($TERM_COOKED);
+#	($findme = readintohist(\@path_history, $prompt)) =~ s/\/$//;
+#	if ($findme =~ /\//) { $findme = basename($findme) };
+#	stty_raw($TERM_RAW);
+#	return $R_MENU if $findme eq '';
+#	FINDENTRY:
+#	foreach (sort by_name @showncontents) {
+#		last FINDENTRY if $findme le ($position_at = $_->{name});
+##		if (index($_->{name}, $findme) == 0) {
+##			$position_at = $_->{name};
+##			last FINDENTRY;
+##		}
+#	}
+#	return $R_DIRLIST | $R_MENU;
+#}
+#
+#sub handlefind_incremental {
+#	my ($findme, $k);
+#	my $jumpmouse = 1;
+#	my $prompt = 'File to find: ';
+#	my $delay = .5;
+#	FINDINCENTRY:
+#	while (1) {
+#		highlightline($HIGHLIGHT_ON);
+#		$scr->at(0,0)->clreol();
+#		putmessage($prompt);
+#		$scr->puts($findme);
+#		if ($jumpmouse) {
+#			while (!$scr->key_pressed($delay)) {
+#				$scr->at($currentline+$BASELINE, $cursorcol);
+#				last if ($scr->key_pressed($delay));
+#				$scr->at(0, length($prompt . $findme));
+#			}
 #		}
-	}
-	return $R_DIRLIST | $R_MENU;
-}
-
-sub handlefind_incremental {
-	my ($findme, $k);
-	my $jumpmouse = 1;
-	my $prompt = 'File to find: ';
-	my $delay = .5;
-	FINDINCENTRY:
-	while (1) {
-		highlightline($HIGHLIGHT_ON);
-		$scr->at(0,0)->clreol();
-		putmessage($prompt);
-		$scr->puts($findme);
-		if ($jumpmouse) {
-			while (!$scr->key_pressed($delay)) {
-				$scr->at($currentline+$BASELINE, $cursorcol);
-				last if ($scr->key_pressed($delay));
-				$scr->at(0, length($prompt . $findme));
-			}
-		}
-		$k = $scr->getch();
-		highlightline($HIGHLIGHT_OFF);
-		if ($k eq "\cM") {
-			last FINDINCENTRY;
-		} elsif ($k eq "\cH" or $k eq 'del' or $k eq "\x7F") {
-			chop($findme);
-#		} elsif ($k eq "\cW") {
-#			$findme =~ s/(.*\s+|^)(\S+\s*)$/$1/;
-		} elsif ($k eq "\cU") {
-			$findme = '';
-		} else {
-			$findme .= $k;
-		}
-		$position_at = $findme;
-		position_cursor_fuzzy();
-		%currentfile = %{$showncontents[$currentline+$baseindex]};
-#		if (!$scr->key_pressed(0)) {
-			$_listing->show();
+#		$k = $scr->getch();
+#		highlightline($HIGHLIGHT_OFF);
+#		if ($k eq "\cM") {
+#			last FINDINCENTRY;
+#		} elsif ($k eq "\cH" or $k eq 'del' or $k eq "\x7F") {
+#			chop($findme);
+##		} elsif ($k eq "\cW") {
+##			$findme =~ s/(.*\s+|^)(\S+\s*)$/$1/;
+#		} elsif ($k eq "\cU") {
+#			$findme = '';
+#		} else {
+#			$findme .= $k;
 #		}
-	}
-	return $R_MENU;
-}
-
+#		$position_at = $findme;
+#		position_cursor_fuzzy();
+#		%currentfile = %{$showncontents[$currentline+$baseindex]};
+##		if (!$scr->key_pressed(0)) {
+#			$_listing->show();
+##		}
+#	}
+#	return $R_MENU;
+#}
+#
 #sub handlefit {
 #	$scr->resize();
 #	my $newheight = $scr->rows();
@@ -2534,7 +2534,6 @@ sub handlemore {
 	MOREKEY: {
 		$key = $scr->at(0, $headerlength+1)->getch();
 		for ($key) {
-#			/^a$/io		and $do_a_refresh |= handlemoreacl(),				last MOREKEY;
 			/^s$/io		and $do_a_refresh |= handlemoreshow(),				last MOREKEY;
 			/^m$/io		and $do_a_refresh |= handlemoremake(),				last MOREKEY;
 			/^c$/io		and $do_a_refresh |= handlemoreconfig(),			last MOREKEY;
@@ -2546,6 +2545,7 @@ sub handlemore {
 			/^w$/io		and $do_a_refresh |= write_history(),				last MOREKEY;
 			/^t$/io		and $do_a_refresh |= handlemorealtscreen(),			last MOREKEY;
 			/^p$/io		and $do_a_refresh |= handlemorephyspath(),			last MOREKEY;
+#			/^a$/io		and $do_a_refresh |= handlemoreacl(),				last MOREKEY;
 			# since when has pfm become a process manager?
 			/^k$/io		and $do_a_refresh |= handlemorekill(),				last MOREKEY;
 			/^[<>]$/io	and do {
@@ -3568,86 +3568,86 @@ sub handleenter {
 	return $launched;
 }
 
-sub swap_stash {
-	return {
-		path			=>   $currentdir,
-		contents		=> [ @dircontents ],
-		position		=>   $currentfile{name},
-		disk			=> { %disk },
-		selected		=> { %selected_nr_of },
-		totals			=> { %total_nr_of },
-		multiple_mode	=>   $multiple_mode,
-		sort_mode		=>   $sort_mode,
-		dot_mode		=>   $dot_mode,
-		white_mode		=>   $white_mode,
-		argvnull		=>   $0
-	};
-}
-
-sub swap_fetch {
-	my $state = shift;
-	@dircontents    = @{$state->{contents}};
-	$position_at    =   $state->{position};
-	%disk           = %{$state->{disk}};
-	%selected_nr_of = %{$state->{selected}};
-	%total_nr_of    = %{$state->{totals}};
-	$multiple_mode  =   $state->{multiple_mode};
-	$sort_mode      =   $state->{sort_mode};
-	$dot_mode       =   $state->{dot_mode};
-	$white_mode     =   $state->{white_mode};
-	$0              =   $state->{argvnull};
-	return $state->{path};
-}
-
-sub handleswap {
-	my $do_a_refresh = $R_HEADINGS | $R_MENU;
-	my $prompt       = 'Directory Pathname: ';
-	my ($temp_state, $nextdir);
-	if ($swap_state and !$swap_persistent) { # swap back if ok_to_remove_marks
-		if (ok_to_remove_marks()) {
-			$nextdir   = swap_fetch($swap_state);
-			$swap_mode = $swap_state = 0;
-			$do_a_refresh |= $R_SCREEN;
-		} else { # not ok to remove marks
-			$do_a_refresh |= $R_MENU;
-		}
-	} elsif ($swap_state and $swap_persistent) { # swap persistent
-		$temp_state = $swap_state;
-		$swap_state = swap_stash();
-		$nextdir    = swap_fetch($temp_state);
-		toggle($swap_mode);
-		$do_a_refresh |= $R_SCREEN;
-	} else { # $swap_state = 0; ask and swap forward
-		if (defined $swapstartdir) {
-			$nextdir = $swapstartdir;
-			undef $swapstartdir;
-			$do_a_refresh |= $swap_persistent * $R_INIT_SWAP;
-		} else {
-			$scr->at(0,0)->clreol();
-			stty_raw($TERM_COOKED);
-			$nextdir = readintohist(\@path_history, $prompt);
-			stty_raw($TERM_RAW);
-			return $do_a_refresh if $nextdir eq '';
-		}
-		$swap_state    = swap_stash();
-		$swap_mode     = 1;
-		$sort_mode     = $pfmrc{defaultsortmode} || 'n';
-		$multiple_mode = 0;
-		# this was the old location of the if-block above
-		# which has been moved up to enable returning sooner
-		expand_escapes($QUOTE_OFF, $nextdir, \%currentfile);
-		$position_at   = '.';
-		$do_a_refresh |= $R_CHDIR;
-	}
-	if (!mychdir($nextdir)) {
-		$scr->at($PATHLINE,0)->clreol();
-		display_error("$nextdir: $!");
-		$do_a_refresh |= $R_CHDIR; # dan maar de lucht in
-	}
-	handlemorercsopen() if $autorcs;
-	return $do_a_refresh;
-}
-
+#sub swap_stash {
+#	return {
+#		path			=>   $currentdir,
+#		contents		=> [ @dircontents ],
+#		position		=>   $currentfile{name},
+#		disk			=> { %disk },
+#		selected		=> { %selected_nr_of },
+#		totals			=> { %total_nr_of },
+#		multiple_mode	=>   $multiple_mode,
+#		sort_mode		=>   $sort_mode,
+#		dot_mode		=>   $dot_mode,
+#		white_mode		=>   $white_mode,
+#		argvnull		=>   $0
+#	};
+#}
+#
+#sub swap_fetch {
+#	my $state = shift;
+#	@dircontents    = @{$state->{contents}};
+#	$position_at    =   $state->{position};
+#	%disk           = %{$state->{disk}};
+#	%selected_nr_of = %{$state->{selected}};
+#	%total_nr_of    = %{$state->{totals}};
+#	$multiple_mode  =   $state->{multiple_mode};
+#	$sort_mode      =   $state->{sort_mode};
+#	$dot_mode       =   $state->{dot_mode};
+#	$white_mode     =   $state->{white_mode};
+#	$0              =   $state->{argvnull};
+#	return $state->{path};
+#}
+#
+#sub handleswap {
+#	my $do_a_refresh = $R_HEADINGS | $R_MENU;
+#	my $prompt       = 'Directory Pathname: ';
+#	my ($temp_state, $nextdir);
+#	if ($swap_state and !$swap_persistent) { # swap back if ok_to_remove_marks
+#		if (ok_to_remove_marks()) {
+#			$nextdir   = swap_fetch($swap_state);
+#			$swap_mode = $swap_state = 0;
+#			$do_a_refresh |= $R_SCREEN;
+#		} else { # not ok to remove marks
+#			$do_a_refresh |= $R_MENU;
+#		}
+#	} elsif ($swap_state and $swap_persistent) { # swap persistent
+#		$temp_state = $swap_state;
+#		$swap_state = swap_stash();
+#		$nextdir    = swap_fetch($temp_state);
+#		toggle($swap_mode);
+#		$do_a_refresh |= $R_SCREEN;
+#	} else { # $swap_state = 0; ask and swap forward
+#		if (defined $swapstartdir) {
+#			$nextdir = $swapstartdir;
+#			undef $swapstartdir;
+#			$do_a_refresh |= $swap_persistent * $R_INIT_SWAP;
+#		} else {
+#			$scr->at(0,0)->clreol();
+#			stty_raw($TERM_COOKED);
+#			$nextdir = readintohist(\@path_history, $prompt);
+#			stty_raw($TERM_RAW);
+#			return $do_a_refresh if $nextdir eq '';
+#		}
+#		$swap_state    = swap_stash();
+#		$swap_mode     = 1;
+#		$sort_mode     = $pfmrc{defaultsortmode} || 'n';
+#		$multiple_mode = 0;
+#		# this was the old location of the if-block above
+#		# which has been moved up to enable returning sooner
+#		expand_escapes($QUOTE_OFF, $nextdir, \%currentfile);
+#		$position_at   = '.';
+#		$do_a_refresh |= $R_CHDIR;
+#	}
+#	if (!mychdir($nextdir)) {
+#		$scr->at($PATHLINE,0)->clreol();
+#		display_error("$nextdir: $!");
+#		$do_a_refresh |= $R_CHDIR; # dan maar de lucht in
+#	}
+#	handlemorercsopen() if $autorcs;
+#	return $do_a_refresh;
+#}
+#
 #sub handleentry {
 #	my $key = shift;
 #	my ($tempptr, $nextdir, $success, $direction);

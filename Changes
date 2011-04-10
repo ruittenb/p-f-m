@@ -1,3 +1,10 @@
+2.03.0
+
+* fixed bug: when swapping back with swap_persistent == no,
+  answering 'OK to remove marks?' with 'no' caused the current
+  directory to change inadvertently.
+* changed the default for 'persistentswap' (now 'yes')
+
 2.02.7
 
 * fixed bug with bookkeeping marked files
@@ -22,6 +29,10 @@
   check in the background as soon as pfm is started.
 * fixed bug where major/minor numbers of device files were lost
   after a window resize
+
+2.01.6
+
+* removed the 'rcscmd' config option. PFM will figure it out by itself.
 
 2.01.2
 

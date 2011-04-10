@@ -3,7 +3,7 @@
 ##########################################################################
 # @(#) App::PFM::Job::Subversion 0.01
 #
-# Name:			App::PFM::Job::Subversion.pm
+# Name:			App::PFM::Job::Subversion
 # Version:		0.01
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14

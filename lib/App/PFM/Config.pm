@@ -3,7 +3,7 @@
 ##########################################################################
 # @(#) App::PFM::Config 0.10
 #
-# Name:			App::PFM::Config.pm
+# Name:			App::PFM::Config
 # Version:		0.10
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
@@ -279,7 +279,7 @@ sub parse {
 	$self->{autowritehistory}	= isyes($_pfmrc{autowritehistory});
 	$self->{autoexitmultiple}	= isyes($_pfmrc{autoexitmultiple});
 	$self->{mouseturnoff}		= isyes($_pfmrc{mouseturnoff});
-	$self->{swap_persistent}	= isyes($_pfmrc{persistentswap});
+	$self->{swap_persistent}	= isyes($_pfmrc{persistentswap} || 'yes');
 	$self->{trspace}			= isyes($_pfmrc{translatespace}) ? ' ' : '';
 	$self->{dotdot_mode}		= isyes($_pfmrc{dotdotmode});
 	$self->{autorcs}			= isyes($_pfmrc{autorcs});
@@ -294,7 +294,8 @@ sub parse {
 	$self->{radix_mode}			= ifnotdefined($state->{radix_mode},         $_pfmrc{defaultradix}    || 'hex');
 	$self->{ident_mode}			= ifnotdefined($diskinfo->ident_mode,
 								  $diskinfo->IDENTMODES->{$_pfmrc{defaultident}} || 0);
-	$self->{escapechar} = $e	= $_pfmrc{escapechar} || '=';
+	$self->{escapechar} =
+	$self->{e}			= $e	= $_pfmrc{escapechar} || '=';
 	$self->{ducmd}				= $_pfmrc{ducmd} || $DUCMDS{$^O} || $DUCMDS{default};
 	$self->{ducmd}				=~ s/\$\{e\}/${e}/g;
 	$self->{mouse_mode}			= $_pfm->browser->mouse_mode || $_pfmrc{defaultmousemode} || 'xterm';
@@ -582,8 +583,8 @@ mouseturnoff:yes
 ## your pager (don't specify =2 here). you can also use $PAGER
 #pager:less
 
-## F7 key swap path method is persistent? (default no)
-persistentswap:yes
+## F7 key swap path method is persistent? (default yes)
+#persistentswap:no
 
 ## your system's print command (needs =2 for current filename).
 ## if unspecified, the default is:

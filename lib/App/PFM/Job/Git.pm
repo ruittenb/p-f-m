@@ -3,7 +3,7 @@
 ##########################################################################
 # @(#) App::PFM::Job::Git 0.02
 #
-# Name:			App::PFM::Job::Git.pm
+# Name:			App::PFM::Job::Git
 # Version:		0.02
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14

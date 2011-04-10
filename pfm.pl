@@ -3,7 +3,7 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.02.9
+# Version:		2.03.0
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-04-27
@@ -28,7 +28,7 @@ our $ROFFVERSION = <<'=cut';
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.02.9
+.ds Vw @(#) pfm.pl 2.03.0
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -1385,6 +1385,25 @@ and the current working directory on exit are saved to this directory.
 
 The default location for the config file is F<$HOME/.pfm/.pfmrc>.
 
+=head1 EXIT STATUS
+
+=over
+
+=item 0
+
+Success (could also be a user requested exit, I<e.g.> after
+B<--help> or B<--version>).
+
+=item 1
+
+Invalid commandline option.
+
+=item 2
+
+No valid layout found in the F<.pfmrc> file.
+
+=back
+
 =head1 DIAGNOSIS
 
 If C<pfm> reports that your config file might be outdated, you might be
@@ -1397,9 +1416,6 @@ your original one:
 To prevent the warning from occurring again, update the '## Version' line.
 
 =head1 BUGS and WARNINGS
-
-When typed by itself, the B<ESC> key needs to be pressed twice. This is
-due to the lack of a proper timeout in C<Term::Screen>.
 
 C<Term::ReadLine::Gnu> does not allow a half-finished line to be aborted by
 pressing B<ESC>. For most commands, you will need to clear the half-finished

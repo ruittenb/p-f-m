@@ -3,7 +3,7 @@
 ##########################################################################
 # @(#) App::PFM::Screen::Frame 0.04
 #
-# Name:			App::PFM::Screen::Frame.pm
+# Name:			App::PFM::Screen::Frame
 # Version:		0.04
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14

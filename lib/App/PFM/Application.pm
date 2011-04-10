@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.02.7
+# @(#) App::PFM::Application 2.03.0
 #
-# Name:			App::PFM::Application.pm
-# Version:		2.02.7
+# Name:			App::PFM::Application
+# Version:		2.03.0
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-04-21
@@ -57,7 +57,7 @@ use constant {
 };
 
 my ($_browser, $_screen, $_commandhandler, $_config, $_history, $_jobhandler,
-	$_bootstrapped, @_states, $_latest_version,
+	$_bootstrapped, @_states,
 );
 
 ##########################################################################
@@ -160,9 +160,9 @@ sub _goodbye {
 	my $self  = shift;
 	my $bye   = 'Goodbye from your Personal File Manager!';
 	my $state = $_states[S_MAIN];
-	$_screen->stty_cooked();
-	$_screen->mouse_disable();
-	$_screen->alternate_off();
+	$_screen->cooked_echo()
+		->mouse_disable()
+		->alternate_off();
 	system qw(tput cnorm) if $_config->{cursorveryvisible};
 	if ($state->{altscreen_mode}) {
 		print "\n";
@@ -180,7 +180,7 @@ sub _goodbye {
 		$_screen->at($_screen->screenheight + $_screen->BASELINE + 1, 0)
 				->clreol();
 	}
-	$_screen->putmessage($_latest_version) if $_latest_version;
+	$_screen->putmessage($self->{LATEST_VERSION}) if $self->{LATEST_VERSION};
 }
 
 ##########################################################################
@@ -258,8 +258,8 @@ sub state {
 
 sub latest_version {
 	my ($self, $value) = @_;
-	$_latest_version = $value if defined $value;
-	return $_latest_version;
+	$self->{LATEST_VERSION} = $value if defined $value;
+	return $self->{LATEST_VERSION};
 }
 
 ##########################################################################
@@ -293,7 +293,7 @@ sub bootstrap {
 	# for easy access.
 	$_states[S_MAIN] = new App::PFM::State($self);
 	$_screen		 = new App::PFM::Screen($self);
-	$_screen->at($_screen->rows(), 0)->cooked();
+	$_screen->at($_screen->rows(), 0)->cooked_echo();
 	
 	Getopt::Long::Configure(qw'bundling permute');
 	GetOptions ('s|swap=s'   => \$swapstartdir,
@@ -302,8 +302,8 @@ sub bootstrap {
 				'v|version'  => \$opt_version) or $invalid = 1;
 	$self->_usage()			if $opt_help || $invalid;
 	$self->_printversion()	if $opt_version;
-	exit 1					if $invalid;
-	exit 0					if $opt_help || $opt_version;
+	die "1:Invalid Usage"	if $invalid;
+	die "0:Requested exit"	if $opt_help || $opt_version;
 	
 	# hand over the application object to the other classes
 	# for easy access.
@@ -312,7 +312,7 @@ sub bootstrap {
 	$_browser		 = new App::PFM::Browser($self);
 	$_jobhandler	 = new App::PFM::JobHandler($self);
 	
-	$_screen->clrscr()->raw();
+	$_screen->clrscr()->raw_noecho();
 	$_screen->calculate_dimensions();
 	$_config = new App::PFM::Config($self);
 	$_config->read( $_config->READ_FIRST);
@@ -320,7 +320,6 @@ sub bootstrap {
 	$_config->apply();
 	$_screen->listing->layout($startinglayout);
 	$_history->read();
-	$_latest_version = '';
 	$_jobhandler->start('CheckUpdates');
 	
 	# current directory - MAIN for the time being
@@ -330,7 +329,7 @@ sub bootstrap {
 	$startingdir = shift @ARGV;
 	if ($startingdir ne '') {
 		# if so, make it MAIN; currentdir becomes PREV
-		unless ($_states[S_MAIN]->currentdir($startingdir)) {
+		unless ($_states[S_MAIN]->directory->path($startingdir)) {
 			$_screen->at(0,0)->clreol();
 			$_screen->display_error("$startingdir: $! - using .");
 			$_screen->important_delay();
@@ -357,8 +356,16 @@ been done yet.
 
 sub run {
 	my $self = shift;
-	$self->bootstrap() if !$_bootstrapped;
-	$_browser->browse();
+	if ($ENV{PFMDEBUG}) {
+		$self->bootstrap() if !$_bootstrapped;
+		$_browser->browse();
+	} else {
+		eval {
+			$self->bootstrap() if !$_bootstrapped;
+			$_browser->browse();
+		};
+		exit (0 + $@) if defined $@;
+	}
 	$self->_goodbye();
 }
 

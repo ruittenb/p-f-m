@@ -3,7 +3,7 @@
 ##########################################################################
 # @(#) App::PFM::Job::CheckUpdates 0.01
 #
-# Name:			App::PFM::Job::CheckUpdates.pm
+# Name:			App::PFM::Job::CheckUpdates
 # Version:		0.01
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
