@@ -1,9 +1,9 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Screen::Listing 0.14
+# @(#) App::PFM::Screen::Listing 0.14
 #
-# Name:			PFM::Screen::Listing.pm
+# Name:			App::PFM::Screen::Listing.pm
 # Version:		0.14
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
@@ -16,11 +16,11 @@
 
 =head1 NAME
 
-PFM::Screen::Listing
+App::PFM::Screen::Listing
 
 =head1 DESCRIPTION
 
-PFM class for displaying a PFM::Directory object on the screen.
+PFM class for displaying a App::PFM::Directory object on the screen.
 
 =head1 METHODS
 
@@ -31,11 +31,11 @@ PFM class for displaying a PFM::Directory object on the screen.
 ##########################################################################
 # declarations
 
-package PFM::Screen::Listing;
+package App::PFM::Screen::Listing;
 
-use base 'PFM::Abstract';
+use base 'App::PFM::Abstract';
 
-use PFM::Util;
+use App::PFM::Util;
 
 use locale;
 use strict;
@@ -538,7 +538,7 @@ sub reformat {
 
 =head1 SEE ALSO
 
-pfm(1), PFM::Screen(3pm).
+pfm(1), App::PFM::Screen(3pm).
 
 =cut
 

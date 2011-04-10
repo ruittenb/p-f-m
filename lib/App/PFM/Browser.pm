@@ -1,9 +1,9 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Browser 0.36
+# @(#) App::PFM::Browser 0.36
 #
-# Name:			PFM::Browser.pm
+# Name:			App::PFM::Browser.pm
 # Version:		0.36
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
@@ -16,7 +16,7 @@
 
 =head1 NAME
 
-PFM::Browser
+App::PFM::Browser
 
 =head1 DESCRIPTION
 
@@ -33,9 +33,9 @@ the command handler, and refreshing the screen.
 ##########################################################################
 # declarations
 
-package PFM::Browser;
+package App::PFM::Browser;
 
-use base 'PFM::Abstract';
+use base 'App::PFM::Abstract';
 
 use strict;
 

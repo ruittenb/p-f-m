@@ -1,11 +1,16 @@
+2.02.6
+
+* changed F2 (previous) so that it remembers the window position
+  in the current directory too
+
 2.02.2
 
-* moved sort info to heading of 'filename' column.
+* moved filter info to heading of 'filename' column.
 
 2.02.1
 
-* changed F2 (back) to a swap between states instead of just a reminder
-  of the old directory name
+* changed F2 (previous) to swap between states instead of just
+  remembering the previous directory name
 
 2.01.7
 

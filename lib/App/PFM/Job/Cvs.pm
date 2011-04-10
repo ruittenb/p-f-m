@@ -1,9 +1,9 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Job::Cvs 0.01
+# @(#) App::PFM::Job::Cvs 0.01
 #
-# Name:			PFM::Job::Cvs.pm
+# Name:			App::PFM::Job::Cvs.pm
 # Version:		0.01
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
@@ -16,7 +16,7 @@
 
 =head1 NAME
 
-PFM::Job::Cvs
+App::PFM::Job::Cvs
 
 =head1 DESCRIPTION
 
@@ -31,9 +31,9 @@ PFM Job class for CVS commands.
 ##########################################################################
 # declarations
 
-package PFM::Job::Cvs;
+package App::PFM::Job::Cvs;
 
-use base 'PFM::Job::Abstract';
+use base 'App::PFM::Job::Abstract';
 
 use strict;
 
@@ -135,7 +135,7 @@ sub poll {
 
 =head1 SEE ALSO
 
-pfm(1), PFM::Job(3pm).
+pfm(1), App::PFM::Job(3pm).
 
 =cut
 

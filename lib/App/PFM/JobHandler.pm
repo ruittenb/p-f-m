@@ -1,9 +1,9 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::JobHandler 0.01
+# @(#) App::PFM::JobHandler 0.01
 #
-# Name:			PFM::JobHandler.pm
+# Name:			App::PFM::JobHandler.pm
 # Version:		0.01
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
@@ -16,7 +16,7 @@
 
 =head1 NAME
 
-PFM::JobHandler
+App::PFM::JobHandler
 
 =head1 DESCRIPTION
 
@@ -32,14 +32,14 @@ background).
 ##########################################################################
 # declarations
 
-package PFM::JobHandler;
+package App::PFM::JobHandler;
 
-use base 'PFM::Abstract';
+use base 'App::PFM::Abstract';
 
-use PFM::Job::CheckUpdates;
-use PFM::Job::Subversion;
-use PFM::Job::Cvs;
-use PFM::Job::Bazaar;
+use App::PFM::Job::CheckUpdates;
+use App::PFM::Job::Subversion;
+use App::PFM::Job::Cvs;
+use App::PFM::Job::Bazaar;
 
 use strict;
 
@@ -90,11 +90,32 @@ job stack. Returns the jobnumber.
 sub start {
 	my ($self, $class, @args) = @_;
 	$class =~ tr/a-zA-Z0-9_//cd;
-	$class = "PFM::Job::$class";
+	$class = "App::PFM::Job::$class";
 	my $job = $class->new($_pfm);
 	push @_jobs, $job;
 	$job->start(@args);
 	return $#_jobs;
+}
+
+=item poll()
+
+Polls the job with the number provided. If it is done, the job is
+removed from the stack. Returns a boolean indicating if the job is
+still running.
+
+=cut
+
+sub poll() {
+	my ($self, $jobnr) = @_;
+	return 0 unless defined $_jobs[$jobnr];
+	my $ret = $_jobs[$jobnr]->poll();
+	unless ($ret) {
+		# We cannot use splice() here because it would change
+		# the index of the individual jobs. Or we should rewrite
+		# @_jobs as %_jobs.
+		delete $_jobs[$jobnr];
+	}
+	return $ret;
 }
 
 =item pollall()
@@ -109,13 +130,7 @@ sub pollall {
 	my $self = shift;
 	my $i;
 	for ($i = 0; $i < $#_jobs; $i++) {
-		next unless defined $_jobs[$i];
-		unless ($_jobs[$i]->poll()) {
-			# We cannot use splice() here because it would change
-			# the index of the individual jobs. Or we should rewrite
-			# @_jobs as %_jobs.
-			delete $_jobs[$i];
-		}
+		$self->poll($i);
 	}
 	# Note that this does not return the number of running jobs,
 	# but instead the total number of elements, some of which may

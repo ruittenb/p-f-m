@@ -10,25 +10,26 @@ WHEEL=`awk -F: '$$3 == 0 {print $$1}' /etc/group`
 install:
 	@echo "Please use the script 'install.sh' to install pfm."
 
-man: Abstract.3pm Application.3pm Browser.3pm CommandHandler.3pm \
-Config.3pm Directory.3pm History.3pm JobHandler.3pm Screen.3pm State.3pm Util.3pm
+man: Abstract.3pm Application.3pm Browser.3pm CommandHandler.3pm Config.3pm \
+Directory.3pm File.3pm History.3pm JobHandler.3pm Screen.3pm State.3pm Util.3pm
 	make -C JobHandler man
 	make -C Screen man
 
 doc: man
 
 test:
-	perl -I.. -cw Abstract.pm
-	perl -I.. -cw Application.pm
-	perl -I.. -cw Browser.pm
-	perl -I.. -cw CommandHandler.pm
-	perl -I.. -cw Config.pm
-	perl -I.. -cw Directory.pm
-	perl -I.. -cw History.pm
-	perl -I.. -cw JobHandler.pm
-	perl -I.. -cw Screen.pm
-	perl -I.. -cw State.pm
-	perl -I.. -cw Util.pm
+	perl -I../.. -cw Abstract.pm
+	perl -I../.. -cw Application.pm
+	perl -I../.. -cw Browser.pm
+	perl -I../.. -cw CommandHandler.pm
+	perl -I../.. -cw Config.pm
+	perl -I../.. -cw Directory.pm
+	perl -I../.. -cw File.pm
+	perl -I../.. -cw History.pm
+	perl -I../.. -cw JobHandler.pm
+	perl -I../.. -cw Screen.pm
+	perl -I../.. -cw State.pm
+	perl -I../.. -cw Util.pm
 	make -C Job test
 	make -C Screen test
 

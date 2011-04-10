@@ -1,9 +1,9 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Screen::Diskinfo 0.04
+# @(#) App::PFM::Screen::Diskinfo 0.04
 #
-# Name:			PFM::Screen::Diskinfo.pm
+# Name:			App::PFM::Screen::Diskinfo.pm
 # Version:		0.04
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
@@ -16,7 +16,7 @@
 
 =head1 NAME
 
-PFM::Screen::Diskinfo
+App::PFM::Screen::Diskinfo
 
 =head1 DESCRIPTION
 
@@ -32,11 +32,11 @@ a count of marked files, identity and clock.
 ##########################################################################
 # declarations
 
-package PFM::Screen::Diskinfo;
+package App::PFM::Screen::Diskinfo;
 
-use base 'PFM::Abstract';
+use base 'App::PFM::Abstract';
 
-use PFM::Util;
+use App::PFM::Util;
 use POSIX qw(strftime);
 
 use locale;
@@ -316,7 +316,7 @@ sub clock_info {
 
 =head1 SEE ALSO
 
-pfm(1), PFM::Screen(3pm).
+pfm(1), App::PFM::Screen(3pm).
 
 =cut
 

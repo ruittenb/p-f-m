@@ -1065,21 +1065,21 @@ sub restat_copyback {
 #	};
 #}
 #
-sub exclude { # $entry,$oldmark
-	my ($entry, $oldmark) = @_;
-	$oldmark ||= " ";
-	$entry->{selected} = $oldmark;
-	$selected_nr_of{$entry->{type}}--;
-	$entry->{type} =~ /-/ and $selected_nr_of{bytes} -= $entry->{size};
-}
-
-sub include { # $entry
-	my $entry = $_[0];
-	$entry->{selected} = "*";
-	$selected_nr_of{$entry->{type}}++;
-	$entry->{type} =~ /-/ and $selected_nr_of{bytes} += $entry->{size};
-}
-
+#sub exclude { # $entry,$oldmark
+#	my ($entry, $oldmark) = @_;
+#	$oldmark ||= " ";
+#	$entry->{selected} = $oldmark;
+#	$selected_nr_of{$entry->{type}}--;
+#	$entry->{type} =~ /-/ and $selected_nr_of{bytes} -= $entry->{size};
+#}
+#
+#sub include { # $entry
+#	my $entry = $_[0];
+#	$entry->{selected} = "*";
+#	$selected_nr_of{$entry->{type}}++;
+#	$entry->{type} =~ /-/ and $selected_nr_of{bytes} += $entry->{size};
+#}
+#
 #sub reformat {
 #	foreach (@dircontents) {
 #		$_->{name_too_long} = length($_->{display}) > $maxfilenamelength-1
@@ -2429,7 +2429,10 @@ sub handlemorefifo {
 	expand_escapes($QUOTE_OFF, $newname, \%currentfile);
 	stty_raw($TERM_RAW);
 	return $R_MENU if $newname eq '';
-	system "mkfifo \Q$newname\E" and display_error('Make FIFO failed');
+	if (system "mkfifo \Q$newname\E") {
+		display_error('Make FIFO failed');
+		return $do_a_refresh;
+	}
 	# is newname present in @dircontents? push otherwise
 	# (this part is nearly identical to the part in handlecopyrename())
 	$findindex = 0;
@@ -3715,9 +3718,15 @@ sub handlepathjump {
 #	# 'selected' field of the file info should be cleared (when reading
 #	# a new directory) or kept intact (when re-statting)
 #	my ($entry, $selected_flag) = @_;
-#	my ($ptr, $name_too_long, $target);
+#	my ($ptr, $name_too_long, $target, @white_entries);
 #	my ($device, $inode, $mode, $nlink, $uid, $gid, $rdev, $size,
 #		$atime, $mtime, $ctime, $blksize, $blocks) = lstat $entry;
+#	if (!defined $mode and defined $white_cmd) {
+#		@white_entries = map { chop; $_ } `$white_cmd \Q$currentdir`;
+#		if (grep /$entry/, @white_entries) {
+#			$mode = 0160000;
+#		}
+#	}
 #	$ptr = {
 #		name		=> $entry,			device		=> $device,
 #		uid			=> find_uid($uid),	inode		=> $inode,

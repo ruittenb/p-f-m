@@ -1,9 +1,9 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Screen::Frame 0.04
+# @(#) App::PFM::Screen::Frame 0.04
 #
-# Name:			PFM::Screen::Frame.pm
+# Name:			App::PFM::Screen::Frame.pm
 # Version:		0.04
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
@@ -16,7 +16,7 @@
 
 =head1 NAME
 
-PFM::Screen::Frame
+App::PFM::Screen::Frame
 
 =head1 DESCRIPTION
 
@@ -32,11 +32,11 @@ and panning it.
 ##########################################################################
 # declarations
 
-package PFM::Screen::Frame;
+package App::PFM::Screen::Frame;
 
-use base 'PFM::Abstract';
+use base 'App::PFM::Abstract';
 
-use PFM::Util;
+use App::PFM::Util;
 
 use locale;
 use strict;
@@ -367,7 +367,7 @@ sub pan {
 
 =head1 SEE ALSO
 
-pfm(1), PFM::Screen(3pm).
+pfm(1), App::PFM::Screen(3pm).
 
 =cut
 

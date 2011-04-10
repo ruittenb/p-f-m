@@ -1,9 +1,9 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Job::Bazaar 0.01
+# @(#) App::PFM::Job::Bazaar 0.01
 #
-# Name:			PFM::Job::Bazaar.pm
+# Name:			App::PFM::Job::Bazaar.pm
 # Version:		0.01
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
@@ -16,7 +16,7 @@
 
 =head1 NAME
 
-PFM::Job::Bazaar
+App::PFM::Job::Bazaar
 
 =head1 DESCRIPTION
 
@@ -31,9 +31,9 @@ PFM Job class for Bazaar commands.
 ##########################################################################
 # declarations
 
-package PFM::Job::Bazaar;
+package App::PFM::Job::Bazaar;
 
-use base 'PFM::Job::Abstract';
+use base 'App::PFM::Job::Abstract';
 
 use strict;
 
@@ -89,7 +89,7 @@ sub poll {
 
 =head1 SEE ALSO
 
-pfm(1), PFM::Job(3pm).
+pfm(1), App::PFM::Job(3pm).
 
 =cut
 

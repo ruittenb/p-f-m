@@ -1,9 +1,9 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::CommandHandler 0.10
+# @(#) App::PFM::CommandHandler 0.10
 #
-# Name:			PFM::CommandHandler.pm
+# Name:			App::PFM::CommandHandler.pm
 # Version:		0.10
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
@@ -16,7 +16,7 @@
 
 =head1 NAME
 
-PFM::CommandHandler
+App::PFM::CommandHandler
 
 =head1 DESCRIPTION
 
@@ -31,14 +31,14 @@ PFM Class for executing user commands.
 ##########################################################################
 # declarations
 
-package PFM::CommandHandler;
+package App::PFM::CommandHandler;
 
-use base 'PFM::Abstract';
+use base 'App::PFM::Abstract';
 
-use PFM::Util;
-#use PFM::Application;	# imports the S_* constants
-use PFM::History;		# imports the H_* constants
-use PFM::Screen;		# imports the R_* constants
+use App::PFM::Util;
+#use App::PFM::Application;	# imports the S_* constants
+use App::PFM::History;		# imports the H_* constants
+use App::PFM::Screen;		# imports the R_* constants
 
 use POSIX qw(strftime mktime);
 use Config;
@@ -91,18 +91,18 @@ sub _init_white_commands {
 	my $white_cmd = '';
 	my @unwo_cmd  = ();
 	foreach (split /:/, $ENV{PATH}) {
-		if (!@unwo_cmd) {
-			if (-f "$_/unwhiteout") {
-				@unwo_cmd = qw(unwhiteout);
-			} elsif (-f "$_/unwo") {
-				@unwo_cmd = qw(unwo);
-			}
-		}
 		if (!$white_cmd) {
 			if (-f "$_/listwhite") {
 				$white_cmd = 'listwhite';
 			} elsif (-f "$_/lsw") {
 				$white_cmd = 'lsw';
+			}
+		}
+		if (!@unwo_cmd) {
+			if (-f "$_/unwhiteout") {
+				@unwo_cmd = qw(unwhiteout);
+			} elsif (-f "$_/unwo") {
+				@unwo_cmd = qw(unwo);
 			}
 		}
 	}
@@ -157,16 +157,6 @@ _eoCredits_
 ##########################################################################
 # constructor, getters and setters
 
-=item whitecommand()
-
-Getter for the command for listing whiteouts.
-
-=cut
-
-sub whitecommand {
-	return $_white_cmd;
-}
-
 =item clobber_mode()
 
 Getter/setter for the clobber mode, which determines if files will be
@@ -178,6 +168,16 @@ sub clobber_mode {
 	my ($self, $value) = @_;
 	$_clobber_mode = $value if defined $value;
 	return $_clobber_mode;
+}
+
+=item whitecommand()
+
+Getter for the command for listing whiteouts.
+
+=cut
+
+sub whitecommand {
+	return $_white_cmd;
 }
 
 ##########################################################################

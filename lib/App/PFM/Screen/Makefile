@@ -15,6 +15,6 @@ man: Diskinfo.3pm Frame.3pm Listing.3pm
 doc: man
 
 test:
-	perl -I../.. -cw Diskinfo.pm
-	perl -I../.. -cw Frame.pm
-	perl -I../.. -cw Listing.pm
+	perl -I../../.. -cw Diskinfo.pm
+	perl -I../../.. -cw Frame.pm
+	perl -I../../.. -cw Listing.pm

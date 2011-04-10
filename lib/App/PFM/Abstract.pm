@@ -1,9 +1,9 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Abstract 0.06
+# @(#) App::PFM::Abstract 0.06
 #
-# Name:			PFM::Abstract.pm
+# Name:			App::PFM::Abstract.pm
 # Version:		0.06
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
@@ -16,7 +16,7 @@
 
 =head1 NAME
 
-PFM::Abstract
+App::PFM::Abstract
 
 =head1 DESCRIPTION
 
@@ -32,7 +32,7 @@ It defines shared functions.
 ##########################################################################
 # declarations
 
-package PFM::Abstract;
+package App::PFM::Abstract;
 
 use Carp;
 
@@ -64,7 +64,7 @@ sub _clone() {
 
 =item new()
 
-Constructor for all classes based on PFM::Abstract.
+Constructor for all classes based on App::PFM::Abstract.
 
 =cut
 
