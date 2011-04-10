@@ -3,7 +3,7 @@
 ##########################################################################
 # @(#) App::PFM::History 0.08
 #
-# Name:			App::PFM::History.pm
+# Name:			App::PFM::History
 # Version:		0.08
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
@@ -184,10 +184,10 @@ the config directory.
 sub write_dirs {
 	my $self = shift;
 	my $configdirname = $_pfm->config->CONFIGDIRNAME;
-	my $swap_state	  = $_pfm->state(1);
+	my $swap_state	  = $_pfm->state($_pfm->S_SWAP);
 	
 	if (open CWDFILE, ">$configdirname/$CWDFILENAME") {
-		print CWDFILE $_pfm->state->currentdir, "\n";
+		print CWDFILE $_pfm->state->directory->path, "\n";
 		close CWDFILE;
 	} else {
 		$_pfm->screen->putmessage(
@@ -197,7 +197,7 @@ sub write_dirs {
 	if (defined($swap_state) && $_pfm->config->{swap_persistent} &&
 		open SWDFILE,">$configdirname/$SWDFILENAME")
 	{
-		print SWDFILE $swap_state->currentdir, "\n";
+		print SWDFILE $swap_state->directory->path, "\n";
 		close SWDFILE;
 	} else {
 		unlink "$configdirname/$SWDFILENAME";

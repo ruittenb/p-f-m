@@ -3,7 +3,7 @@
 ##########################################################################
 # @(#) App::PFM::Directory 0.12
 #
-# Name:			App::PFM::Directory.pm
+# Name:			App::PFM::Directory
 # Version:		0.12
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
@@ -302,7 +302,6 @@ sub prepare {
 	$self->path_mode($_pfm->config->{path_mode});
 	$self->{_path} = $path;
 	$self->_init_filesystem_info();
-	$self->init_dircount();
 	$self->readcontents();
 	$self->sortcontents();
 	$self->filtercontents();
@@ -410,6 +409,7 @@ sub readcontents {
 	my $whitecommand  = $_pfm->commandhandler->whitecommand;
 	my $screen        = $_pfm->screen;
 	clearugidcache();
+	$self->init_dircount();
 	$App::PFM::File::_pfm = $_pfm;
 	$self->{_dircontents}   = [];
 	$self->{_showncontents} = [];

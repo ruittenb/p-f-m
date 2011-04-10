@@ -3,7 +3,7 @@
 ##########################################################################
 # @(#) App::PFM::JobHandler 0.01
 #
-# Name:			App::PFM::JobHandler.pm
+# Name:			App::PFM::JobHandler
 # Version:		0.01
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14

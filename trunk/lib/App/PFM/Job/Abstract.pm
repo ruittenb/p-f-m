@@ -3,7 +3,7 @@
 ##########################################################################
 # @(#) App::PFM::Job::Abstract 0.01
 #
-# Name:			App::PFM::Job::Abstract.pm
+# Name:			App::PFM::Job::Abstract
 # Version:		0.01
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14

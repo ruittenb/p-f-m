@@ -3,7 +3,7 @@
 ##########################################################################
 # @(#) App::PFM::CommandHandler 0.10
 #
-# Name:			App::PFM::CommandHandler.pm
+# Name:			App::PFM::CommandHandler
 # Version:		0.10
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
@@ -44,6 +44,11 @@ use POSIX qw(strftime mktime);
 use Config;
 
 use strict;
+
+use constant {
+	QUOTE_OFF => 0,
+	QUOTE_ON  => 1,
+};
 
 my %NUMFORMATS = ( 'hex' => '%#04lx', 'oct' => '%03lo');
 
@@ -137,7 +142,7 @@ Prints elaborate info about pfm. Called from help().
 
 sub _credits {
 	my $self = shift;
-	$_screen->clrscr()->stty_cooked();
+	$_screen->clrscr()->cooked_echo();
 	my $name = $_screen->colored('bold', 'pfm');
 	my $version_message = $_pfm->{LATEST_VERSION}
 		? "A new version $_pfm->{LATEST_VERSION} is available from"
@@ -167,9 +172,81 @@ sub _credits {
 
                                                          any key to exit to $name
 _eoCredits_
-	$_screen->stty_raw()->getch();
+	$_screen->raw_noecho()->getch();
 }
 
+=item _selectednames()
+
+Creates a list of names of selected files, for the B<=8> escape.
+
+=cut
+
+sub _selectednames {
+	my ($self, $qif) = @_;
+	my $directory = $_pfm->state->directory;
+	my @res =	map  {
+					$directory->exclude($_, $directory->OLDMARK);
+					condquotemeta($qif, $_->{name});
+				}
+				grep { $_->{selected} eq $directory->MARK }
+				@{$directory->showncontents};
+	return @res;
+}
+
+#sub expand_replace { # esc-category, namenoext, name, ext
+#	my $qif = shift;
+#	for ($_[0]) {
+#		/1/ and return condquotemeta($qif, $_[1]);
+#		/2/ and return condquotemeta($qif, $_[2]);
+#		/3/ and return condquotemeta($qif, $currentdir);
+#		/4/ and return condquotemeta($qif, $disk{mountpoint});
+#		/5/ and return condquotemeta($qif, $swap_state->{path}) if $swap_state;
+#		/6/ and return condquotemeta($qif, basename($currentdir));
+#		/7/ and return condquotemeta($qif, $_[3]);
+#		/8/ and return join (' ', $self->_selectednames($qif));
+#		/e/ and return condquotemeta($qif, $editor);
+#		/p/ and return condquotemeta($qif, $pager);
+#		/v/ and return condquotemeta($qif, $viewer);
+#		# this also handles the special $e$e case - don't quotemeta() this!
+#		return $_;
+#	}
+#}
+#
+#sub expand_3456_escapes { # quoteif, command, whatever
+#	my $qif = $_[0];
+#	my $qe  = quotemeta $e;
+#	# readline understands ~ notation; now we understand it too
+#	$_[1] =~ s/^~(\/|$)/$ENV{HOME}\//;
+#	# ~user is not replaced if it is not in the passwd file
+#	# the format of passwd(5) dictates that a username cannot contain colons
+#	$_[1] =~ s/^~([^:\/]+)/(getpwnam $1)[7] || "~$1"/e;
+#	# the next generation in quoting
+#	$_[1] =~ s/$qe([^1278])/expand_replace($qif, $1)/ge;
+#}
+#
+#sub expand_escapes { # quoteif, command, \%currentfile
+#	my $qif		= $_[0];
+#	my $name	= $_[2]{name};
+#	my $qe		= quotemeta $e;
+#	my ($namenoext, $ext);
+##	$namenoext = $name =~ /^(.*)\.([^\.]+)$/ ? $1 : $name;
+#	# included '.' in \7
+#	if ($name =~ /^(.*)(\.[^\.]+)$/) {
+#		$namenoext = $1;
+#		$ext = $2;
+#	} else {
+#		$namenoext = $name;
+#		$ext = '';
+#	}
+#	# readline understands ~ notation; now we understand it too
+#	$_[1] =~ s/^~(\/|$)/$ENV{HOME}\//;
+#	# ~user is not replaced if it is not in the passwd file
+#	# the format of passwd(5) dictates that a username cannot contain colons
+#	$_[1] =~ s/^~([^:\/]+)/(getpwnam $1)[7] || "~$1"/e;
+#	# the next generation in quoting
+#	$_[1] =~ s/$qe(.)/expand_replace($qif, $1, $namenoext, $name, $ext)/ge;
+#}
+#
 ##########################################################################
 # constructor, getters and setters
 
@@ -198,6 +275,24 @@ sub whitecommand {
 
 ##########################################################################
 # public subs
+
+=item escape_middle()
+
+Sorting routine: sorts digits E<lt> escape character E<lt> letters.
+
+=cut
+
+sub escape_middle {
+	# the sorting of the backslash appears to be locale-dependant
+	my $e = $_pfm->config->{e};
+	if ($a eq "$e$e" && $b =~ /\d/) {
+		return 1;
+	} elsif ($b eq "$e$e" && $a =~ /\d/) {
+		return -1;
+	} else {
+		return $a cmp $b;
+	}
+}
 
 =item not_implemented()
 
@@ -238,7 +333,7 @@ sub handle {
 #		/^\r$/io			and $self->handleenter(),			last;
 #		/^s$/io				and $self->handleshow(),			last;
 #		/^kmous$/o			and $self->handlemousedown(),		last;
-#		/^k7$/o				and $self->handleswap(),			last;
+		/^k7$/o				and $self->handleswap(),			last;
 		/^k10$/o			and $self->handlemultiple(),		last;
 #		/^m$/io				and $self->handlemore(),			last;
 #		/^p$/io				and $self->handleprint(),			last;
@@ -246,7 +341,7 @@ sub handle {
 		/^n$/io				and $self->handlename(),			last;
 		/^k8$/o				and $self->handleselect(),			last;
 		/^k11$/o			and $self->handlerestat(),			last;
-#		/^[\/f]$/io			and $self->handlefind(),			last;
+		/^[\/f]$/io			and $self->handlefind(),			last;
 		/^[<>]$/io			and $self->handlepan($_,
 								$_screen->frame->MENU_SINGLE),	last;
 		/^(?:k3|\cL|\cR)$/o	and $self->handlefit(),				last;
@@ -272,6 +367,7 @@ sub handle {
 #		/^w$/io				and $self->handleunwo(),			last;
 		/^%$/o				and $self->handlewhiteout(),		last;
 		$valid = 0; # invalid key
+		$_screen->flash();
 	}
 	return $valid;
 }
@@ -367,6 +463,100 @@ sub handleprev {
 		$_screen->set_deferred_refresh(R_SCREEN);
 	} else {
 		$_screen->set_deferred_refresh(R_MENU);
+	}
+}
+
+=item handleswap()
+
+Swaps to an alternative directory (B<F7>).
+
+=cut
+
+sub handleswap {
+	my ($self) = @_;
+	my $browser         = $_pfm->browser;
+	my $swap_persistent = $_pfm->config->{swap_persistent};
+	my $prompt          = 'Directory Pathname: ';
+	my ($nextdir, $chdirautocmd);
+	if ($_pfm->state($_pfm->S_SWAP)) {
+		if ($swap_persistent) {
+			# --------------------------------------------------
+			# there is a persistent swap state
+			# --------------------------------------------------
+			# store current cursor position
+			$_pfm->state->{_position}  = $browser->currentfile->{name};
+			$_pfm->state->{_baseindex} = $browser->baseindex;
+			# perform the swap
+			$_pfm->swap_states($_pfm->S_MAIN, $_pfm->S_SWAP);
+			# continue below
+		} else {
+			# --------------------------------------------------
+			# there is a non-persistent swap state
+			# --------------------------------------------------
+			# swap back if ok_to_remove_marks
+			if (!$_screen->ok_to_remove_marks()) {
+				$_screen->set_deferred_refresh(R_FRAME);
+				return;
+			}
+			# perform the swap back
+			$_pfm->state(
+				$_pfm->S_MAIN,
+				$_pfm->state($_pfm->S_SWAP));
+			# destroy the swap state
+			$_pfm->state($_pfm->S_SWAP, undef);
+			# continue below
+		}
+		# --------------------------------------------------
+		# common code for returning to a state
+		# --------------------------------------------------
+		# toggle swap mode flag
+		$browser->swap_mode(!$browser->swap_mode);
+		# destination
+		$nextdir = $_pfm->state->directory->path;
+		# go there using bare chdir() - the state is already up to date
+		if (chdir $nextdir) {
+			# restore the cursor position
+			$browser->baseindex(  $_pfm->state->{_baseindex});
+			$browser->position_at($_pfm->state->{_position});
+			# autocommand
+			$chdirautocmd = $_pfm->config->{chdirautocmd};
+			system("$chdirautocmd") if length($chdirautocmd);
+			$_screen->set_deferred_refresh(R_SCREEN);
+		} else {
+			# the state needs refreshing as we counted on being
+			# able to chdir()
+			$_screen->at($_screen->PATHLINE, 0)->clreol()
+				->set_deferred_refresh(R_CHDIR)
+				->display_error("$nextdir: $!");
+		}
+	} else {
+		# --------------------------------------------------
+		# there is no swap state yet
+		# --------------------------------------------------
+		# ask and swap forward
+		$_screen->at(0,0)->clreol()->cooked_echo();
+		$nextdir = $_pfm->history->input(H_PATH, $prompt);
+		$_screen->raw_noecho()
+			->set_deferred_refresh(R_FRAME);
+		return if $nextdir eq '';
+		# store current cursor position
+		$_pfm->state->{_position}  = $browser->currentfile->{name};
+		$_pfm->state->{_baseindex} = $browser->baseindex;
+		# store the main state
+		$_pfm->state(
+			$_pfm->S_SWAP,
+			$_pfm->state->clone());
+		# toggle swap mode flag
+		$browser->swap_mode(!$browser->swap_mode);
+		# fix destination
+		$self->expand_escapes(QUOTE_OFF, $nextdir, $browser->currentfile);
+		# go there using the directory's chdir() (with $swapping flag)
+		if ($_pfm->state->directory->chdir($nextdir, 1)) {
+			# set the cursor position
+			$browser->baseindex(0);
+#			$_pfm->state->{multiple_mode} = 0;
+#			$_pfm->state->{sort_mode} = $_pfm->config->{defaultsortmode} || 'n';
+		}
 	}
 }
 
@@ -565,9 +755,9 @@ sub handleperlcommand {
 	$_screen->listing->markcurrentline('@'); # disregard multiple_mode
 	$_screen->clear_footer()
 		->at(0,0)->clreol()->putmessage('Enter Perl command:')
-		->at($_screen->PATHLINE,0)->clreol()->stty_cooked();
+		->at($_screen->PATHLINE,0)->clreol()->cooked_echo();
 	$perlcmd = $_pfm->history->input(H_PERLCMD);
-	$_screen->stty_raw();
+	$_screen->raw_noecho();
 	eval $perlcmd;
 	$_screen->display_error($@) if $@;
 	$_screen->set_deferred_refresh(R_SCREEN);
@@ -581,7 +771,7 @@ Shows a help page with an overview of commands.
 
 sub handlehelp {
 	my $self = shift;
-	$_screen->clrscr()->stty_cooked();
+	$_screen->clrscr()->cooked_echo();
 	print map { substr($_, 8)."\n" } split("\n", <<'    _eoHelp_');
         --------------------------------------------------------------------------------
         a     Attrib         mb  make Bookmark     k, up arrow      move one line up    
@@ -608,7 +798,7 @@ sub handlehelp {
         --------------------------------------------------------------------------------
     _eoHelp_
 	$_screen->puts("F1 or ? for more elaborate help, any other key for next screen ")
-		->stty_raw();
+		->raw_noecho();
 	if ($_screen->getch() =~ /(k1|\?)/) {
 		system qw(man pfm); # how unsubtle :-)
 	}
@@ -625,7 +815,7 @@ Handles entering or leaving a directory.
 sub handleentry {
 	my ($self, $key) = @_;
 	my ($tempptr, $nextdir, $success, $direction);
-	my $currentdir = $_pfm->state->{_path};
+	my $currentdir = $_pfm->state->directory->path;
 	if ( $key =~ /^(?:kl|h|\e|\cH)$/io ) {
 		$nextdir   = '..';
 		$direction = 'up';
@@ -636,7 +826,7 @@ sub handleentry {
 	return if ($nextdir    eq '.');
 	return if ($currentdir eq '/' && $direction eq 'up');
 	return if !$_screen->ok_to_remove_marks();
-	$success = $_pfm->state->currentdir($nextdir, 0, $direction);
+	$success = $_pfm->state->directory->chdir($nextdir, 0, $direction);
 	unless ($success) {
 		$_screen->at(0,0)->clreol()->display_error($!);
 		$_screen->set_deferred_refresh(R_MENU);
@@ -763,12 +953,11 @@ sub handlename {
 	my $numformat   = $NUMFORMATS{$_pfm->state->{radix_mode}};
 	my $browser     = $_pfm->browser;
 	my $workfile    = $browser->currentfile->clone();
-	my $baseindex   = $browser->baseindex;
 	my $screenline  = $browser->currentline + $_screen->BASELINE;
 	my $filenamecol = $_screen->listing->filenamecol;
 	my $trspace     = $_pfm->config->{trspace};
 	my ($line, $linecolor);
-	$_screen->listing->markcurrentline('@'); # disregard multiple_mode
+	$_screen->listing->markcurrentline('N'); # disregard multiple_mode
 #	$_screen->clear_footer();
 	for ($workfile->{name}, $workfile->{target}) {
 		s/\\/\\\\/;
@@ -797,6 +986,79 @@ sub handlename {
 	{
 		$_screen->set_deferred_refresh(R_CLRSCR);
 	}
+}
+
+=item handlefind()
+
+Prompts for a filename to find, then positions the cursor at that file.
+
+=item handlefind_incremental()
+
+Prompts for a filename to find, and positions the cursor while the name
+is typed (incremental find). Only applicable if the current sort_mode
+is by name (ascending or descending).
+
+=cut
+
+sub handlefind {
+	my ($self) = @_;
+	if (lc($_pfm->state->{sort_mode}) eq 'n') {
+		goto &handlefind_incremental;
+	}
+	my ($findme, $file);
+	my $prompt = 'File to find: ';
+	$_screen->at(0,0)->clreol()->cooked_echo();
+	($findme = $_pfm->history->input(H_PATH, $prompt)) =~ s/\/$//;
+	if ($findme =~ /\//) { $findme = basename($findme) };
+	$_screen->raw_noecho()->set_deferred_refresh(R_MENU);
+	return if $findme eq '';
+	FINDENTRY:
+	foreach $file (sort by_name @{$_pfm->state->directory->showncontents}) {
+		last FINDENTRY if $findme le $file->{name};
+	}
+	$_pfm->browser->position_at($findme);
+	$_screen->set_deferred_refresh(R_DIRLIST);
+}
+
+sub handlefind_incremental {
+	my ($self) = @_;
+	my ($findme, $key, $screenline);
+	my $prompt = 'File to find: ';
+	my $cursorjumptime = .5;
+	my $cursorcol = $_screen->listing->cursorcol;
+	FINDINCENTRY:
+	while (1) {
+		$_screen
+			->listing->highlight_on()
+			->at(0,0)->clreol()->putmessage($prompt)
+			->puts($findme);
+		if ($cursorjumptime) {
+			$screenline = $_pfm->browser->currentline + $_screen->BASELINE;
+			while (!$_screen->key_pressed($cursorjumptime)) {
+				$_screen->at($screenline, $cursorcol);
+				last if ($_screen->key_pressed($cursorjumptime));
+				$_screen->at(0, length($prompt) + length $findme);
+			}
+		}
+		$key = $_screen->getch();
+		$_screen->listing->highlight_off();
+		if ($key eq "\cM" or $key eq "\e") {
+			last FINDINCENTRY;
+		} elsif ($key eq "\cH" or $key eq 'del' or $key eq "\x7F") {
+			chop($findme);
+		} elsif ($key eq "\cY" or $key eq "\cE") {
+			$findme =~ s/(.*\s+|^)(\S+\s*)$/$1/;
+#		} elsif ($key eq "\cW") {
+#			$findme =~ s/(.*\s+|^)(\S+\s*)$/$1/;
+		} elsif ($key eq "\cU") {
+			$findme = '';
+		} else {
+			$findme .= $key;
+		}
+		$_pfm->browser->position_cursor_fuzzy($findme);
+		$_screen->listing->show();
+	}
+	$_screen->set_deferred_refresh(R_MENU);
 }
 
 ##########################################################################

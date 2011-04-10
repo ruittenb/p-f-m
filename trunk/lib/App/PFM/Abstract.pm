@@ -3,7 +3,7 @@
 ##########################################################################
 # @(#) App::PFM::Abstract 0.06
 #
-# Name:			App::PFM::Abstract.pm
+# Name:			App::PFM::Abstract
 # Version:		0.06
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14

@@ -3,11 +3,11 @@
 ##########################################################################
 # @(#) App::PFM::Screen 0.24
 #
-# Name:			App::PFM::Screen.pm
+# Name:			App::PFM::Screen
 # Version:		0.24
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-10
+# Date:			2010-04-30
 # Requires:		Term::ScreenColor
 #
 
@@ -44,34 +44,35 @@ use App::PFM::Util;
 use strict;
 
 use constant {
-	ERRORDELAY		=> 1,		# in seconds (fractions allowed)
-	IMPORTANTDELAY	=> 2,		# extra time for important errors
+	ERRORDELAY		=> 1,	 # in seconds (fractions allowed)
+	IMPORTANTDELAY	=> 2,	 # extra time for important errors
 	PATHLINE		=> 1,
 	BASELINE		=> 3,
-	R_NOP			=> 0,		# no action was required, wait for new key
-	R_STRIDE		=> 1,		# validate cursor position (always done)
-	R_MENU			=> 2,		# reprint the menu (header)
-	R_PATHINFO		=> 4,		# reprint the pathinfo
-	R_HEADINGS		=> 8,		# reprint the headings
-	R_FOOTER		=> 16,		# reprint the footer
-#	R_FRAME						# combines R_FOOTER, R_HEADINGS, R_PATHINFO and R_MENU
-	R_DISKINFO		=> 32,		# reprint the disk- and directory info column
-	R_DIRLIST		=> 64,		# redisplay directory listing
-	R_DIRFILTER		=> 128,		# decide which entries to display (init @showncontents)
-#	R_SCREEN					# combines R_DIRFILTER, R_DIRLIST, R_DISKINFO and R_FRAME
-	R_CLEAR			=> 256,		# clear the screen
-#	R_CLRSCR					# combines R_CLEAR and R_SCREEN
-	R_DIRSORT		=> 512,		# resort @dircontents
-	R_DIRCONTENTS	=> 1024,	# reread directory contents
-	R_NEWDIR		=> 2048,	# re-init directory-specific vars
-#	R_CHDIR						# combines R_NEWDIR, R_DIRCONTENTS, R_DIRSORT, R_SCREEN
+	R_NOP			=> 0,	 # no action was required, wait for new key
+	R_STRIDE		=> 1,	 # validate cursor position (always done)
+	R_MENU			=> 2,	 # reprint the menu (header)
+	R_PATHINFO		=> 4,	 # reprint the pathinfo
+	R_HEADINGS		=> 8,	 # reprint the headings
+	R_FOOTER		=> 16,	 # reprint the footer
+#	R_FRAME					 # R_FOOTER + R_HEADINGS + R_PATHINFO + R_MENU
+	R_DISKINFO		=> 32,	 # reprint the disk- and directory info column
+	R_DIRLIST		=> 64,	 # redisplay directory listing
+	R_DIRFILTER		=> 128,	 # decide what to display (init @showncontents)
+#	R_SCREEN				 # R_DIRFILTER + R_DIRLIST + R_DISKINFO + R_FRAME
+	R_CLEAR			=> 256,	 # clear the screen
+#	R_CLRSCR				 # R_CLEAR and R_SCREEN
+	R_DIRSORT		=> 512,	 # resort @dircontents
+	R_DIRCONTENTS	=> 1024, # reread directory contents
+	R_NEWDIR		=> 2048, # re-init directory-specific vars
+#	R_CHDIR					 # R_NEWDIR + R_DIRCONTENTS + R_DIRSORT + R_SCREEN
 };
 
 # needs new invocations because of the calculations
 use constant R_FRAME  => R_MENU | R_PATHINFO | R_HEADINGS | R_FOOTER;
 use constant R_SCREEN => R_DIRFILTER | R_DIRLIST | R_DISKINFO | R_FRAME;
 use constant R_CLRSCR => R_CLEAR | R_SCREEN;
-use constant R_CHDIR  => R_NEWDIR | R_DIRCONTENTS | R_DIRSORT | R_SCREEN | R_STRIDE;
+use constant R_CHDIR  =>
+					R_NEWDIR | R_DIRCONTENTS | R_DIRSORT | R_SCREEN | R_STRIDE;
 
 our @EXPORT = qw(R_NOP R_STRIDE R_MENU R_PATHINFO R_HEADINGS R_FOOTER R_FRAME
 	R_DISKINFO R_DIRLIST R_DIRFILTER R_SCREEN R_CLEAR R_CLRSCR R_DIRSORT
@@ -209,31 +210,29 @@ sub color_mode {
 ##########################################################################
 # public subs
 
-=item stty_raw()
+=item raw_noecho()
 
-=item stty_cooked()
+=item cooked_echo()
 
-Set the terminal to I<raw> or I<cooked> mode.
+Sets the terminal to I<raw> or I<cooked> mode.
 
 =cut
 
-sub stty_raw {
+sub raw_noecho {
 	my $self = shift;
-	system qw(stty raw -echo);
-	$self->noecho();
+	$self->raw()->noecho();
 }
 
-sub stty_cooked {
+sub cooked_echo {
 	my $self = shift;
-	system qw(stty -raw echo);
-	$self->echo();
+	$self->cooked()->echo();
 }
 
 =item mouse_enable()
 
 =item mouse_disable()
 
-Tell the terminal to start/stop receiving information about the mouse.
+Tells the terminal to start/stop receiving information about the mouse.
 
 =cut
 
@@ -253,7 +252,7 @@ sub mouse_disable {
 
 =item alternate_off()
 
-Switch to alternate terminal screen and back.
+Switches to alternate terminal screen and back.
 
 =cut
 
@@ -394,18 +393,19 @@ sub putcentered {
 =item putmessage()
 
 Displays a message in the configured message color.
+Accepts an array with message fragments.
 
 =cut
 
 sub putmessage {
-	my ($self, $message) = @_;
+	my ($self, @message) = @_;
 	my $framecolors = $_pfm->config->{framecolors};
 	if ($framecolors) {
 		$self->putcolored(
 			$framecolors->{$_color_mode}{message},
-			$message);
+			@message);
 	} else {
-		$self->puts($message);
+		$self->puts(join '', @message);
 	}
 }
 
@@ -418,7 +418,7 @@ Displays a message and waits for a key to be pressed.
 sub pressanykey {
 	my $self = shift;
 	$self->putmessage("\r\n*** Hit any key to continue ***");
-	$self->stty_raw();
+	$self->raw_noecho();
 	if ($_pfm->browser->{mouse_mode} && $_pfm->config->{clickiskeypresstoo}) {
 		$self->mouse_enable();
 	} else {
@@ -451,16 +451,19 @@ sub ok_to_remove_marks {
 		return 1;
 	}
 	$_diskinfo->show();
-	$self->at(0,0)->clreol()->putmessage('OK to remove marks [Y/N]? ');
+	$self->clear_footer()
+		->at(0,0)->clreol()
+		->putmessage('OK to remove marks [Y/N]? ');
 	$sure = $self->getch();
-	$_frame->show_menu();
+#	$_frame->show_menu();
+	$self->set_deferred_refresh(R_FRAME);
 	return ($sure =~ /y/i);
 }
 
 =item display_error()
 
-Displays an error and waits for a key to be pressed.
-Returns the keypress.
+Displays an error which may be passed as an array with message
+fragments. Waits for a key to be pressed and returns the keypress.
 
 =cut
 
@@ -472,8 +475,9 @@ sub display_error {
 
 =item neat_error()
 
-Displays an error and waits for a key to be pressed.
-Returns the keypress.
+Displays an error which may be passed as an array with message
+fragments. Waits for a key to be pressed and returns the keypress.
+Flags screen elements for refreshing.
 
 =cut
 

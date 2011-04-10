@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Util 0.14
+# @(#) App::PFM::Util 0.18
 #
-# Name:			App::PFM::Util.pm
-# Version:		0.14
+# Name:			App::PFM::Util
+# Version:		0.18
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-20
+# Date:			2010-05-01
 #
 
 ##########################################################################
@@ -43,7 +43,7 @@ use strict;
 our @EXPORT = qw(min max inhibit triggle toggle isyes isno basename dirname
 				 isxterm formatted time2str fit2limit canonicalize_path
 				 isorphan ifnotdefined clearugidcache find_uid find_gid
-				 TIME_FILE TIME_CLOCK);
+				 by_name alphabetically condquotemeta TIME_FILE TIME_CLOCK);
 
 my $XTERMS = qr/^(.*xterm.*|rxvt.*|gnome.*|kterm)$/;
 
@@ -265,6 +265,34 @@ sub find_gid {
 	return $_groupcache{$gid} ||
 		+($_groupcache{$gid} =
 			(defined($gid) ? getgrgid($gid) : '') || $gid);
+}
+
+=item by_name()
+
+Sorting routine: sorts files by name.
+
+=item alphabetically()
+
+Sorting routine: sorts strings alphabetically, case-insensitive.
+
+=cut
+
+sub by_name {
+	return $a->{name} cmp $b->{name};
+}
+
+sub alphabetically {
+	return uc($a) cmp uc($b) || $a cmp $b;
+}
+
+=item condquotemeta()
+
+Conditionally quotemeta() a string.
+
+=cut
+
+sub condquotemeta { # condition, string
+	return $_[0] ? quotemeta($_[1]) : $_[1];
 }
 
 ##########################################################################

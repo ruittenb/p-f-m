@@ -3,7 +3,7 @@
 ##########################################################################
 # @(#) App::PFM::File 0.12
 #
-# Name:			App::PFM::File.pm
+# Name:			App::PFM::File
 # Version:		0.12
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
@@ -40,6 +40,7 @@ use App::PFM::Util;
 use POSIX qw(strftime);
 
 use strict;
+use locale;
 
 use constant {
 	MAJORMINORSEPARATOR => ',',
@@ -78,18 +79,6 @@ sub _init {
 		$self->stat_entry($path, $white, $mark);
 	}
 	# the constructor returns $self for us.
-}
-
-=item _clone()
-
-Performs one phase of the cloning process by cloning an existing
-App::PFM::File instance.
-
-=cut
-
-sub _clone {
-#	my ($self, $original, @args) = @_;
-	# nothing to do
 }
 
 =item _decidecolor()
@@ -200,7 +189,8 @@ sub stat_entry {
 	my ($ptr, $name_too_long, $target, @white_entries, $whitecommand);
 	my %filetypeflags = %{$_pfm->config->{filetypeflags}};
 	my ($device, $inode, $mode, $nlink, $uid, $gid, $rdev, $size,
-		$atime, $mtime, $ctime, $blksize, $blocks) = lstat $entry;
+		$atime, $mtime, $ctime, $blksize, $blocks) =
+			lstat $self->{_parent} .'/'. $entry;
 
 	if (!defined $mode) {
 		$whitecommand = $_pfm->commandhandler->whitecommand;
