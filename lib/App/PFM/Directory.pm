@@ -436,11 +436,12 @@ sub readcontents {
 		# have the mark cleared on first stat with ' '
 		$file = new App::PFM::File($entry, $self->{_path}, '', ' ');
 		push @{$self->{_dircontents}}, $file;
+		$self->register($file);
 	}
 	foreach $entry (@white_entries) {
 		$file = new App::PFM::File($entry, $self->{_path}, 'w', ' ');
 		push @{$self->{_dircontents}}, $file;
-		$self->{_total_nr_of}{$file->{type}}++; # TODO this is wrong! e.g. after cOmmand
+		$self->register($file);
 	}
 	$screen->set_deferred_refresh($screen->R_MENU | $screen->R_HEADINGS);
 	$self->checkrcsapplicable() if $_pfm->config->{autorcs};
@@ -485,6 +486,7 @@ sub register {
 	if ($entry->{selected} eq MARK) {
 		$self->include($entry);
 	}
+	$_pfm->screen->set_deferred_refresh($_pfm->screen->R_DISKINFO);
 }
 
 =item unregister()
@@ -500,6 +502,7 @@ sub unregister {
 		# exclude it but leave the mark in place
 		$self->exclude($entry, MARK);
 	}
+	$_pfm->screen->set_deferred_refresh($_pfm->screen->R_DISKINFO);
 }
 
 =item include()
@@ -513,6 +516,7 @@ sub include {
 	$entry->{selected} = MARK;
 	$self->{_selected_nr_of}{$entry->{type}}++;
 	$entry->{type} =~ /-/ and $self->{_selected_nr_of}{bytes} += $entry->{size};
+	$_pfm->screen->set_deferred_refresh($_pfm->screen->R_DISKINFO);
 }
 
 =item exclude()
@@ -527,6 +531,7 @@ sub exclude {
 	$entry->{selected} = $oldmark;
 	$self->{_selected_nr_of}{$entry->{type}}--;
 	$entry->{type} =~ /-/ and $self->{_selected_nr_of}{bytes} -= $entry->{size};
+	$_pfm->screen->set_deferred_refresh($_pfm->screen->R_DISKINFO);
 }
 
 =item checkrcsapplicable()
@@ -554,6 +559,33 @@ sub checkrcsapplicable {
 	if (App::PFM::Job::Git->isapplicable($path)) {
 		$_pfm->jobhandler->start('Git');
 		return;
+	}
+}
+
+=item apply()
+
+In single file mode: applies the supplied function to the current file.
+In multiple file mode: applies the supplied function to all selected files
+in the current directory.
+
+=cut
+
+sub apply {
+	my ($self, $do_this, @args) = @_;
+	my ($i, $loopfile);
+	if ($_pfm->state->{multiple_mode}) {
+		foreach $i (0 .. $#{$self->{_showncontents}}) {
+			$loopfile = $self->{_showncontents}[$i];
+			if ($loopfile->{selected} eq MARK) {
+				$loopfile->apply($do_this, @args);
+			}
+		}
+		# TODO if the bloody thing is deleted,
+		# it should be deleted from _dircontents as well (or maybe create
+		# a separate loop for deletions?)
+		$_pfm->screen->set_deferred_refresh($_pfm->screen->R_DIRLIST);
+	} else {
+		$_pfm->browser->currentfile->apply($do_this, @args);
 	}
 }
 
