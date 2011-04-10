@@ -1,9 +1,9 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Job::CheckUpdates 0.01
+# @(#) App::PFM::Job::CheckUpdates 0.01
 #
-# Name:			PFM::Job::CheckUpdates.pm
+# Name:			App::PFM::Job::CheckUpdates.pm
 # Version:		0.01
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
@@ -16,7 +16,7 @@
 
 =head1 NAME
 
-PFM::Job::CheckUpdates
+App::PFM::Job::CheckUpdates
 
 =head1 DESCRIPTION
 
@@ -31,9 +31,9 @@ PFM Job class for checking for application updates.
 ##########################################################################
 # declarations
 
-package PFM::Job::CheckUpdates;
+package App::PFM::Job::CheckUpdates;
 
-use base 'PFM::Job::Abstract';
+use base 'App::PFM::Job::Abstract';
 
 use LWP::Simple;
 
@@ -99,7 +99,7 @@ sub poll {
 
 =head1 SEE ALSO
 
-pfm(1), PFM::Job(3pm).
+pfm(1), App::PFM::Job(3pm).
 
 =cut
 

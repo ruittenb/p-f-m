@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Application 2.01.8
+# @(#) App::PFM::Application 2.02.06
 #
-# Name:			PFM::Application.pm
-# Version:		2.01.8
+# Name:			App::PFM::Application.pm
+# Version:		2.02.6
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-12
+# Date:			2010-04-16
 #
 
 ##########################################################################
@@ -16,7 +16,7 @@
 
 =head1 NAME
 
-PFM::Application
+App::PFM::Application
 
 =head1 DESCRIPTION
 
@@ -31,19 +31,19 @@ This is the PFM application class that holds all pfm elements together.
 ##########################################################################
 # declarations
 
-package PFM::Application;
+package App::PFM::Application;
 
 require 5.008;
 
-use base 'PFM::Abstract';
+use base 'App::PFM::Abstract';
 
-use PFM::State;
-use PFM::Config;
-use PFM::Screen;
-use PFM::Browser;
-use PFM::CommandHandler;
-use PFM::History;
-use PFM::JobHandler;
+use App::PFM::State;
+use App::PFM::Config;
+use App::PFM::Screen;
+use App::PFM::Browser;
+use App::PFM::CommandHandler;
+use App::PFM::History;
+use App::PFM::JobHandler;
 use Getopt::Long;
 use Cwd;
 
@@ -125,7 +125,7 @@ sub _usage {
 	my $self      = shift;
 	my $directory = $_screen->colored('underline', 'directory');
 	my $number    = $_screen->colored('underline', 'number');
-	my $config    = new PFM::Config($self);
+	my $config    = new App::PFM::Config($self);
 	print "Usage: pfm [ -l, --layout $number ]",
 		  "[ $directory ] [ -s, --swap $directory ]\n",
 		  "       pfm { -h, --help | -v, --version }\n\n",
@@ -185,7 +185,7 @@ sub _goodbye {
 ##########################################################################
 # constructor, getters and setters
 
-=item screen()
+=item browser()
 
 =item commandhandler()
 
@@ -195,20 +195,35 @@ sub _goodbye {
 
 =item jobhandler()
 
-=item browser()
+=item screen()
 
-Getters for the objects: PFM::Screen, PFM::CommandHandler, PFM::Config,
-PFM::History, PFM::JobHandler and PFM::Browser.
+Getters for the objects:
+
+=over 2
+
+=item App::PFM::Browser
+
+=item App::PFM::CommandHandler
+
+=item App::PFM::Config
+
+=item App::PFM::History
+
+=item App::PFM::JobHandler
+
+=item App::PFM::Screen
+
+=back
 
 =item state()
 
-Getter for the current PFM::State object. If an argument is provided,
+Getter for the current App::PFM::State object. If an argument is provided,
 it indicates which item from the state stack is to be returned.
 
 =cut
 
-sub screen {
-	return $_screen;
+sub browser {
+	return $_browser;
 }
 
 sub commandhandler {
@@ -227,8 +242,8 @@ sub jobhandler {
 	return $_jobhandler;
 }
 
-sub browser {
-	return $_browser;
+sub screen {
+	return $_screen;
 }
 
 sub state {
@@ -275,8 +290,8 @@ sub bootstrap {
 	
 	# hand over the application object to the other classes
 	# for easy access.
-	$_states[S_MAIN] = new PFM::State($self);
-	$_screen		 = new PFM::Screen($self);
+	$_states[S_MAIN] = new App::PFM::State($self);
+	$_screen		 = new App::PFM::Screen($self);
 	$_screen->at($_screen->rows(), 0);
 	
 	Getopt::Long::Configure(qw'bundling permute');
@@ -291,14 +306,14 @@ sub bootstrap {
 	
 	# hand over the application object to the other classes
 	# for easy access.
-	$_commandhandler = new PFM::CommandHandler($self);
-	$_history		 = new PFM::History($self);
-	$_browser		 = new PFM::Browser($self);
-	$_jobhandler	 = new PFM::JobHandler($self);
+	$_commandhandler = new App::PFM::CommandHandler($self);
+	$_history		 = new App::PFM::History($self);
+	$_browser		 = new App::PFM::Browser($self);
+	$_jobhandler	 = new App::PFM::JobHandler($self);
 	
 	$_screen->clrscr();
 	$_screen->calculate_dimensions();
-	$_config = new PFM::Config($self);
+	$_config = new App::PFM::Config($self);
 	$_config->read( $_config->READ_FIRST);
 	$_config->parse($_config->SHOW_COPYRIGHT);
 	$_config->apply();
@@ -325,7 +340,7 @@ sub bootstrap {
 	}
 	# swap directory
 	if (defined $swapstartdir) {
-		$_states[S_SWAP] = new PFM::State($self);
+		$_states[S_SWAP] = new App::PFM::State($self);
 		$_states[S_SWAP]->prepare($swapstartdir);
 	}
 	# done

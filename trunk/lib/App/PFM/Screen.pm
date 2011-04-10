@@ -1,9 +1,9 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Screen 0.24
+# @(#) App::PFM::Screen 0.24
 #
-# Name:			PFM::Screen.pm
+# Name:			App::PFM::Screen.pm
 # Version:		0.24
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
@@ -17,7 +17,7 @@
 
 =head1 NAME
 
-PFM::Screen
+App::PFM::Screen
 
 =head1 DESCRIPTION
 
@@ -32,14 +32,14 @@ PFM class used for coordinating how all elements are displayed on screen.
 ##########################################################################
 # declarations
 
-package PFM::Screen;
+package App::PFM::Screen;
 
-use base qw(PFM::Abstract Term::ScreenColor Exporter);
+use base qw(App::PFM::Abstract Term::ScreenColor Exporter);
 
-use PFM::Screen::Frame;
-use PFM::Screen::Listing;
-use PFM::Screen::Diskinfo;
-use PFM::Util;
+use App::PFM::Screen::Frame;
+use App::PFM::Screen::Listing;
+use App::PFM::Screen::Diskinfo;
+use App::PFM::Util;
 
 use strict;
 
@@ -90,17 +90,17 @@ my ($_pfm, $_frame, $_listing, $_diskinfo,
 =item _init()
 
 Called from the constructor. Initializes new instances. Stores the
-application object for later use and instantiates a PFM::Screen::Frame
-and PFM::Screen::Listing object.
+application object for later use and instantiates a App::PFM::Screen::Frame
+and App::PFM::Screen::Listing object.
 
 =cut
 
 sub _init {
 	my ($self, $pfm) = @_;
 	$_pfm		= $pfm;
-	$_frame		= new PFM::Screen::Frame(   $pfm, $self);
-	$_listing	= new PFM::Screen::Listing( $pfm, $self);
-	$_diskinfo	= new PFM::Screen::Diskinfo($pfm, $self);
+	$_frame		= new App::PFM::Screen::Frame(   $pfm, $self);
+	$_listing	= new App::PFM::Screen::Listing( $pfm, $self);
+	$_diskinfo	= new App::PFM::Screen::Diskinfo($pfm, $self);
 	$SIG{WINCH} = \&_resizecatcher;
 }
 
@@ -120,7 +120,7 @@ sub _resizecatcher {
 
 =item new()
 
-Specific constructor for PFM::Screen. Constructs an object based on
+Specific constructor for App::PFM::Screen. Constructs an object based on
 Term::ScreenColor.
 
 =cut
@@ -160,8 +160,8 @@ sub screenheight {
 
 =item diskinfo()
 
-Getters for the PFM::Screen::Frame, PFM::Screen::Listing
-and PFM::Screen::Diskinfo objects.
+Getters for the App::PFM::Screen::Frame, App::PFM::Screen::Listing
+and App::PFM::Screen::Diskinfo objects.
 
 =cut
 
@@ -340,7 +340,7 @@ sub pending_input {
 
 =item show_frame()
 
-Uses the PFM::Screen::Frame object to redisplay the frame.
+Uses the App::PFM::Screen::Frame object to redisplay the frame.
 
 =cut
 
@@ -352,7 +352,7 @@ sub show_frame {
 
 =item clear_footer()
 
-Calls PFM::Screen::Frame::clear_footer() and schedules a refresh
+Calls App::PFM::Screen::Frame::clear_footer() and schedules a refresh
 for the footer.
 
 =cut

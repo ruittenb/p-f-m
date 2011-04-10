@@ -1,9 +1,9 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Job::Abstract 0.01
+# @(#) App::PFM::Job::Abstract 0.01
 #
-# Name:			PFM::Job::Abstract.pm
+# Name:			App::PFM::Job::Abstract.pm
 # Version:		0.01
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
@@ -16,7 +16,7 @@
 
 =head1 NAME
 
-PFM::Job::Abstract
+App::PFM::Job::Abstract
 
 =head1 DESCRIPTION
 
@@ -31,9 +31,9 @@ Abstract PFM Job class for defining a common interface to Jobs.
 ##########################################################################
 # declarations
 
-package PFM::Job::Abstract;
+package App::PFM::Job::Abstract;
 
-use base 'PFM::Abstract';
+use base 'App::PFM::Abstract';
 
 use Carp;
 use strict;
@@ -81,7 +81,7 @@ sub poll {
 
 =head1 SEE ALSO
 
-pfm(1), PFM::Job(3pm).
+pfm(1), App::PFM::Job(3pm).
 
 =cut
 

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Util 0.10
+# @(#) App::PFM::Util 0.14
 #
-# Name:			PFM::Util.pm
-# Version:		0.10
+# Name:			App::PFM::Util.pm
+# Version:		0.14
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-01
+# Date:			2010-04-20
 #
 
 ##########################################################################
@@ -16,7 +16,7 @@
 
 =head1 NAME
 
-PFM::Util
+App::PFM::Util
 
 =head1 DESCRIPTION
 
@@ -32,7 +32,7 @@ utility functions for pfm.
 ##########################################################################
 # declarations
 
-package PFM::Util;
+package App::PFM::Util;
 
 use base 'Exporter';
 
@@ -42,9 +42,13 @@ use strict;
 
 our @EXPORT = qw(min max inhibit triggle toggle isyes isno basename dirname
 				 isxterm formatted time2str fit2limit canonicalize_path
-				 isorphan ifnotdefined TIME_FILE TIME_CLOCK);
+				 isorphan ifnotdefined clearugidcache find_uid find_gid
+				 TIME_FILE TIME_CLOCK);
 
 my $XTERMS = qr/^(.*xterm.*|rxvt.*|gnome.*|kterm)$/;
+
+my %_usercache  = ();
+my %_groupcache = ();
 
 ##########################################################################
 # private subs
@@ -227,6 +231,40 @@ if it is defined, otherwise the second).
 sub ifnotdefined ($$) {
 	my ($a, $b) = @_;
 	return (defined($a) ? $a : $b);
+}
+
+=item clearugidcache()
+
+Clears the username/groupname cache.
+
+=cut
+
+sub clearugidcache() {
+	%_usercache  = ();
+	%_groupcache = ();
+}
+
+=item find_uid()
+
+=item find_gid()
+
+Finds the username or group name corresponding to a uid or gid,
+and caches the result.
+
+=cut
+
+sub find_uid {
+	my ($uid) = @_;
+	return $_usercache{$uid} ||
+		+($_usercache{$uid} =
+			(defined($uid) ? getpwuid($uid) : '') || $uid);
+}
+
+sub find_gid {
+	my ($gid) = @_;
+	return $_groupcache{$gid} ||
+		+($_groupcache{$gid} =
+			(defined($gid) ? getgrgid($gid) : '') || $gid);
 }
 
 ##########################################################################

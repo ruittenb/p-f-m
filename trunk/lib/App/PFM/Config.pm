@@ -1,9 +1,9 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::Config 0.10
+# @(#) App::PFM::Config 0.10
 #
-# Name:			PFM::Config.pm
+# Name:			App::PFM::Config.pm
 # Version:		0.10
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
@@ -16,7 +16,7 @@
 
 =head1 NAME
 
-PFM::Config
+App::PFM::Config
 
 =head1 DESCRIPTION
 
@@ -32,11 +32,11 @@ creating a default one, and storing the configuration in memory.
 ##########################################################################
 # declarations
 
-package PFM::Config;
+package App::PFM::Config;
 
-use base 'PFM::Abstract';
+use base 'App::PFM::Abstract';
 
-use PFM::Util;
+use App::PFM::Util;
 
 use POSIX qw(strftime mktime);
 

@@ -1,9 +1,9 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::State 0.12
+# @(#) App::PFM::State 0.12
 #
-# Name:			PFM::State.pm
+# Name:			App::PFM::State.pm
 # Version:		0.12
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
@@ -16,7 +16,7 @@
 
 =head1 NAME
 
-PFM::State
+App::PFM::State
 
 =head1 DESCRIPTION
 
@@ -31,11 +31,11 @@ PFM class used for storing the current state of the application.
 ##########################################################################
 # declarations
 
-package PFM::State;
+package App::PFM::State;
 
-use base 'PFM::Abstract';
+use base 'App::PFM::Abstract';
 
-use PFM::Directory;
+use App::PFM::Directory;
 
 use strict;
 
@@ -47,14 +47,14 @@ my $_pfm;
 =item _init()
 
 Initializes new instances. Called from the constructor.
-Instantiates a PFM::Directory object.
+Instantiates a App::PFM::Directory object.
 
 =cut
 
 sub _init {
 	my ($self, $pfm) = @_;
 	$_pfm					= $pfm;
-	$self->{_directory}		= new PFM::Directory($pfm);
+	$self->{_directory}		= new App::PFM::Directory($pfm);
 	# We might not have useful values for these yet since the config file
 	# might not have been read yet.
 	$self->{_position}		= undef;
@@ -64,18 +64,18 @@ sub _init {
 	$self->{radix_mode}		= undef;
 	$self->{sort_mode}		= undef;
 	$self->{white_mode}		= undef;
-	# path_mode    sits in PFM::Directory
-	# color_mode   sits in PFM::Screen
-	# ident_mode   sits in PFM::Screen::Diskinfo
-	# mouse_mode   sits in PFM::Browser
-	# swap_mode    sits in PFM::Browser
-	# clobber_mode sits in PFM::CommandHandler
+	# path_mode    sits in App::PFM::Directory
+	# color_mode   sits in App::PFM::Screen
+	# ident_mode   sits in App::PFM::Screen::Diskinfo
+	# mouse_mode   sits in App::PFM::Browser
+	# swap_mode    sits in App::PFM::Browser
+	# clobber_mode sits in App::PFM::CommandHandler
 }
 
 =item _clone()
 
 Performs one phase of the cloning process by cloning an existing
-PFM::Directory instance.
+App::PFM::Directory instance.
 
 =cut
 
@@ -89,7 +89,7 @@ sub _clone {
 
 =item directory()
 
-Getter/setter for the PFM::Directory object.
+Getter/setter for the App::PFM::Directory object.
 
 =cut
 
@@ -102,7 +102,7 @@ sub directory {
 =item currentdir()
 
 Getter/setter for the current directory path.
-If a new directory is provided, it will be passed to PFM::Directory.
+If a new directory is provided, it will be passed to App::PFM::Directory.
 
 =cut
 

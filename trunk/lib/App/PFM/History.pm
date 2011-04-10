@@ -1,9 +1,9 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) PFM::History 0.02
+# @(#) App::PFM::History 0.02
 #
-# Name:			PFM::History.pm
+# Name:			App::PFM::History.pm
 # Version:		0.02
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
@@ -16,7 +16,7 @@
 
 =head1 NAME
 
-PFM::History
+App::PFM::History
 
 =head1 DESCRIPTION
 
@@ -32,9 +32,9 @@ in memory, and coordinates how Term::ReadLine handles them.
 ##########################################################################
 # declarations
 
-package PFM::History;
+package App::PFM::History;
 
-use base qw(PFM::Abstract Exporter);
+use base qw(App::PFM::Abstract Exporter);
 
 use Term::ReadLine;
 

@@ -3,10 +3,10 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.02.5
+# Version:		2.02.6
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-15
+# Date:			2010-04-16
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				    [ -l, --layout <number> ]
 #				pfm { -v, --version | -h, --help }
@@ -28,7 +28,7 @@ our $ROFFVERSION = '
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.02.5
+.ds Vw @(#) pfm.pl 2.02.6
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -39,10 +39,10 @@ This manual pertains to \f(CWpfm\fP version \\$3.
 ##########################################################################
 # declarations
 
-use lib '/home/ruitten/Desktop/projects/pfmproject/pfm2/lib';
+use lib '/home/ruitten/Desktop/projects/pfm/z_working/pfm2/lib';
 use strict;
 
-use PFM::Application;
+use App::PFM::Application;
 
 my $pfm;
 
@@ -56,7 +56,7 @@ END {
 ##########################################################################
 # main
 
-$pfm = new PFM::Application();
+$pfm = new App::PFM::Application();
 $pfm->run();
 
 exit 0;
