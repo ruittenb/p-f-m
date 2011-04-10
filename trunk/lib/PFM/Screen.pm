@@ -193,13 +193,16 @@ sub wasresized {
 =item color_mode()
 
 Getter/setter for the choice of color mode (I<e.g.> 'dark', 'light',
-'ls_colors').
+'ls_colors'). Schedules a screen refresh if the color mode is set.
 
 =cut
 
 sub color_mode {
 	my ($self, $value) = @_;
-	$_color_mode = $value if defined $value;
+	if (defined $value) {
+		$_color_mode = $value;
+		$self->set_deferred_refresh(R_SCREEN);
+	}
 	return $_color_mode;
 }
 
@@ -323,7 +326,16 @@ Returns a boolean indicating that there is input ready to be processed.
 
 sub pending_input {
 	my ($self, $delay) = @_;
-	return (length($self->{IN}) || $_wasresized || $self->key_pressed($delay));
+	my $input_ready = length($self->{IN}) || $_wasresized || $self->key_pressed($delay);
+
+#my ($readfields, $select_ready);	# TODO DEBUG
+#vec( $readfields, fileno(STDIN), 1 ) = 1;    # set up to check STDIN # TODO DEBUG
+##eval { $select_ready = select( $readfields, undef, undef, 0 ); }; # TODO DEBUG
+#eval { $select_ready = select( $readfields, undef, $readfields, 0 ); }; # TODO DEBUG
+#$self->at(21,0)->puts("key_pressed:$input_ready:select:$select_ready:")->clreol(); # TODO DEBUG
+#sleep 1 if $input_ready; # TODO DEBUG
+
+	return $input_ready;
 }
 
 =item show_frame()
@@ -336,6 +348,40 @@ sub show_frame {
 	my $self = shift;
 	$_frame->show();
 	return $self;
+}
+
+=item clear_footer()
+
+Calls PFM::Screen::Frame::clear_footer() and schedules a refresh
+for the footer.
+
+=cut
+
+sub clear_footer {
+	my $self = shift;
+	$_frame->clear_footer();
+	$self->set_deferred_refresh(R_FOOTER);
+	return $self;
+}
+
+=item select_next_color()
+
+Finds the next colorset to use.
+
+=cut
+
+sub select_next_color {
+	my $self = shift;
+	my @colorsetnames = @{$_pfm->config->{colorsetnames}};
+	my $index = $#colorsetnames;
+	while ($_color_mode ne $colorsetnames[$index] and $index > 0) {
+		$index--;
+	}
+	if ($index-- <= 0) { $index = $#colorsetnames }
+	$_color_mode = $colorsetnames[$index];
+	$self->color_mode($_color_mode);
+	$_pfm->history->setornaments();
+
 }
 
 =item putcentered()
@@ -408,6 +454,7 @@ sub ok_to_remove_marks {
 	if ($_pfm->config->{remove_marks_ok} or !$_diskinfo->mark_info()) {
 		return 1;
 	}
+	$_diskinfo->show();
 	$self->at(0,0)->clreol()->putmessage('OK to remove marks [Y/N]? ');
 	$sure = $self->getch();
 	$_frame->show_menu();

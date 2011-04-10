@@ -110,7 +110,7 @@ sub _init {
 
 =item _validate_layoutnum()
 
-Checks if the configuration contains a valid layout with the given number.
+Checks if the layout number does not exceed the total number of layouts.
 
 =cut
 
@@ -158,6 +158,7 @@ Decides which color should be used on a particular file.
 sub _decidecolor {
 	my $self =  $_[0];
 	my %f   = %{$_[1]};
+	my $dircolors  = $_pfm->config->{dircolors}{$_screen->color_mode};
 	my %dircolors  = %{$_pfm->config->{dircolors}{$_screen->color_mode}};
 	$f{type}  eq 'w'			and return $dircolors{wh};
 	$f{nlink} ==  0 			and return $dircolors{lo};
@@ -415,7 +416,7 @@ sub makeformatlines {
 		$letter, $trans, $temp, $infocol, $infolength);
 	my $columnlayouts = $_pfm->config->{columnlayouts};
 	LAYOUT: {
-		$currentlayoutline = $columnlayouts->[$self->_validate_layoutnum()];
+		$currentlayoutline = $columnlayouts->[$_layout];
 		unless ($currentlayoutline =~ /n/o
 		    and $currentlayoutline =~ /(^f|f$)/o
 			and $currentlayoutline =~ /\*/o)
@@ -425,8 +426,8 @@ sub makeformatlines {
 				->display_error(
 					"Bad layout #$_layout: a mandatory field is missing")
 				->important_delay();
-			$_layout++;
-			if ($self->_validate_layoutnum() != $firstwronglayout) {
+			$_layout = $self->_validate_layoutnum($_layout+1);
+			if ($_layout != $firstwronglayout) {
 				redo LAYOUT;
 			} else {
 				$_screen

@@ -53,7 +53,7 @@ use strict;
 use constant {
 	S_MAIN		=> 0,
 	S_SWAP		=> 1,
-	S_BACK		=> 2,
+	S_PREV		=> 2,
 };
 
 my ($_browser, $_screen, $_commandhandler, $_config, $_history, $_jobhandler,
@@ -296,13 +296,13 @@ sub bootstrap {
 	$_browser		 = new PFM::Browser($self);
 	$_jobhandler	 = new PFM::JobHandler($self);
 	
-	$_screen->listing->layout($startinglayout);
 	$_screen->clrscr();
 	$_screen->calculate_dimensions();
 	$_config = new PFM::Config($self);
 	$_config->read( $_config->READ_FIRST);
 	$_config->parse($_config->SHOW_COPYRIGHT);
 	$_config->apply();
+	$_screen->listing->layout($startinglayout);
 	$_history->read();
 	$_latest_version = '';
 	$_jobhandler->start('CheckUpdates');
@@ -310,23 +310,18 @@ sub bootstrap {
 	# current directory - MAIN for the time being
 	$currentdir = getcwd();
 	$_states[S_MAIN]->prepare($currentdir);
-#	$_states[S_BACK] = new PFM::State($self);
-#	$_states[S_BACK]->currentdir($currentdir);
-#	$_states[S_BACK]->prepare();
 	# do we have a starting directory?
 	$startingdir = shift @ARGV;
 	if ($startingdir ne '') {
-		# if so, make it MAIN; currentdir becomes BACK
+		# if so, make it MAIN; currentdir becomes PREV
 		unless ($_states[S_MAIN]->currentdir($startingdir)) {
 			$_screen->at(0,0)->clreol();
 			$_screen->display_error("$startingdir: $! - using .");
 			$_screen->important_delay();
 		}
 	} else {
-		# if not, clone MAIN to BACK
-		$_states[S_BACK] = $_states[S_MAIN]->clone($self);
-#		$_states[S_MAIN]->currentdir($currentdir);
-#		$_states[S_MAIN]->prepare();
+		# if not, clone MAIN to PREV
+		$_states[S_PREV] = $_states[S_MAIN]->clone($self);
 	}
 	# swap directory
 	if (defined $swapstartdir) {

@@ -201,7 +201,7 @@ sub handle {
 		/^[\cE\cY]$/o		and $self->handlescroll($_),		last;
 #		/^l$/o				and $self->handlekeyell($_),		last;
 #		/^ $/o				and $self->handleadvance($_),		last;
-#		/^k5$/o				and $self->handlerefresh(),			last;
+		/^k5$/o				and $self->handlerefresh(),			last;
 #		/^[cr]$/io			and $self->handlecopyrename($_),	last;
 #		/^[yo]$/io			and $self->handlecommand($_),		last;
 #		/^e$/io				and $self->handleedit(),			last;
@@ -227,10 +227,10 @@ sub handle {
 		/^q$/io				and $valid = $self->handlequit($_),	last;
 #		/^k6$/o				and $self->handlesort(),			last;
 		/^(?:k1|\?)$/o		and $self->handlehelp(),			last;
-		/^k2$/o				and $self->handlecdback(),			last;
-#		/^\.$/o				and $self->handledot(),				last;
-#		/^k9$/o				and $self->handlelayouts(),			last;
-#		/^k4$/o				and $self->handlecolor(),			last;
+		/^k2$/o				and $self->handlecdprev(),			last;
+		/^\.$/o				and $self->handledot(),				last;
+		/^k9$/o				and $self->handlelayouts(),			last;
+		/^k4$/o				and $self->handlecolor(),			last;
 		/^\@$/o				and $self->handleperlcommand(),		last;
 #		/^u$/io				and $self->handlechown(),			last;
 #		/^v$/io				and $self->handlercs(),				last;
@@ -242,7 +242,7 @@ sub handle {
 #		/^!$/o				and $self->handleclobber(),			last;
 #		/^"$/o				and $self->handlepathmode(),		last;
 #		/^w$/io				and $self->handleunwo(),			last;
-#		/^%$/o				and $self->handlewhiteout(),		last;
+		/^%$/o				and $self->handlewhiteout(),		last;
 		$valid = 0; # invalid key
 	}
 	return $valid;
@@ -313,18 +313,18 @@ sub handlemove {
 	$browser->currentline($currentline + $displacement);
 }
 
-=item handlecdback()
+=item handlecdprev()
 
-Handles the back command (B<F2>).
+Handles the B<previous> command (B<F2>).
 
 =cut
 
-sub handlecdback {
+sub handlecdprev {
 	my $self = shift;
-	my $backdir = $_pfm->state($_pfm->S_BACK)->directory->path;
+	my $prevdir = $_pfm->state($_pfm->S_PREV)->directory->path;
 	my $chdirautocmd;
-	if (chdir $backdir) {
-		$_pfm->swap_states($_pfm->S_MAIN, $_pfm->S_BACK);
+	if (chdir $prevdir) {
+		$_pfm->swap_states($_pfm->S_MAIN, $_pfm->S_PREV);
 		$chdirautocmd = $_pfm->config->{chdirautocmd};
 		system("$chdirautocmd") if length($chdirautocmd);
 		$_screen->set_deferred_refresh(R_SCREEN);
@@ -341,9 +341,48 @@ Handles the command to refresh the current directory.
 
 sub handlerefresh {
 #	my $self = shift;
-	if (ok_to_remove_marks()) {
+	if ($_screen->ok_to_remove_marks()) {
 		$_screen->set_deferred_refresh(R_DIRCONTENTS | R_DIRSORT | R_SCREEN);
 	}
+}
+
+=item handlewhiteout()
+
+Toggles the filtering of whiteout files.
+
+=cut
+
+sub handlewhiteout {
+	my $self = shift;
+	my $browser = $_pfm->browser;
+	toggle($_pfm->state->{white_mode});
+	$browser->position_at($browser->currentfile->{name});
+	$_screen->set_deferred_refresh(R_SCREEN);
+}
+
+=item handledot()
+
+Toggles the filtering of dotfiles.
+
+=cut
+
+sub handledot {
+	my $self = shift;
+	my $browser = $_pfm->browser;
+	toggle($_pfm->state->{dot_mode});
+	$browser->position_at($browser->currentfile->{name});
+	$_screen->set_deferred_refresh(R_SCREEN);
+}
+
+=item handlecolor()
+
+Cycles through color modes.
+
+=cut
+
+sub handlecolor {
+#	my $self = shift;
+	$_screen->select_next_color();
 }
 
 =item handlelayouts()
@@ -354,7 +393,7 @@ Handles moving on to the next configured layout.
 
 sub handlelayouts {
 #	my $self = shift;
-	$_screen->listing->show_next_layout();
+	$_screen->listing->select_next_layout();
 }
 
 =item handlefit()
@@ -381,7 +420,8 @@ sub handlequit {
 	return 'quit' if $key eq 'Q'; # quick quit
 	return 'quit' if
 		($confirmquit =~ /marked/i and !$_screen->diskinfo->mark_info);
-	$_screen->at(0,0)->clreol()
+	$_screen->clear_footer()
+		->at(0,0)->clreol()
 		->putmessage('Are you sure you want to quit [Y/N]? ');
 	my $sure = $_screen->getch();
 	return 'quit' if ($sure =~ /y/i);
@@ -400,7 +440,8 @@ sub handleperlcommand {
 	my $perlcmd;
 	my $s = $_screen; # for ease of use when debugging
 	$_screen->listing->markcurrentline('@'); # disregard multiple_mode
-	$_screen->at(0,0)->clreol()->putmessage('Enter Perl command:')
+	$_screen->clear_footer()
+		->at(0,0)->clreol()->putmessage('Enter Perl command:')
 		->at($_screen->PATHLINE,0)->clreol()->stty_cooked();
 	$perlcmd = $_pfm->history->input(H_PERLCMD);
 	$_screen->stty_raw();
