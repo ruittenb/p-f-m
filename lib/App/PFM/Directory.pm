@@ -439,14 +439,16 @@ sub readcontents {
 	}
 	foreach $entry (@allentries) {
 		# have the mark cleared on first stat with ' '
-		$file = new App::PFM::File($entry, $self->{_path}, '', ' ');
-		push @{$self->{_dircontents}}, $file;
-		$self->register($file);
+		$self->add($entry, '', ' ');
+		#$file = new App::PFM::File($entry, $self->{_path}, '', ' ');
+		#push @{$self->{_dircontents}}, $file;
+		#$self->register($file);
 	}
 	foreach $entry (@white_entries) {
-		$file = new App::PFM::File($entry, $self->{_path}, 'w', ' ');
-		push @{$self->{_dircontents}}, $file;
-		$self->register($file);
+		$self->add($entry, 'w', ' ');
+		#$file = new App::PFM::File($entry, $self->{_path}, 'w', ' ');
+		#push @{$self->{_dircontents}}, $file;
+		#$self->register($file);
 	}
 	$screen->set_deferred_refresh($screen->R_MENU | $screen->R_HEADINGS);
 	$self->checkrcsapplicable() if $_pfm->config->{autorcs};
@@ -477,6 +479,55 @@ sub filtercontents {
 		$_pfm->state->{dot_mode}   || $_->{name} =~ /^(\.\.?|[^\.].*)$/ and
 		$_pfm->state->{white_mode} || $_->{type} ne 'w'
 	} @{$self->{_dircontents}};
+}
+
+=item addifabsent()
+
+Checks if the file is not yet in the directory. If not, add()s it.
+
+=cut
+
+sub addifabsent {
+	my ($self, $entry, $white, $mark, $flag_refresh) = @_;
+	my $findindex = 0;
+	my $dircount  = $#{$self->{_dircontents}};
+	my $file;
+	$findindex++ while ($findindex <= $dircount and
+					   $entry ne ${$self->{_dircontents}}[$findindex]{name});
+	if ($findindex > $dircount) {
+		$self->add($entry, $white, $mark, $flag_refresh);
+	} else {
+		$file = ${$self->{_dircontents}}[$findindex];
+		$self->unregister($file);
+		# copy $white from caller, it may be a whiteout.
+		# copy $mark  from file (preserve).
+		$file->stat_entry($file->{name}, $white, $file->{selected});
+		$self->register($file);
+		# flag screen refresh
+		if ($flag_refresh) {
+			my $screen = $_pfm->screen;
+			$screen->set_deferred_refresh(
+				$screen->R_DIRLIST | $screen->R_DIRFILTER | $screen->R_DIRSORT);
+		}
+	}
+}
+
+=item add()
+
+Adds the entry as file to the directory. Also calls register().
+
+=cut
+
+sub add {
+	my ($self, $entry, $white, $mark, $flag_refresh) = @_;
+	my $file = new App::PFM::File($entry, $self->{_path}, $white, $mark);
+	push @{$self->{_dircontents}}, $file;
+	$self->register($file);
+	if ($flag_refresh) {
+		my $screen = $_pfm->screen;
+		$screen->set_deferred_refresh(
+			$screen->R_DIRLIST | $screen->R_DIRFILTER | $screen->R_DIRSORT);
+	}
 }
 
 =item register()

@@ -11,11 +11,11 @@ WriteMakefile(
 		'Term::Cap'		=> 1.12,
 		'Term::Screen'		=> 1.03,
 		'Term::ScreenColor'	=> 1.13,
-		'Term::ReadLine::Gnu'	=> 1.19,
-		'LWP::Simple'		=> 5.834, # not sure, probably too high
+		'Term::ReadLine::Gnu'	=> 1.17,
+		'LWP::Simple'		=> 5.827, # not sure, probably too high
 	},
-	EXE_FILES	=> 'pfm',
-	MIN_PERL_VERSION => 5.8,
+	EXE_FILES	=> ['pfm'],
+	MIN_PERL_VERSION => 5.008,
 	DIR		=> ['listwhite'],
 );
 

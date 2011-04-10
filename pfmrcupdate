@@ -2,123 +2,288 @@
 ############################################################################
 #
 # Name:         pfmrcupdate
-# Version:      0.28
+# Version:      2.03.3
 # Authors:      Rene Uittenbogaard
 # Date:         2010-05-02
 # Usage:        pfmrcupdate
 # Description:  Update an existing .pfmrc so that it can be used with
-#		newer versions of pfm.
+#               newer versions of pfm.
 #
 
 ###############################################################################
-# helper functions
+# declarations
 
 use POSIX qw(mktime strftime);
 use strict;
 use locale;
 
-my $pfmrc = $ENV{PFMRC} || "$ENV{HOME}/.pfm/.pfmrc";
-
 ###############################################################################
 # helper functions
 
-sub read_pfmrc {
-    if (open PFMRC, $pfmrc) {
-        while (<PFMRC>) {
-            # the pragma 'locale' used to cause problems when the config
-            # is read in using UTF-8
-            #no locale;
-            if (/# Version ([\w.]+)$/ and
-                $1 lt $_pfm->{VERSION})
-            {
-                # will not be in message color: usecolor not yet parsed
-                $_pfm->screen->neat_error(
-                    "Warning: your $_configfilename version $1 may be "
-                .   "outdated.\r\nPlease see pfm(1), under DIAGNOSIS."
-                );
-                $_pfm->screen->important_delay();
-            }
-            s/#.*//;
-            if (s/\\\n?$//) { $_ .= <PFMRC>; redo; }
-#           if (/^\s*([^:[\s]+(?:\[[^]]+\])?)\s*:\s*(.*)$/o) {
-            if (/^[ \t]*([^: \t[]+(?:\[[^]]+\])?)[ \t]*:[ \t]*(.*)$/o) {
-#               print STDERR "-$1";
-                $_pfmrc{$1} = $2;
-            }
-        }
-        close PFMRC;
-    }
+sub min (@) {
+	return +(sort { $a <=> $b } @_)[0];
 }
 
+sub max (@) {
+	return +(reverse sort { $a <=> $b } @_)[0];
+}
+
+sub backup_pfmrc {
+	my $pfmrc = shift;
+	my $now   = strftime('%Y%m%dT%H%M%S', localtime);
+	if (system "cp \Q$pfmrc\E \Q$pfmrc.$now\E") {
+		die "Could not backup $pfmrc to $pfmrc.$now, aborting";
+	}
+	print "Backing up $pfmrc to\n$pfmrc.$now (ok)\n";
+}
+
+sub write_pfmrc {
+	my ($pfmrc, @pfmrc) = @_;
+	open FILE, ">$pfmrc" or die "Cannot open $pfmrc for writing: $!, aborting";
+	print FILE @pfmrc;
+	close FILE;
+	print "Successfully wrote $pfmrc\n";
+}
+
+sub findfile {
+	my ($file) = @_;
+	my $dir;
+	foreach $dir ('.', split /:/, $ENV{PATH}) {
+		return "$dir/$file" if -f "$dir/$file";
+	}
+	die "Cannot find '$file' anywhere in \$PATH ($ENV{PATH}), aborting";
+}
+
+sub fileslurp {
+	my ($filename) = @_;
+	open FILE, $filename or die "Cannot open $filename: $!, aborting";
+	my @lines = <FILE>;
+	close FILE;
+	return @lines;
+}
+
+sub get_locale {
+	open PIPE, 'locale|';
+	my @lines = grep /^LC_TIME/, <PIPE>;
+	close PIPE;
+	chomp @lines;
+	return $lines[0];
+}
+
+sub get_pfm_version {
+	my ($pfmfile, $version);
+	$pfmfile = findfile('pfm');
+	$version = (grep /\@\(#\)/, fileslurp($pfmfile))[0];
+	$version =~ s/.*?\@\(#\)\D+([[:alnum:].]+).*/$1/;
+	chomp $version;
+	return $version;
+}
+
+sub get_pfmrc {
+	my $pfmrc = shift;
+	return fileslurp($pfmrc);
+}
+
+sub get_pfmrc_version {
+	my $version = (grep /Version\D+([[:alnum:].]+)/, @_)[0];
+	$version =~ s/.*?Version\D+([[:alnum:].]+).*/$1/;
+	chomp $version;
+	return $version;
+}
+
+sub get_pfmrc_timefieldlen {
+	my @layouts = grep /^[^#].*ffffffffffffff/, @_;
+	my $minlength = 80;
+	my ($mlength, $clength, $alength, $layout);
+	foreach (@layouts) {
+		$mlength = tr/m// || 80;
+		$clength = tr/c// || 80;
+		$alength = tr/a// || 80;
+		$minlength = min($minlength, $mlength, $clength, $alength);
+	}
+	return $minlength;
+}
+
+sub get_pfmrc_timefieldformat {
+	my $timefieldformat = (grep /^timestampformat:/, @_)[0];
+	$timefieldformat =~ s/^[^:]*?:(.*)$/$1/;
+	chomp $timefieldformat;
+	return $timefieldformat;
+}
+
+###############################################################################
+# check functions
 
 sub check_date_locale {
-	my ($mon, $time, $time_str, $maxlength);
-	# mktime(sec, min, hour, mday, mon, year, wday = 0, yday = 0, isdst = -1)
+	my ($pfmrc, @pfmrc) = @_;
+	my $timefieldlen    = get_pfmrc_timefieldlen(@pfmrc);
+	my $timefieldformat = get_pfmrc_timefieldformat(@pfmrc);
+	my $locale          = get_locale();
+	my $verbose         = $ENV{PFMDEBUG};
+	#
+	my ($mon, $timestr, $maxtimelength);
 	foreach $mon (0..11) {
-		$time = mktime(0, 30, 10, 12, $mon, 95);
-		$time_str = strftime('%b', $time);
-		$maxlength = length($time_str) > $maxlength ? length($time_str) : $maxlength;
+		# (sec, min, hour, mday, mon, year, wday = 0, yday = 0, isdst = -1)
+		$timestr = strftime($timefieldformat, (0, 30, 10, 12, $mon, 95));
+		print "T-$timestr\n" if $verbose;
+		$maxtimelength = max(length($timestr), $maxtimelength);
 	}
-	if ($maxlength > 3) {
-		echo "Warning: some of the short month names in your locale"
-		echo "seem to be longer than 3 characters."
-		echo "The default config file (possibly at ${PFMRC:-$HOME/.pfm/.pfmrc})"
-		echo "does not take this into account."
-		echo "Please verify that your file timestamps don't look truncated,"
-		echo "otherwise please alter the 'columnlayouts' option."
-		return
+	if ($maxtimelength > $timefieldlen) {
+		print <<_LOCALE_WARNING_
+
+Warning: Your date/time locale is set to $locale. In this locale,
+the configured timestampformat of '$timefieldformat' in your .pfmrc may
+require up to $maxtimelength characters.
+
+Some of the layouts in your .pfmrc only allow for $timefieldlen characters.
+
+Please verify that your file timestamps don't look truncated, otherwise
+please change the 'columnlayouts' or 'timestampformat' option manually.
+
+_LOCALE_WARNING_
+	} else {
+		print "Checking timestampformat vs. locale (ok)\n";
 	}
 }
 
-sub check_pfmrc {
-	if [ ! -f "$pfmrc" ]; then
-		return
-	fi
-	oldversion="$(awk '/^## Version / { print $3 }' $pfmrc)"
-	if [ -z "$oldversion" ]; then
-		echo "The version number of your config file ('$pfmrc')"
-		echo "could not be determined. Please have pfm create a new one"
-		echo "and compare the old and new ones so that you will not miss"
-		echo "any configuration file updates."
-		return
-	fi
-	updates="$(
-		( cd update; ls ) | perl -nle 's/\.pl$//; print if ($_ gt "update-'$oldversion'" and $_ le "update-'$VERSION'");'
-	)"
-	if [ ! "$updates" ]; then
-		return
-	fi
-	echo
-	echo "You seem to be upgrading from version $oldversion."
-	echo "For the current version ($VERSION), updates to your config file are needed."
-	echo
-	echo "Do you want me to back up your current config file"
-	echo "(located at '$pfmrc')"
-	echo $n "and try to update it? (Yes/No) "
-	read answer
-	if [ "$answer" != y ]; then
-		return
-	fi
-	newpfmrc="$pfmrc.`date +'%Y%m%dT%H%M%S'`"
-	cp -i "$pfmrc" "$newpfmrc"
-	echo
-	echo "Config file backed up as '$newpfmrc'."
-	echo "$updates" | while read update; do
-		perl -pi update/$update "$pfmrc"
-		v=${update#update-}; v=${v%.pl}
-		echo "Successfully updated to $v"
-	done
-	perl -pi "s/^(## Version ).*/$1$VERSION/" "$pfmrc"
-	echo "Successfully updated to $VERSION"
+sub check_versions {
+	my ($rcversion, $binversion) = @_;
+	unless ($rcversion) {
+		print <<_PFMRC_VERSION_WARNING_;
+
+Warning: The version number of your config file could not be
+determined. (Are you using the \$PFMRC variable?)
+Please have pfm create a new config file so that you will not
+miss any configuration file updates.
+
+_PFMRC_VERSION_WARNING_
+		return 0;
+	}
+	unless ($binversion) {
+		print <<_PFM_VERSION_WARNING_;
+
+Warning: The version number of the pfm executable could not be
+determined. Please make sure that pfm is installed in a directory
+in your \$PATH.
+
+_PFM_VERSION_WARNING_
+		return 0;
+	}
+	return 1;
+}
+
+###############################################################################
+# update functions
+
+sub update_to_184 {
+	# this updates (Y)our commands for version 1.84
+	print "Updating to 1.84...\n";
+	s/^(\s*)([[:upper:]])(\s*):(.*)$/$1your[\l$2]$3:$4/ foreach @_;
+	s/^(\s*)([[:lower:]])(\s*):(.*)$/$1your[\u$2]$3:$4/ foreach @_;
+}
+
+sub update_to_188 {
+	# this replaces the pre-1.88 colors by 1.88-style colors.
+	print "Updating to 1.88...\n";
+	my %attributes = reverse (     'black'      => 30,  'on_black'   => 40,
+		'reset'      => '00',  'red'        => 31,  'on_red'     => 41,
+		'bold'       => '01',  'green'      => 32,  'on_green'   => 42,
+		'underline'  => '04',  'yellow'     => 33,  'on_yellow'  => 43,
+		                       'blue'       => 34,  'on_blue'    => 44,
+		'blink'      => '05',  'magenta'    => 35,  'on_magenta' => 45,
+		'inverse'    => '07',  'cyan'       => 36,  'on_cyan'    => 46,
+		'concealed'  => '08',  'white'      => 37,  'on_white'   => 47,
+	);
+	foreach (@_) {
+		!/^#/ && /[=;]/ && s/\b([034]\d)\b/$attributes{$1}/g && tr/;/ /;
+	}
+}
+
+sub update_to_189 {
+	# this updates quoting in commands for version 1.89
+	print "Updating to 1.89...\n";
+	my $warned = 0;
+	foreach (@_) {
+		s/(['"])(\\[1-6])\1/$2/g;
+		s/(printcmd:.*)/$1 \\2/g;
+		/cp.*date.*touch.*date/ && s/"(
+		[^"()]*
+		\$\(
+		[^")]*
+		(?:"[^"]*")*
+		\)
+		)"/$1/gx;
+		if (/\$\(.*\)/ and !$warned) {
+			print "\nWarning: Quoting \$(..) constructs can be tricky.\n";
+			print "Please double-check your .pfmrc. I'm imperfect.\n";
+			$warned++;
+		}
+	}
+}
+
+sub update_to_1917 {
+	# this adds a diskinfo column (f-column) to pre-1.91.7 config files
+	print "Updating to 1.91.7...\n";
+	foreach (@_) {
+		s/^([^#].*nnn.*)(:\\?)$/$1 ffffffffffffff$2/;
+		s/ layouts must not be wider than this! /-------------- file info -------------/;
+	}
+}
+
+sub update_to_200 {
+	# this updates the framecolors for version 2.00
+	print "Updating to 2.00...\n";
+	foreach (@_) {
+		s/(^|:)header=/${1}menu=/;
+		s/(^|:)title=/${1}headings=/;
+	}
+}
+
+sub update_version {
+	my $to = shift;
+	# this updates the version field for any version
+	print "Updating to $to...\n";
+	foreach (@_) {
+		s/^(#.*?Version\D+)[[:alnum:].]+/$1$to/;
+	}
+}
+
+sub update_pfmrc {
+	my ($from, $to) = (shift, shift);
+	update_to_184 (@_) if $from lt '1.84'   and '1.84'   le $to;
+	update_to_188 (@_) if $from lt '1.88'   and '1.88'   le $to;
+	update_to_189 (@_) if $from lt '1.89'   and '1.89'   le $to;
+	update_to_1917(@_) if $from lt '1.91.7' and '1.91.7' le $to;
+	update_to_200 (@_) if $from lt '2.00'   and '2.00'   le $to;
+	update_version($to, @_);
+}
+
+sub main {
+	my $pfmrc         = $ENV{PFMRC} || "$ENV{HOME}/.pfm/.pfmrc";
+	my @pfmrc         = get_pfmrc($pfmrc);
+	my $version_pfmrc = get_pfmrc_version(@pfmrc);
+	my $version_pfm   = get_pfm_version();
+	#
+	print "\nChecking the config file at $pfmrc\n";
+	die '' unless check_versions($version_pfmrc, $version_pfm);
+	check_date_locale($pfmrc, @pfmrc);
+	print "\nYour  pfm   version is: $version_pfm\n";
+	print "Your .pfmrc version is: $version_pfmrc ";
+	if ($version_pfmrc lt $version_pfm) {
+		print "(needs updating)\n\n";
+		backup_pfmrc($pfmrc);
+		update_pfmrc($version_pfmrc, $version_pfm, @pfmrc);
+		write_pfmrc($pfmrc, @pfmrc);
+		print "Successfully updated to version $version_pfm\n";
+	} else {
+		print "(up to date)\n\n";
+	}
 }
 
 ###############################################################################
 # main
 
-# check the installation
-
-check_date_locale();
-check_pfmrc();
+main();
 
 # vim: set tabstop=8 shiftwidth=8 noexpandtab:
 

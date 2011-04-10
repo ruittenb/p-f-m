@@ -929,36 +929,36 @@ my %CMDESCAPES = (
 #	$_[0] =~ /\/([^\/]*)\/?$/; # ok, it has LTS but this looks better in vim
 #	return length($1) ? $1 : $_[0];
 #}
-
-sub reversepath {
-	# reverses the path from target to symlink, returns the path from symlink to target
-	my ($symlink_target_abs, $symlink_name_rel) = map { canonicalize_path($_) } @_;
-	# $result ultimately is named as requested
-	my $result = basename($symlink_target_abs);
-	if ($symlink_name_rel !~ m!/!) {
-		# in same dir: reversed path == rel_path
-		return $result;
-	}
-	# lose the filename from the symlink_target_abs and symlink_name_rel, keep the directory
-	$symlink_target_abs = dirname($symlink_target_abs);
-	$symlink_name_rel   = dirname($symlink_name_rel);
-	# reverse this path as follows:
-	# foreach_left_to_right pathname element of symlink_name_rel {
-	#	case '..' : prepend basename target to result
-	#	case else : prepend '..' to result
-	# }
-	foreach (split (m!/!, $symlink_name_rel)) {
-		if ($_ eq '..') {
-			$result = basename($symlink_target_abs) .'/'. $result;
-			$symlink_target_abs = dirname($symlink_target_abs);
-		} else {
-			$result = '../'. $result;
-			$symlink_target_abs .= '/'.$_;
-		}
-	}
-	return canonicalize_path($result);
-}
-
+#
+#sub reversepath {
+#	# reverses the path from target to symlink, returns the path from symlink to target
+#	my ($symlink_target_abs, $symlink_name_rel) = map { canonicalize_path($_) } @_;
+#	# $result ultimately is named as requested
+#	my $result = basename($symlink_target_abs);
+#	if ($symlink_name_rel !~ m!/!) {
+#		# in same dir: reversed path == rel_path
+#		return $result;
+#	}
+#	# lose the filename from the symlink_target_abs and symlink_name_rel, keep the directory
+#	$symlink_target_abs = dirname($symlink_target_abs);
+#	$symlink_name_rel   = dirname($symlink_name_rel);
+#	# reverse this path as follows:
+#	# foreach_left_to_right pathname element of symlink_name_rel {
+#	#	case '..' : prepend basename target to result
+#	#	case else : prepend '..' to result
+#	# }
+#	foreach (split (m!/!, $symlink_name_rel)) {
+#		if ($_ eq '..') {
+#			$result = basename($symlink_target_abs) .'/'. $result;
+#			$symlink_target_abs = dirname($symlink_target_abs);
+#		} else {
+#			$result = '../'. $result;
+#			$symlink_target_abs .= '/'.$_;
+#		}
+#	}
+#	return canonicalize_path($result);
+#}
+#
 #sub canonicalize_path {
 #	# works like realpath() but does not resolve symlinks
 #	my $path = shift;
@@ -980,20 +980,20 @@ sub reversepath {
 #	return $path;
 #}
 #
-sub reducepaths {
-	# remove identical prefix from path
-	my ($symlink_target_abs, $symlink_name_abs) = @_;
-	my $subpath;
-	while (($subpath) = ($symlink_target_abs =~ m!^(/[^/]+)(?:/|$)!)
-	and index($symlink_name_abs, $subpath) == 0)
-	{
-		$symlink_target_abs =~ s!^/[^/]+!!;
-		$symlink_name_abs   =~ s!^/[^/]+!!;
-	}
-	# one of these could be empty now.
-	return $symlink_target_abs, $symlink_name_abs;
-}
-
+#sub reducepaths {
+#	# remove identical prefix from path
+#	my ($symlink_target_abs, $symlink_name_abs) = @_;
+#	my $subpath;
+#	while (($subpath) = ($symlink_target_abs =~ m!^(/[^/]+)(?:/|$)!)
+#	and index($symlink_name_abs, $subpath) == 0)
+#	{
+#		$symlink_target_abs =~ s!^/[^/]+!!;
+#		$symlink_name_abs   =~ s!^/[^/]+!!;
+#	}
+#	# one of these could be empty now.
+#	return $symlink_target_abs, $symlink_name_abs;
+#}
+#
 #sub fileforall {
 #	my ($index, $loopfile);
 #	my ($do_this, $statflag) = @_;
@@ -1018,22 +1018,22 @@ sub reducepaths {
 #		copyback($currentfile{name});
 #	}
 #}
-
-sub multi_to_single {
-	my $qe = quotemeta $e;
-	my $do_a_refresh = $R_PATHINFO;
-	if ($multiple_mode and $_[0] !~ /(?<!$qe)(?:$qe$qe)*${e}[127]/ and !-d $_[0]) {
-		$scr->at(0,0);
-		putmessage('Cannot do multifile operation when destination is single file.');
-		$scr->at(0,0);
-		$do_a_refresh |= pressanykey(); # screen might have been resized
-		path_info();
-		return $do_a_refresh;
-	} else {
-		return 0;
-	}
-}
-
+#
+#sub multi_to_single {
+#	my $qe = quotemeta $e;
+#	my $do_a_refresh = $R_PATHINFO;
+#	if ($multiple_mode and $_[0] !~ /(?<!$qe)(?:$qe$qe)*${e}[127]/ and !-d $_[0]) {
+#		$scr->at(0,0);
+#		putmessage('Cannot do multifile operation when destination is single file.');
+#		$scr->at(0,0);
+#		$do_a_refresh |= pressanykey(); # screen might have been resized
+#		path_info();
+#		return $do_a_refresh;
+#	} else {
+#		return 0;
+#	}
+#}
+#
 #sub restat_copyback {
 #	$showncontents[$currentline+$baseindex] = stat_entry($currentfile{name}, $currentfile{selected});
 #	if (!$rcsrunning and $autorcs) {
@@ -1124,7 +1124,7 @@ sub dirlookup {
 #	$wasresized = 1;
 #	$SIG{WINCH} = \&resizecatcher;
 #}
-#
+
 sub quitcatcher {
 	$wasquit = 1;
 #	$SIG{QUIT} = \&quitcatcher;
@@ -1160,7 +1160,7 @@ sub reaper {
 #		$scr->noecho();
 #	}
 #}
-#
+
 sub testdirempty {
 	opendir TESTDIR, $_[0];
 	readdir TESTDIR;					# every directory has at least a '.' entry
@@ -1195,7 +1195,7 @@ sub testdirempty {
 #		@unwo_cmd = qw(rm -W);
 #	}
 #}
-
+#
 #sub globalinit {
 #	my ($startingdir, $opt_version, $opt_help);
 #	Getopt::Long::Configure(qw'bundling permute');
@@ -1235,7 +1235,7 @@ sub testdirempty {
 #		}
 #	}
 #}
-
+#
 ##########################################################################
 # debugging helper commands
 
@@ -1268,11 +1268,11 @@ sub convwhite {
 
 ##########################################################################
 # apply color
-
+#
 #sub putmessage {
 #	$scr->putcolored($framecolors{$color_mode}{message}, @_);
 #}
-
+#
 #sub decidecolor {
 #	my $f = shift;
 #	$f->{type}	eq 'w'			and return $dircolors{$color_mode}{wh};
@@ -1298,14 +1298,14 @@ sub convwhite {
 #
 ##########################################################################
 # small printing routines
-
+#
 #sub validate_layoutnum {
 #	while ($currentlayout > $#columnlayouts) {
 #		$currentlayout -= @columnlayouts;
 #	}
 #	return $currentlayout;
 #}
-
+#
 #sub makeformatlines {
 #	my ($squeezedlayoutline, $currentlayoutline, $firstwronglayout, $prev, $letter, $trans, $temp);
 #	LAYOUT: {
@@ -1431,7 +1431,7 @@ sub convwhite {
 #	my ($currentfile, @fields) = @_;
 #	return formatted($currentformatline, @{$currentfile}{@fields});
 #}
-
+#
 #sub highlightline { # true/false
 #	my $linecolor;
 #	$scr->at($currentline + $BASELINE, $filerecordcol);
@@ -1495,7 +1495,7 @@ sub convwhite {
 #	}
 #	return 1;
 #}
-#
+
 sub promptforboundarytime {
 	my $prompt = ($_[0] eq 'a' ? 'After' : 'Before')
 			   . " modification time CCYY-MM-DD hh:mm[.ss]: ";
@@ -1534,14 +1534,14 @@ sub promptforwildfilename {
 #		$scr->at($_, $infocol)->puts($spaces);
 #	}
 #}
-
+#
 #sub path_info {
 #	$scr->at($PATHLINE, 0)->puts(pathline($currentdir, $disk{'device'}));
 #}
-
+#
 ##########################################################################
 # headers, footers
-
+#
 #sub fitbanner { # $header/footer, $screenwidth
 #	my ($banner, $virtwidth) = @_;
 #	my ($maxwidth, $spcount);
@@ -1656,7 +1656,7 @@ sub promptforwildfilename {
 #		->putcolored($linecolor, $footer, ' ' x ($screenwidth - length $footer))
 #		->reset()->normal();
 #}
-
+#
 #sub usage {
 #	my $directory = Term::ScreenColor::colored('underline', 'directory');
 #	my $number    = Term::ScreenColor::colored('underline', 'number');
@@ -1755,7 +1755,7 @@ sub promptforwildfilename {
 #
 ##########################################################################
 # system information
-
+#
 #sub str_informatted {
 #	formatted('@' . '>' x ($infolength-1), @_);
 #}
@@ -1835,7 +1835,7 @@ sub promptforwildfilename {
 #
 ##########################################################################
 # sorting subs
-
+#
 #sub as_requested {
 #	my ($exta, $extb);
 #	if ($dotdot_mode) {
@@ -1979,7 +1979,7 @@ sub promptforwildfilename {
 #	validate_position();
 #	return $R_CLRSCR;
 #}
-#
+
 sub preparercscol {
 	my $file = shift;
 	my (%nameindexmap, $count);
@@ -2700,93 +2700,93 @@ sub handlercs {
 #	}
 #}
 #
-sub handlelink {
-	my ($newname, $loopfile, $do_this, $multi2single, $index, $newnameexpanded,
-		$targetstring, $findindex, $testname, $headerlength, $absrel,
-		$simpletarget, $simplename);
-	my @lncmd = $clobber_mode ? qw(ln -f) : qw(ln);
-	my $do_a_refresh = $multiple_mode ? $R_DIRLIST | $R_MENU : $R_MENU;
-	markcurrentline('L') unless $multiple_mode;
-	$headerlength = show_menu($HEADER_LNKTYPE);
-	$absrel = lc $scr->at(0, $headerlength+1)->getch();
-	return $R_MENU unless $absrel =~ /^[arh]$/;
-	push @lncmd, '-s' if $absrel !~ /h/;
-	$scr->at(0,0)->clreol();
-	cooked_echo();
-	my $prompt = 'Name of new '.
-		( $absrel eq 'r' ? 'relative symbolic'
-		: $absrel eq 'a' ? 'absolute symbolic' : 'hard') . ' link: ';
-	push (@path_history, $currentfile{name}) unless $multiple_mode;
-	$newname = readintohist(\@path_history, $prompt);
-	if ($#path_history > 0 and $path_history[-1] eq $path_history[-2]) {
-		pop @path_history;
-	}
-	raw_noecho();
-	return $R_MENU if $newname eq '';
-	$newname = canonicalize_path($newname);
-	# expand \[3456] at this point as a test, but not \[1278]
-	expand_3456_escapes($QUOTE_OFF, ($testname = $newname), \%currentfile);
-	# assignment on purpose, executed before evaluation of return value
-	return $R_MENU | $multi2single if $multi2single = multi_to_single($testname);
-	$do_this = sub {
-		if (-d $newnameexpanded) {
-			# make sure $newname is a file (not a directory)
-			$newnameexpanded .= '/'.$loopfile->{name};
-		}
-		if ($absrel eq 'r') {
-			if ($newnameexpanded =~ m!^/!) {
-				# absolute: first eliminate identical pathname prefix
-				($simpletarget, $simplename) = reducepaths($currentdir.'/'.$loopfile->{name}, $newnameexpanded);
-				# now make absolute path relative
-				$simpletarget =~ s!^/!!;
-				$simpletarget =~ s![^/]+!..!g;
-				$simpletarget = dirname($simpletarget);
-				# and reverse it
-				$targetstring = reversepath($currentdir.'/'.$loopfile->{name}, $simpletarget.'/'.$simplename);
-			} else {
-				# relative: reverse path
-				$targetstring = reversepath($currentdir.'/'.$loopfile->{name}, $newnameexpanded);
-			}
-		} else { # $absrel eq 'a'
-			# hand over an absolute path
-			$targetstring = $currentdir.'/'.$loopfile->{name};
-		}
-		if (system @lncmd, $targetstring, $newnameexpanded) {
-			$do_a_refresh |= neat_error('Linking failed');
-		} elsif ($newnameexpanded !~ m!/!) {
-			# is newname present in @dircontents? push otherwise
-			$findindex = 0;
-			$findindex++ while ($findindex <= $#dircontents and
-						   $newnameexpanded ne $dircontents[$findindex]{name});
-			if ($findindex > $#dircontents) {
-				$do_a_refresh |= $R_DIRSORT | $R_DIRFILTER | $R_DIRLIST;
-			}
-			$dircontents[$findindex] = stat_entry($newnameexpanded,
-				$dircontents[$findindex]{selected} || ' ');
-		}
-	};
-	if ($multiple_mode) {
-		for $index (0..$#dircontents) {
-			$loopfile = $dircontents[$index];
-			expand_escapes($QUOTE_OFF,($newnameexpanded = $newname),$loopfile);
-			if ($loopfile->{selected} eq '*') {
-				$scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
-				exclude($loopfile,'.');
-				$do_this->();
-				$dircontents[$index] =
-					stat_entry($loopfile->{name}, $loopfile->{selected});
-			}
-		}
-		$multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
-	} else {
-		$loopfile = \%currentfile;
-		expand_escapes($QUOTE_OFF, ($newnameexpanded = $newname), $loopfile);
-		$do_this->();
-		restat_copyback();
-	}
-	return $do_a_refresh;
-}
-
+#sub handlelink {
+#	my ($newname, $loopfile, $do_this, $multi2single, $index, $newnameexpanded,
+#		$targetstring, $findindex, $testname, $headerlength, $absrel,
+#		$simpletarget, $simplename);
+#	my @lncmd = $clobber_mode ? qw(ln -f) : qw(ln);
+#	my $do_a_refresh = $multiple_mode ? $R_DIRLIST | $R_MENU : $R_MENU;
+#	markcurrentline('L') unless $multiple_mode;
+#	$headerlength = show_menu($HEADER_LNKTYPE);
+#	$absrel = lc $scr->at(0, $headerlength+1)->getch();
+#	return $R_MENU unless $absrel =~ /^[arh]$/;
+#	push @lncmd, '-s' if $absrel !~ /h/;
+#	$scr->at(0,0)->clreol();
+#	cooked_echo();
+#	my $prompt = 'Name of new '.
+#		( $absrel eq 'r' ? 'relative symbolic'
+#		: $absrel eq 'a' ? 'absolute symbolic' : 'hard') . ' link: ';
+#	push (@path_history, $currentfile{name}) unless $multiple_mode;
+#	$newname = readintohist(\@path_history, $prompt);
+#	if ($#path_history > 0 and $path_history[-1] eq $path_history[-2]) {
+#		pop @path_history;
+#	}
+#	raw_noecho();
+#	return $R_MENU if $newname eq '';
+#	$newname = canonicalize_path($newname);
+#	# expand \[3456] at this point as a test, but not \[1278]
+#	expand_3456_escapes($QUOTE_OFF, ($testname = $newname), \%currentfile);
+#	# assignment on purpose, executed before evaluation of return value
+#	return $R_MENU | $multi2single if $multi2single = multi_to_single($testname);
+#	$do_this = sub {
+#		if (-d $newnameexpanded) {
+#			# make sure $newname is a file (not a directory)
+#			$newnameexpanded .= '/'.$loopfile->{name};
+#		}
+#		if ($absrel eq 'r') {
+#			if ($newnameexpanded =~ m!^/!) {
+#				# absolute: first eliminate identical pathname prefix
+#				($simpletarget, $simplename) = reducepaths($currentdir.'/'.$loopfile->{name}, $newnameexpanded);
+#				# now make absolute path relative
+#				$simpletarget =~ s!^/!!;
+#				$simpletarget =~ s![^/]+!..!g;
+#				$simpletarget = dirname($simpletarget);
+#				# and reverse it
+#				$targetstring = reversepath($currentdir.'/'.$loopfile->{name}, $simpletarget.'/'.$simplename);
+#			} else {
+#				# relative: reverse path
+#				$targetstring = reversepath($currentdir.'/'.$loopfile->{name}, $newnameexpanded);
+#			}
+#		} else { # $absrel eq 'a'
+#			# hand over an absolute path
+#			$targetstring = $currentdir.'/'.$loopfile->{name};
+#		}
+#		if (system @lncmd, $targetstring, $newnameexpanded) {
+#			$do_a_refresh |= neat_error('Linking failed');
+#		} elsif ($newnameexpanded !~ m!/!) {
+#			# is newname present in @dircontents? push otherwise
+#			$findindex = 0;
+#			$findindex++ while ($findindex <= $#dircontents and
+#						   $newnameexpanded ne $dircontents[$findindex]{name});
+#			if ($findindex > $#dircontents) {
+#				$do_a_refresh |= $R_DIRSORT | $R_DIRFILTER | $R_DIRLIST;
+#			}
+#			$dircontents[$findindex] = stat_entry($newnameexpanded,
+#				$dircontents[$findindex]{selected} || ' ');
+#		}
+#	};
+#	if ($multiple_mode) {
+#		for $index (0..$#dircontents) {
+#			$loopfile = $dircontents[$index];
+#			expand_escapes($QUOTE_OFF,($newnameexpanded = $newname),$loopfile);
+#			if ($loopfile->{selected} eq '*') {
+#				$scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
+#				exclude($loopfile,'.');
+#				$do_this->();
+#				$dircontents[$index] =
+#					stat_entry($loopfile->{name}, $loopfile->{selected});
+#			}
+#		}
+#		$multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
+#	} else {
+#		$loopfile = \%currentfile;
+#		expand_escapes($QUOTE_OFF, ($newnameexpanded = $newname), $loopfile);
+#		$do_this->();
+#		restat_copyback();
+#	}
+#	return $do_a_refresh;
+#}
+#
 #sub handleunwo {
 #	my ($index, $loopfile, $do_this);
 #	my $count = 0;
@@ -3308,7 +3308,7 @@ sub handleprint {
 #	raw_noecho();
 #	return $R_CLRSCR;
 #}
-#
+
 sub handlecopyrename {
 	my $state    = uc $_[0];
 	my @statecmd = (($state eq 'C' ? qw(cp -r)       : 'mv'), ($clobber_mode ? '-f' : '-i'));

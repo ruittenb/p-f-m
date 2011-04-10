@@ -74,7 +74,9 @@ Initializes new instances. Called from the constructor.
 
 sub _init {
 	my ($self, $path, $parent, $white, $mark) = @_;
-	$self->{_parent} = $parent;
+	if (defined $parent) {
+		$self->{_parent} = $parent;
+	}
 	if (defined $path) {
 		$self->stat_entry($path, $white, $mark);
 	}
@@ -290,9 +292,8 @@ Applies the supplied function to the current file.
 
 sub apply {
 	my ($self, $do_this, @args) = @_;
-	my $state       = $_pfm->state;
-	my $directory   = $state->directory;
-	my $currentfile = $self;
+	my $state     = $_pfm->state;
+	my $directory = $state->directory;
 	my $to_mark;
 	$directory->unregister($self);
 	$do_this->($self, @args);

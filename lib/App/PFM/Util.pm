@@ -40,10 +40,11 @@ use Carp;
 
 use strict;
 
-our @EXPORT = qw(min max inhibit triggle toggle isyes isno basename dirname
-				 isxterm formatted time2str fit2limit canonicalize_path
-				 isorphan ifnotdefined clearugidcache find_uid find_gid
-				 by_name alphabetically condquotemeta TIME_FILE TIME_CLOCK);
+our @EXPORT = qw(
+	min max inhibit triggle toggle isyes isno basename dirname isxterm
+	formatted time2str fit2limit canonicalize_path reducepaths reversepath
+	isorphan ifnotdefined clearugidcache find_uid find_gid by_name
+	alphabetically condquotemeta TIME_FILE TIME_CLOCK);
 
 my $XTERMS = qr/^(.*xterm.*|rxvt.*|gnome.*|kterm)$/;
 
@@ -209,6 +210,63 @@ sub canonicalize_path ($) {
 	$path =~ s{(.)/$}{$1}g;
 	length($path) or $path = '/';
 	return $path;
+}
+
+=item reducepaths()
+
+Removes an identical prefix from two paths.
+
+=cut
+
+sub reducepaths {
+	# remove identical prefix from path
+	my ($symlink_target_abs, $symlink_name_abs) = @_;
+	my $subpath;
+	while (($subpath) = ($symlink_target_abs =~ m!^(/[^/]+)(?:/|$)!)
+	and index($symlink_name_abs, $subpath) == 0)
+	{
+		$symlink_target_abs =~ s!^/[^/]+!!;
+		$symlink_name_abs   =~ s!^/[^/]+!!;
+	}
+	# one of these could be empty now.
+	return $symlink_target_abs, $symlink_name_abs;
+}
+
+=item reversepath()
+
+Reverses the path from target to symlink, I<i.e.> returns the path
+from symlink to target.
+
+=cut
+
+sub reversepath {
+	my ($symlink_target_abs, $symlink_name_rel) =
+		map { canonicalize_path($_) } @_;
+	# $result ultimately is named as requested
+	my $result = basename($symlink_target_abs);
+	if ($symlink_name_rel !~ m!/!) {
+		# in same dir: reversed path == rel_path
+		return $result;
+	}
+	# lose the filename from the symlink_target_abs and symlink_name_rel,
+	# keep the directory
+	$symlink_target_abs = dirname($symlink_target_abs);
+	$symlink_name_rel   = dirname($symlink_name_rel);
+	# reverse this path as follows:
+	# foreach_left_to_right pathname element of symlink_name_rel {
+	#	case '..' : prepend basename target to result
+	#	case else : prepend '..' to result
+	# }
+	foreach (split (m!/!, $symlink_name_rel)) {
+		if ($_ eq '..') {
+			$result = basename($symlink_target_abs) .'/'. $result;
+			$symlink_target_abs = dirname($symlink_target_abs);
+		} else {
+			$result = '../'. $result;
+			$symlink_target_abs .= '/'.$_;
+		}
+	}
+	return canonicalize_path($result);
 }
 
 =item isorphan()

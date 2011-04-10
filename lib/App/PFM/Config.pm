@@ -214,7 +214,7 @@ sub read {
 		# is read in using UTF-8
 		#no locale;
 		while (<PFMRC>) {
-			if (/# Version ([\w.]+)$/ and
+			if (/# Version ([[:alnum:].]+)$/ and
 				$1 lt $_pfm->{VERSION} and $read_first)
 			{
 				# will not be in message color: usecolor not yet parsed
