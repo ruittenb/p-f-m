@@ -2065,11 +2065,11 @@ sub pollall { # was handlepipes
 	handlercspipe();
 }
 
-sub handlemouse {
-	mouseenable(toggle $mouse_mode);
-	return $R_FOOTER;
-}
-
+#sub handlemouse {
+#	mouseenable(toggle $mouse_mode);
+#	return $R_FOOTER;
+#}
+#
 sub handlemousedown {
 	my ($stashline, %stashfile, $mbutton, $mousecol, $mouserow, $on_name);
 	my $do_a_refresh = $R_NOP;
@@ -3005,6 +3005,7 @@ sub handlecommand { # Y or O
 		$command = readintohist(\@command_history);
 		clearcolumn();
 	}
+	# chdir special case
 	if ($command =~ /^\s*cd\s(.*)$/) {
 		$newname = $1;
 		expand_escapes($QUOTE_OFF, $newname, \%currentfile);
@@ -3644,33 +3645,33 @@ sub handleswap {
 	return $do_a_refresh;
 }
 
-sub handleentry {
-	my $key = shift;
-	my ($tempptr, $nextdir, $success, $direction);
-	if ( $key =~ /^kl|[h\e\cH]$/i ) {
-		$nextdir   = '..';
-		$direction = 'up';
-	} else {
-		$nextdir   = $currentfile{name};
-		$direction = $nextdir eq '..' ? 'up' : 'down';
-	}
-	return $R_NOP if ($nextdir    eq '.');
-	return $R_NOP if ($currentdir eq '/' && $direction eq 'up');
-	return $R_NOP if !ok_to_remove_marks();
-	$success = mychdir($nextdir);
-	if ($success && $direction =~ /up/ ) {
-		$position_at   = basename($oldcurrentdir);
-	} elsif ($success && $direction =~ /down/) {
-		$position_at   = '..';
-	}
-	unless ($success) {
-		$scr->at(0,0)->clreol();
-		display_error($!);
-		show_menu();
-	}
-	return $success ? $R_CHDIR : $R_STRIDE;
-}
-
+#sub handleentry {
+#	my $key = shift;
+#	my ($tempptr, $nextdir, $success, $direction);
+#	if ( $key =~ /^kl|[h\e\cH]$/i ) {
+#		$nextdir   = '..';
+#		$direction = 'up';
+#	} else {
+#		$nextdir   = $currentfile{name};
+#		$direction = $nextdir eq '..' ? 'up' : 'down';
+#	}
+#	return $R_NOP if ($nextdir    eq '.');
+#	return $R_NOP if ($currentdir eq '/' && $direction eq 'up');
+#	return $R_NOP if !ok_to_remove_marks();
+#	$success = mychdir($nextdir);
+#	if ($success && $direction =~ /up/ ) {
+#		$position_at   = basename($oldcurrentdir);
+#	} elsif ($success && $direction =~ /down/) {
+#		$position_at   = '..';
+#	}
+#	unless ($success) {
+#		$scr->at(0,0)->clreol();
+#		display_error($!);
+#		show_menu();
+#	}
+#	return $success ? $R_CHDIR : $R_STRIDE;
+#}
+#
 sub handlepathjump {
 	my $mousecol = shift;
 	my ($baselen, $skipsize, $selecteddir);

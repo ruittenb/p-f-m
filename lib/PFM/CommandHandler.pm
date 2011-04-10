@@ -196,8 +196,8 @@ sub handle {
 		# order is determined by (supposed) frequency of use
 		/^(?:ku|kd|pgup|pgdn|[-+jk\cF\cB\cD\cU]|home|end)$/io
 							and $self->handlemove($_),			last;
-#		/^(?:kr|kl|[h\e\cH])$/io
-#							and $self->handleentry($_),			last;
+		/^(?:kr|kl|[h\e\cH])$/io
+							and $self->handleentry($_),			last;
 		/^[\cE\cY]$/o		and $self->handlescroll($_),		last;
 #		/^l$/o				and $self->handlekeyell($_),		last;
 #		/^ $/o				and $self->handleadvance($_),		last;
@@ -236,7 +236,7 @@ sub handle {
 #		/^v$/io				and $self->handlercs(),				last;
 #		/^z$/io				and $self->handlesize(),			last;
 #		/^g$/io				and $self->handletarget(),			last;
-#		/^k12$/o			and $self->handlemouse(),			last;
+		/^k12$/o			and $self->handlemouse(),			last;
 #		/^=$/o				and $self->handleident(),			last;
 #		/^\*$/o				and $self->handleradix(),			last;
 #		/^!$/o				and $self->handleclobber(),			last;
@@ -321,10 +321,18 @@ Handles the B<previous> command (B<F2>).
 
 sub handlecdprev {
 	my $self = shift;
+	my $browser = $_pfm->browser;
 	my $prevdir = $_pfm->state($_pfm->S_PREV)->directory->path;
 	my $chdirautocmd;
 	if (chdir $prevdir) {
+		# store current cursor position
+		$_pfm->state($_pfm->S_MAIN)->{_position} =
+			$browser->currentfile->{name};
+		# perform the swap
 		$_pfm->swap_states($_pfm->S_MAIN, $_pfm->S_PREV);
+		# restore the cursor position
+		$browser->position_at($_pfm->state->{_position});
+		# autocommand
 		$chdirautocmd = $_pfm->config->{chdirautocmd};
 		system("$chdirautocmd") if length($chdirautocmd);
 		$_screen->set_deferred_refresh(R_SCREEN);
@@ -383,6 +391,18 @@ Cycles through color modes.
 sub handlecolor {
 #	my $self = shift;
 	$_screen->select_next_color();
+}
+
+=item handlemouse()
+
+Handles turning mouse mode on or off.
+
+=cut
+
+sub handlemouse {
+#	my $self = shift;
+	my $browser = $_pfm->browser;
+	$browser->mouse_mode(!$browser->mouse_mode);
 }
 
 =item handlelayouts()
@@ -450,6 +470,12 @@ sub handleperlcommand {
 	$_screen->set_deferred_refresh(R_SCREEN);
 }
 
+=item handlehelp()
+
+Shows a help page with an overview of commands.
+
+=cut
+
 sub handlehelp {
 	my $self = shift;
 	$_screen->clrscr()->stty_cooked();
@@ -478,7 +504,6 @@ sub handlehelp {
         z     siZe           ?   help              <   commands left  >   commands right
         --------------------------------------------------------------------------------
     _eoHelp_
-#	$_screen->at(12,0)->putcolored('bold yellow', 'q Q   (Quick) quit')->at(23,0);
 	$_screen->puts("F1 or ? for more elaborate help, any other key for next screen ")
 		->stty_raw();
 	if ($_screen->getch() =~ /(k1|\?)/) {
@@ -486,6 +511,34 @@ sub handlehelp {
 	}
 	$self->_credits();
 	$_screen->set_deferred_refresh(R_CLRSCR);
+}
+
+=item handleentry()
+
+Handles entering or leaving a directory.
+
+=cut
+
+sub handleentry {
+	my ($self, $key) = @_;
+	my ($tempptr, $nextdir, $success, $direction);
+	my $currentdir = $_pfm->state->{_path};
+	if ( $key =~ /^(?:kl|h|\e|\cH)$/io ) {
+		$nextdir   = '..';
+		$direction = 'up';
+	} else {
+		$nextdir   = $_pfm->browser->currentfile->{name};
+		$direction = $nextdir eq '..' ? 'up' : 'down';
+	}
+	return if ($nextdir    eq '.');
+	return if ($currentdir eq '/' && $direction eq 'up');
+	return if !$_screen->ok_to_remove_marks();
+	$success = $_pfm->state->currentdir($nextdir, 0, $direction);
+	unless ($success) {
+		$_screen->at(0,0)->clreol()->display_error($!)
+				->set_deferred_refresh(R_MENU);
+	}
+	return $success;
 }
 
 ##########################################################################

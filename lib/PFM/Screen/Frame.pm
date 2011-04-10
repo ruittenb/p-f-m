@@ -189,7 +189,7 @@ sub _getfooter {
 	.		" F7-Swap[".$ONOFF{$_pfm->browser->swap_mode}."] F8-In/Exclude"
 	.		" F9-Layout[".$_screen->listing->layout."]" # $layoutname ?
 	.		" F10-Multiple[$ONOFF{$state{multiple_mode}}] F11-Restat"
-	.		" F12-Mouse[$ONOFF{$state{mouse_mode}}]"
+	.		" F12-Mouse[".$ONOFF{$_pfm->browser->mouse_mode}."]"
 	.		" !-Clobber[".$ONOFF{$_pfm->commandhandler->clobber_mode}."]"
 	.		" .-Dotfiles[$ONOFF{$state{dot_mode}}]"
 	.		($_pfm->commandhandler->whitecommand
@@ -290,8 +290,9 @@ sub show_headings {
 	$linecolor = $swapmode
 		? $_pfm->config->{framecolors}->{$_screen->color_mode}{swap}
 		: $_pfm->config->{framecolors}->{$_screen->color_mode}{headings};
-#	$_screen->bold()		if ($linecolor =~ /bold/);
-#	$_screen->reverse()		if ($linecolor =~ /reverse/);
+	# in case colorizable() is off:
+	$_screen->bold()		if ($linecolor =~ /bold/);
+	$_screen->reverse()		if ($linecolor =~ /reverse/);
 #	$_screen->underline()	if ($linecolor =~ /under(line|score)/);
 	$_screen->term()->Tputs('us', 1, *STDOUT)
 							if ($linecolor =~ /under(line|score)/);
@@ -315,8 +316,12 @@ sub show_footer {
 	my $padding	  = ' ' x ($width - length $footer);
 	my $linecolor =
 		$_pfm->config->{framecolors}{$_screen->color_mode}{footer};
-#	$_screen->term()->Tputs('us', 1, *STDOUT)
-#							if ($linecolor =~ /under(line|score)/);
+	# in case colorizable() is off:
+	$_screen->bold()		if ($linecolor =~ /bold/);
+	$_screen->reverse()		if ($linecolor =~ /reverse/);
+#	$_screen->underline()	if ($linecolor =~ /under(line|score)/);
+	$_screen->term()->Tputs('us', 1, *STDOUT)
+							if ($linecolor =~ /under(line|score)/);
 	$_screen->at($_screen->BASELINE + $_screen->screenheight + 1, 0)
 		->putcolored($linecolor, $footer, $padding)->reset()->normal();
 }

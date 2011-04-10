@@ -164,7 +164,11 @@ are to be intercepted by the application.
 sub mouse_mode {
 	my ($self, $value) = @_;
 	if (defined($value)) {
-		$_mouse_mode = $value;
+		if ($_mouse_mode = $value) {
+			$_screen->mouse_enable();
+		} else {
+			$_screen->mouse_disable();
+		}
 		$_screen->set_deferred_refresh($_screen->R_FOOTER);
 	}
 	return $_mouse_mode;

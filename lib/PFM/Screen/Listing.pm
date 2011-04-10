@@ -138,8 +138,9 @@ sub _highlightline {
 	if ($on == HIGHLIGHT_ON) {
 		$linecolor =
 			$_pfm->config->{framecolors}{$_screen->color_mode}{highlight};
-#		$_screen->bold()		if ($linecolor =~ /bold/);
-#		$_screen->reverse()		if ($linecolor =~ /reverse/);
+		# in case colorizable() is off:
+		$_screen->bold()		if ($linecolor =~ /bold/);
+		$_screen->reverse()		if ($linecolor =~ /reverse/);
 #		$_screen->underline()	if ($linecolor =~ /under(line|score)/);
 		$_screen->term()->Tputs('us', 1, *STDOUT)
 							if ($linecolor =~ /under(line|score)/);
