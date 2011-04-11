@@ -454,7 +454,7 @@ sub handle {
 		/^u$/io				and $self->handlechown(),			last;
 		/^v$/io				and $self->handleversion(),			last;
 		/^z$/io				and $self->handlesize(),			last;
-#		/^g$/io				and $self->handletarget(),			last;
+		/^g$/io				and $self->handletarget(),			last;
 		/^k12$/o			and $self->handlemousemode(),		last;
 		/^=$/o				and $self->handleident(),			last;
 		/^\*$/o				and $self->handleradix(),			last;
@@ -1068,9 +1068,11 @@ sub handlelink {
 		if (system @lncmd, $targetstring, $newnameexpanded) {
 			$_screen->neat_error('Linking failed');
 		} elsif ($newnameexpanded !~ m!/!) {
+			# let cursor follow around
+			$_pfm->browser->position_at($newnameexpanded)
+				unless $state->{multiple_mode};
 			# add newname to the current directory listing.
 			# TODO if newnameexpanded == swapdir, add there
-			# TODO let cursor follow around
 			$mark = ($state->{multiple_mode}) ? M_NEWMARK : " ";
 			$state->directory->addifabsent(
 				entry   => $newnameexpanded,
@@ -1336,8 +1338,8 @@ sub handletime {
 		$_screen->listing->markcurrentline('T');
 	}
 	$_screen->clear_footer()->at(0,0)->clreol()->cooked_echo();
-	$newtime = $_pfm->history->input(H_TIME, $prompt,
-		strftime ("%Y-%m-%d %H:%M.%S", localtime time));
+	$newtime = $_pfm->history->input(
+		H_TIME, $prompt, '', strftime ("%Y-%m-%d %H:%M.%S", localtime time));
 	$_screen->raw_noecho();
 	$newtime =~ tr/0-9.//cd;
 	return if ($newtime eq '');
@@ -1548,6 +1550,60 @@ sub handlesize {
 			$_screen->getch();
 		}
 		return $file;
+	};
+	$_pfm->state->directory->apply($do_this);
+}
+
+=item handletarget()
+
+Changes the target of a symbolic link.
+
+=cut
+
+sub handletarget {
+	my ($self) = @_;
+	my ($newtarget, $do_this);
+	if ($_pfm->state->{multiple_mode}) {
+		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO | R_DIRLIST);
+	} else {
+		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO);
+		$_screen->listing->markcurrentline('G');
+	}
+	my $nosymlinkerror = 'Current file is not a symbolic link';
+	if ($_pfm->browser->currentfile->{type} ne 'l' and
+		!$_pfm->state->{multiple_mode})
+	{
+		$_screen->at(0,0)->clreol()->display_error($nosymlinkerror);
+		return;
+	}
+	my $prompt = 'New symlink target: ';
+	$_screen->clear_footer()->at(0,0)->clreol()->cooked_echo();
+	chomp($newtarget = $_pfm->history->input(
+			H_PATH, $prompt, '', $_pfm->browser->currentfile->{target}));
+	$_screen->raw_noecho();
+	return if ($newtarget eq '');
+	$do_this = sub {
+		my $file = shift;
+		my ($newtargetexpanded, $oldtargetok);
+		if ($file->{type} ne "l") {
+			$_screen->at(0,0)->clreol()->display_error($nosymlinkerror);
+		} else {
+			$self->_expand_escapes(
+				QUOTE_OFF, ($newtargetexpanded = $newtarget), $file);
+			$oldtargetok = 1;
+			if (-d $file->{name}) {
+				# if it points to a dir, the symlink must be removed first
+				# next line is an intentional assignment
+				unless ($oldtargetok = unlink $file->{name}) {
+					$_screen->neat_error($!);
+				}
+			}
+			if ($oldtargetok and
+				system qw(ln -sf), $newtargetexpanded, $file->{name})
+			{
+				$_screen->neat_error('Replace symlink failed');
+			}
+		}
 	};
 	$_pfm->state->directory->apply($do_this);
 }

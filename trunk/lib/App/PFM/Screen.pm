@@ -561,13 +561,13 @@ sub refresh {
 	if ($_deferred_refresh & R_DIRCONTENTS or
 		$_deferred_refresh & R_DIRSORT)
 	{
-		$directory->init_dircount();
 		# first time round 'currentfile' is undefined
 		if (defined $browser->currentfile) {
 			$browser->position_at($browser->currentfile->{name});
 		}
 	}
 	if ($_deferred_refresh & R_DIRCONTENTS) {
+		$directory->init_dircount();
 		$directory->readcontents();
 	}
 	if ($_deferred_refresh & R_DIRSORT) {

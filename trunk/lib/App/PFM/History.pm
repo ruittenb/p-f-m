@@ -217,13 +217,15 @@ sub input { # $history, $prompt [, $default_input [, $history_input]]
 	$history = $HISTORIES{$history};
 	$prompt ||= '';
 	$input  ||= '';
-	$self->_set_term_history(@$history);
-	push(@$history, $histpush) if (defined $histpush and $histpush ne '');
-	$input = $_keyboard->readline($prompt, $input);
-	if ($input =~ /\S/ and $input ne ${$history}[-1]) {
-		push(@$history, $input);
-		shift(@$history) while ($#$history > $MAXHISTSIZE);
+	if (length $histpush and @$history > 0 and $histpush ne ${$history}[-1]) {
+		push(@$history, $histpush);
 	}
+	$self->_set_term_history(@$history);
+	$input = $_keyboard->readline($prompt, $input);
+	if ($input =~ /\S/ and @$history > 0 and $input ne ${$history}[-1]) {
+		push(@$history, $input);
+	}
+	shift(@$history) while ($#$history > $MAXHISTSIZE);
 	return $input;
 }
 

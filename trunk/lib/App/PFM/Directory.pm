@@ -416,6 +416,7 @@ sub readcontents {
 	my @white_entries = ();
 	my $whitecommand  = $_pfm->commandhandler->whitecommand;
 	my $screen        = $_pfm->screen;
+	# TODO stop jobs here
 	clearugidcache();
 	$self->init_dircount();
 	$App::PFM::File::_pfm = $_pfm;
@@ -663,6 +664,29 @@ sub apply {
 }
 
 ##########################################################################
+
+=back
+
+=head1 CONSTANTS
+
+This package provides the B<M_*> constants which indicate which characters
+are to be used for mark, oldmark and newmark.
+
+=over
+
+=item M_MARK
+
+The character used for marked files.
+
+=item M_OLDMARK
+
+The character used for an oldmark (when a file has been operated on
+in multiple mode).
+
+=item M_NEWMARK
+
+The character used for a newmark (when a file has newly been created
+in multiple mode).
 
 =back
 
