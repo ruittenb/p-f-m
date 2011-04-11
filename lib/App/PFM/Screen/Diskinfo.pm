@@ -195,6 +195,7 @@ sub show {
 	foreach (DATEINFOLINE+2 .. $_screen->BASELINE + $_screen->screenheight) {
 		$_screen->at($_, $_infocol)->puts($spaces);
 	}
+	return $_screen;
 }
 
 =item clearcolumn()
@@ -209,6 +210,7 @@ sub clearcolumn {
 	foreach ($_screen->BASELINE .. $_screen->BASELINE+$_screen->screenheight) {
 		$_screen->at($_, $_infocol)->puts($spaces);
 	}
+	return $_screen;
 }
 
 =item user_info()

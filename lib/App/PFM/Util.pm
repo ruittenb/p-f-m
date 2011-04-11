@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Util 0.18
+# @(#) App::PFM::Util 0.45
 #
 # Name:			App::PFM::Util
-# Version:		0.18
+# Version:		0.45
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-05-01
+# Date:			2010-05-12
 #
 
 ##########################################################################
@@ -43,8 +43,8 @@ use strict;
 our @EXPORT = qw(
 	min max inhibit triggle toggle isyes isno basename dirname isxterm
 	formatted time2str fit2limit canonicalize_path reducepaths reversepath
-	isorphan ifnotdefined clearugidcache find_uid find_gid by_name
-	alphabetically condquotemeta TIME_FILE TIME_CLOCK);
+	isorphan ifnotdefined clearugidcache find_uid find_gid condquotemeta
+	testdirempty);
 
 my $XTERMS = qr/^(.*xterm.*|rxvt.*|gnome.*|kterm)$/;
 
@@ -325,24 +325,6 @@ sub find_gid {
 			(defined($gid) ? getgrgid($gid) : '') || $gid);
 }
 
-=item by_name()
-
-Sorting routine: sorts files by name.
-
-=item alphabetically()
-
-Sorting routine: sorts strings alphabetically, case-insensitive.
-
-=cut
-
-sub by_name {
-	return $a->{name} cmp $b->{name};
-}
-
-sub alphabetically {
-	return uc($a) cmp uc($b) || $a cmp $b;
-}
-
 =item condquotemeta()
 
 Conditionally quotemeta() a string.
@@ -351,6 +333,25 @@ Conditionally quotemeta() a string.
 
 sub condquotemeta { # condition, string
 	return $_[0] ? quotemeta($_[1]) : $_[1];
+}
+
+=item testdirempty()
+
+Tests if a directory is empty.
+
+=cut
+
+sub testdirempty {
+	my ($dirname) = @_;
+	opendir TESTDIR, $dirname;
+	readdir TESTDIR;				  # every directory has at least a '.' entry
+	readdir TESTDIR;				  # and a '..' entry
+	my $third_entry = readdir TESTDIR;# but not necessarily a third entry
+	closedir TESTDIR;
+	# if the directory could not be read at all, this will return true.
+	# instead of catching the exception here, we will simply wait for
+	# 'unlink' to return false
+	return !$third_entry;
 }
 
 ##########################################################################

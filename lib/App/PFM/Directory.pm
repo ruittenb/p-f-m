@@ -57,8 +57,7 @@ our @EXPORT = qw(M_MARK M_OLDMARK M_NEWMARK);
 
 my $DFCMD = ($^O eq 'hpux') ? 'bdf' : ($^O eq 'sco') ? 'dfspace' : 'df -k';
 
-my ($_pfm,
-	$_path_mode);
+my ($_pfm);
 
 ##########################################################################
 # private subs
@@ -73,6 +72,8 @@ sub _init {
 	my ($self, $pfm, $path)	 = @_;
 	$_pfm					 = $pfm;
 	$self->{_path}			 = $path;
+	$self->{_path_mode}		 = 0;
+	$self->{_wasquit}		 = undef;
 	$self->{_rcsjob}		 = undef;
 	$self->{_dircontents}	 = [];
 	$self->{_showncontents}	 = [];
@@ -169,6 +170,18 @@ sub _init_filesystem_info {
 	$dflist[0] =~ /(\S*)$/;
 	$self->{_disk}{mountpoint} = $1;
 	return $self->{_disk};
+}
+
+=item _catch_quit()
+
+Catches terminal quit signals (SIGQUIT).
+
+=cut
+
+sub _catch_quit {
+	my ($self) = @_;
+	$self->{_wasquit} = 1;
+	$SIG{QUIT} = \&_catch_quit;
 }
 
 ##########################################################################
@@ -348,7 +361,7 @@ sub chdir {
 		unless ($swapping) {
 			$_pfm->state($_pfm->S_PREV, $_pfm->state->clone($_pfm));
 		}
-		if ($_path_mode eq 'phys') {
+		if ($self->{_path_mode} eq 'phys') {
 			$self->{_path} = getcwd();
 		} else {
 			$self->{_path} = $nextdir;
@@ -658,12 +671,19 @@ in the current directory.
 
 sub apply {
 	my ($self, $do_this, $special_mode, @args) = @_;
-	my ($i, $loopfile);
+	my ($i, $loopfile, $deleted_index, $count, %nameindexmap);
 	if ($_pfm->state->{multiple_mode}) {
+		#$self->{_wasquit} = 0;
+		#$SIG{QUIT} = \&_catch_quit;
 		my $screen = $_pfm->screen;
 		my @range = 0 .. $#{$self->{_showncontents}};
 		if ($special_mode eq 'D') {
 			@range = reverse @range;
+			# build nameindexmap on dircontents, not showncontents.
+			# this is faster than doing a dirlookup() every iteration
+			$count = 0;
+			%nameindexmap =
+				map { $_->{name}, $count++ } @{$self->{_dircontents}};
 		}
 		foreach $i (@range) {
 			$loopfile = $self->{_showncontents}[$i];
@@ -673,22 +693,40 @@ sub apply {
 					$screen->at($screen->PATHLINE, 0)->clreol()
 						->puts($loopfile->{name})->at($screen->PATHLINE+1, 0);
 				}
-				if ($loopfile->apply($do_this, @args) eq 'deleted') {
+				$loopfile->apply($do_this, @args);
+				# see if the file was lost, and we were deleting.
+				# we could also test if return value of File->apply eq 'deleted'
+				if (!$loopfile->{nlink} and
+					$loopfile->{type} ne 'w' and
+					$special_mode eq 'D')
+				{
+					$self->unregister($loopfile);
+					$deleted_index = $nameindexmap{$loopfile->{name}};
+					splice @{$self->{_dircontents}}, $deleted_index, 1;
 					splice @{$self->{_showncontents}}, $i, 1;
-					splice @{$self->{_dircontents}},
-						$self->dirlookup(
-							$loopfile->{name},
-							@{$self->{_dircontents}}
-						),
-						1;
 				}
 			}
+			#last if $self->{_wasquit};
 		}
+		#$SIG{QUIT} = 'DEFAULT';
 		$_pfm->state->{multiple_mode} = 0 if $_pfm->config->{autoexitmultiple};
 		$screen->set_deferred_refresh(
 			$screen->R_DIRLIST | $screen->R_PATHINFO | $screen->R_FRAME);
 	} else {
-		$_pfm->browser->currentfile->apply($do_this, @args);
+		$loopfile = $_pfm->browser->currentfile;
+		$loopfile->apply($do_this, @args);
+		# see if the file was lost, and we were deleting.
+		# we could also test if return value of File->apply eq 'deleted'
+		if (!$loopfile->{nlink} and
+			$loopfile->{type} ne 'w' and
+			$special_mode eq 'D')
+		{
+			$self->unregister($loopfile);
+			$deleted_index = $self->dirlookup(
+				$loopfile->{name}, @{$self->{_dircontents}});
+			splice @{$self->{_dircontents}}, $deleted_index, 1;
+			splice @{$self->{_showncontents}}, $i, 1;
+		}
 	}
 }
 

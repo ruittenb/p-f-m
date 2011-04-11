@@ -1124,12 +1124,12 @@ my $LOSTMSG				= '';   # was ' (file lost)'; # now shown through coloring
 #	$wasresized = 1;
 #	$SIG{WINCH} = \&resizecatcher;
 #}
-
-sub quitcatcher {
-	$wasquit = 1;
-#	$SIG{QUIT} = \&quitcatcher;
-}
-
+#
+#sub quitcatcher {
+#	$wasquit = 1;
+##	$SIG{QUIT} = \&quitcatcher;
+#}
+#
 #sub reaper {
 #	(wait() == -1) ? 0 : $?;
 ##	$SIG{CHLD} = \&reaper;
@@ -1160,18 +1160,18 @@ sub quitcatcher {
 #		$scr->noecho();
 #	}
 #}
-
-sub testdirempty {
-	opendir TESTDIR, $_[0];
-	readdir TESTDIR;					# every directory has at least a '.' entry
-	readdir TESTDIR;					# and a '..' entry
-	my $third_entry = readdir TESTDIR;	# but not necessarily a third entry
-	closedir TESTDIR;
-	# if the directory could not be read at all, this will return true.
-	# instead of catching the exception here, we will simply wait for 'unlink' to return false
-	return !$third_entry;
-}
-
+#
+#sub testdirempty {
+#	opendir TESTDIR, $_[0];
+#	readdir TESTDIR;					# every directory has at least a '.' entry
+#	readdir TESTDIR;					# and a '..' entry
+#	my $third_entry = readdir TESTDIR;	# but not necessarily a third entry
+#	closedir TESTDIR;
+#	# if the directory could not be read at all, this will return true.
+#	# instead of catching the exception here, we will simply wait for 'unlink' to return false
+#	return !$third_entry;
+#}
+#
 #sub white_commands {
 #	$white_cmd = '';
 #	@unwo_cmd  = ();
@@ -3057,135 +3057,135 @@ sub pollall { # was handlepipes
 #	raw_noecho();
 #	return $R_CLRSCR;
 #}
-
-sub handledelete {
-	my ($loopfile, $do_this, $index, $success, $msg, $oldpos, $sure, %nameindexmap);
-	my $count = 0;
-	markcurrentline('D') unless $multiple_mode;
-	if ($multiple_mode or $currentfile{nlink}) {
-		$scr->at(0,0)->clreol();
-		putmessage('Are you sure you want to delete [Y/N]? ');
-		$sure = $scr->getch();
-		return $R_MENU if $sure !~ /y/i;
-	}
-	$scr->at($PATHLINE,0);
-	$do_this = sub {
-		if ($loopfile->{name} eq '.') {
-			# don't allow people to delete '.'; normally, this could be allowed
-			# if it is empty, but if that leaves the parent directory empty,
-			# then it can also be removed, which causes a fatal pfm error.
-			$msg = 'Deleting current directory not allowed';
-			$success = 0;
-#		} elsif ($loopfile->{type} eq 'w') {
-#			$success = !system(@unwo_cmd, $loopfile->{name});
-		} elsif ($loopfile->{nlink} == 0 and $loopfile->{type} ne 'w') {
-			# remove 'lost files' immediately, no confirmation needed
-			$success = 1;
-		} elsif ($loopfile->{type} eq 'd') {
-			if (testdirempty($loopfile->{name})) {
-				$success = rmdir $loopfile->{name};
-			} else {
-				$scr->at(0,0)->clreol();
-				putmessage('Recursively delete a non-empty directory [Affirmative/Negative]? ');
-				$sure = lc $scr->getch();
-				$scr->at(0,0);
-				if ($sure eq 'a') {
-					$success = !system('rm', '-rf', $loopfile->{name});
-				} else {
-					$msg = 'Deletion cancelled. Directory not empty';
-					$success = 0;
-				}
-				$scr->clreol();
-			}
-		} else {
-			$success = unlink $loopfile->{name};
-		}
-		if ($success) {
-			$total_nr_of{$loopfile->{type}}--;
-			exclude($loopfile) if $loopfile->{selected} eq '*';
-		} else { # not success
-			display_error($msg || $!);
-		}
-	};
-	if ($multiple_mode) {
-		$oldpos = $currentfile{name};
-		# build nameindexmap on showncontents, not dircontents.
-		# this is faster than doing a dirlookup() every iteration
-		%nameindexmap = map { $_->{name}, $count++ } @showncontents;
-		# we must delete in reverse order because the number of directory
-		# entries will decrease by deleting. This invalidates the %nameindexmap
-		# for entries with index > current index.
-		for $index (reverse(0..$#dircontents)) {
-			$loopfile = $dircontents[$index];
-			if ($loopfile->{selected} eq '*') {
-				$scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
-				$do_this->();
-				if ($success) {
-					splice @dircontents, $index, 1;
-					splice @showncontents, $nameindexmap{$loopfile->{name}}, 1;
-				}
-			}
-		}
-		# %nameindexmap may be completely invalid at this point. use dirlookup()
-		if (dirlookup($oldpos, @showncontents) > 0) {
-			$position_at = $oldpos;
-		}
-		$multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
-	} else {
-		$loopfile = \%currentfile;
-		$do_this->();
-		if ($success) {
-			splice @dircontents, dirlookup($loopfile->{name}, @dircontents), 1;
-			splice @showncontents, $currentline+$baseindex, 1;
-		}
-	}
-	# this prevents the cursor from running out of @showncontents;
-	# otherwise, the validate_position() call is pointless
-	while ($position_at eq '' and $currentline+$baseindex > $#showncontents) {
-		$currentline--;
-	}
-	validate_position();
-	return $R_SCREEN;
-}
-
-sub handleprint {
-	my ($loopfile, $do_this, $command, $index);
-	markcurrentline('P') unless $multiple_mode;
-	$scr->at(0,0)->clreol()->putcolored($framecolors{$color_mode}{message}, 'Enter print command: ')
-		->at($PATHLINE,0)->clreol();
-	cooked_echo();
-	# don't use readintohist : special case with command_history
-#	$kbd->SetHistory(@command_history);
-	set_term_history($kbd, @command_history);
-	$command = $kbd->readline('',$printcmd);
-	if ($command =~ /\S/
-		and $command ne $printcmd
-		and $command ne $command_history[$#command_history]
-	) {
-		push (@command_history, $command);
-		shift (@command_history) if ($#command_history > $MAXHISTSIZE);
-	}
-	raw_noecho();
-	return $R_FRAME | $R_DISKINFO if $command eq '';
-	if ($multiple_mode) {
-		for $index (0..$#dircontents) {
-			$loopfile = $dircontents[$index];
-			$do_this = $command;
-			expand_escapes($QUOTE_ON, $do_this, $loopfile);
-			if ($loopfile->{selected} eq '*') {
-				$scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
-				exclude($loopfile, '.');
-				system $do_this and display_error('Print command failed');
-			}
-		}
-		$multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
-	} else {
-		expand_escapes($QUOTE_ON, $command, \%currentfile);
-		system $command and display_error('Print command failed');
-	}
-	return $R_SCREEN;
-}
-
+#
+#sub handledelete {
+#	my ($loopfile, $do_this, $index, $success, $msg, $oldpos, $sure, %nameindexmap);
+#	my $count = 0;
+#	markcurrentline('D') unless $multiple_mode;
+#	if ($multiple_mode or $currentfile{nlink}) {
+#		$scr->at(0,0)->clreol();
+#		putmessage('Are you sure you want to delete [Y/N]? ');
+#		$sure = $scr->getch();
+#		return $R_MENU if $sure !~ /y/i;
+#	}
+#	$scr->at($PATHLINE,0);
+#	$do_this = sub {
+#		if ($loopfile->{name} eq '.') {
+#			# don't allow people to delete '.'; normally, this could be allowed
+#			# if it is empty, but if that leaves the parent directory empty,
+#			# then it can also be removed, which causes a fatal pfm error.
+#			$msg = 'Deleting current directory not allowed';
+#			$success = 0;
+##		} elsif ($loopfile->{type} eq 'w') {
+##			$success = !system(@unwo_cmd, $loopfile->{name});
+#		} elsif ($loopfile->{nlink} == 0 and $loopfile->{type} ne 'w') {
+#			# remove 'lost files' immediately, no confirmation needed
+#			$success = 1;
+#		} elsif ($loopfile->{type} eq 'd') {
+#			if (testdirempty($loopfile->{name})) {
+#				$success = rmdir $loopfile->{name};
+#			} else {
+#				$scr->at(0,0)->clreol();
+#				putmessage('Recursively delete a non-empty directory [Affirmative/Negative]? ');
+#				$sure = lc $scr->getch();
+#				$scr->at(0,0);
+#				if ($sure eq 'a') {
+#					$success = !system('rm', '-rf', $loopfile->{name});
+#				} else {
+#					$msg = 'Deletion cancelled. Directory not empty';
+#					$success = 0;
+#				}
+#				$scr->clreol();
+#			}
+#		} else {
+#			$success = unlink $loopfile->{name};
+#		}
+#		if ($success) {
+#			$total_nr_of{$loopfile->{type}}--;
+#			exclude($loopfile) if $loopfile->{selected} eq '*';
+#		} else { # not success
+#			display_error($msg || $!);
+#		}
+#	};
+#	if ($multiple_mode) {
+#		$oldpos = $currentfile{name};
+#		# build nameindexmap on showncontents, not dircontents.
+#		# this is faster than doing a dirlookup() every iteration
+#		%nameindexmap = map { $_->{name}, $count++ } @showncontents;
+#		# we must delete in reverse order because the number of directory
+#		# entries will decrease by deleting. This invalidates the %nameindexmap
+#		# for entries with index > current index.
+#		for $index (reverse(0..$#dircontents)) {
+#			$loopfile = $dircontents[$index];
+#			if ($loopfile->{selected} eq '*') {
+#				$scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
+#				$do_this->();
+#				if ($success) {
+#					splice @dircontents, $index, 1;
+#					splice @showncontents, $nameindexmap{$loopfile->{name}}, 1;
+#				}
+#			}
+#		}
+#		# %nameindexmap may be completely invalid at this point. use dirlookup()
+#		if (dirlookup($oldpos, @showncontents) > 0) {
+#			$position_at = $oldpos;
+#		}
+#		$multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
+#	} else {
+#		$loopfile = \%currentfile;
+#		$do_this->();
+#		if ($success) {
+#			splice @dircontents, dirlookup($loopfile->{name}, @dircontents), 1;
+#			splice @showncontents, $currentline+$baseindex, 1;
+#		}
+#	}
+#	# this prevents the cursor from running out of @showncontents;
+#	# otherwise, the validate_position() call is pointless
+#	while ($position_at eq '' and $currentline+$baseindex > $#showncontents) {
+#		$currentline--;
+#	}
+#	validate_position();
+#	return $R_SCREEN;
+#}
+#
+#sub handleprint {
+#	my ($loopfile, $do_this, $command, $index);
+#	markcurrentline('P') unless $multiple_mode;
+#	$scr->at(0,0)->clreol()->putcolored($framecolors{$color_mode}{message}, 'Enter print command: ')
+#		->at($PATHLINE,0)->clreol();
+#	cooked_echo();
+#	# don't use readintohist : special case with command_history
+##	$kbd->SetHistory(@command_history);
+#	set_term_history($kbd, @command_history);
+#	$command = $kbd->readline('',$printcmd);
+#	if ($command =~ /\S/
+#		and $command ne $printcmd
+#		and $command ne $command_history[$#command_history]
+#	) {
+#		push (@command_history, $command);
+#		shift (@command_history) if ($#command_history > $MAXHISTSIZE);
+#	}
+#	raw_noecho();
+#	return $R_FRAME | $R_DISKINFO if $command eq '';
+#	if ($multiple_mode) {
+#		for $index (0..$#dircontents) {
+#			$loopfile = $dircontents[$index];
+#			$do_this = $command;
+#			expand_escapes($QUOTE_ON, $do_this, $loopfile);
+#			if ($loopfile->{selected} eq '*') {
+#				$scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
+#				exclude($loopfile, '.');
+#				system $do_this and display_error('Print command failed');
+#			}
+#		}
+#		$multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
+#	} else {
+#		expand_escapes($QUOTE_ON, $command, \%currentfile);
+#		system $command and display_error('Print command failed');
+#	}
+#	return $R_SCREEN;
+#}
+#
 #sub handleshow {
 #	goto &handleentry if (followmode(\%currentfile) =~ /^d/);
 #	my ($loopfile,$index);
