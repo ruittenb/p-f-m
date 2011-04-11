@@ -35,6 +35,7 @@ package App::PFM::Job::Abstract;
 
 use base 'App::PFM::Abstract';
 
+use IO::Handle;
 use Carp;
 use strict;
 
@@ -53,6 +54,16 @@ sub _init() {
 	$self->SUPER::_init();
 }
 
+=item _reaper()
+
+Cleans up finished child processes.
+
+=cut
+
+sub _reaper {
+	(wait() == -1) ? 0 : $?;
+}
+
 ##########################################################################
 # constructor, getters and setters
 
@@ -65,14 +76,11 @@ sub isapplicable {
 
 sub start {
 	my $self = shift;
-	my $class = ref($self) || $self;
-	croak("$class does not implement a start() method");
+	$SIG{CHLD} = \&_reaper;
 }
 
 sub poll {
 	my $self = shift;
-	my $class = ref($self) || $self;
-	croak("$class does not implement a poll() method");
 }
 
 ##########################################################################

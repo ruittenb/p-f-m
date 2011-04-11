@@ -33,11 +33,9 @@ PFM Job class for CVS commands.
 
 package App::PFM::Job::Cvs;
 
-use base 'App::PFM::Job::Abstract';
+use base 'App::PFM::Job::RCS';
 
 use strict;
-
-my $_COMMAND = 'cvs -n -q update'; # add -l for local (no subdirs)
 
 ##########################################################################
 # private subs
@@ -50,6 +48,7 @@ Initializes new instances. Called from the constructor.
 
 sub _init {
 	my $self = shift;
+	$self->{_COMMAND} = 'cvs -n -q update'; # add -l for local (no subdirs)
 }
 
 =item _cvsmaxchar()
@@ -98,16 +97,6 @@ sub _cvsmax {
 sub isapplicable {
 	my ($self, $path) = @_;
 	return -d "$path/CVS";
-}
-
-sub start {
-	my $self = shift;
-	#TODO
-}
-
-sub poll {
-	my $self = shift;
-	#TODO
 }
 
 # [23:43] Maurice Makaay: cvs -n -q update -l

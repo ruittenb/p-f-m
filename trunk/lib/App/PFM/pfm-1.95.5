@@ -1130,11 +1130,11 @@ sub quitcatcher {
 #	$SIG{QUIT} = \&quitcatcher;
 }
 
-sub reaper {
-	(wait() == -1) ? 0 : $?;
-#	$SIG{CHLD} = \&reaper;
-}
-
+#sub reaper {
+#	(wait() == -1) ? 0 : $?;
+##	$SIG{CHLD} = \&reaper;
+#}
+#
 #sub mouseenable {
 #	if ($_[0]) {
 #		print "\e[?9h";
@@ -1238,34 +1238,34 @@ sub testdirempty {
 #
 ##########################################################################
 # debugging helper commands
-
-sub dumprefreshflags {
-	my $res;
-	$res .= "R_QUIT\n"			if $_[0] & $R_QUIT;
-	$res .= "R_INIT_SWAP\n"		if $_[0] & $R_INIT_SWAP;
-	$res .= "R_NEWDIR\n"		if $_[0] & $R_NEWDIR;
-	$res .= "R_DIRCONTENTS\n"	if $_[0] & $R_DIRCONTENTS;
-	$res .= "R_DIRSORT\n"		if $_[0] & $R_DIRSORT;
-	$res .= "R_CLEAR\n"			if $_[0] & $R_CLEAR;
-	$res .= "R_DIRFILTER\n"		if $_[0] & $R_DIRFILTER;
-	$res .= "R_DIRLIST\n"		if $_[0] & $R_DIRLIST;
-	$res .= "R_DISKINFO\n"		if $_[0] & $R_DISKINFO;
-	$res .= "R_FOOTER\n"		if $_[0] & $R_FOOTER;
-	$res .= "R_HEADINGS\n"			if $_[0] & $R_HEADINGS;
-	$res .= "R_PATHINFO\n"		if $_[0] & $R_PATHINFO;
-	$res .= "R_MENU\n"		if $_[0] & $R_MENU;
-	$res .= "R_STRIDE\n"		if $_[0] & $R_STRIDE;
-	$res .= "R_NOP\n"			if $_[0] & $R_NOP;
-	return $res;
-}
-
-sub convwhite {
-	$showncontents[$currentline+$baseindex]{type} = 'w';
-	$dircontents  [$currentline+$baseindex]{type} = 'w';
-	$showncontents[$currentline+$baseindex]{mode} =~ s/^./w/;
-	$dircontents  [$currentline+$baseindex]{mode} =~ s/^./w/;
-}
-
+#
+#sub dumprefreshflags {
+#	my $res;
+#	$res .= "R_QUIT\n"			if $_[0] & $R_QUIT;
+#	$res .= "R_INIT_SWAP\n"		if $_[0] & $R_INIT_SWAP;
+#	$res .= "R_NEWDIR\n"		if $_[0] & $R_NEWDIR;
+#	$res .= "R_DIRCONTENTS\n"	if $_[0] & $R_DIRCONTENTS;
+#	$res .= "R_DIRSORT\n"		if $_[0] & $R_DIRSORT;
+#	$res .= "R_CLEAR\n"			if $_[0] & $R_CLEAR;
+#	$res .= "R_DIRFILTER\n"		if $_[0] & $R_DIRFILTER;
+#	$res .= "R_DIRLIST\n"		if $_[0] & $R_DIRLIST;
+#	$res .= "R_DISKINFO\n"		if $_[0] & $R_DISKINFO;
+#	$res .= "R_FOOTER\n"		if $_[0] & $R_FOOTER;
+#	$res .= "R_HEADINGS\n"			if $_[0] & $R_HEADINGS;
+#	$res .= "R_PATHINFO\n"		if $_[0] & $R_PATHINFO;
+#	$res .= "R_MENU\n"		if $_[0] & $R_MENU;
+#	$res .= "R_STRIDE\n"		if $_[0] & $R_STRIDE;
+#	$res .= "R_NOP\n"			if $_[0] & $R_NOP;
+#	return $res;
+#}
+#
+#sub convwhite {
+#	$showncontents[$currentline+$baseindex]{type} = 'w';
+#	$dircontents  [$currentline+$baseindex]{type} = 'w';
+#	$showncontents[$currentline+$baseindex]{mode} =~ s/^./w/;
+#	$dircontents  [$currentline+$baseindex]{mode} =~ s/^./w/;
+#}
+#
 ##########################################################################
 # apply color
 #
@@ -2621,29 +2621,29 @@ sub handlemousedown {
 #	}
 #	return $do_a_refresh;
 #}
-
-sub handlercs {
-	my $do_a_refresh = $R_STRIDE | $R_HEADINGS;
-	my ($index, $loopfile);
-	if ($multiple_mode) {
-		# do the entire directory.
-		handlemorercsopen();
-		for $index (0..$#dircontents) {
-			$loopfile = $dircontents[$index];
-			if ($loopfile->{selected} eq '*') {
-				exclude($loopfile, '.');
-				$dircontents[$index] = $loopfile;
-			}
-		}
-		$multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
-		$do_a_refresh |= $R_DIRLIST | $R_MENU;
-	} else {
-		handlemorercsopen($currentfile{name});
-		%currentfile = %{$showncontents[$currentline+$baseindex]};
-	}
-	return $do_a_refresh;
-}
-
+#
+#sub handleversion {
+#	my $do_a_refresh = $R_STRIDE | $R_HEADINGS;
+#	my ($index, $loopfile);
+#	if ($multiple_mode) {
+#		# do the entire directory.
+#		handlemorercsopen();
+#		for $index (0..$#dircontents) {
+#			$loopfile = $dircontents[$index];
+#			if ($loopfile->{selected} eq '*') {
+#				exclude($loopfile, '.');
+#				$dircontents[$index] = $loopfile;
+#			}
+#		}
+#		$multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
+#		$do_a_refresh |= $R_DIRLIST | $R_MENU;
+#	} else {
+#		handlemorercsopen($currentfile{name});
+#		%currentfile = %{$showncontents[$currentline+$baseindex]};
+#	}
+#	return $do_a_refresh;
+#}
+#
 #sub handlename {
 #	markcurrentline('N'); # disregard multiple_mode
 #	my $numformat = $NUMFORMATS{$radix_mode};
@@ -3713,7 +3713,7 @@ sub handlepathjump {
 
 ##########################################################################
 # directory browsing helper routines
-
+#
 #sub stat_entry { # path_of_entry, selected_flag
 #	# the second argument is used to have the caller specify whether the
 #	# 'selected' field of the file info should be cleared (when reading
@@ -4131,7 +4131,7 @@ sub handlepathjump {
 #				/^k4$/o			and $wantrefresh |= handlecolor(),		 last KEY;
 #				/^\@$/o			and $wantrefresh |= handleperlcommand(), last KEY;
 #				/^u$/io			and $wantrefresh |= handlechown(),		 last KEY;
-#				/^v$/io			and $wantrefresh |= handlercs(),		 last KEY;
+#				/^v$/io			and $wantrefresh |= handleversion(),		 last KEY;
 #				/^z$/io			and $wantrefresh |= handlesize(),		 last KEY;
 #				/^g$/io			and $wantrefresh |= handletarget(),		 last KEY;
 #				/^k12$/o		and $wantrefresh |= handlemouse(),		 last KEY;

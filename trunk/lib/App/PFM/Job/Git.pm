@@ -33,11 +33,9 @@ PFM Job class for Git commands.
 
 package App::PFM::Job::Git;
 
-use base 'App::PFM::Job::Abstract';
+use base 'App::PFM::Job::RCS';
 
 use strict;
-
-my $_COMMAND = 'git status';
 
 ##########################################################################
 # private subs
@@ -50,6 +48,8 @@ Initializes new instances. Called from the constructor.
 
 sub _init {
 	my $self = shift;
+	$self->{_COMMAND} = 'git status';
+
 }
 
 #=item _gitmaxchar()
@@ -98,16 +98,6 @@ sub _init {
 sub isapplicable {
 	my ($self, $path) = @_;
 	return -d "$path/.git";
-}
-
-sub start {
-	my $self = shift;
-	#TODO
-}
-
-sub poll {
-	my $self = shift;
-	#TODO
 }
 
 # Edit your code. To see what files have changed:

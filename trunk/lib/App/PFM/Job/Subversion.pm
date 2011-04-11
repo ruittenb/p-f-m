@@ -33,11 +33,9 @@ PFM Job class for Subversion commands.
 
 package App::PFM::Job::Subversion;
 
-use base 'App::PFM::Job::Abstract';
+use base 'App::PFM::Job::RCS';
 
 use strict;
-
-my $_COMMAND = 'svn status';
 
 ##########################################################################
 # private subs
@@ -50,6 +48,8 @@ Initializes new instances. Called from the constructor.
 
 sub _init {
 	my $self = shift;
+	$self->{_COMMAND} = 'svn status';
+
 }
 
 =item _svnmaxchar()
@@ -100,16 +100,6 @@ sub _svnmax {
 sub isapplicable {
 	my ($self, $path) = @_;
 	return -d "$path/.svn";
-}
-
-sub start {
-	my $self = shift;
-	#TODO
-}
-
-sub poll {
-	my $self = shift;
-	#TODO
 }
 
 ##########################################################################

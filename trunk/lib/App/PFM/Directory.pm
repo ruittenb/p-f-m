@@ -603,28 +603,29 @@ and starts them.
 =cut
 
 sub checkrcsapplicable {
-	my ($self) = @_;
+	my ($self, $entry) = @_;
 	my $path = $self->{_path};
+	$entry = defined $entry ? $entry : $path;
 	# TODO when a directory is swapped out, the jobs should continue
 	# TODO when a directory is cloned, what to do?
 	if (App::PFM::Job::Subversion->isapplicable($path)) {
 		$_pfm->jobhandler->stop($self->{_rcsjob}) if defined $self->{_rcsjob};
-		$self->{_rcsjob} = $_pfm->jobhandler->start('Subversion', $path);
+		$self->{_rcsjob} = $_pfm->jobhandler->start('Subversion', $entry);
 		return;
 	}
 	if (App::PFM::Job::Cvs->isapplicable($path)) {
 		$_pfm->jobhandler->stop($self->{_rcsjob}) if defined $self->{_rcsjob};
-		$self->{_rcsjob} = $_pfm->jobhandler->start('Cvs', $path);
+		$self->{_rcsjob} = $_pfm->jobhandler->start('Cvs', $entry);
 		return;
 	}
 	if (App::PFM::Job::Bazaar->isapplicable($path)) {
 		$_pfm->jobhandler->stop($self->{_rcsjob}) if defined $self->{_rcsjob};
-		$self->{_rcsjob} = $_pfm->jobhandler->start('Bazaar', $path);
+		$self->{_rcsjob} = $_pfm->jobhandler->start('Bazaar', $entry);
 		return;
 	}
 	if (App::PFM::Job::Git->isapplicable($path)) {
 		$_pfm->jobhandler->stop($self->{_rcsjob}) if defined $self->{_rcsjob};
-		$self->{_rcsjob} = $_pfm->jobhandler->start('Git', $path);
+		$self->{_rcsjob} = $_pfm->jobhandler->start('Git', $entry);
 		return;
 	}
 }

@@ -72,7 +72,7 @@ my @SORTMODES = (
 our ($command);
 
 my ($_pfm, $_screen,
-	@_signame, $_white_cmd, @_unwo_cmd, $_clobber_mode);
+	$_white_cmd, @_unwo_cmd, $_clobber_mode);
 
 ##########################################################################
 # private subs
@@ -87,22 +87,7 @@ sub _init {
 	my ($self, $pfm) = @_;
 	$_pfm    = $pfm;
 	$_screen = $pfm->screen;
-	$self->_init_signames();
 	$self->_init_white_commands();
-}
-
-=item _init_signames()
-
-Initializes the array of signal names. Called from _init().
-
-=cut
-
-sub _init_signames {
-	my $self = shift;
-	my $i = 0;
-	foreach (split(/ /, $Config{sig_name})) {
-		$_signame[$i++] = $_;
-	}
 }
 
 =item _init_white_commands()
@@ -412,8 +397,9 @@ Handles unimplemented commands.
 
 sub not_implemented {
 	my ($self) = @_;
-	$_screen->at(0,0)->clreol()->display_error('Command not implemented')
-		->set_deferred_refresh(R_MENU);
+	$_screen->at(0,0)->clreol()
+		->set_deferred_refresh(R_MENU)
+		->display_error('Command not implemented');
 }
 
 =item handle()
@@ -466,7 +452,7 @@ sub handle {
 		/^k4$/o				and $self->handlecolor(),			last;
 		/^\@$/o				and $self->handleperlcommand(),		last;
 		/^u$/io				and $self->handlechown(),			last;
-#		/^v$/io				and $self->handlercs(),				last;
+		/^v$/io				and $self->handleversion(),			last;
 		/^z$/io				and $self->handlesize(),			last;
 #		/^g$/io				and $self->handletarget(),			last;
 		/^k12$/o			and $self->handlemousemode(),		last;
@@ -1426,6 +1412,25 @@ sub handleunwo {
 	$_pfm->state->directory->apply($do_this);
 }
 
+=item handleversion()
+
+Checks if the current directory is under version control,
+and starts a job for the file if so.
+
+=cut
+
+sub handleversion {
+	my ($self, $file) = @_;
+	if ($_pfm->state->{multiple_mode}) {
+		$_pfm->state->directory->apply(sub {});
+		$_pfm->state->directory->checkrcsapplicable();
+		$_screen->set_deferred_refresh(R_DIRLIST | R_MENU);
+	} else {
+		$_pfm->state->directory->checkrcsapplicable(
+			$_pfm->browser->currentfile->{name});
+	}
+}
+
 =item handleinclude()
 
 Handles including (marking) and excluding (unmarking) files.
@@ -1570,7 +1575,7 @@ sub handlemore {
 			/^b$/io		and $self->handlemorebookmark(),	last MORE_PAN;
 			/^g$/io		and $self->handlemorego(),			last MORE_PAN;
 			/^f$/io		and $self->handlemorefifo(),		last MORE_PAN;
-			/^v$/io		and $self->handlemorercsopen(),		last MORE_PAN;
+			/^v$/io		and $self->handlemoreversion(),		last MORE_PAN;
 			/^w$/io		and $_pfm->history->write(),		last MORE_PAN;
 			/^t$/io		and $self->handlemorealtscreen(),	last MORE_PAN;
 			/^p$/io		and $self->handlemorephyspath(),	last MORE_PAN;
@@ -1794,7 +1799,14 @@ sub handlemorephyspath {
 		->getch();
 }
 
-sub handlemorercsopen {
+=item handlemoreversion()
+
+Checks if the current directory is under version control,
+and starts a job for the current directory if so.
+
+=cut
+
+sub handlemoreversion {
 	my ($self, $file) = @_;
 	$_pfm->state->directory->checkrcsapplicable();
 	# TODO move this to a App::PFM::Job::RCS
