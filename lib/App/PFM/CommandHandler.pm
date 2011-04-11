@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 0.90
+# @(#) App::PFM::CommandHandler 0.93
 #
 # Name:			App::PFM::CommandHandler
-# Version:		0.90
+# Version:		0.93
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-05-08
+# Date:			2010-05-12
 #
 
 ##########################################################################
@@ -54,6 +54,20 @@ use constant {
 };
 
 my %NUMFORMATS = ( 'hex' => '%#04lx', 'oct' => '%03lo');
+
+my %CMDESCAPES = (
+	'1' => 'name',
+	'2' => 'name.ext',
+	'3' => 'curr path',
+	'4' => 'mountpoint',
+	'5' => 'swap path',
+	'6' => 'base path',
+	'7' => 'extension',
+	'8' => 'selection',
+	'e' => 'editor',
+	'p' => 'pager',
+	'v' => 'viewer',
+);
 
 my @SORTMODES = (
 	 n =>'Name',		N =>' reverse',
@@ -425,54 +439,54 @@ sub handle {
 	for ($event) {
 		# order is determined by (supposed) frequency of use
 		/^(?:ku|kd|pgup|pgdn|[-+jk\cF\cB\cD\cU]|home|end)$/io
-							and $self->handlemove($_),			last;
+							and $self->handlemove($_),				last;
 		/^(?:kr|kl|[h\e\cH])$/io
-							and $self->handleentry($_),			last;
-		/^[\cE\cY]$/o		and $self->handlescroll($_),		last;
-		/^l$/o				and $self->handlekeyell($_),		last;
-		/^ $/o				and $self->handleadvance($_),		last;
-		/^k5$/o				and $self->handlerefresh(),			last;
-#		/^[cr]$/io			and $self->handlecopyrename($_),	last;
-#		/^[yo]$/io			and $self->handlecommand($_),		last;
-		/^e$/io				and $self->handleedit(),			last;
-#		/^(?:d|del)$/io		and $self->handledelete(),			last;
-		/^[ix]$/io			and $self->handleinclude($_),		last;
-		/^\r$/io			and $self->handleenter(),			last;
-		/^s$/io				and $self->handleshow(),			last;
-		/^kmous$/o			and $self->handlemousedown(),		last;
-		/^k7$/o				and $self->handleswap(),			last;
-		/^k10$/o			and $self->handlemultiple(),		last;
-		/^m$/io				and $self->handlemore(),			last;
-#		/^p$/io				and $self->handleprint(),			last;
-		/^L$/o				and $self->handlelink(),			last;
-		/^n$/io				and $self->handlename(),			last;
-		/^k8$/o				and $self->handleselect(),			last;
-		/^k11$/o			and $self->handlerestat(),			last;
-		/^[\/f]$/io			and $self->handlefind(),			last;
+							and $self->handleentry($_),				last;
+		/^[\cE\cY]$/o		and $self->handlescroll($_),			last;
+		/^l$/o				and $self->handlekeyell($_),			last;
+		/^ $/o				and $self->handleadvance($_),			last;
+		/^k5$/o				and $self->handlerefresh(),				last;
+#		/^[cr]$/io			and $self->handlecopyrename($_),		last;
+		/^[yo]$/io			and $self->handlecommand($_),			last;
+		/^e$/io				and $self->handleedit(),				last;
+#		/^(?:d|del)$/io		and $self->handledelete(),				last;
+		/^[ix]$/io			and $self->handleinclude($_),			last;
+		/^\r$/io			and $self->handleenter(),				last;
+		/^s$/io				and $self->handleshow(),				last;
+		/^kmous$/o			and $valid = $self->handlemousedown(),	last;
+		/^k7$/o				and $self->handleswap(),				last;
+		/^k10$/o			and $self->handlemultiple(),			last;
+		/^m$/io				and $self->handlemore(),				last;
+#		/^p$/io				and $self->handleprint(),				last;
+		/^L$/o				and $self->handlelink(),				last;
+		/^n$/io				and $self->handlename(),				last;
+		/^k8$/o				and $self->handleselect(),				last;
+		/^k11$/o			and $self->handlerestat(),				last;
+		/^[\/f]$/io			and $self->handlefind(),				last;
 		/^[<>]$/io			and $self->handlepan($_,
-								$_screen->frame->MENU_SINGLE),	last;
-		/^(?:k3|\cL|\cR)$/o	and $self->handlefit(),				last;
-		/^t$/io				and $self->handletime(),			last;
-		/^a$/io				and $self->handlechmod(),			last;
-		/^q$/io				and $valid = $self->handlequit($_),	last;
-		/^k6$/o				and $self->handlesort(),			last;
-		/^(?:k1|\?)$/o		and $self->handlehelp(),			last;
-		/^k2$/o				and $self->handleprev(),			last;
-		/^\.$/o				and $self->handledot(),				last;
-		/^k9$/o				and $self->handlelayouts(),			last;
-		/^k4$/o				and $self->handlecolor(),			last;
-		/^\@$/o				and $self->handleperlcommand(),		last;
-		/^u$/io				and $self->handlechown(),			last;
-		/^v$/io				and $self->handleversion(),			last;
-		/^z$/io				and $self->handlesize(),			last;
-		/^g$/io				and $self->handletarget(),			last;
-		/^k12$/o			and $self->handlemousemode(),		last;
-		/^=$/o				and $self->handleident(),			last;
-		/^\*$/o				and $self->handleradix(),			last;
-		/^!$/o				and $self->handleclobber(),			last;
-		/^"$/o				and $self->handlepathmode(),		last;
-		/^w$/io				and $self->handleunwo(),			last;
-		/^%$/o				and $self->handlewhiteout(),		last;
+								$_screen->frame->MENU_SINGLE),		last;
+		/^(?:k3|\cL|\cR)$/o	and $self->handlefit(),					last;
+		/^t$/io				and $self->handletime(),				last;
+		/^a$/io				and $self->handlechmod(),				last;
+		/^q$/io				and $valid = $self->handlequit($_),		last;
+		/^k6$/o				and $self->handlesort(),				last;
+		/^(?:k1|\?)$/o		and $self->handlehelp(),				last;
+		/^k2$/o				and $self->handleprev(),				last;
+		/^\.$/o				and $self->handledot(),					last;
+		/^k9$/o				and $self->handlelayouts(),				last;
+		/^k4$/o				and $self->handlecolor(),				last;
+		/^\@$/o				and $self->handleperlcommand(),			last;
+		/^u$/io				and $self->handlechown(),				last;
+		/^v$/io				and $self->handleversion(),				last;
+		/^z$/io				and $self->handlesize(),				last;
+		/^g$/io				and $self->handletarget(),				last;
+		/^k12$/o			and $self->handlemousemode(),			last;
+		/^=$/o				and $self->handleident(),				last;
+		/^\*$/o				and $self->handleradix(),				last;
+		/^!$/o				and $self->handleclobber(),				last;
+		/^"$/o				and $self->handlepathmode(),			last;
+		/^w$/io				and $self->handleunwo(),				last;
+		/^%$/o				and $self->handlewhiteout(),			last;
 		$valid = 0; # invalid key
 		$_screen->flash();
 	}
@@ -1404,7 +1418,7 @@ sub handleshow {
 		$_screen->puts($file->{name} . "\n")
 			->alternate_off();
 		system $_pfm->config->{pager}." \Q$file->{name}\E"
-			and display_error("Pager failed\n");
+			and $_screen->display_error("Pager failed\n");
 		$_screen->alternate_on() if $_pfm->config->{altscreen_mode};
 	};
 	$_pfm->state->directory->apply($do_this);
@@ -1618,7 +1632,7 @@ sub handletarget {
 	$do_this = sub {
 		my $file = shift;
 		my ($newtargetexpanded, $oldtargetok);
-		if ($file->{type} ne "l") {
+		if ($file->{type} ne 'l') {
 			$_screen->at(0,0)->clreol()->display_error($nosymlinkerror);
 		} else {
 			$self->_expand_escapes(
@@ -1639,6 +1653,98 @@ sub handletarget {
 		}
 	};
 	$_pfm->state->directory->apply($do_this);
+}
+
+=item handlecommand()
+
+Executes a shell command.
+
+=cut
+
+sub handlecommand { # Y or O
+	my ($self, $key) = @_;
+	my $printline  = $_screen->BASELINE;
+	my $infocol    = $_screen->diskinfo->infocol;
+	my $infolength = $_screen->diskinfo->infolength;
+	my $e          = $_pfm->config->{e};
+	my ($command, $do_this, $prompt, $printstr, $newdir);
+	my $messcolor = $_pfm->config->{framecolors}{$_screen->color_mode}{message};
+	unless ($_pfm->state->{multiple_mode}) {
+		$_screen->listing->markcurrentline(uc $key);
+	}
+	$_screen->diskinfo->clearcolumn();
+	if (uc($key) eq 'Y') { # Your command
+		$_screen->frame->show_headings(
+			$_pfm->browser->swap_mode, $_screen->frame->HEADING_YCOMMAND);
+		foreach (sort alphabetically $_pfm->config->your_commands) {
+			if ($printline <= $_screen->BASELINE + $_screen->screenheight) {
+				$printstr = $_pfm->config->pfmrc()->{$_};
+				$printstr =~ s/\e/^[/g; # in case real escapes are used
+				$_screen->at($printline++, $infocol)
+					->puts(sprintf('%1s %s',
+							substr($_,5,1),
+							substr($printstr,0,$infolength-2)));
+			}
+		}
+		$prompt = 'Enter one of the highlighted characters below: ';
+		$key = $_screen->at(0,0)->clreol()
+			->putcolored($messcolor, $prompt)->getch();
+		$_screen->diskinfo->clearcolumn()
+			->set_deferred_refresh(R_DISKINFO | R_FRAME);
+		# next line contains an assignment on purpose
+		return unless $command = $_pfm->config->pfmrc()->{"your[$key]"};
+		$_screen->cooked_echo();
+	} else { # cOmmand
+		$_screen->frame->show_headings(
+			$_pfm->browser->swap_mode, $_screen->frame->HEADING_ESCAPE);
+		foreach (sort escape_middle keys %CMDESCAPES, $e) {
+			if ($printline <= $_screen->BASELINE + $_screen->screenheight) {
+				$_screen->at($printline++, $infocol)
+					->puts(sprintf(' %1s%1s %s', $e, $_,
+							$CMDESCAPES{$_} || "literal $e"));
+			}
+		}
+		$prompt =
+			"Enter Unix command ($e"."[1-8] or $e"."[epv] escapes see below):";
+		$_screen->at(0,0)->clreol()->putcolored($messcolor, $prompt)
+			->at($_screen->PATHLINE,0)->clreol()
+			->cooked_echo();
+		$command = $_pfm->history->input(H_COMMAND, '');
+		$_screen->diskinfo->clearcolumn();
+	}
+	# chdir special case
+	if ($command =~ /^\s*cd\s(.*)$/) {
+		$newdir = $1;
+		$self->_expand_escapes(QUOTE_OFF, $newdir, $_pfm->browser->currentfile);
+		$_screen->raw_noecho();
+		if (!ok_to_remove_marks()) {
+			$_screen->set_deferred_refresh(R_MENU); # R_SCREEN?
+			return;
+		} elsif (!$_pfm->state->directory->chdir($newdir)) {
+			$_screen->at(2,0)->display_error("$newdir: $!")
+				->set_deferred_refresh(R_SCREEN);
+			return;
+		}
+		$_screen->set_deferred_refresh(R_CHDIR);
+		return;
+	}
+	# general case: command (either Y or O) is known here
+	unless ($command =~ /^\s*\n?$/) {
+		$_screen->alternate_off()->clrscr()->at(0,0);
+		$do_this = sub {
+			my $file = shift;
+			my $do_command = $command;
+			# $self is the commandhandler (due to closure)
+			$self->_expand_escapes($self->QUOTE_ON, $do_command, $file);
+			$_screen->puts("\n$do_command\n");
+			system $do_command
+				and $_screen->display_error("External command failed\n");
+		};
+		$_pfm->state->directory->apply($do_this, 'O');
+		$_screen->pressanykey();
+		$_screen->alternate_on() if $_pfm->config->{altscreen_mode};
+	}
+	$_screen->raw_noecho()->set_deferred_refresh(R_CLRSCR);
 }
 
 =item handlemousedown()
@@ -1688,7 +1794,8 @@ sub handlemousedown {
 		$self->handleheadingsort($mousecol);
 	} elsif ($mouserow == 0) {
 		# menu
-		$self->handlemousemenucommand($mousecol);
+		# return the return value as this could be 'quit'
+		return $self->handlemousemenucommand($mousecol);
 	} elsif ($mouserow > $_screen->screenheight + $_screen->BASELINE) {
 		# footer
 		$self->handlemousefootercommand($mousecol);
@@ -1700,7 +1807,7 @@ sub handlemousedown {
 			$mouserow - $_screen->BASELINE + $_pfm->browser->baseindex])
 	{
 		# diskinfo or empty line
-		return;
+		return '';
 	} else {
 		# clicked on an existing file
 		# save currentline
@@ -1728,6 +1835,7 @@ sub handlemousedown {
 		$_pfm->browser->currentline($prevcurrentline);
 #		}
 	}
+	return '';
 }
 
 =item handlepathjump()
@@ -1810,13 +1918,13 @@ sub handlemousemenucommand {
 	my $choice;
 	$menu =~ /^					# anchor
 		(?:.{0,$left}\s|)		# (empty string left  || chars then space)
-		[[:lower:]]*			# any nr. of lowercase chars
+		[-[:lower:]]*			# any nr. of lowercase chars or minus
 		([[:upper:]<>])			# one uppercase char or pan character
-		[[:lower:]]*			# any nr. of lowercase chars
+		[-[:lower:]]*			# any nr. of lowercase chars or minus
 		(?:\s.{0,$right}|)		# (empty string right || space then chars)
 		$/x;					# anchor
 	$choice = $1;
-	$choice = uc($choice) if $choice eq 'l';
+	$choice = lc($choice) if $choice eq 'Q';
 	#$_screen->at(1,0)->puts("L-$left :$choice: R-$right    ");
 	return $self->handle($choice);
 }

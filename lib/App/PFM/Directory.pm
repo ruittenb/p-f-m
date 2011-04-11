@@ -631,6 +631,23 @@ sub checkrcsapplicable {
 	}
 }
 
+=item dirlookup()
+
+Finds a directory entry by name and returns its index.
+Used by apply().
+
+=cut
+
+sub dirlookup {
+	# this assumes that the entry will be found
+	my ($self, $name, @array) = @_;
+	my $found = $#array;
+	while ($found >= 0 and $array[$found]{name} ne $name) {
+		$found--;
+	}
+	return $found;
+}
+
 =item apply()
 
 In single file mode: applies the supplied function to the current file.
@@ -640,22 +657,34 @@ in the current directory.
 =cut
 
 sub apply {
-	my ($self, $do_this, @args) = @_;
+	my ($self, $do_this, $special_mode, @args) = @_;
 	my ($i, $loopfile);
 	if ($_pfm->state->{multiple_mode}) {
 		my $screen = $_pfm->screen;
-		foreach $i (0 .. $#{$self->{_showncontents}}) {
+		my @range = 0 .. $#{$self->{_showncontents}};
+		if ($special_mode eq 'D') {
+			@range = reverse @range;
+		}
+		foreach $i (@range) {
 			$loopfile = $self->{_showncontents}[$i];
 			if ($loopfile->{selected} eq M_MARK) {
-				$screen->at($screen->PATHLINE, 0)->clreol()
-					->puts($loopfile->{name})->at($screen->PATHLINE+1, 0);
-				$loopfile->apply($do_this, @args);
+				# don't give feedback in cOmmand or Your
+				if ($special_mode ne 'O') {
+					$screen->at($screen->PATHLINE, 0)->clreol()
+						->puts($loopfile->{name})->at($screen->PATHLINE+1, 0);
+				}
+				if ($loopfile->apply($do_this, @args) eq 'deleted') {
+					splice @{$self->{_showncontents}}, $i, 1;
+					splice @{$self->{_dircontents}},
+						$self->dirlookup(
+							$loopfile->{name},
+							@{$self->{_dircontents}}
+						),
+						1;
+				}
 			}
 		}
 		$_pfm->state->{multiple_mode} = 0 if $_pfm->config->{autoexitmultiple};
-		# TODO if the bloody thing is deleted,
-		# it should be deleted from _dircontents as well (or maybe create
-		# a separate loop for deletions?)
 		$screen->set_deferred_refresh(
 			$screen->R_DIRLIST | $screen->R_PATHINFO | $screen->R_FRAME);
 	} else {

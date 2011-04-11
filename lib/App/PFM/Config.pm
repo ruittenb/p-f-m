@@ -189,6 +189,18 @@ sub pfmrc {
 	return $self->{_pfmrc};
 }
 
+=item your_commands()
+
+Getter for the keys of the Your commands in the config file.
+
+=cut
+
+sub your_commands {
+	my ($self) = @_;
+	my @your = # map { $_, $self->{_pfmrc}{$_} }
+				grep /^your\[[[:alpha:]]\]$/, keys %{$self->{_pfmrc}};
+	return @your;
+}
 ##########################################################################
 # public subs
 
