@@ -219,6 +219,50 @@ sub update_to_189 {
 			$warned++;
 		}
 	}
+	# TODO added 'importlscolors' option
+}
+
+sub update_to_1901 {
+	# TODO added dir/framecolors[*] option
+	# TODO added 'viewer' option
+	# TODO added '\[epv]' escapes
+}
+
+sub update_to_1904 {
+	# changed config option 'viewbase' to 'defaultnumbase'
+	print "Updating to 1.90.4...\n";
+	foreach (@_) {
+		s/\bviewbase\b/defaultnumbase/g;
+	}
+}
+
+sub update_to_1913 {
+	# TODO obsoleted 'timeformat' option
+}
+
+sub update_to_1914 {
+	# changed config option 'defaultnumbase' to 'defaultradix'
+	print "Updating to 1.91.4...\n";
+	foreach (@_) {
+		s/\bdefaultnumbase\b/defaultradix/g;
+	}
+}
+
+sub update_to_1915 {
+	# added 'clockdateformat' and 'clocktimeformat' options
+	print "Updating to 1.91.5...\n";
+	push @_, <<_end_update_to_1915_;
+
+## clock date/time format; see strftime(3).
+## %x and %X provide properly localized time and date.
+## the defaults are "%Y %b %d" and "%H:%M:%S"
+## the diskinfo field (f) in the layouts below must be wide enough for this.
+clockdateformat:%Y %b %d
+#clocktimeformat:%H:%M:%S
+#clockdateformat:%x
+clocktimeformat:%X
+
+_end_update_to_1915_
 }
 
 sub update_to_1917 {
@@ -230,6 +274,85 @@ sub update_to_1917 {
 	}
 }
 
+sub update_to_1920 {
+	# TODO As of version 1.92.0, the config file has been extended with options
+	# TODO  necessary for the launch functionality. Please check the new options in
+	# TODO  the default config file.
+}
+
+sub update_to_1921 {
+	# changed option 'clobber' to 'defaultclobber'
+	print "Updating to 1.92.1...\n";
+	foreach (@_) {
+		s/^([#\s]*)\bclobber\b/$1defaultclobber/g;
+	}
+}
+
+sub update_to_1923 {
+	# added 'waitlaunchexec', but this was deprecated later.
+	# no need to add it here because it was never implemented.
+}
+
+sub update_to_1926 {
+	# inverted meaning of 'defaultdotmode' and 'defaultwhitemode'
+	print "Updating to 1.92.6...\n";
+	foreach (@_) {
+		s/\bdotmode:\s*yes\b/defaultdotmode: no/g;
+		s/\bdotmode:\s*no\b/defaultdotmode: yes/g;
+		s/\bwhitemode:\s*yes\b/defaultwhitemode: no/g;
+		s/\bwhitemode:\s*no\b/defaultwhitemode: yes/g;
+	}
+}
+
+sub update_to_1942 {
+	# subversion support; 'rcscmd', 'autorcs'
+	print "Updating to 1.94.2...\n";
+	push @_, <<_end_update_to_1942_;
+
+## request rcs status automatically?
+autorcs:yes
+
+## command to use for requesting the file status in your rcs system.
+rcscmd:svn status
+
+_end_update_to_1942_
+}
+
+sub update_to_1948 {
+	# added openoffice document extensions to default .pfmrc
+	print "Updating to 1.94.8...\n";
+	push @_, <<_end_update_to_1948_;
+
+extension[*.odp]  : application/x-openoffice
+extension[*.ods]  : application/x-openoffice
+extension[*.odt]  : application/x-openoffice
+launch[application/x-openoffice]  : ooffice =2 &
+
+_end_update_to_1948_
+}
+
+sub update_to_1951 {
+	# added 'remove_marks_ok' option
+	print "Updating to 1.95.1...\n";
+	push @_, <<_end_update_to_1951_;
+
+## suppress the prompt "OK to remove marks?"
+remove_marks_ok:no
+
+_end_update_to_1951_
+}
+
+sub update_to_1952 {
+	# added 'checkforupdates' option (was deprecated later).
+	print "Updating to 1.95.2...\n";
+	push @_, <<_end_update_to_1952_;
+
+## automatically check for updates on exit (default: no) 
+checkforupdates:no 
+
+_end_update_to_1952_
+}
+
 sub update_to_200 {
 	# this updates the framecolors for version 2.00
 	print "Updating to 2.00...\n";
@@ -239,11 +362,27 @@ sub update_to_200 {
 	}
 }
 
+sub update_to_2017 {
+	# this removes 'checkforupdates' for version 2.01.7
+	print "Updating to 2.01.7...\n";
+	my $i;
+	for ($i = $#_; $i > 0; $i--) {
+		if ($_[$i] =~ /^#+\s*(checkforupdates:|automatically check for updates on exit)/x)
+		{
+			splice(@_, $i, 1);
+		}
+	}
+}
+
 sub update_to_2037 {
 	# this removes 'waitlaunchexec' for version 2.03.7
 	print "Updating to 2.03.7...\n";
-	foreach (@_) {
-		# TODO 'waitlaunchexec'
+	my $i;
+	for ($i = $#_; $i > 0; $i--) {
+		if ($_[$i] =~ /^#+\s*(waitlaunchexec:|wait for launched executables to finish)/x)
+		{
+			splice(@_, $i, 1);
+		}
 	}
 }
 
@@ -261,8 +400,22 @@ sub update_pfmrc {
 	update_to_184 (@_) if $from lt '1.84'   and '1.84'   le $to;
 	update_to_188 (@_) if $from lt '1.88'   and '1.88'   le $to;
 	update_to_189 (@_) if $from lt '1.89'   and '1.89'   le $to;
+	update_to_1901(@_) if $from lt '1.90.1' and '1.90.1' le $to;
+	update_to_1904(@_) if $from lt '1.90.4' and '1.90.4' le $to;
+	update_to_1913(@_) if $from lt '1.91.3' and '1.91.3' le $to;
+	update_to_1914(@_) if $from lt '1.91.4' and '1.91.4' le $to;
+	update_to_1915(@_) if $from lt '1.91.5' and '1.91.5' le $to;
 	update_to_1917(@_) if $from lt '1.91.7' and '1.91.7' le $to;
+	update_to_1920(@_) if $from lt '1.92.0' and '1.92.0' le $to;
+	update_to_1921(@_) if $from lt '1.92.1' and '1.92.1' le $to;
+	update_to_1923(@_) if $from lt '1.92.3' and '1.92.3' le $to;
+	update_to_1926(@_) if $from lt '1.92.6' and '1.92.6' le $to;
+	update_to_1942(@_) if $from lt '1.94.2' and '1.94.2' le $to;
+	update_to_1948(@_) if $from lt '1.94.8' and '1.94.8' le $to;
+	update_to_1951(@_) if $from lt '1.95.1' and '1.95.1' le $to;
+	update_to_1952(@_) if $from lt '1.95.2' and '1.95.2' le $to;
 	update_to_200 (@_) if $from lt '2.00'   and '2.00'   le $to;
+	update_to_2017(@_) if $from lt '2.01.7' and '2.01.7' le $to;
 	update_to_2037(@_) if $from lt '2.03.7' and '2.03.7' le $to;
 	update_version($to, @_);
 }

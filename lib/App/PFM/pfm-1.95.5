@@ -2832,68 +2832,68 @@ sub handlemousedown {
 #	}
 #	return $do_a_refresh;
 #}
-
-sub handletarget {
-	my ($newtarget, $newtargetexpanded, $oldtargetok, $loopfile, $do_this, $index);
-	my $do_a_refresh = $multiple_mode ? $R_DIRLIST | $R_MENU : $R_MENU;
-	my $nosymlinkerror = 'Current file is not a symbolic link';
-	markcurrentline('G') unless $multiple_mode;
-	if ($currentfile{type} ne 'l' and !$multiple_mode) {
-		$scr->at(0,0)->clreol();
-		display_error($nosymlinkerror);
-		return $R_MENU;
-	}
-	my $prompt = 'New symlink target: ';
-	$scr->at(0,0)->clreol();
-	cooked_echo();
-	push (@path_history, $currentfile{target}) unless $multiple_mode;
-	chomp($newtarget = readintohist(\@path_history, $prompt));
-	if ($#path_history > 0 and $path_history[-1] eq $path_history[-2]) {
-		pop @path_history;
-	}
-	raw_noecho();
-	return $R_MENU if ($newtarget eq '');
-	$do_this = sub {
-		if ($loopfile->{type} ne "l") {
-			$scr->at(0,0)->clreol();
-			display_error($nosymlinkerror);
-		} else {
-			$oldtargetok = 1;
-			if (-d $loopfile->{name}) {
-				# if it points to a dir, the symlink must be removed first
-				# next line is an intentional assignment
-				unless ($oldtargetok = unlink $loopfile->{name}) {
-					$do_a_refresh |= neat_error($!);
-				}
-			}
-			if ($oldtargetok and
-				system qw(ln -sf), $newtargetexpanded, $loopfile->{name})
-			{
-				$do_a_refresh |= neat_error('Symlinking failed');
-			}
-		}
-	};
-	if ($multiple_mode) {
-		for $index (0..$#dircontents) {
-			$loopfile = $dircontents[$index];
-			if ($loopfile->{selected} eq '*') {
-				$scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
-				expand_escapes($QUOTE_OFF, ($newtargetexpanded = $newtarget), $loopfile);
-				exclude($loopfile,'.');
-				$do_this->();
-				$dircontents[$index] = stat_entry($loopfile->{name}, $loopfile->{selected});
-			}
-		}
-		$multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
-	} else {
-		$loopfile = \%currentfile;
-		expand_escapes($QUOTE_OFF,($newtargetexpanded = $newtarget),$loopfile);
-		$do_this->();
-		restat_copyback();
-	}
-	return $do_a_refresh;
-}
-
+#
+#sub handletarget {
+#	my ($newtarget, $newtargetexpanded, $oldtargetok, $loopfile, $do_this, $index);
+#	my $do_a_refresh = $multiple_mode ? $R_DIRLIST | $R_MENU : $R_MENU;
+#	my $nosymlinkerror = 'Current file is not a symbolic link';
+#	markcurrentline('G') unless $multiple_mode;
+#	if ($currentfile{type} ne 'l' and !$multiple_mode) {
+#		$scr->at(0,0)->clreol();
+#		display_error($nosymlinkerror);
+#		return $R_MENU;
+#	}
+#	my $prompt = 'New symlink target: ';
+#	$scr->at(0,0)->clreol();
+#	cooked_echo();
+#	push (@path_history, $currentfile{target}) unless $multiple_mode;
+#	chomp($newtarget = readintohist(\@path_history, $prompt));
+#	if ($#path_history > 0 and $path_history[-1] eq $path_history[-2]) {
+#		pop @path_history;
+#	}
+#	raw_noecho();
+#	return $R_MENU if ($newtarget eq '');
+#	$do_this = sub {
+#		if ($loopfile->{type} ne "l") {
+#			$scr->at(0,0)->clreol();
+#			display_error($nosymlinkerror);
+#		} else {
+#			$oldtargetok = 1;
+#			if (-d $loopfile->{name}) {
+#				# if it points to a dir, the symlink must be removed first
+#				# next line is an intentional assignment
+#				unless ($oldtargetok = unlink $loopfile->{name}) {
+#					$do_a_refresh |= neat_error($!);
+#				}
+#			}
+#			if ($oldtargetok and
+#				system qw(ln -sf), $newtargetexpanded, $loopfile->{name})
+#			{
+#				$do_a_refresh |= neat_error('Symlinking failed');
+#			}
+#		}
+#	};
+#	if ($multiple_mode) {
+#		for $index (0..$#dircontents) {
+#			$loopfile = $dircontents[$index];
+#			if ($loopfile->{selected} eq '*') {
+#				$scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
+#				expand_escapes($QUOTE_OFF, ($newtargetexpanded = $newtarget), $loopfile);
+#				exclude($loopfile,'.');
+#				$do_this->();
+#				$dircontents[$index] = stat_entry($loopfile->{name}, $loopfile->{selected});
+#			}
+#		}
+#		$multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
+#	} else {
+#		$loopfile = \%currentfile;
+#		expand_escapes($QUOTE_OFF,($newtargetexpanded = $newtarget),$loopfile);
+#		$do_this->();
+#		restat_copyback();
+#	}
+#	return $do_a_refresh;
+#}
+#
 #sub handlechown {
 #	my ($newuid, $loopfile, $do_this, $index);
 #	my $prompt = 'New [user][:group] ';

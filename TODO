@@ -40,7 +40,6 @@ rm -f 200112312359.59 123123592001.59 123123592001.5 1231235901 $$.touch
 cp -pr copies symlinks to symlinks - ?
 	recursive directory copy? Ask to follow?
 change (U)id command to request changing the symlink?
-(B)abel option? tr/[:upper:]/[:lower:]/, s/^pfm/pfm-/
 
 (L)ink (R)el to current dir does not restat()
 tar(G)et in multiple mode does not re-readlink()

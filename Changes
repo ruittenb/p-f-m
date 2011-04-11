@@ -1,3 +1,7 @@
+2.03.8-WIP
+
+* started work on making cursor follow new files around in single file mode
+
 2.03.7-WIP
 
 * deprecated 'waitlaunchexec' option

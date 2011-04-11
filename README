@@ -1,45 +1,34 @@
 
-
-Package: pfm-2.03.4
-
-
-This package is available from http://sourceforge.net/projects/p-f-m/
-
-Prerequisites for this package, in dependency order:
-
-                           at least      preferred
-gcc                        ?
-  perl                     5.8           5.10
-  ncurses                  ?             5
-    Term-Screen            1.02          1.03
-      Term-ScreenColor     1.09          1.13
-  readline                 4.1           5
-    Term-ReadLine-Gnu      1.09          1.19
-      pfm                  -             2.03.4
-
-If you run Ubuntu, it is advisable to install the following packages:
-
-libncurses5
-libncurses5-dev
-libreadline5
-libreadline5-dev
-libterm-readline-gnu-perl
+Package: pfm-2.03.8
 
 
-If you are upgrading from an older version, please update your ~/.pfm/.pfmrc
-by running the script 'pfmrcupdate'.
-You are strongly advised to rename your .pfmrc and compare it with
-the default config file that pfm automatically generates for you.
+* This package is available from http://sourceforge.net/projects/p-f-m/
+
+* Prerequisites for this package, in dependency order:
+
+                             at least      preferred
+  gcc                        ?
+    perl                     5.8           5.10
+    libwww-perl              ?             5.835
+    ncurses                  ?             5
+      Term-Screen            1.02          1.03
+        Term-ScreenColor     1.11          1.13
+    readline                 4.1           5
+      Term-ReadLine-Gnu      1.09          1.19
+        pfm                  1.94.9        2.03.8
 
 
-Notes:
+* On Ubuntu Jaunty, it is advisable to install the following packages:
+  libncurses5
+  libncurses5-dev
+  libreadline5
+  libreadline5-dev
+  libterm-readline-gnu-perl
 
-* As of version 1.92.6, the meaning of the 'defaultdotmode' option
-  has been inverted. 'dot_mode' set now means that dotfiles *will* be shown.
-
-* As of version 1.92.0, the config file has been extended with options
-  necessary for the launch functionality. Please check the new options in
-  the default config file.
+* If you are upgrading from an older version, please update your
+  ~/.pfm/.pfmrc by running the script 'pfmrcupdate'.
+  You are strongly advised to rename your .pfmrc and compare it with
+  the default config file that pfm automatically generates for you.
 
 * On HP-UX 11.00, the file /etc/termcap does not seem to contain an 'me'
   entry. You need to add it in order to make Term::Screen function

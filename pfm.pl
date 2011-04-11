@@ -3,7 +3,7 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.03.7
+# Version:		2.03.8
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-05-08
@@ -23,7 +23,7 @@
 # version
 
 # for MakeMaker
-our $VERSION = '2.03.7';
+our $VERSION = '2.03.8';
 
 # macros for *roff
 our $ROFFVERSION = <<'=cut';
@@ -32,7 +32,7 @@ our $ROFFVERSION = <<'=cut';
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.03.7
+.ds Vw @(#) pfm.pl 2.03.8
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
