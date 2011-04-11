@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::Bazaar 0.01
+# @(#) App::PFM::Job::RCS 0.01
 #
-# Name:			App::PFM::Job::Bazaar
+# Name:			App::PFM::Job::RCS
 # Version:		0.01
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-14
+# Date:			2010-04-03
 #
 
 ##########################################################################
@@ -16,11 +16,11 @@
 
 =head1 NAME
 
-App::PFM::Job::Bazaar
+App::PFM::Job::RCS
 
 =head1 DESCRIPTION
 
-PFM Job class for Bazaar commands.
+PFM Job class for version control status commands.
 
 =head1 METHODS
 
@@ -31,9 +31,9 @@ PFM Job class for Bazaar commands.
 ##########################################################################
 # declarations
 
-package App::PFM::Job::Bazaar;
+package App::PFM::Job::RCS;
 
-use base 'App::PFM::Job::RCS';
+use base 'App::PFM::Job::Abstract';
 
 use strict;
 
@@ -42,18 +42,15 @@ use strict;
 
 =item _init()
 
-Initializes new instances. Called from the constructor.
+Initialize the 'running' flag.
 
 =cut
 
-sub _init {
-	my $self = shift;
-	$self->{_COMMAND} = 'bzr status -S';
+sub _init() {
+	my ($self) = @_;
+	$self->{running} = 0;
+	$self->SUPER::_init();
 }
-
-# ruitten@visnet:/home/ruitten/Desktop/working/alice$ bzr status -S
-# ?   backup.bzr/
-#  M  static/media/index.php
 
 ##########################################################################
 # constructor, getters and setters
@@ -62,14 +59,16 @@ sub _init {
 # public subs
 
 sub isapplicable {
-	my ($self, $path) = @_;
-	while ($path) {
-		if (-d "$path/.bzr") {
-			return 1;
-		}
-		$path =~ s{/[^/]*$}{};
-	}
+	# implemented by subclasses
 	return 0;
+}
+
+sub start {
+	# start $self->{_COMMAND}
+	#$_screen->set_deferred_refresh(R_HEADINGS);
+}
+
+sub poll {
 }
 
 ##########################################################################

@@ -163,7 +163,7 @@ sub _getmenu {
 		.		'(ignorecase, reverse):';
 	} elsif ($mode & MENU_MORE) {
 		return	'Bookmark Config Edit-any mkFifo Go sHell Mkdir '
-		.		'Phys-path Show-dir Version Write-hist alTscreen';
+		.		'Phys-path Show-dir alTscreen Version Write-hist';
 	} elsif ($mode & MENU_EXCLUDE) {
 		return	'Exclude? Every, Oldmarks, Newmarks, '
 		.		'After, Before, User or Files only:';
