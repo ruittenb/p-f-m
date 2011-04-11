@@ -78,7 +78,7 @@ sub isapplicable {
 
 =head1 SEE ALSO
 
-pfm(1), App::PFM::Job(3pm).
+pfm(1), App::PFM::JobHandler(3pm), App::PFM::Job::Abstract(3pm).
 
 =cut
 

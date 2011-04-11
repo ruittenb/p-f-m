@@ -174,7 +174,7 @@
 <XPD:ATTR name="Left" type="integer">503</XPD:ATTR>
 <XPD:ATTR name="Top" type="integer">808</XPD:ATTR>
 <XPD:ATTR name="Width" type="integer">170</XPD:ATTR>
-<XPD:ATTR name="Height" type="integer">1200</XPD:ATTR>
+<XPD:ATTR name="Height" type="integer">1213</XPD:ATTR>
 <XPD:REF name="Model">COv3tKYZpEO0RqFbgOsPOAAA</XPD:REF>
 <XPD:OBJ name="NameCompartment" type="UMLNameCompartmentView" guid="OcBtTm4Pnk6+Lb0s3GUGbAAA">
 <XPD:OBJ name="NameLabel" type="LabelView" guid="IqXgNM0HPUOPlczsBxcn/QAA">
@@ -3754,7 +3754,7 @@
 <XPD:REF name="Views[1]">6nte6J9F30Ks+TqI+7sNRAAA</XPD:REF>
 <XPD:REF name="Views[2]">y4iVg8poVkiFaw5cKGwGkwAA</XPD:REF>
 <XPD:REF name="Views[3]">WOCzyO1FIU2KW/TnsR4ckwAA</XPD:REF>
-<XPD:ATTR name="#Operations" type="integer">85</XPD:ATTR>
+<XPD:ATTR name="#Operations" type="integer">86</XPD:ATTR>
 <XPD:OBJ name="Operations[0]" type="UMLOperation" guid="5WXdze0Bgki1d/aORQqrTwAA">
 <XPD:ATTR name="Name" type="string">_init</XPD:ATTR>
 <XPD:ATTR name="Visibility" type="UMLVisibilityKind">vkPrivate</XPD:ATTR>
@@ -4062,47 +4062,51 @@
 <XPD:ATTR name="Name" type="string">handlemoreshell</XPD:ATTR>
 <XPD:REF name="Owner">COv3tKYZpEO0RqFbgOsPOAAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Operations[74]" type="UMLOperation" guid="tym82SwiFku+iZgWLRWtMAAA">
+<XPD:OBJ name="Operations[74]" type="UMLOperation" guid="3qixwPyGYU211/d3WcTH+wAA">
+<XPD:ATTR name="Name" type="string">handlemoreacl</XPD:ATTR>
+<XPD:REF name="Owner">COv3tKYZpEO0RqFbgOsPOAAA</XPD:REF>
+</XPD:OBJ>
+<XPD:OBJ name="Operations[75]" type="UMLOperation" guid="tym82SwiFku+iZgWLRWtMAAA">
 <XPD:ATTR name="Name" type="string">handlemorebookmark</XPD:ATTR>
 <XPD:REF name="Owner">COv3tKYZpEO0RqFbgOsPOAAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Operations[75]" type="UMLOperation" guid="8ZZClFLzyk+KYv0VA46anwAA">
+<XPD:OBJ name="Operations[76]" type="UMLOperation" guid="8ZZClFLzyk+KYv0VA46anwAA">
 <XPD:ATTR name="Name" type="string">handlemorego</XPD:ATTR>
 <XPD:REF name="Owner">COv3tKYZpEO0RqFbgOsPOAAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Operations[76]" type="UMLOperation" guid="m8NIF/sKWkKS/6ifsLnSbAAA">
+<XPD:OBJ name="Operations[77]" type="UMLOperation" guid="m8NIF/sKWkKS/6ifsLnSbAAA">
 <XPD:ATTR name="Name" type="string">handlemorefifo</XPD:ATTR>
 <XPD:REF name="Owner">COv3tKYZpEO0RqFbgOsPOAAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Operations[77]" type="UMLOperation" guid="8jCZD3tVl0S+nMkzYVujhAAA">
+<XPD:OBJ name="Operations[78]" type="UMLOperation" guid="8jCZD3tVl0S+nMkzYVujhAAA">
 <XPD:ATTR name="Name" type="string">handlemorealtscreen</XPD:ATTR>
 <XPD:REF name="Owner">COv3tKYZpEO0RqFbgOsPOAAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Operations[78]" type="UMLOperation" guid="j3tn8x/sF02m1hSac6SBmQAA">
+<XPD:OBJ name="Operations[79]" type="UMLOperation" guid="j3tn8x/sF02m1hSac6SBmQAA">
 <XPD:ATTR name="Name" type="string">handlemorephyspath</XPD:ATTR>
 <XPD:REF name="Owner">COv3tKYZpEO0RqFbgOsPOAAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Operations[79]" type="UMLOperation" guid="5TpB9R2kokiKlIO57WXCsgAA">
+<XPD:OBJ name="Operations[80]" type="UMLOperation" guid="5TpB9R2kokiKlIO57WXCsgAA">
 <XPD:ATTR name="Name" type="string">handlemoreversion</XPD:ATTR>
 <XPD:REF name="Owner">COv3tKYZpEO0RqFbgOsPOAAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Operations[80]" type="UMLOperation" guid="Ga+GoqEQpUmnJw7n41enQwAA">
+<XPD:OBJ name="Operations[81]" type="UMLOperation" guid="Ga+GoqEQpUmnJw7n41enQwAA">
 <XPD:ATTR name="Name" type="string">handleenter</XPD:ATTR>
 <XPD:REF name="Owner">COv3tKYZpEO0RqFbgOsPOAAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Operations[81]" type="UMLOperation" guid="/cfD8ClDek2gpXuWByPz9gAA">
+<XPD:OBJ name="Operations[82]" type="UMLOperation" guid="/cfD8ClDek2gpXuWByPz9gAA">
 <XPD:ATTR name="Name" type="string">launchbyxbit</XPD:ATTR>
 <XPD:REF name="Owner">COv3tKYZpEO0RqFbgOsPOAAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Operations[82]" type="UMLOperation" guid="9ZlRGISJ7ku4X53vCAuiOQAA">
+<XPD:OBJ name="Operations[83]" type="UMLOperation" guid="9ZlRGISJ7ku4X53vCAuiOQAA">
 <XPD:ATTR name="Name" type="string">launchbymagic</XPD:ATTR>
 <XPD:REF name="Owner">COv3tKYZpEO0RqFbgOsPOAAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Operations[83]" type="UMLOperation" guid="QB/t9ICCQ0mbFTnkYtvlsQAA">
+<XPD:OBJ name="Operations[84]" type="UMLOperation" guid="QB/t9ICCQ0mbFTnkYtvlsQAA">
 <XPD:ATTR name="Name" type="string">launchbyextension</XPD:ATTR>
 <XPD:REF name="Owner">COv3tKYZpEO0RqFbgOsPOAAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Operations[84]" type="UMLOperation" guid="xR4m7jfsRkO2wzMpQVdYOAAA">
+<XPD:OBJ name="Operations[85]" type="UMLOperation" guid="xR4m7jfsRkO2wzMpQVdYOAAA">
 <XPD:ATTR name="Name" type="string">launchbymime</XPD:ATTR>
 <XPD:REF name="Owner">COv3tKYZpEO0RqFbgOsPOAAA</XPD:REF>
 </XPD:OBJ>

@@ -101,16 +101,17 @@ sub _findversionfromfile {
 
 =item _findversion()
 
-Determines the current version from the ROFFVERSION variable in the main package.
+Determines the current version and year using the ROFFVERSION variable in
+the main package.
 
 =cut
 
 sub _findversion {
 	my $self    = shift;
-	my ($version) = ($main::ROFFVERSION =~ /^\.ds Vw \S+ pfm.pl ([a-z0-9.]+)$/ms);
-	my ($year)    = ($main::ROFFVERSION =~ /^\.ds Yr (\d+)$/ms);
+	my ($version)=($main::ROFFVERSION =~ /^\.ds Vw \S+ pfm.pl ([a-z0-9.]+)$/ms);
+	my ($year)   =($main::ROFFVERSION =~ /^\.ds Yr (\d+)$/ms);
 	# default values, in case they cannot be determined
-	$version  ||= 'unknown';
+	$version  ||= $main::VERSION || 'unknown';
 	$year     ||= 3 * 10 * 67;
 	return ($version, $year);
 }

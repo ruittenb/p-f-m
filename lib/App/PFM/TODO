@@ -2,7 +2,8 @@
 - intercept bursts of input
 - handlemorebookmark
 - handlemorego
-- check all places of clear_footer
 - handleacl
 - finish pfmrcupdate
 - cursor at 'lib', sort by name with mouse click: cursor ends up at 'lib-app-pfm'
+- sort by_sort_mode: if lc sort_mode  eq 't' then sort directories on top
+- unknown file type gives: "no valid 'launchby' option."

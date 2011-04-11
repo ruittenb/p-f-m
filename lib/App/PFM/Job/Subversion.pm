@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::Subversion 0.01
+# @(#) App::PFM::Job::Subversion 0.02
 #
 # Name:			App::PFM::Job::Subversion
-# Version:		0.01
+# Version:		0.02
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-04-14
@@ -108,7 +108,7 @@ sub isapplicable {
 
 =head1 SEE ALSO
 
-pfm(1), App::PFM::Job(3pm).
+pfm(1), App::PFM::JobHandler(3pm), App::PFM::Job::Abstract(3pm).
 
 =cut
 

@@ -39,6 +39,10 @@
 * changed F2 (previous) so that it remembers the window position
   in the current directory too
 
+2.02.3-WIP
+
+* added clearing the footer when waiting for command input
+
 2.02.2-WIP
 
 * moved filter info to heading of 'filename' column.

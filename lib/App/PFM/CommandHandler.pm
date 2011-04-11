@@ -79,19 +79,24 @@ my @SORTMODES = (
 	's'=>'Size',		S =>' reverse',
 	'z'=>'siZe total',	Z =>' reverse',
 	 t =>'Type',		T =>' reverse',
-	 i =>'Inode',		I =>' reverse',
+	 u =>'User',		U =>' reverse',
+	 g =>'Group',		G =>' reverse',
 	 v =>'Version',		V =>' reverse',
+	 i =>'Inode',		I =>' reverse',
+#	'*'=>'mark',
 );
 
 my @FIELDS_TO_SORTMODE = (
 	 n => 'n', # name
-	'm'=> 'd', # mtime
+	'm'=> 'd', # mtime --> date
 	 a => 'a', # atime
 	's'=> 's', # size
-	'z'=> 'z', # grand total
+	'z'=> 'z', # grand total (siZe)
 	 p => 't', # perm --> type
 	 i => 'i', # inode
 	 v => 'v', # version(rcs)
+	 u => 'u', # user
+	 g => 'g', # group
 );
 
 our ($command);
@@ -222,8 +227,10 @@ sub _expand_replace {
 		/3/ and return condquotemeta($qif, $_pfm->state->directory->path);
 		/4/ and return condquotemeta($qif, $_pfm->state->directory->mountpoint);
 		/5/ and $_pfm->state($_pfm->S_SWAP)
-			and return condquotemeta($qif, $_pfm->state($_pfm->S_SWAP)->directory->path);
-		/6/ and return condquotemeta($qif, basename($_pfm->state->directory->path));
+			and return condquotemeta($qif,
+                                $_pfm->state($_pfm->S_SWAP)->directory->path);
+		/6/ and return condquotemeta($qif,
+                                    basename($_pfm->state->directory->path));
 		/7/ and return condquotemeta($qif, $extension);
 		/8/ and return join (' ', $self->_selectednames($qif));
 		/e/ and return condquotemeta($qif, $_pfm->config->{editor});
@@ -924,31 +931,31 @@ sub handlehelp {
 	$_screen->clrscr()->cooked_echo();
 	print map { substr($_, 8)."\n" } split("\n", <<'    _eoHelp_');
         --------------------------------------------------------------------------------
-        a     Attrib         mb  make Bookmark     k, up arrow      move one line up    
-        c     Copy           mc  Config pfm        j, down arrow    move one line down  
-        d DEL Delete         me  Edit any file     -, +             move ten lines      
-        e     Edit           mf  make FIFO         CTRL-E, CTRL-Y   scroll dir one line 
-        f /   Find           mh  spawn sHell       CTRL-U, CTRL-D   move half a page    
-        g     tarGet         mk  Kill children     CTRL-B, CTRL-F   move a full page    
-        i     Include        mm  Make new dir      PgUp, PgDn       move a full page    
-        L     symLink        mp  Physical path     HOME, END        move to top, bottom 
-        n     Name           ms  Show directory    SPACE            mark file & advance 
-        o     cOmmand        mt  alTernate scrn    l, right arrow   enter dir           
-        p     Print          mv  Versn status all  h, left arrow    leave dir           
-        q Q   (Quick) quit   mw  Write history     ENTER            enter dir; launch   
-        r     Rename        ---------------------  ESC, BS          leave dir           
-        s     Show           !   toggle clobber   --------------------------------------
-        t     Time           *   toggle radix      F1  help           F7  swap mode     
-        u     Uid            "   toggle pathmode   F2  prev dir       F8  mark file     
-        v     Versn status   =   cycle idents      F3  redraw screen  F9  cycle layouts 
-        w     unWhiteout     .   filter dotfiles   F4  cycle colors   F10 multiple mode 
-        x     eXclude        %   filter whiteouts  F5  reread dir     F11 restat file   
-        y     Your command   @   perl command      F6  sort dir       F12 toggle mouse  
+        a     Attrib         ma  edit ACL          k, up arrow      move one line up    
+        c     Copy           mb  make Bookmark     j, down arrow    move one line down  
+        d DEL Delete         mc  Config pfm        -, +             move ten lines      
+        e     Edit           me  Edit any file     CTRL-E, CTRL-Y   scroll dir one line 
+        f /   Find           mf  make FIFO         CTRL-U, CTRL-D   move half a page    
+        g     tarGet         mg  Go bookmark       CTRL-B, CTRL-F   move a full page    
+        i     Include        mh  spawn sHell       PgUp, PgDn       move a full page    
+        L     sym/hard Link  mm  Make new dir      HOME, END        move to top, bottom 
+        n     Name           mp  Physical path     SPACE            mark file & advance 
+        o     cOmmand        ms  Show directory    l, right arrow   enter dir           
+        p     Print          mt  alTernate scrn    h, left arrow    leave dir           
+        q Q   (Quick) quit   mv  reVisn stat all   ENTER            enter dir; launch   
+        r     Rename         mw  Write history     ESC, BS          leave dir           
+        s     Show          --------------------- --------------------------------------
+        t     Time           !   toggle clobber    F1  help           F7  swap mode     
+        u     User id        *   toggle radix      F2  prev dir       F8  mark file     
+        v     reVision stat  "   toggle pathmode   F3  redraw screen  F9  cycle layouts 
+        w     unWhiteout     =   cycle idents      F4  cycle colors   F10 multiple mode 
+        x     eXclude        .   filter dotfiles   F5  reread dir     F11 restat file   
+        y     Your command   %   filter whiteouts  F6  sort dir       F12 toggle mouse  
         z     siZe           ?   help              <   commands left  >   commands right
         --------------------------------------------------------------------------------
     _eoHelp_
-	$_screen->puts("F1 or ? for more elaborate help, any other key for next screen ")
-		->raw_noecho();
+	$_screen->raw_noecho()->puts(
+		"F1 or ? for more elaborate help, any other key for next screen ");
 	if ($_screen->getch() =~ /(k1|\?)/) {
 		system qw(man pfm); # how unsubtle :-)
 	}
@@ -1099,12 +1106,13 @@ sub handlelink {
 		$histpush = $_pfm->browser->currentfile->{name};
 	}
 	
+	$_screen->clear_footer();
 	$headerlength = $_screen->frame->show_menu($_screen->frame->MENU_LNKTYPE);
 	$absrel = lc $_screen->at(0, $headerlength+1)->getch();
 	return unless $absrel =~ /^[arh]$/;
 	push @lncmd, '-s' if $absrel !~ /h/;
 	
-	$_screen->clear_footer()->at(0,0)->clreol()->cooked_echo();
+	$_screen->at(0,0)->clreol()->cooked_echo();
 	my $prompt = 'Name of new '.
 		( $absrel eq 'r' ? 'relative symbolic'
 		: $absrel eq 'a' ? 'absolute symbolic' : 'hard') . ' link: ';
@@ -1266,7 +1274,7 @@ sub handlefind {
 	}
 	my ($findme, $file);
 	my $prompt = 'File to find: ';
-	$_screen->at(0,0)->clreol()->cooked_echo();
+	$_screen->clear_footer()->at(0,0)->clreol()->cooked_echo();
 	($findme = $_pfm->history->input(H_PATH, $prompt)) =~ s/\/$//;
 	if ($findme =~ /\//) { $findme = basename($findme) };
 	$_screen->raw_noecho()->set_deferred_refresh(R_MENU);
@@ -1287,6 +1295,7 @@ sub handlefind_incremental {
 	my $prompt = 'File to find: ';
 	my $cursorjumptime = .5;
 	my $cursorcol = $_screen->listing->cursorcol;
+	$_screen->clear_footer();
 	FINDINCENTRY:
 	while (1) {
 		$_screen
@@ -1531,7 +1540,8 @@ sub handleinclude { # include/exclude flag (from keypress)
 	my ($self, $exin) = @_;
 	my ($criterion, $menulength, $key, $wildfilename, $boundarytime, $entry);
 	my $directory = $_pfm->state->directory;
-	$_screen->set_deferred_refresh(R_MENU | R_PATHINFO);
+	$_screen->clear_footer()
+		->set_deferred_refresh(R_MENU | R_PATHINFO);
 	$exin = lc $exin;
 	$menulength = $_screen->frame->show_menu(
 		$exin eq 'x'
@@ -1715,7 +1725,7 @@ sub handlecommand { # Y or O
 	unless ($_pfm->state->{multiple_mode}) {
 		$_screen->listing->markcurrentline(uc $key);
 	}
-	$_screen->diskinfo->clearcolumn();
+	$_screen->clear_footer()->diskinfo->clearcolumn();
 	if (uc($key) eq 'Y') { # Your command
 		$_screen->frame->show_headings(
 			$_pfm->browser->swap_mode, $_screen->frame->HEADING_YCOMMAND);
@@ -1808,7 +1818,7 @@ sub handleprint {
 		#$_screen->set_deferred_refresh(R_MENU | R_PATHINFO);
 		$_screen->listing->markcurrentline('P');
 	}
-	$_screen->at(0,0)->clreol()
+	$_screen->clear_footer()->at(0,0)->clreol()
 		->putcolored($messcolor, $prompt)
 		->at($_screen->PATHLINE, 0)->clreol()
 		->cooked_echo();
@@ -1851,8 +1861,8 @@ sub handledelete {
 		$_screen->listing->markcurrentline('D');
 	}
 	if ($_pfm->state->{multiple_mode} or $browser->currentfile->{nlink}) {
-		$_screen->at(0,0)->clreol()
-			->set_deferred_refresh(R_MENU)
+		$_screen->clear_footer()->at(0,0)->clreol()
+			->set_deferred_refresh(R_MENU | R_FOOTER)
 			->putmessage('Are you sure you want to delete [Y/N]? ');
 		$sure = $_screen->getch();
 		return if $sure !~ /y/i;
@@ -1925,12 +1935,12 @@ sub handlecopyrename {
 	my $browser = $_pfm->browser;
 	my $state   = $_pfm->state;
 	if ($state->{multiple_mode}) {
-		$_screen->set_deferred_refresh(R_MENU | R_DIRLIST);
+		$_screen->set_deferred_refresh(R_MENU | R_FOOTER | R_DIRLIST);
 	} else {
-		$_screen->set_deferred_refresh(R_MENU);
+		$_screen->set_deferred_refresh(R_MENU | R_FOOTER);
 		$_screen->listing->markcurrentline($key);
 	}
-	$_screen->at(0,0)->clreol()->cooked_echo();
+	$_screen->clear_footer()->at(0,0)->clreol()->cooked_echo();
 	$newname = $_pfm->history->input(H_PATH, $prompt, '',
 		$state->{multiple_mode} ? undef : $browser->currentfile->{name});
 	$_screen->raw_noecho();
@@ -2035,16 +2045,14 @@ sub handlemousedown {
 	} elsif ($mouserow > $_screen->screenheight + $_screen->BASELINE) {
 		# footer
 		$self->handlemousefootercommand($mousecol);
-	} elsif (
-		($mousecol <  $listing->filerecordcol) or
-		($mousecol >= $_screen->diskinfo->infocol and
-			$_screen->diskinfo->infocol > $listing->filerecordcol)
-		or !defined ${$_pfm->state->directory->showncontents}[
-			$mouserow - $_screen->BASELINE + $_pfm->browser->baseindex])
+	} elsif (($mousecol <  $listing->filerecordcol)
+		or	($mousecol >= $_screen->diskinfo->infocol
+		and	$_screen->diskinfo->infocol > $listing->filerecordcol))
 	{
-		# diskinfo or empty line
-		return 1; # must return true to fill handle()'s $valid
-	} else {
+		$self->handleident() if $mouserow == $_screen->diskinfo->USERINFOLINE;
+	} elsif (defined ${$_pfm->state->directory->showncontents}[
+		$mouserow - $_screen->BASELINE + $_pfm->browser->baseindex])
+	{
 		# clicked on an existing file
 		# save currentline
 		$prevcurrentline   = $_pfm->browser->currentline;
@@ -2064,12 +2072,12 @@ sub handlemousedown {
 		} else {
 			$self->handleshow();
 		}
-		# restore currentfile unless we did a chdir()
-		# NOTE 2010-05-10: can be missed?
-		# after a chdir(), currentline will be reassigned anyway
-#		unless ($do_a_refresh & $R_NEWDIR) {
+		# restore currentline
+		# note that if we changed directory, there will be a position_at anyway
 		$_pfm->browser->currentline($prevcurrentline);
-#		}
+#	} else {
+#		# diskinfo or empty line
+#		return 1; # must return true to fill handle()'s $valid
 	}
 	return 1; # must return true to fill handle()'s $valid
 }
@@ -2146,21 +2154,28 @@ Starts the menu command that was clicked on.
 
 sub handlemousemenucommand {
 	my ($self, $mousecol) = @_;
-	my $vscreenwidth = $_screen->screenwidth - 9*$_pfm->state->{multiple_mode};
-	my $menu         = $_screen->frame->_fitbanner(
-						$_screen->frame->_getmenu(), $vscreenwidth);
+	my $vscreenwidth = $_screen->screenwidth - 9* $_pfm->state->{multiple_mode};
+	# hack: add 'Multiple' marker
+	my $M     = "0";
+	my $menu  = ($_pfm->state->{multiple_mode} ? "${M}ultiple " : '') .
+						$_screen->frame->_fitbanner(
+							$_screen->frame->_getmenu(), $vscreenwidth);
 	my $left  = $mousecol - 1;
 	my $right = $_screen->screenwidth - $mousecol - 1;
 	my $choice;
 	$menu =~ /^					# anchor
 		(?:.{0,$left}\s|)		# (empty string left  || chars then space)
 		[-[:lower:]]*			# any nr. of lowercase chars or minus
-		([[:upper:]<>])			# one uppercase char or pan character
+		([[:upper:]<>$M])		# one uppercase char, multiple mark, or pan char
 		[-[:lower:]]*			# any nr. of lowercase chars or minus
 		(?:\s.{0,$right}|)		# (empty string right || space then chars)
 		$/x;					# anchor
 	$choice = $1;
-	$choice = lc($choice) if $choice eq 'Q';
+	if ($choice eq 'Q') {
+		$choice = 'q';
+	} elsif ($choice eq $M) {
+		$choice = 'k10';
+	}
 	#$_screen->at(1,0)->puts("L-$left :$choice: R-$right    ");
 	return $self->handle($choice);
 }
@@ -2204,9 +2219,12 @@ Shows the menu of B<M>ore commands, and handles the user's choice.
 sub handlemore {
 	my ($self) = @_;
 	my $frame  = $_screen->frame;
+	my $oldpan = $frame->currentpan();
+	$frame->currentpan(0);
 	my $headerlength = $frame->show_menu($frame->MENU_MORE);
 	my $key;
-	$_screen->set_deferred_refresh(R_MENU)->noecho();
+	$_screen->clear_footer()->noecho()
+		->set_deferred_refresh(R_MENU);
 	MORE_PAN: {
 		$key = $_screen->at(0, $headerlength+1)->getch();
 		for ($key) {
@@ -2222,15 +2240,16 @@ sub handlemore {
 			/^w$/io		and $_pfm->history->write(),		last MORE_PAN;
 			/^t$/io		and $self->handlemorealtscreen(),	last MORE_PAN;
 			/^p$/io		and $self->handlemorephyspath(),	last MORE_PAN;
-#			/^a$/io		and $self->handlemoreacl(),			last MORE_PAN;
+			/^a$/io		and $self->handlemoreacl(),			last MORE_PAN;
 			/^[<>]$/io	and do {
 				$self->handlepan($_, $frame->MENU_MORE);
 				$headerlength = $frame->show_menu($frame->MENU_MORE);
-				$frame->show_footer();
+#				$frame->show_footer();
 				redo MORE_PAN;
 			};
 		}
 	}
+	$frame->currentpan($oldpan);
 }
 
 =item handlemoreshow()
@@ -2348,9 +2367,21 @@ sub handlemoreshell {
 	system("$chdirautocmd") if length($chdirautocmd);
 }
 
+=item handlemoreacl()
+
+Allows the user to edit the file's Access Control List. (Not implemented)
+
+=cut
+
+sub handlemoreacl {
+	my ($self) = @_;
+	# TODO
+	$self->not_implemented();
+}
+
 =item handlemorebookmark()
 
-Creates a bookmark to the current directory.
+Creates a bookmark to the current directory. (Not implemented)
 
 =cut
 
@@ -2371,7 +2402,7 @@ sub handlemorebookmark {
 =item handlemorego()
 
 Shows a list of the current bookmarks, then offers the user a choice to
-jump to one of them.
+jump to one of them. (Not implemented)
 
 =cut
 
@@ -2452,23 +2483,6 @@ and starts a job for the current directory if so.
 sub handlemoreversion {
 	my ($self, $file) = @_;
 	$_pfm->state->directory->checkrcsapplicable();
-	# TODO move this to a App::PFM::Job::RCS
-#	# we could have used: if (RCSPIPE->opened)
-#	# but then we'd need to include IO::Handle
-#	if (defined(fileno(RCSPIPE))) {
-#		close RCSPIPE;
-#		# another svn-status command was running.
-#		# run a new one for the entire directory.
-#		$file = '';
-#	}
-#	$rcsbuffer = '';
-#	$rcsrunning = 1;
-#	$rcs_need_refresh = 1;
-#	$SIG{CHLD}  = \&reaper;
-#	preparercscol($file);
-#	my $rcspid = open(RCSPIPE, "$rcscmd \Q$file\E 2>/dev/null |");
-#	$FIELDHEADINGS{'svn'} .= '!';
-#	return $R_MENU | $R_HEADINGS;
 }
 
 =item handleenter()

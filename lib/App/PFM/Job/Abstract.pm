@@ -204,7 +204,7 @@ sub stop {
 
 =head1 SEE ALSO
 
-pfm(1), App::PFM::Job(3pm).
+pfm(1), App::PFM::JobHandler(3pm).
 
 =cut
 
