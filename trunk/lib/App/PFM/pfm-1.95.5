@@ -217,21 +217,21 @@ my $LOSTMSG				= '';   # was ' (file lost)'; # now shown through coloring
 #	 i =>'Inode',		I =>' reverse',
 ##	 v =>'sVn',			V =>' reverse',
 #);
-
-my %CMDESCAPES = (
-	'1' => 'name',
-	'2' => 'name.ext',
-	'3' => 'curr path',
-	'4' => 'mountpoint',
-	'5' => 'swap path',
-	'6' => 'base path',
-	'7' => 'extension',
-	'8' => 'selection',
-	'e' => 'editor',
-	'p' => 'pager',
-	'v' => 'viewer',
-);
-
+#
+#my %CMDESCAPES = (
+#	'1' => 'name',
+#	'2' => 'name.ext',
+#	'3' => 'curr path',
+#	'4' => 'mountpoint',
+#	'5' => 'swap path',
+#	'6' => 'base path',
+#	'7' => 'extension',
+#	'8' => 'selection',
+#	'e' => 'editor',
+#	'p' => 'pager',
+#	'v' => 'viewer',
+#);
+#
 ## AIX,BSD,Tru64	: du gives blocks, du -k kbytes
 ## Solaris		: du gives kbytes
 ## HP			: du gives blocks,               du -b something unwanted
@@ -1094,16 +1094,16 @@ my %CMDESCAPES = (
 #	}
 #}
 #
-sub dirlookup {
-	# this assumes that the entry will be found
-	my ($name, @array) = @_;
-	my $found = $#array;
-	while ($found >= 0 and $array[$found]{name} ne $name) {
-		$found--;
-	}
-	return $found;
-}
-
+#sub dirlookup {
+#	# this assumes that the entry will be found
+#	my ($name, @array) = @_;
+#	my $found = $#array;
+#	while ($found >= 0 and $array[$found]{name} ne $name) {
+#		$found--;
+#	}
+#	return $found;
+#}
+#
 #sub followmode {
 #	my %currentfile = %{$_[0]};
 #	return $currentfile{type} ne 'l'
@@ -2972,91 +2972,91 @@ sub pollall { # was handlepipes
 #	}
 #	return $do_a_refresh;
 #}
-
-sub handlecommand { # Y or O
-	local $_;
-	my ($key, $command, $do_this, $printstr, $prompt, $loopfile, $index, $newname);
-	my $printline = $BASELINE;
-	markcurrentline(uc($_[0])) unless $multiple_mode;
-	clearcolumn();
-	if ($_[0] =~ /y/i) { # Your
-		show_headings($swap_mode, $HEADING_YCOMMAND);
-		foreach (sort alphabetically keys %pfmrc) {
-			if (/^your\[[[:alpha:]]\]$/ && $printline <= $BASELINE+$screenheight) {
-				$printstr = $pfmrc{$_};
-				$printstr =~ s/\e/^[/g;
-				$scr->at($printline++, $infocol)
-					->puts(sprintf('%1s %s', substr($_,5,1), substr($printstr,0,$infolength-2)));
-			}
-		}
-		$prompt = 'Enter one of the highlighted chars below: ';
-		$key = $scr->at(0,0)->clreol()->putcolored($framecolors{$color_mode}{message}, $prompt)->getch();
-		clearcolumn();
-		# this line is supposed to contain an assignment
-		return $R_DISKINFO | $R_FRAME unless $command = $pfmrc{"your[$key]"};
-		cooked_echo();
-	} else { # cOmmand
-		show_headings($swap_mode, $HEADING_ESCAPE);
-		foreach (sort escape_middle keys %CMDESCAPES, $e) {
-			if ($printline <= $BASELINE+$screenheight) {
-				$scr->at($printline++, $infocol)->puts(sprintf(' %1s%1s %s', $e, $_, $CMDESCAPES{$_} || "literal $e"));
-			}
-		}
-		$prompt = "Enter Unix command ($e" . "[1-8] or $e" . "[epv] escapes see below):";
-		$scr->at(0,0)->clreol()->putcolored($framecolors{$color_mode}{message}, $prompt)
-			->at($PATHLINE,0)->clreol();
-		cooked_echo();
-		$command = readintohist(\@command_history);
-		clearcolumn();
-	}
-	# chdir special case
-	if ($command =~ /^\s*cd\s(.*)$/) {
-		$newname = $1;
-		expand_escapes($QUOTE_OFF, $newname, \%currentfile);
-		raw_noecho();
-		if (!ok_to_remove_marks()) {
-			return $R_HEADER; # $R_SCREEN ?
-		} elsif (!mychdir($newname)) {
-			$scr->at(2,0);
-			display_error("$newname: $!");
-			return $R_SCREEN;
-		}
-		return $R_CHDIR;
-	}
-	unless ($command =~ /^\s*\n?$/) {
-		alternate_screen($ALTERNATE_OFF);
-#		$command .= "\n";
-		if ($multiple_mode) {
-			$scr->clrscr()->at(0,0);
-			for $index (0..$#dircontents) {
-				$loopfile = $dircontents[$index];
-				if ($loopfile->{selected} eq '*') {
-					exclude($loopfile,'.');
-					$do_this = $command;
-					expand_escapes($QUOTE_ON, $do_this, $loopfile);
-					$scr->puts($do_this . "\n");
-					system $do_this and display_error("External command failed\n");
-					$dircontents[$index] =
-						stat_entry($loopfile->{name},$loopfile->{selected});
-					if ($dircontents[$index]{nlink} == 0) {
-						$dircontents[$index]{display} .= $LOSTMSG;
-					}
-				}
-			}
-			$multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
-		} else { # single-file mode
-			$loopfile = \%currentfile;
-			expand_escapes($QUOTE_ON, $command, \%currentfile);
-			$scr->clrscr()->at(0,0)->puts($command . "\n");
-			system $command and display_error('External command failed');
-			restat_copyback();
-		}
-		pressanykey();
-		alternate_screen($ALTERNATE_ON) if $altscreen_mode;
-	}
-	raw_noecho();
-	return $R_CLRSCR;
-}
+#
+#sub handlecommand { # Y or O
+#	local $_;
+#	my ($key, $command, $do_this, $printstr, $prompt, $loopfile, $index, $newname);
+#	my $printline = $BASELINE;
+#	markcurrentline(uc($_[0])) unless $multiple_mode;
+#	clearcolumn();
+#	if ($_[0] =~ /y/i) { # Your
+#		show_headings($swap_mode, $HEADING_YCOMMAND);
+#		foreach (sort alphabetically keys %pfmrc) {
+#			if (/^your\[[[:alpha:]]\]$/ && $printline <= $BASELINE+$screenheight) {
+#				$printstr = $pfmrc{$_};
+#				$printstr =~ s/\e/^[/g;
+#				$scr->at($printline++, $infocol)
+#					->puts(sprintf('%1s %s', substr($_,5,1), substr($printstr,0,$infolength-2)));
+#			}
+#		}
+#		$prompt = 'Enter one of the highlighted chars below: ';
+#		$key = $scr->at(0,0)->clreol()->putcolored($framecolors{$color_mode}{message}, $prompt)->getch();
+#		clearcolumn();
+#		# this line is supposed to contain an assignment
+#		return $R_DISKINFO | $R_FRAME unless $command = $pfmrc{"your[$key]"};
+#		cooked_echo();
+#	} else { # cOmmand
+#		show_headings($swap_mode, $HEADING_ESCAPE);
+#		foreach (sort escape_middle keys %CMDESCAPES, $e) {
+#			if ($printline <= $BASELINE+$screenheight) {
+#				$scr->at($printline++, $infocol)->puts(sprintf(' %1s%1s %s', $e, $_, $CMDESCAPES{$_} || "literal $e"));
+#			}
+#		}
+#		$prompt = "Enter Unix command ($e" . "[1-8] or $e" . "[epv] escapes see below):";
+#		$scr->at(0,0)->clreol()->putcolored($framecolors{$color_mode}{message}, $prompt)
+#			->at($PATHLINE,0)->clreol();
+#		cooked_echo();
+#		$command = readintohist(\@command_history);
+#		clearcolumn();
+#	}
+#	# chdir special case
+#	if ($command =~ /^\s*cd\s(.*)$/) {
+#		$newname = $1;
+#		expand_escapes($QUOTE_OFF, $newname, \%currentfile);
+#		raw_noecho();
+#		if (!ok_to_remove_marks()) {
+#			return $R_HEADER; # $R_SCREEN ?
+#		} elsif (!mychdir($newname)) {
+#			$scr->at(2,0);
+#			display_error("$newname: $!");
+#			return $R_SCREEN;
+#		}
+#		return $R_CHDIR;
+#	}
+#	unless ($command =~ /^\s*\n?$/) {
+#		alternate_screen($ALTERNATE_OFF);
+##		$command .= "\n";
+#		if ($multiple_mode) {
+#			$scr->clrscr()->at(0,0);
+#			for $index (0..$#dircontents) {
+#				$loopfile = $dircontents[$index];
+#				if ($loopfile->{selected} eq '*') {
+#					exclude($loopfile,'.');
+#					$do_this = $command;
+#					expand_escapes($QUOTE_ON, $do_this, $loopfile);
+#					$scr->puts($do_this . "\n");
+#					system $do_this and display_error("External command failed\n");
+#					$dircontents[$index] =
+#						stat_entry($loopfile->{name},$loopfile->{selected});
+#					if ($dircontents[$index]{nlink} == 0) {
+#						$dircontents[$index]{display} .= $LOSTMSG;
+#					}
+#				}
+#			}
+#			$multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
+#		} else { # single-file mode
+#			$loopfile = \%currentfile;
+#			expand_escapes($QUOTE_ON, $command, \%currentfile);
+#			$scr->clrscr()->at(0,0)->puts($command . "\n");
+#			system $command and display_error('External command failed');
+#			restat_copyback();
+#		}
+#		pressanykey();
+#		alternate_screen($ALTERNATE_ON) if $altscreen_mode;
+#	}
+#	raw_noecho();
+#	return $R_CLRSCR;
+#}
 
 sub handledelete {
 	my ($loopfile, $do_this, $index, $success, $msg, $oldpos, $sure, %nameindexmap);
