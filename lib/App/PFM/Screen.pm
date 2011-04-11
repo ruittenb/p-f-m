@@ -49,6 +49,7 @@ use constant {
 	ERRORDELAY		=> 1,	 # in seconds (fractions allowed)
 	IMPORTANTDELAY	=> 2,	 # extra time for important errors
 	PATHLINE		=> 1,
+	HEADINGLINE		=> 2,
 	BASELINE		=> 3,
 	R_NOP			=> 0,	 # no action was required, wait for new key
 	R_STRIDE		=> 1,	 # validate cursor position (always done)

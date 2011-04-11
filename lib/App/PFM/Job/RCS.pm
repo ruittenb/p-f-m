@@ -47,9 +47,8 @@ Initialize the 'running' flag.
 =cut
 
 sub _init() {
-	my ($self) = @_;
-	$self->{running} = 0;
-	$self->SUPER::_init();
+	my ($self, @args) = @_;
+	$self->SUPER::_init(@args);
 }
 
 ##########################################################################

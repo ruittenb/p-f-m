@@ -1,3 +1,8 @@
+2.03.9-WIP
+
+* added support for clicks in the headings (they sort the listing)
+* added support for clicks in menu and footer (they perform the command)
+
 2.03.8-WIP
 
 * started work on making cursor follow new files around in single file mode

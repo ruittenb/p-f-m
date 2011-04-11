@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 0.86
+# @(#) App::PFM::CommandHandler 0.90
 #
 # Name:			App::PFM::CommandHandler
-# Version:		0.86
+# Version:		0.90
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-05-08
@@ -67,6 +67,17 @@ my @SORTMODES = (
 	 t =>'Type',		T =>' reverse',
 	 i =>'Inode',		I =>' reverse',
 	 v =>'Version',		V =>' reverse',
+);
+
+my @FIELDS_TO_SORTMODE = (
+	 n => 'n', # name
+	'm'=> 'd', # mtime
+	 a => 'a', # atime
+	's'=> 's', # size
+	'z'=> 'z', # grand total
+	 p => 't', # perm --> type
+	 i => 'i', # inode
+	 v => 'v', # version(rcs)
 );
 
 our ($command);
@@ -428,7 +439,7 @@ sub handle {
 		/^[ix]$/io			and $self->handleinclude($_),		last;
 		/^\r$/io			and $self->handleenter(),			last;
 		/^s$/io				and $self->handleshow(),			last;
-#		/^kmous$/o			and $self->handlemousedown(),		last;
+		/^kmous$/o			and $self->handlemousedown(),		last;
 		/^k7$/o				and $self->handleswap(),			last;
 		/^k10$/o			and $self->handlemultiple(),		last;
 		/^m$/io				and $self->handlemore(),			last;
@@ -522,6 +533,8 @@ sub handlemove {
 	my $displacement  =
 			- (/^(?:ku|k)$/o  )
 			+ (/^(?:kd|j| )$/o)
+			- (/^mup$/o  )		* 5
+			+ (/^mdown$/o)		* 5
 			- (/^-$/o)			* 10
 			+ (/^\+$/o)			* 10
 			- (/\cB|pgup/o)		* $screenheight
@@ -952,6 +965,26 @@ sub handleselect {
 	# redraw the line now, because we could be moving on
 	# to the next file now (space command)
 	$_screen->listing->highlight_off();
+}
+
+=item handleselectall()
+
+Handles marking (including) all files.
+
+=cut
+
+sub handleselectall {
+	my ($self) = @_;
+	my $file;
+	foreach $file (@{$_pfm->state->directory->showncontents}) {
+		if ($file->{selected} ne M_MARK and
+			$file->{name} ne '.' and
+			$file->{name} ne '..')
+		{
+			$_pfm->state->directory->include($file);
+		}
+	}
+	$_screen->set_deferred_refresh(R_SCREEN);
 }
 
 =item handleadvance()
@@ -1606,6 +1639,216 @@ sub handletarget {
 		}
 	};
 	$_pfm->state->directory->apply($do_this);
+}
+
+=item handlemousedown()
+
+Handles mouse clicks.
+
+=cut
+
+sub handlemousedown {
+	my ($self) = @_;
+	my ($mbutton, $mousecol, $mouserow, $prevcurrentline, $on_name,
+		$currentfile);
+	my $listing = $_screen->listing;
+	$_screen->noecho();
+	$mbutton  = ord($_screen->getch()) - 040;
+	$mousecol = ord($_screen->getch()) - 041;
+	$mouserow = ord($_screen->getch()) - 041;
+	$_screen->echo();
+	# button ----------------- location clicked -----------------------
+	# 		pathline		header/footer	fileln	filename	dirname
+	# 1		More/Show/cd()	 -              F8		Show		Show
+	# 2		cOmmand			 -              Show	ENTER		new win
+	# 3		cOmmand			 -              Show	ENTER		new win
+	# up	------------------- three lines up ------------------------
+	# down	------------------ three lines down -----------------------
+	if ($mbutton == 64) {
+		# wheel up
+		$self->handlemove('mup');
+	} elsif ($mbutton == 65) {
+		# wheel down
+		$self->handlemove('mdown');
+	} elsif ($mbutton == 68) {
+		# shift-wheel up
+		$self->handlemove('ku');
+	} elsif ($mbutton == 69) {
+		# shift-wheel down
+		$self->handlemove('kd');
+	} elsif ($mouserow == $_screen->PATHLINE) {
+		# path line
+		if ($mbutton) {
+			$self->handlecommand('o');
+		} else {
+			$self->handlepathjump($mousecol);
+		}
+	} elsif ($mouserow == $_screen->HEADINGLINE) {
+		# headings
+		$self->handleheadingsort($mousecol);
+	} elsif ($mouserow == 0) {
+		# menu
+		$self->handlemousemenucommand($mousecol);
+	} elsif ($mouserow > $_screen->screenheight + $_screen->BASELINE) {
+		# footer
+		$self->handlemousefootercommand($mousecol);
+	} elsif (
+		($mousecol <  $listing->filerecordcol) or
+		($mousecol >= $_screen->diskinfo->infocol and
+			$_screen->diskinfo->infocol > $listing->filerecordcol)
+		or !defined ${$_pfm->state->directory->showncontents}[
+			$mouserow - $_screen->BASELINE + $_pfm->browser->baseindex])
+	{
+		# diskinfo or empty line
+		return;
+	} else {
+		# clicked on an existing file
+		# save currentline
+		$prevcurrentline   = $_pfm->browser->currentline;
+		# put cursor temporarily on another file
+		$_pfm->browser->currentline($mouserow - $_screen->BASELINE);
+		$on_name = ($mousecol >= $listing->filenamecol
+				and $mousecol <= $listing->filenamecol + $listing->maxfilenamelength);
+		if ($on_name and $mbutton) {
+			$currentfile = $_pfm->browser->currentfile;
+			if ($currentfile->{type} eq 'd') {
+				$_pfm->openwindow($currentfile);
+			} else {
+				$self->handleenter();
+			}
+		} elsif (!$on_name and !$mbutton) {
+			$self->handleselect();
+		} else {
+			$self->handleshow();
+		}
+		# restore currentfile unless we did a chdir()
+		# NOTE 2010-05-10: can be missed?
+		# after a chdir(), currentline will be reassigned anyway
+#		unless ($do_a_refresh & $R_NEWDIR) {
+		$_pfm->browser->currentline($prevcurrentline);
+#		}
+	}
+}
+
+=item handlepathjump()
+
+Handles a click in the directory path, and changes to this directory.
+
+=cut
+
+sub handlepathjump {
+	my ($self, $mousecol) = @_;
+	my ($baselen, $skipsize, $selecteddir);
+	my $currentdir = $_pfm->state->directory->path;
+	my $pathline = $_screen->pathline(
+		$currentdir,
+		$_pfm->state->directory->disk->{'device'},
+		\$baselen,
+		\$skipsize);
+	# if part of the pathline has been left out, calculate the position
+	# where the mouse would have clicked if the path had been complete
+	if ($mousecol >= $baselen) {
+		$mousecol += $skipsize;
+	}
+	$currentdir  =~ /^(.{$mousecol}	# 'mousecol' number of chars
+						[^\/]*		# gobbling up all non-slash chars
+						(?:\/|$))	# a slash or eoln
+					  	([^\/]*)	# maybe another string of non-slash chars
+					/x;
+	$selecteddir = $1;
+	$_pfm->browser->position_at($2);
+	if ($selecteddir eq '' or
+		$selecteddir eq $currentdir)
+	{
+		$self->handlemoreshow();
+	} elsif ($_screen->ok_to_remove_marks()) {
+		if (!$_pfm->state->directory->chdir($selecteddir)) {
+			$_screen->display_error("$selecteddir: $!");
+			$_screen->set_deferred_refresh(R_SCREEN);
+		}
+	}
+}
+
+=item handleheadingsort()
+
+Sorts the directory contents according to the heading clicked.
+
+=cut
+
+sub handleheadingsort {
+	my ($self, $mousecol) = @_;
+	my $currentlayoutline = $_screen->listing->currentlayoutline;
+	my %sortmodes = @FIELDS_TO_SORTMODE;
+	# get field character
+	my $key = substr($currentlayoutline, $mousecol, 1);
+	if ($key eq '*') {
+		goto &handleselectall;
+	}
+	# translate field character to sort mode character
+	$key = $sortmodes{$key};
+	if ($key) {
+		$key = uc($key) if ($_pfm->state->{sort_mode} eq $key);
+		$_pfm->state->{sort_mode} = $key;
+		$_pfm->browser->position_at($_pfm->browser->currentfile->{name});
+	}
+	$_screen->set_deferred_refresh(R_DIRSORT | R_SCREEN);
+}
+
+=item handlemousemenucommand()
+
+Starts the menu command that was clicked on.
+
+=cut
+
+sub handlemousemenucommand {
+	my ($self, $mousecol) = @_;
+	my $vscreenwidth = $_screen->screenwidth - 9*$_pfm->state->{multiple_mode};
+	my $menu         = $_screen->frame->_fitbanner(
+						$_screen->frame->_getmenu(), $vscreenwidth);
+	my $left  = $mousecol - 1;
+	my $right = $_screen->screenwidth - $mousecol - 1;
+	my $choice;
+	$menu =~ /^					# anchor
+		(?:.{0,$left}\s|)		# (empty string left  || chars then space)
+		[[:lower:]]*			# any nr. of lowercase chars
+		([[:upper:]<>])			# one uppercase char or pan character
+		[[:lower:]]*			# any nr. of lowercase chars
+		(?:\s.{0,$right}|)		# (empty string right || space then chars)
+		$/x;					# anchor
+	$choice = $1;
+	$choice = uc($choice) if $choice eq 'l';
+	#$_screen->at(1,0)->puts("L-$left :$choice: R-$right    ");
+	return $self->handle($choice);
+}
+
+=item handlemousefootercommand()
+
+Starts the footer command that was clicked on.
+
+=cut
+
+sub handlemousefootercommand {
+	my ($self, $mousecol) = @_;
+	my $menu  = $_screen->frame->_fitbanner(
+					$_screen->frame->_getfooter(), $_screen->screenwidth);
+	my $left  = $mousecol - 1;
+	my $right = $_screen->screenwidth - $mousecol - 1;
+	my $choice;
+	$menu =~ /^					# anchor
+		(?:.{0,$left}\s|)		# (empty string left  || chars then space)
+		(?:						#
+			(\W-				# non-alphabetic
+			|F\d+-				# or F<digits>
+			|[<>]				# or pan character
+			)					#
+			\S*					# any nr. of non-space chars
+		)						#
+		(?:\s.{0,$right}|)		# (empty string right || space then chars)
+		$/x;					# anchor
+	($choice = $1)	=~ s/-$//;	# transform F12- to F12
+	$choice			=~ s/^F/k/;	# transform F12  to k12
+	#$_screen->at(1,0)->puts("L-$left :$choice: R-$right    ");
+	return $self->handle($choice);
 }
 
 =item handlemore()

@@ -238,6 +238,19 @@ sub layoutfieldswithinfo {
 	return \@_layoutfieldswithinfo;
 }
 
+=item currentlayoutline()
+
+Getter for the string defining the layout of a file record.
+
+=cut
+
+sub currentlayoutline {
+	my ($self) = @_;
+	my $currentlayoutline = $_pfm->config->{columnlayouts}->[$_layout];
+	$currentlayoutline =~ s/n/'n' x ($_screen->screenwidth - 79)/e;
+	return $currentlayoutline;
+}
+
 =item currentformatline()
 
 Getter/setter for the string defining the format of a file record.
@@ -389,9 +402,8 @@ sub makeformatlines {
 	my $self = shift;
 	my ($squeezedlayoutline, $currentlayoutline, $firstwronglayout, $prev,
 		$letter, $trans, $temp, $infocol, $infolength, $miss);
-	my $columnlayouts = $_pfm->config->{columnlayouts};
 	LAYOUT: {
-		$currentlayoutline = $columnlayouts->[$_layout];
+		$currentlayoutline = $self->currentlayoutline;
 		$miss =
 			$currentlayoutline !~ /n/o
 			? 'n'
@@ -423,7 +435,7 @@ sub makeformatlines {
 		}
 	}
 	# layouts are all based on a screenwidth of 80: elongate filename field
-	$currentlayoutline =~ s/n/'n' x ($_screen->screenwidth - 79)/e;
+#	$currentlayoutline =~ s/n/'n' x ($_screen->screenwidth - 79)/e;
 	# find out the length of the filename, filesize, grand total and info fields
 	$infolength =
 	$_screen->diskinfo->infolength($infolength = $currentlayoutline =~ tr/f//);

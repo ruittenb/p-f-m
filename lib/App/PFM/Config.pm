@@ -384,9 +384,9 @@ sub apply {
 	$screen->color_mode($newcolormode);
 	$_pfm->history->setornaments($self->{framecolors}{$newcolormode}{message});
 	$_pfm->commandhandler->clobber_mode($self->{clobber_mode});
+	$_pfm->browser->mouse_mode($self->{mouse_mode});
 	$screen->diskinfo->ident_mode($self->{ident_mode});
 	$screen->listing->layout($self->{currentlayout});
-	$screen->mouse_enable()	if $self->{mouse_mode};
 	$screen->alternate_on()	if $self->{altscreen_mode};
 	# hand variables over to the state
 	$state->{dot_mode}         = $self->{dot_mode};
