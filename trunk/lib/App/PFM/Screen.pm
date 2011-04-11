@@ -105,18 +105,18 @@ sub _init {
 	$_frame		= new App::PFM::Screen::Frame(   $pfm, $self);
 	$_listing	= new App::PFM::Screen::Listing( $pfm, $self);
 	$_diskinfo	= new App::PFM::Screen::Diskinfo($pfm, $self);
-	$SIG{WINCH} = \&_resizecatcher;
+	$SIG{WINCH} = \&_catch_resize;
 }
 
-=item _resizecatcher()
+=item _catch_resize()
 
 Catches window resize signals (WINCH).
 
 =cut
 
-sub _resizecatcher {
+sub _catch_resize {
 	$_wasresized = 1;
-	$SIG{WINCH} = \&_resizecatcher;
+	$SIG{WINCH} = \&_catch_resize;
 }
 
 ##########################################################################
@@ -406,7 +406,7 @@ sub putmessage {
 	if ($framecolors) {
 		$self->putcolored(
 			$framecolors->{$_color_mode}{message},
-			@message);
+			join '', @message);
 	} else {
 		$self->puts(join '', @message);
 	}
@@ -422,7 +422,7 @@ sub pressanykey {
 	my $self = shift;
 	$self->putmessage("\r\n*** Hit any key to continue ***");
 	$self->raw_noecho();
-	if ($_pfm->browser->{mouse_mode} && $_pfm->config->{clickiskeypresstoo}) {
+	if ($_pfm->browser->mouse_mode && $_pfm->config->{clickiskeypresstoo}) {
 		$self->mouse_enable();
 	} else {
 		$self->mouse_disable();

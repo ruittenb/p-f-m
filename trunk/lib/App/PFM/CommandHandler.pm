@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 0.93
+# @(#) App::PFM::CommandHandler 0.97
 #
 # Name:			App::PFM::CommandHandler
-# Version:		0.93
+# Version:		0.97
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-05-12
@@ -396,6 +396,27 @@ sub whitecommand {
 ##########################################################################
 # public subs
 
+=item by_name()
+
+Sorting routine: sorts files by name.
+
+=cut
+
+sub by_name {
+	return $a->{name} cmp $b->{name};
+}
+
+=item alphabetically()
+
+Sorting routine: sorts strings alphabetically, case-insensitive.
+
+=cut
+
+sub alphabetically {
+	return uc($a) cmp uc($b) || $a cmp $b;
+}
+
+
 =item escape_middle()
 
 Sorting routine: sorts digits E<lt> escape character E<lt> letters.
@@ -449,7 +470,7 @@ sub handle {
 #		/^[cr]$/io			and $self->handlecopyrename($_),		last;
 		/^[yo]$/io			and $self->handlecommand($_),			last;
 		/^e$/io				and $self->handleedit(),				last;
-#		/^(?:d|del)$/io		and $self->handledelete(),				last;
+		/^(?:d|del)$/io		and $self->handledelete(),				last;
 		/^[ix]$/io			and $self->handleinclude($_),			last;
 		/^\r$/io			and $self->handleenter(),				last;
 		/^s$/io				and $self->handleshow(),				last;
@@ -457,7 +478,7 @@ sub handle {
 		/^k7$/o				and $self->handleswap(),				last;
 		/^k10$/o			and $self->handlemultiple(),			last;
 		/^m$/io				and $self->handlemore(),				last;
-#		/^p$/io				and $self->handleprint(),				last;
+		/^p$/io				and $self->handleprint(),				last;
 		/^L$/o				and $self->handlelink(),				last;
 		/^n$/io				and $self->handlename(),				last;
 		/^k8$/o				and $self->handleselect(),				last;
@@ -983,19 +1004,35 @@ sub handleselect {
 
 =item handleselectall()
 
-Handles marking (including) all files.
+Handles marking (in-/excluding) all files.
 
 =cut
 
 sub handleselectall {
 	my ($self) = @_;
 	my $file;
-	foreach $file (@{$_pfm->state->directory->showncontents}) {
-		if ($file->{selected} ne M_MARK and
-			$file->{name} ne '.' and
-			$file->{name} ne '..')
-		{
-			$_pfm->state->directory->include($file);
+	my $selected_nr_of = $_pfm->state->directory->selected_nr_of;
+	my $showncontents  = $_pfm->state->directory->showncontents;
+	if ($selected_nr_of->{d} + $selected_nr_of->{'-'} +
+		$selected_nr_of->{s} + $selected_nr_of->{p} +
+		$selected_nr_of->{c} + $selected_nr_of->{b} +
+		$selected_nr_of->{l} + $selected_nr_of->{D} +
+		$selected_nr_of->{w} + $selected_nr_of->{n} + 2 < $#$showncontents)
+	{
+		foreach $file (@$showncontents) {
+			if ($file->{selected} ne M_MARK and
+				$file->{name} ne '.' and
+				$file->{name} ne '..')
+			{
+				$_pfm->state->directory->include($file);
+			}
+		}
+	} else {
+		foreach $file (@$showncontents) {
+			if ($file->{selected} eq M_MARK)
+			{
+				$_pfm->state->directory->exclude($file);
+			}
 		}
 	}
 	$_screen->set_deferred_refresh(R_SCREEN);
@@ -1234,9 +1271,11 @@ sub handlefind {
 	return if $findme eq '';
 	FINDENTRY:
 	foreach $file (sort by_name @{$_pfm->state->directory->showncontents}) {
-		last FINDENTRY if $findme le $file->{name};
+		if ($findme le $file->{name}) {
+			$_pfm->browser->position_at($file->{name});
+			last FINDENTRY;
+		}
 	}
-	$_pfm->browser->position_at($findme);
 	$_screen->set_deferred_refresh(R_DIRLIST);
 }
 
@@ -1729,7 +1768,7 @@ sub handlecommand { # Y or O
 		return;
 	}
 	# general case: command (either Y or O) is known here
-	unless ($command =~ /^\s*\n?$/) {
+	if ($command =~ /\S/) {
 		$_screen->alternate_off()->clrscr()->at(0,0);
 		$do_this = sub {
 			my $file = shift;
@@ -1745,6 +1784,132 @@ sub handlecommand { # Y or O
 		$_screen->alternate_on() if $_pfm->config->{altscreen_mode};
 	}
 	$_screen->raw_noecho()->set_deferred_refresh(R_CLRSCR);
+}
+
+=item handleprint()
+
+Executes a print command.
+
+=cut
+
+sub handleprint {
+	my ($self) = @_;
+	my ($do_this, $command);
+	my $prompt = 'Enter print command: ';
+	my $printcmd = $_pfm->config->{printcmd};
+	my $messcolor = $_pfm->config->{framecolors}{$_screen->color_mode}{message};
+	if ($_pfm->state->{multiple_mode}) {
+		#$_screen->set_deferred_refresh(R_MENU | R_PATHINFO | R_DIRLIST);
+	} else {
+		#$_screen->set_deferred_refresh(R_MENU | R_PATHINFO);
+		$_screen->listing->markcurrentline('P');
+	}
+	$_screen->at(0,0)->clreol()
+		->putcolored($messcolor, $prompt)
+		->at($_screen->PATHLINE, 0)->clreol()
+		->cooked_echo();
+	$command = $_pfm->history->input(H_COMMAND,'', $printcmd, undef, $printcmd);
+	$_screen->raw_noecho();
+	if ($command eq '') {
+		$_screen->set_deferred_refresh(R_FRAME | R_DISKINFO);
+		return;
+	}
+	#$_screen->alternate_off()->clrscr()->at(0,0);
+	$do_this = sub {
+		my $file = shift;
+		my $do_command = $command;
+		# $self is the commandhandler (due to closure)
+		$self->_expand_escapes($self->QUOTE_ON, $do_command, $file);
+		$_screen->puts("\n$do_command\n");
+		system $do_command
+			and $_screen->display_error("Print command failed\n");
+	};
+	# we could supply 'O' in the next line to treat it like a real cOmmand
+	$_pfm->state->directory->apply($do_this);
+	#$_screen->pressanykey();
+	#$_screen->alternate_on() if $_pfm->config->{altscreen_mode};
+	$_screen->set_deferred_refresh(R_SCREEN);
+	return;
+}
+
+=item handledelete()
+
+Handles deleting files.
+
+=cut
+
+sub handledelete {
+	my ($self) = @_;
+	my ($do_this, $sure, $oldpos);
+	my $browser    = $_pfm->browser;
+	my $directory  = $_pfm->state->directory;
+	unless ($_pfm->state->{multiple_mode}) {
+		$_screen->listing->markcurrentline('D');
+	}
+	if ($_pfm->state->{multiple_mode} or $browser->currentfile->{nlink}) {
+		$_screen->at(0,0)->clreol()
+			->set_deferred_refresh(R_MENU)
+			->putmessage('Are you sure you want to delete [Y/N]? ');
+		$sure = $_screen->getch();
+		return if $sure !~ /y/i;
+	}
+	$_screen->at($_screen->PATHLINE, 0)
+		->set_deferred_refresh(R_SCREEN);
+	$do_this = sub {
+		my $file = shift;
+		my ($msg, $success);
+		if ($file->{name} eq '.') {
+			# don't allow people to delete '.'; normally, this could be allowed
+			# if it is empty, but if that leaves the parent directory empty,
+			# then it can also be removed, which causes a fatal pfm error.
+			$msg = 'Deleting current directory not allowed';
+			$success = 0;
+		} elsif ($file->{nlink} == 0 and $file->{type} ne 'w') {
+			# remove 'lost files' immediately, no confirmation needed
+			$success = 1;
+		} elsif ($file->{type} eq 'd') {
+			if (testdirempty($file->{name})) {
+				$success = rmdir $file->{name};
+			} else {
+				$_screen->at(0,0)->clreol()->putmessage(
+					'Recursively delete a non-empty directory ',
+					'[Affirmative/Negative]? ');
+				$sure = lc $_screen->getch();
+				$_screen->at(0,0);
+				if ($sure eq 'a') {
+					$success = !system('rm', '-rf', $file->{name});
+				} else {
+					$msg = 'Deletion cancelled. Directory not empty';
+					$success = 0;
+				}
+				$_screen->clreol();
+			}
+		} else {
+			$success = unlink $file->{name};
+		}
+		if (!$success) {
+			$_screen->display_error($msg || $!);
+		}
+		return $success ? 'deleted' : '';
+	};
+	$oldpos = $browser->currentfile->{name};
+	$directory->apply($do_this, 'D');
+	if ($_pfm->state->{multiple_mode}) {
+		# %nameindexmap may be completely invalid at this point. use dirlookup()
+		if (dirlookup($oldpos, @{$directory->showncontents}) > 0) {
+			$browser->position_at($oldpos);
+		}
+	} elsif ($browser->position_at eq '') {
+#		# this prevents the cursor from running out of @showncontents;
+#		# otherwise, the validate_position() call is pointless
+#		while ($browser->currentline + $browser->baseindex
+#			> $#{$directory->showncontents})
+#		{
+#			$browser->currentline($browser->currentline - 1);
+#		}
+		$_pfm->browser->validate_position();
+	}
+	return;
 }
 
 =item handlemousedown()
@@ -1807,7 +1972,7 @@ sub handlemousedown {
 			$mouserow - $_screen->BASELINE + $_pfm->browser->baseindex])
 	{
 		# diskinfo or empty line
-		return '';
+		return 1; # must return true to fill handle()'s $valid
 	} else {
 		# clicked on an existing file
 		# save currentline
@@ -1835,7 +2000,7 @@ sub handlemousedown {
 		$_pfm->browser->currentline($prevcurrentline);
 #		}
 	}
-	return '';
+	return 1; # must return true to fill handle()'s $valid
 }
 
 =item handlepathjump()
