@@ -48,7 +48,7 @@ use constant {
 	FILENAME_LONG	=> 1,
 };
 
-my %LAYOUTFIELDS = (
+use constant LAYOUTFIELDS => {
 	'*' => 'selected',
 	'n' => 'display',
 	'N' => 'name_too_long',
@@ -67,7 +67,7 @@ my %LAYOUTFIELDS = (
 	'd' => 'rdev',
 	'v' => 'rcs',
 	'f' => 'diskinfo',
-);
+};
 
 use constant FILETYPEFLAGS => {
 	 # ls(1)
@@ -464,8 +464,10 @@ sub makeformatlines {
 	($squeezedlayoutline = $currentlayoutline) =~
 		tr/*nNsSzZugpacmdilvf /*nNsSzZugpacmdilvf/ds;
 	($_formatname = $squeezedlayoutline) =~ s/[*SNZ]//g;
-	@_layoutfields         = map { $LAYOUTFIELDS{$_} } grep { !/f/ } (split //, $squeezedlayoutline);
-	@_layoutfieldswithinfo = map { $LAYOUTFIELDS{$_} }               (split //, $squeezedlayoutline);
+	@_layoutfields         =
+		map { LAYOUTFIELDS->{$_} } grep { !/f/ } (split //,$squeezedlayoutline);
+	@_layoutfieldswithinfo =
+		map { LAYOUTFIELDS->{$_} }               (split //,$squeezedlayoutline);
 	# make the formatline
 	$_currentformatlinewithinfo = $_currentformatline = $prev = '';
 	foreach $letter (split //, $currentlayoutline) {

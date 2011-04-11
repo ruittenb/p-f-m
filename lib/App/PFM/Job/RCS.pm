@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::RCS 0.01
+# @(#) App::PFM::Job::RCS 0.26
 #
 # Name:			App::PFM::Job::RCS
-# Version:		0.01
+# Version:		0.26
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-03
+# Date:			2010-05-14
 #
 
 ##########################################################################
@@ -42,30 +42,43 @@ use strict;
 
 =item _init()
 
-Initialize the 'running' flag.
+Initializes new instances. Called from the constructor.
 
 =cut
 
 sub _init() {
-	my ($self, @args) = @_;
+	my ($self, $path, @args) = @_;
+	$self->{_path}    = $path;
 	$self->SUPER::_init(@args);
+}
+
+=item _start_child()
+
+Starts the actual job.
+
+=cut
+
+sub _start_child {
+	my ($self) = @_;
+	$self->{_pipe}->reader($self->command);
 }
 
 ##########################################################################
 # constructor, getters and setters
 
+=item command()
+
+Getter for the command.
+
+=cut
+
+sub command {
+	my ($self) = @_;
+	return sprintf($self->{_COMMAND}, quotemeta $self->{_path});
+}
+
 ##########################################################################
 # public subs
-
-sub isapplicable {
-	# implemented by subclasses
-	return 0;
-}
-
-sub start {
-	# start $self->{_COMMAND}
-	#$_screen->set_deferred_refresh(R_HEADINGS);
-}
 
 sub poll {
 }

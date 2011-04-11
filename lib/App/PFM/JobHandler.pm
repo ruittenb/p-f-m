@@ -92,9 +92,9 @@ sub start {
 	my ($self, $class, @args) = @_;
 	$class =~ tr/a-zA-Z0-9_//cd;
 	$class = "App::PFM::Job::$class";
-	my $job = $class->new($_pfm);
+	my $job = $class->new(@args);
 	push @_jobs, $job;
-	$job->start(@args);
+	$job->start();
 	return $#_jobs;
 }
 

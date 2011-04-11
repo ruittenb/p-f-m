@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Directory 0.12
+# @(#) App::PFM::Directory 0.78
 #
 # Name:			App::PFM::Directory
-# Version:		0.12
+# Version:		0.78
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-10
+# Date:			2010-05-13
 #
 
 ##########################################################################
@@ -53,6 +53,13 @@ use constant {
 	M_NEWMARK	=> '~',
 };
 
+use constant RCS => [
+	'Subversion',
+	'Cvs',
+	'Bazaar',
+	'Git',
+];
+
 our @EXPORT = qw(M_MARK M_OLDMARK M_NEWMARK);
 
 my $DFCMD = ($^O eq 'hpux') ? 'bdf' : ($^O eq 'sco') ? 'dfspace' : 'df -k';
@@ -91,9 +98,8 @@ App::PFM::Directory instance.
 
 sub _clone {
 	my ($self, $original, @args) = @_;
+	# note: we are not cloning the files here.
 	$self->{_dircontents}	 = [ @{$original->{_dircontents}	} ];
-	# TODO we may want to keep the same references to _dircontents
-	# - or we may need to clone() the files.
 	$self->{_showncontents}	 = [ @{$original->{_showncontents}	} ];
 	$self->{_selected_nr_of} = { %{$original->{_selected_nr_of}	} };
 	$self->{_total_nr_of}	 = { %{$original->{_total_nr_of}	} };
@@ -618,29 +624,76 @@ and starts them.
 
 sub checkrcsapplicable {
 	my ($self, $entry) = @_;
+	my ($class, $fullclass);
 	my $path = $self->{_path};
 	$entry = defined $entry ? $entry : $path;
+	my %on = (
+		before_start		=> sub {},
+		after_start			=> sub {
+			# next line needs to provide a '1' argument because
+			# $self->{_rcsjob} has not yet been set
+			$_pfm->screen->frame->update_headings(1);
+			$_pfm->screen->frame->show_headings(
+				$_pfm->browser->swap_mode,
+				$_pfm->screen->HEADING_DISKINFO);
+		},
+		after_receive_data	=> sub {},
+		after_finish		=> sub {
+			$self->{_rcsjob} = undef;
+			$_pfm->screen->frame->update_headings();
+			$_pfm->screen->frame->show_headings(
+				$_pfm->browser->swap_mode,
+				$_pfm->screen->HEADING_DISKINFO);
+		},
+	);
 	# TODO when a directory is swapped out, the jobs should continue
 	# TODO when a directory is cloned, what to do?
-	if (App::PFM::Job::Subversion->isapplicable($path)) {
-		$_pfm->jobhandler->stop($self->{_rcsjob}) if defined $self->{_rcsjob};
-		$self->{_rcsjob} = $_pfm->jobhandler->start('Subversion', $entry);
+	foreach $class (@{$self->RCS}) {
+		$fullclass = "App::PFM::Job::$class";
+		if ($fullclass->isapplicable($path)) {
+			$_pfm->jobhandler->stop($self->{_rcsjob})
+				if defined $self->{_rcsjob};
+			$self->{_rcsjob} = $_pfm->jobhandler->start($class, $entry, %on);
+			return;
+		}
+	}
+#	if (App::PFM::Job::Subversion->isapplicable($path)) {
+#		$_pfm->jobhandler->stop($self->{_rcsjob}) if defined $self->{_rcsjob};
+#		$self->{_rcsjob} = $_pfm->jobhandler->start('Subversion', $entry, %on);
+#		return;
+#	}
+#	if (App::PFM::Job::Cvs->isapplicable($path)) {
+#		$_pfm->jobhandler->stop($self->{_rcsjob}) if defined $self->{_rcsjob};
+#		$self->{_rcsjob} = $_pfm->jobhandler->start('Cvs', $entry, %on);
+#		return;
+#	}
+#	if (App::PFM::Job::Bazaar->isapplicable($path)) {
+#		$_pfm->jobhandler->stop($self->{_rcsjob}) if defined $self->{_rcsjob};
+#		$self->{_rcsjob} = $_pfm->jobhandler->start('Bazaar', $entry, %on);
+#		return;
+#	}
+#	if (App::PFM::Job::Git->isapplicable($path)) {
+#		$_pfm->jobhandler->stop($self->{_rcsjob}) if defined $self->{_rcsjob};
+#		$self->{_rcsjob} = $_pfm->jobhandler->start('Git', $entry, %on);
+#		return;
+#	}
+}
+
+=item preparercscol()
+
+Prepares the 'Version' field in the directory contents by clearing it.
+
+=cut
+
+sub preparercscol {
+	my ($self, $file) = @_;
+	my $layoutfields = $_pfm->screen->listing->LAYOUTFIELDS;
+	if (defined $file and $file->{name} ne '.') {
+		$file->{$layoutfields->{'v'}} = '-';
 		return;
 	}
-	if (App::PFM::Job::Cvs->isapplicable($path)) {
-		$_pfm->jobhandler->stop($self->{_rcsjob}) if defined $self->{_rcsjob};
-		$self->{_rcsjob} = $_pfm->jobhandler->start('Cvs', $entry);
-		return;
-	}
-	if (App::PFM::Job::Bazaar->isapplicable($path)) {
-		$_pfm->jobhandler->stop($self->{_rcsjob}) if defined $self->{_rcsjob};
-		$self->{_rcsjob} = $_pfm->jobhandler->start('Bazaar', $entry);
-		return;
-	}
-	if (App::PFM::Job::Git->isapplicable($path)) {
-		$_pfm->jobhandler->stop($self->{_rcsjob}) if defined $self->{_rcsjob};
-		$self->{_rcsjob} = $_pfm->jobhandler->start('Git', $entry);
-		return;
+	foreach (0 .. $#{$self->{_showncontents}}) {
+		$self->{_showncontents}[$_]{$layoutfields->{'v'}} = '-';
 	}
 }
 

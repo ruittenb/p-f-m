@@ -47,9 +47,9 @@ Initializes new instances. Called from the constructor.
 =cut
 
 sub _init {
-	my $self = shift;
-	$self->{_COMMAND} = 'svn status';
-
+	my ($self, @args) = @_;
+	$self->{_COMMAND} = 'svn status %s';
+	$self->SUPER::_init(@args);
 }
 
 =item _svnmaxchar()

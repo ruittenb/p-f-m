@@ -80,7 +80,7 @@ my %_fieldheadings = (
 	gid				=> 'groupid',
 	nlink			=> 'lnks',
 	rdev			=> 'dev',
-	rcs				=> 'vers',
+	rcs				=> 'rcs',
 	diskinfo		=> 'disk info',
 );
 
@@ -230,7 +230,10 @@ Displays menu, footer and headings.
 sub show {
 	my $self = shift;
 	$self->show_menu();
-	$self->show_headings($_pfm->browser->swap_mode, HEADING_DISKINFO);
+	$self->show_headings(
+		$_pfm->browser->swap_mode,
+		$_pfm->state->directory->{_rcsjob},
+		HEADING_DISKINFO);
 	$self->show_footer();
 	return $self;
 }
@@ -286,19 +289,15 @@ sub show_headings {
 		$_ == HEADING_ESCAPE	and $diskinfo = "esc legend    $padding";
 	}
 	$_fieldheadings{diskinfo} = $diskinfo;
-	$filters = ($state->{white_mode} ? '' : '%')
-			 . ($state->{dot_mode}   ? '' : '.');
-	$_fieldheadings{display} = $_fieldheadings{name} .
-		($filters ? " (filtered)" : '');
 	$linecolor = $swapmode
 		? $_pfm->config->{framecolors}->{$_screen->color_mode}{swap}
 		: $_pfm->config->{framecolors}->{$_screen->color_mode}{headings};
 	# in case colorizable() is off:
 	$_screen->bold()		if ($linecolor =~ /bold/);
 	$_screen->reverse()		if ($linecolor =~ /reverse/);
-#	$_screen->underline()	if ($linecolor =~ /under(line|score)/);
-	$_screen->term()->Tputs('us', 1, *STDOUT)
-							if ($linecolor =~ /under(line|score)/);
+	$_screen->underline()	if ($linecolor =~ /underline/);
+#	$_screen->term()->Tputs('us', 1, *STDOUT)
+#							if ($linecolor =~ /under(line|score)/);
 	$_screen->at($_screen->HEADINGLINE,0)
 		->putcolored($linecolor, formatted(
 			$_screen->listing->currentformatlinewithinfo,
@@ -322,9 +321,9 @@ sub show_footer {
 	# in case colorizable() is off:
 	$_screen->bold()		if ($linecolor =~ /bold/);
 	$_screen->reverse()		if ($linecolor =~ /reverse/);
-#	$_screen->underline()	if ($linecolor =~ /under(line|score)/);
-	$_screen->term()->Tputs('us', 1, *STDOUT)
-							if ($linecolor =~ /under(line|score)/);
+	$_screen->underline()	if ($linecolor =~ /underline/);
+#	$_screen->term()->Tputs('us', 1, *STDOUT)
+#							if ($linecolor =~ /under(line|score)/);
 	$_screen->at($_screen->BASELINE + $_screen->screenheight + 1, 0)
 		->putcolored($linecolor, $footer, $padding)->reset()->normal();
 }
@@ -344,6 +343,26 @@ sub clear_footer {
 #							if ($linecolor =~ /under(line|score)/);
 	$_screen->at($_screen->BASELINE + $_screen->screenheight + 1, 0)
 		->putcolored($linecolor, $padding)->reset()->normal();
+}
+
+=item update_headings()
+
+Updates the column headings in case of a mode change.
+
+=cut
+
+sub update_headings {
+	my ($self, $rcsrunning) = @_;
+	my $state = $_pfm->state;
+	my $filters = ($state->{white_mode} ? '' : '%')
+				. ($state->{dot_mode}   ? '' : '.');
+	$_fieldheadings{display} = $_fieldheadings{name} .
+		($filters ? " (filtered)" : '');
+	if ($rcsrunning or $state->directory->{_rcsjob}) {
+		$_fieldheadings{rcs} =~  s/!*$/!/;
+	} else {
+		$_fieldheadings{rcs} =~ s/!+$//;
+	}
 }
 
 =item pan()
