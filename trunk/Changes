@@ -1,3 +1,7 @@
+2.04.2-WIP
+
+* deprecated $LOSTMSG
+
 2.03.9-WIP
 
 * added support for clicks in the headings (they sort the listing)

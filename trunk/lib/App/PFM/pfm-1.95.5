@@ -167,7 +167,7 @@
 #my $CONFIGDIRMODE		= 0700;
 #my $CWDFILENAME			= 'cwd';
 #my $SWDFILENAME			= 'swd';
-my $LOSTMSG				= '';   # was ' (file lost)'; # now shown through coloring
+#my $LOSTMSG				= '';   # was ' (file lost)'; # now shown through coloring
 #my $MAJORMINORSEPARATOR	= ',';
 #my $NAMETOOLONGCHAR		= '+';
 #my $MAXHISTSIZE			= 70;
@@ -1979,19 +1979,19 @@ my $LOSTMSG				= '';   # was ' (file lost)'; # now shown through coloring
 #	validate_position();
 #	return $R_CLRSCR;
 #}
-
-sub preparercscol {
-	my $file = shift;
-	my (%nameindexmap, $count);
-	if ($file ne '' and $file ne '.') {
-		%nameindexmap = map { $_->{name}, $count++ } @showncontents;
-		$showncontents[$nameindexmap{$file}]{$LAYOUTFIELDS{'v'}} = '-';
-		return;
-	}
-	foreach(0..$#showncontents) {
-		$showncontents[$_]{$LAYOUTFIELDS{'v'}} = '-';
-	}
-}
+#
+#sub preparercscol {
+#	my $file = shift;
+#	my (%nameindexmap, $count);
+#	if ($file ne '' and $file ne '.') {
+#		%nameindexmap = map { $_->{name}, $count++ } @showncontents;
+#		$showncontents[$nameindexmap{$file}]{$LAYOUTFIELDS{'v'}} = '-';
+#		return;
+#	}
+#	foreach(0..$#showncontents) {
+#		$showncontents[$_]{$LAYOUTFIELDS{'v'}} = '-';
+#	}
+#}
 
 sub handlercspipe {
 	# I don't have any experience with other versioning systems.
@@ -2053,17 +2053,17 @@ sub handlercspipe {
 		# therefore, continue processing
 		goto &handlercspipe;
 	} else {
-		close RCSPIPE;
-		$rcsrunning = 0;
-		$FIELDHEADINGS{'svn'} =~ s/!+$//;
-		show_headings($swap_mode, $HEADING_DISKINFO);
+#		close RCSPIPE;
+#		$rcsrunning = 0;
+#		$FIELDHEADINGS{'svn'} =~ s/!+$//;
+#		show_headings($swap_mode, $HEADING_DISKINFO);
 	}
 }
-
-sub pollall { # was handlepipes
-	handlercspipe();
-}
-
+#
+#sub pollall { # was handlepipes
+#	handlercspipe();
+#}
+#
 #sub handlemouse {
 #	mouseenable(toggle $mouse_mode);
 #	return $R_FOOTER;
@@ -2508,20 +2508,20 @@ sub pollall { # was handlepipes
 #	my $file = shift;
 #	# we could have used: if (RCSPIPE->opened)
 #	# but then we'd need to include IO::Handle
-#	if (defined(fileno(RCSPIPE))) {
-#		close RCSPIPE;
-#		# another svn-status command was running.
-#		# run a new one for the entire directory.
-#		$file = '';
-#	}
-#	$rcsbuffer = '';
+	if (defined(fileno(RCSPIPE))) {
+		close RCSPIPE;
+		# another svn-status command was running.
+		# run a new one for the entire directory.
+		$file = '';
+	}
+	$rcsbuffer = '';
 #	$rcsrunning = 1;
-#	$rcs_need_refresh = 1;
+	$rcs_need_refresh = 1;
 #	$SIG{CHLD}  = \&reaper;
 #	preparercscol($file);
 #	my $rcspid = open(RCSPIPE, "$rcscmd \Q$file\E 2>/dev/null |");
-#	$FIELDHEADINGS{'svn'} .= '!';
-#	return $R_MENU | $R_HEADINGS;
+	$FIELDHEADINGS{'svn'} .= '!';
+	return $R_MENU | $R_HEADINGS;
 #}
 #
 #sub handlemore {
@@ -3310,85 +3310,85 @@ sub pollall { # was handlepipes
 #	raw_noecho();
 #	return $R_CLRSCR;
 #}
-
-sub handlecopyrename {
-	my $state    = uc $_[0];
-	my @statecmd = (($state eq 'C' ? qw(cp -r)       : 'mv'), ($clobber_mode ? '-f' : '-i'));
-	my $prompt   =   $state eq 'C' ? 'Destination: ' : 'New name: ';
-	my ($loopfile, $index, $testname, $newname, $multi2single, $newnameexpanded,
-		$do_this, $findindex, $sure);
-	my $do_a_refresh = $R_MENU;
-	markcurrentline($state) unless $multiple_mode;
-	$scr->at(0,0)->clreol();
-	cooked_echo();
-	push (@path_history, $currentfile{name}) unless $multiple_mode;
-	$newname = readintohist(\@path_history, $prompt);
-	if ($#path_history > 0 and $path_history[-1] eq $path_history[-2]) {
-		pop @path_history;
-	}
-	raw_noecho();
-	return $R_MENU if ($newname eq '');
-	# expand \[3456] at this point as a test, but not \[1278]
-	expand_3456_escapes($QUOTE_OFF, ($testname = $newname), \%currentfile);
-	# assignment on purpose, executed before evaluation of return value
-	return $R_MENU | $multi2single if $multi2single = multi_to_single($testname);
-	$scr->at(1,0)->clreol() unless $clobber_mode;
-	$do_this = sub {
-#		if ($state eq 'C' and $loopfile->{type} =~ /[ld]/ ) { # move this outsde of do_this
-#			# AIX: cp -r follows symlink
-#			# Linux: cp -r copies symlink
-#			$scr->at(0,0)->clreol();
-#			putmessage('Copy symlinks to symlinks [Copy/Follow]? ');
-#			$sure = lc $scr->getch();
-#			$scr->at(0,0);
-#			if ($sure eq 'a') {
-#			} else {
-#				$msg = 'Skipping directory';
+#
+#sub handlecopyrename {
+#	my $state    = uc $_[0];
+#	my @statecmd = (($state eq 'C' ? qw(cp -r)       : 'mv'), ($clobber_mode ? '-f' : '-i'));
+#	my $prompt   =   $state eq 'C' ? 'Destination: ' : 'New name: ';
+#	my ($loopfile, $index, $testname, $newname, $multi2single, $newnameexpanded,
+#		$do_this, $findindex, $sure);
+#	my $do_a_refresh = $R_MENU;
+#	markcurrentline($state) unless $multiple_mode;
+#	$scr->at(0,0)->clreol();
+#	cooked_echo();
+#	push (@path_history, $currentfile{name}) unless $multiple_mode;
+#	$newname = readintohist(\@path_history, $prompt);
+#	if ($#path_history > 0 and $path_history[-1] eq $path_history[-2]) {
+#		pop @path_history;
+#	}
+#	raw_noecho();
+#	return $R_MENU if ($newname eq '');
+#	# expand \[3456] at this point as a test, but not \[1278]
+#	expand_3456_escapes($QUOTE_OFF, ($testname = $newname), \%currentfile);
+#	# assignment on purpose, executed before evaluation of return value
+#	return $R_MENU | $multi2single if $multi2single = multi_to_single($testname);
+#	$scr->at(1,0)->clreol() unless $clobber_mode;
+#	$do_this = sub {
+##		if ($state eq 'C' and $loopfile->{type} =~ /[ld]/ ) { # move this outsde of do_this
+##			# AIX: cp -r follows symlink
+##			# Linux: cp -r copies symlink
+##			$scr->at(0,0)->clreol();
+##			putmessage('Copy symlinks to symlinks [Copy/Follow]? ');
+##			$sure = lc $scr->getch();
+##			$scr->at(0,0);
+##			if ($sure eq 'a') {
+##			} else {
+##				$msg = 'Skipping directory';
+##			}
+##			$scr->clreol();
+##		} elsif
+#		if (system @statecmd, $loopfile->{name}, $newnameexpanded) {
+#			$do_a_refresh |= neat_error($state eq 'C' ? 'Copy failed' : 'Rename failed');
+#		} elsif ($newnameexpanded !~ m!/!) {
+#			# is newname present in @dircontents? push otherwise
+#			$findindex = 0;
+#			$findindex++ while ($findindex <= $#dircontents and
+#							$newnameexpanded ne $dircontents[$findindex]{name});
+#			if ($findindex > $#dircontents) {
+#				$do_a_refresh |= $R_DIRSORT;
 #			}
-#			$scr->clreol();
-#		} elsif
-		if (system @statecmd, $loopfile->{name}, $newnameexpanded) {
-			$do_a_refresh |= neat_error($state eq 'C' ? 'Copy failed' : 'Rename failed');
-		} elsif ($newnameexpanded !~ m!/!) {
-			# is newname present in @dircontents? push otherwise
-			$findindex = 0;
-			$findindex++ while ($findindex <= $#dircontents and
-							$newnameexpanded ne $dircontents[$findindex]{name});
-			if ($findindex > $#dircontents) {
-				$do_a_refresh |= $R_DIRSORT;
-			}
-			$dircontents[$findindex] = stat_entry($newnameexpanded, $dircontents[$findindex]{selected} || ' ');
-		}
-	};
-	cooked_echo() unless $clobber_mode;
-	if ($multiple_mode) {
-		for $index (0..$#dircontents) {
-			$loopfile = $dircontents[$index];
-			if ($loopfile->{selected} eq '*') {
-				$scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
-				exclude($loopfile, '.');
-				expand_escapes($QUOTE_OFF, ($newnameexpanded = $newname), $loopfile);
-				$do_this->();
-				$dircontents[$index] = stat_entry($loopfile->{name},$loopfile->{selected});
-				if ($dircontents[$index]{nlink} == 0) {
-					$dircontents[$index]{display} .= $LOSTMSG;
-				}
-				$do_a_refresh |= $R_SCREEN;
-			}
-		}
-		$multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
-	} else {
-		$loopfile = \%currentfile;
-		expand_escapes($QUOTE_OFF, ($newnameexpanded = $newname), $loopfile);
-		$do_this->();
-		restat_copyback();
-		# if ! $clobber_mode, we might have gotten an 'Overwrite?' question
-		$do_a_refresh |= $R_SCREEN unless $clobber_mode;
-	}
-	raw_noecho() unless $clobber_mode;
-	return $do_a_refresh;
-}
-
+#			$dircontents[$findindex] = stat_entry($newnameexpanded, $dircontents[$findindex]{selected} || ' ');
+#		}
+#	};
+#	cooked_echo() unless $clobber_mode;
+#	if ($multiple_mode) {
+#		for $index (0..$#dircontents) {
+#			$loopfile = $dircontents[$index];
+#			if ($loopfile->{selected} eq '*') {
+#				$scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
+#				exclude($loopfile, '.');
+#				expand_escapes($QUOTE_OFF, ($newnameexpanded = $newname), $loopfile);
+#				$do_this->();
+#				$dircontents[$index] = stat_entry($loopfile->{name},$loopfile->{selected});
+#				if ($dircontents[$index]{nlink} == 0) {
+#					$dircontents[$index]{display} .= $LOSTMSG;
+#				}
+#				$do_a_refresh |= $R_SCREEN;
+#			}
+#		}
+#		$multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
+#	} else {
+#		$loopfile = \%currentfile;
+#		expand_escapes($QUOTE_OFF, ($newnameexpanded = $newname), $loopfile);
+#		$do_this->();
+#		restat_copyback();
+#		# if ! $clobber_mode, we might have gotten an 'Overwrite?' question
+#		$do_a_refresh |= $R_SCREEN unless $clobber_mode;
+#	}
+#	raw_noecho() unless $clobber_mode;
+#	return $do_a_refresh;
+#}
+#
 #sub handlerestat {
 #	# i have seen these commands somewhere before..
 #	my $currentfile = $dircontents[$currentline+$baseindex];

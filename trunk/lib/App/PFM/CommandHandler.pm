@@ -467,7 +467,7 @@ sub handle {
 		/^l$/o				and $self->handlekeyell($_),			last;
 		/^ $/o				and $self->handleadvance($_),			last;
 		/^k5$/o				and $self->handlerefresh(),				last;
-#		/^[cr]$/io			and $self->handlecopyrename($_),		last;
+		/^[cr]$/io			and $self->handlecopyrename($_),		last;
 		/^[yo]$/io			and $self->handlecommand($_),			last;
 		/^e$/io				and $self->handleedit(),				last;
 		/^(?:d|del)$/io		and $self->handledelete(),				last;
@@ -732,6 +732,7 @@ sub handlewhiteout {
 	my $browser = $_pfm->browser;
 	toggle($_pfm->state->{white_mode});
 	$browser->position_at($browser->currentfile->{name});
+	$_screen->frame->update_headings();
 	$_screen->set_deferred_refresh(R_SCREEN);
 }
 
@@ -758,6 +759,7 @@ sub handledot {
 	my $browser = $_pfm->browser;
 	toggle($_pfm->state->{dot_mode});
 	$browser->position_at($browser->currentfile->{name});
+	$_screen->frame->update_headings();
 	$_screen->set_deferred_refresh(R_SCREEN);
 }
 
@@ -1017,7 +1019,7 @@ sub handleselectall {
 		$selected_nr_of->{s} + $selected_nr_of->{p} +
 		$selected_nr_of->{c} + $selected_nr_of->{b} +
 		$selected_nr_of->{l} + $selected_nr_of->{D} +
-		$selected_nr_of->{w} + $selected_nr_of->{n} + 2 < $#$showncontents)
+		$selected_nr_of->{w} + $selected_nr_of->{n} + 2 < @$showncontents)
 	{
 		foreach $file (@$showncontents) {
 			if ($file->{selected} ne M_MARK and
@@ -1122,7 +1124,7 @@ sub handlelink {
 		my $state           = $_pfm->state;
 		my $currentdir      = $state->directory->path;
 		my ($simpletarget, $simplename, $targetstring, $mark);
-		# $self is the CommandHandler (because closure)
+		# $self is the commandhandler (due to closure)
 		$self->_expand_escapes($self->QUOTE_OFF, $newnameexpanded, $file);
 		if (-d $newnameexpanded) {
 			# make sure $newname is a file (not a directory)
@@ -1535,7 +1537,7 @@ sub handleinclude { # include/exclude flag (from keypress)
 		$exin eq 'x'
 		? $_screen->frame->MENU_EXCLUDE
 		: $_screen->frame->MENU_INCLUDE);
-	$key = lc($_screen->at(0, $menulength+1)->getch());
+	$key = lc $_screen->at(0, $menulength+1)->getch();
 	if      ($key eq 'o') { # oldmarks
 		$criterion = sub { my $file = shift; $file->{selected} eq M_OLDMARK };
 	} elsif ($key eq 'n') { # newmarks
@@ -1604,6 +1606,7 @@ sub handlesize {
 	$do_this = sub {
 		my $file = shift;
 		my ($recursivesize, $command, $tempfile, $res);
+		# $self is the commandhandler (due to closure)
 		$self->_expand_escapes(
 			QUOTE_ON, ($command = $_pfm->config->{ducmd}), $file);
 		$recursivesize = `$command 2>/dev/null`;
@@ -1674,8 +1677,9 @@ sub handletarget {
 		if ($file->{type} ne 'l') {
 			$_screen->at(0,0)->clreol()->display_error($nosymlinkerror);
 		} else {
+			# $self is the commandhandler (due to closure)
 			$self->_expand_escapes(
-				QUOTE_OFF, ($newtargetexpanded = $newtarget), $file);
+				$self->QUOTE_OFF, ($newtargetexpanded = $newtarget), $file);
 			$oldtargetok = 1;
 			if (-d $file->{name}) {
 				# if it points to a dir, the symlink must be removed first
@@ -1900,15 +1904,82 @@ sub handledelete {
 			$browser->position_at($oldpos);
 		}
 	} elsif ($browser->position_at eq '') {
-#		# this prevents the cursor from running out of @showncontents;
-#		# otherwise, the validate_position() call is pointless
-#		while ($browser->currentline + $browser->baseindex
-#			> $#{$directory->showncontents})
-#		{
-#			$browser->currentline($browser->currentline - 1);
-#		}
 		$_pfm->browser->validate_position();
 	}
+	return;
+}
+
+=item handlecopyrename()
+
+Handles copying and renaming files.
+
+=cut
+
+sub handlecopyrename {
+	my ($self, $key) = @_;
+	$key = uc $key;
+	my @command = (($key eq 'C' ? qw(cp -r) : 'mv'),
+					($_clobber_mode ? '-f' : '-i'));
+	my $prompt = $key eq 'C' ? 'Destination: ' : 'New name: ';
+	my ($testname, $newname, $newnameexpanded, $do_this, $sure, $mark);
+	my $browser = $_pfm->browser;
+	my $state   = $_pfm->state;
+	if ($state->{multiple_mode}) {
+		$_screen->set_deferred_refresh(R_MENU | R_DIRLIST);
+	} else {
+		$_screen->set_deferred_refresh(R_MENU);
+		$_screen->listing->markcurrentline($key);
+	}
+	$_screen->at(0,0)->clreol()->cooked_echo();
+	$newname = $_pfm->history->input(H_PATH, $prompt, '',
+		$state->{multiple_mode} ? undef : $browser->currentfile->{name});
+	$_screen->raw_noecho();
+	return if ($newname eq '');
+	# expand \[3456] at this point as a test, but not \[1278]
+	$self->_expand_3456_escapes(
+		QUOTE_OFF, ($testname = $newname), $browser->currentfile);
+	return if $self->_multi_to_single($testname);
+	$_screen->at(1,0)->clreol() unless $_clobber_mode;
+	$do_this = sub {
+		my $file = shift;
+		my $findindex;
+		# move this outsde of do_this
+#		if ($key eq 'C' and $file->{type} =~ /[ld]/ ) {
+#			# AIX: cp -r follows symlink
+#			# Linux: cp -r copies symlink
+#			$_screen->at(0,0)->clreol();
+#				->putmessage('Copy symlinks to symlinks [Copy/Follow]? ');
+#			$sure = lc $_screen->getch();
+#			$_screen->at(0,0);
+#			if ($sure eq 'c') {
+#			} else {
+#			}
+#			$_screen->clreol();
+#		} elsif
+		# $self is the commandhandler (due to closure)
+		$self->_expand_escapes(
+			QUOTE_OFF, ($newnameexpanded = $newname), $file);
+		if (system @command, $file->{name}, $newnameexpanded) {
+			$_screen->neat_error($key eq 'C' ? 'Copy failed' : 'Rename failed');
+		} elsif ($newnameexpanded !~ m!/!) {
+			# let cursor follow around
+			$browser->position_at($newnameexpanded)
+				unless $state->{multiple_mode};
+			# add newname to the current directory listing.
+			# TODO if newnameexpanded == swapdir, add there
+			$mark = ($state->{multiple_mode}) ? M_NEWMARK : " ";
+			$state->directory->addifabsent(
+				entry   => $newnameexpanded,
+				white   => '',
+				mark    => $mark,
+				refresh => TRUE);
+		}
+	};
+	$_screen->cooked_echo() unless $_clobber_mode;
+	$state->directory->apply($do_this);
+	# if ! $clobber_mode, we might have gotten an 'Overwrite?' question
+	$_screen->set_deferred_refresh(R_SCREEN) unless $_clobber_mode;
+	$_screen->raw_noecho() unless $_clobber_mode;
 	return;
 }
 
