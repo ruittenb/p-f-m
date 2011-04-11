@@ -211,7 +211,8 @@ the appropriate history.
 
 =cut
 
-sub input { # $history, $prompt [, $default_input [, $history_input [,$filter]]]
+sub input {
+	# $history, $prompt [, $default_input [, $history_input [, $filter ]]]
 	local $SIG{INT} = 'IGNORE'; # do not interrupt pfm
 	my ($self, $history, $prompt, $input, $histpush, $pushfilter) = @_;
 	$history = $HISTORIES{$history};

@@ -159,7 +159,10 @@ sub pollall {
 
 =head1 SEE ALSO
 
-pfm(1).
+pfm(1), App::PFM::Job::Abstract(3pm), App::PFM::Job::Bazaar(3pm),
+App::PFM::Job::CheckUpdates(3pm), App::PFM::Job::Cvs(3pm),
+App::PFM::Job::Git(3pm), App::PFM::Job::RCS(3pm),
+App::PFM::Job::Subversion(3pm).
 
 =cut
 

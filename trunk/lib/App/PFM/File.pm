@@ -61,6 +61,10 @@ my $RDEVTOMAJOR = $RDEVTOMAJOR{$^O} || $RDEVTOMAJOR{default};
 
 my @SYMBOLIC_MODES = qw(--- --x -w- -wx r-- r-x rw- rwx);
 
+my $MODE2STR = ($^O eq 'solaris' or $^O eq 'sunos')
+				? '-pc?d?b?-nl?sDP?' # Solaris has event pipes
+				: '-pc?d?b?-nl?sDw?';
+
 our ($_pfm);
 
 ##########################################################################
@@ -125,7 +129,7 @@ Possible inode types are:
  2000  S_IFCHR   c   020000  character special
  3000  S_IFMPC       030000  multiplexed character special (V7)
  4000  S_IFDIR   d/  040000  directory
- 5000  S_IFNAM       050000  XENIX named special file with two subtypes,
+ 5000  S_IFNAM       050000  named special file (XENIX) with two subtypes,
                              distinguished by st_rdev values 1,2:
  0001  S_INSEM   s   000001    semaphore
  0002  S_INSHD   m   000002    shared data
@@ -136,9 +140,10 @@ Possible inode types are:
  a000  S_IFLNK   l@  120000  symbolic link
  b000  S_IFSHAD      130000  Solaris ACL shadow inode,
                              not seen by userspace
- c000  S_IFSOCK  s=  140000  socket
- d000  S_IFDOOR  D>  150000  Solaris door
- e000  S_IFWHT   w%  160000  BSD whiteout
+ c000  S_IFSOCK  s=  140000  socket AF_UNIX
+ d000  S_IFDOOR  D>  150000  door (Solaris)
+ e000  S_IFWHT   w%  160000  whiteout (BSD)
+ e000  S_IFPORT  P   160000  event port (Solaris)
 
 =cut
 
@@ -147,7 +152,7 @@ sub mode2str {
 	my $strmode;
 	my $octmode = sprintf("%lo", $nummode);
 	$octmode	=~ /(\d\d?)(\d)(\d)(\d)(\d)$/;
-	$strmode	= substr('-pc?d?b?-nl?sDw?', oct($1) & 017, 1)
+	$strmode	= substr($MODE2STR, oct($1) & 017, 1)
 				. $SYMBOLIC_MODES[$3] . $SYMBOLIC_MODES[$4] . $SYMBOLIC_MODES[$5];
 	#
 	if ($2 & 4) { substr($strmode,3,1) =~ tr/-x/Ss/ }

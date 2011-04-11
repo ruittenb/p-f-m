@@ -58,7 +58,7 @@ use constant {
 my %ONOFF = ('' => 'off', 0 => 'off', 1 => 'on');
 
 my %_fieldheadings = (
-	selected		=> ' ',
+	selected		=> '*',
 	name			=> 'filename',
 	display			=> 'filename',
 	name_too_long	=> ' ',
@@ -69,23 +69,22 @@ my %_fieldheadings = (
 	grand_num		=> 'total',
 	grand_power		=> ' ',
 	inode			=> 'inode',
-	mode			=> 'perm',
+	mode			=> 'mode',
 	atime			=> 'date/atime',
 	mtime			=> 'date/mtime',
 	ctime			=> 'date/ctime',
 	atimestring		=> 'date/atime',
 	mtimestring		=> 'date/mtime',
 	ctimestring		=> 'date/ctime',
-	uid				=> 'userid',
-	gid				=> 'groupid',
+	uid				=> 'user',
+	gid				=> 'group',
 	nlink			=> 'lnks',
 	rdev			=> 'dev',
 	rcs				=> 'rcs',
 	diskinfo		=> 'disk info',
 );
 
-my ($_pfm, $_screen,
-	$_currentpan);
+my ($_pfm, $_screen);
 
 ##########################################################################
 # private subs
@@ -99,9 +98,9 @@ Called from the constructor.
 
 sub _init {
 	my ($self, $pfm, $screen) = @_;
-	$_pfm        = $pfm;
-	$_screen     = $screen;
-	$_currentpan = 0;
+	$_pfm	 = $pfm;
+	$_screen = $screen;
+	$self->{_currentpan} = 0;
 }
 
 =item _maxpan()
@@ -134,16 +133,17 @@ will fit on the screen. Pan key marks B<E<lt>> and B<E<gt>> will be added.
 sub _fitbanner {
 	my ($self, $banner, $virtwidth) = @_;
 	my ($maxwidth, $spcount);
+	my $currentpan = $self->{_currentpan};
 	if (length($banner) > $virtwidth) {
 		$spcount  = $self->_maxpan($banner, $virtwidth);
-		$maxwidth = $virtwidth	- 2 * ($_currentpan > 0)
-								- 2 * ($_currentpan < $spcount);
+		$maxwidth = $virtwidth	- 2 * ($currentpan > 0)
+								- 2 * ($currentpan < $spcount);
 		$banner  .= ' ';
 		eval "
-			\$banner =~ s/^(?:\\S+ ){$_currentpan,}?(.{1,$maxwidth}) .*/\$1/;
+			\$banner =~ s/^(?:\\S+ ){$currentpan,}?(.{1,$maxwidth}) .*/\$1/;
 		";
-		if ($_currentpan > 0       ) { $banner  = '< ' . $banner; }
-		if ($_currentpan < $spcount) { $banner .= ' >'; }
+		if ($currentpan > 0       ) { $banner  = '< ' . $banner; }
+		if ($currentpan < $spcount) { $banner .= ' >'; }
 	}
 	return $banner;
 }
@@ -161,8 +161,8 @@ sub _getmenu {
 		return	'Sort by: Name, Extension, Size, Date, Type, Inode, Vers '
 		.		'(ignorecase, reverse):';
 	} elsif ($mode & MENU_MORE) {
-		return	'Bookmark Config Edit-any mkFifo Go sHell Mkdir '
-		.		'Phys-path Show-dir alTscreen Version Write-hist';
+		return	'Acl Bookmark Config Edit-any mkFifo Go sHell Mkdir '
+		.		'Phys-path Show-dir alTscreen reVision Write-hist';
 	} elsif ($mode & MENU_EXCLUDE) {
 		return	'Exclude? Every, Oldmarks, Newmarks, '
 		.		'After, Before, User or Files only:';
@@ -173,7 +173,7 @@ sub _getmenu {
 		return	'Absolute, Relative symlink or Hard link:';
 	} else {
 		return	'Attribute Copy Delete Edit Find tarGet Include Link More Name'
-		.		' cOmmand Print Quit Rename Show Time User Version unWhiteout'
+		.		' cOmmand Print Quit Rename Show Time User reVision unWhiteout'
 		.		' eXclude Your-command siZe';
 	}
 }
@@ -216,6 +216,22 @@ Getter for the hash that defines the column headings to be printed.
 
 sub fieldheadings {
 	return \%_fieldheadings;
+}
+
+=item currentpan()
+
+Getter/setter for the amount by which the menu and footer are currently
+panned.
+
+=cut
+
+sub currentpan {
+	my ($self, $value) = @_;
+	if (defined $value) {
+		$self->{_currentpan} = $value;
+		$self->pan(); # $key, $mode both undef
+	}
+	return $self->{_currentpan};
 }
 
 ##########################################################################
@@ -289,6 +305,7 @@ sub show_headings {
 		$_ == HEADING_ESCAPE	and $diskinfo = "esc legend    $padding";
 	}
 	$_fieldheadings{diskinfo} = $diskinfo;
+	$self->update_headings();
 	$linecolor = $swapmode
 		? $_pfm->config->{framecolors}->{$_screen->color_mode}{swap}
 		: $_pfm->config->{framecolors}->{$_screen->color_mode}{headings};
@@ -378,8 +395,8 @@ sub pan {
 		$self->_maxpan($self->_getmenu($mode), $width),
 		$self->_maxpan($self->_getfooter(), $width)
 	);
-	$_currentpan = $_currentpan - ($key eq '<' and $_currentpan > 0)
-								+ ($key eq '>' and $_currentpan < $count);
+	$self->{_currentpan} += ($key eq '>' and $self->{_currentpan} < $count)
+						  - ($key eq '<' and $self->{_currentpan} > 0);
 	$_screen->set_deferred_refresh($_screen->R_MENU | $_screen->R_FOOTER);
 }
 

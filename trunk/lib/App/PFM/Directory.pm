@@ -79,7 +79,7 @@ sub _init {
 	my ($self, $pfm, $path)	 = @_;
 	$_pfm					 = $pfm;
 	$self->{_path}			 = $path;
-	$self->{_path_mode}		 = 0;
+	$self->{_path_mode}		 = 'log';
 	$self->{_wasquit}		 = undef;
 	$self->{_rcsjob}		 = undef;
 	$self->{_dircontents}	 = [];
@@ -122,37 +122,42 @@ sub _by_sort_mode {
 		elsif ($a->{name} eq '..') { return -1 }
 		elsif ($b->{name} eq '..') { return  1 }
 	}
-	SWITCH:
+	BY_NAME:
 	for ($_pfm->state->{sort_mode}) {
-		/n/ and return		$a->{name}  cmp		$b->{name},	last SWITCH;
-		/N/ and return		$b->{name}  cmp		$a->{name},	last SWITCH;
-		/m/ and return	 lc($a->{name}) cmp  lc($b->{name}),last SWITCH;
-		/M/ and return	 lc($b->{name}) cmp  lc($a->{name}),last SWITCH;
-		/d/ and return		$a->{mtime} <=>		$b->{mtime},last SWITCH;
-		/D/ and return		$b->{mtime} <=>		$a->{mtime},last SWITCH;
-		/a/ and return		$a->{atime} <=>		$b->{atime},last SWITCH;
-		/A/ and return		$b->{atime} <=>		$a->{atime},last SWITCH;
-		/s/ and return		$a->{size}  <=>		$b->{size},	last SWITCH;
-		/S/ and return		$b->{size}  <=>		$a->{size},	last SWITCH;
-		/z/ and return		$a->{grand} <=>		$b->{grand},last SWITCH;
-		/Z/ and return		$b->{grand} <=>		$a->{grand},last SWITCH;
-		/i/ and return		$a->{inode} <=>		$b->{inode},last SWITCH;
-		/I/ and return		$b->{inode} <=>		$a->{inode},last SWITCH;
-		/v/ and return		$a->{rcs}   cmp		$b->{rcs},  last SWITCH;
-		/V/ and return		$b->{rcs}   cmp		$a->{rcs},  last SWITCH;
+		/n/ and return		$a->{name}  cmp		$b->{name},	last BY_NAME;
+		/N/ and return		$b->{name}  cmp		$a->{name},	last BY_NAME;
+		/m/ and return	 lc($a->{name}) cmp  lc($b->{name}),last BY_NAME;
+		/M/ and return	 lc($b->{name}) cmp  lc($a->{name}),last BY_NAME;
+		/d/ and return		$a->{mtime} <=>		$b->{mtime},last BY_NAME;
+		/D/ and return		$b->{mtime} <=>		$a->{mtime},last BY_NAME;
+		/a/ and return		$a->{atime} <=>		$b->{atime},last BY_NAME;
+		/A/ and return		$b->{atime} <=>		$a->{atime},last BY_NAME;
+		/s/ and return		$a->{size}  <=>		$b->{size},	last BY_NAME;
+		/S/ and return		$b->{size}  <=>		$a->{size},	last BY_NAME;
+		/z/ and return		$a->{grand} <=>		$b->{grand},last BY_NAME;
+		/Z/ and return		$b->{grand} <=>		$a->{grand},last BY_NAME;
+		/i/ and return		$a->{inode} <=>		$b->{inode},last BY_NAME;
+		/I/ and return		$b->{inode} <=>		$a->{inode},last BY_NAME;
+		/u/ and return		$a->{uid}   cmp		$b->{uid},  last BY_NAME;
+		/U/ and return		$b->{uid}   cmp		$a->{uid},  last BY_NAME;
+		/g/ and return		$a->{gid}   cmp		$b->{gid},  last BY_NAME;
+		/G/ and return		$b->{gid}   cmp		$a->{gid},  last BY_NAME;
+		/v/ and return		$a->{rcs}   cmp		$b->{rcs},  last BY_NAME;
+		/V/ and return		$b->{rcs}   cmp		$a->{rcs},  last BY_NAME;
 		/t/ and return $a->{type}.$a->{name}
-									  cmp $b->{type}.$b->{name}, last SWITCH;
+										cmp $b->{type}.$b->{name}, last BY_NAME;
 		/T/ and return $b->{type}.$b->{name}
-									  cmp $a->{type}.$a->{name}, last SWITCH;
+										cmp $a->{type}.$a->{name}, last BY_NAME;
+		/\*/ and return		$a->{selected}	cmp		$b->{selected},last BY_NAME;
 		/[ef]/i and do {
 			 if ($a->{name} =~ /^(.*)(\.[^\.]+)$/) { $exta = $2."\0377".$1 }
 											 else { $exta = "\0377".$a->{name} }
 			 if ($b->{name} =~ /^(.*)(\.[^\.]+)$/) { $extb = $2."\0377".$1 }
 											 else { $extb = "\0377".$b->{name} }
-			 /e/ and return    $exta  cmp    $extb, 		last SWITCH;
-			 /E/ and return    $extb  cmp    $exta, 		last SWITCH;
-			 /f/ and return lc($exta) cmp lc($extb),		last SWITCH;
-			 /F/ and return lc($extb) cmp lc($exta),		last SWITCH;
+			 /e/ and return    $exta  cmp    $extb, 		last BY_NAME;
+			 /E/ and return    $extb  cmp    $exta, 		last BY_NAME;
+			 /f/ and return lc($exta) cmp lc($extb),		last BY_NAME;
+			 /F/ and return lc($extb) cmp lc($exta),		last BY_NAME;
 		};
 	}
 }
@@ -628,7 +633,9 @@ sub checkrcsapplicable {
 	my $path = $self->{_path};
 	$entry = defined $entry ? $entry : $path;
 	my %on = (
-		before_start		=> sub {},
+		before_start		=> sub {
+			return 1;
+		},
 		after_start			=> sub {
 			# next line needs to provide a '1' argument because
 			# $self->{_rcsjob} has not yet been set

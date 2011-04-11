@@ -331,7 +331,8 @@ Returns a boolean indicating that there is input ready to be processed.
 
 sub pending_input {
 	my ($self, $delay) = @_;
-	my $input_ready = length($self->{IN}) || $_wasresized || $self->key_pressed($delay);
+	my $input_ready =
+		length($self->{IN}) || $_wasresized || $self->key_pressed($delay);
 	return $input_ready;
 }
 
@@ -757,7 +758,8 @@ these constants to set_deferred_refresh(), I<e.g.>
 
 =head1 SEE ALSO
 
-pfm(1).
+pfm(1), App::PFM::Screen::Diskinfo(3pm), App::PFM::Screen::Frame(3pm),
+App::PFM::Screen::Listing(3pm).
 
 =cut
 

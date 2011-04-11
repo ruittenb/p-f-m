@@ -236,11 +236,8 @@ sub disk_info {
 	my @desc		= ('K tot','K usd','K avl');
 	my @values		= @{$_pfm->state->directory->disk}{qw/total used avail/};
 	my $startline	= DISKINFOLINE;
-	# I played with vt100 boxes once,      lqqqqk
-	# but I hated it.                      x    x
-	# In case someone wants to try:        mqqqqj
-#	$_screen->at($startline-1,$_infocol)->puts("\cNlqq\cO Disk space");
-	$_screen->at($startline-1, $_infocol)->puts($self->_str_informatted('Disk space'));
+	$_screen->at($startline-1, $_infocol)
+		->puts($self->_str_informatted('Disk space'));
 	foreach (0..2) {
 		while ($values[$_] > 99_999) {
 			$values[$_] /= 1024;
