@@ -299,7 +299,7 @@ sub show_headings {
 #	$_screen->underline()	if ($linecolor =~ /under(line|score)/);
 	$_screen->term()->Tputs('us', 1, *STDOUT)
 							if ($linecolor =~ /under(line|score)/);
-	$_screen->at(2,0)
+	$_screen->at($_screen->HEADINGLINE,0)
 		->putcolored($linecolor, formatted(
 			$_screen->listing->currentformatlinewithinfo,
 			@_fieldheadings{@fields}))

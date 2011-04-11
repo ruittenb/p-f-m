@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.03.7
+# @(#) App::PFM::Application 2.03.9
 #
 # Name:			App::PFM::Application
-# Version:		2.03.7
+# Version:		2.03.9
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-05-08
+# Date:			2010-05-10
 #
 
 ##########################################################################
@@ -265,6 +265,22 @@ sub latest_version {
 
 ##########################################################################
 # public subs
+
+=item openwindow()
+
+Opens a new terminal window running pfm.
+
+=cut
+
+sub openwindow() {
+	my ($self, $file) = @_;
+	if (ref $self->state(S_SWAP)) {
+		system($self->config->{windowcmd}." 'pfm \Q$file->{name}\E -s " .
+			quotemeta($self->state(S_SWAP)->{path}) . "' &");
+	} else {
+		system($self->config->{windowcmd}." 'pfm \Q$file->{name}\E' &");
+	}
+}
 
 =item swap_states()
 

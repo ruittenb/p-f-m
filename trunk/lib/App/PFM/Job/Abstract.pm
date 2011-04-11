@@ -35,7 +35,7 @@ package App::PFM::Job::Abstract;
 
 use base 'App::PFM::Abstract';
 
-use IO::Handle;
+use IO::Pipe;
 use Carp;
 use strict;
 
@@ -49,8 +49,10 @@ Initialize the 'running' flag.
 =cut
 
 sub _init() {
-	my $self = shift;
-	$self->{running} = 0;
+	my ($self, %o) = @_;
+	$self->{_running} = 0;
+	$self->{_pipe}    = undef;
+	$self->{_on}      = { %o };
 	$self->SUPER::_init();
 }
 
@@ -77,9 +79,18 @@ sub isapplicable {
 sub start {
 	my $self = shift;
 	$SIG{CHLD} = \&_reaper;
+	$self->{_pipe} = new IO::Pipe();
+	$self->{_pipe}->reader($self->{_COMMAND});
+	if (defined $self->{_on}->{after_start}) {
+		$self->{_on}->{after_start}->();
+	}
 }
 
 sub poll {
+	my $self = shift;
+}
+
+sub stop {
 	my $self = shift;
 }
 

@@ -1,6 +1,6 @@
 TERM_CAP=Term-Cap-1.12
 TERM_SCREEN=Term-Screen-1.03
-TERM_SCREENCOLOR=Term-ScreenColor-1.13
+TERM_SCREENCOLOR=Term-ScreenColor-1.13a
 TERM_READLINE_GNU=Term-ReadLine-Gnu-1.20
 LWP_SIMPLE=libwww-perl-5.835
 
