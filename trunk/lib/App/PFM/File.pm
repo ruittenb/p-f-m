@@ -294,9 +294,9 @@ sub apply {
 	my ($self, $do_this, @args) = @_;
 	my $state     = $_pfm->state;
 	my $directory = $state->directory;
-	my $to_mark;
+	my ($to_mark, $res);
 	$directory->unregister($self);
-	$do_this->($self, @args);
+	$res = $do_this->($self, @args);
 	if ($state->{multiple_mode}) {
 		$to_mark = $directory->M_OLDMARK;
 	} else {
@@ -304,6 +304,7 @@ sub apply {
 	}
 	$self->stat_entry($self->{name}, '?', $to_mark);
 	$directory->register($self);
+	return $res;
 }
 
 ##########################################################################

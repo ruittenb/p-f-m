@@ -51,9 +51,8 @@ use constant {
 	MENU_LNKTYPE		=> 32,
 	HEADING_DISKINFO	=> 0,
 	HEADING_YCOMMAND	=> 1,
-	HEADING_SIGNAL		=> 2,
-	HEADING_SORT		=> 3,
-	HEADING_ESCAPE		=> 4,
+	HEADING_SORT		=> 2,
+	HEADING_ESCAPE		=> 3,
 };
 
 my %ONOFF = ('' => 'off', 0 => 'off', 1 => 'on');
@@ -283,7 +282,6 @@ sub show_headings {
 	for ($info) {
 		$_ == HEADING_DISKINFO	and $diskinfo = "$padding     disk info";
 		$_ == HEADING_SORT		and $diskinfo = "sort mode     $padding";
-		$_ == HEADING_SIGNAL	and $diskinfo = "  nr signal   $padding";
 		$_ == HEADING_YCOMMAND	and $diskinfo = "your commands $padding";
 		$_ == HEADING_ESCAPE	and $diskinfo = "esc legend    $padding";
 	}
