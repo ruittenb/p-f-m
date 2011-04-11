@@ -2,7 +2,7 @@
 ############################################################################
 #
 # Name:         pfmrcupdate
-# Version:      2.03.5
+# Version:      2.03.7
 # Authors:      Rene Uittenbogaard
 # Date:         2010-05-02
 # Usage:        pfmrcupdate
@@ -239,6 +239,14 @@ sub update_to_200 {
 	}
 }
 
+sub update_to_2037 {
+	# this removes 'waitlaunchexec' for version 2.03.7
+	print "Updating to 2.03.7...\n";
+	foreach (@_) {
+		# TODO 'waitlaunchexec'
+	}
+}
+
 sub update_version {
 	my $to = shift;
 	# this updates the version field for any version
@@ -255,6 +263,7 @@ sub update_pfmrc {
 	update_to_189 (@_) if $from lt '1.89'   and '1.89'   le $to;
 	update_to_1917(@_) if $from lt '1.91.7' and '1.91.7' le $to;
 	update_to_200 (@_) if $from lt '2.00'   and '2.00'   le $to;
+	update_to_2037(@_) if $from lt '2.03.7' and '2.03.7' le $to;
 	update_version($to, @_);
 }
 

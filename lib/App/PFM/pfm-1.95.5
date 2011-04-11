@@ -3463,112 +3463,94 @@ sub handlecopyrename {
 #	return validate_position();
 #}
 #
-sub launchtype {
-	my $do_this;
-	if (exists $pfmrc{"launch[$_[0]]"}) {
-		$do_this = $pfmrc{"launch[$_[0]]"};
-		expand_escapes($QUOTE_ON, $do_this, \%currentfile);
-		$scr->clrscr()->at(0,0)->puts("Launch type $_[0]\n$do_this\n");
-		system $do_this and display_error('Launch failed');
-		return 'type_launched';
-	} else {
-		display_error("No launch command defined for type $_[0]\n");
-		return 'type_tried';
-	}
-}
-
-sub launchbyxbit {
-	my $pid;
-	if (followmode(\%currentfile) =~ /[xsS]/) {
-		$scr->clrscr()->at(0,0)->puts("Launch executable $currentfile{name}\n");
-#		if ($waitlaunchexec) {
-			system "./\Q$currentfile{name}\E" and display_error('Launch failed');
-#		} else {
-#			$SIG{CHLD} = sub {
-#				wait;
-#				unless (--$childprocs) {
-#					$SIG{CHLD} = 'DEFAULT';
-#				}
-#			};
-#			if (!defined($pid = fork)) {
-#				display_error("Unable to fork: $!");
-#			} elsif (!$pid) {
-#				# child
-#				exec "./\Q$currentfile{name}\E";
-#			} else {
-#				# parent
-#				$childprocs++;
-#			}
+#sub launchtype {
+#	my $do_this;
+#	if (exists $pfmrc{"launch[$_[0]]"}) {
+#		$do_this = $pfmrc{"launch[$_[0]]"};
+#		expand_escapes($QUOTE_ON, $do_this, \%currentfile);
+#		$scr->clrscr()->at(0,0)->puts("Launch type $_[0]\n$do_this\n");
+#		system $do_this and display_error('Launch failed');
+#		return 'type_launched';
+#	} else {
+#		display_error("No launch command defined for type $_[0]\n");
+#		return 'type_tried';
+#	}
+#}
+#
+#sub launchbyxbit {
+#	my $pid;
+#	if (followmode(\%currentfile) =~ /[xsS]/) {
+#		$scr->clrscr()->at(0,0)->puts("Launch executable $currentfile{name}\n");
+#		system "./\Q$currentfile{name}\E" and display_error('Launch failed');
+#		return 'xbit_launched';
+#	} else {
+#		return 0; # must return false to prevent "File type unknown" error
+#	}
+#}
+#
+#sub launchbymagic {
+#	my $magic = `file \Q$currentfile{name}\E`;
+#	my ($re, $launched);
+#	MAGIC: foreach (grep /^magic\[/, keys %pfmrc) {
+#		($re) = (/magic\[([^]]+)\]/);
+#		# this will produce errors for invalid REs
+#		if (eval "\$magic =~ /$re/") {
+#			$launched = launchtype($pfmrc{$_});
+#			last MAGIC;
 #		}
-		return 'xbit_launched';
-	} else {
-		return 0; # must return false to prevent "File type unknown" error
-	}
-}
-
-sub launchbymagic {
-	my $magic = `file \Q$currentfile{name}\E`;
-	my ($re, $launched);
-	MAGIC: foreach (grep /^magic\[/, keys %pfmrc) {
-		($re) = (/magic\[([^]]+)\]/);
-		# this will produce errors for invalid REs
-		if (eval "\$magic =~ /$re/") {
-			$launched = launchtype($pfmrc{$_});
-			last MAGIC;
-		}
-	}
-	if ($launched) {
-		return 'magic_launched';
-	} else {
-		return 'magic_tried';
-	}
-}
-
-sub launchbyextension {
-	my ($ext) = ( $currentfile{name} =~ /(\.[^\.]+?)$/ );
-	my $launched;
-	if (exists $pfmrc{"extension[*$ext]"}) {
-		$launched = launchtype($pfmrc{"extension[*$ext]"});
-	}
-	if ($launched) {
-		return 'ext_launched';
-	} else {
-		return 'ext_tried';
-	}
-}
-
-sub handleenter {
-	goto &handleentry if followmode(\%currentfile) =~ /^d/;
-	my $launched;
-	$scr->at(0,0)->clreol()->at(0,0);
-	cooked_echo();
-	alternate_screen($ALTERNATE_OFF);
-	LAUNCH: foreach (split /,/, $pfmrc{launchby}) {
-		/magic/     and $launched = launchbymagic();
-		/extension/ and $launched = launchbyextension();
-		/xbit/      and $launched = launchbyxbit();
-		last LAUNCH if $launched =~ /launched/;
-	}
-	if ($launched =~ /launched/) {
-		$launched = $R_CLRSCR;
-		pressanykey();
-		restat_copyback();
-	} elsif (defined $launched) {
-		# we did try, but the file type was unknown
-#		display_error('File type unknown');
+#	}
+#	if ($launched) {
+#		return 'magic_launched';
+#	} else {
+#		return 'magic_tried';
+#	}
+#}
+#
+#sub launchbyextension {
+#	my ($ext) = ( $currentfile{name} =~ /(\.[^\.]+?)$/ );
+#	my $launched;
+#	if (exists $pfmrc{"extension[*$ext]"}) {
+#		$launched = launchtype($pfmrc{"extension[*$ext]"});
+#	}
+#	if ($launched) {
+#		return 'ext_launched';
+#	} else {
+#		return 'ext_tried';
+#	}
+#}
+#
+#sub handleenter {
+#	goto &handleentry if followmode(\%currentfile) =~ /^d/;
+#	my $launched;
+#	$scr->at(0,0)->clreol()->at(0,0);
+#	cooked_echo();
+#	alternate_screen($ALTERNATE_OFF);
+#	LAUNCH: foreach (split /,/, $pfmrc{launchby}) {
+#		/magic/     and $launched = launchbymagic();
+#		/extension/ and $launched = launchbyextension();
+#		/xbit/      and $launched = launchbyxbit();
+#		last LAUNCH if $launched =~ /launched/;
+#	}
+#	if ($launched =~ /launched/) {
+#		$launched = $R_CLRSCR;
+#		pressanykey();
+#		restat_copyback();
+#	} elsif (defined $launched) {
+#		# we did try, but the file type was unknown
+##		display_error('File type unknown');
+##		$launched = $R_MENU;
+#		system "$pager \Q$currentfile{name}\E" and display_error($!);
+#		$launched = $R_CLRSCR;
+#	} else {
+#		# 'launchby' contains no valid entries
+#		display_error(q"No valid 'launchby' option in config file");
 #		$launched = $R_MENU;
-		system "$pager \Q$currentfile{name}\E" and display_error($!);
-		$launched = $R_CLRSCR;
-	} else {
-		# 'launchby' contains no valid entries
-		display_error(q"No valid 'launchby' option in config file");
-		$launched = $R_MENU;
-	}
-	raw_noecho();
-	alternate_screen($ALTERNATE_ON) if $altscreen_mode;
-	return $launched;
-}
-
+#	}
+#	raw_noecho();
+#	alternate_screen($ALTERNATE_ON) if $altscreen_mode;
+#	return $launched;
+#}
+#
 #sub swap_stash {
 #	return {
 #		path			=>   $currentdir,
@@ -3675,7 +3657,7 @@ sub handleenter {
 #	}
 #	return $success ? $R_CHDIR : $R_STRIDE;
 #}
-#
+
 sub handlepathjump {
 	my $mousecol = shift;
 	my ($baselen, $skipsize, $selecteddir);

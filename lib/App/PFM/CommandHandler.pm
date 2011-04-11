@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 0.48
+# @(#) App::PFM::CommandHandler 0.86
 #
 # Name:			App::PFM::CommandHandler
-# Version:		0.48
+# Version:		0.86
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-30
+# Date:			2010-05-08
 #
 
 ##########################################################################
@@ -185,7 +185,7 @@ sub _selectednames {
 
 =item _expand_replace()
 
-Creates a list of names of selected files, for the B<=8> escape.
+Does the actual escape expansion in commands and filenames.
 
 =cut
 
@@ -426,7 +426,7 @@ sub handle {
 		/^e$/io				and $self->handleedit(),			last;
 #		/^(?:d|del)$/io		and $self->handledelete(),			last;
 		/^[ix]$/io			and $self->handleinclude($_),		last;
-#		/^\r$/io			and $self->handleenter(),			last;
+		/^\r$/io			and $self->handleenter(),			last;
 		/^s$/io				and $self->handleshow(),			last;
 #		/^kmous$/o			and $self->handlemousedown(),		last;
 		/^k7$/o				and $self->handleswap(),			last;
@@ -1366,7 +1366,7 @@ sub handleshow {
 	$_screen->clrscr()->at(0,0)->cooked_echo();
 	$do_this = sub {
 		my $file = shift;
-		$_screen->puts($file->{name})
+		$_screen->puts($file->{name} . "\n")
 			->alternate_off();
 		system $_pfm->config->{pager}." \Q$file->{name}\E"
 			and display_error("Pager failed\n");
@@ -1826,6 +1826,140 @@ sub handlemoreversion {
 #	my $rcspid = open(RCSPIPE, "$rcscmd \Q$file\E 2>/dev/null |");
 #	$FIELDHEADINGS{'svn'} .= '!';
 #	return $R_MENU | $R_HEADINGS;
+}
+
+=item handleenter()
+
+Handles the ENTER key: enter a directory or launch a file.
+
+=cut
+
+sub handleenter {
+	my ($self) = @_;
+	my $directory   = $_pfm->state->directory;
+	my $currentfile = $_pfm->browser->currentfile;
+	my $pfmrc       = $_pfm->config->pfmrc;
+	my ($do_this);
+	if ($self->_followmode($currentfile) =~ /^d/) {
+		goto &handleentry;
+	}
+	$_screen->at(0,0)->clreol()->at(0,0)->cooked_echo()
+		->alternate_off();
+	LAUNCH: foreach (split /,/, $_pfm->config->{launchby}) {
+		/magic/     and $do_this = $self->launchbymagic();
+		/extension/ and $do_this = $self->launchbyextension();
+		/xbit/      and $do_this = $self->launchbyxbit();
+		last LAUNCH if defined $do_this;
+	}
+	if (ref $do_this) {
+		# a code reference: possible way to launch
+		$currentfile->apply($do_this);
+		$_screen->set_deferred_refresh(R_CLRSCR)->pressanykey();
+	} elsif (defined $do_this) {
+		# an error message: the file type was unknown.
+		# feed it to the pager instead.
+		if (system $_pfm->config->{pager}." \Q$currentfile->{name}\E")
+		{
+			$_screen->display_error($!);
+		}
+		$_screen->set_deferred_refresh(R_CLRSCR);
+	} else {
+		# 'launchby' contains no valid entries
+		$_screen->set_deferred_refresh(R_MENU)
+			->display_error("No valid 'launchby' option in config file");
+	}
+	$_screen->raw_noecho();
+	$_screen->alternate_on() if $_pfm->config->{altscreen_mode};
+}
+
+=item launchbyxbit()
+
+Returns an anonymous subroutine for executing the file if it is executable;
+otherwise, returns undef.
+
+=cut
+
+sub launchbyxbit {
+	my ($self) = @_;
+	my $currentfile = $_pfm->browser->currentfile;
+	my $do_this;
+	return undef if ($self->_followmode($currentfile) !~ /[xsS]/);
+	$do_this = sub {
+		my $file = shift;
+		$_screen->clrscr()->at(0,0)->puts("Launch executable $file->{name}\n");
+		if (system "./\Q$file->{name}\E") {
+			$_screen->display_error('Launch failed');
+		}
+	};
+	return $do_this;
+}
+
+=item launchbymagic()
+
+Determines the MIME type of a file, using its magic (see file(1)).
+
+=cut
+
+sub launchbymagic {
+	my ($self) = @_;
+	my $currentfile = $_pfm->browser->currentfile;
+	my $pfmrc       = $_pfm->config->pfmrc;
+	my $magic       = `file \Q$currentfile->{name}\E`;
+	my ($re, $do_this);
+	MAGIC: foreach (grep /^magic\[/, keys %{$pfmrc}) {
+		($re) = (/magic\[([^]]+)\]/);
+		# this will produce errors for invalid REs
+		if (eval "\$magic =~ /$re/") {
+			$do_this = $self->launchbymime($pfmrc->{$_});
+			last MAGIC;
+		}
+	}
+	return $do_this;
+}
+
+=item launchbyextension()
+
+Determines the MIME type of a file by looking at its extension.
+
+=cut
+
+sub launchbyextension {
+	my ($self) = @_;
+	my $currentfile = $_pfm->browser->currentfile;
+	my $pfmrc       = $_pfm->config->pfmrc;
+	my ($ext)       = ( $currentfile->{name} =~ /(\.[^\.]+?)$/ );
+	my $do_this;
+	if (exists $pfmrc->{"extension[*$ext]"}) {
+		$do_this = $self->launchbymime($pfmrc->{"extension[*$ext]"});
+	}
+	return $do_this;
+}
+
+=item launchbymime()
+
+Returns an anonymous subroutine for executing the file according to
+the definition for its MIME type.
+If there is no such definition, reports an error and returns undef.
+
+
+=cut
+
+sub launchbymime {
+	my ($self, $mime) = @_;
+	my $pfmrc = $_pfm->config->pfmrc;
+	my $do_this;
+	if (! exists $pfmrc->{"launch[$mime]"}) {
+		$_screen->display_error("No launch command defined for type $mime\n");
+		return 'launchbymime failed';
+	}
+	$do_this = sub {
+		my $file = shift;
+		my $command = $pfmrc->{"launch[$mime]"};
+		$self->_expand_escapes(QUOTE_ON, $command, $file);
+		$_screen->clrscr()->at(0,0)->puts("Launch type $mime\n$command\n");
+		system $command and $_screen->display_error('Launch failed');
+	};
+	return $do_this;
 }
 
 ##########################################################################
