@@ -2068,7 +2068,7 @@ sub pollall { # was handlepipes
 #	mouseenable(toggle $mouse_mode);
 #	return $R_FOOTER;
 #}
-#
+
 sub handlemousedown {
 	my ($stashline, %stashfile, $mbutton, $mousecol, $mouserow, $on_name);
 	my $do_a_refresh = $R_NOP;
@@ -2154,60 +2154,60 @@ sub handlemousedown {
 #	return $do_a_refresh | handlemove(@_); # pass ' ' key on
 #}
 #
-sub handlesize {
-	my ($recursivesize, $command, $tempfile, $do_this);
-	my ($index, $loopfile);
-	my $do_a_refresh = ($R_DIRFILTER | $R_DIRLIST | $R_MENU | $R_PATHINFO | $R_DISKINFO) * $multiple_mode;
-#	$do_a_refresh |= $R_DIRSORT * (lc $sort_mode eq 'z');
-	markcurrentline('Z') unless $multiple_mode;
-	$do_this = sub {
-		$loopfile = shift;
-		expand_escapes($QUOTE_ON, ($command = $ducmd), $loopfile);
-		($recursivesize = `$command 2>/dev/null`) =~ s/\D*(\d+).*/$1/;
-		chomp $recursivesize;
-		if ($?) {
-			neat_error('Could not read all directories');
-			$recursivesize ||= 0;
-			$do_a_refresh |= $R_SCREEN;
-		}
-		@{$loopfile}{qw(grand grand_num grand_power)} =
-			($recursivesize, fit2limit($recursivesize, $maxgrandtotallength));
-		if (join('', @layoutfields) =~ /grand/) {
-			$do_a_refresh |= $multiple_mode * $R_DIRLIST;
-		} elsif (!$multiple_mode) {
-			# use filesize field
-			$tempfile = { %$loopfile };
-			# TODO next line ignores the fact that size_num could be major/minor
-			@{$tempfile}{qw(size size_num size_power)} = ($recursivesize,
-				fit2limit($recursivesize, $maxfilesizelength));
-			$scr->at($currentline + $BASELINE, $filerecordcol)
-				->puts(fileline($tempfile, @layoutfields));
-			markcurrentline('Z');
-			applycolor($currentline + $BASELINE, $FILENAME_SHORT,
-					   \%currentfile);
-			$scr->getch();
-		}
-		return $loopfile;
-	};
-	if ($multiple_mode) {
-		for $index (0..$#dircontents) {
-			$loopfile = $dircontents[$index];
-			if ($loopfile->{selected} eq '*') {
-				$scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
-				exclude($loopfile, '.');
-				$loopfile = $do_this->($loopfile);
-				$dircontents[$index] = $loopfile;
-			}
-		}
-		$multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
-	} else {
-		%currentfile = %{ $do_this->(\%currentfile) };
-		$showncontents[$currentline+$baseindex] = { %currentfile };
-		copyback($currentfile{name});
-	}
-	return $do_a_refresh;
-}
-
+#sub handlesize {
+#	my ($recursivesize, $command, $tempfile, $do_this);
+#	my ($index, $loopfile);
+#	my $do_a_refresh = ($R_DIRFILTER | $R_DIRLIST | $R_MENU | $R_PATHINFO | $R_DISKINFO) * $multiple_mode;
+##	$do_a_refresh |= $R_DIRSORT * (lc $sort_mode eq 'z');
+#	markcurrentline('Z') unless $multiple_mode;
+#	$do_this = sub {
+#		$loopfile = shift;
+#		expand_escapes($QUOTE_ON, ($command = $ducmd), $loopfile);
+#		($recursivesize = `$command 2>/dev/null`) =~ s/\D*(\d+).*/$1/;
+#		chomp $recursivesize;
+#		if ($?) {
+#			neat_error('Could not read all directories');
+#			$recursivesize ||= 0;
+#			$do_a_refresh |= $R_SCREEN;
+#		}
+#		@{$loopfile}{qw(grand grand_num grand_power)} =
+#			($recursivesize, fit2limit($recursivesize, $maxgrandtotallength));
+#		if (join('', @layoutfields) =~ /grand/) {
+#			$do_a_refresh |= $multiple_mode * $R_DIRLIST;
+#		} elsif (!$multiple_mode) {
+#			# use filesize field
+#			$tempfile = { %$loopfile };
+#			# TODO next line ignores the fact that size_num could be major/minor
+#			@{$tempfile}{qw(size size_num size_power)} = ($recursivesize,
+#				fit2limit($recursivesize, $maxfilesizelength));
+#			$scr->at($currentline + $BASELINE, $filerecordcol)
+#				->puts(fileline($tempfile, @layoutfields));
+#			markcurrentline('Z');
+#			applycolor($currentline + $BASELINE, $FILENAME_SHORT,
+#					   \%currentfile);
+#			$scr->getch();
+#		}
+#		return $loopfile;
+#	};
+#	if ($multiple_mode) {
+#		for $index (0..$#dircontents) {
+#			$loopfile = $dircontents[$index];
+#			if ($loopfile->{selected} eq '*') {
+#				$scr->at($PATHLINE,0)->clreol()->puts($loopfile->{name});
+#				exclude($loopfile, '.');
+#				$loopfile = $do_this->($loopfile);
+#				$dircontents[$index] = $loopfile;
+#			}
+#		}
+#		$multiple_mode = inhibit($autoexitmultiple, $multiple_mode);
+#	} else {
+#		%currentfile = %{ $do_this->(\%currentfile) };
+#		$showncontents[$currentline+$baseindex] = { %currentfile };
+#		copyback($currentfile{name});
+#	}
+#	return $do_a_refresh;
+#}
+#
 #sub handlewhiteout {
 #	toggle($_pfm->state->{white_mode});
 #	$_pfm->browser->position_at($currentfile{name});
@@ -2331,233 +2331,233 @@ sub handlesize {
 #	return $R_SCREEN;
 #}
 #
-sub handlemoreshow {
-	my ($newname, $do_a_refresh);
-	my $prompt = 'Directory Pathname: ';
-	return $R_MENU unless ok_to_remove_marks();
-	$scr->at(0,0)->clreol();
-	cooked_echo();
-	$newname = readintohist(\@path_history, $prompt);
-	raw_noecho();
-	return $R_MENU if $newname eq '';
-	$position_at = '.';
-	expand_escapes($QUOTE_OFF, $newname, \%currentfile);
-	if (mychdir($newname)) {
-		$do_a_refresh |= $R_CHDIR;
-	} else {
-		display_error("$newname: $!");
-		$do_a_refresh |= $R_SCREEN;
-	}
-	return $do_a_refresh;
-}
-
-sub handlemorebookmark {
-	if ($path_history[-1] ne $currentdir) {
-		push @path_history, $currentdir;
-		shift (@path_history) if ($#path_history > $MAXHISTSIZE);
-	}
+#sub handlemoreshow {
+#	my ($newname, $do_a_refresh);
+#	my $prompt = 'Directory Pathname: ';
+#	return $R_MENU unless ok_to_remove_marks();
 #	$scr->at(0,0)->clreol();
-#	putmessage('Current directory bookmarked');
-#	$scr->key_pressed($ERRORDELAY);
-	return $R_MENU;
-}
-
-sub handlemoremake {
-	my ($newname, $do_a_refresh);
-	my $prompt  = 'New Directory Pathname: ';
-	$scr->at(0,0)->clreol();
-	cooked_echo();
-	$newname = readintohist(\@path_history, $prompt);
-	expand_escapes($QUOTE_OFF, $newname, \%currentfile);
-	raw_noecho();
-	return $R_MENU if $newname eq '';
-#	if (!mkdir $newname, 0777) {
-	if (system "mkdir -p \Q$newname\E") {
-		display_error('Make dir failed');
-		$do_a_refresh |= $R_SCREEN;
-	} elsif (!ok_to_remove_marks()) {
-		$do_a_refresh |= $R_MENU; # $R_SCREEN ?
-	} elsif (!mychdir($newname)) {
-		display_error("$newname: $!"); # e.g. by restrictive umask
-		$do_a_refresh |= $R_SCREEN;
-	} else {
-		$position_at = '.';
-		$do_a_refresh |= $R_CHDIR;
-	}
-	return $do_a_refresh;
-}
-
-sub handlemoreconfig {
-	my $do_a_refresh = $R_CLRSCR;
-	my $olddotdot    = $dotdot_mode;
-	$scr->at(0,0)->clreol();
-	if (system $editor, whichconfigfile()) {
-		$scr->at(1,0);
-		display_error('Editor failed');
-	} else {
-		PFM::Config::read($READ_AGAIN);
-		if ($olddotdot != $dotdot_mode) {
-			# allowed to switch dotdot mode (no key), but not sortmode (use F6)
-			$position_at   = $currentfile{name};
-			$do_a_refresh |= $R_DIRSORT;
-		}
-	}
-	return $do_a_refresh;
-}
-
-
-sub handlemoreedit {
-	my $newname;
-	my $prompt  = 'New filename: ';
-	$scr->at(0,0)->clreol();
-	cooked_echo();
-	$newname = readintohist(\@path_history, $prompt);
-	expand_escapes($QUOTE_OFF, $newname, \%currentfile);
-	system "$editor \Q$newname\E" and display_error('Editor failed');
-	raw_noecho();
-	return $R_CLRSCR;
-}
-
-sub handlemorefifo {
-	my ($newname, $findindex);
-	my $do_a_refresh = $R_SCREEN;
-	my $prompt = 'New FIFO name: ';
-	$scr->at(0,0)->clreol();
-	cooked_echo();
-	$newname = readintohist(\@path_history, $prompt);
-	expand_escapes($QUOTE_OFF, $newname, \%currentfile);
-	raw_noecho();
-	return $R_MENU if $newname eq '';
-	if (system "mkfifo \Q$newname\E") {
-		display_error('Make FIFO failed');
-		return $do_a_refresh;
-	}
-	# is newname present in @dircontents? push otherwise
-	# (this part is nearly identical to the part in handlecopyrename())
-	$findindex = 0;
-	$findindex++ while ($findindex <= $#dircontents and
-					$newname ne $dircontents[$findindex]{name});
-	if ($findindex > $#dircontents) {
-		$do_a_refresh |= $R_DIRSORT;
-	}
-	$dircontents[$findindex] = stat_entry($newname, $dircontents[$findindex]{selected} || ' ');
-	# upto here
-	return $do_a_refresh;
-}
-
-sub handlemoreshell {
-	alternate_screen($ALTERNATE_OFF);
-	$scr->clrscr();
-	cooked_echo();
-#	@ENV{qw(ROWS COLUMNS)} = ($screenheight + $BASELINE + 2, $screenwidth);
-	system ($ENV{SHELL} ? $ENV{SHELL} : 'sh'); # most portable
-	pressanykey(); # will also put the screen back in raw mode
-	alternate_screen($ALTERNATE_ON) if $altscreen_mode;
-	system("$chdirautocmd") if length($chdirautocmd);
-	return $R_CLRSCR;
-}
-
-sub handlemorekill {
-	my $printline = $BASELINE;
-	my $prompt    = 'Signal to send to child processes: ';
-	my $signal    = 'TERM';
-	my $err;
-	show_headings($swap_mode, $HEADING_SIGNAL);
-	clearcolumn();
-	foreach (1 .. min($#signame, $screenheight)+1) {
-		$scr->at($printline++, $infocol)->puts(sprintf('  %2d %s', $_, $signame[$_]));
-	}
-	$scr->at(0,0)->clreol();
-	cooked_echo();
-	$signal = $kbd->readline($prompt, $signal); # special case
-	raw_noecho();
-	clearcolumn();
-	return $R_MENU | $R_HEADINGS | $R_DISKINFO if $signal eq '';
-	if ($signal !~ /\D/) {
-		$signal = $signame[$signal];
-	}
-	local $SIG{$signal} = 'IGNORE';
-	# the "only portable" way from perlfunc(1) doesn't seem to work for me
-#	kill -$signal, $$;
-	eval { kill $signal, -$$ };
-	if ($@) {
-		$scr->at(0,0)->clreol();
-		($err = $@) =~ s/ at \S+ line \d+.\n//;
-		display_error($err);
-	}
-	return $R_MENU | $R_PATHINFO | $R_HEADINGS | $R_DISKINFO;
-}
-
-sub handlemorealtscreen {
-	return unless $altscreen_mode;
-	alternate_screen($ALTERNATE_OFF);
-	pressanykey();
-	return $R_CLRSCR;
-}
-
-sub handlemorephyspath {
-	show_menu();
-	$scr->at(0,0)->clreol();
-	putmessage('Current physical path:');
-	$scr->at($PATHLINE, 0)->puts(pathline(getcwd(), $disk{'device'}));
-	$scr->getch();
-	return $R_PATHINFO | $R_MENU;
-}
-
-sub handlemorercsopen {
-	my $file = shift;
-	# we could have used: if (RCSPIPE->opened)
-	# but then we'd need to include IO::Handle
-	if (defined(fileno(RCSPIPE))) {
-		close RCSPIPE;
-		# another svn-status command was running.
-		# run a new one for the entire directory.
-		$file = '';
-	}
-	$rcsbuffer = '';
-	$rcsrunning = 1;
-	$rcs_need_refresh = 1;
-	$SIG{CHLD}  = \&reaper;
-	preparercscol($file);
-	my $rcspid = open(RCSPIPE, "$rcscmd \Q$file\E 2>/dev/null |");
-	$FIELDHEADINGS{'svn'} .= '!';
-	return $R_MENU | $R_HEADINGS;
-}
-
-sub handlemore {
-	local $_;
-	my $do_a_refresh = $R_MENU;
-	my $headerlength = show_menu($HEADER_MORE);
-	my $key;
-	$scr->noecho();
-	MOREKEY: {
-		$key = $scr->at(0, $headerlength+1)->getch();
-		for ($key) {
-			/^s$/io		and $do_a_refresh |= handlemoreshow(),				last MOREKEY;
-			/^m$/io		and $do_a_refresh |= handlemoremake(),				last MOREKEY;
-			/^c$/io		and $do_a_refresh |= handlemoreconfig(),			last MOREKEY;
-			/^e$/io		and $do_a_refresh |= handlemoreedit(),				last MOREKEY;
-			/^h$/io		and $do_a_refresh |= handlemoreshell(),				last MOREKEY;
-			/^b$/io		and $do_a_refresh |= handlemorebookmark(),			last MOREKEY;
-			/^f$/io		and $do_a_refresh |= handlemorefifo(),				last MOREKEY;
-			/^v$/io		and $do_a_refresh |= handlemorercsopen(),			last MOREKEY;
-			/^w$/io		and $do_a_refresh |= write_history(),				last MOREKEY;
-			/^t$/io		and $do_a_refresh |= handlemorealtscreen(),			last MOREKEY;
-			/^p$/io		and $do_a_refresh |= handlemorephyspath(),			last MOREKEY;
-#			/^a$/io		and $do_a_refresh |= handlemoreacl(),				last MOREKEY;
-			# since when has pfm become a process manager?
-			/^k$/io		and $do_a_refresh |= handlemorekill(),				last MOREKEY;
-			/^[<>]$/io	and do {
-								handlepan($_, $HEADER_MORE);
-								$headerlength = show_menu($HEADER_MORE);
-								show_footer();
-								redo MOREKEY;
-			};
-		}
-	}
-	return $do_a_refresh;
-}
-
+#	cooked_echo();
+#	$newname = readintohist(\@path_history, $prompt);
+#	raw_noecho();
+#	return $R_MENU if $newname eq '';
+#	$position_at = '.';
+#	expand_escapes($QUOTE_OFF, $newname, \%currentfile);
+#	if (mychdir($newname)) {
+#		$do_a_refresh |= $R_CHDIR;
+#	} else {
+#		display_error("$newname: $!");
+#		$do_a_refresh |= $R_SCREEN;
+#	}
+#	return $do_a_refresh;
+#}
+#
+#sub handlemorebookmark {
+#	if ($path_history[-1] ne $currentdir) {
+#		push @path_history, $currentdir;
+#		shift (@path_history) if ($#path_history > $MAXHISTSIZE);
+#	}
+##	$scr->at(0,0)->clreol();
+##	putmessage('Current directory bookmarked');
+##	$scr->key_pressed($ERRORDELAY);
+#	return $R_MENU;
+#}
+#
+#sub handlemoremake {
+#	my ($newname, $do_a_refresh);
+#	my $prompt  = 'New Directory Pathname: ';
+#	$scr->at(0,0)->clreol();
+#	cooked_echo();
+#	$newname = readintohist(\@path_history, $prompt);
+#	expand_escapes($QUOTE_OFF, $newname, \%currentfile);
+#	raw_noecho();
+#	return $R_MENU if $newname eq '';
+##	if (!mkdir $newname, 0777) {
+#	if (system "mkdir -p \Q$newname\E") {
+#		display_error('Make dir failed');
+#		$do_a_refresh |= $R_SCREEN;
+#	} elsif (!ok_to_remove_marks()) {
+#		$do_a_refresh |= $R_MENU; # $R_SCREEN ?
+#	} elsif (!mychdir($newname)) {
+#		display_error("$newname: $!"); # e.g. by restrictive umask
+#		$do_a_refresh |= $R_SCREEN;
+#	} else {
+#		$position_at = '.';
+#		$do_a_refresh |= $R_CHDIR;
+#	}
+#	return $do_a_refresh;
+#}
+#
+#sub handlemoreconfig {
+#	my $do_a_refresh = $R_CLRSCR;
+#	my $olddotdot    = $dotdot_mode;
+#	$scr->at(0,0)->clreol();
+#	if (system $editor, whichconfigfile()) {
+#		$scr->at(1,0);
+#		display_error('Editor failed');
+#	} else {
+#		PFM::Config::read($READ_AGAIN);
+#		if ($olddotdot != $dotdot_mode) {
+#			# allowed to switch dotdot mode (no key), but not sortmode (use F6)
+#			$position_at   = $currentfile{name};
+#			$do_a_refresh |= $R_DIRSORT;
+#		}
+#	}
+#	return $do_a_refresh;
+#}
+#
+#
+#sub handlemoreedit {
+#	my $newname;
+#	my $prompt  = 'New filename: ';
+#	$scr->at(0,0)->clreol();
+#	cooked_echo();
+#	$newname = readintohist(\@path_history, $prompt);
+#	expand_escapes($QUOTE_OFF, $newname, \%currentfile);
+#	system "$editor \Q$newname\E" and display_error('Editor failed');
+#	raw_noecho();
+#	return $R_CLRSCR;
+#}
+#
+#sub handlemorefifo {
+#	my ($newname, $findindex);
+#	my $do_a_refresh = $R_SCREEN;
+#	my $prompt = 'New FIFO name: ';
+#	$scr->at(0,0)->clreol();
+#	cooked_echo();
+#	$newname = readintohist(\@path_history, $prompt);
+#	expand_escapes($QUOTE_OFF, $newname, \%currentfile);
+#	raw_noecho();
+#	return $R_MENU if $newname eq '';
+#	if (system "mkfifo \Q$newname\E") {
+#		display_error('Make FIFO failed');
+#		return $do_a_refresh;
+#	}
+#	# is newname present in @dircontents? push otherwise
+#	# (this part is nearly identical to the part in handlecopyrename())
+#	$findindex = 0;
+#	$findindex++ while ($findindex <= $#dircontents and
+#					$newname ne $dircontents[$findindex]{name});
+#	if ($findindex > $#dircontents) {
+#		$do_a_refresh |= $R_DIRSORT;
+#	}
+#	$dircontents[$findindex] = stat_entry($newname, $dircontents[$findindex]{selected} || ' ');
+#	# upto here
+#	return $do_a_refresh;
+#}
+#
+#sub handlemoreshell {
+#	alternate_screen($ALTERNATE_OFF);
+#	$scr->clrscr();
+#	cooked_echo();
+##	@ENV{qw(ROWS COLUMNS)} = ($screenheight + $BASELINE + 2, $screenwidth);
+#	system ($ENV{SHELL} ? $ENV{SHELL} : 'sh'); # most portable
+#	pressanykey(); # will also put the screen back in raw mode
+#	alternate_screen($ALTERNATE_ON) if $altscreen_mode;
+#	system("$chdirautocmd") if length($chdirautocmd);
+#	return $R_CLRSCR;
+#}
+#
+#sub handlemorekill {
+#	my $printline = $BASELINE;
+#	my $prompt    = 'Signal to send to child processes: ';
+#	my $signal    = 'TERM';
+#	my $err;
+#	show_headings($swap_mode, $HEADING_SIGNAL);
+#	clearcolumn();
+#	foreach (1 .. min($#signame, $screenheight)+1) {
+#		$scr->at($printline++, $infocol)->puts(sprintf('  %2d %s', $_, $signame[$_]));
+#	}
+#	$scr->at(0,0)->clreol();
+#	cooked_echo();
+#	$signal = $kbd->readline($prompt, $signal); # special case
+#	raw_noecho();
+#	clearcolumn();
+#	return $R_MENU | $R_HEADINGS | $R_DISKINFO if $signal eq '';
+#	if ($signal !~ /\D/) {
+#		$signal = $signame[$signal];
+#	}
+#	local $SIG{$signal} = 'IGNORE';
+#	# the "only portable" way from perlfunc(1) doesn't seem to work for me
+##	kill -$signal, $$;
+#	eval { kill $signal, -$$ };
+#	if ($@) {
+#		$scr->at(0,0)->clreol();
+#		($err = $@) =~ s/ at \S+ line \d+.\n//;
+#		display_error($err);
+#	}
+#	return $R_MENU | $R_PATHINFO | $R_HEADINGS | $R_DISKINFO;
+#}
+#
+#sub handlemorealtscreen {
+#	return unless $altscreen_mode;
+#	alternate_screen($ALTERNATE_OFF);
+#	pressanykey();
+#	return $R_CLRSCR;
+#}
+#
+#sub handlemorephyspath {
+#	show_menu();
+#	$scr->at(0,0)->clreol();
+#	putmessage('Current physical path:');
+#	$scr->at($PATHLINE, 0)->puts(pathline(getcwd(), $disk{'device'}));
+#	$scr->getch();
+#	return $R_PATHINFO | $R_MENU;
+#}
+#
+#sub handlemorercsopen {
+#	my $file = shift;
+#	# we could have used: if (RCSPIPE->opened)
+#	# but then we'd need to include IO::Handle
+#	if (defined(fileno(RCSPIPE))) {
+#		close RCSPIPE;
+#		# another svn-status command was running.
+#		# run a new one for the entire directory.
+#		$file = '';
+#	}
+#	$rcsbuffer = '';
+#	$rcsrunning = 1;
+#	$rcs_need_refresh = 1;
+#	$SIG{CHLD}  = \&reaper;
+#	preparercscol($file);
+#	my $rcspid = open(RCSPIPE, "$rcscmd \Q$file\E 2>/dev/null |");
+#	$FIELDHEADINGS{'svn'} .= '!';
+#	return $R_MENU | $R_HEADINGS;
+#}
+#
+#sub handlemore {
+#	local $_;
+#	my $do_a_refresh = $R_MENU;
+#	my $headerlength = show_menu($HEADER_MORE);
+#	my $key;
+#	$scr->noecho();
+#	MOREKEY: {
+#		$key = $scr->at(0, $headerlength+1)->getch();
+#		for ($key) {
+#			/^s$/io		and $do_a_refresh |= handlemoreshow(),				last MOREKEY;
+#			/^m$/io		and $do_a_refresh |= handlemoremake(),				last MOREKEY;
+#			/^c$/io		and $do_a_refresh |= handlemoreconfig(),			last MOREKEY;
+#			/^e$/io		and $do_a_refresh |= handlemoreedit(),				last MOREKEY;
+#			/^h$/io		and $do_a_refresh |= handlemoreshell(),				last MOREKEY;
+#			/^b$/io		and $do_a_refresh |= handlemorebookmark(),			last MOREKEY;
+#			/^f$/io		and $do_a_refresh |= handlemorefifo(),				last MOREKEY;
+#			/^v$/io		and $do_a_refresh |= handlemorercsopen(),			last MOREKEY;
+#			/^w$/io		and $do_a_refresh |= write_history(),				last MOREKEY;
+#			/^t$/io		and $do_a_refresh |= handlemorealtscreen(),			last MOREKEY;
+#			/^p$/io		and $do_a_refresh |= handlemorephyspath(),			last MOREKEY;
+##			/^a$/io		and $do_a_refresh |= handlemoreacl(),				last MOREKEY;
+#			# since when has pfm become a process manager?
+#			/^k$/io		and $do_a_refresh |= handlemorekill(),				last MOREKEY;
+#			/^[<>]$/io	and do {
+#								handlepan($_, $HEADER_MORE);
+#								$headerlength = show_menu($HEADER_MORE);
+#								show_footer();
+#								redo MOREKEY;
+#			};
+#		}
+#	}
+#	return $do_a_refresh;
+#}
+#
 #sub handleinclude { # include/exclude flag (from keypress)
 #	local $_;
 #	my $exin = shift;

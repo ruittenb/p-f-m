@@ -135,7 +135,8 @@ sub _usage {
 		  "    -l, --layout $number  : startup with specified layout\n",
 		  "    -s, --swap $directory : specify swap directory\n",
 		  "    -v, --version        : print version information and exit\n\n",
-		  $config->give_location(), "\n";
+		  "Configuration options will be read from ", $config->give_location(), "\n",
+		  "(or override this with \$PFMRC)\n\n";
 }
 
 =item _printversion()

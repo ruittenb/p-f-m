@@ -47,10 +47,10 @@ use Config;
 use strict;
 
 use constant {
-	QUOTE_OFF	=> 0,
-	QUOTE_ON	=> 1,
 	FALSE		=> 0,
 	TRUE		=> 1,
+	QUOTE_OFF	=> 0,
+	QUOTE_ON	=> 1,
 };
 
 my %NUMFORMATS = ( 'hex' => '%#04lx', 'oct' => '%03lo');
@@ -324,7 +324,8 @@ sub _promptforboundarytime {
 			   . " modification time CCYY-MM-DD hh:mm[.ss]: ";
 	my $boundarytime;
 	$_screen->at(0,0)->clreol()->cooked_echo();
-	$boundarytime = $_pfm->history->input(H_TIME, $prompt);
+	$boundarytime = $_pfm->history->input(H_TIME, $prompt,
+		strftime ("%Y-%m-%d %H:%M.%S", localtime time));
 	# show_menu is done in handleinclude
 	$_screen->raw_noecho();
 	$boundarytime =~ tr/0-9.//dc;
@@ -444,7 +445,7 @@ sub handle {
 #		/^kmous$/o			and $self->handlemousedown(),		last;
 		/^k7$/o				and $self->handleswap(),			last;
 		/^k10$/o			and $self->handlemultiple(),		last;
-#		/^m$/io				and $self->handlemore(),			last;
+		/^m$/io				and $self->handlemore(),			last;
 #		/^p$/io				and $self->handleprint(),			last;
 		/^L$/o				and $self->handlelink(),			last;
 		/^n$/io				and $self->handlename(),			last;
@@ -466,7 +467,7 @@ sub handle {
 		/^\@$/o				and $self->handleperlcommand(),		last;
 		/^u$/io				and $self->handlechown(),			last;
 #		/^v$/io				and $self->handlercs(),				last;
-#		/^z$/io				and $self->handlesize(),			last;
+		/^z$/io				and $self->handlesize(),			last;
 #		/^g$/io				and $self->handletarget(),			last;
 		/^k12$/o			and $self->handlemousemode(),		last;
 		/^=$/o				and $self->handleident(),			last;
@@ -1081,7 +1082,7 @@ sub handlelink {
 		if (system @lncmd, $targetstring, $newnameexpanded) {
 			$_screen->neat_error('Linking failed');
 		} elsif ($newnameexpanded !~ m!/!) {
-			# is newname present in @dircontents? push otherwise
+			# add newname to the current directory listing.
 			# TODO if newnameexpanded == swapdir, add there
 			# TODO let cursor follow around
 			$mark = ($state->{multiple_mode}) ? M_NEWMARK : " ";
@@ -1489,6 +1490,330 @@ sub handleinclude { # include/exclude flag (from keypress)
 			}
 		}
 	}
+}
+
+=item handlesize()
+
+Handles reporting the size of a file, or of a directory and subdirectories.
+
+=cut
+
+sub handlesize {
+	my ($self) = @_;
+	my ($do_this);
+	my $filerecordcol = $_screen->listing->filerecordcol;
+	if ($_pfm->state->{multiple_mode}) {
+		$_screen->set_deferred_refresh(R_SCREEN);
+	} else {
+		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO);
+		$_screen->listing->markcurrentline('Z');
+	}
+	$do_this = sub {
+		my $file = shift;
+		my ($recursivesize, $command, $tempfile, $res);
+		$self->_expand_escapes(
+			QUOTE_ON, ($command = $_pfm->config->{ducmd}), $file);
+		$recursivesize = `$command 2>/dev/null`;
+		$res = $?;
+		$recursivesize =~ s/^\D*(\d+).*/$1/;
+		chomp $recursivesize;
+		if ($res) {
+			$_screen->neat_error('Could not read all directories')
+				->set_deferred_refresh(R_SCREEN);
+			$recursivesize ||= 0;
+		}
+		@{$file}{qw(grand grand_num grand_power)} =
+			($recursivesize, fit2limit(
+				$recursivesize, $_screen->listing->maxgrandtotallength));
+		if (join('', @{$_screen->listing->layoutfields}) !~ /grand/ and
+			!$_pfm->state->{multiple_mode})
+		{
+			my $screenline = $_pfm->browser->currentline + $_screen->BASELINE;
+			# use filesize field
+			$tempfile = $file->clone();
+			# TODO next line ignores the fact that size_num could be major/minor
+			@{$tempfile}{qw(size size_num size_power)} =
+				($recursivesize, fit2limit(
+					$recursivesize, $_screen->listing->maxfilesizelength));
+			$_screen->at($screenline, $filerecordcol)
+				->puts($_screen->listing->fileline($tempfile))
+				->listing->markcurrentline('Z')
+				->listing->applycolor($screenline,
+					$_screen->listing->FILENAME_SHORT, $tempfile);
+			$_screen->getch();
+		}
+		return $file;
+	};
+	$_pfm->state->directory->apply($do_this);
+}
+
+=item handlemore()
+
+Shows the menu of B<M>ore commands, and handles the user's choice.
+
+=cut
+
+sub handlemore {
+	my ($self) = @_;
+	my $frame  = $_screen->frame;
+	my $headerlength = $frame->show_menu($frame->MENU_MORE);
+	my $key;
+	$_screen->set_deferred_refresh(R_MENU)->noecho();
+	MORE_PAN: {
+		$key = $_screen->at(0, $headerlength+1)->getch();
+		for ($key) {
+			/^s$/io		and $self->handlemoreshow(),		last MORE_PAN;
+			/^m$/io		and $self->handlemoremake(),		last MORE_PAN;
+			/^c$/io		and $self->handlemoreconfig(),		last MORE_PAN;
+			/^e$/io		and $self->handlemoreedit(),		last MORE_PAN;
+			/^h$/io		and $self->handlemoreshell(),		last MORE_PAN;
+			/^b$/io		and $self->handlemorebookmark(),	last MORE_PAN;
+			/^g$/io		and $self->handlemorego(),			last MORE_PAN;
+			/^f$/io		and $self->handlemorefifo(),		last MORE_PAN;
+			/^v$/io		and $self->handlemorercsopen(),		last MORE_PAN;
+			/^w$/io		and $_pfm->history->write(),		last MORE_PAN;
+			/^t$/io		and $self->handlemorealtscreen(),	last MORE_PAN;
+			/^p$/io		and $self->handlemorephyspath(),	last MORE_PAN;
+#			/^a$/io		and $self->handlemoreacl(),			last MORE_PAN;
+			/^[<>]$/io	and do {
+				$self->handlepan($_, $frame->MENU_MORE);
+				$headerlength = $frame->show_menu($frame->MENU_MORE);
+				$frame->show_footer();
+				redo MORE_PAN;
+			};
+		}
+	}
+}
+
+=item handlemoreshow()
+
+Does a chdir() to any directory.
+
+=cut
+
+sub handlemoreshow {
+	my ($self) = @_;
+	my ($newname);
+	my $prompt = 'Directory Pathname: ';
+	$_screen->set_deferred_refresh(R_MENU);
+	return if !$_screen->ok_to_remove_marks();
+	$_screen->at(0,0)->clreol()->cooked_echo();
+	$newname = $_pfm->history->input(H_PATH, $prompt);
+	$_screen->raw_noecho();
+	return if $newname eq '';
+	$self->_expand_escapes(QUOTE_OFF, $newname, $_pfm->browser->currentfile);
+	if (!$_pfm->state->directory->chdir($newname)) {
+		$_screen->display_error("$newname: $!");
+	}
+}
+
+=item handlemoremake()
+
+Makes a new directory.
+
+=cut
+
+sub handlemoremake {
+	my ($self) = @_;
+	my ($newname);
+	my $prompt = 'New Directory Pathname: ';
+	$_screen->set_deferred_refresh(R_MENU);
+	$_screen->at(0,0)->clreol()->cooked_echo();
+	$newname = $_pfm->history->input(H_PATH, $prompt);
+	$self->_expand_escapes(QUOTE_OFF, $newname, $_pfm->browser->currentfile);
+	$_screen->raw_noecho();
+	return if $newname eq '';
+	# don't use perl's mkdir: we want to be able to use -p
+	if (system "mkdir -p \Q$newname\E") {
+		$_screen->display_error('Make directory failed')
+			->set_deferred_refresh(R_SCREEN);
+	} elsif (!$_screen->ok_to_remove_marks()) {
+		$_screen->set_deferred_refresh(R_MENU);
+	} elsif (!$_pfm->state->directory->chdir($newname)) {
+		$_screen->set_deferred_refresh(R_MENU)
+			->display_error("$newname: $!");
+	}
+}
+
+=item handlemoreconfig()
+
+Opens the current config file (F<.pfmrc>) in the configured editor.
+
+=cut
+
+sub handlemoreconfig {
+	my ($self) = @_;
+	my $config = $_pfm->config;
+	my $olddotdot = $config->{dotdot_mode};
+	$_screen->at(0,0)->clreol()
+		->set_deferred_refresh(R_CLRSCR);
+	if (system $config->{editor}, $config->give_location()) {
+		$_screen->at(1,0)->display_error('Editor failed');
+	} else {
+		$config->read( $config->READ_AGAIN);
+		$config->parse($config->NO_COPYRIGHT);
+		$config->apply();
+		if ($olddotdot != $config->{dotdot_mode}) {
+			# there is no key to toggle dotdot mode, therefore
+			# it is allowed to switch dotdot mode here.
+			$_pfm->browser->position_at($_pfm->browser->currentfile->{name});
+			$_screen->set_deferred_refresh(R_DIRSORT);
+		}
+	}
+}
+
+=item handlemoreedit()
+
+Opens any file in the configured editor.
+
+=cut
+
+sub handlemoreedit {
+	my ($self) = @_;
+	my $newname;
+	my $prompt  = 'Filename to edit: ';
+	$_screen->at(0,0)->clreol()->cooked_echo()
+		->set_deferred_refresh(R_CLRSCR);
+	$newname = $_pfm->history->input(H_PATH, $prompt);
+	$self->_expand_escapes(QUOTE_OFF, $newname, $_pfm->browser->currentfile);
+	if (system $_pfm->config->{editor}." \Q$newname\E") {
+		$_screen->display_error('Editor failed');
+	}
+	$_screen->raw_noecho();
+}
+
+=item handlemoreshell()
+
+Starts the user's login shell.
+
+=cut
+
+sub handlemoreshell {
+	my ($self) = @_;
+	my $chdirautocmd = $_pfm->config->{chdirautocmd};
+	$_screen->alternate_off()->clrscr()->cooked_echo()
+		->set_deferred_refresh(R_CLRSCR);
+#	@ENV{qw(ROWS COLUMNS)} = ($screenheight + $BASELINE + 2, $screenwidth);
+	system ($ENV{SHELL} ? $ENV{SHELL} : 'sh'); # most portable
+	$_screen->pressanykey(); # will also put the screen back in raw mode
+	$_screen->alternate_on() if $_pfm->config->{altscreen_mode};
+	system("$chdirautocmd") if length($chdirautocmd);
+}
+
+=item handlemorebookmark()
+
+Creates a bookmark to the current directory.
+
+=cut
+
+sub handlemorebookmark {
+	my ($self) = @_;
+	# TODO
+	$self->not_implemented();
+#	if ($path_history[-1] ne $currentdir) {
+#		push @path_history, $currentdir;
+#		shift (@path_history) if ($#path_history > $MAXHISTSIZE);
+#	}
+#	$_screen->at(0,0)->clreol()
+#		->putmessage('Current directory bookmarked')
+#		->set_deferred_refresh(R_MENU)
+#		->key_pressed($_screen->ERRORDELAY);
+}
+
+=item handlemorego()
+
+Shows a list of the current bookmarks, then offers the user a choice to
+jump to one of them.
+
+=cut
+
+sub handlemorego {
+	my ($self) = @_;
+	# TODO
+	$self->not_implemented();
+}
+
+=item handlemorefifo()
+
+Handles creating a FIFO (named pipe).
+
+=cut
+
+sub handlemorefifo {
+	my ($self) = @_;
+	my ($newname, $findindex);
+	my $prompt = 'New FIFO name: ';
+	$_screen->at(0,0)->clreol()
+		->set_deferred_refresh(R_MENU)
+		->cooked_echo();
+	$newname = $_pfm->history->input(H_PATH, $prompt);
+	$self->_expand_escapes(QUOTE_OFF, $newname, $_pfm->browser->currentfile);
+	$_screen->raw_noecho();
+	return if $newname eq '';
+	$_screen->set_deferred_refresh(R_SCREEN);
+	if (system "mkfifo \Q$newname\E") {
+		$_screen->display_error('Make FIFO failed');
+		return;
+	}
+	# add newname to the current directory listing.
+	$_pfm->state->directory->addifabsent(
+		entry => $newname,
+		mark => ' ',
+		white => '',
+		refresh => TRUE);
+	$_pfm->browser->position_at($newname);
+}
+
+=item handlemorealtscreen()
+
+Shows the alternate terminal screen (I<e.g.> for viewing the output of
+a previous command).
+
+=cut
+
+sub handlemorealtscreen {
+	my ($self) = @_;
+	return unless $_pfm->config->{altscreen_mode};
+	$_screen->set_deferred_refresh(R_CLRSCR)
+		->alternate_off()->pressanykey();
+}
+
+=item handlemorephyspath()
+
+Shows the canonical pathname of the current directory.
+
+=cut
+
+sub handlemorephyspath {
+	my ($self) = @_;
+#	$_screen->frame->show_menu(); # this was added for some reason in pfm1; why?
+	$_screen->at(0,0)->clreol()
+		->putmessage('Current physical path:')
+		->path_info($_screen->PATH_PHYSICAL)
+		->set_deferred_refresh(R_PATHINFO | R_MENU)
+		->getch();
+}
+
+sub handlemorercsopen {
+	my ($self, $file) = @_;
+	$_pfm->state->directory->checkrcsapplicable();
+	# TODO move this to a App::PFM::Job::RCS
+#	# we could have used: if (RCSPIPE->opened)
+#	# but then we'd need to include IO::Handle
+#	if (defined(fileno(RCSPIPE))) {
+#		close RCSPIPE;
+#		# another svn-status command was running.
+#		# run a new one for the entire directory.
+#		$file = '';
+#	}
+#	$rcsbuffer = '';
+#	$rcsrunning = 1;
+#	$rcs_need_refresh = 1;
+#	$SIG{CHLD}  = \&reaper;
+#	preparercscol($file);
+#	my $rcspid = open(RCSPIPE, "$rcscmd \Q$file\E 2>/dev/null |");
+#	$FIELDHEADINGS{'svn'} .= '!';
+#	return $R_MENU | $R_HEADINGS;
 }
 
 ##########################################################################

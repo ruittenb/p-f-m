@@ -3,7 +3,7 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.03.4
+# Version:		2.03.5
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-05-04
@@ -23,7 +23,7 @@
 # version
 
 # for MakeMaker
-our $VERSION = '2.03.4';
+our $VERSION = '2.03.5';
 
 # macros for *roff
 our $ROFFVERSION = <<'=cut';
@@ -32,7 +32,7 @@ our $ROFFVERSION = <<'=cut';
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.03.4
+.ds Vw @(#) pfm.pl 2.03.5
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -420,9 +420,8 @@ command will I<always> try to make a link.
 
 Presents you with a choice of operations not related to the current
 files. Use this to configure C<pfm>, edit a new file, make a new directory,
-show a different directory, kill all child processes, or write the history
-files to disk. See below under MORE COMMANDS. Pressing B<ESC> will take
-you back to the main menu.
+show a different directory, or write the history files to disk. See below
+under MORE COMMANDS. Pressing B<ESC> will take you back to the main menu.
 
 =item B<Name>
 
@@ -777,12 +776,6 @@ name. See also fifo(4) and mkfifo(1).
 =item B<sHell>
 
 Spawns your default login shell. When you exit from it, C<pfm> will resume.
-
-=item B<Kill children>
-
-Lists available signals. After selection of a signal, sends this signal
-to all child processes of C<pfm> (more accurately: all processes in the
-same process group).
 
 =item B<Make new directory>
 
