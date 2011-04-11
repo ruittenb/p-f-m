@@ -162,8 +162,8 @@ sub _getmenu {
 		return	'Sort by: Name, Extension, Size, Date, Type, Inode, Vers '
 		.		'(ignorecase, reverse):';
 	} elsif ($mode & MENU_MORE) {
-		return	'Bookmark Config Edit-any mkFifo Go sHell Kill-chld Mkdir '
-		.		'Physical-path Show-dir Version Write-hist alTscreen';
+		return	'Bookmark Config Edit-any mkFifo Go sHell Mkdir '
+		.		'Phys-path Show-dir Version Write-hist alTscreen';
 	} elsif ($mode & MENU_EXCLUDE) {
 		return	'Exclude? Every, Oldmarks, Newmarks, '
 		.		'After, Before, User or Files only:';

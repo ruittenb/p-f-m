@@ -40,6 +40,7 @@ use App::PFM::Job::CheckUpdates;
 use App::PFM::Job::Subversion;
 use App::PFM::Job::Cvs;
 use App::PFM::Job::Bazaar;
+use App::PFM::Job::Git;
 
 use strict;
 
@@ -82,7 +83,7 @@ sub job {
 
 =item start()
 
-Starts one job with the name specified. Adds the job to the internal
+Starts one job of the type specified. Adds the job to the internal
 job stack. Returns the jobnumber.
 
 =cut
@@ -95,6 +96,20 @@ sub start {
 	push @_jobs, $job;
 	$job->start(@args);
 	return $#_jobs;
+}
+
+=item stop()
+
+Stops the job with the provided jobnumber.
+
+=cut
+
+sub stop {
+	my ($self, $jobnr) = @_;
+	return -1 unless defined $_jobs[$jobnr];
+	my $ret = $_jobs[$jobnr]->stop();
+	delete $_jobs[$jobnr];
+	return $ret;
 }
 
 =item poll()

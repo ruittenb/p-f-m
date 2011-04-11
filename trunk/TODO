@@ -2,15 +2,12 @@ TOTEST:
 
 fix error handling in eval($do_this) and display_error()
 partly implemented in handlecopyrename
-fixed sysread() and buffering
 
 test major/minor numbers on DU 4.0E, Tru64, Sun (cannot test: no system available)
 
 TODO:
 
 more consistent use of at(1,0) and at(0,0)
-sub fileforall(sub) ?
-cache color codes?
 use SIGINT for interrupt single, SIGQUIT for interrupt multi?
 bug: 'f' field in layout: characters in the 'gap' between filerecord & infocolumn
 	are not cleared when switching columnformats -> insert an artificial "gap" field?

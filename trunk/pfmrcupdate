@@ -2,7 +2,7 @@
 ############################################################################
 #
 # Name:         pfmrcupdate
-# Version:      2.03.3
+# Version:      2.03.5
 # Authors:      Rene Uittenbogaard
 # Date:         2010-05-02
 # Usage:        pfmrcupdate
@@ -269,15 +269,15 @@ sub main {
 	check_date_locale($pfmrc, @pfmrc);
 	print "\nYour  pfm   version is: $version_pfm\n";
 	print "Your .pfmrc version is: $version_pfmrc ";
-	if ($version_pfmrc lt $version_pfm) {
-		print "(needs updating)\n\n";
-		backup_pfmrc($pfmrc);
-		update_pfmrc($version_pfmrc, $version_pfm, @pfmrc);
-		write_pfmrc($pfmrc, @pfmrc);
-		print "Successfully updated to version $version_pfm\n";
-	} else {
+	if ($version_pfmrc ge $version_pfm) {
 		print "(up to date)\n\n";
+		return;
 	}
+	print "(needs updating)\n\n";
+	backup_pfmrc($pfmrc);
+	update_pfmrc($version_pfmrc, $version_pfm, @pfmrc);
+	write_pfmrc($pfmrc, @pfmrc);
+	print "Successfully updated to version $version_pfm\n";
 }
 
 ###############################################################################

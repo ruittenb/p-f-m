@@ -40,10 +40,12 @@ use App::PFM::Screen::Frame;
 use App::PFM::Screen::Listing;
 use App::PFM::Screen::Diskinfo;
 use App::PFM::Util;
+use POSIX qw(getcwd);
 
 use strict;
 
 use constant {
+	PATH_PHYSICAL	=> 1,
 	ERRORDELAY		=> 1,	 # in seconds (fractions allowed)
 	IMPORTANTDELAY	=> 2,	 # extra time for important errors
 	PATHLINE		=> 1,
@@ -608,10 +610,11 @@ filesystem.
 =cut
 
 sub path_info {
-	my $self = shift;
+	my ($self, $physical) = @_;
 	my $directory = $_pfm->state->directory;
+	my $path = $physical ? getcwd() : $directory->path;
 	$self->at(PATHLINE, 0)
-		 ->puts($self->pathline($directory->path, $directory->device));
+		 ->puts($self->pathline($path, $directory->device));
 }
 
 =item pathline()

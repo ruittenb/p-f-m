@@ -187,10 +187,7 @@ is currently being used.
 
 sub give_location {
 	my $self = shift;
-	return "Configuration options will be read from \$PFMRC " .
-		($ENV{PFMRC}
-			? "($ENV{PFMRC})"
-			: "or " . CONFIGDIRNAME . "/" . CONFIGFILENAME);
+	return ($ENV{PFMRC} ? "$ENV{PFMRC}" : CONFIGDIRNAME . "/" . CONFIGFILENAME);
 }
 
 =item read()
