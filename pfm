@@ -3,7 +3,7 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.04.3
+# Version:		2.04.4
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-05-14
@@ -23,7 +23,7 @@
 # version
 
 # for MakeMaker
-our $VERSION = '2.04.3';
+our $VERSION = '2.04.4';
 
 # macros for *roff
 our $ROFFVERSION = <<'=cut';
@@ -32,7 +32,7 @@ our $ROFFVERSION = <<'=cut';
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.04.3
+.ds Vw @(#) pfm.pl 2.04.4
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -108,8 +108,9 @@ self-explanatory. C<pfm> will issue a warning if the config file version
 is older than the version of C<pfm> you are running. In this case, please
 let C<pfm> create a new default config file and compare the changes with
 your own settings, so that you do not miss out on any new config options
-or format changes. See also the B<C>onfig command under MORE COMMANDS
-below, and DIAGNOSIS.
+or format changes. You can also try running the C<pfmrcupdate> script that
+is provided in the distribution. See also the B<C>onfig command under
+MORE COMMANDS below, and DIAGNOSIS.
 
 There are two commandline options that specify starting directories.
 The C<CDPATH> environment variable is taken into account when C<pfm>
@@ -232,11 +233,11 @@ Movement between directories:
 <table border="0" cellspacing="4" align="center" width="80%">
 <tr><td colspan="2"><hr /></td></tr>
 <tr>
-	<td width="30%"><i>right arrow</i>, <b>l</b></td>
+	<td width="30%"><b>l</b>, <i>right arrow</i></td>
 	<td><i>chdir()</i> to a subdirectory</td>
 </tr>
 <tr>
-	<td><i>left arrow</i>, <b>h</b></td>
+	<td><b>h</b>, <i>left arrow</i></td>
 	<td><i>chdir()</i> to the parent directory</td>
 </tr>
 <tr>
@@ -258,8 +259,8 @@ Movement between directories:
 .TS
 lw(20n) | lw(41n).
 _
-\fIright arrow\fP, \fBl\fP	\fIchdir()\fP to a subdirectory
-\fIleft arrow\fP, \fBh\fP	\fIchdir()\fP to the parent directory
+\fBl\fP, \fIright arrow\fP	\fIchdir()\fP to a subdirectory
+\fBh\fP, \fIleft arrow\fP	\fIchdir()\fP to the parent directory
 \fBENTER\fP	\fIchdir()\fP to a subdirectory
 \fBESC\fP, \fBBS\fP	\fIchdir()\fP to the parent directory
 _
@@ -271,17 +272,15 @@ _
 If the option 'chdirautocmd' has been specified in the F<.pfmrc> file,
 pfm will execute that command after every chdir().
 
-Note 1: the B<l> and B<ENTER> keys function differently when the cursor
+Note: the B<l> and B<ENTER> keys function differently when the cursor
 is on a non-directory file (see below under B<L>ink and LAUNCHING FILES
 respectively).
-
-Note 2: see below under BUGS on the functioning of B<ESC>.
 
 =head1 COMMANDS
 
 =over
 
-=item B<Attrib>
+=item B<Attribute>
 
 Changes the mode of the file if you are the owner. The mode may be specified
 either symbolically or numerically, see chmod(1) for more details.
@@ -289,7 +288,7 @@ either symbolically or numerically, see chmod(1) for more details.
 Note 1: the mode on a symbolic link cannot be set. See chmod(1) for more
 details.
 
-Note 2: the name B<Attrib> for this command is a reminiscence of the DOS
+Note 2: the name B<Attribute> for this command is a reminiscence of the DOS
 version.
 
 =item B<Copy>
@@ -304,6 +303,10 @@ under cB<O>mmand).
 
 If clobber mode is off (see below under the B<!> command), existing files
 will not be overwritten unless the action is confirmed by the user.
+
+Whether B<Copy> follows symlinks or copies them is OS-specific; you can
+change the default behavior by setting the 'copyoptions' option in your
+F<.pfmrc>. See cp(1).
 
 =item B<Delete>
 
@@ -324,7 +327,7 @@ in the F<.pfmrc> file. Otherwise vi(1) is used.
 =item B<Find>
 
 If the current sort mode is by filename, you are prompted for a (partial)
-filename. While you type, the cursor is positioned on the best match. 
+filename. While you type, the cursor is positioned on the best match.
 Type ENTER to end typing.
 
 If the current sort mode is not by filename, then you are prompted for a
@@ -354,10 +357,15 @@ all files, including dotfiles, except for the B<.> and B<..> entries
 regular files of which the filenames match a specified regular expression
 (not a glob pattern!)
 
+=item B<N>ewmarks
+
+files which were created during a previous multiple command and are now
+denoted with a I<newmark> (B<~>)
+
 =item B<O>ldmarks
 
-files which were previously marked and are now denoted with
-an I<oldmark> (B<.>).
+files which were marked (B<*>) before a previous multiple command and are
+now denoted with an I<oldmark> (B<.>)
 
 =item B<U>ser
 
@@ -365,7 +373,8 @@ files owned by the current user
 
 =back
 
-Oldmarks may be used to perform more than one command on a group of files.
+Oldmarks and newmarks may be used to perform more than one command on a
+group of files.
 
 =item B<Link>
 
@@ -387,7 +396,7 @@ F<../.plan> or F</home/rene/.plan>, the actual symlink will become:
 =item a B<H>ard link
 
 This will create an additional hard link to the current file with the
-specified name, which must be on the same filesystem.
+specified name, which must be on the same filesystem (see ln(1)).
 
 =item a B<R>elative symlink
 
@@ -419,9 +428,10 @@ command will I<always> try to make a link.
 =item B<More>
 
 Presents you with a choice of operations not related to the current
-files. Use this to configure C<pfm>, edit a new file, make a new directory,
-show a different directory, or write the history files to disk. See below
-under MORE COMMANDS. Pressing B<ESC> will take you back to the main menu.
+file. Use this I<e.g.> to configure C<pfm>, edit a new file, make a
+new directory, show a different directory, or write the history files to
+disk. See below under MORE COMMANDS. Pressing B<ESC> or B<ENTER> will take
+you back to the main menu.
 
 =item B<Name>
 
@@ -502,16 +512,17 @@ _
 =item B<cOmmand>
 
 Allows execution of a shell command. After the command completes, C<pfm>
-will resume.
+will resume. If the command is C<cd>, C<pfm> itself will change to
+that directory.
 
-On the commandline, you may use several special abbreviations, which will
-be replaced by C<pfm> with the current filename, directoryname etc. (see
+On the commandline, you may use several special abbreviations, which
+C<pfm> will replace with the current filename, directoryname etc. (see
 below). These abbreviations start with an escape character. This escape
-character is defined with the option 'escapechar' in your F<.pfmrc> file. The
-default is B<=>. Previous versions of C<pfm> used B<\>, but this was deemed
-too confusing because backslashes are parsed by the shell as well. This
-manual page (and the default config file) will assume you are using B<=> as
-'escapechar'.
+character is defined with the option 'escapechar' in your F<.pfmrc>
+file. By default it is B<=>. (Previous versions of C<pfm> used B<\>, but
+this was deemed too confusing because backslashes are parsed by the shell
+as well. This manual page (and the default config file) will assume you
+are using B<=> as 'escapechar').
 
 The following abbreviations are available:
 
@@ -686,23 +697,23 @@ either with or without clarifying interpunction (e.g. 2008-12-04 08:42.12)
 as the interpunction will be removed to obtain a format which touch(1)
 can use. Enter B<.> to set the mtime to the current date and time.
 
-=item B<Uid>
+=item B<User>
 
 Change ownership of a file. Note that many Unix variants do not allow normal
 (non-C<root>) users to change ownership. Symbolic links will be followed.
 
-=item B<Version>
+=item B<reVision>
 
-Updates the current file with RCS status information. C<pfm> will examine
-the current directory to figure out which versioning system is used.
-See also B<M>ore - B<V>ersion.
+Updates the current file with status information of the applicable
+versioning system. C<pfm> will examine the current directory to figure
+out which versioning system is used. Supported versioning systems are:
+Subversion, CVS, Bazaar and Git.  See also B<M>ore - reB<V>ision.
 
 =item B<unWhiteout>
 
-(Only on platforms that support whiteout files). Provides the option
-to remove the whiteout entry in the top layer of a translucent (tfs),
-inheriting (ifs) or union (unionfs) filesystem, thereby restoring access
-to the corresponding file in the lower layer.
+(Only on platforms that support whiteout files). Provides the option to
+remove the whiteout entry in the top layer of a stacked/overlay filesystem,
+thereby restoring access to the corresponding file in the lower layer.
 
 =item B<eXclude>
 
@@ -732,15 +743,15 @@ zero, as no data blocks are allocated for these file types.
 
 If the screen layout (selected with B<F9>) contains a 'grand total' column,
 that column will be used. Otherwise, the 'filesize' column will temporarily
-be (mis)used. A 'grand total' column in the layout will never be filled in
+be used. A 'grand total' column in the layout will never be filled in
 when entering the directory.
 
 Note: since du(1) commands are not portable, C<pfm> guesses how it can
 calculate the size according to the Unix variant that it runs on. If C<pfm>
-guesses this incorrectly, you might have to specify the C<du> command (or
+makes an incorrect guess, you might have to specify the C<du> command (or
 C<du | awk> combination) applicable for your Unix version in the F<.pfmrc>
-file. Examples are provided. Please notify the author if you know any
-corrections that should be made.
+file. Examples are provided. Please notify the author of any corrections
+that should be made.
 
 =back
 
@@ -750,28 +761,35 @@ These commands are accessible through the main screen B<M>ore command.
 
 =over
 
+=item B<Acl>
+
+Not yet implemented.
+
 =item B<Bookmark>
 
-This command will push the current directory onto the path history. With
-the B<M>ore - B<S>how command, it can be recalled using the up-arrow key.
+Not yet implemented.
 
 =item B<Config pfm>
 
-This command will open the F<.pfmrc> config file with your preferred
+This command will open the F<.pfmrc> config file with the configured
 editor. The file will be re-read by C<pfm> after you exit your editor.
 Options that are only modifiable through the config file (like
 'columnlayouts') will be reinitialized immediately, options that affect
 settings modifiable by key commands (like 'defaultsortmode') will not.
 
-=item B<Edit new file>
+=item B<Edit any file>
 
-You will be prompted for the new filename, then your editor will
+You will be prompted for a filename, then your editor will
 be spawned.
 
 =item B<make Fifo>
 
 Prompts for a name, then creates a FIFO file (named pipe) with that
 name. See also fifo(4) and mkfifo(1).
+
+=item B<Go to bookmark>
+
+Not yet implemented.
 
 =item B<sHell>
 
@@ -783,15 +801,30 @@ Specify a new directory name and C<pfm> will create it for you. Furthermore,
 if you don't have any files marked, your current directory will be set to
 the newly created directory.
 
+=item B<Physical path>
+
+Shows the physical pathname of the current directory until a key is pressed.
+
 =item B<Show directory>
 
 You will be asked for the directory you want to view. Note that this
 command is different from B<F7> because this will not change your current
 swap directory status.
 
-=item B<Version>
+=item B<alTernate screen>
 
-Updates the current directory with RCS status information.
+If the terminal has an alternate screen (like B<xterm>), and C<pfm> has been
+configured to use it (through the 'altscreenmode' option in the F<.pfmrc>),
+then this command shows the alternate screen until a key is pressed.
+This is useful for reading error messages of shell commands and so on.
+
+=item B<reVision>
+
+Updates the current directory with status information of the applicable
+versioning system. C<pfm> will examine the current directory to figure
+out which versioning system is used. Supported versioning systems are:
+Subversion, CVS, Bazaar and Git.
+
 If you set the 'autorcs' option in your F<.pfmrc>, this will automatically
 be done every time C<pfm> shows directory contents.
 
@@ -850,7 +883,7 @@ Identical to B<F>ind (see above).
 
 =item B<E<lt>>
 
-Scroll the header and footer, in order to view all available commands.
+Scroll the menu and footer, in order to view all available commands.
 
 =item B<=>
 
@@ -858,7 +891,7 @@ Cycle through displaying the username, the hostname, or username@hostname.
 
 =item B<E<gt>>
 
-Scroll the header and footer, in order to view all available commands.
+Scroll the menu and footer, in order to view all available commands.
 
 =item B<?>
 
@@ -901,7 +934,7 @@ a number of sort modes.
 Alternates the display between two directories. When switching for the first
 time, you are prompted for a directory path to show. When you switch back by
 pressing B<F7> again, the contents of the alternate directory are displayed
-unchanged. Header text changes color when in swap screen. In shell commands,
+unchanged. Menu text changes color when in swap screen. In shell commands,
 the directory path from the alternate screen may be referred to as B<=5>.
 If the 'persistentswap' option has been set in the config file, then
 leaving the swap mode will store the main directory path as swap path again.
@@ -1003,9 +1036,11 @@ multiple files.
 =head1 QUOTING RULES
 
 C<pfm> adds an extra layer of parsing to filenames and shell commands. It
-is important to take notice of the rules that C<pfm> uses.
+is therefore important to take notice of the rules that C<pfm> uses.
 
-=for considering In versions prior to 1.93.1, the default escape character was B<\>.
+In versions prior to 1.93.1, the default escape character was B<\>. Since
+this causes confusing results, this is no longer the default, and you are
+discouraged from using it.
 
 The following six types of input can be distinguished:
 
@@ -1023,7 +1058,7 @@ Characters not in the set C<[0-9.]> are removed from the input.
 
 The input is taken literally.
 
-=item B<not a filename or shell command> (e.g. in B<A>ttribute or B<U>id)
+=item B<not a filename or shell command> (e.g. in B<A>ttribute or B<U>ser)
 
 The input is taken literally.
 
@@ -1038,7 +1073,8 @@ At the same time, any C<=[^1-8evp]> character sequence is just replaced
 with the character itself.
 
 Finally, if the filename is to be processed by C<pfm>, it is taken literally;
-if it is to be handed over to a shell, all metacharacters are replaced I<escaped>.
+if it is to be handed over to a shell, all metacharacters are replaced
+I<escaped>.
 
 =item B<a shell command> (e.g. in cB<O>mmand or B<P>rint)
 
@@ -1160,8 +1196,8 @@ _
 
 =head1 MOUSE COMMANDS
 
-When C<pfm> is run in an xterm or other terminal that supports the
-use of a mouse, turning on mouse mode (either initially with the
+When C<pfm> is run in an xterm or other terminal (or emulator) that supports
+the use of a mouse, turning on mouse mode (either initially with the
 'defaultmousemode' option in the F<.pfmrc> file, or while running using
 the B<F12> key) will give mouse access to the following commands:
 
@@ -1176,8 +1212,8 @@ the B<F12> key) will give mouse access to the following commands:
 <tr><td colspan="7"><hr /></td></tr>
 <tr>
 	<td>pathline</td>
-	<td>title/header</td>
-	<td>footer</td>
+	<td>menu/footer</td>
+	<td>heading</td>
 	<td>fileline</td>
 	<td>filename</td>
 	<td>dirname</td>
@@ -1186,8 +1222,8 @@ the B<F12> key) will give mouse access to the following commands:
 <tr>
 	<td>1</td>
 	<td><i>chdir()</i></td>
-	<td>CTRL-U</td>
-	<td>CTRL-D</td>
+	<td><i>command</i></td>
+	<td>sort</td>
 	<td>F8</td>
 	<td><b>S</b>how</td>
 	<td><b>S</b>how</td>
@@ -1195,8 +1231,8 @@ the B<F12> key) will give mouse access to the following commands:
 <tr>
 	<td>2</td>
 	<td>c<b>O</b>mmand</td>
-	<td>PgUp</td>
-	<td>PgDn</td>
+	<td><i>command</i></td>
+	<td>sort</td>
 	<td><b>S</b>how</td>
 	<td>ENTER</td>
 	<td><i>new window</i></td>
@@ -1204,8 +1240,8 @@ the B<F12> key) will give mouse access to the following commands:
 <tr>
 	<td>3</td>
 	<td>c<b>O</b>mmand</td>
-	<td>PgUp</td>
-	<td>PgDn</td>
+	<td><i>command</i></td>
+	<td>sort</td>
 	<td><b>S</b>how</td>
 	<td>ENTER</td>
 	<td><i>new window</i></td>
@@ -1239,32 +1275,40 @@ _
 \0button	location clicked
 _
 \^	pathline	T{
-title/
+menu/
 .br
-header
-T}	footer	fileline	filename	dirname
+footer
+T}	heading	fileline	filename	dirname
 _
-1	\fIchdir()\fR	CTRL-U	CTRL-D	F8	\fBS\fPhow	\fBS\fPhow
-2	c\fBO\fPmmand	PgUp	PgDn	\fBS\fPhow	ENTER	\fInew win\fP\0
-3	c\fBO\fPmmand	PgUp	PgDn	\fBS\fPhow	ENTER	\fInew win\fP
+1	\fIchdir()\fR	I<command>	sort	F8	\fBS\fPhow	\fBS\fPhow
+2	c\fBO\fPmmand	I<command>	sort	\fBS\fPhow	ENTER	\fInew win\fP\0
+3	c\fBO\fPmmand	I<command>	sort	\fBS\fPhow	ENTER	\fInew win\fP
 _
-up	\fIthree lines up\fP
-down	\fIthree lines down\fP
+up	\fIfive lines up\fP
+down	\fIfive lines down\fP
 _
 .TE
 .in
 
 =end roff
 
-The cursor will I<only> be moved when the title, header or footer is
-clicked, or when changing directory. The mouse wheel also works and
-moves the cursor three lines per notch, or one line if shift is pressed.
+The cursor will I<only> moved to another file when a directory is clicked
+or the mouse wheel is used.  The mouse wheel moves the cursor five lines
+per notch, or one line if shift is pressed.
 
 Clicking button 1 on the current directory path will chdir() up to the
 clicked ancestor directory. If the current directory was clicked, or the
 device name, it will act like a B<M>ore - B<S>how command.
 
 Clicking button 2 on a directory name will open a new pfm terminal window.
+
+Clicking on the column headings will sort the directory contents by that
+heading. Clicking again will sort the directory in reverse order.
+
+Clicking on the menu or footer will execute the command that was clicked.
+
+Clicking on the identity line in the info column will switch the display
+like the B<=> command does.
 
 Mouse use will be turned off during the execution of commands, unless
 'mouseturnoff' is set to 'no' in F<.pfmrc>. Note that setting this to
@@ -1405,10 +1449,13 @@ No valid layout found in the F<.pfmrc> file.
 
 If C<pfm> reports that your config file might be outdated, you might be
 missing some of the newer configuration options (or default values for
-these). Try the following command and compare the new config file with
-your original one:
+these). The best way to solve this is by running the following command
+and comparing the new config file with your original one:
 
     env PFMRC=~/.pfm/.pfmrc-new pfm
+
+Alternatively, you may try running the C<pfmrcupdate> script that
+is provided in the distribution.
 
 To prevent the warning from occurring again, update the '## Version' line.
 
@@ -1417,7 +1464,7 @@ To prevent the warning from occurring again, update the '## Version' line.
 C<Term::ReadLine::Gnu> does not allow a half-finished line to be aborted by
 pressing B<ESC>. For most commands, you will need to clear the half-finished
 line. You may use the terminal kill character (usually B<CTRL-U>) for this
-(see stty(1)).
+purpose (see stty(1)).
 
 The author once almost pressed B<ENTER> when logged in as root and with
 the cursor on the file F</sbin/reboot>. You have been warned.
@@ -1459,8 +1506,8 @@ with kind permission of the original authors.
 
 =head1 SEE ALSO
 
-The documentation on PFMS<.>COM. The manual pages for chmod(1), file(1),
-less(1), locale(7), lp(1), lpr(1), touch(1), vi(1).
+The documentation on PFMS<.>COM. The manual pages for chmod(1), cp(1),
+file(1), less(1), ln(1), locale(7), lpr(1), touch(1), vi(1).
 
 For developers: Term::Screen(3pm), Term::ScreenColor(3pm),
 Term::ReadLine(3pm), App::PFM::Abstract(3pm), App::PFM::Application(3pm),

@@ -1,6 +1,18 @@
+2.04.4-WIP
+
+* added 'copyoptions' config option
+
+2.04.3-WIP
+
+* fixed several small bugs
+
 2.04.2-WIP
 
 * deprecated $LOSTMSG
+
+2.04.1-WIP
+
+* added event handling to Job::Abstract
 
 2.03.9-WIP
 

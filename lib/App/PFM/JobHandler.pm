@@ -44,7 +44,7 @@ use App::PFM::Job::Git;
 
 use strict;
 
-my ($_pfm, @_jobs);
+my ($_pfm);
 
 ##########################################################################
 # private subs
@@ -58,6 +58,7 @@ Initializes new instances. Called from the constructor.
 sub _init {
 	my ($self, $pfm) = @_;
 	$_pfm = $pfm;
+	$self->{_jobs} = [];
 }
 
 ##########################################################################
@@ -73,9 +74,9 @@ sub job {
 	my ($self, $index, $value) = @_;
 	$index ||= 0;
 	if (defined $value) {
-		$_jobs[$index] = $value;
+		$self->{_jobs}[$index] = $value;
 	}
-	return $_jobs[$index];
+	return $self->{_jobs}[$index];
 }
 
 ##########################################################################
@@ -93,9 +94,9 @@ sub start {
 	$class =~ tr/a-zA-Z0-9_//cd;
 	$class = "App::PFM::Job::$class";
 	my $job = $class->new(@args);
-	push @_jobs, $job;
+	push @{$self->{_jobs}}, $job;
 	$job->start();
-	return $#_jobs;
+	return $#{$self->{_jobs}};
 }
 
 =item stop()
@@ -106,9 +107,9 @@ Stops the job with the provided jobnumber.
 
 sub stop {
 	my ($self, $jobnr) = @_;
-	return -1 unless defined $_jobs[$jobnr];
-	my $ret = $_jobs[$jobnr]->stop();
-	delete $_jobs[$jobnr];
+	return -1 unless defined $self->{_jobs}[$jobnr];
+	my $ret = $self->{_jobs}[$jobnr]->stop();
+	delete $self->{_jobs}[$jobnr];
 	return $ret;
 }
 
@@ -122,13 +123,13 @@ still running.
 
 sub poll() {
 	my ($self, $jobnr) = @_;
-	return 0 unless defined $_jobs[$jobnr];
-	my $ret = $_jobs[$jobnr]->poll();
+	return 0 unless defined $self->{_jobs}[$jobnr];
+	my $ret = $self->{_jobs}[$jobnr]->poll();
 	unless ($ret) {
 		# We cannot use splice() here because it would change
 		# the index of the individual jobs. Or we should rewrite
 		# @_jobs as %_jobs.
-		delete $_jobs[$jobnr];
+		delete ${$self->{_jobs}}[$jobnr];
 	}
 	return $ret;
 }
@@ -144,13 +145,13 @@ to the application.
 sub pollall {
 	my $self = shift;
 	my $i;
-	for ($i = 0; $i < $#_jobs; $i++) {
+	for ($i = 0; $i < $#{$self->{_jobs}}; $i++) {
 		$self->poll($i);
 	}
 	# Note that this does not return the number of running jobs,
 	# but instead the total number of elements, some of which may
 	# have finished already.
-	return scalar @_jobs;
+	return scalar @{$self->{_jobs}};
 }
 
 ##########################################################################

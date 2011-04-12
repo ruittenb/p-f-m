@@ -1,14 +1,12 @@
 TOTEST:
 
-fix error handling in eval($do_this) and display_error()
-partly implemented in handlecopyrename
-
 test major/minor numbers on DU 4.0E, Tru64, Sun (cannot test: no system available)
 
 TODO:
 
 more consistent use of at(1,0) and at(0,0)
 use SIGINT for interrupt single, SIGQUIT for interrupt multi?
+
 bug: 'f' field in layout: characters in the 'gap' between filerecord & infocolumn
 	are not cleared when switching columnformats -> insert an artificial "gap" field?
 
@@ -17,9 +15,6 @@ prove1sup7:/home/ruittenb>df -k
 Filesystem  1024-blocks   Free  %Used   Iused  %Iused  Mounted on
 /dev/hd4          45056   3528    93%    1389      7%  /
 /dev/hd2         303104  31984    90%   10081     14%  /usr
-
-in chmod(directory): recursively descend? y/n
-implement escape char fixes to Term::Screen in Term::ScreenColor
 
 fix timetouchformat. see shar(1) archives
 if touch -am -t 200112312359.59 $$.touch >/dev/null 2>&1 && test ! -f 200112312359.59 -a -f $$.touch; then
@@ -37,28 +32,15 @@ echo
 fi
 rm -f 200112312359.59 123123592001.59 123123592001.5 1231235901 $$.touch
 
-cp -pr copies symlinks to symlinks - ?
-	recursive directory copy? Ask to follow?
-change (U)id command to request changing the symlink?
-
 (L)ink (R)el to current dir does not restat()
-tar(G)et in multiple mode does not re-readlink()
-(U) in multiple mode does not restat()
-handletime does not restat() in multiple mode, nor resort
+handletime does not resort() in multiple mode
 
-in handledelete: test if deleted file is a whiteout after deletion
-after rename: position_at new name?
 use the nameindexmap from handledelete() more globally?
 	in handlecopyrename()? in handlefind() in handlesymlink?
 	in dirlookup? in handlemorefifo?
 	use in conjunction with 'keeplostfiles' option?
 
-stat_entry() must *not* rebuild the selected_nr and total_nr lists:
-	this messes up with e.g. cOmmand -> cp \2 /somewhere/else
-	(which is, therefore, still buggy). this is closely related to:
-sub countcontents is not used
+sub Directory->countcontents is not used
+
 make F11 respect multiple mode? (marked+oldmarked, not removing marks)
-hierarchical sort? e.g. 'sen' (size,ext,name)
-window sizing problems on Sun 5.6?
-include acl commands?
-	concerning acls, see http://compute.cnr.berkeley.edu/cgi-bin/man-cgi?ls+1
+

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Listing 0.14
+# @(#) App::PFM::Screen::Listing 0.98
 #
 # Name:			App::PFM::Screen::Listing
-# Version:		0.14
+# Version:		0.98
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-30
+# Date:			2010-05-14
 #
 
 ##########################################################################
@@ -353,12 +353,19 @@ sub show {
 	my $contents  = $_pfm->state->directory->showncontents;
 	my $baseindex = $_pfm->browser->baseindex;
 	my $baseline  = $_screen->BASELINE;
+	my $file;
 	foreach my $i ($baseindex .. $baseindex+$_screen->screenheight) {
 		$_screen->at($i+$baseline-$baseindex, $_filerecordcol);
 		unless ($i > $#$contents) {
-			$_screen->puts($self->fileline($$contents[$i]));
+			$file = $$contents[$i];
+			$_screen->puts($self->fileline($file));
+			# file manager operations may change the orphan status of
+			# a symlink; therefore, update a symlink's color every time
+			if ($file->{type} eq 'l') {
+				$file->{color} = $file->_decidecolor();
+			}
 			$self->applycolor(
-				$i+$baseline-$baseindex, FILENAME_SHORT, $$contents[$i]);
+				$i + $baseline - $baseindex, FILENAME_SHORT, $file);
 		} else {
 			$_screen->puts(
 				' 'x($_screen->screenwidth - $_screen->diskinfo->infolength));

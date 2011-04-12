@@ -62,8 +62,8 @@ my $RDEVTOMAJOR = $RDEVTOMAJOR{$^O} || $RDEVTOMAJOR{default};
 my @SYMBOLIC_MODES = qw(--- --x -w- -wx r-- r-x rw- rwx);
 
 my $MODE2STR = ($^O eq 'solaris' or $^O eq 'sunos')
-				? '-pc?d?b?-nl?sDP?' # Solaris has event pipes
-				: '-pc?d?b?-nl?sDw?';
+				? ' pc?d?b?-nl?sDP?' # Solaris has event ports
+				: ' pc?d?b?-nl?sDw?';# BSD has whiteouts
 
 our ($_pfm);
 
@@ -136,6 +136,7 @@ Possible inode types are:
  6000  S_IFBLK   b   060000  block special
  7000  S_IFMPB       070000  multiplexed block special (V7)
  8000  S_IFREG   -   100000  regular
+ ?     S_IFCNT   C   ?       contiguous file
  9000  S_IFNWK   n   110000  network special (HP-UX)
  a000  S_IFLNK   l@  120000  symbolic link
  b000  S_IFSHAD      130000  Solaris ACL shadow inode,

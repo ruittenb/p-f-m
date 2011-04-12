@@ -47,6 +47,7 @@ use POSIX qw(getcwd);
 use strict;
 
 use constant {
+	RCS_RUNNING	=> 1,
 	SLOWENTRIES	=> 300,
 	M_MARK		=> '*',
 	M_OLDMARK	=> '.',
@@ -633,24 +634,24 @@ sub checkrcsapplicable {
 	my $path = $self->{_path};
 	$entry = defined $entry ? $entry : $path;
 	my %on = (
-		before_start		=> sub {
-			return 1;
-		},
+		before_start		=> sub { 1; },
 		after_start			=> sub {
 			# next line needs to provide a '1' argument because
 			# $self->{_rcsjob} has not yet been set
-			$_pfm->screen->frame->update_headings(1);
 			$_pfm->screen->frame->show_headings(
 				$_pfm->browser->swap_mode,
-				$_pfm->screen->HEADING_DISKINFO);
+				$_pfm->screen->frame->HEADING_DISKINFO,
+				RCS_RUNNING);
 		},
-		after_receive_data	=> sub {},
+		after_receive_data	=> sub {
+			my $input = shift;
+			print $input, "\n"; # TODO
+		},
 		after_finish		=> sub {
 			$self->{_rcsjob} = undef;
-			$_pfm->screen->frame->update_headings();
 			$_pfm->screen->frame->show_headings(
 				$_pfm->browser->swap_mode,
-				$_pfm->screen->HEADING_DISKINFO);
+				$_pfm->screen->frame->HEADING_DISKINFO);
 		},
 	);
 	# TODO when a directory is swapped out, the jobs should continue

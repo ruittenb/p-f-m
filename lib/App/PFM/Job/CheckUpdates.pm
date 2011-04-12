@@ -53,8 +53,9 @@ Initializes new instances. Called from the constructor.
 =cut
 
 sub _init {
-	my ($self, $pfm) = @_;
+	my ($self, $pfm, @args) = @_;
 	$_pfm = $pfm;
+	$self->SUPER::_init(@args);
 }
 
 =item _check_for_updates()
