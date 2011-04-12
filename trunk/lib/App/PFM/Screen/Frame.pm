@@ -293,7 +293,7 @@ Displays the column headings.
 =cut
 
 sub show_headings {
-	my ($self, $swapmode, $info) = @_;
+	my ($self, $swapmode, $info, $rcsrunning) = @_;
 	my ($linecolor, $diskinfo, $padding, $filters);
 	my @fields = @{$_screen->listing->layoutfieldswithinfo};
 	my $state  = $_pfm->state;
@@ -305,7 +305,7 @@ sub show_headings {
 		$_ == HEADING_ESCAPE	and $diskinfo = "esc legend    $padding";
 	}
 	$_fieldheadings{diskinfo} = $diskinfo;
-	$self->update_headings();
+	$self->update_headings($rcsrunning);
 	$linecolor = $swapmode
 		? $_pfm->config->{framecolors}->{$_screen->color_mode}{swap}
 		: $_pfm->config->{framecolors}->{$_screen->color_mode}{headings};

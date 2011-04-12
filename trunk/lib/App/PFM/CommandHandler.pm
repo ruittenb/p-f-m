@@ -931,7 +931,7 @@ sub handlehelp {
 	$_screen->clrscr()->cooked_echo();
 	print map { substr($_, 8)."\n" } split("\n", <<'    _eoHelp_');
         --------------------------------------------------------------------------------
-        a     Attrib         ma  edit ACL          k, up arrow      move one line up    
+        a     Attrib (mode)  ma  edit ACL          k, up arrow      move one line up    
         c     Copy           mb  make Bookmark     j, down arrow    move one line down  
         d DEL Delete         mc  Config pfm        -, +             move ten lines      
         e     Edit           me  Edit any file     CTRL-E, CTRL-Y   scroll dir one line 
@@ -1519,6 +1519,7 @@ and starts a job for the file if so.
 =cut
 
 sub handleversion {
+	# TODO check if this is still correct.
 	my ($self, $file) = @_;
 	if ($_pfm->state->{multiple_mode}) {
 		$_pfm->state->directory->apply(sub {});
@@ -1749,7 +1750,8 @@ sub handlecommand { # Y or O
 		$_screen->cooked_echo();
 	} else { # cOmmand
 		$_screen->frame->show_headings(
-			$_pfm->browser->swap_mode, $_screen->frame->HEADING_ESCAPE);
+			$_pfm->browser->swap_mode, $_screen->frame->HEADING_ESCAPE)
+			->set_deferred_refresh(R_DISKINFO);
 		foreach (sort escape_middle keys %CMDESCAPES, $e) {
 			if ($printline <= $_screen->BASELINE + $_screen->screenheight) {
 				$_screen->at($printline++, $infocol)
@@ -1770,7 +1772,7 @@ sub handlecommand { # Y or O
 		$newdir = $1;
 		$self->_expand_escapes(QUOTE_OFF, $newdir, $_pfm->browser->currentfile);
 		$_screen->raw_noecho();
-		if (!ok_to_remove_marks()) {
+		if (!$_screen->ok_to_remove_marks()) {
 			$_screen->set_deferred_refresh(R_MENU); # R_SCREEN?
 			return;
 		} elsif (!$_pfm->state->directory->chdir($newdir)) {
@@ -1782,21 +1784,23 @@ sub handlecommand { # Y or O
 		return;
 	}
 	# general case: command (either Y or O) is known here
-	if ($command =~ /\S/) {
-		$_screen->alternate_off()->clrscr()->at(0,0);
-		$do_this = sub {
-			my $file = shift;
-			my $do_command = $command;
-			# $self is the commandhandler (due to closure)
-			$self->_expand_escapes($self->QUOTE_ON, $do_command, $file);
-			$_screen->puts("\n$do_command\n");
-			system $do_command
-				and $_screen->display_error("External command failed\n");
-		};
-		$_pfm->state->directory->apply($do_this, 'O');
-		$_screen->pressanykey();
-		$_screen->alternate_on() if $_pfm->config->{altscreen_mode};
+	if ($command !~ /\S/) {
+		$_screen->raw_noecho()->set_deferred_refresh(R_MENU | R_PATHINFO);
+		return
 	}
+	$_screen->alternate_off()->clrscr()->at(0,0);
+	$do_this = sub {
+		my $file = shift;
+		my $do_command = $command;
+		# $self is the commandhandler (due to closure)
+		$self->_expand_escapes($self->QUOTE_ON, $do_command, $file);
+		$_screen->puts("\n$do_command\n");
+		system $do_command
+			and $_screen->display_error("External command failed\n");
+	};
+	$_pfm->state->directory->apply($do_this, 'O');
+	$_screen->pressanykey();
+	$_screen->alternate_on() if $_pfm->config->{altscreen_mode};
 	$_screen->raw_noecho()->set_deferred_refresh(R_CLRSCR);
 }
 

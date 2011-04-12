@@ -1998,7 +1998,7 @@ sub handlercspipe {
 	# If anyone wants to help me port this to other versioning systems,
 	# any help would be appreciated.
 	#
-	my $pin = '';
+#	my $pin = '';
 	my $firstcolsize = 7;
 	my ($nfound, $input, $f1, $f2, $newlinepos, %nameindexmap, $count, $mapindex,
 		$topdir, $dirindex, $oldval, $svnfieldtitle);
@@ -2010,18 +2010,18 @@ sub handlercspipe {
 		return;
 	}
 	# check if there is data ready on the filehandle
-	vec($pin,fileno(RCSPIPE),1) = 1;
-	$nfound = select($pin, undef, $pin, 0);
-	return if ($nfound <= 0);
-	# found data to process
-	if (sysread(RCSPIPE, $input, 10000) or length($rcsbuffer)) {
-		$rcsbuffer .= $input;
+#	vec($pin,fileno(RCSPIPE),1) = 1;
+#	$nfound = select($pin, undef, $pin, 0);
+#	return if ($nfound <= 0);
+#	# found data to process
+#	if (sysread(RCSPIPE, $input, 10000) or length($rcsbuffer)) {
+#		$rcsbuffer .= $input;
 		%nameindexmap = map { $_->{name}, $count++ } @showncontents;
 		$svnfieldtitle = $LAYOUTFIELDS{'v'};
-		while (($newlinepos = index($rcsbuffer,"\cJ")) >= 0) {
-			# process one line of input.
-			$input = substr($rcsbuffer, 0, $newlinepos);
-			$rcsbuffer = substr($rcsbuffer, $newlinepos+1);
+#		while (($newlinepos = index($rcsbuffer,"\cJ")) >= 0) {
+#			# process one line of input.
+#			$input = substr($rcsbuffer, 0, $newlinepos);
+#			$rcsbuffer = substr($rcsbuffer, $newlinepos+1);
 			# split line: status information and filename
 			$f1 = substr($input, 0, $firstcolsize);
 			$f2 = substr($input, $firstcolsize);
@@ -2045,13 +2045,13 @@ sub handlercspipe {
 				$showncontents[$mapindex]{$svnfieldtitle} = $f1;
 			}
 		}
-		%currentfile = %{$showncontents[$currentline+$baseindex]};
+#		%currentfile = %{$showncontents[$currentline+$baseindex]};
 		$_listing->show();
 		highlightline($HIGHLIGHT_ON);
 		# there might be more data (which we want to read now)
 		# or the pipe may be empty (then we want to close it)
 		# therefore, continue processing
-		goto &handlercspipe;
+#		goto &handlercspipe;
 	} else {
 #		close RCSPIPE;
 #		$rcsrunning = 0;
@@ -2514,14 +2514,14 @@ sub handlercspipe {
 		# run a new one for the entire directory.
 		$file = '';
 	}
-	$rcsbuffer = '';
+#	$rcsbuffer = '';
 #	$rcsrunning = 1;
 	$rcs_need_refresh = 1;
 #	$SIG{CHLD}  = \&reaper;
 #	preparercscol($file);
 #	my $rcspid = open(RCSPIPE, "$rcscmd \Q$file\E 2>/dev/null |");
-	$FIELDHEADINGS{'svn'} .= '!';
-	return $R_MENU | $R_HEADINGS;
+#	$FIELDHEADINGS{'svn'} .= '!';
+#	return $R_MENU | $R_HEADINGS;
 #}
 #
 #sub handlemore {

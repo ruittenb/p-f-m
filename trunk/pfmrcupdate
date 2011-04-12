@@ -2,9 +2,9 @@
 ############################################################################
 #
 # Name:         pfmrcupdate
-# Version:      2.03.7
+# Version:      2.04.4
 # Authors:      Rene Uittenbogaard
-# Date:         2010-05-02
+# Date:         2010-05-14
 # Usage:        pfmrcupdate
 # Description:  Update an existing .pfmrc so that it can be used with
 #               newer versions of pfm.
@@ -237,7 +237,16 @@ sub update_to_1904 {
 }
 
 sub update_to_1913 {
-	# TODO obsoleted 'timeformat' option
+	# this removes 'timeformat' for version 1.91.3
+	print "Updating to 1.91.3...\n";
+	my $i;
+	for ($i = $#_; $i > 0; $i--) {
+		if ($_[$i] =~ /^#*\s*(timeformat:|format for entering time:)/
+		or $_[$i] =~ /^#*\s*touch MMDDhhmm\S* or pfm .*MMDDhhmm/)
+		{
+			splice(@_, $i, 1);
+		}
+	}
 }
 
 sub update_to_1914 {
@@ -269,22 +278,41 @@ sub update_to_1917 {
 	# this adds a diskinfo column (f-column) to pre-1.91.7 config files
 	print "Updating to 1.91.7...\n";
 	foreach (@_) {
-		s/^([^#].*nnn.*)(:\\?)$/$1 ffffffffffffff$2/;
-		s/ layouts must not be wider than this! /-------------- file info -------------/;
+		s/^([^#].*nnnn.*)(:\\?)$/$1 ffffffffffffff$2/;
+		s{ layouts must not be wider than this! }
+		 {-------------- file info -------------};
 	}
 }
 
 sub update_to_1920 {
-	# TODO As of version 1.92.0, the config file has been extended with options
-	# TODO  necessary for the launch functionality. Please check the new options in
-	# TODO  the default config file.
+	# changes important comments.
+	print "Updating to 1.92.0...\n";
+	my $i;
+	foreach (@_) {
+		s{magic\[Sun/NeXT audio data\](\s*:\s*)audio/basic}
+		 {magic\[Sun.NeXT audio data\]$1audio/basic};
+		s{(diskinfo field) is as yet only supported as the last column.}
+		 {$1 *must* be the _first_ or _last_ field on the line.};
+		s{## launch commands.*not implemented.*}
+		 {## launch commands};
+	}
+	my @new = split /\n/, <<'_end_update_to_1920_';
+## the option itself may not contain whitespace or colons,
+## except in a classifier enclosed in [] that immediately follows it.
+## in other words: /^\s*([^[:\s]+(?:\[[^]]+\])?)\s*:\s*(.*)$/
+_end_update_to_1920_
+	for ($i = $#_; $i > 0; $i--) {
+		if ($_[$i] =~ /## in other words:/) {
+			splice @_, $i, 1, @new;
+		}
+	}
 }
 
 sub update_to_1921 {
 	# changed option 'clobber' to 'defaultclobber'
 	print "Updating to 1.92.1...\n";
 	foreach (@_) {
-		s/^([#\s]*)\bclobber\b/$1defaultclobber/g;
+		s/^(#*\s*)\bclobber\b/$1defaultclobber/g;
 	}
 }
 
@@ -302,6 +330,31 @@ sub update_to_1926 {
 		s/\bwhitemode:\s*yes\b/defaultwhitemode: no/g;
 		s/\bwhitemode:\s*no\b/defaultwhitemode: yes/g;
 	}
+}
+
+sub update_to_1931 {
+	# added 'escapechar'; changed default escape char.
+	print "Updating to 1.93.1...\n";
+	foreach (@_) {
+		s/\\([1-7epv])/=$1/g;
+		s/\\\\/==/g;
+	}
+	push @_, <<_end_update_to_1931_;
+
+extension[*.dvi] : application/x-dvi
+extension[*.jar] : application/zip
+extension[*.man] : application/x-groff-man
+extension[*.mm]  : application/x-groff-mm
+extension[*.pdb] : chemical/x-pdb
+magic[TeX DVI file] : application/x-dvi
+
+## the character that pfm recognizes as special abbreviation character
+## (default =)
+## previous versions used \ (note that this leads to confusing results)
+#escapechar:=
+#escapechar:\
+
+_end_update_to_1931_
 }
 
 sub update_to_1942 {
@@ -367,7 +420,8 @@ sub update_to_2017 {
 	print "Updating to 2.01.7...\n";
 	my $i;
 	for ($i = $#_; $i > 0; $i--) {
-		if ($_[$i] =~ /^#+\s*(checkforupdates:|automatically check for updates on exit)/x)
+		if ($_[$i] =~ /^#*\s*checkforupdates:/
+		or  $_[$i] =~ /^#+\s*automatically check for updates on exit/)
 		{
 			splice(@_, $i, 1);
 		}
@@ -379,11 +433,24 @@ sub update_to_2037 {
 	print "Updating to 2.03.7...\n";
 	my $i;
 	for ($i = $#_; $i > 0; $i--) {
-		if ($_[$i] =~ /^#+\s*(waitlaunchexec:|wait for launched executables to finish)/x)
+		if ($_[$i] =~ /^#*\s*waitlaunchexec:/
+		or  $_[$i] =~ /^#+\s*wait for launched executables to finish/)
 		{
 			splice(@_, $i, 1);
 		}
 	}
+}
+
+sub update_to_2044 {
+	# added 'copyoptions'
+	print "Updating to 2.04.4...\n";
+	push @_, <<_end_update_to_2044_;
+
+## commandline options to add to the cp(1) command, in the first place for
+## changing the 'follow symlinks' behavior.
+copyoptions:
+
+_end_update_to_2044_
 }
 
 sub update_version {
@@ -410,6 +477,7 @@ sub update_pfmrc {
 	update_to_1921(@_) if $from lt '1.92.1' and '1.92.1' le $to;
 	update_to_1923(@_) if $from lt '1.92.3' and '1.92.3' le $to;
 	update_to_1926(@_) if $from lt '1.92.6' and '1.92.6' le $to;
+	update_to_1931(@_) if $from lt '1.93.1' and '1.93.1' le $to;
 	update_to_1942(@_) if $from lt '1.94.2' and '1.94.2' le $to;
 	update_to_1948(@_) if $from lt '1.94.8' and '1.94.8' le $to;
 	update_to_1951(@_) if $from lt '1.95.1' and '1.95.1' le $to;
@@ -417,6 +485,7 @@ sub update_pfmrc {
 	update_to_200 (@_) if $from lt '2.00'   and '2.00'   le $to;
 	update_to_2017(@_) if $from lt '2.01.7' and '2.01.7' le $to;
 	update_to_2037(@_) if $from lt '2.03.7' and '2.03.7' le $to;
+	update_to_2044(@_) if $from lt '2.04.4' and '2.04.4' le $to;
 	update_version($to, @_);
 }
 

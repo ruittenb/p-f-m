@@ -295,6 +295,7 @@ sub parse {
 	$self->{clocktimeformat}	= $pfmrc->{clocktimeformat} || '%H:%M:%S';
 	$self->{timestampformat}	= $pfmrc->{timestampformat} || '%y %b %d %H:%M';
 	$self->{launchby}			= $pfmrc->{launchby};
+	$self->{copyoptions}		= $pfmrc->{copyoptions};
 	# Don't change settings back to the defaults if they may have
 	# been modified by key commands.
 	$self->{cursorveryvisible}	= isyes($pfmrc->{cursorveryvisible});
@@ -509,6 +510,10 @@ clsonexit:no
 ## have pfm ask for confirmation when you press 'q'uit? (yes,no,marked)
 ## 'marked' = ask only if there are any marked files in the current directory
 confirmquit:yes
+
+## commandline options to add to the cp(1) command, in the first place for
+## changing the 'follow symlinks' behavior.
+copyoptions:
 
 ## time to display copyright message at start (in seconds, fractions allowed)
 ## make pfm a lookalike to the DOS version :)
@@ -749,10 +754,10 @@ di=bold:ln=underscore:
 ## z    grand total              >=4; last char == power of 1024 (K, M, G..)
 ## u    user                     >=8 (system-dependent)
 ## g    group                    >=8 (system-dependent)
-## p    permissions              10
+## p    mode (permissions)       10
+## m    modification time        15 (using "%y %b %d %H:%M" if len(%b) == 3)
 ## a    access time              15 (using "%y %b %d %H:%M" if len(%b) == 3)
 ## c    change time              15 (using "%y %b %d %H:%M" if len(%b) == 3)
-## m    modification time        15 (using "%y %b %d %H:%M" if len(%b) == 3)
 ## v    versioning info          >=4
 ## d    device                   5?
 ## i    inode                    >=7 (system-dependent)
@@ -763,7 +768,6 @@ di=bold:ln=underscore:
 ## if the terminal is resized, the filename field will be elongated.
 ## the diskinfo field *must* be the _first_ or _last_ field on the line.
 ## a final colon (:) after the last layout is allowed.
-## the first three layouts were the old (pre-v1.72) defaults.
 
 #<------------------------- file info -------------------------># #<-diskinfo->#
 columnlayouts:\

@@ -338,7 +338,7 @@ sub bootstrap {
 	$_config->apply();
 	$_screen->listing->layout($startinglayout);
 	$_history->read();
-	$_jobhandler->start('CheckUpdates');
+	#$_jobhandler->start('CheckUpdates');
 	
 	# current directory - MAIN for the time being
 	$currentdir = getcwd();
