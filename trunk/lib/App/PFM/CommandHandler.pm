@@ -65,7 +65,7 @@ my @INC_CRITERIA = (
 	's' => 'Smaller',
 	'u' => 'User',
 	'f' => 'Files only',
-#	'i' => '(invert)',
+	'i' => 'Invert',
 );
 
 my %CMDESCAPES = (
@@ -524,7 +524,7 @@ sub handle {
 		/^p$/io				and $self->handleprint(),				last;
 		/^L$/o				and $self->handlelink(),				last;
 		/^n$/io				and $self->handlename(),				last;
-		/^k8$/o				and $self->handleselect(),				last;
+		/^k8$/o				and $self->handlemark(),				last;
 		/^k11$/o			and $self->handlerestat(),				last;
 		/^[\/f]$/io			and $self->handlefind(),				last;
 		/^[<>]$/io			and $self->handlepan($_,
@@ -1027,13 +1027,13 @@ sub handleentry {
 	return $success;
 }
 
-=item handleselect()
+=item handlemark()
 
 Handles marking (including or excluding) a file.
 
 =cut
 
-sub handleselect {
+sub handlemark {
 	my ($self) = @_;
 	my $currentfile  = $_pfm->browser->currentfile;
 	my $was_selected = $currentfile->{selected} eq M_MARK;
@@ -1047,13 +1047,14 @@ sub handleselect {
 	$_screen->listing->highlight_off();
 }
 
-=item handleselectall()
+=item handlemarkall()
 
 Handles marking (in-/excluding) all files.
+The entries F<.> and F<..> are exempt from this action.
 
 =cut
 
-sub handleselectall {
+sub handlemarkall {
 	my ($self) = @_;
 	my $file;
 	my $selected_nr_of = $_pfm->state->directory->selected_nr_of;
@@ -1083,6 +1084,31 @@ sub handleselectall {
 	$_screen->set_deferred_refresh(R_SCREEN);
 }
 
+=item handlemarkinverse()
+
+Handles inverting all marks.
+The entries F<.> and F<..> are exempt from this action.
+
+=cut
+
+sub handlemarkinverse {
+	my ($self) = @_;
+	my $file;
+	my $showncontents  = $_pfm->state->directory->showncontents;
+	foreach $file (@$showncontents) {
+		if ($file->{name} ne '.' and
+			$file->{name} ne '..')
+		{
+			if ($file->{selected} ne M_MARK) {
+				$_pfm->state->directory->include($file);
+			} else {
+				$_pfm->state->directory->exclude($file);
+			}
+		}
+	}
+	$_screen->set_deferred_refresh(R_SCREEN);
+}
+
 =item handleadvance()
 
 Handles the space key: mark a file and advance to the next one.
@@ -1091,7 +1117,7 @@ Handles the space key: mark a file and advance to the next one.
 
 sub handleadvance {
 	my ($self, $key) = @_;
-	$self->handleselect();
+	$self->handlemark();
 	$self->handlemove($key); # pass space key on
 }
 
@@ -1649,6 +1675,9 @@ sub handleinclude { # include/exclude flag (from keypress)
 			$file->{name} =~ /$wildfilename/ and
 			$file->{type} eq '-';
 		};
+	} elsif ($key eq 'i') { # invert selection
+		$self->handlemarkinverse();
+		return;
 	}
 	if ($criterion) {
 		foreach $entry (@{$directory->showncontents}) {
@@ -2138,7 +2167,7 @@ sub handlemousedown {
 				$self->handleenter();
 			}
 		} elsif (!$on_name and !$mbutton) {
-			$self->handleselect();
+			$self->handlemark();
 		} else {
 			$self->handleshow();
 		}
@@ -2201,7 +2230,7 @@ sub handlemouseheadingsort {
 	# get field character
 	my $key = substr($currentlayoutline, $mousecol, 1);
 #	if ($key eq '*') {
-#		goto &handleselectall;
+#		goto &handlemarkall;
 #	}
 	# translate field character to sort mode character
 	$key = $sortmodes{$key};

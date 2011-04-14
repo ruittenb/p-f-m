@@ -1,5 +1,4 @@
 - handleswap: samenwerking met F2
-- finish pfmrcupdate: also pushing onto @_ doesn't work
 - cursor at 'lib', sort by name with mouse click: cursor ends up at 'lib-app-pfm'
 
 - command- true in RCS directory shows headings directly, no defer
