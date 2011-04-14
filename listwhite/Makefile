@@ -8,11 +8,11 @@ WHEEL=`awk -F: '$$3 == 0 {print $$1}' /etc/group`
 
 all: $(PROG) $(PROG).$(SECTION)
 
-ps: $(PROG).$(SECTION)
-	groff -man $(PROG).$(SECTION) > $(PROG).ps
-
 $(PROG).$(SECTION): $(PROG)
 	pod2man $(PODOPTS) $(PROG).c > $(PROG).$(SECTION)
+
+test:	$(PROG)
+	./$(PROG)
 
 install: all
 	install -o root -g $(WHEEL) -m 755 $(PROG) $(PREFIX)/bin/

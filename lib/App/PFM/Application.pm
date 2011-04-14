@@ -196,38 +196,34 @@ sub _goodbye {
 
 =item browser()
 
+Getter for the App::PFM::Browser object.
+
 =item commandhandler()
+
+Getter for the App::PFM::CommandHandler object.
 
 =item config()
 
+Getter for the App::PFM::Config object.
+
 =item history()
+
+Getter for the App::PFM::History object.
 
 =item jobhandler()
 
+Getter for the App::PFM::JobHandler object.
+
 =item screen()
 
-Getters for the objects:
-
-=over 2
-
-=item App::PFM::Browser
-
-=item App::PFM::CommandHandler
-
-=item App::PFM::Config
-
-=item App::PFM::History
-
-=item App::PFM::JobHandler
-
-=item App::PFM::Screen
-
-=back
+Getter for the App::PFM::Screen object.
 
 =item state()
 
 Getter for the current App::PFM::State object. If an argument is provided,
 it indicates which item from the state stack is to be returned.
+The predefined constants B<S_MAIN>, B<S_SWAP> and B<S_PREV> can be used to
+refer to the main, swap and previous states.
 
 =cut
 
@@ -300,6 +296,27 @@ sub swap_states {
 	@_states[$first, $second] = @_states[$second, $first];
 }
 
+=item checkupdates()
+
+Starts the job for checking if there are new versions of the application
+available for download.
+
+=cut
+
+sub checkupdates {
+	my ($self) = @_;
+	my %on = (
+		after_receive_data	=> sub {
+			my ($job, $input) = @_;
+			if ($input gt $self->{VERSION}) {
+				$self->{NEWER_VERSION}	= $input;
+				$self->{PFM_URL}		= $job->PFM_URL;
+			}
+		},
+	);
+	$_jobhandler->start('CheckUpdates', %on);
+}
+
 =item bootstrap()
 
 Initializes the application.
@@ -310,8 +327,7 @@ Instantiates the necessary objects.
 sub bootstrap {
 	my $self = shift;
 	my ($startingdir, $swapstartdir, $startinglayout,
-		$currentdir, %on,
-		$opt_version, $opt_help, $invalid, $state);
+		$currentdir, $opt_version, $opt_help, $invalid, $state);
 	
 	# hand over the application object to the other classes
 	# for easy access.
@@ -344,16 +360,7 @@ sub bootstrap {
 	$_config->apply();
 	$_screen->listing->layout($startinglayout);
 	$_history->read();
-	%on = (
-		after_receive_data	=> sub {
-			my ($job, $input) = @_;
-			if ($input gt $self->{VERSION}) {
-				$self->{NEWER_VERSION}	= $input;
-				$self->{PFM_URL}		= $job->PFM_URL;
-			}
-		},
-	);
-	$_jobhandler->start('CheckUpdates', %on);
+	$self->checkupdates();
 	
 	# current directory - MAIN for the time being
 	$currentdir = getcwd();

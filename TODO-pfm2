@@ -1,7 +1,17 @@
-- handleswap: samenwerking met F2
-- cursor at 'lib', sort by name with mouse click: cursor ends up at 'lib-app-pfm'
+- interaction of handleswap (F7) with F2
+- cursor at 'lib', sort by name with mouse click: cursor ends up
+  at 'lib-app-pfm'
 
-- timing of heading update after RCS command is horribly wrong
+- si(Z)e does not work correctly because a restat() is done afterwards
+- handlecopyrename: after overwrite? -> no, then cursor is moved anyway
 
-- siZe does not work because a restat() is done afterwards
+- CHLD signal handler messes things up... try calling waitpid() instead
+  (in pollall).  Then see if handlesize and handlecopyrename work better.
 
+- (L)ink (R)el on '.' or '..' fail to create correct link because of
+  canonicalize_pathname()
+
+- (T)ime etc. do not resort(); should they?
+  if ($sort_mode =~ /[da]/i)
+  	$screen->set_deferred_refresh(R_DIRSORT | R_DIRLISTING);
+  }
