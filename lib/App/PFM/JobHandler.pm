@@ -145,9 +145,7 @@ to the application.
 sub pollall {
 	my $self = shift;
 	my $i;
-	print "-POLLALL-"; # TODO
 	for ($i = 0; $i <= $#{$self->{_jobs}}; $i++) {
-	print "-POLL$i-"; # TODO
 		$self->poll($i);
 	}
 	# Note that this does not return the number of running jobs,
