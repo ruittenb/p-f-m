@@ -86,9 +86,9 @@ use constant FILETYPEFLAGS => {
 };
 
 my ($_pfm, $_screen,
-	$_layout, $_cursorcol, @_layoutfields, @_layoutfieldswithinfo,
-	$_filerecordcol, $_filenamecol,
+	$_layout, $_cursorcol, $_filerecordcol, $_filenamecol,
 	$_maxfilenamelength, $_maxfilesizelength, $_maxgrandtotallength,
+	@_layoutfields, @_layoutfieldswithinfo,
 	$_currentformatline, $_currentformatlinewithinfo,
 	$_formatname,
 );
@@ -324,11 +324,11 @@ Turns highlight on/off on the line with the cursor.
 
 =cut
 
-sub highlight_off() {
+sub highlight_off {
 	$_[0]->_highlightline(HIGHLIGHT_OFF);
 }
 
-sub highlight_on() {
+sub highlight_on {
 	$_[0]->_highlightline(HIGHLIGHT_ON);
 }
 
@@ -371,6 +371,7 @@ sub show {
 				' 'x($_screen->screenwidth - $_screen->diskinfo->infolength));
 		}
 	}
+	return $_screen;
 }
 
 =item applycolor()

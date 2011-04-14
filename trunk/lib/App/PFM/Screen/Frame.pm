@@ -58,7 +58,7 @@ use constant {
 
 my %ONOFF = ('' => 'off', 0 => 'off', 1 => 'on');
 
-my %_fieldheadings = (
+our %_fieldheadings = (
 	selected		=> ' ',
 	name			=> 'filename',
 	display			=> 'filename',
@@ -85,7 +85,7 @@ my %_fieldheadings = (
 	diskinfo		=> 'disk info',
 );
 
-my ($_pfm, $_screen);
+our ($_pfm, $_screen);
 
 ##########################################################################
 # private subs
@@ -102,6 +102,7 @@ sub _init {
 	$_pfm	 = $pfm;
 	$_screen = $screen;
 	$self->{_currentpan} = 0;
+	$self->{_rcsrunning} = 0;
 }
 
 =item _maxpan()
@@ -239,6 +240,21 @@ sub currentpan {
 	return $self->{_currentpan};
 }
 
+=item rcsrunning()
+
+Getter/setter for the flag that indicates whether an rcs command is running.
+
+=cut
+
+sub rcsrunning {
+	my ($self, $value) = @_;
+	if (defined $value) {
+		$self->{_rcsrunning} = $value;
+		$self->update_headings($value);
+	}
+	return $self->{_rcsrunning};
+}
+
 ##########################################################################
 # public subs
 
@@ -298,7 +314,7 @@ Displays the column headings.
 =cut
 
 sub show_headings {
-	my ($self, $swapmode, $info, $rcsrunning) = @_;
+	my ($self, $swapmode, $info) = @_;
 	my ($linecolor, $diskinfo, $padding, $filters);
 	my @fields = @{$_screen->listing->layoutfieldswithinfo};
 	my $state  = $_pfm->state;
@@ -311,7 +327,7 @@ sub show_headings {
 		$_ == HEADING_CRITERIA	and $diskinfo = "criteria      $padding";
 	}
 	$_fieldheadings{diskinfo} = $diskinfo;
-	$self->update_headings($rcsrunning);
+	$self->update_headings();
 	$linecolor = $swapmode
 		? $_pfm->config->{framecolors}->{$_screen->color_mode}{swap}
 		: $_pfm->config->{framecolors}->{$_screen->color_mode}{headings};
@@ -375,13 +391,13 @@ Updates the column headings in case of a mode change.
 =cut
 
 sub update_headings {
-	my ($self, $rcsrunning) = @_;
+	my ($self) = @_;
 	my $state = $_pfm->state;
 	my $filters = ($state->{white_mode} ? '' : '%')
 				. ($state->{dot_mode}   ? '' : '.');
 	$_fieldheadings{display} = $_fieldheadings{name} .
 		($filters ? " (filtered)" : '');
-	if ($rcsrunning or $state->directory->{_rcsjob}) {
+	if ($self->{_rcsrunning} or $state->directory->{_rcsjob}) {
 		$_fieldheadings{rcs} =~  s/!*$/!/;
 	} else {
 		$_fieldheadings{rcs} =~ s/!+$//;

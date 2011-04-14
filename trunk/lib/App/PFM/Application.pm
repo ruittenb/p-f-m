@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.04.8
+# @(#) App::PFM::Application 2.05.2
 #
 # Name:			App::PFM::Application
-# Version:		2.04.8
+# Version:		2.05.2
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-05-21
@@ -88,7 +88,8 @@ sub _findversionfromfile {
 	my $version = 'unknown';
 	# default year, in case the year cannot be determined
 	my $year    = 3 * 10 * 67;
-	# the pragma 'locale' causes problems when the source is read in using UTF-8
+	# the pragma 'locale' used to cause problems when the source
+	# is read in using UTF-8
 	no locale;
 	if (open (SELF, __FILE__)) {
 		while (<SELF>) {
@@ -278,7 +279,7 @@ Opens a new terminal window running pfm.
 
 =cut
 
-sub openwindow() {
+sub openwindow {
 	my ($self, $file) = @_;
 	if (ref $self->state(S_SWAP)) {
 		system($self->config->{windowcmd}." 'pfm \Q$file->{name}\E -s " .

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::History 0.08
+# @(#) App::PFM::History 0.19
 #
 # Name:			App::PFM::History
-# Version:		0.08
+# Version:		0.19
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-27
+# Date:			2010-05-24
 #
 
 ##########################################################################
@@ -41,6 +41,7 @@ use Term::ReadLine;
 use strict;
 
 use constant {
+	MAXHISTSIZE	=> 70,
 	H_COMMAND	=> 'history_command',
 	H_MODE		=> 'history_mode',
 	H_PATH		=> 'history_path',
@@ -51,25 +52,8 @@ use constant {
 
 our @EXPORT = qw(H_COMMAND H_MODE H_PATH H_REGEX H_TIME H_PERLCMD);
 
-my ($_pfm, $_keyboard,
-	@_command_history,
-	@_mode_history,
-	@_path_history,
-	@_regex_history,
-	@_time_history,
-	@_perlcmd_history,
-);
+our ($_pfm, $_keyboard);
 
-my %HISTORIES = (
-	history_command	=> \@_command_history,
-	history_mode	=> \@_mode_history,
-	history_path	=> \@_path_history,
-	history_regex	=> \@_regex_history,
-	history_time	=> \@_time_history,
-	history_perlcmd	=> \@_perlcmd_history,
-);
-
-my $MAXHISTSIZE	= 70;
 my $CWDFILENAME	= 'cwd';
 my $SWDFILENAME	= 'swd';
 
@@ -85,8 +69,18 @@ Called from the constructor.
 
 sub _init {
 	my ($self, $pfm) = @_;
+	my $escape;
 	$_pfm      = $pfm;
 	$_keyboard = new Term::ReadLine('pfm');
+	# some defaults
+	$self->{_histories} = {
+		H_COMMAND,	[ 'du -ks * | sort -n'	],
+		H_MODE,		[ '755', '644'			],
+		H_PATH,		[ '/', $ENV{HOME}		],
+		H_REGEX,	[ '\.jpg$', '\.mp3$'	],
+		H_TIME,		[],
+		H_PERLCMD,	[],
+	};
 }
 
 =item _set_term_history()
@@ -99,9 +93,9 @@ method.
 =cut
 
 sub _set_term_history {
-	my $self = shift;
+	my ($self, @histlines) = @_;
 	if ($_keyboard->Features->{setHistory}) {
-		$_keyboard->SetHistory(@_);
+		$_keyboard->SetHistory(@histlines);
 	}
 	return $_keyboard;
 }
@@ -129,20 +123,12 @@ Reads the histories from the files in the config directory.
 =cut
 
 sub read {
-	my $self = shift;
+	my ($self) = @_;
 	my $hfile;
-	my $escape = $_pfm->config->{e};
-	# some defaults
-	@_command_history = ('du -ks * | sort -n', "man ${escape}1");
-	@_mode_history	 = ('755', '644');
-	@_path_history	 = ('/', $ENV{HOME});
-	@_regex_history	 = ('\.jpg$');
-#	@time_history;
-#	@perlcmd_history;
-	foreach (keys(%HISTORIES)) {
+	foreach (keys %{$self->{_histories}}) {
 		$hfile = $_pfm->config->CONFIGDIRNAME . "/$_";
 		if (-s $hfile and open (HISTFILE, $hfile)) {
-			chomp( @{$HISTORIES{$_}} = <HISTFILE> );
+			chomp( @{$self->{_histories}{$_}} = <HISTFILE> );
 			close HISTFILE;
 		}
 	}
@@ -155,13 +141,13 @@ Writes the histories to files in the config directory.
 =cut
 
 sub write {
-	my $self = shift;
+	my ($self) = @_;
 	my $failed;
 	my $screen = $_pfm->screen;
 	$screen->at(0,0)->clreol();
-	foreach (keys(%HISTORIES)) {
+	foreach (keys %{$self->{_histories}}) {
 		if (open HISTFILE, '>'.$_pfm->config->CONFIGDIRNAME."/$_") {
-			print HISTFILE join "\n", @{$HISTORIES{$_}}, '';
+			print HISTFILE join "\n", @{$self->{_histories}{$_}}, '';
 			close HISTFILE;
 		} elsif (!$failed) {
 			$screen->putmessage("Unable to save (part of) history: $!");
@@ -182,7 +168,7 @@ the config directory.
 =cut
 
 sub write_dirs {
-	my $self = shift;
+	my ($self) = @_;
 	my $configdirname = $_pfm->config->CONFIGDIRNAME;
 	my $swap_state	  = $_pfm->state($_pfm->S_SWAP);
 	
@@ -213,11 +199,11 @@ the appropriate history.
 
 sub input {
 	# $history, $prompt [, $default_input [, $history_input [, $filter ]]]
-	local $SIG{INT} = 'IGNORE'; # do not interrupt pfm
 	my ($self, $history, $prompt, $input, $histpush, $pushfilter) = @_;
-	$history = $HISTORIES{$history};
+	$history = $self->{_histories}{$history};
 	$prompt ||= '';
 	$input  ||= '';
+	local $SIG{INT} = 'IGNORE'; # do not interrupt pfm
 	if (length $histpush and 
 		(@$history == 0 or
 		(@$history > 0 && $histpush ne ${$history}[-1])))
@@ -232,7 +218,7 @@ sub input {
 	{
 		push(@$history, $input);
 	}
-	shift(@$history) while ($#$history > $MAXHISTSIZE);
+	shift(@$history) while ($#$history > MAXHISTSIZE);
 	return $input;
 }
 

@@ -47,6 +47,7 @@ use POSIX qw(getcwd);
 use strict;
 
 use constant {
+	RCS_DONE	=> 0,
 	RCS_RUNNING	=> 1,
 	SLOWENTRIES	=> 300,
 	M_MARK		=> '*',
@@ -192,7 +193,7 @@ Determines the current filesystem usage and stores it in an internal hash.
 =cut
 
 sub _init_filesystem_info {
-	my $self = shift;
+	my ($self) = @_;
 	my @dflist;
 	chop (@dflist = (`$DFCMD \Q$self->{_path}\E`, ''));
 	shift @dflist; # skip header
@@ -230,9 +231,9 @@ App::PFM::Directory::chdir(), and will return the success status.
 =cut
 
 sub path {
-	my $self = shift;
-	if (@_) {
-		return $self->chdir(@_);
+	my ($self, @cdopts) = @_;
+	if (@cdopts) {
+		return $self->chdir(@cdopts);
 	}
 	return $self->{_path};
 }
@@ -428,10 +429,10 @@ directory by zeroing them out.
 =cut
 
 sub init_dircount {
-	my $self = shift;
+	my ($self) = @_;
 	%{$self->{_selected_nr_of}} =
 		%{$self->{_total_nr_of}} =
-			( d=>0, '-'=>0, l=>0, c=>0, b=>0, D=>0,
+			( d=>0, '-'=>0, l=>0, c=>0, b=>0, D=>0, P=>0,
 			  p=>0, 's'=>0, n=>0, w=>0, bytes => 0 );
 }
 
@@ -442,11 +443,12 @@ Counts the total number of entries of each type in the current directory.
 =cut
 
 sub countcontents {
-	my $self = shift;
+	my ($self, @entries) = @_;
 	$self->init_dircount();
-	foreach my $i (0..$#_) {
-		$self->{_total_nr_of   }{$_[$i]{type}}++;
-		$self->{_selected_nr_of}{$_[$i]{type}}++ if $_[$i]{selected} eq M_MARK;
+	foreach my $i (0..$#entries) {
+		$self->{_total_nr_of   }{$entries[$i]{type}}++;
+		$self->{_selected_nr_of}{$entries[$i]{type}}++
+			if $entries[$i]{selected} eq M_MARK;
 	}
 }
 
@@ -457,7 +459,7 @@ Reads the entries in the current directory and performs a stat() on them.
 =cut
 
 sub readcontents {
-	my $self = shift;
+	my ($self) = @_;
 	my ($entry, $file);
 	my @allentries    = ();
 	my @white_entries = ();
@@ -513,7 +515,7 @@ Sorts the directory's contents according to the selected sort mode.
 =cut
 
 sub sortcontents {
-	my $self = shift;
+	my ($self) = @_;
 	@{$self->{_dircontents}} = sort _by_sort_mode @{$self->{_dircontents}};
 }
 
@@ -525,7 +527,7 @@ Filters the directory contents according to the filter modes
 =cut
 
 sub filtercontents {
-	my $self = shift;
+	my ($self) = @_;
 	@{$self->{_showncontents}} = grep {
 		$_pfm->state->{dot_mode}   || $_->{name} =~ /^(\.\.?|[^\.].*)$/ and
 		$_pfm->state->{white_mode} || $_->{type} ne 'w'
@@ -675,16 +677,19 @@ and starts them.
 sub checkrcsapplicable {
 	my ($self, $entry) = @_;
 	my ($class, $fullclass);
-	my $path = $self->{_path};
+	my $path   = $self->{_path};
+	my $screen = $_pfm->screen;
 	$entry = defined $entry ? $entry : $path;
 	my %on = (
 		after_start			=> sub {
 			# next line needs to provide a '1' argument because
 			# $self->{_rcsjob} has not yet been set
-			$_pfm->screen->frame->show_headings(
-				$_pfm->browser->swap_mode,
-				$_pfm->screen->frame->HEADING_DISKINFO,
-				RCS_RUNNING);
+#			$screen->frame->show_headings(
+#				$_pfm->browser->swap_mode,
+#				$screen->frame->HEADING_DISKINFO,
+#				RCS_RUNNING);
+#			$screen->set_deferred_refresh($screen->R_HEADINGS);
+			$screen->frame->rcsrunning(RCS_RUNNING);
 		},
 		after_receive_data	=> sub {
 			my $job = shift;
@@ -718,13 +723,16 @@ sub checkrcsapplicable {
 					$self->{_showncontents}[$mapindex]{rcs} = $flags;
 #				}
 			}
-			$_pfm->screen->listing->show();
+			$screen->listing->show();
+			$screen->listing->highlight_on();
 		},
 		after_finish		=> sub {
 			$self->{_rcsjob} = undef;
-			$_pfm->screen->frame->show_headings(
-				$_pfm->browser->swap_mode,
-				$_pfm->screen->frame->HEADING_DISKINFO);
+#			$screen->frame->show_headings(
+#				$_pfm->browser->swap_mode,
+#				$screen->frame->HEADING_DISKINFO);
+#			$screen->set_deferred_refresh($screen->R_HEADINGS);
+			$screen->frame->rcsrunning(RCS_DONE);
 		},
 	);
 	# TODO when a directory is swapped out, the jobs should continue
@@ -732,8 +740,12 @@ sub checkrcsapplicable {
 	foreach $class (@{$self->RCS}) {
 		$fullclass = "App::PFM::Job::$class";
 		if ($fullclass->isapplicable($path)) {
-			$_pfm->jobhandler->stop($self->{_rcsjob})
-				if defined $self->{_rcsjob};
+			if (defined $self->{_rcsjob}) {
+				# The previous job did not yet finish.
+				# Kill it and run the command for the entire directory.
+				$_pfm->jobhandler->stop($self->{_rcsjob});
+				$entry = $path;
+			}
 			$self->{_rcsjob} = $_pfm->jobhandler->start($class, $entry, %on);
 			return;
 		}
@@ -820,6 +832,14 @@ sub apply {
 					splice @{$self->{_showncontents}}, $i, 1;
 				}
 			}
+			# from perlfunc/system:
+#			if ($? == -1) {
+#				print "failed to execute: $!\n";
+#			}
+#			elsif ($? & 127) {
+#				printf "child died with signal %d, %s coredump\n",
+#				($? & 127),  ($? & 128) ? 'with' : 'without';
+#			}
 			#last if $self->{_wasquit};
 		}
 		#$SIG{QUIT} = 'DEFAULT';

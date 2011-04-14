@@ -2,7 +2,7 @@
 ############################################################################
 #
 # Name:         pfmrcupdate
-# Version:      2.05.1
+# Version:      2.05.2
 # Authors:      Rene Uittenbogaard
 # Date:         2010-05-24
 # Usage:        pfmrcupdate
@@ -405,6 +405,18 @@ magic[TeX DVI file] : application/x-dvi
 _end_update_to_1931_
 }
 
+sub update_to_1938 {
+	my ($lines) = @_;
+	# added 'altscreenmode'
+	print "Updating to 1.93.8...\n";
+	push @$lines, <<'_end_update_to_1938_';
+
+## use xterm alternate screen buffer (yes,no,xterm) (default: only in xterm)
+altscreenmode:xterm
+
+_end_update_to_1938_
+}
+
 sub update_to_1942 {
 	my ($lines) = @_;
 	# subversion support; 'rcscmd', 'autorcs'
@@ -534,6 +546,7 @@ sub update_pfmrc {
 	update_to_1923($lines) if $from lt '1.92.3' and '1.92.3' le $to;
 	update_to_1926($lines) if $from lt '1.92.6' and '1.92.6' le $to;
 	update_to_1931($lines) if $from lt '1.93.1' and '1.93.1' le $to;
+	update_to_1938($lines) if $from lt '1.93.8' and '1.93.8' le $to;
 	update_to_1942($lines) if $from lt '1.94.2' and '1.94.2' le $to;
 	update_to_1948($lines) if $from lt '1.94.8' and '1.94.8' le $to;
 	update_to_1951($lines) if $from lt '1.95.1' and '1.95.1' le $to;

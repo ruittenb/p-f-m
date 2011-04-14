@@ -45,17 +45,19 @@ use strict;
 
 =item _init()
 
-Initializes the 'running' flag, and assigns the hash of event handlers.
+Initializes the 'running' flag ('childpid'), and assigns the hash of event
+handlers.
 
 =cut
 
 sub _init {
 	my ($self, %o) = @_;
-	$self->{_running}  = 0;
+	$self->{_childpid} = 0;
 	$self->{_pipe}     = undef;
 	$self->{_selector} = new IO::Select();
 	$self->{_on}       = { %o };
 	$self->{_buffer}   = '';
+	$self->{_stop_next_iteration} = 0;
 }
 
 =item _fire_event()
@@ -175,14 +177,14 @@ I<after_start> event.
 
 sub start {
 	my ($self) = @_;
-	return 0 if $self->{_running};
+	return 0 if $self->{_childpid};
 	return 0 unless $self->_fire_event('before_start');
 	$SIG{CHLD} = \&_catch_child;
-	$self->{_buffer}  = '';
-	$self->{_pipe}    = new IO::Pipe();
-	$self->_start_child();
+	$self->{_stop_next_iteration} = 0;
+	$self->{_buffer}   = '';
+	$self->{_pipe}     = new IO::Pipe();
+	$self->{_childpid} = $self->_start_child() || 1;
 	$self->{_selector}->add($self->{_pipe});
-	$self->{_running} = 1;
 	$self->_fire_event('after_start');
 	return 1;
 }
@@ -197,10 +199,14 @@ the I<after_receive_data> event is fired.
 
 sub poll {
 	my ($self) = @_;
-	my ($can_read);
-	my ($r, $e);
-	my ($pin, $nfound, $input, $newlinepos);
-	return 0 unless $self->{_running};
+	my ($can_read, $input, $newlinepos);
+	# shortcut if not running
+	return 0 unless $self->{_childpid};
+	# handle delayed stopping
+	if ($self->{_stop_next_iteration}) {
+		$self->stop();
+		return 0;
+	}
 	# check if there is data ready on the filehandle
 	return if $self->{_selector}->can_read(0) <= 0;
 	# the filehandle is ready
@@ -218,9 +224,11 @@ sub poll {
 		}
 		goto &poll; # continue parsing
 	} else {
-		$self->stop();
+		# delayed stop
+		$self->{_stop_next_iteration} = 1;
+#		$self->stop();
 	}
-	return $self->{_running};
+	return $self->{_childpid};
 }
 
 =item stop()
@@ -232,8 +240,8 @@ I<after_finish> event.
 
 sub stop {
 	my ($self) = @_;
-	return 0 unless $self->{_running};
-	$self->{_running} = 0;
+	return 0 unless $self->{_childpid};
+	$self->{_childpid} = 0;
 	$self->_stop_child();
 	$self->{_pipe}->close();
 	$self->_fire_event('after_finish');

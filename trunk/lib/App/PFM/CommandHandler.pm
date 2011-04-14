@@ -116,7 +116,7 @@ my @FIELDS_TO_SORTMODE = (
 our ($command);
 
 my ($_pfm, $_screen,
-	$_white_cmd, @_unwo_cmd, $_clobber_mode);
+	$_white_cmd, @_unwo_cmd);
 
 ##########################################################################
 # private subs
@@ -131,6 +131,7 @@ sub _init {
 	my ($self, $pfm) = @_;
 	$_pfm    = $pfm;
 	$_screen = $pfm->screen;
+	$self->{_clobber_mode} = 0;
 	$self->_init_white_commands();
 }
 
@@ -142,7 +143,7 @@ Called from _init().
 =cut
 
 sub _init_white_commands {
-	my $self = shift;
+	my ($self) = @_;
 	my $white_cmd = '';
 	my @unwo_cmd  = ();
 	foreach (split /:/, $ENV{PATH}) {
@@ -175,7 +176,7 @@ Prints elaborate info about pfm. Called from help().
 =cut
 
 sub _credits {
-	my $self = shift;
+	my ($self) = @_;
 	$_screen->clrscr()->cooked_echo();
 	my $name = $_screen->colored('bold', 'pfm');
 	my $version_message = $_pfm->{NEWER_VERSION}
@@ -209,13 +210,13 @@ _eoCredits_
 	$_screen->raw_noecho()->getch();
 }
 
-=item _selectednames()
+=item _markednames()
 
-Creates a list of names of selected files, for the B<=8> escape.
+Creates a list of names of marked files, for the B<=8> escape.
 
 =cut
 
-sub _selectednames {
+sub _markednames {
 	my ($self, $qif) = @_;
 	my $directory = $_pfm->state->directory;
 	my @res =	map  {
@@ -246,7 +247,7 @@ sub _expand_replace {
 		/6/ and return condquotemeta($qif,
                                     basename($_pfm->state->directory->path));
 		/7/ and return condquotemeta($qif, $extension);
-		/8/ and return join (' ', $self->_selectednames($qif));
+		/8/ and return join (' ', $self->_markednames($qif));
 		/e/ and return condquotemeta($qif, $_pfm->config->{editor});
 		/p/ and return condquotemeta($qif, $_pfm->config->{pager});
 		/v/ and return condquotemeta($qif, $_pfm->config->{viewer});
@@ -422,8 +423,8 @@ overwritten without confirmation.
 
 sub clobber_mode {
 	my ($self, $value) = @_;
-	$_clobber_mode = $value if defined $value;
-	return $_clobber_mode;
+	$self->{_clobber_mode} = $value if defined $value;
+	return $self->{_clobber_mode};
 }
 
 =item whitecommand()
@@ -631,7 +632,7 @@ Handles the B<previous> command (B<F2>).
 =cut
 
 sub handleprev {
-	my $self = shift;
+	my ($self) = @_;
 	my $browser = $_pfm->browser;
 	my $prevdir = $_pfm->state($_pfm->S_PREV)->directory->path;
 	my $chdirautocmd;
@@ -758,7 +759,7 @@ Handles the command to refresh the current directory.
 =cut
 
 sub handlerefresh {
-#	my $self = shift;
+#	my ($self) = @_;
 	if ($_screen->ok_to_remove_marks()) {
 		$_screen->set_deferred_refresh(R_DIRCONTENTS | R_DIRSORT | R_SCREEN);
 	}
@@ -771,7 +772,7 @@ Toggles the filtering of whiteout files.
 =cut
 
 sub handlewhiteout {
-	my $self = shift;
+#	my ($self) = @_;
 	my $browser = $_pfm->browser;
 	toggle($_pfm->state->{white_mode});
 	$browser->position_at($browser->currentfile->{name});
@@ -786,6 +787,7 @@ Toggles multiple mode.
 =cut
 
 sub handlemultiple {
+#	my ($self) = @_;
 	toggle($_pfm->state->{multiple_mode});
 	$_screen->set_deferred_refresh(R_MENU);
 
@@ -798,7 +800,7 @@ Toggles the filtering of dotfiles.
 =cut
 
 sub handledot {
-	my $self = shift;
+#	my ($self) = @_;
 	my $browser = $_pfm->browser;
 	toggle($_pfm->state->{dot_mode});
 	$browser->position_at($browser->currentfile->{name});
@@ -871,8 +873,8 @@ before overwrite.
 =cut
 
 sub handleclobber {
-#	my ($self) = @_;
-	toggle($_clobber_mode);
+	my ($self) = @_;
+	$self->clobber_mode(!$self->{_clobber_mode});
 	$_screen->set_deferred_refresh(R_FOOTER);
 }
 
@@ -963,7 +965,7 @@ Shows a help page with an overview of commands.
 =cut
 
 sub handlehelp {
-	my $self = shift;
+	my ($self) = @_;
 	$_screen->clrscr()->cooked_echo();
 	print map { substr($_, 8)."\n" } split("\n", <<'    _eoHelp_');
         --------------------------------------------------------------------------------
@@ -1158,7 +1160,7 @@ Handles the uppercase C<L> key: create hard or symbolic link.
 sub handlelink {
 	my ($self) = @_;
 	my ($newname, $do_this, $testname, $headerlength, $absrel, $histpush);
-	my @lncmd = $_clobber_mode ? qw(ln -f) : qw(ln);
+	my @lncmd = $self->{_clobber_mode} ? qw(ln -f) : qw(ln);
 	
 	if ($_pfm->state->{multiple_mode}) {
 		$_screen->set_deferred_refresh(R_MENU | R_DIRLIST);
@@ -1715,12 +1717,12 @@ sub handlesize {
 		# $self is the commandhandler (due to closure)
 		$self->_expand_escapes(
 			QUOTE_ON, ($command = $_pfm->config->{ducmd}), $file);
-		$recursivesize = `$command 2>/dev/null`;
-		$res = $?;
-		$recursivesize =~ s/^\D*(\d+).*/$1/;
+		($recursivesize = `$command 2>/dev/null`) =~ s/^\D*(\d+).*/$1/;
 		chomp $recursivesize;
-		if ($res) {
-			$_screen->neat_error('Could not read all directories')
+		# if a CHLD signal handler is installed, $? is not always reliable.
+		if ($?) {
+			$_screen->at(0,0)->clreol()
+				->putmessage('Could not read all directories')
 				->set_deferred_refresh(R_SCREEN);
 			$recursivesize ||= 0;
 		}
@@ -2027,7 +2029,10 @@ sub handlecopyrename {
 	my ($self, $key) = @_;
 	$key = uc $key;
 	my @command = (($key eq 'C' ? qw(cp -r) : 'mv'),
-					($_clobber_mode ? '-f' : '-i'));
+					($self->{_clobber_mode} ? '-f' : '-i'));
+	if ($_pfm->config->{copyoptions}) {
+		push @command, $_pfm->config->{copyoptions};
+	}
 	my $prompt = $key eq 'C' ? 'Destination: ' : 'New name: ';
 	my ($testname, $newname, $newnameexpanded, $do_this, $sure, $mark);
 	my $browser = $_pfm->browser;
@@ -2047,7 +2052,7 @@ sub handlecopyrename {
 	$self->_expand_3456_escapes(
 		QUOTE_OFF, ($testname = $newname), $browser->currentfile);
 	return if $self->_multi_to_single($testname);
-	$_screen->at(1,0)->clreol() unless $_clobber_mode;
+	$_screen->at(1,0)->clreol() unless $self->{_clobber_mode};
 	$do_this = sub {
 		my $file = shift;
 		my $findindex;
@@ -2083,11 +2088,13 @@ sub handlecopyrename {
 				refresh => TRUE);
 		}
 	};
-	$_screen->cooked_echo() unless $_clobber_mode;
+	$_screen->cooked_echo() unless $self->{_clobber_mode};
 	$state->directory->apply($do_this);
 	# if ! $clobber_mode, we might have gotten an 'Overwrite?' question
-	$_screen->set_deferred_refresh(R_SCREEN) unless $_clobber_mode;
-	$_screen->raw_noecho() unless $_clobber_mode;
+	unless ($self->{_clobber_mode}) {
+		$_screen->set_deferred_refresh(R_SCREEN);
+		$_screen->raw_noecho();
+	}
 	return;
 }
 

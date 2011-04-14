@@ -1,3 +1,8 @@
+2.05.2-WIP
+
+* added a few MIME types to default config file
+* code cleanup
+
 2.05.1-WIP
 
 * added (I)nclude (I)nverse
@@ -184,7 +189,7 @@
 
 1.93.8
 
-* added: option to (dis)allow switching to alternate screen buffer
+* added: 'altscreenmode' option for switching to alternate screen buffer
 * code cleanup (a.o.: converted spaces to tabs)
 
 1.93.7

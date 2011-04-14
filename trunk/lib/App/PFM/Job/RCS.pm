@@ -61,6 +61,7 @@ Starts the actual job.
 sub _start_child {
 	my ($self) = @_;
 	$self->{_pipe}->reader($self->command);
+	return ${$self->{_pipe}}->{io_pipe_pid};
 }
 
 ##########################################################################

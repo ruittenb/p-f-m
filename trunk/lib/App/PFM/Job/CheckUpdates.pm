@@ -71,6 +71,9 @@ Starts the actual job.
 
 sub _start_child {
 	my ($self) = @_;
+	# this doesn't work: the exiting of the child process
+	# messes up the screen settings when the child process
+	# goes through its END block
 #	my $pid;
 #	if ($pid = fork()) {	# parent
 #		$self->{_pipe}->reader();
@@ -89,21 +92,21 @@ sub _start_child {
 	$self->{_pipe}->reader($self->command);
 }
 
-=item _check_for_updates()
-
-Tries to connect to the URL of the pfm project page to see if there
-is a newer version. Reports this version to the application.
-
-=cut
-
-sub _check_for_updates {
-	my $self = shift;
-	my $latest_version;
-	my $pfmpage = get(PFM_URL);
-	($latest_version = $pfmpage) =~
-		s/.*?latest version \(v?([\w.]+)\).*/$1/s;
-	$self->{_pipe}->print($latest_version, "\n");
-}
+#=item _check_for_updates()
+#
+#Tries to connect to the URL of the pfm project page to see if there
+#is a newer version. Reports this version to the application.
+#
+#=cut
+#
+#sub _check_for_updates {
+#	my $self = shift;
+#	my $latest_version;
+#	my $pfmpage = get(PFM_URL);
+#	($latest_version = $pfmpage) =~
+#		s/.*?latest version \(v?([\w.]+)\).*/$1/s;
+#	$self->{_pipe}->print($latest_version, "\n");
+#}
 
 ##########################################################################
 # constructor, getters and setters

@@ -3,7 +3,7 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.05.1
+# Version:		2.05.2
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-05-24
@@ -24,7 +24,7 @@
 # version
 
 # for MakeMaker
-our $VERSION = '2.05.1';
+our $VERSION = '2.05.2';
 
 # macros for *roff
 our $ROFFVERSION = <<'=cut';
@@ -33,7 +33,7 @@ our $ROFFVERSION = <<'=cut';
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.05.1
+.ds Vw @(#) pfm.pl 2.05.2
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -356,6 +356,10 @@ all files, including dotfiles, except for the B<.> and B<..> entries
 regular files of which the filenames match a specified regular expression
 (not a glob pattern!)
 
+=item B<G>reater / B<S>maller
+
+files that are bigger or smaller than the provided size in bytes.
+
 =item B<N>ewmarks
 
 files which were created during a previous multiple command and are now
@@ -374,6 +378,17 @@ files owned by the current user
 
 Oldmarks and newmarks may be used to perform more than one command on a
 group of files.
+
+There is also the option:
+
+=over
+
+=item B<I>nvert
+
+Inverts the selection, except for the F<.> and F<..> entries, which remain
+untouched.
+
+=back
 
 =item B<Link>
 
