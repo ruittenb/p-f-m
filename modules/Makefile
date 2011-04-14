@@ -1,4 +1,3 @@
-TERM_CAP=Term-Cap-1.12
 TERM_SCREEN=Term-Screen-1.03
 TERM_SCREENCOLOR=Term-ScreenColor-1.13a
 TERM_READLINE_GNU=Term-ReadLine-Gnu-1.20
@@ -6,15 +5,7 @@ LWP_SIMPLE=libwww-perl-5.835
 
 SUDO=sudo
 
-all: Term-Cap Term-Screen Term-Screen-Uni Term-ScreenColor Term-ReadLine-Gnu LWP-Simple
-
-Term-Cap:
-	@echo 'Checking installation of Term::Cap...'
-	@if perl -MTerm::Cap -e1 2>/dev/null; then :; \
-	else \
-		gunzip < $(TERM_CAP).tar.gz | tar xvf - ; \
-		( cd $(TERM_CAP); perl Makefile.PL; make all; ${SUDO} make install ) \
-	fi
+all: Term-Screen Term-ScreenColor Term-ReadLine-Gnu LWP-Simple
 
 Term-Screen:
 	@echo 'Checking installation of Term::Screen...'
@@ -52,5 +43,5 @@ LWP-Simple:
 		( cd $(LWP_SIMPLE); perl Makefile.PL; make all test; ${SUDO} make install ) \
 	fi
 
-.PHONY: Term-Cap Term-Screen Term-ScreenColor Term-ReadLine-Gnu LWP-Simple
+.PHONY: Term-Screen Term-ScreenColor Term-ReadLine-Gnu LWP-Simple
 

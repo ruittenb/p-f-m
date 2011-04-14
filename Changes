@@ -1,11 +1,15 @@
+2.05.1-WIP
+
+* added (I)nclude (I)nverse
+
 2.05.0-WIP
 
 * fixed bug in launching files
-* added in/exclude by size limit
+* added (I)nclude/e(X)clude (G)reater/(S)maller: by size limit
 
 2.04.8-WIP
 
-* finished job system
+* almost finished job system
 
 2.04.5-WIP
 

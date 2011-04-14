@@ -42,5 +42,4 @@ use the nameindexmap from handledelete() more globally?
 
 sub Directory->countcontents is not used
 
-make F11 respect multiple mode? (marked+oldmarked, not removing marks)
 

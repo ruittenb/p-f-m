@@ -622,7 +622,7 @@ mouseturnoff:yes
 ## if $PRINTER is unset: 'lpr =2'
 #printcmd:lp -d$PRINTER =2
 
-## suppress the prompt "OK to remove marks?"
+## is it always "OK to remove marks?" without confirmation?
 #remove_marks_ok:no
 
 ## show whether mandatory locking is enabled (e.g. -rw-r-lr-- ) (yes,no,sun)
@@ -649,7 +649,8 @@ translatespace:no
 usecolor:force
 
 ## preferred image editor/viewer (don't specify =2 here)
-viewer:xv
+#viewer:xv
+viewer:eog
 
 ## command used for starting a new pfm window for a directory.
 ## Only applicable under X. The default is to take gnome-terminal under

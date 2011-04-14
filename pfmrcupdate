@@ -2,35 +2,39 @@
 ############################################################################
 #
 # Name:         pfmrcupdate
-# Version:      2.04.4
+# Version:      2.05.1
 # Authors:      Rene Uittenbogaard
-# Date:         2010-05-14
+# Date:         2010-05-24
 # Usage:        pfmrcupdate
 # Description:  Update an existing .pfmrc so that it can be used with
 #               newer versions of pfm.
 #
+#		This is a get-me-going-fast solution. You may be better
+#		off by having pfm generate a new .pfmrc for you and
+#		comparing it to your own version.
+#
 
-###############################################################################
+############################################################################
 # declarations
 
 use POSIX qw(mktime strftime);
 use strict;
 use locale;
 
-###############################################################################
+############################################################################
 # helper functions
 
-sub min (@) {
+sub min {
 	return +(sort { $a <=> $b } @_)[0];
 }
 
-sub max (@) {
+sub max {
 	return +(reverse sort { $a <=> $b } @_)[0];
 }
 
 sub backup_pfmrc {
-	my $pfmrc = shift;
-	my $now   = strftime('%Y%m%dT%H%M%S', localtime);
+	my ($pfmrc) = @_;
+	my $now     = strftime('%Y%m%dT%H%M%S', localtime);
 	if (system "cp \Q$pfmrc\E \Q$pfmrc.$now\E") {
 		die "Could not backup $pfmrc to $pfmrc.$now, aborting";
 	}
@@ -71,16 +75,17 @@ sub get_locale {
 }
 
 sub get_pfm_version {
+	my ($seek) = @_;
 	my ($pfmfile, $version);
-	$pfmfile = findfile('pfm');
+	$pfmfile = findfile($seek);
 	$version = (grep /\@\(#\)/, fileslurp($pfmfile))[0];
-	$version =~ s/.*?\@\(#\)\D+([[:alnum:].]+).*/$1/;
+	$version =~ s/.*?\@\(#\)\D+(?:\d{4}-\d{2}-\d{2}\s*)?v?([[:alnum:].]+).*/$1/;
 	chomp $version;
 	return $version;
 }
 
 sub get_pfmrc {
-	my $pfmrc = shift;
+	my ($pfmrc) = @_;
 	return fileslurp($pfmrc);
 }
 
@@ -111,7 +116,7 @@ sub get_pfmrc_timefieldformat {
 	return $timefieldformat;
 }
 
-###############################################################################
+############################################################################
 # check functions
 
 sub check_date_locale {
@@ -172,17 +177,19 @@ _PFM_VERSION_WARNING_
 	return 1;
 }
 
-###############################################################################
+############################################################################
 # update functions
 
 sub update_to_184 {
+	my ($lines) = @_;
 	# this updates (Y)our commands for version 1.84
 	print "Updating to 1.84...\n";
-	s/^(\s*)([[:upper:]])(\s*):(.*)$/$1your[\l$2]$3:$4/ foreach @_;
-	s/^(\s*)([[:lower:]])(\s*):(.*)$/$1your[\u$2]$3:$4/ foreach @_;
+	s/^(\s*)([[:upper:]])(\s*):(.*)$/$1your[\l$2]$3:$4/ foreach @$lines;
+	s/^(\s*)([[:lower:]])(\s*):(.*)$/$1your[\u$2]$3:$4/ foreach @$lines;
 }
 
 sub update_to_188 {
+	my ($lines) = @_;
 	# this replaces the pre-1.88 colors by 1.88-style colors.
 	print "Updating to 1.88...\n";
 	my %attributes = reverse (     'black'      => 30,  'on_black'   => 40,
@@ -194,16 +201,17 @@ sub update_to_188 {
 		'inverse'    => '07',  'cyan'       => 36,  'on_cyan'    => 46,
 		'concealed'  => '08',  'white'      => 37,  'on_white'   => 47,
 	);
-	foreach (@_) {
+	foreach (@$lines) {
 		!/^#/ && /[=;]/ && s/\b([034]\d)\b/$attributes{$1}/g && tr/;/ /;
 	}
 }
 
 sub update_to_189 {
+	my ($lines) = @_;
 	# this updates quoting in commands for version 1.89
 	print "Updating to 1.89...\n";
 	my $warned = 0;
-	foreach (@_) {
+	foreach (@$lines) {
 		s/(['"])(\\[1-6])\1/$2/g;
 		s/(printcmd:.*)/$1 \\2/g;
 		/cp.*date.*touch.*date/ && s/"(
@@ -219,48 +227,82 @@ sub update_to_189 {
 			$warned++;
 		}
 	}
-	# TODO added 'importlscolors' option
+	push @$lines, <<'_end_update_to_189_';
+
+# convert $LS_COLORS into an additional colorset?
+importlscolors:yes
+	
+_end_update_to_189_
 }
 
 sub update_to_1901 {
-	# TODO added dir/framecolors[*] option
-	# TODO added 'viewer' option
-	# TODO added '\[epv]' escapes
+	my ($lines) = @_;
+	# added 'viewer' option
+	# added dir/framecolors[*] option
+	# added '\[epv]' escapes
+	foreach (@$lines) {
+		if (/^(your|launch)/) {
+			s/(\$PAGER|\bmore|\bless)\b/\\p/g;
+			s/\$VIEWER\b/\\v/g;
+			s/\$EDITOR\b/\\e/g;
+		}
+	}
+	push @$lines, <<'_end_update_to_1901_';
+
+## preferred image editor/viewer (don't specify \2 here)
+#viewer:eog
+viewer:xv
+
+## The special set 'framecolors[*]' will be used for every 'dircolors[x]'
+## for which there is no corresponding 'framecolors[x]' (like ls_colors)
+framecolors[*]:\
+title=reverse:swap=reverse:footer=reverse:highlight=bold:
+
+## The special set 'dircolors[*]' will be used for every 'framecolors[x]'
+## for which there is no corresponding 'dircolors[x]'
+dircolors[*]:\
+di=bold:ln=underscore:
+
+_end_update_to_1901_
 }
 
 sub update_to_1904 {
+	my ($lines) = @_;
 	# changed config option 'viewbase' to 'defaultnumbase'
 	print "Updating to 1.90.4...\n";
-	foreach (@_) {
+	foreach (@$lines) {
 		s/\bviewbase\b/defaultnumbase/g;
 	}
 }
 
 sub update_to_1913 {
+	my ($lines) = @_;
 	# this removes 'timeformat' for version 1.91.3
 	print "Updating to 1.91.3...\n";
 	my $i;
-	for ($i = $#_; $i > 0; $i--) {
-		if ($_[$i] =~ /^#*\s*(timeformat:|format for entering time:)/
-		or $_[$i] =~ /^#*\s*touch MMDDhhmm\S* or pfm .*MMDDhhmm/)
+	for ($i = $#$lines; $i > 0; $i--) {
+		if (${$lines}[$i] =~ /^#*\s*(timeformat:|format for entering time:)/
+		or ${$lines}[$i] =~ /^#*\s*touch MMDDhhmm\S* or pfm .*MMDDhhmm/)
 		{
-			splice(@_, $i, 1);
+			splice(@{$lines}, $i, 1);
 		}
 	}
 }
 
 sub update_to_1914 {
+	my ($lines) = @_;
 	# changed config option 'defaultnumbase' to 'defaultradix'
 	print "Updating to 1.91.4...\n";
-	foreach (@_) {
+	foreach (@$lines) {
 		s/\bdefaultnumbase\b/defaultradix/g;
 	}
 }
 
 sub update_to_1915 {
+	my ($lines) = @_;
 	# added 'clockdateformat' and 'clocktimeformat' options
 	print "Updating to 1.91.5...\n";
-	push @_, <<_end_update_to_1915_;
+	push @$lines, <<_end_update_to_1915_;
 
 ## clock date/time format; see strftime(3).
 ## %x and %X provide properly localized time and date.
@@ -275,9 +317,10 @@ _end_update_to_1915_
 }
 
 sub update_to_1917 {
+	my ($lines) = @_;
 	# this adds a diskinfo column (f-column) to pre-1.91.7 config files
 	print "Updating to 1.91.7...\n";
-	foreach (@_) {
+	foreach (@$lines) {
 		s/^([^#].*nnnn.*)(:\\?)$/$1 ffffffffffffff$2/;
 		s{ layouts must not be wider than this! }
 		 {-------------- file info -------------};
@@ -285,10 +328,11 @@ sub update_to_1917 {
 }
 
 sub update_to_1920 {
+	my ($lines) = @_;
 	# changes important comments.
 	print "Updating to 1.92.0...\n";
 	my $i;
-	foreach (@_) {
+	foreach (@$lines) {
 		s{magic\[Sun/NeXT audio data\](\s*:\s*)audio/basic}
 		 {magic\[Sun.NeXT audio data\]$1audio/basic};
 		s{(diskinfo field) is as yet only supported as the last column.}
@@ -296,35 +340,38 @@ sub update_to_1920 {
 		s{## launch commands.*not implemented.*}
 		 {## launch commands};
 	}
-	my @new = split /\n/, <<'_end_update_to_1920_';
-## the option itself may not contain whitespace or colons,
-## except in a classifier enclosed in [] that immediately follows it.
-## in other words: /^\s*([^[:\s]+(?:\[[^]]+\])?)\s*:\s*(.*)$/
-_end_update_to_1920_
-	for ($i = $#_; $i > 0; $i--) {
-		if ($_[$i] =~ /## in other words:/) {
-			splice @_, $i, 1, @new;
+	my @new = (
+"## the option itself may not contain whitespace or colons,\n",
+"## except in a classifier enclosed in [] that immediately follows it.\n",
+'## in other words: /^\s*([^[:\s]+(?:\[[^]]+\])?)\s*:\s*(.*)$/'."\n",
+);
+	for ($i = $#$lines; $i > 0; $i--) {
+		if (${$lines}[$i] =~ /## in other words:/) {
+			splice @$lines, $i, 1, @new;
 		}
 	}
 }
 
 sub update_to_1921 {
+	my ($lines) = @_;
 	# changed option 'clobber' to 'defaultclobber'
 	print "Updating to 1.92.1...\n";
-	foreach (@_) {
+	foreach (@$lines) {
 		s/^(#*\s*)\bclobber\b/$1defaultclobber/g;
 	}
 }
 
 sub update_to_1923 {
+	my ($lines) = @_;
 	# added 'waitlaunchexec', but this was deprecated later.
 	# no need to add it here because it was never implemented.
 }
 
 sub update_to_1926 {
+	my ($lines) = @_;
 	# inverted meaning of 'defaultdotmode' and 'defaultwhitemode'
 	print "Updating to 1.92.6...\n";
-	foreach (@_) {
+	foreach (@$lines) {
 		s/\bdotmode:\s*yes\b/defaultdotmode: no/g;
 		s/\bdotmode:\s*no\b/defaultdotmode: yes/g;
 		s/\bwhitemode:\s*yes\b/defaultwhitemode: no/g;
@@ -333,13 +380,14 @@ sub update_to_1926 {
 }
 
 sub update_to_1931 {
+	my ($lines) = @_;
 	# added 'escapechar'; changed default escape char.
 	print "Updating to 1.93.1...\n";
-	foreach (@_) {
+	foreach (@$lines) {
 		s/\\([1-7epv])/=$1/g;
 		s/\\\\/==/g;
 	}
-	push @_, <<_end_update_to_1931_;
+	push @$lines, <<'_end_update_to_1931_';
 
 extension[*.dvi] : application/x-dvi
 extension[*.jar] : application/zip
@@ -358,9 +406,10 @@ _end_update_to_1931_
 }
 
 sub update_to_1942 {
+	my ($lines) = @_;
 	# subversion support; 'rcscmd', 'autorcs'
 	print "Updating to 1.94.2...\n";
-	push @_, <<_end_update_to_1942_;
+	push @$lines, <<_end_update_to_1942_;
 
 ## request rcs status automatically?
 autorcs:yes
@@ -372,9 +421,10 @@ _end_update_to_1942_
 }
 
 sub update_to_1948 {
+	my ($lines) = @_;
 	# added openoffice document extensions to default .pfmrc
 	print "Updating to 1.94.8...\n";
-	push @_, <<_end_update_to_1948_;
+	push @$lines, <<_end_update_to_1948_;
 
 extension[*.odp]  : application/x-openoffice
 extension[*.ods]  : application/x-openoffice
@@ -385,20 +435,22 @@ _end_update_to_1948_
 }
 
 sub update_to_1951 {
+	my ($lines) = @_;
 	# added 'remove_marks_ok' option
 	print "Updating to 1.95.1...\n";
-	push @_, <<_end_update_to_1951_;
+	push @$lines, <<_end_update_to_1951_;
 
-## suppress the prompt "OK to remove marks?"
+## is it always "OK to remove marks?" without confirmation?
 remove_marks_ok:no
 
 _end_update_to_1951_
 }
 
 sub update_to_1952 {
+	my ($lines) = @_;
 	# added 'checkforupdates' option (was deprecated later).
 	print "Updating to 1.95.2...\n";
-	push @_, <<_end_update_to_1952_;
+	push @$lines, <<_end_update_to_1952_;
 
 ## automatically check for updates on exit (default: no) 
 checkforupdates:no 
@@ -407,97 +459,102 @@ _end_update_to_1952_
 }
 
 sub update_to_200 {
+	my ($lines) = @_;
 	# this updates the framecolors for version 2.00
 	print "Updating to 2.00...\n";
-	foreach (@_) {
+	foreach (@$lines) {
 		s/(^|:)header=/${1}menu=/;
 		s/(^|:)title=/${1}headings=/;
 	}
 }
 
 sub update_to_2017 {
+	my ($lines) = @_;
 	# this removes 'checkforupdates' for version 2.01.7
 	print "Updating to 2.01.7...\n";
 	my $i;
-	for ($i = $#_; $i > 0; $i--) {
-		if ($_[$i] =~ /^#*\s*checkforupdates:/
-		or  $_[$i] =~ /^#+\s*automatically check for updates on exit/)
+	for ($i = $#$lines; $i > 0; $i--) {
+		if (${$lines}[$i] =~ /^#*\s*checkforupdates:/
+		or  ${$lines}[$i] =~ /^#+\s*automatically check for updates on exit/)
 		{
-			splice(@_, $i, 1);
+			splice(@$lines, $i, 1);
 		}
 	}
 }
 
 sub update_to_2037 {
+	my ($lines) = @_;
 	# this removes 'waitlaunchexec' for version 2.03.7
 	print "Updating to 2.03.7...\n";
 	my $i;
-	for ($i = $#_; $i > 0; $i--) {
-		if ($_[$i] =~ /^#*\s*waitlaunchexec:/
-		or  $_[$i] =~ /^#+\s*wait for launched executables to finish/)
+	for ($i = $#$lines; $i > 0; $i--) {
+		if (${$lines}[$i] =~ /^#*\s*waitlaunchexec:/
+		or  ${$lines}[$i] =~ /^#+\s*wait for launched executables to finish/)
 		{
-			splice(@_, $i, 1);
+			splice(@$lines, $i, 1);
 		}
 	}
 }
 
 sub update_to_2044 {
+	my ($lines) = @_;
 	# added 'copyoptions'
 	print "Updating to 2.04.4...\n";
-	push @_, <<_end_update_to_2044_;
+	push @$lines, <<_end_update_to_2044_;
 
 ## commandline options to add to the cp(1) command, in the first place for
 ## changing the 'follow symlinks' behavior.
-copyoptions:
+#copyoptions:-P
 
 _end_update_to_2044_
 }
 
 sub update_version {
-	my $to = shift;
+	my ($to, $lines) = @_;
 	# this updates the version field for any version
 	print "Updating to $to...\n";
-	foreach (@_) {
+	foreach (@$lines) {
 		s/^(#.*?Version\D+)[[:alnum:].]+/$1$to/;
 	}
 }
 
 sub update_pfmrc {
-	my ($from, $to) = (shift, shift);
-	update_to_184 (@_) if $from lt '1.84'   and '1.84'   le $to;
-	update_to_188 (@_) if $from lt '1.88'   and '1.88'   le $to;
-	update_to_189 (@_) if $from lt '1.89'   and '1.89'   le $to;
-	update_to_1901(@_) if $from lt '1.90.1' and '1.90.1' le $to;
-	update_to_1904(@_) if $from lt '1.90.4' and '1.90.4' le $to;
-	update_to_1913(@_) if $from lt '1.91.3' and '1.91.3' le $to;
-	update_to_1914(@_) if $from lt '1.91.4' and '1.91.4' le $to;
-	update_to_1915(@_) if $from lt '1.91.5' and '1.91.5' le $to;
-	update_to_1917(@_) if $from lt '1.91.7' and '1.91.7' le $to;
-	update_to_1920(@_) if $from lt '1.92.0' and '1.92.0' le $to;
-	update_to_1921(@_) if $from lt '1.92.1' and '1.92.1' le $to;
-	update_to_1923(@_) if $from lt '1.92.3' and '1.92.3' le $to;
-	update_to_1926(@_) if $from lt '1.92.6' and '1.92.6' le $to;
-	update_to_1931(@_) if $from lt '1.93.1' and '1.93.1' le $to;
-	update_to_1942(@_) if $from lt '1.94.2' and '1.94.2' le $to;
-	update_to_1948(@_) if $from lt '1.94.8' and '1.94.8' le $to;
-	update_to_1951(@_) if $from lt '1.95.1' and '1.95.1' le $to;
-	update_to_1952(@_) if $from lt '1.95.2' and '1.95.2' le $to;
-	update_to_200 (@_) if $from lt '2.00'   and '2.00'   le $to;
-	update_to_2017(@_) if $from lt '2.01.7' and '2.01.7' le $to;
-	update_to_2037(@_) if $from lt '2.03.7' and '2.03.7' le $to;
-	update_to_2044(@_) if $from lt '2.04.4' and '2.04.4' le $to;
-	update_version($to, @_);
+	my ($from, $to, $lines) = (@_);
+	update_to_184 ($lines) if $from lt '1.84'   and '1.84'   le $to;
+	update_to_188 ($lines) if $from lt '1.88'   and '1.88'   le $to;
+	update_to_189 ($lines) if $from lt '1.89'   and '1.89'   le $to;
+	update_to_1901($lines) if $from lt '1.90.1' and '1.90.1' le $to;
+	update_to_1904($lines) if $from lt '1.90.4' and '1.90.4' le $to;
+	update_to_1913($lines) if $from lt '1.91.3' and '1.91.3' le $to;
+	update_to_1914($lines) if $from lt '1.91.4' and '1.91.4' le $to;
+	update_to_1915($lines) if $from lt '1.91.5' and '1.91.5' le $to;
+	update_to_1917($lines) if $from lt '1.91.7' and '1.91.7' le $to;
+	update_to_1920($lines) if $from lt '1.92.0' and '1.92.0' le $to;
+	update_to_1921($lines) if $from lt '1.92.1' and '1.92.1' le $to;
+	update_to_1923($lines) if $from lt '1.92.3' and '1.92.3' le $to;
+	update_to_1926($lines) if $from lt '1.92.6' and '1.92.6' le $to;
+	update_to_1931($lines) if $from lt '1.93.1' and '1.93.1' le $to;
+	update_to_1942($lines) if $from lt '1.94.2' and '1.94.2' le $to;
+	update_to_1948($lines) if $from lt '1.94.8' and '1.94.8' le $to;
+	update_to_1951($lines) if $from lt '1.95.1' and '1.95.1' le $to;
+	update_to_1952($lines) if $from lt '1.95.2' and '1.95.2' le $to;
+	update_to_200 ($lines) if $from lt '2.00'   and '2.00'   le $to;
+	update_to_2017($lines) if $from lt '2.01.7' and '2.01.7' le $to;
+	update_to_2037($lines) if $from lt '2.03.7' and '2.03.7' le $to;
+	update_to_2044($lines) if $from lt '2.04.4' and '2.04.4' le $to;
+	update_version($to, $lines);
 }
 
 sub main {
-	my $pfmrc         = $ENV{PFMRC} || "$ENV{HOME}/.pfm/.pfmrc";
-	my @pfmrc         = get_pfmrc($pfmrc);
+	my $rcfile        = $ENV{PFMRC} || "$ENV{HOME}/.pfm/.pfmrc";
+	my $script        = $ENV{PFM}   || 'pfm';
+	my @pfmrc         = get_pfmrc($rcfile);
 	my $version_pfmrc = get_pfmrc_version(@pfmrc);
-	my $version_pfm   = get_pfm_version();
+	my $version_pfm   = get_pfm_version($script);
 	#
-	print "\nChecking the config file at $pfmrc\n";
+	print "\nChecking the config file at $rcfile\n";
 	die '' unless check_versions($version_pfmrc, $version_pfm);
-	check_date_locale($pfmrc, @pfmrc);
+	check_date_locale($rcfile, @pfmrc);
 	print "\nYour  pfm   version is: $version_pfm\n";
 	print "Your .pfmrc version is: $version_pfmrc ";
 	if ($version_pfmrc ge $version_pfm) {
@@ -505,13 +562,13 @@ sub main {
 		return;
 	}
 	print "(needs updating)\n\n";
-	backup_pfmrc($pfmrc);
-	update_pfmrc($version_pfmrc, $version_pfm, @pfmrc);
-	write_pfmrc($pfmrc, @pfmrc);
+	backup_pfmrc($rcfile);
+	update_pfmrc($version_pfmrc, $version_pfm, \@pfmrc);
+	write_pfmrc($rcfile, @pfmrc);
 	print "Successfully updated to version $version_pfm\n";
 }
 
-###############################################################################
+############################################################################
 # main
 
 main();

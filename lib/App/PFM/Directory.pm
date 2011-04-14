@@ -678,7 +678,6 @@ sub checkrcsapplicable {
 	my $path = $self->{_path};
 	$entry = defined $entry ? $entry : $path;
 	my %on = (
-		before_start		=> sub { 1; },
 		after_start			=> sub {
 			# next line needs to provide a '1' argument because
 			# $self->{_rcsjob} has not yet been set
