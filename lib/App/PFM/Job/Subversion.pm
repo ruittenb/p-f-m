@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::Subversion 0.02
+# @(#) App::PFM::Job::Subversion 0.30
 #
 # Name:			App::PFM::Job::Subversion
-# Version:		0.02
+# Version:		0.30
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-14
+# Date:			2010-05-19
 #
 
 ##########################################################################
@@ -56,13 +56,13 @@ sub _init {
 
 =item _svnmax()
 
-Determine which subversion status character should be displayed on
+Determines which subversion status character should be displayed on
 a directory that holds files with different status characters.
 For this purpose, a relative priority is defined:
 
-=over
+=over 2
 
-B<C> (conflict) E<gt> B<M>,B<A> (modified, added) E<gt> I<other>
+B<C> (conflict) E<gt> B<M>,B<A>,B<D> (modified, added, deleted) E<gt> I<other>
 
 =back
 
@@ -74,8 +74,8 @@ sub _svnmaxchar {
 	return 'C' if ($a eq 'C' or $b eq 'C');
 	# M modified
 	# A added
-	return 'M' if ($a eq 'M' or $b eq 'M' or $a eq 'A' or $b eq 'A');
 	# D deleted
+	return 'M' if ($a =~ /^[MAD]$/o or $b =~ /^[MAD]$/o);
 	# I ignored
 	# ? unversioned
 	return $b  if ($a eq ''  or $a eq '-');
@@ -91,11 +91,62 @@ sub _svnmax {
 	return $res;
 }
 
+=item _preprocess()
+
+Split the status output in a filename- and a status-field.
+
+=cut
+
+# First column:
+#
+# A  File to be added
+# C  Conflicting changes
+# D  File to be deleted
+# G  File to be merged with updates from server
+# M  File has been modified
+# R  File to be replaced
+# G  File to be merged
+# X  Resource is external to repository (svn:externals)
+# ?  File/directory not under version control
+# !  File/directory missing
+# ~  Versioned item obstructed by some item of a different kind.
+#
+# Second column: Modification of properties
+#
+#' ' no modifications. Working copy is up to date.
+# C  Conflicted
+# M  Modified
+# *  Local file different than repository. A newer revision exists on the
+#    server. Update will result in merge or possible conflict.
+# 
+# Third column: Locks
+#
+#' ' not locked
+# L  locked
+# S  switched to a branch
+
+
+sub _preprocess {
+	my ($self, $data) = @_;
+	my $firstcolsize = 7;
+	return [
+		substr($data, 0, $firstcolsize),
+		substr($data, $firstcolsize)
+	];
+}
+
 ##########################################################################
 # constructor, getters and setters
 
 ##########################################################################
 # public subs
+
+=item isapplicable()
+
+Checks if there is a F<.svn> directory, in which case Subversion commands
+would be applicable.
+
+=cut
 
 sub isapplicable {
 	my ($self, $path) = @_;

@@ -372,7 +372,7 @@ following structure:
 sub browse {
 	my $self = shift;
 	my ($event, $valid_input);
-	# optimize by fetching used objects
+	# prefetch objects
 	my $commandhandler = $_pfm->commandhandler;
 	my $listing        = $_screen->listing;
 	until ($valid_input eq 'quit') {

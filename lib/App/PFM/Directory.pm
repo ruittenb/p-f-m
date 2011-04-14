@@ -630,7 +630,7 @@ and starts them.
 
 sub checkrcsapplicable {
 	my ($self, $entry) = @_;
-	my ($class, $fullclass);
+	my ($class, $fullclass, $mapindex, $count, $i);
 	my $path = $self->{_path};
 	$entry = defined $entry ? $entry : $path;
 	my %on = (
@@ -645,7 +645,14 @@ sub checkrcsapplicable {
 		},
 		after_receive_data	=> sub {
 			my $input = shift;
-			print $input, "\n"; # TODO
+			my $count = 0;
+			my %nameindexmap = map { $_->{name}, $count++ }
+				$_pfm->state->directory->showncontents;
+			# change file in current directory
+			if (defined($mapindex = $nameindexmap{$input->[1]})) {
+				${$_pfm->state->directory->showncontents}[$mapindex]{rcs} =
+				$input->[0];
+			}
 		},
 		after_finish		=> sub {
 			$self->{_rcsjob} = undef;
@@ -665,26 +672,6 @@ sub checkrcsapplicable {
 			return;
 		}
 	}
-#	if (App::PFM::Job::Subversion->isapplicable($path)) {
-#		$_pfm->jobhandler->stop($self->{_rcsjob}) if defined $self->{_rcsjob};
-#		$self->{_rcsjob} = $_pfm->jobhandler->start('Subversion', $entry, %on);
-#		return;
-#	}
-#	if (App::PFM::Job::Cvs->isapplicable($path)) {
-#		$_pfm->jobhandler->stop($self->{_rcsjob}) if defined $self->{_rcsjob};
-#		$self->{_rcsjob} = $_pfm->jobhandler->start('Cvs', $entry, %on);
-#		return;
-#	}
-#	if (App::PFM::Job::Bazaar->isapplicable($path)) {
-#		$_pfm->jobhandler->stop($self->{_rcsjob}) if defined $self->{_rcsjob};
-#		$self->{_rcsjob} = $_pfm->jobhandler->start('Bazaar', $entry, %on);
-#		return;
-#	}
-#	if (App::PFM::Job::Git->isapplicable($path)) {
-#		$_pfm->jobhandler->stop($self->{_rcsjob}) if defined $self->{_rcsjob};
-#		$self->{_rcsjob} = $_pfm->jobhandler->start('Git', $entry, %on);
-#		return;
-#	}
 }
 
 =item preparercscol()

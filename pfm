@@ -3,7 +3,7 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.04.6
+# Version:		2.04.7
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-05-19
@@ -23,7 +23,7 @@
 # version
 
 # for MakeMaker
-our $VERSION = '2.04.6';
+our $VERSION = '2.04.7';
 
 # macros for *roff
 our $ROFFVERSION = <<'=cut';
@@ -32,7 +32,7 @@ our $ROFFVERSION = <<'=cut';
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.04.6
+.ds Vw @(#) pfm.pl 2.04.7
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -1504,8 +1504,7 @@ This program was based on PFMS<.>COM version 2.32, originally written for
 MS-DOS by Paul R. Culley and Henk de Heer. The name 'pfm' was adopted
 with kind permission of the original authors.
 
-Special thanks to Maurice Makaay for solving the 'Interrupted system call'
-bug.
+Special thanks to Maurice Makaay for help with debugging.
 
 =head1 SEE ALSO
 
