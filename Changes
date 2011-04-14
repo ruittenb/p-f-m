@@ -1,3 +1,12 @@
+2.05.0-WIP
+
+* fixed bug in launching files
+* added in/exclude by size limit
+
+2.04.8-WIP
+
+* finished job system
+
 2.04.5-WIP
 
 * fixed bug where a dying child process would interrupt the

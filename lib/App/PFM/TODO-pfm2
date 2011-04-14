@@ -1,7 +1,5 @@
 - handleswap: samenwerking met F2
 - finish pfmrcupdate: also pushing onto @_ doesn't work
 - cursor at 'lib', sort by name with mouse click: cursor ends up at 'lib-app-pfm'
-- unknown file type gives: "no valid 'launchby' option."
-- fill siZe column automatically in background?
 
-
+- command- true in RCS directory shows headings directly, no defer

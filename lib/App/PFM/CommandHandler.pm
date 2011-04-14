@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 0.99
+# @(#) App::PFM::CommandHandler 1.00
 #
 # Name:			App::PFM::CommandHandler
-# Version:		0.99
+# Version:		1.00
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-05-21
+# Date:			2010-05-23
 #
 
 ##########################################################################
@@ -54,6 +54,19 @@ use constant {
 };
 
 my %NUMFORMATS = ( 'hex' => '%#04lx', 'oct' => '%03lo');
+
+my @INC_CRITERIA = (
+	'e' => 'Every',
+	'o' => 'Oldmarks',
+	'n' => 'Newmarks',
+	'a' => 'After',
+	'b' => 'Before',
+	'g' => 'Greater',
+	's' => 'Smaller',
+	'u' => 'User',
+	'f' => 'Files only',
+#	'i' => '(invert)',
+);
 
 my %CMDESCAPES = (
 	'1' => 'name',
@@ -350,6 +363,28 @@ sub _promptforboundarytime {
 	$boundarytime =~ /(....)(..)(..)(..)(..)(\...)?$/;
 	$boundarytime = mktime($6, $5, $4, $3, $2-1, $1-1900, 0, 0, 0);
 	return $boundarytime;
+}
+
+=item _promptforboundarysize()
+
+Prompts for entering a size determining which files should be
+included (marked) or excluded (unmarked).
+
+=cut
+
+sub _promptforboundarysize {
+	my ($self, $key) = @_;
+	my $prompt = ($key eq 'g' ? 'Minimum' : 'Maximum')
+			   . " file size: ";
+	my $boundarysize;
+	$_screen->at(0,0)->clreol()->cooked_echo();
+	$boundarysize = $_pfm->history->keyboard->readline($prompt);
+#	$boundarysize = $_pfm->history->input(H_TIME, $prompt,
+#		strftime ("%Y-%m-%d %H:%M.%S", localtime time));
+	# show_menu is done in handleinclude
+	$_screen->raw_noecho();
+	$boundarysize =~ tr/0-9//dc;
+	return $boundarysize;
 }
 
 =item _promptforwildfilename()
@@ -943,12 +978,12 @@ sub handlehelp {
         n     Name           mp  Physical path     SPACE            mark file & advance 
         o     cOmmand        ms  Show directory    l, right arrow   enter dir           
         p     Print          mt  alTernate scrn    h, left arrow    leave dir           
-        q Q   (Quick) quit   mv  reVisn stat all   ENTER            enter dir; launch   
+        q Q   (Quick) quit   mv  Versn stat all    ENTER            enter dir; launch   
         r     Rename         mw  Write history     ESC, BS          leave dir           
         s     Show          --------------------- --------------------------------------
         t     Time           !   toggle clobber    F1  help           F7  swap mode     
         u     User id        *   toggle radix      F2  prev dir       F8  mark file     
-        v     reVision stat  "   toggle pathmode   F3  redraw screen  F9  cycle layouts 
+        v     Version stat   "   toggle pathmode   F3  redraw screen  F9  cycle layouts 
         w     unWhiteout     =   cycle idents      F4  cycle colors   F10 multiple mode 
         x     eXclude        .   filter dotfiles   F5  reread dir     F11 restat file   
         y     Your command   %   filter whiteouts  F6  sort dir       F12 toggle mouse  
@@ -1541,11 +1576,24 @@ Handles including (marking) and excluding (unmarking) files.
 
 sub handleinclude { # include/exclude flag (from keypress)
 	my ($self, $exin) = @_;
-	my ($criterion, $menulength, $key, $wildfilename, $boundarytime, $entry);
-	my $directory = $_pfm->state->directory;
-	$_screen->clear_footer()
-		->set_deferred_refresh(R_MENU | R_PATHINFO);
+	my $directory    = $_pfm->state->directory;
+	my $printline    = $_screen->BASELINE;
+	my $infocol      = $_screen->diskinfo->infocol;
+	my %inc_criteria = @INC_CRITERIA;
+	my ($criterion, $menulength, $key, $wildfilename, $entry, $i,
+		$boundarytime, $boundarysize);
 	$exin = lc $exin;
+	$_screen->clear_footer()
+		->set_deferred_refresh(R_MENU | R_PATHINFO | R_DISKINFO)
+		->diskinfo->clearcolumn();
+	$_screen->frame->show_headings(
+		$_pfm->browser->swap_mode, $_screen->frame->HEADING_CRITERIA);
+	# we can't use foreach (keys %mark_criteria) because we would lose ordering
+	foreach (grep { ($i += 1) %= 2 } @INC_CRITERIA) { # keep keys, skip values
+		last if ($printline > $_screen->BASELINE + $_screen->screenheight);
+		$_screen->at($printline++, $infocol)
+			->puts(sprintf('%1s %s', $_, $inc_criteria{$_}));
+	}
 	$menulength = $_screen->frame->show_menu(
 		$exin eq 'x'
 		? $_screen->frame->MENU_EXCLUDE
@@ -1558,7 +1606,23 @@ sub handleinclude { # include/exclude flag (from keypress)
 	} elsif ($key eq 'e') { # every
 		$criterion = sub { my $file = shift; $file->{name} !~ /^\.\.?$/ };
 	} elsif ($key eq 'u') { # user only
-		$criterion = sub { my $file = shift; $file->{uid} =~ /$ENV{USER}/ };
+		$criterion = sub { my $file = shift; $file->{uid} eq $ENV{USER} };
+	} elsif ($key =~ /^[gs]$/) { # greater/smaller
+		if ($boundarysize = $self->_promptforboundarysize($key)) {
+			if ($key eq 'g') {
+				$criterion = sub {
+					my $file = shift;
+					$file->{size} >= $boundarysize and
+					$file->{name} !~ /^\.\.?$/;
+				};
+			} else {
+				$criterion = sub {
+					my $file = shift;
+					$file->{size} <= $boundarysize and
+					$file->{name} !~ /^\.\.?$/;
+				};
+			}
+		} # if $boundarysize
 	} elsif ($key =~ /^[ab]$/) { # after/before mtime
 		if ($boundarytime = $self->_promptforboundarytime($key)) {
 			# this was the behavior of PFM.COM, IIRC
@@ -1566,14 +1630,14 @@ sub handleinclude { # include/exclude flag (from keypress)
 			if ($key eq 'a') {
 				$criterion = sub {
 					my $file = shift;
-					$file->{name} =~ /$wildfilename/
-						and $file->{mtime} > $boundarytime;
+					$file->{name} =~ /$wildfilename/ and
+					$file->{mtime} > $boundarytime;
 				};
 			} else {
 				$criterion = sub {
 					my $file = shift;
-					$file->{name} =~ /$wildfilename/
-						and $file->{mtime} < $boundarytime;
+					$file->{name} =~ /$wildfilename/ and
+					$file->{mtime} < $boundarytime;
 				};
 			}
 		} # if $boundarytime
@@ -1582,8 +1646,8 @@ sub handleinclude { # include/exclude flag (from keypress)
 		# it seems that ("a" =~ //) == false, that comes in handy
 		$criterion = sub {
 			my $file = shift;
-			$file->{name} =~ /$wildfilename/
-				and $file->{type} eq '-';
+			$file->{name} =~ /$wildfilename/ and
+			$file->{type} eq '-';
 		};
 	}
 	if ($criterion) {
@@ -2501,17 +2565,21 @@ sub handleenter {
 	my $directory   = $_pfm->state->directory;
 	my $currentfile = $_pfm->browser->currentfile;
 	my $pfmrc       = $_pfm->config->pfmrc;
-	my ($do_this);
+	my $do_this;
 	if ($self->_followmode($currentfile) =~ /^d/) {
 		goto &handleentry;
 	}
 	$_screen->at(0,0)->clreol()->at(0,0)->cooked_echo()
 		->alternate_off();
 	LAUNCH: foreach (split /,/, $_pfm->config->{launchby}) {
+		# these functions return either:
+		# - a code reference to be used in Directory->apply()
+		# - a falsy value if no applicable launch command can be found
 		/magic/     and $do_this = $self->launchbymagic();
 		/extension/ and $do_this = $self->launchbyextension();
 		/xbit/      and $do_this = $self->launchbyxbit();
-		last LAUNCH if defined $do_this;
+		# continue trying until one of the modes finds a launch command
+		last LAUNCH if $do_this;
 	}
 	if (ref $do_this) {
 		# a code reference: possible way to launch
@@ -2520,6 +2588,7 @@ sub handleenter {
 	} elsif (defined $do_this) {
 		# an error message: the file type was unknown.
 		# feed it to the pager instead.
+		$_screen->clrscr();
 		if (system $_pfm->config->{pager}." \Q$currentfile->{name}\E")
 		{
 			$_screen->display_error($!);
@@ -2544,8 +2613,8 @@ otherwise, returns undef.
 sub launchbyxbit {
 	my ($self) = @_;
 	my $currentfile = $_pfm->browser->currentfile;
-	my $do_this;
-	return undef if ($self->_followmode($currentfile) !~ /[xsS]/);
+	my $do_this = '';
+	return '' if ($self->_followmode($currentfile) !~ /[xsS]/);
 	$do_this = sub {
 		my $file = shift;
 		$_screen->clrscr()->at(0,0)->puts("Launch executable $file->{name}\n");
@@ -2567,10 +2636,11 @@ sub launchbymagic {
 	my $currentfile = $_pfm->browser->currentfile;
 	my $pfmrc       = $_pfm->config->pfmrc;
 	my $magic       = `file \Q$currentfile->{name}\E`;
-	my ($re, $do_this);
+	my $do_this     = '';
+	my $re;
 	MAGIC: foreach (grep /^magic\[/, keys %{$pfmrc}) {
 		($re) = (/magic\[([^]]+)\]/);
-		# this will produce errors for invalid REs
+		# this will produce errors if the regexp is invalid
 		if (eval "\$magic =~ /$re/") {
 			$do_this = $self->launchbymime($pfmrc->{$_});
 			last MAGIC;
@@ -2590,7 +2660,7 @@ sub launchbyextension {
 	my $currentfile = $_pfm->browser->currentfile;
 	my $pfmrc       = $_pfm->config->pfmrc;
 	my ($ext)       = ( $currentfile->{name} =~ /(\.[^\.]+?)$/ );
-	my $do_this;
+	my $do_this     = '';
 	if (exists $pfmrc->{"extension[*$ext]"}) {
 		$do_this = $self->launchbymime($pfmrc->{"extension[*$ext]"});
 	}
@@ -2608,11 +2678,11 @@ If there is no such definition, reports an error and returns undef.
 
 sub launchbymime {
 	my ($self, $mime) = @_;
-	my $pfmrc = $_pfm->config->pfmrc;
-	my $do_this;
+	my $pfmrc   = $_pfm->config->pfmrc;
+	my $do_this = '';
 	if (! exists $pfmrc->{"launch[$mime]"}) {
 		$_screen->display_error("No launch command defined for type $mime\n");
-		return 'launchbymime failed';
+		return '';
 	}
 	$do_this = sub {
 		my $file = shift;
