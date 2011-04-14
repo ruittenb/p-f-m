@@ -2,9 +2,9 @@
 ############################################################################
 #
 # Name:         pfmrcupdate
-# Version:      2.05.2
+# Version:      2.05.3
 # Authors:      Rene Uittenbogaard
-# Date:         2010-05-24
+# Date:         2010-05-25
 # Usage:        pfmrcupdate
 # Description:  Update an existing .pfmrc so that it can be used with
 #               newer versions of pfm.
@@ -521,6 +521,25 @@ sub update_to_2044 {
 _end_update_to_2044_
 }
 
+sub update_to_2053 {
+	my ($lines) = @_;
+	# added extra MIME types
+	print "Updating to 2.05.3...\n";
+	push @$lines, <<_end_update_to_2053_;
+
+extension[*.3pm]  : application/x-nroff-man
+extension[*.js]   : application/javascript
+extension[*.m3u]  : text/x-m3u-playlist
+extension[*.sql]  : application/x-sql
+
+launch[application/javascript]    : =e =2
+launch[application/x-sql]         : =e =2
+launch[audio/mpeg]                : vlc =2 >/dev/null 2>&1
+launch[text/x-m3u-playlist]       : vlc =2 >/dev/null 2>&1
+
+_end_update_to_2053_
+}
+
 sub update_version {
 	my ($to, $lines) = @_;
 	# this updates the version field for any version
@@ -555,6 +574,7 @@ sub update_pfmrc {
 	update_to_2017($lines) if $from lt '2.01.7' and '2.01.7' le $to;
 	update_to_2037($lines) if $from lt '2.03.7' and '2.03.7' le $to;
 	update_to_2044($lines) if $from lt '2.04.4' and '2.04.4' le $to;
+	update_to_2053($lines) if $from lt '2.05.3' and '2.05.3' le $to;
 	update_version($to, $lines);
 }
 

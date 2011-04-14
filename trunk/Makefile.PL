@@ -18,29 +18,12 @@ WriteMakefile(
 	EXE_FILES		=> ['pfm', 'pfmrcupdate'],
 	MIN_PERL_VERSION	=> 5.008,
 	DIR			=> ['listwhite'],
+#	INSTALLSITESCRIPT
+#	INST_SCRIPT
+#	INST_BIN
+#	MAN1PODS
+#	MAN3PODS
 );
 
 
-#MANIFEST
-#lib/App/PFM/*.pm
-#lib/App/PFM/Job/*.pm
-#lib/App/PFM/Screen/*.pm
-#
-#t/01-perl-cw.t
-#t/02-version.t
-#Changes
-#README
-#INSTALL
-#MANIFEST.SKIP
-#bin/pfm
-#
-#--------------------------------------------------------------------------------
-#
-#Makefile.PL
-#
-#INSTALLSITESCRIPT
-#INST_SCRIPT
-#INST_BIN
-#MAN1PODS
-#MAN3PODS
-#
+

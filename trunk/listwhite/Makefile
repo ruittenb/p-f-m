@@ -14,7 +14,9 @@ ps: $(PROG).$(SECTION)
 $(PROG).$(SECTION): $(PROG)
 	pod2man $(PODOPTS) $(PROG).c > $(PROG).$(SECTION)
 
-install: $(PROG)
+install: all
 	install -o root -g $(WHEEL) -m 755 $(PROG) $(PREFIX)/bin/
 	install -o root -g $(WHEEL) -m 644 $(PROG).$(SECTION) $(PREFIX)/man/man$(SECTION)/
 
+clean:
+	rm $(PROG) $(PROG).$(SECTION)
