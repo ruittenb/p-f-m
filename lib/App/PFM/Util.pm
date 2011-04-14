@@ -41,7 +41,7 @@ use Carp;
 use strict;
 
 our @EXPORT = qw(
-	min max inhibit triggle toggle isyes isno basename dirname isxterm
+	min max inhibit toggle triggle isxterm isyes isno dirname basename
 	formatted time2str fit2limit canonicalize_path reducepaths reversepath
 	isorphan ifnotdefined clearugidcache find_uid find_gid condquotemeta
 	testdirempty);
@@ -118,6 +118,22 @@ sub isxterm ($) {
 	return $_[0] =~ $XTERMS;
 }
 
+=item isyes()
+
+=item isno()
+
+Determine if a certain string value is equivalent to boolean false or true.
+
+=cut
+
+sub isyes ($) {
+	return $_[0] =~ /^(1|y|yes|true|on|always)$/i;
+}
+
+sub isno ($) {
+	return $_[0] =~ /^(0|n|no|false|off|never)$/;
+}
+
 =item dirname()
 
 =item basename()
@@ -138,22 +154,6 @@ sub dirname ($) {
 sub basename ($) {
 	$_[0] =~ m{/([^/]*)/?$};
 	return length($1) ? $1 : $_[0];
-}
-
-=item isyes()
-
-=item isno()
-
-Determine if a certain string value is equivalent to boolean false or true.
-
-=cut
-
-sub isyes ($) {
-	return $_[0] =~ /^(1|y|yes|true|on|always)$/i;
-}
-
-sub isno ($) {
-	return $_[0] =~ /^(0|n|no|false|off|never)$/;
 }
 
 =item formatted()

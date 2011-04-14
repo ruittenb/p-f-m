@@ -198,7 +198,7 @@ sub stat_entry {
 	my %filetypeflags = %{$_pfm->config->{filetypeflags}};
 	my ($device, $inode, $mode, $nlink, $uid, $gid, $rdev, $size,
 		$atime, $mtime, $ctime, $blksize, $blocks) =
-			lstat $self->{_parent} .'/'. $entry;
+			lstat "$self->{_parent}/$entry";
 
 	if (!defined $mode) {
 		$whitecommand = $_pfm->commandhandler->whitecommand;
@@ -237,7 +237,7 @@ sub stat_entry {
 	$self->{type} = substr($self->{mode}, 0, 1);
 	$self->{display} = $entry . $self->filetypeflag();
 	if ($self->{type} eq 'l') {
-		$self->{target}  = readlink($self->{name});
+		$self->{target}  = readlink("$self->{_parent}/$entry");
 		$self->{display} = $entry . $filetypeflags{'l'}
 						. ' -> ' . $self->{target};
 	} elsif ($self->{type} =~ /[bc]/) {

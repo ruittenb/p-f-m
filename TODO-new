@@ -1,0 +1,20 @@
+- intercept bursts of input
+
+- handlemorebookmark
+- handlemorego
+- handleacl
+
+- keep marks when F5 refreshing
+
+- introduce QUIT?
+
+------------------------------------------------------------------------------
+
+F2   /usr/local/bin
+F7   /home/ruitten/Desktop/projects/pfm/z_working/pfm
+a    /home/ruitten/Desktop/working/yoda-svn/trunk/yoda-api/application
+p  * /home/ruitten/Desktop/projects/pfm/z_working/pfm
+q  * /home/ruitten/Desktop/projects/pfm/z_working/pfm2/lib-app-pfm
+
+
+

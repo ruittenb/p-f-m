@@ -2508,15 +2508,15 @@
 #	my $file = shift;
 #	# we could have used: if (RCSPIPE->opened)
 #	# but then we'd need to include IO::Handle
-	if (defined(fileno(RCSPIPE))) {
-		close RCSPIPE;
-		# another svn-status command was running.
-		# run a new one for the entire directory.
-		$file = '';
-	}
+#	if (defined(fileno(RCSPIPE))) {
+#		close RCSPIPE;
+#		# another svn-status command was running.
+#		# run a new one for the entire directory.
+#		$file = '';
+#	}
 #	$rcsbuffer = '';
 #	$rcsrunning = 1;
-	$rcs_need_refresh = 1;
+#	$rcs_need_refresh = 1;
 #	$SIG{CHLD}  = \&reaper;
 #	preparercscol($file);
 #	my $rcspid = open(RCSPIPE, "$rcscmd \Q$file\E 2>/dev/null |");

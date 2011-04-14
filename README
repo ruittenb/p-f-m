@@ -1,5 +1,5 @@
 
-Package: pfm-2.04.8
+Package: pfm-2.05.2
 
 
 * This package is available from http://sourceforge.net/projects/p-f-m/
@@ -15,7 +15,7 @@ Package: pfm-2.04.8
         Term-ScreenColor     1.11          1.13
     readline                 4.1           5
       Term-ReadLine-Gnu      1.09          1.19
-        pfm                  1.94.9        2.04.8
+        pfm                  2.05.2
 
 
 * On Ubuntu Jaunty, it is advisable to install the following packages:
@@ -25,10 +25,12 @@ Package: pfm-2.04.8
   libreadline5-dev
   libterm-readline-gnu-perl
 
-* If you are upgrading from an older version, please update your
-  ~/.pfm/.pfmrc by running the script 'pfmrcupdate'.
-  You are strongly advised to rename your .pfmrc and compare it with
-  the default config file that pfm automatically generates for you.
+* If you are upgrading from an older version, you need to update your
+  config file (~/.pfm/.pfmrc).
+  This can be done quickly by running the script 'pfmrcupdate'.
+  However, for a more thorough update, you are advised to rename your
+  .pfmrc and compare it to the default config file that pfm automatically
+  generates for you.
 
 * On HP-UX 11.00, the file /etc/termcap does not seem to contain an 'me'
   entry. You need to add it in order to make Term::Screen function

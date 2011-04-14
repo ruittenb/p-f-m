@@ -1,0 +1,7 @@
+- handleswap: samenwerking met F2
+- cursor at 'lib', sort by name with mouse click: cursor ends up at 'lib-app-pfm'
+
+- timing of heading update after RCS command is horribly wrong
+
+- siZe does not work because a restat() is done afterwards
+

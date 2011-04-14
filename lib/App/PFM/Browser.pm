@@ -51,7 +51,7 @@ our $FIONREAD = 0;
 #};
 
 my ($_pfm, $_screen,
-	$_currentline, $_baseindex, $_position_at, $_mouse_mode, $_swap_mode);
+	$_currentline, $_baseindex, $_position_at);
 
 ##########################################################################
 # private subs
@@ -69,8 +69,8 @@ sub _init {
 	$_currentline = 0;
 	$_baseindex	  = 0;
 	$_position_at = '';
-	$_mouse_mode  = undef;
-	$_swap_mode   = 0;
+	$self->{_mouse_mode} = undef;
+	$self->{_swap_mode}  = 0;
 }
 
 =item _wait_loop()
@@ -192,14 +192,14 @@ are to be intercepted by the application.
 sub mouse_mode {
 	my ($self, $value) = @_;
 	if (defined($value)) {
-		if ($_mouse_mode = $value) {
+		if ($self->{_mouse_mode} = $value) {
 			$_screen->mouse_enable();
 		} else {
 			$_screen->mouse_disable();
 		}
 		$_screen->set_deferred_refresh($_screen->R_FOOTER);
 	}
-	return $_mouse_mode;
+	return $self->{_mouse_mode};
 }
 
 =item swap_mode()
@@ -212,10 +212,10 @@ considers its current directory as 'swap' directory.
 sub swap_mode {
 	my ($self, $value) = @_;
 	if (defined($value)) {
-		$_swap_mode = $value;
+		$self->{_swap_mode} = $value;
 		$_screen->set_deferred_refresh($_screen->R_FRAME);
 	}
-	return $_swap_mode;
+	return $self->{_swap_mode};
 }
 
 ##########################################################################
@@ -371,7 +371,7 @@ following structure:
 =cut
 
 sub browse {
-	my $self = shift;
+	my ($self) = @_;
 	my ($event, $valid_input);
 	# prefetch objects
 	my $commandhandler = $_pfm->commandhandler;
@@ -381,7 +381,7 @@ sub browse {
 		$listing->highlight_on();
 		# don't send mouse escapes to the terminal if not necessary
 		$_screen->mouse_enable()
-			if $_mouse_mode && $_pfm->config->{mouseturnoff};
+			if $self->{_mouse_mode} && $_pfm->config->{mouseturnoff};
 		# enter main wait loop
 		$self->_wait_loop();
 		# the main wait loop is exited on a resize event or

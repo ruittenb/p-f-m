@@ -75,7 +75,7 @@ my %DUCMDS = (
 	# MSWin32, os390 etc. not supported
 );
 
-my ($_pfm);
+our ($_pfm);
 
 ##########################################################################
 # private subs
@@ -123,7 +123,7 @@ Parses the colorsets defined in the F<.pfmrc>.
 =cut
 
 sub _parse_colorsets {
-	my $self = shift;
+	my ($self) = @_;
 	my $pfmrc = $self->{_pfmrc};
 	if (isyes($pfmrc->{importlscolors}) and $ENV{LS_COLORS} || $ENV{LS_COLOURS}){
 		$pfmrc->{'dircolors[ls_colors]'} =  $ENV{LS_COLORS} || $ENV{LS_COLOURS};
@@ -212,7 +212,7 @@ is currently being used.
 =cut
 
 sub give_location {
-	my $self = shift;
+#	my ($self) = @_;
 	return ($ENV{PFMRC} ? "$ENV{PFMRC}" : CONFIGDIRNAME . "/" . CONFIGFILENAME);
 }
 
@@ -366,7 +366,7 @@ and other classes.
 =cut
 
 sub apply {
-	my $self = shift;
+	my ($self) = @_;
 	my ($termkeys, $newcolormode);
 	my $screen = $_pfm->screen;
 	my $state  = $_pfm->state;
@@ -513,7 +513,8 @@ confirmquit:yes
 
 ## commandline options to add to the cp(1) command, in the first place for
 ## changing the 'follow symlinks' behavior.
-copyoptions:
+#copyoptions:-L
+#copyoptions:-P
 
 ## time to display copyright message at start (in seconds, fractions allowed)
 ## make pfm a lookalike to the DOS version :)
@@ -849,6 +850,7 @@ launchby:extension,xbit
 extension[*.1m]   : application/x-nroff-man
 extension[*.1]    : application/x-nroff-man
 extension[*.3i]   : application/x-intercal
+extension[*.3pm]  : application/x-nroff-man
 extension[*.i]    : application/x-intercal
 extension[*.bf]   : application/x-befunge
 extension[*.Z]    : application/x-compress
@@ -877,8 +879,10 @@ extension[*.html] : text/html
 extension[*.jar]  : application/zip
 extension[*.jpeg] : image/jpeg
 extension[*.jpg]  : image/jpeg
+extension[*.js]   : application/javascript
 extension[*.json] : application/json
 extension[*.lzh]  : application/x-lha
+extension[*.m3u]  : text/x-m3u-playlist
 extension[*.mid]  : audio/midi
 extension[*.midi] : audio/midi
 extension[*.mov]  : video/quicktime
@@ -909,6 +913,7 @@ extension[*.ra]   : audio/x-realaudio
 extension[*.ram]  : audio/x-pn-realaudio
 extension[*.rar]  : application/x-rar
 extension[*.rpm]  : application/x-rpm
+extension[*.sql]  : application/x-sql
 extension[*.tar]  : application/x-tar
 extension[*.taz]  : application/x-tar-compress
 extension[*.tgz]  : application/x-tar-gzip
@@ -961,6 +966,7 @@ magic[gzip compressed data] : application/x-gzip
 magic[perl script]          : application/x-perl
 magic[tar archive]          : application/x-tar
 
+launch[application/javascript]    : =e =2
 launch[application/json]          : =e =2
 launch[application/octet-stream]  : =p =2
 launch[application/pdf]           : acroread =2 &
@@ -990,6 +996,7 @@ launch[application/x-perl]        : ./=2
 launch[application/x-rar]         : unrar x =2
 #launch[application/x-rpm]         : rpm -Uvh =2
 launch[application/x-rpm]         : rpm -qpl =2
+launch[application/x-sql]         : =e =2
 #launch[application/x-tar-compress]: uncompress < =2 | tar xvf -
 launch[application/x-tar-compress]: uncompress < =2 | tar tvf -
 #launch[application/x-tar-gzip]    : gunzip < =2 | tar xvf -
@@ -1003,7 +1010,8 @@ launch[application/xml]           : firefox =2 &
 launch[application/zip]           : unzip =2
 launch[audio/basic]               : esdplay =2 &
 launch[audio/midi]                : timidity =2 &
-launch[audio/mpeg]                : mpg123 =2 &
+#launch[audio/mpeg]                : mpg123 =2 &
+launch[audio/mpeg]                : vlc =2 >/dev/null 2>&1
 launch[audio/x-pn-realaudio]      : realplay =2 &
 launch[audio/x-realaudio]         : realplay =2 &
 launch[audio/x-wav]               : esdplay =2 &
@@ -1020,6 +1028,7 @@ launch[image/x-xwindowdump]       : =v =2 &
 launch[text/css]                  : =e =2
 launch[text/html]                 : lynx =2
 launch[text/plain]                : =e =2
+launch[text/x-m3u-playlist]       : vlc =2 >/dev/null 2>&1
 launch[text/x-php]                : =e =2
 launch[video/mpeg]                : xine =2 &
 #launch[video/quicktime]           :

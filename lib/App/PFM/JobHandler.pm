@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::JobHandler 0.01
+# @(#) App::PFM::JobHandler 0.09
 #
 # Name:			App::PFM::JobHandler
-# Version:		0.01
+# Version:		0.09
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-03-27
+# Date:			2010-05-25
 #
 
 ##########################################################################
@@ -121,7 +121,7 @@ still running.
 
 =cut
 
-sub poll() {
+sub poll {
 	my ($self, $jobnr) = @_;
 	return 0 unless defined $self->{_jobs}[$jobnr];
 	my $ret = $self->{_jobs}[$jobnr]->poll();
@@ -143,7 +143,7 @@ to the application.
 =cut
 
 sub pollall {
-	my $self = shift;
+	my ($self) = @_;
 	my $i;
 	for ($i = 0; $i <= $#{$self->{_jobs}}; $i++) {
 		$self->poll($i);
@@ -151,7 +151,18 @@ sub pollall {
 	# Note that this does not return the number of running jobs,
 	# but instead the total number of elements, some of which may
 	# have finished already.
-	return scalar @{$self->{_jobs}};
+	return $self->count();
+}
+
+=item count()
+
+Counts the number of running jobs.
+
+=cut
+
+sub count {
+	my ($self) = @_;
+	return scalar grep { $_->{_childpid} } @{$self->{_jobs}};
 }
 
 ##########################################################################
