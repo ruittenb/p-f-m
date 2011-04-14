@@ -1,12 +1,12 @@
 - handleswap: samenwerking met F2
-- intercept bursts of input
-- handlemorebookmark
-- handlemorego
-- handleacl
 - finish pfmrcupdate: also pushing onto @_ doesn't work
 - cursor at 'lib', sort by name with mouse click: cursor ends up at 'lib-app-pfm'
 - sort by_sort_mode: if lc sort_mode  eq 't' then sort directories on top
 - unknown file type gives: "no valid 'launchby' option."
 - fill siZe column automatically in background?
-- Goodbye message does not always print
-- (I)nclude - (G)reater (S)maller
+
+-check for updates: use:
+	perl -MLWP::Simple -e'print get("http://p-f-m.sourceforge.net/")'
+
+system or exec().
+

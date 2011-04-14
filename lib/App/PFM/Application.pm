@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.04.2
+# @(#) App::PFM::Application 2.04.8
 #
 # Name:			App::PFM::Application
-# Version:		2.04.2
+# Version:		2.04.8
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-05-10
+# Date:			2010-05-21
 #
 
 ##########################################################################
@@ -57,7 +57,7 @@ use constant {
 };
 
 my ($_browser, $_screen, $_commandhandler, $_config, $_history, $_jobhandler,
-	$_bootstrapped, @_states,
+	@_states,
 );
 
 ##########################################################################
@@ -73,6 +73,7 @@ sub _init {
 	my $self = shift;
 	($self->{VERSION}, $self->{LASTYEAR}) = $self->_findversion();
 	$self->{LATEST_VERSION} = '';
+	$self->{_bootstrapped} = 0;
 }
 
 =item _findversionfromfile()
@@ -137,7 +138,7 @@ sub _usage {
 		  "    -s, --swap $directory : specify swap directory\n",
 		  "    -v, --version        : print version information and exit\n\n",
 		  "Configuration options will be read from ", $config->give_location(), "\n",
-		  "(or override this with \$PFMRC)\n\n";
+		  "(or override this with \$PFMRC)\n";
 }
 
 =item _printversion()
@@ -182,10 +183,10 @@ sub _goodbye {
 		$_screen->at($_screen->screenheight + $_screen->BASELINE + 1, 0)
 				->clreol();
 	}
-	if ($self->{LATEST_VERSION}) {
+	if ($self->{LATEST_VERSION} and $self->{PFM_URL}) {
 		$_screen->putmessage(
-			"There is a newer version (", $self->{LATEST_VERSION},
-			") available at ", App::PFM::Job::CheckUpdates::PFM_URL, "\n");
+			"There is a newer version ($self->{LATEST_VERSION}) ",
+			"available at $self->{PFM_URL}\n");
 	}
 }
 
@@ -308,7 +309,7 @@ Instantiates the necessary objects.
 sub bootstrap {
 	my $self = shift;
 	my ($startingdir, $swapstartdir, $startinglayout,
-		$currentdir,
+		$currentdir, %on,
 		$opt_version, $opt_help, $invalid, $state);
 	
 	# hand over the application object to the other classes
@@ -324,8 +325,8 @@ sub bootstrap {
 				'v|version'  => \$opt_version) or $invalid = 1;
 	$self->_usage()			if $opt_help || $invalid;
 	$self->_printversion()	if $opt_version;
-	die "1:Invalid Usage"	if $invalid;
-	die "0:Requested exit"	if $opt_help || $opt_version;
+	die "Invalid option\n"	if $invalid;
+	die "\n"				if $opt_help || $opt_version;
 	
 	# hand over the application object to the other classes
 	# for easy access.
@@ -342,7 +343,17 @@ sub bootstrap {
 	$_config->apply();
 	$_screen->listing->layout($startinglayout);
 	$_history->read();
-	#$_jobhandler->start('CheckUpdates');
+	%on = (
+		before_start		=> sub { 1; },
+		after_receive_data	=> sub {
+			my ($job, $input) = @_;
+			if ($input gt $self->{VERSION}) {
+				$self->{LATEST_VERSION} = $input;
+				$self->{PFM_URL}		= $job->PFM_URL;
+			}
+		},
+	);
+	#$_jobhandler->start('CheckUpdates', %on);
 	
 	# current directory - MAIN for the time being
 	$currentdir = getcwd();
@@ -365,8 +376,8 @@ sub bootstrap {
 		$_states[S_SWAP] = new App::PFM::State($self);
 		$_states[S_SWAP]->prepare($swapstartdir);
 	}
-	# done
-	$_bootstrapped = 1;
+	# flag done
+	$self->{_bootstrapped} = 1;
 }
 
 =item run()
@@ -378,16 +389,8 @@ been done yet.
 
 sub run {
 	my $self = shift;
-	if ($ENV{PFMDEBUG}) {
-		$self->bootstrap() if !$_bootstrapped;
-		$_browser->browse();
-	} else {
-		eval {
-			$self->bootstrap() if !$_bootstrapped;
-			$_browser->browse();
-		};
-		exit (0 + $@) if defined $@;
-	}
+	$self->bootstrap() if !$self->{_bootstrapped};
+	$_browser->browse();
 	$self->_goodbye();
 }
 

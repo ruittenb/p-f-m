@@ -1,0 +1,39 @@
+- intercept bursts of input
+
+- handlemorebookmark
+- handlemorego
+- handleacl
+
+- (I)nclude - (G)reater (S)maller
+- (I)nclude - (I)nvert
+
+- keep marks when F5 refreshing
+
+- introduce QUIT?
+
+------------------------------------------------------------------------------
+	Since "SIGINT" and "SIGQUIT" are ignored during the execution of "system", if
+	you expect your program to terminate on receipt of these signals you will
+	need to arrange to do so yourself based on the return value.
+
+	   @args = ("command", "arg1", "arg2");
+	   system(@args) == 0
+		or die "system @args failed: $?"
+
+	You can check all the failure possibilities by inspecting $? like this:
+
+	   if ($? == -1) {
+	       print "failed to execute: $!\n";
+	   }
+	   elsif ($? & 127) {
+	       printf "child died with signal %d, %s coredump\n",
+		   ($? & 127),  ($? & 128) ? 'with' : 'without';
+	   }
+	   else {
+	       printf "child exited with value %d\n", $? >> 8;
+	   }
+
+	Alternatively you might inspect the value of "${^CHILD_ERROR_NATIVE}" with
+	the W*() calls of the POSIX extension.
+------------------------------------------------------------------------------
+

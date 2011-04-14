@@ -1,5 +1,5 @@
 
-Package: pfm-2.04.3
+Package: pfm-2.04.8
 
 
 * This package is available from http://sourceforge.net/projects/p-f-m/
@@ -15,7 +15,7 @@ Package: pfm-2.04.3
         Term-ScreenColor     1.11          1.13
     readline                 4.1           5
       Term-ReadLine-Gnu      1.09          1.19
-        pfm                  1.94.9        2.04.3
+        pfm                  1.94.9        2.04.8
 
 
 * On Ubuntu Jaunty, it is advisable to install the following packages:

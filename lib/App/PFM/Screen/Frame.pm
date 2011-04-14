@@ -161,7 +161,11 @@ sub _getmenu {
 		return	'Sort by: Name, Extension, Size, Date, Type, Inode, Vers '
 		.		'(ignorecase, reverse):';
 	} elsif ($mode & MENU_MORE) {
-		return	'Acl Bookmark Config Edit-any mkFifo Go sHell Mkdir '
+		return	
+		#		'Acl Bookmark ' .
+				'Config Edit-any mkFifo '
+		#.		'Go '
+		.		'sHell Mkdir '
 		.		'Phys-path Show-dir alTscreen reVision Write-hist';
 	} elsif ($mode & MENU_EXCLUDE) {
 		return	'Exclude? Every, Oldmarks, Newmarks, '

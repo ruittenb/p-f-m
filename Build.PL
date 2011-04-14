@@ -1,24 +1,29 @@
 
-# Makefile.PL for pfm
+# Build.PL for pfm
 
-use ExtUtils::MakeMaker;
+use Module::Build;
 
-WriteMakefile(
-	NAME			=> 'pfm',
-	VERSION_FROM		=> 'pfm',
-	ABSTRACT		=> 'Personal File Manager for Unix/Linux',
-	LICENSE			=> 'gpl',
-	PREREQ_PM		=> {
+Module::Build->new(
+	module_name		=> 'pfm',
+	dist_version_from	=> 'pfm',
+	license			=> 'gpl',
+	requires		=> {
 		'Term::Cap'		=> 1.12,
 		'Term::Screen'		=> 1.03,
 		'Term::ScreenColor'	=> 1.13,
 		'Term::ReadLine::Gnu'	=> 1.17,
 		'LWP::Simple'		=> 5.827, # not sure, probably too high
 	},
-	EXE_FILES		=> ['pfm', 'pfmrcupdate'],
-	MIN_PERL_VERSION	=> 5.008,
-	DIR			=> ['listwhite'],
-);
+	create_makefile_pl	=> 'passthrough',
+	script_files		=> [ 'pfm', 'pfmrcupdate' ],
+)->create_build_script();
+
+#WriteMakefile(
+#	NAME		=> 'pfm',
+#	ABSTRACT	=> 'Personal File Manager for Unix/Linux',
+#	MIN_PERL_VERSION => 5.008,
+#	DIR		=> ['listwhite'],
+#);
 
 
 #MANIFEST
@@ -36,11 +41,14 @@ WriteMakefile(
 #
 #--------------------------------------------------------------------------------
 #
+#--------------------------------------------------------------------------------
+#
 #Makefile.PL
 #
 #INSTALLSITESCRIPT
 #INST_SCRIPT
 #INST_BIN
+#LICENSE
 #MAN1PODS
 #MAN3PODS
 #

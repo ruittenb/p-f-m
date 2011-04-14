@@ -1,3 +1,8 @@
+2.04.5-WIP
+
+* fixed bug where a dying child process would interrupt the
+  select() on stdin
+
 2.04.4-WIP
 
 * added 'copyoptions' config option

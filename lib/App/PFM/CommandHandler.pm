@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 0.97
+# @(#) App::PFM::CommandHandler 0.99
 #
 # Name:			App::PFM::CommandHandler
-# Version:		0.97
+# Version:		0.99
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-05-12
+# Date:			2010-05-21
 #
 
 ##########################################################################
@@ -83,7 +83,7 @@ my @SORTMODES = (
 	 g =>'Group',		G =>' reverse',
 	 v =>'Version',		V =>' reverse',
 	 i =>'Inode',		I =>' reverse',
-#	'*'=>'mark',
+	'*'=>'mark',
 );
 
 my @FIELDS_TO_SORTMODE = (
@@ -97,6 +97,7 @@ my @FIELDS_TO_SORTMODE = (
 	 v => 'v', # version(rcs)
 	 u => 'u', # user
 	 g => 'g', # group
+	'*'=> '*', # mark
 );
 
 our ($command);
@@ -1195,8 +1196,9 @@ sub handlesort {
 	$frame->show_headings($_pfm->browser->swap_mode, $frame->HEADING_SORT);
 	$_screen->frame->clear_footer();
 	$_screen->diskinfo->clearcolumn();
-	# we can't use foreach (keys %SORTMODES) because we would lose ordering
+	# we can't use foreach (keys %sortmodes) because we would lose ordering
 	foreach (grep { ($i += 1) %= 2 } @SORTMODES) { # keep keys, skip values
+		last if ($printline > $_screen->BASELINE + $_screen->screenheight);
 		$_screen->at($printline++, $infocol)
 			->puts(sprintf('%1s %s', $_, $sortmodes{$_}));
 	}
@@ -1731,14 +1733,13 @@ sub handlecommand { # Y or O
 		$_screen->frame->show_headings(
 			$_pfm->browser->swap_mode, $_screen->frame->HEADING_YCOMMAND);
 		foreach (sort alphabetically $_pfm->config->your_commands) {
-			if ($printline <= $_screen->BASELINE + $_screen->screenheight) {
-				$printstr = $_pfm->config->pfmrc()->{$_};
-				$printstr =~ s/\e/^[/g; # in case real escapes are used
-				$_screen->at($printline++, $infocol)
-					->puts(sprintf('%1s %s',
-							substr($_,5,1),
-							substr($printstr,0,$infolength-2)));
-			}
+			last if ($printline > $_screen->BASELINE + $_screen->screenheight);
+			$printstr = $_pfm->config->pfmrc()->{$_};
+			$printstr =~ s/\e/^[/g; # in case real escapes are used
+			$_screen->at($printline++, $infocol)
+				->puts(sprintf('%1s %s',
+						substr($_,5,1),
+						substr($printstr,0,$infolength-2)));
 		}
 		$prompt = 'Enter one of the highlighted characters below: ';
 		$key = $_screen->at(0,0)->clreol()
@@ -2013,13 +2014,13 @@ sub handlemousedown {
 	$mousecol = ord($_screen->getch()) - 041;
 	$mouserow = ord($_screen->getch()) - 041;
 	$_screen->echo();
-	# button ----------------- location clicked -----------------------
-	# 		pathline		header/footer	fileln	filename	dirname
-	# 1		More/Show/cd()	 -              F8		Show		Show
-	# 2		cOmmand			 -              Show	ENTER		new win
-	# 3		cOmmand			 -              Show	ENTER		new win
-	# up	------------------- three lines up ------------------------
-	# down	------------------ three lines down -----------------------
+	# button ---------------- location clicked ------------------------
+	#       pathline  menu/footer  heading   fileline  filename dirname
+	# 1     chdir()   (command)    sort      F8        Show     Show
+	# 2     cOmmand   (command)    sort rev  Show      ENTER    new win
+	# 3     cOmmand   (command)    sort rev  Show      ENTER    new win
+	# up    ------------------ three lines up -------------------------
+	# down  ----------------- three lines down ------------------------
 	if ($mbutton == 64) {
 		# wheel up
 		$self->handlemove('mup');
@@ -2037,11 +2038,11 @@ sub handlemousedown {
 		if ($mbutton) {
 			$self->handlecommand('o');
 		} else {
-			$self->handlepathjump($mousecol);
+			$self->handlemousepathjump($mousecol);
 		}
 	} elsif ($mouserow == $_screen->HEADINGLINE) {
 		# headings
-		$self->handleheadingsort($mousecol);
+		$self->handlemouseheadingsort($mousecol, $mbutton);
 	} elsif ($mouserow == 0) {
 		# menu
 		# return the return value as this could be 'quit'
@@ -2062,8 +2063,9 @@ sub handlemousedown {
 		$prevcurrentline   = $_pfm->browser->currentline;
 		# put cursor temporarily on another file
 		$_pfm->browser->currentline($mouserow - $_screen->BASELINE);
-		$on_name = ($mousecol >= $listing->filenamecol
-				and $mousecol <= $listing->filenamecol + $listing->maxfilenamelength);
+		$on_name = (
+			$mousecol >= $listing->filenamecol and
+			$mousecol <= $listing->filenamecol + $listing->maxfilenamelength);
 		if ($on_name and $mbutton) {
 			$currentfile = $_pfm->browser->currentfile;
 			if ($currentfile->{type} eq 'd') {
@@ -2079,20 +2081,17 @@ sub handlemousedown {
 		# restore currentline
 		# note that if we changed directory, there will be a position_at anyway
 		$_pfm->browser->currentline($prevcurrentline);
-#	} else {
-#		# diskinfo or empty line
-#		return 1; # must return true to fill handle()'s $valid
 	}
-	return 1; # must return true to fill handle()'s $valid
+	return 1; # must return true to fill $valid in sub handle()
 }
 
-=item handlepathjump()
+=item handlemousepathjump()
 
 Handles a click in the directory path, and changes to this directory.
 
 =cut
 
-sub handlepathjump {
+sub handlemousepathjump {
 	my ($self, $mousecol) = @_;
 	my ($baselen, $skipsize, $selecteddir);
 	my $currentdir = $_pfm->state->directory->path;
@@ -2125,25 +2124,27 @@ sub handlepathjump {
 	}
 }
 
-=item handleheadingsort()
+=item handlemouseheadingsort()
 
 Sorts the directory contents according to the heading clicked.
 
 =cut
 
-sub handleheadingsort {
-	my ($self, $mousecol) = @_;
+sub handlemouseheadingsort {
+	my ($self, $mousecol, $mbutton) = @_;
 	my $currentlayoutline = $_screen->listing->currentlayoutline;
 	my %sortmodes = @FIELDS_TO_SORTMODE;
 	# get field character
 	my $key = substr($currentlayoutline, $mousecol, 1);
-	if ($key eq '*') {
-		goto &handleselectall;
-	}
+#	if ($key eq '*') {
+#		goto &handleselectall;
+#	}
 	# translate field character to sort mode character
 	$key = $sortmodes{$key};
 	if ($key) {
-		$key = uc($key) if ($_pfm->state->{sort_mode} eq $key);
+		$key = uc($key) if $mbutton;
+		# we don't need locale-awareness here
+		$key =~ tr/A-Za-z/a-zA-Z/ if ($_pfm->state->{sort_mode} eq $key);
 		$_pfm->state->{sort_mode} = $key;
 		$_pfm->browser->position_at($_pfm->browser->currentfile->{name});
 	}
@@ -2237,14 +2238,14 @@ sub handlemore {
 			/^c$/io		and $self->handlemoreconfig(),		last MORE_PAN;
 			/^e$/io		and $self->handlemoreedit(),		last MORE_PAN;
 			/^h$/io		and $self->handlemoreshell(),		last MORE_PAN;
-			/^b$/io		and $self->handlemorebookmark(),	last MORE_PAN;
-			/^g$/io		and $self->handlemorego(),			last MORE_PAN;
+#			/^b$/io		and $self->handlemorebookmark(),	last MORE_PAN;
+#			/^g$/io		and $self->handlemorego(),			last MORE_PAN;
 			/^f$/io		and $self->handlemorefifo(),		last MORE_PAN;
 			/^v$/io		and $self->handlemoreversion(),		last MORE_PAN;
 			/^w$/io		and $_pfm->history->write(),		last MORE_PAN;
 			/^t$/io		and $self->handlemorealtscreen(),	last MORE_PAN;
 			/^p$/io		and $self->handlemorephyspath(),	last MORE_PAN;
-			/^a$/io		and $self->handlemoreacl(),			last MORE_PAN;
+#			/^a$/io		and $self->handlemoreacl(),			last MORE_PAN;
 			/^[<>]$/io	and do {
 				$self->handlepan($_, $frame->MENU_MORE);
 				$headerlength = $frame->show_menu($frame->MENU_MORE);

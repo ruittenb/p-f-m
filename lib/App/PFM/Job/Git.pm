@@ -47,48 +47,9 @@ Initializes new instances. Called from the constructor.
 =cut
 
 sub _init {
-	my $self = shift;
+	my ($self, @args) = @_;
 	$self->{_COMMAND} = 'git status --porcelain %s';
-}
-
-=item _gitmaxchar()
-
-=item _gitmax()
-
-Determine which status character should be displayed on
-a directory that holds files with different status characters.
-For this purpose, a relative priority is defined:
-
-=over 2
-
-B<U> (unmerged) E<gt> B<M>,B<C>,B<R>,B<A>,B<D> (modified,copied,renamed,added,deleted) E<gt> I<other>
-
-=back
-
-=cut
-
-sub _gitmaxchar {
-	my ($self, $a, $b) = @_;
-	# U unmerged
-	return 'U' if ($a eq 'U' or $b eq 'U');
-	# M modified
-	# C copied
-	# R renamed
-	# A added
-	# D deleted
-	return 'M' if ($a =~ /^[MCRAD]$/o or $b =~ /^[MCRAD]$/o);
-	# ? unversioned
-	#   unchanged
-	return $b  if ($a eq ''  or $a eq '-' or $a eq ' ');
-	return $a;
-}
-
-sub _gitmax {
-	my ($self, $old, $new) = @_;
-	my $res = $old;
-	substr($res,0,1) = $self->_gitmaxchar(substr($old,0,1), substr($new,0,1));
-	substr($res,1,1) = $self->_gitmaxchar(substr($old,1,1), substr($new,1,1));
-	return $res;
+	$self->SUPER::_init(@args);
 }
 
 =item _preprocess()
@@ -158,6 +119,47 @@ sub _preprocess {
 		$file =~ s/\\(.)/$1/;
 	}
 	return [ $flags, $file ];
+}
+
+=item _gitmaxchar()
+
+=item rcsmax()
+
+Determine which status character should be displayed on
+a directory that holds files with different status characters.
+For this purpose, a relative priority is defined:
+
+=over 2
+
+B<U> (unmerged) E<gt> B<M>,B<C>,B<R>,B<A>,B<D>
+(modified,copied,renamed,added,deleted) E<gt> I<other>
+
+=back
+
+=cut
+
+sub _gitmaxchar {
+	my ($self, $a, $b) = @_;
+	# U unmerged
+	return 'U' if ($a eq 'U' or $b eq 'U');
+	# M modified
+	# C copied
+	# R renamed
+	# A added
+	# D deleted
+	return 'M' if ($a =~ /^[MCRAD]$/o or $b =~ /^[MCRAD]$/o);
+	# ? unversioned
+	#   unchanged
+	return $b  if ($a eq ''  or $a eq '-' or $a eq ' ');
+	return $a;
+}
+
+sub rcsmax {
+	my ($self, $old, $new) = @_;
+	my $res = $old;
+	substr($res,0,1) = $self->_gitmaxchar(substr($old,0,1), substr($new,0,1));
+	substr($res,1,1) = $self->_gitmaxchar(substr($old,1,1), substr($new,1,1));
+	return $res;
 }
 
 ##########################################################################
