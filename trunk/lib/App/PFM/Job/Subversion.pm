@@ -52,45 +52,6 @@ sub _init {
 	$self->SUPER::_init(@args);
 }
 
-=item _svnmaxchar()
-
-=item _svnmax()
-
-Determines which subversion status character should be displayed on
-a directory that holds files with different status characters.
-For this purpose, a relative priority is defined:
-
-=over 2
-
-B<C> (conflict) E<gt> B<M>,B<A>,B<D> (modified, added, deleted) E<gt> I<other>
-
-=back
-
-=cut
-
-sub _svnmaxchar {
-	my ($self, $a, $b) = @_;
-	# C conflict
-	return 'C' if ($a eq 'C' or $b eq 'C');
-	# M modified
-	# A added
-	# D deleted
-	return 'M' if ($a =~ /^[MAD]$/o or $b =~ /^[MAD]$/o);
-	# I ignored
-	# ? unversioned
-	return $b  if ($a eq ''  or $a eq '-');
-	return $a;
-}
-
-sub _svnmax {
-	my ($self, $old, $new) = @_;
-	my $res = $old;
-	substr($res,0,1) = $self->_svnmaxchar(substr($old,0,1), substr($new,0,1));
-	substr($res,1,1) = $self->_svnmaxchar(substr($old,1,1), substr($new,1,1));
-	substr($res,2,1) ||= substr($new,2,1);
-	return $res;
-}
-
 =item _preprocess()
 
 Split the status output in a filename- and a status-field.
@@ -133,6 +94,45 @@ sub _preprocess {
 		substr($data, 0, $firstcolsize),
 		substr($data, $firstcolsize)
 	];
+}
+
+=item _svnmaxchar()
+
+=item rcsmax()
+
+Determines which subversion status character should be displayed on
+a directory that holds files with different status characters.
+For this purpose, a relative priority is defined:
+
+=over 2
+
+B<C> (conflict) E<gt> B<M>,B<A>,B<D> (modified, added, deleted) E<gt> I<other>
+
+=back
+
+=cut
+
+sub _svnmaxchar {
+	my ($self, $a, $b) = @_;
+	# C conflict
+	return 'C' if ($a eq 'C' or $b eq 'C');
+	# M modified
+	# A added
+	# D deleted
+	return 'M' if ($a =~ /^[MAD]$/o or $b =~ /^[MAD]$/o);
+	# I ignored
+	# ? unversioned
+	return $b  if ($a eq ''  or $a eq '-');
+	return $a;
+}
+
+sub rcsmax {
+	my ($self, $old, $new) = @_;
+	my $res = $old;
+	substr($res,0,1) = $self->_svnmaxchar(substr($old,0,1), substr($new,0,1));
+	substr($res,1,1) = $self->_svnmaxchar(substr($old,1,1), substr($new,1,1));
+	substr($res,2,1) ||= substr($new,2,1);
+	return $res;
 }
 
 ##########################################################################

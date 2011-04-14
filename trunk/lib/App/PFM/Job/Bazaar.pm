@@ -47,13 +47,33 @@ Initializes new instances. Called from the constructor.
 =cut
 
 sub _init {
-	my $self = shift;
+	my ($self, @args) = @_;
 	$self->{_COMMAND} = 'bzr status -S %s';
+	$self->{_base}    = $self->isapplicable(@args);
+	$self->SUPER::_init(@args);
+}
+
+=item _preprocess()
+
+Split the status output in a filename- and a status-field.
+
+=cut
+
+# ?   backup.bzr/
+#  M  static/media/index.php
+
+sub _preprocess {
+	my ($self, $data) = @_;
+	my $firstcolsize = 4;
+	return [
+		substr($data, 0, $firstcolsize),
+		$self->{_base} . "/" . substr($data, $firstcolsize)
+	];
 }
 
 =item _bzrmaxchar()
 
-=item _bzrmax()
+=item rcsmax()
 
 Determine which status character should be displayed on
 a directory that holds files with different status characters.
@@ -81,30 +101,12 @@ sub _bzrmaxchar {
 	return $a;
 }
  
-sub _bzrmax {
+sub rcsmax {
 	my ($self, $old, $new) = @_;
 	my $res = $old;
 	substr($res,0,1) = $self->_bzrmaxchar(substr($old,0,1), substr($new,0,1));
 	substr($res,1,1) = $self->_bzrmaxchar(substr($old,1,1), substr($new,1,1));
 	return $res;
-}
-
-=item _preprocess()
-
-Split the status output in a filename- and a status-field.
-
-=cut
-
-# ?   backup.bzr/
-#  M  static/media/index.php
-
-sub _preprocess {
-	my ($self, $data) = @_;
-	my $firstcolsize = 4;
-	return [
-		substr($data, 0, $firstcolsize),
-		substr($data, $firstcolsize)
-	];
 }
 
 ##########################################################################
@@ -124,7 +126,7 @@ sub isapplicable {
 	my ($self, $path) = @_;
 	while ($path) {
 		if (-d "$path/.bzr") {
-			return 1;
+			return $path;
 		}
 		$path =~ s{/[^/]*$}{};
 	}

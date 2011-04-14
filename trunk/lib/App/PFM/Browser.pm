@@ -84,8 +84,9 @@ sub _wait_loop {
 #	my ($self) = @_;
 	my $screenline = $_currentline + $_screen->BASELINE;
 	my $cursorcol  = $_screen->listing->cursorcol;
-	until ($_screen->pending_input(1)) {
+	until ($_screen->pending_input(0.4)) {
 		$_pfm->jobhandler->pollall();
+		return if $_screen->pending_input(0.6);
 		$_screen->diskinfo->clock_info()
 			->at($screenline, $cursorcol);
 	}

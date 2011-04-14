@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::CheckUpdates 0.01
+# @(#) App::PFM::Job::CheckUpdates 0.10
 #
 # Name:			App::PFM::Job::CheckUpdates
-# Version:		0.01
+# Version:		0.10
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-03
+# Date:			2010-04-21
 #
 
 ##########################################################################
@@ -41,7 +41,7 @@ use strict;
 
 use constant PFM_URL => 'http://p-f-m.sourceforge.net/';
 
-my $_pfm;
+our $_pfm;
 
 ##########################################################################
 # private subs
@@ -58,6 +58,31 @@ sub _init {
 	$self->SUPER::_init(@args);
 }
 
+=item _start_child()
+
+Starts the actual job.
+
+=cut
+
+sub _start_child {
+	my ($self) = @_;
+	my $pid;
+	if ($pid = fork()) {	# parent
+		$self->{_pipe}->reader();
+		return;
+	}
+	elsif (defined $pid) {	# child
+		$self->{_pipe}->writer();
+		$self->_check_for_updates();
+		$self->{_pipe}->close();
+		# don't mess up the screen when the $screen object is destroyed
+		undef $_pfm->screen;
+		exit 0;
+	}
+	# fork failed
+	$self->{_pipe}->close();
+}
+
 =item _check_for_updates()
 
 Tries to connect to the URL of the pfm project page to see if there
@@ -71,11 +96,7 @@ sub _check_for_updates {
 	my $pfmpage = get(PFM_URL);
 	($latest_version = $pfmpage) =~
 		s/.*?latest version \(v?([\w.]+)\).*/$1/s;
-	if ($latest_version gt $self->{VERSION}) {
-		$_pfm->latest_version(
-			"There is a newer version ($latest_version) available at " .
-			PFM_URL . "\n");
-	}
+	$self->{_pipe}->print($latest_version, "\n");
 }
 
 ##########################################################################

@@ -213,7 +213,7 @@ sub poll {
 			$self->{_buffer} = substr($self->{_buffer}, $newlinepos+1);
 			# the next line contains an assignment on purpose
 			if (defined($input = $self->_preprocess($input))) {
-				$self->_fire_event('after_receive_data', $input);
+				$self->_fire_event('after_receive_data', $self, $input);
 			}
 		}
 		goto &poll; # continue parsing

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Directory 0.78
+# @(#) App::PFM::Directory 0.79
 #
 # Name:			App::PFM::Directory
-# Version:		0.78
+# Version:		0.79
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-05-13
+# Date:			2010-05-23
 #
 
 ##########################################################################
@@ -65,7 +65,7 @@ our @EXPORT = qw(M_MARK M_OLDMARK M_NEWMARK);
 
 my $DFCMD = ($^O eq 'hpux') ? 'bdf' : ($^O eq 'sco') ? 'dfspace' : 'df -k';
 
-my ($_pfm);
+our ($_pfm);
 
 ##########################################################################
 # private subs
@@ -123,42 +123,64 @@ sub _by_sort_mode {
 		elsif ($a->{name} eq '..') { return -1 }
 		elsif ($b->{name} eq '..') { return  1 }
 	}
-	BY_NAME:
 	for ($_pfm->state->{sort_mode}) {
-		/n/ and return		$a->{name}  cmp		$b->{name},	last BY_NAME;
-		/N/ and return		$b->{name}  cmp		$a->{name},	last BY_NAME;
-		/m/ and return	 lc($a->{name}) cmp  lc($b->{name}),last BY_NAME;
-		/M/ and return	 lc($b->{name}) cmp  lc($a->{name}),last BY_NAME;
-		/d/ and return		$a->{mtime} <=>		$b->{mtime},last BY_NAME;
-		/D/ and return		$b->{mtime} <=>		$a->{mtime},last BY_NAME;
-		/a/ and return		$a->{atime} <=>		$b->{atime},last BY_NAME;
-		/A/ and return		$b->{atime} <=>		$a->{atime},last BY_NAME;
-		/s/ and return		$a->{size}  <=>		$b->{size},	last BY_NAME;
-		/S/ and return		$b->{size}  <=>		$a->{size},	last BY_NAME;
-		/z/ and return		$a->{grand} <=>		$b->{grand},last BY_NAME;
-		/Z/ and return		$b->{grand} <=>		$a->{grand},last BY_NAME;
-		/i/ and return		$a->{inode} <=>		$b->{inode},last BY_NAME;
-		/I/ and return		$b->{inode} <=>		$a->{inode},last BY_NAME;
-		/u/ and return		$a->{uid}   cmp		$b->{uid},  last BY_NAME;
-		/U/ and return		$b->{uid}   cmp		$a->{uid},  last BY_NAME;
-		/g/ and return		$a->{gid}   cmp		$b->{gid},  last BY_NAME;
-		/G/ and return		$b->{gid}   cmp		$a->{gid},  last BY_NAME;
-		/v/ and return		$a->{rcs}   cmp		$b->{rcs},  last BY_NAME;
-		/V/ and return		$b->{rcs}   cmp		$a->{rcs},  last BY_NAME;
-		/t/ and return $a->{type}.$a->{name}
-										cmp $b->{type}.$b->{name}, last BY_NAME;
-		/T/ and return $b->{type}.$b->{name}
-										cmp $a->{type}.$a->{name}, last BY_NAME;
-		/\*/ and return		$a->{selected}	cmp		$b->{selected},last BY_NAME;
+		/n/  and return		$a->{name}		cmp		$b->{name};
+		/N/  and return		$b->{name}		cmp		$a->{name};
+		/m/  and return	 lc($a->{name})		cmp	 lc($b->{name});
+		/M/  and return	 lc($b->{name})		cmp	 lc($a->{name});
+		/d/  and return		$a->{mtime}		<=>		$b->{mtime};
+		/D/  and return		$b->{mtime}		<=>		$a->{mtime};
+		/a/  and return		$a->{atime}		<=>		$b->{atime};
+		/A/  and return		$b->{atime}		<=>		$a->{atime};
+		/s/  and return		$a->{size}		<=>		$b->{size};
+		/S/  and return		$b->{size}		<=>		$a->{size};
+		/z/  and return		$a->{grand}		<=>		$b->{grand};
+		/Z/  and return		$b->{grand}		<=>		$a->{grand};
+		/i/  and return		$a->{inode}		<=>		$b->{inode};
+		/I/  and return		$b->{inode}		<=>		$a->{inode};
+		/u/  and return		$a->{uid}		cmp		$b->{uid};
+		/U/  and return		$b->{uid}		cmp		$a->{uid};
+		/g/  and return		$a->{gid}		cmp		$b->{gid};
+		/G/  and return		$b->{gid}		cmp		$a->{gid};
+		/v/  and return		$a->{rcs}		cmp		$b->{rcs};
+		/V/  and return		$b->{rcs}		cmp		$a->{rcs};
+		/t/  and do {
+				if ($a->{type} eq $b->{type}) {
+					return $a->{name} cmp $b->{name};
+				}
+				elsif ($a->{type} eq 'd') { return -1 }
+				elsif ($b->{type} eq 'd') { return  1 }
+				return $a->{type} cmp $b->{type};
+		};
+		/T/  and do {
+				if ($a->{type} eq $b->{type}) {
+					return $b->{name} cmp $a->{name};
+				}
+				elsif ($b->{type} eq 'd') { return -1 }
+				elsif ($a->{type} eq 'd') { return  1 }
+				return $b->{type} cmp $a->{type};
+		};
+		/\*/ and do {
+				if ($a->{selected} eq $b->{selected}) {
+					return $a->{name} cmp $b->{name};
+				}
+				elsif ($a->{selected} eq M_MARK   ) { return -1 }
+				elsif ($b->{selected} eq M_MARK   ) { return  1 }
+				elsif ($a->{selected} eq M_NEWMARK) { return -1 }
+				elsif ($b->{selected} eq M_NEWMARK) { return  1 }
+				elsif ($a->{selected} eq M_OLDMARK) { return -1 }
+				elsif ($b->{selected} eq M_OLDMARK) { return  1 }
+				return $a->{selected} cmp $b->{selected};
+		};
 		/[ef]/i and do {
 			 if ($a->{name} =~ /^(.*)(\.[^\.]+)$/) { $exta = $2."\0377".$1 }
 											 else { $exta = "\0377".$a->{name} }
 			 if ($b->{name} =~ /^(.*)(\.[^\.]+)$/) { $extb = $2."\0377".$1 }
 											 else { $extb = "\0377".$b->{name} }
-			 /e/ and return    $exta  cmp    $extb, 		last BY_NAME;
-			 /E/ and return    $extb  cmp    $exta, 		last BY_NAME;
-			 /f/ and return lc($exta) cmp lc($extb),		last BY_NAME;
-			 /F/ and return lc($extb) cmp lc($exta),		last BY_NAME;
+			 /e/ and return    $exta  cmp    $extb;
+			 /E/ and return    $extb  cmp    $exta;
+			 /f/ and return lc($exta) cmp lc($extb);
+			 /F/ and return lc($extb) cmp lc($exta);
 		};
 	}
 }
@@ -569,7 +591,7 @@ sub register {
 	my ($self, $entry) = @_;
 	$self->{_total_nr_of}{$entry->{type}}++;
 	if ($entry->{selected} eq M_MARK) {
-		$self->include($entry);
+		$self->register_include($entry);
 	}
 	$_pfm->screen->set_deferred_refresh($_pfm->screen->R_DISKINFO);
 }
@@ -582,12 +604,13 @@ Removes the file from the internal counters.
 
 sub unregister {
 	my ($self, $entry) = @_;
+	my $prevmark;
 	$self->{_total_nr_of}{$entry->{type}}--;
 	if ($entry->{selected} eq M_MARK) {
-		# exclude it but leave the mark in place
-		$self->exclude($entry, M_MARK);
+		$prevmark = $self->register_exclude($entry);
 	}
 	$_pfm->screen->set_deferred_refresh($_pfm->screen->R_DISKINFO);
+	return $prevmark;
 }
 
 =item include()
@@ -598,11 +621,8 @@ Marks a file.
 
 sub include {
 	my ($self, $entry) = @_;
-	return if ($entry->{selected} eq M_MARK);
-	$self->{_selected_nr_of}{$entry->{type}}++;
-	$entry->{type} =~ /-/ and $self->{_selected_nr_of}{bytes} += $entry->{size};
+	$self->register_include($entry) if ($entry->{selected} ne M_MARK);
 	$entry->{selected} = M_MARK;
-	$_pfm->screen->set_deferred_refresh($_pfm->screen->R_DISKINFO);
 }
 
 =item exclude()
@@ -612,12 +632,36 @@ Removes a file's mark.
 =cut
 
 sub exclude {
-	my ($self, $entry, $oldmark) = @_;
-	if ($entry->{selected} eq M_MARK) {
-		$self->{_selected_nr_of}{$entry->{type}}--;
-		$entry->{type} =~ /-/ and $self->{_selected_nr_of}{bytes} -= $entry->{size};
-	}
-	$entry->{selected} = $oldmark || ' ';
+	my ($self, $entry, $to_mark) = @_;
+	my $prevmark = $entry->{selected};
+	$self->register_exclude($entry) if ($entry->{selected} eq M_MARK);
+	$entry->{selected} = $to_mark || ' ';
+	return $prevmark;
+}
+
+=item register_include()
+
+Adds a file to the counters of marked files.
+
+=cut
+
+sub register_include {
+	my ($self, $entry) = @_;
+	$self->{_selected_nr_of}{$entry->{type}}++;
+	$entry->{type} =~ /-/ and $self->{_selected_nr_of}{bytes} += $entry->{size};
+	$_pfm->screen->set_deferred_refresh($_pfm->screen->R_DISKINFO);
+}
+
+=item register_exclude()
+
+Removes a file from the counters of marked files.
+
+=cut
+
+sub register_exclude {
+	my ($self, $entry) = @_;
+	$self->{_selected_nr_of}{$entry->{type}}--;
+	$entry->{type} =~ /-/ and $self->{_selected_nr_of}{bytes} -= $entry->{size};
 	$_pfm->screen->set_deferred_refresh($_pfm->screen->R_DISKINFO);
 }
 
@@ -630,7 +674,7 @@ and starts them.
 
 sub checkrcsapplicable {
 	my ($self, $entry) = @_;
-	my ($class, $fullclass, $mapindex, $count, $i);
+	my ($class, $fullclass);
 	my $path = $self->{_path};
 	$entry = defined $entry ? $entry : $path;
 	my %on = (
@@ -644,15 +688,38 @@ sub checkrcsapplicable {
 				RCS_RUNNING);
 		},
 		after_receive_data	=> sub {
-			my $input = shift;
+			my $job = shift;
+			my ($flags, $file) = @{ shift() };
+			my ($topdir, $mapindex, $oldval);
 			my $count = 0;
-			my %nameindexmap = map { $_->{name}, $count++ }
-				$_pfm->state->directory->showncontents;
-			# change file in current directory
-			if (defined($mapindex = $nameindexmap{$input->[1]})) {
-				${$_pfm->state->directory->showncontents}[$mapindex]{rcs} =
-				$input->[0];
+			my %nameindexmap =
+				map { $_->{name}, $count++ } @{$self->{_showncontents}};
+			if (substr($file, 0, length($path)) eq $path) {
+				$file = substr($file, length($path)+1); # +1 for trailing /
 			}
+			# currentdir or subdir?
+			if ($file =~ m!/!) {
+				# change in subdirectory
+				($topdir = $file) =~ s!/.*!!;
+				$mapindex = $nameindexmap{$topdir};
+				# find highest prio marker
+				$oldval = $self->{_showncontents}[$mapindex]{rcs};
+				$self->{_showncontents}[$mapindex]{rcs} =
+					$job->rcsmax($oldval, $flags);
+#				# if there was a change in a subdir, then show M on currentdir
+#				$mapindex = $nameindexmap{'.'};
+#				# find highest prio marker
+#				$oldval = $self->{_showncontents}[$mapindex]{rcs};
+#				$self->{_showncontents}[$mapindex]{rcs} =
+#					$job->rcsmax($oldval, 'M');
+			} else {
+				# change file in current directory
+#				if (defined($mapindex = $nameindexmap{$file})) {
+					$mapindex = $nameindexmap{$file};
+					$self->{_showncontents}[$mapindex]{rcs} = $flags;
+#				}
+			}
+			$_pfm->screen->listing->show();
 		},
 		after_finish		=> sub {
 			$self->{_rcsjob} = undef;
@@ -758,11 +825,14 @@ sub apply {
 		}
 		#$SIG{QUIT} = 'DEFAULT';
 		$_pfm->state->{multiple_mode} = 0 if $_pfm->config->{autoexitmultiple};
+		$self->checkrcsapplicable() if $_pfm->config->{autorcs};
 		$screen->set_deferred_refresh(
 			$screen->R_DIRLIST | $screen->R_PATHINFO | $screen->R_FRAME);
 	} else {
 		$loopfile = $_pfm->browser->currentfile;
 		$loopfile->apply($do_this, @args);
+		$self->checkrcsapplicable($loopfile->{name})
+			if $_pfm->config->{autorcs};
 		# see if the file was lost, and we were deleting.
 		# we could also test if return value of File->apply eq 'deleted'
 		if (!$loopfile->{nlink} and

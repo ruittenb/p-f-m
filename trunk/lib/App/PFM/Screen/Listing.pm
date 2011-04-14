@@ -423,8 +423,8 @@ sub makeformatlines {
 			$firstwronglayout ||= $_layout || '0 but true';
 			$_screen->at(0,0)->clreol()
 				->display_error(
-					"Bad layout #$_layout: mandatory field '$miss' is missing")
-				->important_delay();
+					"Bad layout #$_layout: mandatory field '$miss' is missing");
+			$_screen->important_delay();
 			$_layout = $self->_validate_layoutnum($_layout+1);
 			if ($_layout != $firstwronglayout) {
 				redo LAYOUT;
@@ -432,12 +432,10 @@ sub makeformatlines {
 				$_screen
 					->alternate_off()
 					->clrscr()->at(0,0)
-				    ->puts("Fatal error: No valid layout defined in "
-						. $_pfm->config->give_location())
-					->at(1,0)
 					->cooked_echo()
 					->mouse_disable();
-				die "2:No valid layout";
+				die "No valid layout defined in " .
+					$_pfm->config->give_location() . "\n";
 			}
 		}
 	}

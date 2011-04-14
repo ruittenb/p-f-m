@@ -3,7 +3,7 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.04.7
+# Version:		2.04.8
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-05-19
@@ -23,7 +23,7 @@
 # version
 
 # for MakeMaker
-our $VERSION = '2.04.7';
+our $VERSION = '2.04.8';
 
 # macros for *roff
 our $ROFFVERSION = <<'=cut';
@@ -32,7 +32,7 @@ our $ROFFVERSION = <<'=cut';
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.04.7
+.ds Vw @(#) pfm.pl 2.04.8
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -62,8 +62,6 @@ END {
 
 $pfm = new App::PFM::Application();
 $pfm->run();
-
-exit 0;
 
 __END__
 
@@ -1232,7 +1230,7 @@ the B<F12> key) will give mouse access to the following commands:
 	<td>2</td>
 	<td>c<b>O</b>mmand</td>
 	<td><i>command</i></td>
-	<td>sort</td>
+	<td>sort rev</td>
 	<td><b>S</b>how</td>
 	<td>ENTER</td>
 	<td><i>new window</i></td>
@@ -1241,7 +1239,7 @@ the B<F12> key) will give mouse access to the following commands:
 	<td>3</td>
 	<td>c<b>O</b>mmand</td>
 	<td><i>command</i></td>
-	<td>sort</td>
+	<td>sort rev</td>
 	<td><b>S</b>how</td>
 	<td>ENTER</td>
 	<td><i>new window</i></td>
@@ -1281,8 +1279,8 @@ footer
 T}	heading	fileline	filename	dirname
 _
 1	\fIchdir()\fR	I<command>	sort	F8	\fBS\fPhow	\fBS\fPhow
-2	c\fBO\fPmmand	I<command>	sort	\fBS\fPhow	ENTER	\fInew win\fP\0
-3	c\fBO\fPmmand	I<command>	sort	\fBS\fPhow	ENTER	\fInew win\fP
+2	c\fBO\fPmmand	I<command>	sort rev	\fBS\fPhow	ENTER	\fInew win\fP\0
+3	c\fBO\fPmmand	I<command>	sort rev	\fBS\fPhow	ENTER	\fInew win\fP
 _
 up	\fIfive lines up\fP
 down	\fIfive lines down\fP
