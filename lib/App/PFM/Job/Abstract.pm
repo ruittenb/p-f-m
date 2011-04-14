@@ -100,8 +100,9 @@ Cleans up finished child processes.
 =cut
 
 sub _catch_child {
-	# my ($self) = @_;
+	my ($self) = @_;
 	(wait() == -1) ? 0 : $?;
+	return 0; # TODO
 }
 
 =item _start_child()
@@ -168,10 +169,10 @@ sub start {
 	$self->{_buffer}  = '';
 	$self->{_pipe}    = new IO::Pipe();
 	$self->_start_child();
-	print "\e[15;15H---", ($self->{_pipe}->blocking() ? 'true' : 'false'), "---"; # TODO
-	$self->{_selector}->add($self->{_pipe});
+	#$self->{_selector}->add($self->{_pipe});
 	$self->{_running} = 1;
 	$self->_fire_event('after_start');
+#	sleep 1; # TODO
 	return 1;
 }
 
@@ -184,12 +185,19 @@ and fires the I<after_receive_data> event.
 
 sub poll {
 	my ($self) = @_;
-	my ($can_read, $input, $newlinepos);
+	my ($can_read);
+	my ($r, $e);
+	my ($pin, $nfound, $input, $newlinepos);
 	return 0 unless $self->{_running};
 	# check if there is data ready on the filehandle
-	return unless $self->{_selector}->can_read(0.01);
+	return if $self->{_selector}->can_read(0) <= 0;
+#	($r, undef, $e) = IO::Select::select($self->{_selector}, undef, $self->{_selector}, 0.01);
+#	return unless @$r or @$e;
+	#vec($pin, $self->{_path}->fileno, 1) = 1;
+	#$nfound = select($pin, undef, $pin, 0);
+	#return if ($nfound <= 0);
 	# the filehandle is ready
-	if ($self->{_pipe}->sysread($input, 10000) or length $self->{_buffer}) {
+	if ($self->{_pipe}->sysread($input, 10000) > 0 or length $self->{_buffer}) {
 		$self->{_buffer} .= $input;
 		JOB_LINE_INPUT: # the next line contains an assignment on purpose
 		while (($newlinepos = index($self->{_buffer}, "\n")) >= 0) {

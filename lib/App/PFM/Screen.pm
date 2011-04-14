@@ -331,8 +331,13 @@ Returns a boolean indicating that there is input ready to be processed.
 
 sub pending_input {
 	my ($self, $delay) = @_;
-	my $input_ready =
+	my $input_ready;
+	do {
+	$input_ready =
 		length($self->{IN}) || $_wasresized || $self->key_pressed($delay);
+	} until ($input_ready != -1 or $! != 4);
+	# 4 = 'Interrupted system call'
+	#print "-FOUND ($input_ready) (" . (0+$!) ."), RETURNING-"; # TODO
 	return $input_ready;
 }
 

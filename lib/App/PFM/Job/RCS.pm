@@ -61,6 +61,7 @@ Starts the actual job.
 sub _start_child {
 	my ($self) = @_;
 	$self->{_pipe}->reader($self->command);
+	$self->{_selector}->add($self->{_pipe});
 }
 
 ##########################################################################
