@@ -41,8 +41,6 @@ use strict;
 
 use constant PFM_URL => 'http://p-f-m.sourceforge.net/';
 
-our $_pfm;
-
 ##########################################################################
 # private subs
 
@@ -53,8 +51,15 @@ Initializes new instances. Called from the constructor.
 =cut
 
 sub _init {
-	my ($self, $pfm, @args) = @_;
-	$_pfm = $pfm;
+	my ($self, @args) = @_;
+	$self->{_COMMAND} = q!
+		perl -MLWP::Simple -e'
+			$pfmpage = get("%s");
+			($latest_version = $pfmpage) =~
+				s/.*?latest version \(v?([\w.]+)\).*/$1/s;
+			print $latest_version, "\n";
+		'
+	!;
 	$self->SUPER::_init(@args);
 }
 
@@ -66,21 +71,22 @@ Starts the actual job.
 
 sub _start_child {
 	my ($self) = @_;
-	my $pid;
-	if ($pid = fork()) {	# parent
-		$self->{_pipe}->reader();
-		return;
-	}
-	elsif (defined $pid) {	# child
-		$self->{_pipe}->writer();
-		$self->_check_for_updates();
-		$self->{_pipe}->close();
-		# don't mess up the screen when the $screen object is destroyed
-		undef $_pfm->screen;
-		exit 0;
-	}
-	# fork failed
-	$self->{_pipe}->close();
+#	my $pid;
+#	if ($pid = fork()) {	# parent
+#		$self->{_pipe}->reader();
+#		return;
+#	}
+#	elsif (defined $pid) {	# child
+#		$self->{_pipe}->writer();
+#		$self->_check_for_updates();
+#		$self->{_pipe}->close();
+#		# don't mess up the screen when the $screen object is destroyed
+#		undef $_pfm->screen;
+#		exit 0;
+#	}
+#	# fork failed
+#	$self->{_pipe}->close();
+	$self->{_pipe}->reader($self->command);
 }
 
 =item _check_for_updates()
@@ -101,6 +107,17 @@ sub _check_for_updates {
 
 ##########################################################################
 # constructor, getters and setters
+
+=item command()
+
+Getter for the command.
+
+=cut
+
+sub command {
+	my ($self) = @_;
+	return sprintf($self->{_COMMAND}, PFM_URL);
+}
 
 ##########################################################################
 # public subs

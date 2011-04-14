@@ -20,7 +20,7 @@ App::PFM::Job::RCS
 
 =head1 DESCRIPTION
 
-PFM Job class for version control status commands.
+PFM Job class for status commands of revision control systems.
 
 =head1 METHODS
 

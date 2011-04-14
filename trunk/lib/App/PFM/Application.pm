@@ -72,7 +72,7 @@ Initializes new instances. Called from the constructor.
 sub _init {
 	my $self = shift;
 	($self->{VERSION}, $self->{LASTYEAR}) = $self->_findversion();
-	$self->{LATEST_VERSION} = '';
+	$self->{NEWER_VERSION} = '';
 	$self->{_bootstrapped} = 0;
 }
 
@@ -183,9 +183,9 @@ sub _goodbye {
 		$_screen->at($_screen->screenheight + $_screen->BASELINE + 1, 0)
 				->clreol();
 	}
-	if ($self->{LATEST_VERSION} and $self->{PFM_URL}) {
+	if ($self->{NEWER_VERSION} and $self->{PFM_URL}) {
 		$_screen->putmessage(
-			"There is a newer version ($self->{LATEST_VERSION}) ",
+			"There is a newer version ($self->{NEWER_VERSION}) ",
 			"available at $self->{PFM_URL}\n");
 	}
 }
@@ -263,10 +263,10 @@ sub state {
 	return $_states[$index];
 }
 
-sub latest_version {
+sub newer_version {
 	my ($self, $value) = @_;
-	$self->{LATEST_VERSION} = $value if defined $value;
-	return $self->{LATEST_VERSION};
+	$self->{NEWER_VERSION} = $value if defined $value;
+	return $self->{NEWER_VERSION};
 }
 
 ##########################################################################
@@ -344,16 +344,15 @@ sub bootstrap {
 	$_screen->listing->layout($startinglayout);
 	$_history->read();
 	%on = (
-		before_start		=> sub { 1; },
 		after_receive_data	=> sub {
 			my ($job, $input) = @_;
 			if ($input gt $self->{VERSION}) {
-				$self->{LATEST_VERSION} = $input;
+				$self->{NEWER_VERSION}	= $input;
 				$self->{PFM_URL}		= $job->PFM_URL;
 			}
 		},
 	);
-	#$_jobhandler->start('CheckUpdates', %on);
+	$_jobhandler->start('CheckUpdates', %on);
 	
 	# current directory - MAIN for the time being
 	$currentdir = getcwd();
