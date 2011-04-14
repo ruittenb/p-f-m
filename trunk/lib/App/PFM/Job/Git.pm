@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::Git 0.02
+# @(#) App::PFM::Job::Git 0.30
 #
 # Name:			App::PFM::Job::Git
-# Version:		0.02
+# Version:		0.30
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-21
+# Date:			2010-05-19
 #
 
 ##########################################################################
@@ -48,46 +48,117 @@ Initializes new instances. Called from the constructor.
 
 sub _init {
 	my $self = shift;
-	$self->{_COMMAND} = 'git status';
-
+	$self->{_COMMAND} = 'git status --porcelain %s';
 }
 
-#=item _gitmaxchar()
+=item _gitmaxchar()
+
+=item _gitmax()
+
+Determine which status character should be displayed on
+a directory that holds files with different status characters.
+For this purpose, a relative priority is defined:
+
+=over 2
+
+B<U> (unmerged) E<gt> B<M>,B<C>,B<R>,B<A>,B<D> (modified,copied,renamed,added,deleted) E<gt> I<other>
+
+=back
+
+=cut
+
+sub _gitmaxchar {
+	my ($self, $a, $b) = @_;
+	# U unmerged
+	return 'U' if ($a eq 'U' or $b eq 'U');
+	# M modified
+	# C copied
+	# R renamed
+	# A added
+	# D deleted
+	return 'M' if ($a =~ /^[MCRAD]$/o or $b =~ /^[MCRAD]$/o);
+	# ? unversioned
+	#   unchanged
+	return $b  if ($a eq ''  or $a eq '-' or $a eq ' ');
+	return $a;
+}
+
+sub _gitmax {
+	my ($self, $old, $new) = @_;
+	my $res = $old;
+	substr($res,0,1) = $self->_gitmaxchar(substr($old,0,1), substr($new,0,1));
+	substr($res,1,1) = $self->_gitmaxchar(substr($old,1,1), substr($new,1,1));
+	return $res;
+}
+
+=item _preprocess()
+
+Split the status output in a filename- and a status-field.
+
+=cut
+
+# In short-format, the status of each path is shown as
+# 
+# XY PATH1 -> PATH2
+# 
+# where PATH1 is the path in the HEAD, and -> PATH2 part is shown only
+# when PATH1 corresponds to a different path in the index/worktree
+# (i.e. the file is renamed). The XY is a two-letter status code.
+# 
+# The fields (including the ->) are separated from each other by a
+# single space. If a filename contains whitespace or other nonprintable
+# characters, that field will be quoted in the manner of a C string
+# literal: surrounded by ASCII double quote (34) characters, and with
+# interior special characters backslash-escaped.
+# 
+# For paths with merge conflicts, X and Y show the modification states
+# of each side of the merge. For paths that do not have merge conflicts,
+# X shows the status of the index, and Y shows the status of the work
+# tree. For untracked paths, XY are ??. Other status codes can be
+# interpreted as follows:
 #
-#=item _gitmax()
-#
-#Determine which status character should be displayed on
-#a directory that holds files with different status characters.
-#For this purpose, a relative priority is defined:
-#
-#=over
-#
-#B<C> (conflict) E<gt> B<M> (modified) E<gt> B<U>,B<P> (updated) E<gt> I<other>
-#
-#=back
-#
-#=cut
-#
-#sub _gitmaxchar {
-#	my ($self, $a, $b) = @_;
-#	# C conflict
-#	return 'C' if ($a eq 'C' or $b eq 'C');
-#	# M modified
-#	return 'M' if ($a eq 'M' or $b eq 'M');
-#	# U updated on server
-#	# P patch (like U, but sends only a diff/patch instead of the entire file).
-#	return 'U' if ($a eq 'U' or $b eq 'U' or $a eq 'P' or $b eq 'P');
-#	# ? unversioned
-#	return $b  if ($a eq ''  or $a eq '-');
-#	return $a;
-#}
-#
-#sub _gitmax {
-#	my ($self, $old, $new) = @_;
-#	my $res = $old;
-#	substr($res,0,1) = $self->_gitmaxchar(substr($old,0,1), substr($new,0,1));
-#	return $res;
-#}
+#   = unmodified
+# M = modified
+# A = added
+# D = deleted
+# R = renamed
+# C = copied
+# U = updated but unmerged
+
+# X          Y     Meaning
+# -------------------------------------------------
+#           [MD]   not updated
+# M        [ MD]   updated in index
+# A        [ MD]   added to index
+# D         [ M]   deleted from index
+# R        [ MD]   renamed in index
+# C        [ MD]   copied in index
+# [MARC]           index and work tree matches
+# [ MARC]     M    work tree changed since index
+# [ MARC]     D    deleted in work tree
+# -------------------------------------------------
+# D           D    unmerged, both deleted
+# A           U    unmerged, added by us
+# U           D    unmerged, deleted by them
+# U           A    unmerged, added by them
+# D           U    unmerged, deleted by us
+# A           A    unmerged, both added
+# U           U    unmerged, both modified
+# -------------------------------------------------
+# ?           ?    untracked
+# -------------------------------------------------
+
+sub _preprocess {
+	my ($self, $data) = @_;
+	return undef if $data !~ /^([UMCRAD\? ]{2}) (?:.+ -> )?(.+)/o;
+	my $flags = $1;
+	my $file  = $2;
+	if ($file =~ /^"(.*)"$/) {
+		$file = $1;
+		$file =~ s/\\(.)/$1/;
+	}
+	return [ $flags, $file ];
+}
 
 ##########################################################################
 # constructor, getters and setters
@@ -95,24 +166,17 @@ sub _init {
 ##########################################################################
 # public subs
 
+=item isapplicable()
+
+Checks if there is a F<.git> directory, in which case Git commands
+would be applicable.
+
+=cut
+
 sub isapplicable {
 	my ($self, $path) = @_;
 	return -d "$path/.git";
 }
-
-# Edit your code. To see what files have changed:
-# 
-# git status
-# 
-# Example output:
-# 
-# # On branch master
-# # Changed but not updated:
-# #   (use "git add <file>..." to update what will be committed)
-# #   (use "git checkout -- <file>..." to discard changes in working directory)
-# #
-# #       modified:   tvnamer_exceptions.py
-# #       modified:   utils.py
 
 ##########################################################################
 

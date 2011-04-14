@@ -1999,9 +1999,9 @@ sub handlercspipe {
 	# any help would be appreciated.
 	#
 #	my $pin = '';
-	my $firstcolsize = 7;
-	my ($nfound, $input, $f1, $f2, $newlinepos, %nameindexmap, $count, $mapindex,
-		$topdir, $dirindex, $oldval, $svnfieldtitle);
+#	my $firstcolsize = 7;
+#	my ($nfound, $input,$newlinepos, %nameindexmap, $count, $svnfieldtitle);
+		$f1, $f2, $mapindex, $topdir, $dirindex, $oldval,
 	#
 	if (!$rcsrunning and $rcs_need_refresh) {
 		$_listing->show();
@@ -2016,22 +2016,22 @@ sub handlercspipe {
 #	# found data to process
 #	if (sysread(RCSPIPE, $input, 10000) or length($rcsbuffer)) {
 #		$rcsbuffer .= $input;
-		%nameindexmap = map { $_->{name}, $count++ } @showncontents;
-		$svnfieldtitle = $LAYOUTFIELDS{'v'};
+#		%nameindexmap = map { $_->{name}, $count++ } @showncontents;
+#		$svnfieldtitle = $LAYOUTFIELDS{'v'};
 #		while (($newlinepos = index($rcsbuffer,"\cJ")) >= 0) {
 #			# process one line of input.
 #			$input = substr($rcsbuffer, 0, $newlinepos);
 #			$rcsbuffer = substr($rcsbuffer, $newlinepos+1);
 			# split line: status information and filename
-			$f1 = substr($input, 0, $firstcolsize);
-			$f2 = substr($input, $firstcolsize);
+#			$f1 = substr($input, 0, $firstcolsize);
+#			$f2 = substr($input, $firstcolsize);
 			if ($f2 =~ m!/!) {
 				# change in subdirectory
 				($topdir = $f2) =~ s!/.*!!;
 				$dirindex = $nameindexmap{$topdir};
 				# find highest prio marker: C > M > ? > ''
-				$oldval = $showncontents[$dirindex]{$svnfieldtitle};
-				$showncontents[$dirindex]{$svnfieldtitle} = svnmax($oldval, $f1);
+				$oldval = $showncontents[$dirindex]{rcs};
+				$showncontents[$dirindex]{rcs} = svnmax($oldval, $f1);
 				#
 #				# if there was a change in a subdir, then show 'M' on current dir
 #				$dirindex = $nameindexmap{'.'};
@@ -2041,9 +2041,9 @@ sub handlercspipe {
 				next;
 			}
 			# change in file in current directory
-			if (defined($mapindex = $nameindexmap{$f2})) {
-				$showncontents[$mapindex]{$svnfieldtitle} = $f1;
-			}
+# 			if (defined($mapindex = $nameindexmap{$f2})) {
+# 				$showncontents[$mapindex]{$svnfieldtitle} = $f1;
+# 			}
 		}
 #		%currentfile = %{$showncontents[$currentline+$baseindex]};
 		$_listing->show();

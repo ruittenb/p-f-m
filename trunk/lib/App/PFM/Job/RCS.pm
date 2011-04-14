@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::RCS 0.26
+# @(#) App::PFM::Job::RCS 0.30
 #
 # Name:			App::PFM::Job::RCS
-# Version:		0.26
+# Version:		0.30
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-05-14
+# Date:			2010-05-19
 #
 
 ##########################################################################
@@ -61,7 +61,6 @@ Starts the actual job.
 sub _start_child {
 	my ($self) = @_;
 	$self->{_pipe}->reader($self->command);
-	$self->{_selector}->add($self->{_pipe});
 }
 
 ##########################################################################

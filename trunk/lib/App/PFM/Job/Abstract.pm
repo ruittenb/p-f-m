@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::Abstract 0.52
+# @(#) App::PFM::Job::Abstract 0.90
 #
 # Name:			App::PFM::Job::Abstract
-# Version:		0.52
+# Version:		0.90
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-05-14
+# Date:			2010-05-19
 #
 
 ##########################################################################
@@ -102,7 +102,6 @@ Cleans up finished child processes.
 sub _catch_child {
 	my ($self) = @_;
 	(wait() == -1) ? 0 : $?;
-	return 0; # TODO
 }
 
 =item _start_child()
@@ -123,6 +122,19 @@ Stub routine for stopping the job.
 
 sub _stop_child {
 	# my ($self) = @_;
+}
+
+=item _preprocess()
+
+Stub routine for preprocessing job output.
+This routine is used for "massaging" the command output
+into a common format that can be used by the callback routine.
+
+=cut
+
+sub _preprocess {
+	my ($self, $data) = @_;
+	return $data;
 }
 
 ##########################################################################
@@ -169,17 +181,17 @@ sub start {
 	$self->{_buffer}  = '';
 	$self->{_pipe}    = new IO::Pipe();
 	$self->_start_child();
-	#$self->{_selector}->add($self->{_pipe});
+	$self->{_selector}->add($self->{_pipe});
 	$self->{_running} = 1;
 	$self->_fire_event('after_start');
-#	sleep 1; # TODO
 	return 1;
 }
 
 =item poll()
 
-Checks if there is data available on the pipe, and if so, processes it
-and fires the I<after_receive_data> event.
+Checks if there is data available on the pipe, and if so, reads it and
+sends it to the preprocessor.  If the preprocessor returns a defined value,
+the I<after_receive_data> event is fired.
 
 =cut
 
@@ -191,11 +203,6 @@ sub poll {
 	return 0 unless $self->{_running};
 	# check if there is data ready on the filehandle
 	return if $self->{_selector}->can_read(0) <= 0;
-#	($r, undef, $e) = IO::Select::select($self->{_selector}, undef, $self->{_selector}, 0.01);
-#	return unless @$r or @$e;
-	#vec($pin, $self->{_path}->fileno, 1) = 1;
-	#$nfound = select($pin, undef, $pin, 0);
-	#return if ($nfound <= 0);
 	# the filehandle is ready
 	if ($self->{_pipe}->sysread($input, 10000) > 0 or length $self->{_buffer}) {
 		$self->{_buffer} .= $input;
@@ -204,7 +211,10 @@ sub poll {
 			# process one line of input.
 			$input = substr($self->{_buffer}, 0, $newlinepos);
 			$self->{_buffer} = substr($self->{_buffer}, $newlinepos+1);
-			$self->_fire_event('after_receive_data', $input);
+			# the next line contains an assignment on purpose
+			if (defined($input = $self->_preprocess($input))) {
+				$self->_fire_event('after_receive_data', $input);
+			}
 		}
 		goto &poll; # continue parsing
 	} else {

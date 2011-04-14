@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::Cvs 0.01
+# @(#) App::PFM::Job::Cvs 0.30
 #
 # Name:			App::PFM::Job::Cvs
-# Version:		0.01
+# Version:		0.30
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-14
+# Date:			2010-05-19
 #
 
 ##########################################################################
@@ -48,7 +48,7 @@ Initializes new instances. Called from the constructor.
 
 sub _init {
 	my $self = shift;
-	$self->{_COMMAND} = 'cvs -n -q update'; # add -l for local (no subdirs)
+	$self->{_COMMAND} = 'cvs -n -q update %s'; # add -l for local (no subdirs)
 }
 
 =item _cvsmaxchar()
@@ -88,35 +88,52 @@ sub _cvsmax {
 	return $res;
 }
 
-##########################################################################
-# constructor, getters and setters
+=item _preprocess()
 
-##########################################################################
-# public subs
+Split the status output in a filename- and a status-field.
 
-sub isapplicable {
-	my ($self, $path) = @_;
-	return -d "$path/CVS";
-}
+=cut
 
-# [23:43] Maurice Makaay: cvs -n -q update -l
-# [23:43] Maurice Makaay: Dat slaat subdirs over.
-# [23:43] Maurice Makaay: RCS file: /vol/cvs/kavnet/kavnetserver.c,v
-# [23:43] Maurice Makaay: retrieving revision 1.11
-# [23:43] Maurice Makaay: retrieving revision 1.13
-# [23:43] Maurice Makaay: Merging differences between 1.11 and 1.13 into kavnetserver.c
-# [23:43] Maurice Makaay: M kavnetserver.c
-# [23:41] Maurice Makaay: M libkavnetclient.h
-# [23:41] Maurice Makaay: M perl/test.pl
-# [23:41] Maurice Makaay: U kavnetserver.c
-# [23:35] Maurice Makaay: ? md5.h
-# [23:35] Maurice Makaay: /^([PMCU\?]) (\S.)/
+# RCS file: /vol/cvs/kavnet/kavnetserver.c,v
+# retrieving revision 1.11
+# retrieving revision 1.13
+# Merging differences between 1.11 and 1.13 into kavnetserver.c
+# M kavnetserver.c
+# M libkavnetclient.h
+# M perl/test.pl
+# U kavnetserver.c
+# ? md5.h
+# /^([PMCU\?]) (\S.)/
 
 # ? unversioned
 # U updated on server
 # P patch (like U, but sends only a diff/patch instead of the entire file).
 # M modified
 # C conflict
+
+sub _preprocess {
+	my ($self, $data) = @_;
+	return undef if ($data !~ /^([PMCU\?]) (\S+)/o);
+	return [ $1, $2 ];
+}
+
+##########################################################################
+# constructor, getters and setters
+
+##########################################################################
+# public subs
+
+=item isapplicable()
+
+Checks if there is a F<CVS> directory, in which case CVS commands
+would be applicable.
+
+=cut
+
+sub isapplicable {
+	my ($self, $path) = @_;
+	return -d "$path/CVS";
+}
 
 ##########################################################################
 

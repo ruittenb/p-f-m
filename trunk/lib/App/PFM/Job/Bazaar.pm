@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::Bazaar 0.01
+# @(#) App::PFM::Job::Bazaar 0.30
 #
 # Name:			App::PFM::Job::Bazaar
-# Version:		0.01
+# Version:		0.30
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-14
+# Date:			2010-05-20
 #
 
 ##########################################################################
@@ -48,18 +48,77 @@ Initializes new instances. Called from the constructor.
 
 sub _init {
 	my $self = shift;
-	$self->{_COMMAND} = 'bzr status -S';
+	$self->{_COMMAND} = 'bzr status -S %s';
 }
 
-# ruitten@visnet:/home/ruitten/Desktop/working/alice$ bzr status -S
+=item _bzrmaxchar()
+
+=item _bzrmax()
+
+Determine which status character should be displayed on
+a directory that holds files with different status characters.
+For this purpose, a relative priority is defined:
+
+=over
+
+B<C> (conflict) E<gt> B<M>,B<A>,B<D> (modified, added, deleted) E<gt> I<other>
+
+=back
+
+=cut
+
+sub _bzrmaxchar {
+	# TODO all very tentative by lack of good examples on the web.
+	my ($self, $a, $b) = @_;
+	# C conflict
+	return 'C' if ($a eq 'C' or $b eq 'C');
+	# M modified
+	# A added
+	# D deleted
+	return 'M' if ($a =~ /^[MAD]$/o or $b =~ /^[MAD]$/o);
+	# ? unversioned
+	return $b  if ($a eq ''  or $a eq '-');
+	return $a;
+}
+ 
+sub _bzrmax {
+	my ($self, $old, $new) = @_;
+	my $res = $old;
+	substr($res,0,1) = $self->_bzrmaxchar(substr($old,0,1), substr($new,0,1));
+	substr($res,1,1) = $self->_bzrmaxchar(substr($old,1,1), substr($new,1,1));
+	return $res;
+}
+
+=item _preprocess()
+
+Split the status output in a filename- and a status-field.
+
+=cut
+
 # ?   backup.bzr/
 #  M  static/media/index.php
+
+sub _preprocess {
+	my ($self, $data) = @_;
+	my $firstcolsize = 4;
+	return [
+		substr($data, 0, $firstcolsize),
+		substr($data, $firstcolsize)
+	];
+}
 
 ##########################################################################
 # constructor, getters and setters
 
 ##########################################################################
 # public subs
+
+=item isapplicable()
+
+Checks if there is a F<.bzr> directory in this or any parent directory,
+in which case Bazaar commands would be applicable.
+
+=cut
 
 sub isapplicable {
 	my ($self, $path) = @_;
