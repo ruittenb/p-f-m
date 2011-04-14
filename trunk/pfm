@@ -3,7 +3,7 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.04.9
+# Version:		2.05.0
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-05-23
@@ -12,6 +12,7 @@
 #				pfm { -v, --version | -h, --help }
 # Requires:		PFM::Application
 #				Term::ReadLine (preferably Term::ReadLine::Gnu)
+#				Term::Screen
 #				Term::ScreenColor
 #				Getopt::Long
 #				LWP::Simple
@@ -23,7 +24,7 @@
 # version
 
 # for MakeMaker
-our $VERSION = '2.04.9';
+our $VERSION = '2.05.0';
 
 # macros for *roff
 our $ROFFVERSION = <<'=cut';
@@ -32,7 +33,7 @@ our $ROFFVERSION = <<'=cut';
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.04.9
+.ds Vw @(#) pfm.pl 2.05.0
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -700,7 +701,7 @@ can use. Enter B<.> to set the mtime to the current date and time.
 Change ownership of a file. Note that many Unix variants do not allow normal
 (non-C<root>) users to change ownership. Symbolic links will be followed.
 
-=item B<reVision>
+=item B<Version>
 
 Updates the current file with status information of the applicable
 versioning system. C<pfm> will examine the current directory to figure
@@ -816,7 +817,7 @@ configured to use it (through the 'altscreenmode' option in the F<.pfmrc>),
 then this command shows the alternate screen until a key is pressed.
 This is useful for reading error messages of shell commands and so on.
 
-=item B<reVision>
+=item B<Version>
 
 Updates the current directory with status information of the applicable
 versioning system. C<pfm> will examine the current directory to figure

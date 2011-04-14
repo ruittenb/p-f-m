@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Frame 0.24
+# @(#) App::PFM::Screen::Frame 0.25
 #
 # Name:			App::PFM::Screen::Frame
-# Version:		0.24
+# Version:		0.25
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-05-23
@@ -53,12 +53,13 @@ use constant {
 	HEADING_YCOMMAND	=> 1,
 	HEADING_SORT		=> 2,
 	HEADING_ESCAPE		=> 3,
+	HEADING_CRITERIA	=> 4,
 };
 
 my %ONOFF = ('' => 'off', 0 => 'off', 1 => 'on');
 
 my %_fieldheadings = (
-	selected		=> '*',
+	selected		=> ' ',
 	name			=> 'filename',
 	display			=> 'filename',
 	name_too_long	=> ' ',
@@ -156,7 +157,7 @@ Returns the menu for the current application mode.
 
 sub _getmenu {
 	my ($self, $mode) = @_;
-	# do not take multiple mode into account at all
+	# disregard multiple mode: show_menu will take care of it
 	if		($mode & MENU_SORT) {
 		return	'Sort by: Name, Extension, Size, Date, Type, Version '
 		.		'(or see below):';
@@ -166,18 +167,18 @@ sub _getmenu {
 				'Config Edit-any mkFifo '
 		#.		'Go '
 		.		'sHell Mkdir '
-		.		'Phys-path Show-dir alTscreen reVision Write-hist';
+		.		'Phys-path Show-dir alTscreen Version Write-hist';
 	} elsif ($mode & MENU_EXCLUDE) {
-		return	'Exclude? Every, Oldmarks, Newmarks, '
-		.		'After, Before, User or Files only:';
+		return	"Exclude? Every, Old-/Newmarks, After/Before, "
+		.		"Greater/Smaller, User, Files only:";
 	} elsif ($mode & MENU_INCLUDE) {
-		return	'Include? Every, Oldmarks, Newmarks, '
-		.		'After, Before, User or Files only:';
+		return	"Include? Every, Old-/Newmarks, After/Before, "
+		.		"Greater/Smaller, User, Files only:";
 	} elsif ($mode & MENU_LNKTYPE) {
 		return	'Absolute, Relative symlink or Hard link:';
 	} else {
 		return	'Attribute Copy Delete Edit Find tarGet Include Link More Name'
-		.		' cOmmand Print Quit Rename Show Time User reVision unWhiteout'
+		.		' cOmmand Print Quit Rename Show Time User Version unWhiteout'
 		.		' eXclude Your-command siZe';
 	}
 }
@@ -307,6 +308,7 @@ sub show_headings {
 		$_ == HEADING_SORT		and $diskinfo = "sort mode     $padding";
 		$_ == HEADING_YCOMMAND	and $diskinfo = "your commands $padding";
 		$_ == HEADING_ESCAPE	and $diskinfo = "esc legend    $padding";
+		$_ == HEADING_CRITERIA	and $diskinfo = "criteria      $padding";
 	}
 	$_fieldheadings{diskinfo} = $diskinfo;
 	$self->update_headings($rcsrunning);
