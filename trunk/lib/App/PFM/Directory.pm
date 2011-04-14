@@ -688,7 +688,7 @@ sub checkrcsapplicable {
 #				$_pfm->browser->swap_mode,
 #				$screen->frame->HEADING_DISKINFO,
 #				RCS_RUNNING);
-#			$screen->set_deferred_refresh($screen->R_HEADINGS);
+			$screen->set_deferred_refresh($screen->R_HEADINGS);
 			$screen->frame->rcsrunning(RCS_RUNNING);
 		},
 		after_receive_data	=> sub {
@@ -731,7 +731,7 @@ sub checkrcsapplicable {
 #			$screen->frame->show_headings(
 #				$_pfm->browser->swap_mode,
 #				$screen->frame->HEADING_DISKINFO);
-#			$screen->set_deferred_refresh($screen->R_HEADINGS);
+			$screen->set_deferred_refresh($screen->R_HEADINGS);
 			$screen->frame->rcsrunning(RCS_DONE);
 		},
 	);

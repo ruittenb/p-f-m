@@ -1,11 +1,11 @@
 TERM_SCREEN=Term-Screen-1.03
 TERM_SCREENCOLOR=Term-ScreenColor-1.13a
 TERM_READLINE_GNU=Term-ReadLine-Gnu-1.20
-LWP_SIMPLE=libwww-perl-5.835
+LWP=libwww-perl-5.835
 
 SUDO=sudo
 
-all: Term-Screen Term-ScreenColor Term-ReadLine-Gnu LWP-Simple
+all: Term-Screen Term-ScreenColor Term-ReadLine-Gnu LWP
 
 Term-Screen:
 	@echo 'Checking installation of Term::Screen...'
@@ -35,13 +35,13 @@ Term-ReadLine-Gnu:
 		make all test; ${SUDO} make install ) \
 	fi
 
-LWP-Simple:
-	@echo 'Checking installation of LWP::Simple...'
-	@if perl -MLWP::Simple -e1 2>/dev/null; then :; \
+LWP:
+	@echo 'Checking installation of LWP...'
+	@if perl -MLWP -e1 2>/dev/null; then :; \
 	else \
-		gunzip < $(LWP_SIMPLE).tar.gz | tar xvf - ; \
-		( cd $(LWP_SIMPLE); perl Makefile.PL; make all test; ${SUDO} make install ) \
+		gunzip < $(LWP).tar.gz | tar xvf - ; \
+		( cd $(LWP); perl Makefile.PL; make all test; ${SUDO} make install ) \
 	fi
 
-.PHONY: Term-Screen Term-ScreenColor Term-ReadLine-Gnu LWP-Simple
+.PHONY: Term-Screen Term-ScreenColor Term-ReadLine-Gnu LWP
 

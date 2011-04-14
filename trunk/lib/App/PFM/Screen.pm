@@ -540,6 +540,21 @@ sub unset_deferred_refresh {
 	return $self;
 }
 
+=item refresh_headings()
+
+Redisplays the headings if they have been flagged as 'needs to be redrawn'.
+
+=cut
+
+sub refresh_headings {
+	my ($self) = @_;
+	if ($_deferred_refresh & R_HEADINGS) {
+		$_frame->show_headings(
+			$_pfm->browser->swap_mode, $_frame->HEADING_DISKINFO);
+		$_deferred_refresh &= ~R_HEADINGS;
+	}
+}
+
 =item refresh()
 
 Redisplays all screen elements that have been flagged as 'needs to be redrawn'.
@@ -547,7 +562,7 @@ Redisplays all screen elements that have been flagged as 'needs to be redrawn'.
 =cut
 
 sub refresh {
-	my $self      = shift;
+	my ($self)    = @_;
 	my $directory = $_pfm->state->directory;
 	my $browser   = $_pfm->browser;
 	

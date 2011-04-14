@@ -3,7 +3,7 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.05.3
+# Version:		2.05.4
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-05-25
@@ -24,7 +24,7 @@
 # version
 
 # for MakeMaker
-our $VERSION = '2.05.3';
+our $VERSION = '2.05.4';
 
 # macros for *roff
 our $ROFFVERSION = <<'=cut';
@@ -33,7 +33,7 @@ our $ROFFVERSION = <<'=cut';
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.05.3
+.ds Vw @(#) pfm.pl 2.05.4
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -44,6 +44,7 @@ This manual pertains to \f(CWpfm\fP version \\$3.
 ##########################################################################
 # declarations
 
+use lib '/home/ruitten/Desktop/projects/pfm/z_working/pfm2/lib';
 use strict;
 
 use App::PFM::Application;
@@ -348,7 +349,7 @@ files newer/older than a specified date and time
 
 =item B<E>very file
 
-all files, including dotfiles, except for the B<.> and B<..> entries
+all files, including dotfiles, except for the F<.> and F<..> entries
 
 =item B<F>iles only
 

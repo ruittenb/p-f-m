@@ -64,7 +64,7 @@ sub _init {
 ##########################################################################
 # constructor, getters and setters
 
-=item job
+=item job()
 
 Getter/setter for the job with the specified jobnumber.
 
@@ -137,7 +137,7 @@ sub poll {
 =item pollall()
 
 Polls all jobs on the stack for output. If they are done, they are
-removed from the stack. It is the job's responsability to return data
+removed from the stack. It is the job's responsibility to return data
 to the application.
 
 =cut

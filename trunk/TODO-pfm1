@@ -4,8 +4,6 @@ test major/minor numbers on DU 4.0E, Tru64, Sun (cannot test: no system availabl
 
 TODO:
 
-more consistent use of at(1,0) and at(0,0)
-use SIGINT for interrupt single, SIGQUIT for interrupt multi?
 
 bug: 'f' field in layout: characters in the 'gap' between filerecord & infocolumn
 	are not cleared when switching columnformats -> insert an artificial "gap" field?
@@ -31,14 +29,6 @@ $echo "installing GNU \`touch', distributed in GNU File Utilities..."
 echo
 fi
 rm -f 200112312359.59 123123592001.59 123123592001.5 1231235901 $$.touch
-
-(L)ink (R)el to current dir does not restat()
-handletime does not resort() in multiple mode
-
-use the nameindexmap from handledelete() more globally?
-	in handlecopyrename()? in handlefind() in handlesymlink?
-	in dirlookup? in handlemorefifo?
-	use in conjunction with 'keeplostfiles' option?
 
 sub Directory->countcontents is not used
 

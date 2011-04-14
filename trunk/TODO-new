@@ -6,7 +6,7 @@
 
 - keep marks when F5 refreshing
 
-- introduce QUIT?
+- introduce SIGQUIT for interrupt multi?
 
 ------------------------------------------------------------------------------
 

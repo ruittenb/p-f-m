@@ -86,6 +86,7 @@ sub _wait_loop {
 	my $cursorcol  = $_screen->listing->cursorcol;
 	until ($_screen->pending_input(0.4)) {
 		$_pfm->jobhandler->pollall();
+		$_screen->refresh_headings();
 		return if $_screen->pending_input(0.6);
 		$_screen->diskinfo->clock_info()
 			->at($screenline, $cursorcol);
