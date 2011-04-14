@@ -165,8 +165,8 @@ sub _credits {
 	my $self = shift;
 	$_screen->clrscr()->cooked_echo();
 	my $name = $_screen->colored('bold', 'pfm');
-	my $version_message = $_pfm->{LATEST_VERSION}
-		? "A new version $_pfm->{LATEST_VERSION} is available from"
+	my $version_message = $_pfm->{NEWER_VERSION}
+		? "A new version $_pfm->{NEWER_VERSION} is available from"
 		: "  New versions may be obtained from";
 	print <<"_eoCredits_";
 

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Frame 0.04
+# @(#) App::PFM::Screen::Frame 0.24
 #
 # Name:			App::PFM::Screen::Frame
-# Version:		0.04
+# Version:		0.24
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-03
+# Date:			2010-05-23
 #
 
 ##########################################################################
@@ -158,8 +158,8 @@ sub _getmenu {
 	my ($self, $mode) = @_;
 	# do not take multiple mode into account at all
 	if		($mode & MENU_SORT) {
-		return	'Sort by: Name, Extension, Size, Date, Type, Inode, Vers '
-		.		'(ignorecase, reverse):';
+		return	'Sort by: Name, Extension, Size, Date, Type, Version '
+		.		'(or see below):';
 	} elsif ($mode & MENU_MORE) {
 		return	
 		#		'Acl Bookmark ' .
