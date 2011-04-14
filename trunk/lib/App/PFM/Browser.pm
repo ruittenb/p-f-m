@@ -41,11 +41,11 @@ use strict;
 
 our $FIONREAD = 0;
 #eval {
-#	# changing line 3 in /usr/lib/perl/5.8.8/features.ph from
+#	# suppresses the warnings by changing line 3 in
+#	# /usr/lib/perl/5.8.8/features.ph from
 #	# no warnings 'redefine';
 #	# to
 #	# no warnings qw(redefine misc);
-#	# suppresses the warnings.
 #	require 'sys/ioctl.ph';
 #	$FIONREAD = FIONREAD();
 #};

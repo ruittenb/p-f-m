@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.04.2
+# @(#) App::PFM::Application 2.04.5
 #
 # Name:			App::PFM::Application
-# Version:		2.04.2
+# Version:		2.04.5
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-05-10
@@ -182,7 +182,11 @@ sub _goodbye {
 		$_screen->at($_screen->screenheight + $_screen->BASELINE + 1, 0)
 				->clreol();
 	}
-	$_screen->putmessage($self->{LATEST_VERSION}) if $self->{LATEST_VERSION};
+	if ($self->{LATEST_VERSION}) {
+		$_screen->putmessage(
+			"There is a newer version (", $self->{LATEST_VERSION},
+			") available at ", App::PFM::Job::CheckUpdates::PFM_URL, "\n");
+	}
 }
 
 ##########################################################################
