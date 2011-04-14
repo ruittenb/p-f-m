@@ -2195,7 +2195,7 @@
 <XPD:ATTR name="Left" type="integer">1238</XPD:ATTR>
 <XPD:ATTR name="Top" type="integer">1360</XPD:ATTR>
 <XPD:ATTR name="Width" type="integer">145</XPD:ATTR>
-<XPD:ATTR name="Height" type="integer">212</XPD:ATTR>
+<XPD:ATTR name="Height" type="integer">238</XPD:ATTR>
 <XPD:REF name="Model">JPm0kGpO/km+VmSK8/+LPgAA</XPD:REF>
 <XPD:OBJ name="NameCompartment" type="UMLNameCompartmentView" guid="Ozq+55mc+EC5cAwIwAekGQAA">
 <XPD:OBJ name="NameLabel" type="LabelView" guid="nfSD+YrqGUqhDTc7Y6K6TwAA">
@@ -3013,7 +3013,7 @@
 <XPD:ATTR name="LineColor" type="string">clMaroon</XPD:ATTR>
 <XPD:ATTR name="FillColor" type="string">$00B9FFFF</XPD:ATTR>
 <XPD:ATTR name="LineStyle" type="LineStyleKind">lsRectilinear</XPD:ATTR>
-<XPD:ATTR name="Points" type="Points">1310,1684;1310,1571</XPD:ATTR>
+<XPD:ATTR name="Points" type="Points">1310,1684;1310,1597</XPD:ATTR>
 <XPD:REF name="Model">3hCDSRGpZk6tsVouNvHNtwAA</XPD:REF>
 <XPD:REF name="Head">uUuLc3AsiUirf0RjlL7zBwAA</XPD:REF>
 <XPD:REF name="Tail">z2VblFbAakGrlWTrCGFUEgAA</XPD:REF>
@@ -5950,7 +5950,7 @@
 <XPD:REF name="Associations[0]">FCVgKBcl30GIJfzvsl0jQgAA</XPD:REF>
 <XPD:REF name="Associations[1]">aEXOh6Aij0ix0+CPBFgRWgAA</XPD:REF>
 <XPD:REF name="Associations[2]">GemcOy0w4UiqJTXBWHaqoQAA</XPD:REF>
-<XPD:ATTR name="#Attributes" type="integer">3</XPD:ATTR>
+<XPD:ATTR name="#Attributes" type="integer">5</XPD:ATTR>
 <XPD:OBJ name="Attributes[0]" type="UMLAttribute" guid="g5JPCVLEsEW9GYD8MV1IIgAA">
 <XPD:ATTR name="Name" type="string">_running</XPD:ATTR>
 <XPD:ATTR name="Visibility" type="UMLVisibilityKind">vkPrivate</XPD:ATTR>
@@ -5962,10 +5962,21 @@
 <XPD:ATTR name="TypeExpression" type="string">IO_Pipe</XPD:ATTR>
 <XPD:REF name="Owner">JPm0kGpO/km+VmSK8/+LPgAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[2]" type="UMLAttribute" guid="Xn8CXMDQMEmNBCgebypSCQAA">
+<XPD:OBJ name="Attributes[2]" type="UMLAttribute" guid="5uTmSfDog0a//2FgGoZQOwAA">
+<XPD:ATTR name="Name" type="string">_selector</XPD:ATTR>
+<XPD:ATTR name="Visibility" type="UMLVisibilityKind">vkPrivate</XPD:ATTR>
+<XPD:ATTR name="TypeExpression" type="string">IO_Select</XPD:ATTR>
+<XPD:REF name="Owner">JPm0kGpO/km+VmSK8/+LPgAA</XPD:REF>
+</XPD:OBJ>
+<XPD:OBJ name="Attributes[3]" type="UMLAttribute" guid="Xn8CXMDQMEmNBCgebypSCQAA">
 <XPD:ATTR name="Name" type="string">_on</XPD:ATTR>
 <XPD:ATTR name="Visibility" type="UMLVisibilityKind">vkPrivate</XPD:ATTR>
 <XPD:ATTR name="TypeExpression" type="string">hash</XPD:ATTR>
+<XPD:REF name="Owner">JPm0kGpO/km+VmSK8/+LPgAA</XPD:REF>
+</XPD:OBJ>
+<XPD:OBJ name="Attributes[4]" type="UMLAttribute" guid="7ZgQ4ZknpEqX/UfgjJ09ogAA">
+<XPD:ATTR name="Name" type="string">_buffer</XPD:ATTR>
+<XPD:ATTR name="Visibility" type="UMLVisibilityKind">vkPrivate</XPD:ATTR>
 <XPD:REF name="Owner">JPm0kGpO/km+VmSK8/+LPgAA</XPD:REF>
 </XPD:OBJ>
 </XPD:OBJ>
