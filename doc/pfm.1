@@ -124,13 +124,13 @@
 .\" ========================================================================
 .\"
 .IX Title "PFM 1"
-.TH PFM 1 "2010-04-08" " " " "
+.TH PFM 1 "2010-05-26" " " " "
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
 .nh
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.01.6
+.ds Vw @(#) pfm.pl 2.05.3
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -166,9 +166,10 @@ many comments on the available options, and is therefore supposed to be
 self-explanatory. \f(CW\*(C`pfm\*(C'\fR will issue a warning if the config file version
 is older than the version of \f(CW\*(C`pfm\*(C'\fR you are running. In this case, please
 let \f(CW\*(C`pfm\*(C'\fR create a new default config file and compare the changes with
-your own settings, so that you do not miss any new config options or
-format changes. See also the \fBC\fRonfig command under \s-1MORE\s0 \s-1COMMANDS\s0 below,
-and \s-1DIAGNOSIS\s0.
+your own settings, so that you do not miss out on any new config options
+or format changes. You can also try running the \f(CW\*(C`pfmrcupdate\*(C'\fR script that
+is provided in the distribution. See also the \fBC\fRonfig command under
+\&\s-1MORE\s0 \s-1COMMANDS\s0 below, and \s-1DIAGNOSIS\s0.
 .PP
 There are two commandline options that specify starting directories.
 The \f(CW\*(C`CDPATH\*(C'\fR environment variable is taken into account when \f(CW\*(C`pfm\*(C'\fR
@@ -228,8 +229,8 @@ Movement between directories:
 .TS
 lw(20n) | lw(41n).
 _
-\fIright arrow\fP, \fBl\fP	\fIchdir()\fP to a subdirectory
-\fIleft arrow\fP, \fBh\fP	\fIchdir()\fP to the parent directory
+\fBl\fP, \fIright arrow\fP	\fIchdir()\fP to a subdirectory
+\fBh\fP, \fIleft arrow\fP	\fIchdir()\fP to the parent directory
 \fBENTER\fP	\fIchdir()\fP to a subdirectory
 \fBESC\fP, \fBBS\fP	\fIchdir()\fP to the parent directory
 _
@@ -239,22 +240,20 @@ _
 If the option 'chdirautocmd' has been specified in the \fI.pfmrc\fR file,
 pfm will execute that command after every \fIchdir()\fR.
 .PP
-Note 1: the \fBl\fR and \fB\s-1ENTER\s0\fR keys function differently when the cursor
+Note: the \fBl\fR and \fB\s-1ENTER\s0\fR keys function differently when the cursor
 is on a non-directory file (see below under \fBL\fRink and \s-1LAUNCHING\s0 \s-1FILES\s0
 respectively).
-.PP
-Note 2: see below under \s-1BUGS\s0 on the functioning of \fB\s-1ESC\s0\fR.
 .SH "COMMANDS"
 .IX Header "COMMANDS"
-.IP "\fBAttrib\fR" 4
-.IX Item "Attrib"
+.IP "\fBAttribute\fR" 4
+.IX Item "Attribute"
 Changes the mode of the file if you are the owner. The mode may be specified
 either symbolically or numerically, see \fIchmod\fR\|(1) for more details.
 .Sp
 Note 1: the mode on a symbolic link cannot be set. See \fIchmod\fR\|(1) for more
 details.
 .Sp
-Note 2: the name \fBAttrib\fR for this command is a reminiscence of the \s-1DOS\s0
+Note 2: the name \fBAttribute\fR for this command is a reminiscence of the \s-1DOS\s0
 version.
 .IP "\fBCopy\fR" 4
 .IX Item "Copy"
@@ -268,6 +267,10 @@ under c\fBO\fRmmand).
 .Sp
 If clobber mode is off (see below under the \fB!\fR command), existing files
 will not be overwritten unless the action is confirmed by the user.
+.Sp
+Whether \fBCopy\fR follows symlinks or copies them is OS-specific; you can
+change the default behavior by setting the 'copyoptions' option in your
+\&\fI.pfmrc\fR. See \fIcp\fR\|(1).
 .IP "\fBDelete\fR" 4
 .IX Item "Delete"
 Delete a file or directory. You must confirm this command with \fBY\fR
@@ -285,7 +288,7 @@ in the \fI.pfmrc\fR file. Otherwise \fIvi\fR\|(1) is used.
 .IP "\fBFind\fR" 4
 .IX Item "Find"
 If the current sort mode is by filename, you are prompted for a (partial)
-filename. While you type, the cursor is positioned on the best match. 
+filename. While you type, the cursor is positioned on the best match.
 Type \s-1ENTER\s0 to end typing.
 .Sp
 If the current sort mode is not by filename, then you are prompted for a
@@ -308,17 +311,33 @@ all files, including dotfiles, except for the \fB.\fR and \fB..\fR entries
 .IX Item "Files only"
 regular files of which the filenames match a specified regular expression
 (not a glob pattern!)
+.IP "\fBG\fRreater / \fBS\fRmaller" 4
+.IX Item "Greater / Smaller"
+files that are bigger or smaller than the provided size in bytes.
+.IP "\fBN\fRewmarks" 4
+.IX Item "Newmarks"
+files which were created during a previous multiple command and are now
+denoted with a \fInewmark\fR (\fB~\fR)
 .IP "\fBO\fRldmarks" 4
 .IX Item "Oldmarks"
-files which were previously marked and are now denoted with
-an \fIoldmark\fR (\fB.\fR).
+files which were marked (\fB*\fR) before a previous multiple command and are
+now denoted with an \fIoldmark\fR (\fB.\fR)
 .IP "\fBU\fRser" 4
 .IX Item "User"
 files owned by the current user
 .RE
 .RS 4
 .Sp
-Oldmarks may be used to perform more than one command on a group of files.
+Oldmarks and newmarks may be used to perform more than one command on a
+group of files.
+.Sp
+There is also the option:
+.IP "\fBI\fRnvert" 4
+.IX Item "Invert"
+Inverts the selection, except for the \fI.\fR and \fI..\fR entries, which remain
+untouched.
+.RE
+.RS 4
 .RE
 .IP "\fBLink\fR" 4
 .IX Item "Link"
@@ -339,7 +358,7 @@ and you request an absolute symlink to be made with either the name
 .IP "a \fBH\fRard link" 4
 .IX Item "a Hard link"
 This will create an additional hard link to the current file with the
-specified name, which must be on the same filesystem.
+specified name, which must be on the same filesystem (see \fIln\fR\|(1)).
 .IP "a \fBR\fRelative symlink" 4
 .IX Item "a Relative symlink"
 This will create a symlink containing a relative path to the target,
@@ -372,9 +391,9 @@ command will \fIalways\fR try to make a link.
 .IP "\fBMore\fR" 4
 .IX Item "More"
 Presents you with a choice of operations not related to the current
-files. Use this to configure \f(CW\*(C`pfm\*(C'\fR, edit a new file, make a new directory,
-show a different directory, kill all child processes, or write the history
-files to disk. See below under \s-1MORE\s0 \s-1COMMANDS\s0. Pressing \fB\s-1ESC\s0\fR will take
+file. Use this \fIe.g.\fR to configure \f(CW\*(C`pfm\*(C'\fR, edit a new file, make a
+new directory, show a different directory, or write the history files to
+disk. See below under \s-1MORE\s0 \s-1COMMANDS\s0. Pressing \fB\s-1ESC\s0\fR or \fB\s-1ENTER\s0\fR will take
 you back to the main menu.
 .IP "\fBName\fR" 4
 .IX Item "Name"
@@ -408,16 +427,17 @@ _
 .IP "\fBcOmmand\fR" 4
 .IX Item "cOmmand"
 Allows execution of a shell command. After the command completes, \f(CW\*(C`pfm\*(C'\fR
-will resume.
+will resume. If the command is \f(CW\*(C`cd\*(C'\fR, \f(CW\*(C`pfm\*(C'\fR itself will change to
+that directory.
 .Sp
-On the commandline, you may use several special abbreviations, which will
-be replaced by \f(CW\*(C`pfm\*(C'\fR with the current filename, directoryname etc. (see
+On the commandline, you may use several special abbreviations, which
+\&\f(CW\*(C`pfm\*(C'\fR will replace with the current filename, directoryname etc. (see
 below). These abbreviations start with an escape character. This escape
-character is defined with the option 'escapechar' in your \fI.pfmrc\fR file. The
-default is \fB=\fR. Previous versions of \f(CW\*(C`pfm\*(C'\fR used \fB\e\fR, but this was deemed
-too confusing because backslashes are parsed by the shell as well. This
-manual page (and the default config file) will assume you are using \fB=\fR as
-\&'escapechar'.
+character is defined with the option 'escapechar' in your \fI.pfmrc\fR
+file. By default it is \fB=\fR. (Previous versions of \f(CW\*(C`pfm\*(C'\fR used \fB\e\fR, but
+this was deemed too confusing because backslashes are parsed by the shell
+as well. This manual page (and the default config file) will assume you
+are using \fB=\fR as 'escapechar').
 .Sp
 The following abbreviations are available:
 .RS 4
@@ -524,21 +544,21 @@ Change mtime (modification date/time) of the file. The time may be entered
 either with or without clarifying interpunction (e.g. 2008\-12\-04 08:42.12)
 as the interpunction will be removed to obtain a format which \fItouch\fR\|(1)
 can use. Enter \fB.\fR to set the mtime to the current date and time.
-.IP "\fBUid\fR" 4
-.IX Item "Uid"
+.IP "\fBUser\fR" 4
+.IX Item "User"
 Change ownership of a file. Note that many Unix variants do not allow normal
 (non\-\f(CW\*(C`root\*(C'\fR) users to change ownership. Symbolic links will be followed.
-.IP "\fBsVn\fR" 4
-.IX Item "sVn"
-Updates the current file with Subversion status information. The command
-to use can be configured in the \fI.pfmrc\fR with the 'rcscmd' option.
-See also \fBM\fRore \- s\fBV\fRn.
+.IP "\fBVersion\fR" 4
+.IX Item "Version"
+Updates the current file with status information of the applicable
+versioning system. \f(CW\*(C`pfm\*(C'\fR will examine the current directory to figure
+out which versioning system is used. Supported versioning systems are:
+Subversion, \s-1CVS\s0, Bazaar and Git.  See also \fBM\fRore \- re\fBV\fRision.
 .IP "\fBunWhiteout\fR" 4
 .IX Item "unWhiteout"
-(Only on platforms that support whiteout files). Provides the option
-to remove the whiteout entry in the top layer of a translucent (tfs),
-inheriting (ifs) or union (unionfs) filesystem, thereby restoring access
-to the corresponding file in the lower layer.
+(Only on platforms that support whiteout files). Provides the option to
+remove the whiteout entry in the top layer of a stacked/overlay filesystem,
+thereby restoring access to the corresponding file in the lower layer.
 .IP "\fBeXclude\fR" 4
 .IX Item "eXclude"
 Allows you to erase marks on a group of files which meet a certain
@@ -567,58 +587,71 @@ zero, as no data blocks are allocated for these file types.
 .Sp
 If the screen layout (selected with \fBF9\fR) contains a 'grand total' column,
 that column will be used. Otherwise, the 'filesize' column will temporarily
-be (mis)used. A 'grand total' column in the layout will never be filled in
+be used. A 'grand total' column in the layout will never be filled in
 when entering the directory.
 .Sp
 Note: since \fIdu\fR\|(1) commands are not portable, \f(CW\*(C`pfm\*(C'\fR guesses how it can
 calculate the size according to the Unix variant that it runs on. If \f(CW\*(C`pfm\*(C'\fR
-guesses this incorrectly, you might have to specify the \f(CW\*(C`du\*(C'\fR command (or
+makes an incorrect guess, you might have to specify the \f(CW\*(C`du\*(C'\fR command (or
 \&\f(CW\*(C`du | awk\*(C'\fR combination) applicable for your Unix version in the \fI.pfmrc\fR
-file. Examples are provided. Please notify the author if you know any
-corrections that should be made.
+file. Examples are provided. Please notify the author of any corrections
+that should be made.
 .SH "MORE COMMANDS"
 .IX Header "MORE COMMANDS"
 These commands are accessible through the main screen \fBM\fRore command.
+.IP "\fBAcl\fR" 4
+.IX Item "Acl"
+Not yet implemented.
 .IP "\fBBookmark\fR" 4
 .IX Item "Bookmark"
-This command will push the current directory onto the path history. With
-the \fBM\fRore \- \fBS\fRhow command, it can be recalled using the up-arrow key.
+Not yet implemented.
 .IP "\fBConfig pfm\fR" 4
 .IX Item "Config pfm"
-This command will open the \fI.pfmrc\fR config file with your preferred
+This command will open the \fI.pfmrc\fR config file with the configured
 editor. The file will be re-read by \f(CW\*(C`pfm\*(C'\fR after you exit your editor.
 Options that are only modifiable through the config file (like
 \&'columnlayouts') will be reinitialized immediately, options that affect
 settings modifiable by key commands (like 'defaultsortmode') will not.
-.IP "\fBEdit new file\fR" 4
-.IX Item "Edit new file"
-You will be prompted for the new filename, then your editor will
+.IP "\fBEdit any file\fR" 4
+.IX Item "Edit any file"
+You will be prompted for a filename, then your editor will
 be spawned.
 .IP "\fBmake Fifo\fR" 4
 .IX Item "make Fifo"
 Prompts for a name, then creates a \s-1FIFO\s0 file (named pipe) with that
 name. See also \fIfifo\fR\|(4) and \fImkfifo\fR\|(1).
+.IP "\fBGo to bookmark\fR" 4
+.IX Item "Go to bookmark"
+Not yet implemented.
 .IP "\fBsHell\fR" 4
 .IX Item "sHell"
 Spawns your default login shell. When you exit from it, \f(CW\*(C`pfm\*(C'\fR will resume.
-.IP "\fBKill children\fR" 4
-.IX Item "Kill children"
-Lists available signals. After selection of a signal, sends this signal
-to all child processes of \f(CW\*(C`pfm\*(C'\fR (more accurately: all processes in the
-same process group).
 .IP "\fBMake new directory\fR" 4
 .IX Item "Make new directory"
 Specify a new directory name and \f(CW\*(C`pfm\*(C'\fR will create it for you. Furthermore,
 if you don't have any files marked, your current directory will be set to
 the newly created directory.
+.IP "\fBPhysical path\fR" 4
+.IX Item "Physical path"
+Shows the physical pathname of the current directory until a key is pressed.
 .IP "\fBShow directory\fR" 4
 .IX Item "Show directory"
 You will be asked for the directory you want to view. Note that this
 command is different from \fBF7\fR because this will not change your current
 swap directory status.
-.IP "\fBsVn\fR" 4
-.IX Item "sVn"
-Updates the current directory with Subversion status information.
+.IP "\fBalTernate screen\fR" 4
+.IX Item "alTernate screen"
+If the terminal has an alternate screen (like \fBxterm\fR), and \f(CW\*(C`pfm\*(C'\fR has been
+configured to use it (through the 'altscreenmode' option in the \fI.pfmrc\fR),
+then this command shows the alternate screen until a key is pressed.
+This is useful for reading error messages of shell commands and so on.
+.IP "\fBVersion\fR" 4
+.IX Item "Version"
+Updates the current directory with status information of the applicable
+versioning system. \f(CW\*(C`pfm\*(C'\fR will examine the current directory to figure
+out which versioning system is used. Supported versioning systems are:
+Subversion, \s-1CVS\s0, Bazaar and Git.
+.Sp
 If you set the 'autorcs' option in your \fI.pfmrc\fR, this will automatically
 be done every time \f(CW\*(C`pfm\*(C'\fR shows directory contents.
 .IP "\fBWrite history\fR" 4
@@ -663,13 +696,13 @@ Toggle show/hide dot files.
 Identical to \fBF\fRind (see above).
 .IP "\fB<\fR" 4
 .IX Item "<"
-Scroll the header and footer, in order to view all available commands.
+Scroll the menu and footer, in order to view all available commands.
 .IP "\fB=\fR" 4
 .IX Item "="
 Cycle through displaying the username, the hostname, or username@hostname.
 .IP "\fB>\fR" 4
 .IX Item ">"
-Scroll the header and footer, in order to view all available commands.
+Scroll the menu and footer, in order to view all available commands.
 .IP "\fB?\fR" 4
 .IX Item "?"
 Display help. Identical to \fBF1\fR.
@@ -703,7 +736,7 @@ a number of sort modes.
 Alternates the display between two directories. When switching for the first
 time, you are prompted for a directory path to show. When you switch back by
 pressing \fBF7\fR again, the contents of the alternate directory are displayed
-unchanged. Header text changes color when in swap screen. In shell commands,
+unchanged. Menu text changes color when in swap screen. In shell commands,
 the directory path from the alternate screen may be referred to as \fB=5\fR.
 If the 'persistentswap' option has been set in the config file, then
 leaving the swap mode will store the main directory path as swap path again.
@@ -797,7 +830,11 @@ multiple files.
 .SH "QUOTING RULES"
 .IX Header "QUOTING RULES"
 \&\f(CW\*(C`pfm\*(C'\fR adds an extra layer of parsing to filenames and shell commands. It
-is important to take notice of the rules that \f(CW\*(C`pfm\*(C'\fR uses.
+is therefore important to take notice of the rules that \f(CW\*(C`pfm\*(C'\fR uses.
+.PP
+In versions prior to 1.93.1, the default escape character was \fB\e\fR. Since
+this causes confusing results, this is no longer the default, and you are
+discouraged from using it.
 .PP
 The following six types of input can be distinguished:
 .IP "\fBa regular expression\fR (only the \fBI\fRnclude and e\fBX\fRclude commands)" 4
@@ -809,8 +846,8 @@ Characters not in the set \f(CW\*(C`[0\-9.]\*(C'\fR are removed from the input.
 .IP "\fBa literal pattern\fR (only the \fBF\fRind command)" 4
 .IX Item "a literal pattern (only the Find command)"
 The input is taken literally.
-.IP "\fBnot a filename or shell command\fR (e.g. in \fBA\fRttribute or \fBU\fRid)" 4
-.IX Item "not a filename or shell command (e.g. in Attribute or Uid)"
+.IP "\fBnot a filename or shell command\fR (e.g. in \fBA\fRttribute or \fBU\fRser)" 4
+.IX Item "not a filename or shell command (e.g. in Attribute or User)"
 The input is taken literally.
 .IP "\fBa filename\fR (e.g. in \fBC\fRopy or tar\fBG\fRet)." 4
 .IX Item "a filename (e.g. in Copy or tarGet)."
@@ -823,7 +860,8 @@ At the same time, any \f(CW\*(C`=[^1\-8evp]\*(C'\fR character sequence is just r
 with the character itself.
 .Sp
 Finally, if the filename is to be processed by \f(CW\*(C`pfm\*(C'\fR, it is taken literally;
-if it is to be handed over to a shell, all metacharacters are replaced \fIescaped\fR.
+if it is to be handed over to a shell, all metacharacters are replaced
+\&\fIescaped\fR.
 .IP "\fBa shell command\fR (e.g. in c\fBO\fRmmand or \fBP\fRrint)" 4
 .IX Item "a shell command (e.g. in cOmmand or Print)"
 First of all, tilde expansion is performed.
@@ -871,8 +909,8 @@ _
 .in
 .SH "MOUSE COMMANDS"
 .IX Header "MOUSE COMMANDS"
-When \f(CW\*(C`pfm\*(C'\fR is run in an xterm or other terminal that supports the
-use of a mouse, turning on mouse mode (either initially with the
+When \f(CW\*(C`pfm\*(C'\fR is run in an xterm or other terminal (or emulator) that supports
+the use of a mouse, turning on mouse mode (either initially with the
 \&'defaultmousemode' option in the \fI.pfmrc\fR file, or while running using
 the \fBF12\fR key) will give mouse access to the following commands:
 .in +2n
@@ -888,30 +926,38 @@ _
 \0button	location clicked
 _
 \^	pathline	T{
-title/
+menu/
 .br
-header
-T}	footer	fileline	filename	dirname
+footer
+T}	heading	fileline	filename	dirname
 _
-1	\fIchdir()\fR	CTRL-U	CTRL-D	F8	\fBS\fPhow	\fBS\fPhow
-2	c\fBO\fPmmand	PgUp	PgDn	\fBS\fPhow	ENTER	\fInew win\fP\0
-3	c\fBO\fPmmand	PgUp	PgDn	\fBS\fPhow	ENTER	\fInew win\fP
+1	\fIchdir()\fR	I<command>	sort	F8	\fBS\fPhow	\fBS\fPhow
+2	c\fBO\fPmmand	I<command>	sort rev	\fBS\fPhow	ENTER	\fInew win\fP\0
+3	c\fBO\fPmmand	I<command>	sort rev	\fBS\fPhow	ENTER	\fInew win\fP
 _
-up	\fIthree lines up\fP
-down	\fIthree lines down\fP
+up	\fIfive lines up\fP
+down	\fIfive lines down\fP
 _
 .TE
 .in
 .PP
-The cursor will \fIonly\fR be moved when the title, header or footer is
-clicked, or when changing directory. The mouse wheel also works and
-moves the cursor three lines per notch, or one line if shift is pressed.
+The cursor will \fIonly\fR moved to another file when a directory is clicked
+or the mouse wheel is used.  The mouse wheel moves the cursor five lines
+per notch, or one line if shift is pressed.
 .PP
 Clicking button 1 on the current directory path will \fIchdir()\fR up to the
 clicked ancestor directory. If the current directory was clicked, or the
 device name, it will act like a \fBM\fRore \- \fBS\fRhow command.
 .PP
 Clicking button 2 on a directory name will open a new pfm terminal window.
+.PP
+Clicking on the column headings will sort the directory contents by that
+heading. Clicking again will sort the directory in reverse order.
+.PP
+Clicking on the menu or footer will execute the command that was clicked.
+.PP
+Clicking on the identity line in the info column will switch the display
+like the \fB=\fR command does.
 .PP
 Mouse use will be turned off during the execution of commands, unless
 \&'mouseturnoff' is set to 'no' in \fI.pfmrc\fR. Note that setting this to
@@ -1018,27 +1064,38 @@ The directory \fI\f(CI$HOME\fI/.pfm/\fR and files therein. A number of input his
 and the current working directory on exit are saved to this directory.
 .PP
 The default location for the config file is \fI\f(CI$HOME\fI/.pfm/.pfmrc\fR.
+.SH "EXIT STATUS"
+.IX Header "EXIT STATUS"
+.IP "0" 4
+Success (could also be a user requested exit, \fIe.g.\fR after
+\&\fB\-\-help\fR or \fB\-\-version\fR).
+.IP "1" 4
+.IX Item "1"
+Invalid commandline option.
+.IP "2" 4
+.IX Item "2"
+No valid layout found in the \fI.pfmrc\fR file.
 .SH "DIAGNOSIS"
 .IX Header "DIAGNOSIS"
 If \f(CW\*(C`pfm\*(C'\fR reports that your config file might be outdated, you might be
 missing some of the newer configuration options (or default values for
-these). Try the following command and compare the new config file with
-your original one:
+these). The best way to solve this is by running the following command
+and comparing the new config file with your original one:
 .PP
 .Vb 1
 \&    env PFMRC=~/.pfm/.pfmrc\-new pfm
 .Ve
 .PP
+Alternatively, you may try running the \f(CW\*(C`pfmrcupdate\*(C'\fR script that
+is provided in the distribution.
+.PP
 To prevent the warning from occurring again, update the '## Version' line.
 .SH "BUGS and WARNINGS"
 .IX Header "BUGS and WARNINGS"
-When typed by itself, the \fB\s-1ESC\s0\fR key needs to be pressed twice. This is
-due to the lack of a proper timeout in \f(CW\*(C`Term::Screen\*(C'\fR.
-.PP
 \&\f(CW\*(C`Term::ReadLine::Gnu\*(C'\fR does not allow a half-finished line to be aborted by
 pressing \fB\s-1ESC\s0\fR. For most commands, you will need to clear the half-finished
 line. You may use the terminal kill character (usually \fBCTRL-U\fR) for this
-(see \fIstty\fR\|(1)).
+purpose (see \fIstty\fR\|(1)).
 .PP
 The author once almost pressed \fB\s-1ENTER\s0\fR when logged in as root and with
 the cursor on the file \fI/sbin/reboot\fR. You have been warned.
@@ -1068,15 +1125,18 @@ License version 2.
 This program was based on \s-1PFM\s0.COM version 2.32, originally written for
 MS-DOS by Paul R. Culley and Henk de Heer. The name 'pfm' was adopted
 with kind permission of the original authors.
+.PP
+Special thanks to Maurice Makaay for help with debugging.
 .SH "SEE ALSO"
 .IX Header "SEE ALSO"
-The documentation on \s-1PFM\s0.COM. The manual pages for \fIchmod\fR\|(1), \fIfile\fR\|(1),
-\&\fIless\fR\|(1), \fIlocale\fR\|(7), \fIlpr\fR\|(1), \fItouch\fR\|(1), \fIvi\fR\|(1).
+The documentation on \s-1PFM\s0.COM. The manual pages for \fIchmod\fR\|(1), \fIcp\fR\|(1),
+\&\fIfile\fR\|(1), \fIless\fR\|(1), \fIln\fR\|(1), \fIlocale\fR\|(7), \fIlpr\fR\|(1), \fItouch\fR\|(1), \fIvi\fR\|(1).
 .PP
-For programmers: \fITerm::Screen\fR\|(3pm), \fITerm::ScreenColor\fR\|(3pm),
-\&\fITerm::ReadLine\fR\|(3pm), \fIPFM::Abstract\fR\|(3pm), \fIPFM::Application\fR\|(3pm),
-\&\fIPFM::Browser\fR\|(3pm), \fIPFM::CommandHandler\fR\|(3pm), \fIPFM::Config\fR\|(3pm),
-\&\fIPFM::Directory\fR\|(3pm), \fIPFM::History\fR\|(3pm), \fIPFM::Job\fR\|(3pm),
-\&\fIPFM::Screen\fR\|(3pm), \fIPFM::State\fR\|(3pm) and \fIPFM::Util\fR\|(3pm).
+For developers: \fITerm::Screen\fR\|(3pm), \fITerm::ScreenColor\fR\|(3pm),
+\&\fITerm::ReadLine\fR\|(3pm), \fIApp::PFM::Abstract\fR\|(3pm), \fIApp::PFM::Application\fR\|(3pm),
+\&\fIApp::PFM::Browser\fR\|(3pm), \fIApp::PFM::CommandHandler\fR\|(3pm), \fIApp::PFM::Config\fR\|(3pm),
+\&\fIApp::PFM::Directory\fR\|(3pm), \fIApp::PFM::File\fR\|(3pm), \fIApp::PFM::History\fR\|(3pm),
+\&\fIApp::PFM::JobHandler\fR\|(3pm), \fIApp::PFM::Job::Abstract\fR\|(3pm),
+\&\fIApp::PFM::Screen\fR\|(3pm), \fIApp::PFM::State\fR\|(3pm) and \fIApp::PFM::Util\fR\|(3pm).
 .PP
 The pfm project page: http://sourceforge.net/projects/p\-f\-m/

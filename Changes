@@ -1,3 +1,7 @@
+2.05.3-alpha
+
+* fixed bug in handlesize()
+
 2.05.2-WIP
 
 * added a few MIME types to default config file
