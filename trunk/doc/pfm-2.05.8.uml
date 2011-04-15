@@ -3257,7 +3257,7 @@
 <XPD:REF name="Associations[9]">3fXDRE4MnEC6w3a6YCHBsAAA</XPD:REF>
 <XPD:REF name="Associations[10]">TpbuhLj21UeFjWYoESZYvQAA</XPD:REF>
 <XPD:REF name="Associations[11]">iP1Of2efkEiXC4VbHh+BkwAA</XPD:REF>
-<XPD:ATTR name="#Attributes" type="integer">8</XPD:ATTR>
+<XPD:ATTR name="#Attributes" type="integer">5</XPD:ATTR>
 <XPD:OBJ name="Attributes[0]" type="UMLAttribute" guid="PpMqF28ep06MXc3jwpfBkQAA">
 <XPD:ATTR name="Name" type="string">_bootstrapped</XPD:ATTR>
 <XPD:ATTR name="Visibility" type="UMLVisibilityKind">vkPrivate</XPD:ATTR>
@@ -3266,7 +3266,7 @@
 <XPD:OBJ name="Attributes[1]" type="UMLAttribute" guid="yprpbg7bdkC9KRYiSjzegwAA">
 <XPD:ATTR name="Name" type="string">_states</XPD:ATTR>
 <XPD:ATTR name="Visibility" type="UMLVisibilityKind">vkPrivate</XPD:ATTR>
-<XPD:ATTR name="TypeExpression" type="string">array</XPD:ATTR>
+<XPD:ATTR name="TypeExpression" type="string">hash</XPD:ATTR>
 <XPD:REF name="Owner">M16tjeUN00O9on8XhpDeagAA</XPD:REF>
 </XPD:OBJ>
 <XPD:OBJ name="Attributes[2]" type="UMLAttribute" guid="yHpZUMBcCEu30Ux7yxhSiQAA">
@@ -3279,18 +3279,6 @@
 </XPD:OBJ>
 <XPD:OBJ name="Attributes[4]" type="UMLAttribute" guid="yh1VQwv5qEi2qDJxE/u8WwAA">
 <XPD:ATTR name="Name" type="string">NEWER_VERSION</XPD:ATTR>
-<XPD:REF name="Owner">M16tjeUN00O9on8XhpDeagAA</XPD:REF>
-</XPD:OBJ>
-<XPD:OBJ name="Attributes[5]" type="UMLAttribute" guid="2Ysd1FRAAkSmGCLk6tAK/gAA">
-<XPD:ATTR name="Name" type="string">S_MAIN</XPD:ATTR>
-<XPD:REF name="Owner">M16tjeUN00O9on8XhpDeagAA</XPD:REF>
-</XPD:OBJ>
-<XPD:OBJ name="Attributes[6]" type="UMLAttribute" guid="jVEFj2FS0Emx+ZAyM5UlrQAA">
-<XPD:ATTR name="Name" type="string">S_PREV</XPD:ATTR>
-<XPD:REF name="Owner">M16tjeUN00O9on8XhpDeagAA</XPD:REF>
-</XPD:OBJ>
-<XPD:OBJ name="Attributes[7]" type="UMLAttribute" guid="Ya3SWRHwv0KMygIjntkBtgAA">
-<XPD:ATTR name="Name" type="string">S_SWAP</XPD:ATTR>
 <XPD:REF name="Owner">M16tjeUN00O9on8XhpDeagAA</XPD:REF>
 </XPD:OBJ>
 </XPD:OBJ>

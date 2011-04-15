@@ -36,7 +36,6 @@ package App::PFM::CommandHandler;
 use base 'App::PFM::Abstract';
 
 use App::PFM::Util;
-#use App::PFM::Application;	# imports the S_* constants
 use App::PFM::History;		# imports the H_* constants
 use App::PFM::Screen;		# imports the R_* constants
 use App::PFM::Directory;	# imports the M_* constants
@@ -241,9 +240,9 @@ sub _expand_replace {
 		/2/ and return condquotemeta($qif, $name);
 		/3/ and return condquotemeta($qif, $_pfm->state->directory->path);
 		/4/ and return condquotemeta($qif, $_pfm->state->directory->mountpoint);
-		/5/ and $_pfm->state($_pfm->S_SWAP)
+		/5/ and $_pfm->state('S_SWAP')
 			and return condquotemeta($qif,
-                                $_pfm->state($_pfm->S_SWAP)->directory->path);
+                                $_pfm->state('S_SWAP')->directory->path);
 		/6/ and return condquotemeta($qif,
                                     basename($_pfm->state->directory->path));
 		/7/ and return condquotemeta($qif, $extension);
@@ -634,14 +633,14 @@ Handles the B<previous> command (B<F2>).
 sub handleprev {
 	my ($self) = @_;
 	my $browser = $_pfm->browser;
-	my $prevdir = $_pfm->state($_pfm->S_PREV)->directory->path;
+	my $prevdir = $_pfm->state('S_PREV')->directory->path;
 	my $chdirautocmd;
 	if (chdir $prevdir) {
 		# store current cursor position
 		$_pfm->state->{_position}  = $browser->currentfile->{name};
 		$_pfm->state->{_baseindex} = $browser->baseindex;
 		# perform the swap
-		$_pfm->swap_states($_pfm->S_MAIN, $_pfm->S_PREV);
+		$_pfm->swap_states('S_MAIN', 'S_PREV');
 		# restore the cursor position
 		$browser->baseindex(  $_pfm->state->{_baseindex});
 		$browser->position_at($_pfm->state->{_position});
@@ -665,9 +664,10 @@ sub handleswap {
 	my $browser         = $_pfm->browser;
 	my $swap_persistent = $_pfm->config->{swap_persistent};
 	my $prompt          = 'Directory Pathname: ';
-	my ($nextdir, $chdirautocmd);
-	my $prevstate = $_pfm->state;
-	if ($_pfm->state($_pfm->S_SWAP)) {
+	my $prevstate       = $_pfm->state->clone();
+	my $prevdir         = $prevstate->directory->path;
+	my ($nextdir, $chdirautocmd, $success);
+	if (ref $_pfm->state('S_SWAP')) {
 		if ($swap_persistent) {
 			# --------------------------------------------------
 			# there is a persistent swap state
@@ -676,7 +676,7 @@ sub handleswap {
 			$_pfm->state->{_position}  = $browser->currentfile->{name};
 			$_pfm->state->{_baseindex} = $browser->baseindex;
 			# perform the swap
-			$_pfm->swap_states($_pfm->S_MAIN, $_pfm->S_SWAP);
+			$_pfm->swap_states('S_MAIN', 'S_SWAP');
 			# continue below
 		} else {
 			# --------------------------------------------------
@@ -688,11 +688,9 @@ sub handleswap {
 				return;
 			}
 			# perform the swap back
-			$_pfm->state(
-				$_pfm->S_MAIN,
-				$_pfm->state($_pfm->S_SWAP));
+			$_pfm->state('S_MAIN', $_pfm->state('S_SWAP'));
 			# destroy the swap state
-			$_pfm->state($_pfm->S_SWAP, 0);
+			$_pfm->state('S_SWAP', 0);
 			# continue below
 		}
 		# --------------------------------------------------
@@ -703,9 +701,9 @@ sub handleswap {
 		# destination
 		$nextdir = $_pfm->state->directory->path;
 		# go there using bare chdir() - the state is already up to date
-		if (chdir $nextdir) {
+		if ($success = chdir $nextdir and $nextdir ne $prevdir) {
 			# store the previous main state into S_PREV
-			$_pfm->state($_pfm->S_PREV, $prevstate);
+			$_pfm->state('S_PREV', $prevstate);
 			# restore the cursor position
 			$browser->baseindex(  $_pfm->state->{_baseindex});
 			$browser->position_at($_pfm->state->{_position});
@@ -713,7 +711,7 @@ sub handleswap {
 			$chdirautocmd = $_pfm->config->{chdirautocmd};
 			system("$chdirautocmd") if length($chdirautocmd);
 			$_screen->set_deferred_refresh(R_SCREEN);
-		} else {
+		} elsif (!$success) {
 			# the state needs refreshing as we counted on being
 			# able to chdir()
 			$_screen->at($_screen->PATHLINE, 0)->clreol()
@@ -734,9 +732,7 @@ sub handleswap {
 		$_pfm->state->{_position}  = $browser->currentfile->{name};
 		$_pfm->state->{_baseindex} = $browser->baseindex;
 		# store the main state
-		$_pfm->state(
-			$_pfm->S_SWAP,
-			$_pfm->state->clone());
+		$_pfm->state('S_SWAP', $_pfm->state->clone());
 		# toggle swap mode flag
 		$browser->swap_mode(!$browser->swap_mode);
 		# fix destination
@@ -1219,7 +1215,7 @@ sub handlelink {
 				$targetstring = reversepath(
 					$currentdir.'/'.$file->{name}, $newnameexpanded);
 			}
-		} else { # $absrel eq 'a'
+		} else { # $absrel eq 'a' or 'h'
 			# hand over an absolute path
 			$targetstring = $currentdir.'/'.$file->{name};
 		}

@@ -1,0 +1,19 @@
+AC_INIT(listwhite.c)
+
+VERSION="0.09"
+AC_SUBST(VERSION)
+
+AC_PROG_CC
+AC_LANG_C
+
+AC_PROG_INSTALL
+AC_PROG_MAKE_SET
+
+AC_HEADER_STDC dnl stdlib.h, stdarg.h, string.h and float.h
+AC_CHECK_HEADER(unistd.h,,AC_MSG_ERROR(Error: unistd.h not found))
+AC_CHECK_HEADER(stdio.h,,AC_MSG_ERROR(Error: stdio.h not found))
+AC_CHECK_HEADER(errno.h,,AC_MSG_ERROR(Error: errno.h not found))
+AC_CHECK_HEADER(fts.h,,AC_MSG_ERROR(Error: fts.h not found))
+
+AC_OUTPUT(Makefile)
+

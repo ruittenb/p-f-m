@@ -361,7 +361,7 @@ sub prepare {
 =item chdir()
 
 Tries to change the current working directory, if necessary using B<CDPATH>.
-If successful, it stores the previous state in @App::PFM::Application::_states
+If successful, it stores the previous state in App::PFM::Application->_states
 and executes the 'chdirautocmd' from the F<.pfmrc> file.
 The 'swapping' argument can be passed as true to prevent undesired pathname
 parsing during pfm's B<F7> command.
@@ -394,7 +394,7 @@ sub chdir {
 		$_pfm->state->{_position}  = $_pfm->browser->currentfile->{name};
 		$_pfm->state->{_baseindex} = $_pfm->browser->baseindex;
 		unless ($swapping) {
-			$_pfm->state($_pfm->S_PREV, $_pfm->state->clone($_pfm));
+			$_pfm->state('S_PREV', $_pfm->state->clone($_pfm));
 		}
 		if ($self->{_path_mode} eq 'phys') {
 			$self->{_path} = getcwd();
