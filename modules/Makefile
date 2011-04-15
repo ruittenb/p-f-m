@@ -30,10 +30,12 @@ Term-ReadLine-Gnu:
 		gunzip < $(TERM_READLINE_GNU).tar.gz | tar xvf - ; \
 		( cd $(TERM_READLINE_GNU); \
 		perl Makefile.PL || { \
-			test "`uname`" = Darwin && perl Makefile.PL --prefix=/opt/local; \
+			test "`uname`" = Darwin && \
+			perl Makefile.PL --includedir=/opt/local/include --libdir=/opt/local/lib; \
 		}; \
 		make all test; ${SUDO} make install ) \
 	fi
+	#	test "`uname`" = Darwin && perl Makefile.PL --prefix=/opt/local;
 
 LWP:
 	@echo 'Checking installation of LWP...'

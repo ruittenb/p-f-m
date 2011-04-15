@@ -1,3 +1,9 @@
+2.05.6-alpha
+
+* fixes to Makefile
+* added install script
+* added manual for pfmrcupdate
+
 2.05.5-alpha
 
 * fixed bug (crash) in (M)ore -(M)ake dir

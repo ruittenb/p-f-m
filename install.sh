@@ -4,7 +4,7 @@
 # Name:         install.sh
 # Version:      0.27
 # Authors:      Rene Uittenbogaard
-# Date:         2010-05-02
+# Date:         2010-05-28
 # Usage:        sh install.sh
 # Description:  Un*x-like systems can be very diverse.
 #		This script is meant as an example how pfm dependencies
@@ -12,17 +12,27 @@
 #		Suggestions for improvement are welcome!
 #
 
-###############################################################################
+############################################################################
 # helper functions
 
 install_prepare() {
-	VERSION=$(awk '/@[(]#[)]/ { print $5 }' pfm.pl)
-	echo "Starting installation of pfm $VERSION"
+	VERSION=$(cat pfm | perl -ne '
+		/^[^@]*\@\(#\)\D+(?:\d{4}-\d{2}-\d{2}\s*)?v?([[:alnum:].]+).*$/ and print $1;
+	')
 	if echo -n '' | grep n >/dev/null; then
 		# echo -n does not suppress newline
 		n=
 	else
 		n='-n'
+	fi
+	sudo=
+	if [ `whoami` != root ]; then
+		echo $n "Do you want to use sudo? (Yes/No) "
+		read answer
+		answer=$(echo $answer | cut -c1 | tr A-Z a-z)
+		if [ "x$answer" = xy ]; then
+			sudo=sudo
+		fi
 	fi
 }
 
@@ -174,7 +184,7 @@ enkadercmd() {
 	eval "$command" | enkader 4
 }
 
-###############################################################################
+############################################################################
 # main functions
 
 check_package() {
@@ -183,24 +193,32 @@ check_package() {
 	answer=n
 	echo $n "$question"
 	read answer
-	while [ "$answer" != y ]; do
-		if [ "$answer" = t ]; then
+	answer=$(echo $answer | cut -c1 | tr A-Z a-z)
+	while [ "x$answer" != xy ]; do
+		if [ "x$answer" = xt ]; then
 			if [ "x$packagelistcmd" = x ]; then
-				echo "I don't know how to list installed packages for your system, sorry"
+				echo "I don't know how to list installed packages for your system, sorry!"
 			else
 				enkadercmd "$packagelistcmd|grep -i '$packagename'||echo not found"
 			fi
-		elif [ "$answer" != y ]; then
+		elif [ "x$answer" != xy ]; then
 			download_and_install "$packagename"
 		fi
 		echo $n "$question"
 		read answer
+		answer=$(echo $answer | cut -c1 | tr A-Z a-z)
 	done
 }
 
 download_and_install() {
 	packagename="$1"
-	echo "You will need to download $packagename (sometimes called lib$packagename),"
+	echo $n "You will need to download $packagename "
+	if [ "$uname" = darwin -a $packagename = readline ]; then
+		echo "(for Fink: readline5,"
+		echo "for Macports: readline or readline-5),"
+	else
+		echo "(sometimes called lib$packagename),"
+	fi
 	if [ "x$packageurls" != x ]; then
 		echo "perhaps from:"
 		for url in $(echo $packageurls | tr , " "); do
@@ -239,7 +257,10 @@ check_perl_module() {
 check_perl_module_term_readline_gnu() {
 	trg=Term::ReadLine::Gnu
 	echo "Checking module $trg..."
-	if perl -MTerm::ReadLine -e '$t = new Term::ReadLine ""; exit !($t->ReadLine eq "Term::ReadLine::Gnu")'; then
+	if perl -MTerm::ReadLine -e '
+		$t = new Term::ReadLine "";
+		exit ($t->ReadLine ne "Term::ReadLine::Gnu")';
+	then
 		echo "Module $trg found."
 	else
 		echo "Module $trg not found"
@@ -262,7 +283,57 @@ download_and_install_perl_module() {
 	fi
 
 	if [ "x$install_opt" = xc ]; then
-		perl -MCPAN -e"install $packagename"
+		$sudo perl -MCPAN -e"install $packagename"
+	else
+		target="$(echo $packagename | sed -es/::/-/g)"
+		make -C modules $target
+	fi
+}
+
+download_and_install_perl_module_term_readline_gnu() {
+	packagename=Term::ReadLine::Gnu
+	if [ $uname != darwin ]; then
+		download_and_install_perl_module $packagename
+		return
+	fi
+	# Term::RL::Gnu gives a lot of compilation trouble on MacOSX.
+	# Offer to install it from macports/fink.
+	perlver=`perl -e'print $]'`
+	finkpkg=
+	if [ $perlver = 5.010000 ]; then
+		finkpkg=term-readline-gnu-pm5100
+	elif [ $perlver = 5.008008 ]; then
+		finkpkg=term-readline-gnu-pm588
+	elif [ $perlver = 5.008006 ]; then
+		finkpkg=term-readline-gnu-pm586
+	fi
+	if [ "$finkpkg" ]; then
+		finkalternative=" or Finkproject (F)"
+	fi
+	install_opt=
+	while [ "x$install_opt" != xb -a "x$install_opt" != xc \
+	-a	"x$install_opt" != xm -a "x$install_opt" != xf ]
+	do
+		echo "Do you want to install the bundled version (B),"
+		test "$cpan_available" && echo "download the latest version from CPAN (C),"
+		echo $n "or download the version from Macports (M)${finkalternative}? "
+		read install_opt
+		install_opt=$(echo $install_opt | cut -c1 | tr A-Z a-z)
+	done
+
+	if [ "x$install_opt" = xc ]; then
+		$sudo perl -MCPAN -e"install $packagename"
+	elif [ "x$install_opt" = xm ]; then
+		$sudo port install p5-term-readline-gnu
+	elif [ "x$install_opt" = xf ]; then
+		perlver=`perl -e'print $]'`
+		if [ $perlver = 5.010000 ]; then
+			$sudo apt-get install term-readline-gnu-pm5100
+		elif [ $perlver = 5.008008 ]; then
+			$sudo apt-get install term-readline-gnu-pm588
+		elif [ $perlver = 5.008006 ]; then
+			$sudo apt-get install term-readline-gnu-pm586
+		fi
 	else
 		target="$(echo $packagename | sed -es/::/-/g)"
 		make -C modules $target
@@ -270,80 +341,25 @@ download_and_install_perl_module() {
 }
 
 install_pfm() {
-	wheel=`awk -F: '$3 == 0 {print $1}' /etc/group`
-	modulesdir=/usr/local/share/PFM/
-	mkdir -p -m 755 /usr/local/bin/ /usr/local/man/man1/
-	install -o root -g $wheel -m 755 pfm       /usr/local/bin/
-	install -o root -g $wheel -m 644 doc/pfm.1 /usr/local/man/man1/
-	mkdir -p -m 755 $modulesdir /usr/local/man/man3/
-	find lib -name '*.pm' -print | cpio -pdvma $modulesdir
-	#install -o root -g $wheel -m 644 $i $modulesdir
-}
-
-check_date_locale() {
-	# no GNU date? return now.
-	date --version 2>&1 | grep GNU >/dev/null 2>&1 || return
-	# with GNU date, we can find names of any month.
-	currentlocale=${LC_ALL:-${LC_TIME:-$LANG}}
-	for i in Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec; do
-		datumlen=`date --date="$i 1" +'%b'`
-		if [ ${#datumlen} -gt 3 ]; then
-			echo "Warning: some of the short month names in your locale ($currentlocale)"
-			echo "seem to be longer than 3 characters."
-			echo "The default config file (possibly at ${PFMRC:-$HOME/.pfm/.pfmrc})"
-			echo "does not take this into account."
-			echo "Please verify that your file timestamps don't look truncated,"
-			echo "otherwise please alter the 'columnlayouts' option."
-			return
-		fi
-	done
-	echo "Pfm should work correctly with the month names in your locale ($currentlocale)"
+	perl Makefile.PL && \
+	make		 && \
+	make test	 && \
+	$sudo make install
 }
 
 check_pfmrc() {
-	pfmrc="${PFMRC:-$HOME/.pfm/.pfmrc}"
-	if [ ! -f "$pfmrc" ]; then
-		return
-	fi
-	oldversion="$(awk '/^## Version / { print $3 }' $pfmrc)"
-	if [ -z "$oldversion" ]; then
-		echo "The version number of your config file ('$pfmrc')"
-		echo "could not be determined. Please have pfm create a new one"
-		echo "and compare the old and new ones so that you will not miss"
-		echo "any configuration file updates."
-		return
-	fi
-	updates="$(
-		( cd update; ls ) | perl -nle 's/\.pl$//; print if ($_ gt "update-'$oldversion'" and $_ le "update-'$VERSION'");'
-	)"
-	if [ ! "$updates" ]; then
-		return
-	fi
-	echo
-	echo "You seem to be upgrading from version $oldversion."
-	echo "For the current version ($VERSION), updates to your config file are needed."
-	echo
-	echo "Do you want me to back up your current config file"
+	echo "Do you want me to back up your config file"
 	echo "(located at '$pfmrc')"
 	echo $n "and try to update it? (Yes/No) "
 	read answer
-	if [ "$answer" != y ]; then
+	answer=$(echo $answer | cut -c1 | tr A-Z a-z)
+	if [ "x$answer" != xy ]; then
 		return
 	fi
-	newpfmrc="$pfmrc.`date +'%Y%m%dT%H%M%S'`"
-	cp -i "$pfmrc" "$newpfmrc"
-	echo
-	echo "Config file backed up as '$newpfmrc'."
-	echo "$updates" | while read update; do
-		perl -pi update/$update "$pfmrc"
-		v=${update#update-}; v=${v%.pl}
-		echo "Successfully updated to $v"
-	done
-	perl -pi "s/^(## Version ).*/$1$VERSION/" "$pfmrc"
-	echo "Successfully updated to $VERSION"
+	pfmrcupdate
 }
 
-###############################################################################
+############################################################################
 # main
 
 install_prepare
@@ -355,19 +371,16 @@ check_package readline
 # check, download and install the Perl modules
 
 check_cpan
-check_perl_module LWP::Simple       || download_and_install_perl_module LWP::Simple
-check_perl_module Term::Cap         || download_and_install_perl_module Term::Cap
 check_perl_module Term::Screen      || download_and_install_perl_module Term::Screen
 check_perl_module Term::ScreenColor || download_and_install_perl_module Term::ScreenColor
-check_perl_module_term_readline_gnu || download_and_install_perl_module Term::ReadLine::Gnu
+check_perl_module_term_readline_gnu || download_and_install_perl_module_term_readline_gnu
 
 # check, download and install the application
 
 install_pfm
 
-# check the installation
+# check if we are upgrading
 
-check_date_locale
 check_pfmrc
 
 # vim: set tabstop=8 shiftwidth=8 noexpandtab:

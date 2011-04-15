@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::History 0.19
+# @(#) App::PFM::History 0.22
 #
 # Name:			App::PFM::History
-# Version:		0.19
+# Version:		0.22
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-05-24
+# Date:			2010-05-28
 #
 
 ##########################################################################
@@ -72,6 +72,12 @@ sub _init {
 	my $escape;
 	$_pfm      = $pfm;
 	$_keyboard = new Term::ReadLine('pfm');
+	if (ref $_keyboard->Features) {
+		$self->{_features} = $_keyboard->Features;
+	} else {
+		# Term::ReadLine::Zoid does not return a hash reference
+		$self->{_features} = { $_keyboard->Features };
+	}
 	# some defaults
 	$self->{_histories} = {
 		H_COMMAND,	[ 'du -ks * | sort -n'	],
@@ -85,16 +91,15 @@ sub _init {
 
 =item _set_term_history()
 
-Uses the history list to initialise keyboard history in
-Term::ReadLine. This fails silently if our current
-implementation of Term::ReadLine doesn't support the setHistory()
-method.
+Uses the history list to initialize keyboard history in Term::ReadLine.
+This fails silently if our current variant of Term::ReadLine doesn't
+support the setHistory() method.
 
 =cut
 
 sub _set_term_history {
 	my ($self, @histlines) = @_;
-	if ($_keyboard->Features->{setHistory}) {
+	if ($self->{_features}->{setHistory}) {
 		$_keyboard->SetHistory(@histlines);
 	}
 	return $_keyboard;

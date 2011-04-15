@@ -400,7 +400,7 @@ sub apply {
 	$_pfm->browser->mouse_mode($self->{mouse_mode});
 	$screen->diskinfo->ident_mode($self->{ident_mode});
 	$screen->listing->layout($self->{currentlayout});
-	$screen->alternate_on()	if $self->{altscreen_mode};
+	$screen->alternate_on()->at(0,0) if $self->{altscreen_mode};
 	# hand variables over to the state
 	$state->{dot_mode}         = $self->{dot_mode};
 	$state->{radix_mode}       = $self->{radix_mode};
@@ -671,6 +671,9 @@ viewer:eog
 ## 'framecolors' defines the colors for menu, menu in multiple mode,
 ## headings, headings in swap mode, footer, messages, and the highlighted file.
 ## for the frame to become colored, 'usecolor' must be set to 'yes' or 'force'.
+
+## pfm version 1 used 'header' instead of 'menu' and 'title' instead
+## of 'headings'.
 
 framecolors[light]:\
 menu=white on blue:multi=reverse cyan on black:\
