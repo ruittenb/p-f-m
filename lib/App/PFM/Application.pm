@@ -50,15 +50,7 @@ use Cwd;
 use locale;
 use strict;
 
-use constant {
-	S_MAIN		=> 0,
-	S_SWAP		=> 1,
-	S_PREV		=> 2,
-};
-
-my ($_browser, $_screen, $_commandhandler, $_config, $_history, $_jobhandler,
-	@_states,
-);
+our ($_browser, $_screen, $_commandhandler, $_config, $_history, $_jobhandler);
 
 ##########################################################################
 # private subs
@@ -74,6 +66,7 @@ sub _init {
 	($self->{VERSION}, $self->{LASTYEAR}) = $self->_findversion();
 	$self->{NEWER_VERSION} = '';
 	$self->{_bootstrapped} = 0;
+	$self->{_states}       = {};
 }
 
 =item _findversionfromfile()
@@ -163,7 +156,7 @@ Prints a goodbye message and restores the screen to a usable state.
 sub _goodbye {
 	my $self  = shift;
 	my $bye   = 'Goodbye from your Personal File Manager!';
-	my $state = $_states[S_MAIN];
+	my $state = $self->{_states}{S_MAIN};
 	$_screen->cooked_echo()
 		->mouse_disable()
 		->alternate_off();
@@ -253,11 +246,11 @@ sub screen {
 
 sub state {
 	my ($self, $index, $value) = @_;
-	$index ||= S_MAIN;
+	$index ||= 'S_MAIN';
 	if (defined $value) {
-		$_states[$index] = $value;
+		$self->{_states}{$index} = $value;
 	}
-	return $_states[$index];
+	return $self->{_states}{$index};
 }
 
 sub newer_version {
@@ -277,9 +270,9 @@ Opens a new terminal window running pfm.
 
 sub openwindow {
 	my ($self, $file) = @_;
-	if (ref $self->state(S_SWAP)) {
+	if (ref $self->{_states}{S_SWAP}) {
 		system($self->config->{windowcmd}." 'pfm \Q$file->{name}\E -s " .
-			quotemeta($self->state(S_SWAP)->{path}) . "' &");
+			quotemeta($self->{_states}{S_SWAP}->{path}) . "' &");
 	} else {
 		system($self->config->{windowcmd}." 'pfm \Q$file->{name}\E' &");
 	}
@@ -287,13 +280,13 @@ sub openwindow {
 
 =item swap_states()
 
-Swaps two state objects in the array @_states.
+Swaps two state objects in the hash %_states.
 
 =cut
 
 sub swap_states {
 	my ($self, $first, $second) = @_;
-	@_states[$first, $second] = @_states[$second, $first];
+	@{$self->{_states}}{$first, $second} = @{$self->{_states}}{$second, $first};
 }
 
 =item checkupdates()
@@ -331,8 +324,8 @@ sub bootstrap {
 	
 	# hand over the application object to the other classes
 	# for easy access.
-	$_states[S_MAIN] = new App::PFM::State($self);
-	$_screen		 = new App::PFM::Screen($self);
+	$self->{_states}{S_MAIN} = new App::PFM::State($self);
+	$_screen				 = new App::PFM::Screen($self);
 	$_screen->at($_screen->rows(), 0)->cooked_echo();
 	
 	Getopt::Long::Configure(qw'bundling permute');
@@ -364,24 +357,24 @@ sub bootstrap {
 	
 	# current directory - MAIN for the time being
 	$currentdir = getcwd();
-	$_states[S_MAIN]->prepare($currentdir);
+	$self->{_states}{S_MAIN}->prepare($currentdir);
 	# do we have a starting directory?
 	$startingdir = shift @ARGV;
 	if ($startingdir ne '') {
 		# if so, make it MAIN; currentdir becomes PREV
-		unless ($_states[S_MAIN]->directory->path($startingdir)) {
+		unless ($self->{_states}{S_MAIN}->directory->path($startingdir)) {
 			$_screen->at(0,0)->clreol();
 			$_screen->display_error("$startingdir: $! - using .");
 			$_screen->important_delay();
 		}
 	} else {
 		# if not, clone MAIN to PREV
-		$_states[S_PREV] = $_states[S_MAIN]->clone($self);
+		$self->{_states}{S_PREV} = $self->{_states}{S_MAIN}->clone($self);
 	}
 	# swap directory
 	if (defined $swapstartdir) {
-		$_states[S_SWAP] = new App::PFM::State($self);
-		$_states[S_SWAP]->prepare($swapstartdir);
+		$self->{_states}{S_SWAP} = new App::PFM::State($self);
+		$self->{_states}{S_SWAP}->prepare($swapstartdir);
 	}
 	# flag done
 	$self->{_bootstrapped} = 1;

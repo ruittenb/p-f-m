@@ -43,13 +43,14 @@ use POSIX qw(strftime mktime);
 use strict;
 
 use constant {
-	READ_AGAIN		=> 0,
-	READ_FIRST		=> 1,
-	NO_COPYRIGHT	=> 0,
-	SHOW_COPYRIGHT	=> 1,
-	CONFIGDIRNAME	=> "$ENV{HOME}/.pfm",
-	CONFIGFILENAME	=> '.pfmrc',
-	CONFIGDIRMODE	=> 0700,
+	READ_AGAIN		 => 0,
+	READ_FIRST		 => 1,
+	NO_COPYRIGHT	 => 0,
+	SHOW_COPYRIGHT	 => 1,
+	CONFIGDIRNAME	 => "$ENV{HOME}/.pfm",
+	CONFIGFILENAME	 => '.pfmrc',
+	CONFIGDIRMODE	 => 0700,
+	BOOKMARKFILENAME => 'bookmarks',
 };
 
 # AIX,BSD,Tru64	: du gives blocks, du -k kbytes
@@ -233,9 +234,6 @@ sub read {
 		$self->write_default();
 	}
 	if (open PFMRC, $self->{_configfilename}) {
-		# the pragma 'locale' used to cause problems when the config
-		# is read in using UTF-8
-		#no locale;
 		while (<PFMRC>) {
 			if (/# Version ([[:alnum:].]+)$/ and
 				$1 lt $_pfm->{VERSION} and $read_first)
@@ -447,6 +445,28 @@ sub write_default {
 		close DATA;
 		close MKPFMRC;
 	} # no success? well, that's just too bad
+}
+
+=item read_bookmarks()
+
+Reads the bookmarks file.
+
+=cut
+
+sub read_bookmarks {
+	my ($self) = @_;
+	my %bookmarks = ();
+	if (open BOOKMARKS, BOOKMARKFILENAME) {
+		while (<BOOKMARKS>) {
+			s/#.*//;
+			if (/^[ \t]*([^: \t[]+(?:\[[^]]+\])?)[ \t]*:[ \t]*(.*)$/o) {
+#				print STDERR "-$1";
+				$bookmarks{$1} = $2;
+			}
+		}
+		close BOOKMARKS;
+	}
+	return %bookmarks;
 }
 
 ##########################################################################

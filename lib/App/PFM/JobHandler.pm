@@ -42,6 +42,8 @@ use App::PFM::Job::Cvs;
 use App::PFM::Job::Bazaar;
 use App::PFM::Job::Git;
 
+use POSIX ':sys_wait_h';
+
 use strict;
 
 my ($_pfm);
@@ -144,14 +146,16 @@ to the application.
 
 sub pollall {
 	my ($self) = @_;
-	my $i;
+	my ($i);
 	for ($i = 0; $i <= $#{$self->{_jobs}}; $i++) {
 		$self->poll($i);
 	}
-	# Note that this does not return the number of running jobs,
-	# but instead the total number of elements, some of which may
-	# have finished already.
-	return $self->count();
+	# we hoped that this would eliminate the need for a signal handler,
+	# but it doesn't.
+#	1 while waitpid(-1, WNOHANG) > 0;
+
+	# We could return the number of running jobs if count() wasn't unstable.
+	# (see below)
 }
 
 =item count()
@@ -162,7 +166,11 @@ Counts the number of running jobs.
 
 sub count {
 	my ($self) = @_;
-	return scalar grep { $_->{_childpid} } @{$self->{_jobs}};
+	# this sometimes causes pfm to crash with:
+	# 'Modification of a read-only value attempted at JobHandler.pm line 169.'
+	# why?
+	my @runningjobs = grep { $_->{_childpid} } @{$self->{_jobs}};
+	return scalar @runningjobs;
 }
 
 ##########################################################################

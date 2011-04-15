@@ -175,7 +175,7 @@ the config directory.
 sub write_dirs {
 	my ($self) = @_;
 	my $configdirname = $_pfm->config->CONFIGDIRNAME;
-	my $swap_state	  = $_pfm->state($_pfm->S_SWAP);
+	my $swap_state	  = $_pfm->state('S_SWAP');
 	
 	if (open CWDFILE, ">$configdirname/$CWDFILENAME") {
 		print CWDFILE $_pfm->state->directory->path, "\n";

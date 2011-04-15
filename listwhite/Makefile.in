@@ -24,8 +24,8 @@ install: all
 	$(INSTALL) -o root -g $(WHEEL) -m 644 $(PROG).$(SECTION) $(PREFIX)/man/man$(SECTION)/
 
 clean:
-	rm -f $(PROG)
+	rm -f $(PROG) $(PROG).$(SECTION)
 
 distclean:
-	rm -f $(PROG) config.* Makefile
+	rm -f $(PROG) $(PROG).$(SECTION) config.* Makefile
 

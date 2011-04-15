@@ -1,12 +1,8 @@
-- interaction of handleswap (F7) with F2
 - cursor at 'lib', sort by name with mouse click: cursor ends up
   at 'lib-app-pfm'
 
 - si(Z)e does not work correctly because a restat() is done afterwards
 - handlecopyrename: after overwrite? -> no, then cursor is moved anyway
-
-- CHLD signal handler messes things up... try calling waitpid() instead
-  (in pollall).  Then see if handlesize and handlecopyrename work better.
 
 - (L)ink (R)el on '.' or '..' fail to create correct link because of
   canonicalize_pathname()
@@ -17,3 +13,5 @@
   }
 
 - after (C)opy, the rcs status is not automatically added 
+
+- 'editor' option niet van kracht na (M)ore (C)onfig
