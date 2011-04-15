@@ -1,3 +1,8 @@
+2.05.7-alpha
+
+* fixes to install script
+* have autoconf generate a makefile for listwhite
+
 2.05.6-alpha
 
 * fixes to Makefile

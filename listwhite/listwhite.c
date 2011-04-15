@@ -2,9 +2,10 @@
  *#########################################################################
  *
  * Name:         listwhite
- * Version:      0.08
+ * Version:      0.09
  * Author:       Rene Uittenbogaard
  * Date:         2003-05-15
+ * Last change:  2010-05-30
  * Usage:        listwhite [directories..]
  * Description:  List the names of all whiteout entries in the specified directories
  *
@@ -18,21 +19,23 @@
 
 #define BUFSIZE 1024
 
-static const char id[] = "@(#) listwhite 20030515 v0.08";
+static const char id[] = "@(#) listwhite 20030515 v0.09";
 
-char **pathnames;
-char *errormsg;
-FTS *tree_stream;
-FTSENT *tree_entry;
+int main(int argc, char **argv)
+{
+	char **pathnames;
+	char *errormsg;
+	FTS *tree_stream;
+	FTSENT *tree_entry;
+	char *dummy;
 
-int main(int argc, char **argv) {
 	if (argc > 1) {
 		pathnames = argv;
 		pathnames++;
 	} else {
 		pathnames    = (char **)malloc(2 * sizeof(char *));
 		pathnames[0] = (char *) malloc(BUFSIZE);
-		getcwd(pathnames[0], BUFSIZE);
+		dummy = getcwd(pathnames[0], BUFSIZE);
 		pathnames[1] = NULL;
 	}
 	if (!(tree_stream = fts_open(pathnames, FTS_PHYSICAL | FTS_WHITEOUT, NULL))) {
@@ -83,7 +86,7 @@ None known.
 
 =head1 VERSION
 
-This manual pertains to C<listwhite> version 0.08.
+This manual pertains to C<listwhite> version 0.09.
 
 =head1 SEE ALSO
 
