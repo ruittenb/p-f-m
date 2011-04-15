@@ -1,6 +1,13 @@
+2.05.5-alpha
+
+* fixed bug (crash) in (M)ore -(M)ake dir
+* added directory update and cursor positioning in (M)ore - (M)ake dir
+* fixed bug (command key shows up at unexpected position after
+  update_headings)
+
 2.05.3-alpha
 
-* fixed bug in handlesize()
+* fixed bug (inappropriate error) in si(Z)e
 
 2.05.2-WIP
 

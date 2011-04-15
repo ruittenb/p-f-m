@@ -12,9 +12,10 @@ WriteMakefile(
 	PREREQ_PM		=> {
 		'Term::Cap'		=> 0,     # as reported by Term::Screen
 		'Term::Screen'		=> 1.02,
-		'Term::ScreenColor'	=> 1.13,
-		'Term::ReadLine::Gnu'	=> 1.17,
-		'LWP'			=> 5.827, # not sure, probably too high
+		'Term::ScreenColor'	=> 1.13,  # no less than 1.13!
+		'Term::ReadLine::Gnu'	=> 1.17,  # maybe less
+		'HTML::Parser'		=> 3.59,  # maybe less, but 3.36 is too low
+		'LWP'			=> 5.827, # maybe less
 	},
 	EXE_FILES		=> ['pfm', 'pfmrcupdate'],
 	DIR			=> ['listwhite'],
@@ -25,7 +26,6 @@ WriteMakefile(
 #	INSTALLSITESCRIPT
 #	INST_SCRIPT
 #	INST_BIN
-#	MAN3PODS
 );
 
 

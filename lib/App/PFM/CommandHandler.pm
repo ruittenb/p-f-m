@@ -2397,13 +2397,19 @@ sub handlemoremake {
 	return if $newname eq '';
 	# don't use perl's mkdir: we want to be able to use -p
 	if (system "mkdir -p \Q$newname\E") {
-		$_screen->display_error('Make directory failed')
-			->set_deferred_refresh(R_SCREEN);
+		$_screen->set_deferred_refresh(R_SCREEN)
+			->at(0,0)->clreol()->display_error('Make directory failed');
 	} elsif (!$_screen->ok_to_remove_marks()) {
-		$_screen->set_deferred_refresh(R_MENU);
+		if ($newname !~ m!/!) {
+			$_pfm->state->directory->addifabsent(
+				entry => $newname,
+				mark => ' ',
+				white => '',
+				refresh => TRUE);
+			$_pfm->browser->position_at($newname);
+		}
 	} elsif (!$_pfm->state->directory->chdir($newname)) {
-		$_screen->set_deferred_refresh(R_MENU)
-			->display_error("$newname: $!");
+		$_screen->at(0,0)->clreol()->display_error("$newname: $!");
 	}
 }
 

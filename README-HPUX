@@ -1,0 +1,5 @@
+
+On HP-UX 11.00, the file /etc/termcap does not seem to contain an 'me'
+entry. You need to add it in order to make Term::Screen function
+correctly, for example :me=\E[0m:
+
