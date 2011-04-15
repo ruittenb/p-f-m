@@ -2,9 +2,9 @@
 ############################################################################
 #
 # Name:         install.sh
-# Version:      0.27
+# Version:      0.31
 # Authors:      Rene Uittenbogaard
-# Date:         2010-05-28
+# Date:         2010-05-30
 # Usage:        sh install.sh
 # Description:  Un*x-like systems can be very diverse.
 #		This script is meant as an example how pfm dependencies
@@ -16,9 +16,18 @@
 # helper functions
 
 install_prepare() {
+	echo
+	echo "This script will try to guide you through the process of"
+	echo "installing pfm together with its dependencies."
+	echo
 	VERSION=$(cat pfm | perl -ne '
 		/^[^@]*\@\(#\)\D+(?:\d{4}-\d{2}-\d{2}\s*)?v?([[:alnum:].]+).*$/ and print $1;
 	')
+	if [ "$PFMRC" -a -e "$PFMRC" ]; then
+		pfmrc="$PFMRC"
+	else
+		pfmrc=~/.pfm/.pfmrc
+	fi
 	if echo -n '' | grep n >/dev/null; then
 		# echo -n does not suppress newline
 		n=
@@ -34,6 +43,7 @@ install_prepare() {
 			sudo=sudo
 		fi
 	fi
+	echo
 }
 
 init_package_commands() {
@@ -236,7 +246,26 @@ download_and_install() {
 	echo
 }
 
+check_readline_gnu_wanted() {
+	if [ -z "$PERL_RL" ]; then
+		return
+	fi
+	variant=`echo $PERL_RL | cut -f1 -d' '`
+	if [ "$variant" = Gnu ]; then
+		return
+	fi
+	echo "Your environment variable PERL_RL seems configured to run"
+	echo "Term::ReadLine::$variant. Do you want to continue installing"
+	echo $n "Term::ReadLine::Gnu (strongly advised)? (Yes/No) "
+	read answer
+	answer=$(echo $answer | cut -c1 | tr A-Z a-z)
+	if [ "x$answer" = xn ]; then
+		return 1
+	fi
+}
+
 check_cpan() {
+	echo
 	if check_perl_module CPAN; then
 		cpan_available=1
 	else
@@ -245,25 +274,43 @@ check_cpan() {
 }
 
 check_perl_module() {
-	echo "Checking module $1..."
-	if perl -M"$1" -e1; then
-		echo "Module $1 found."
+	mod="$1"
+	wantver="$2"
+	echo "Checking module $mod..."
+	if perl -M"$mod" -e1; then
+		gotver=`perl -M"$mod" -e'print $'"$mod"'::VERSION;'`
+		if perl -e"exit (\"$gotver\" lt \"$wantver\");"; then
+			echo "Module $mod found (version $gotver)."
+		else
+			echo "Module $mod found (version $gotver), but we need $wantver."
+			return 1
+		fi
 	else
-		echo "Module $1 not found"
+		echo "Module $mod not found"
 		return 1
 	fi
 }
 
 check_perl_module_term_readline_gnu() {
-	trg=Term::ReadLine::Gnu
-	echo "Checking module $trg..."
-	if perl -MTerm::ReadLine -e '
-		$t = new Term::ReadLine "";
-		exit ($t->ReadLine ne "Term::ReadLine::Gnu")';
+	check_readline_gnu_wanted || return
+	mod=Term::ReadLine
+	variant=Gnu
+	wantver="$1"
+	PERL_RL=$variant; export PERL_RL
+	echo "Checking module $mod::$variant..."
+	if perl -M$mod -e "
+		\$t = new $mod '';
+		exit (\$t->ReadLine ne '$mod::$variant')";
 	then
-		echo "Module $trg found."
+		gotver=`perl -M$mod -e'print $'"$mod::$variant"'::VERSION;'`
+		if perl -e"exit (\"$gotver\" lt \"$wantver\");"; then
+			echo "Module $mod::$variant found (version $gotver)."
+		else
+			echo "Module $mod::$variant found (version $gotver), but we need $wantver."
+			return 1
+		fi
 	else
-		echo "Module $trg not found"
+		echo "Module $mod::$variant not found"
 		return 1
 	fi
 }
@@ -341,6 +388,8 @@ download_and_install_perl_module_term_readline_gnu() {
 }
 
 install_pfm() {
+	echo
+	env MAKEFILE_PL_CALLED_FROM_INSTALL_SH=1 \
 	perl Makefile.PL && \
 	make		 && \
 	make test	 && \
@@ -348,6 +397,7 @@ install_pfm() {
 }
 
 check_pfmrc() {
+	echo
 	echo "Do you want me to back up your config file"
 	echo "(located at '$pfmrc')"
 	echo $n "and try to update it? (Yes/No) "
@@ -357,6 +407,24 @@ check_pfmrc() {
 		return
 	fi
 	pfmrcupdate
+}
+
+check_listwhite() {
+	echo
+	echo "Do you use either: unionfs, tfs (translucent filesystem),"
+	echo "ovlfs (overlay filesystem) or ifs (inheriting filesystem)?"
+	echo $n "If you don't know what this is about, say no. (Yes/No) "
+	read answer
+	answer=$(echo $answer | cut -c1 | tr A-Z a-z)
+	if [ "x$answer" != xy ]; then
+		return
+	fi
+	echo
+	echo "Proceeding with installation of listwhite..."
+	cd listwhite
+	./configure
+	make all test
+	$sudo make install
 }
 
 ############################################################################
@@ -369,19 +437,20 @@ check_package ncurses
 check_package readline
 
 # check, download and install the Perl modules
-
 check_cpan
-check_perl_module Term::Screen      || download_and_install_perl_module Term::Screen
-check_perl_module Term::ScreenColor || download_and_install_perl_module Term::ScreenColor
-check_perl_module_term_readline_gnu || download_and_install_perl_module_term_readline_gnu
+check_perl_module HTML::Parser      3.59  || download_and_install_perl_module HTML::Parser
+check_perl_module LWP               5.827 || download_and_install_perl_module LWP
+check_perl_module Term::ScreenColor 1.13  || download_and_install_perl_module Term::ScreenColor
+check_perl_module_term_readline_gnu 1.09  || download_and_install_perl_module_term_readline_gnu
 
-# check, download and install the application
-
+# install the application
 install_pfm
 
 # check if we are upgrading
-
 check_pfmrc
+
+# check the need for tools
+check_listwhite
 
 # vim: set tabstop=8 shiftwidth=8 noexpandtab:
 
