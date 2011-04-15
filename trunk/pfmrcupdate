@@ -2,9 +2,9 @@
 ############################################################################
 #
 # Name:         pfmrcupdate
-# Version:      2.05.5
-# Authors:      Rene Uittenbogaard
-# Date:         2010-05-25
+# Version:      2.05.6
+# Author:       Rene Uittenbogaard
+# Date:         2010-05-28
 # Usage:        pfmrcupdate
 # Description:  Update an existing .pfmrc so that it can be used with
 #               newer versions of pfm.
@@ -15,11 +15,31 @@
 #
 
 ############################################################################
+# version
+
+# macros for *roff
+our $ROFFVERSION = <<'=cut';
+
+=pod
+
+=for roff
+.ds Yr 2010
+.ds Vw @(#) pfmrcupdate 2.05.6
+.de Vp
+This manual pertains to \f(CWpfmrcupdate\fP version \\$3.
+..
+.hy 0 \" hyphenation off
+
+=cut
+
+############################################################################
 # declarations
 
 use POSIX qw(mktime strftime);
 use strict;
 use locale;
+
+my $amphibian;
 
 ############################################################################
 # helper functions
@@ -124,13 +144,11 @@ sub check_date_locale {
 	my $timefieldlen    = get_pfmrc_timefieldlen(@pfmrc);
 	my $timefieldformat = get_pfmrc_timefieldformat(@pfmrc);
 	my $locale          = get_locale();
-	my $verbose         = $ENV{PFMDEBUG};
 	#
 	my ($mon, $timestr, $maxtimelength);
 	foreach $mon (0..11) {
 		# (sec, min, hour, mday, mon, year, wday = 0, yday = 0, isdst = -1)
 		$timestr = strftime($timefieldformat, (0, 30, 10, 12, $mon, 95));
-		print "T-$timestr\n" if $verbose;
 		$maxtimelength = max(length($timestr), $maxtimelength);
 	}
 	if ($maxtimelength > $timefieldlen) {
@@ -474,9 +492,16 @@ sub update_to_200 {
 	my ($lines) = @_;
 	# this updates the framecolors for version 2.00
 	print "Updating to 2.00...\n";
-	foreach (@$lines) {
-		s/(^|:)header=/${1}menu=/;
-		s/(^|:)title=/${1}headings=/;
+	if ($amphibian) {
+		foreach (@$lines) {
+			s/(^|:)(header=)([^:]*)/$1$2$3:menu=$3/;
+			s/(^|:)(title=)([^:]*)/$1$2$3:headings=$3/;
+		}
+	} else {
+		foreach (@$lines) {
+			s/(^|:)header=/${1}menu=/;
+			s/(^|:)title=/${1}headings=/;
+		}
 	}
 }
 
@@ -584,6 +609,7 @@ sub main {
 	my @pfmrc         = get_pfmrc($rcfile);
 	my $version_pfmrc = get_pfmrc_version(@pfmrc);
 	my $version_pfm   = get_pfm_version($script);
+	$amphibian        = ($_[0] =~ /^(--amphibian|-a)$/);
 	#
 	print "\nChecking the config file at $rcfile\n";
 	die '' unless check_versions($version_pfmrc, $version_pfm);
@@ -604,7 +630,93 @@ sub main {
 ############################################################################
 # main
 
-main();
+main(@ARGV);
+
+__END__
+
+=pod
+
+=head1 NAME
+
+C<pfmrcupdate> - Update a config file for C<pfm>
+
+=head1 SYNOPSIS
+
+C<pfmrcupdate [ -a, --amphibian ]>
+
+=head1 DESCRIPTION
+
+C<pfmrcupdate> is a tool for C<pfm> (Personal File Manager) that can
+update an existing F<.pfmrc> for a higher version of C<pfm>.
+Your original F<.pfmrc> will be backed up as F<.pfmrc.>datestamp.
+
+This script should be regarded as a I<get-me-going-fast> solution.
+You will probably be better off by having C<pfm> generate a new F<.pfmrc>
+for you and comparing it to your own version.
+
+=head1 OPTIONS
+
+=over
+
+=item -a, --amphibian
+
+Keep the config file in a format that can be used with both C<pfm> version
+1 and 2.
+
+=back
+
+=head1 ENVIRONMENT
+
+=over
+
+=item B<PFM>
+
+If your C<pfm> is not installed as C<pfm> (but instead as I<e.g.> C<pfm2>)
+then you may specify its name in this variable.
+
+=item B<PFMRC>
+
+Specify a location of an alternate F<.pfmrc> file. If unset, the default
+location F<$HOME/.pfm/.pfmrc> is used.
+
+=item B<LC_TIME>
+
+Date/time format according to your current locale. C<pfmrcupdate> will check
+to see if your 'columnlayouts' config option can accommodate the localized
+strings.  See locale(7).
+
+=back
+
+=head1 VERSION
+
+=for roff
+.PP \" display the 'pertains to'-macro
+.Vp \*(Vw
+
+=head1 AUTHOR and COPYRIGHT
+
+=for roff
+.PP \" display the authors
+.\" the \(co character only exists in groff
+.ie \n(.g .ds co \(co
+.el       .ds co (c)
+.ie \n(.g .ds e' \('e
+.el       .ds e' e\*'
+..
+Copyright \*(co \*(Yr, Ren\*(e' Uittenbogaard
+(ruittenb@users.sourceforge.net).
+.PP
+
+=for html
+Copyright &copy; Ren&eacute; Uittenbogaard
+(ruittenb&#64;users.sourceforge.net).
+=head1 AUTHOR and COPYRIGHT
+
+SEE ALSO
+
+pfm(1), locale(7).
+
+=cut
 
 # vim: set tabstop=8 shiftwidth=8 noexpandtab:
 
