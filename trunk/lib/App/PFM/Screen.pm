@@ -553,6 +553,7 @@ sub refresh_headings {
 			$_pfm->browser->swap_mode, $_frame->HEADING_DISKINFO);
 		$_deferred_refresh &= ~R_HEADINGS;
 	}
+	return $self;
 }
 
 =item refresh()
@@ -621,6 +622,7 @@ sub refresh {
 		$_frame->show_footer();
 	}
 	$_deferred_refresh = 0;
+	return $self;
 }
 
 =item path_info()

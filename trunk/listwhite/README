@@ -1,4 +1,5 @@
 
 listwhite is a tool for listing the names of whiteout files.
-This is *only* necessary on filesystems that support this feature.
+This is *only* necessary on filesystems that support this feature, like
+unionfs, tfs (translucent filesystem), or ifs (inheriting filesystem).
 

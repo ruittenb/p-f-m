@@ -1,0 +1,13 @@
+
+On MacOSX, /usr/lib/libreadline.dylib may actually be (a symlink to)
+libedit. Term::ReadLine::Gnu will not compile against libedit.
+
+You will need to install /opt/local/lib/libreadline.dylib and point
+Term::ReadLine::Gnu to it:
+
+- sudo port install readline
+- tar xvfz Term-Readline-Gnu-1.20.tar.gz
+- cd Term-Readline-Gnu-1.20
+- perl Makefile.PL --includedir=/opt/local/include --libdir=/opt/local/lib
+- make; sudo make install
+

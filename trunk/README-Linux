@@ -1,0 +1,8 @@
+
+On Ubuntu Jaunty, it is advisable to install the following packages:
+- libncurses5
+- libncurses5-dev
+- libreadline5
+- libreadline5-dev
+- libterm-readline-gnu-perl
+
