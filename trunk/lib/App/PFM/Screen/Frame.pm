@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Frame 0.25
+# @(#) App::PFM::Screen::Frame 0.27
 #
 # Name:			App::PFM::Screen::Frame
-# Version:		0.25
+# Version:		0.27
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-05-23
+# Date:			2010-06-01
 #
 
 ##########################################################################
@@ -165,9 +165,7 @@ sub _getmenu {
 	} elsif ($mode & MENU_MORE) {
 		return	
 		#		'Acl Bookmark ' .
-				'Config Edit-any mkFifo '
-		#.		'Go '
-		.		'sHell Mkdir '
+				'Config Edit-any mkFifo Go sHell Mkdir '
 		.		'Phys-path Show-dir alTscreen Version Write-hist';
 	} elsif ($mode & MENU_EXCLUDE) {
 		return	"Exclude? Every, Old-/Newmarks, After/Before, "
@@ -238,6 +236,30 @@ sub currentpan {
 		$self->pan(); # $key, $mode both undef
 	}
 	return $self->{_currentpan};
+}
+
+=item bookmark_headings()
+
+Getter for the correct bookmark headings for the current screenwidth
+and format.
+
+=cut
+
+sub bookmark_headings {
+	my ($self) = @_;
+	my $infolength = $_screen->diskinfo->infolength;
+	my @headings =
+		(" %1s%1s %-" . ($_screen->screenwidth - 5 - $infolength) . 's',
+		 "%${infolength}s");
+#		(' @@ @' . '<' x ($_screen->screenwidth - 6 - $infolength),
+#		 '@'    . '>' x ($infolength - 1));
+#	if ($_screen->diskinfo->infocol < $_screen->listing->filerecordcol) {
+#		@headings = reverse @headings;
+#	}
+	return @headings;
+	#  |--------------screenwidth---------------|
+	#  11111                     11 (infolength-1)
+	# ' A* @<<<<<<<<<<<<<<<<<<<<< @>>>>>>>>>>>>>>>'
 }
 
 =item rcsrunning()
@@ -315,7 +337,7 @@ Displays the column headings.
 
 sub show_headings {
 	my ($self, $swapmode, $info) = @_;
-	my ($linecolor, $diskinfo, $padding, $filters);
+	my ($linecolor, $diskinfo, $padding);
 	my @fields = @{$_screen->listing->layoutfieldswithinfo};
 	my $state  = $_pfm->state;
 	$padding = ' ' x ($_screen->diskinfo->infolength - 14);
@@ -337,7 +359,7 @@ sub show_headings {
 	$_screen->underline()	if ($linecolor =~ /underline/);
 #	$_screen->term()->Tputs('us', 1, *STDOUT)
 #							if ($linecolor =~ /under(line|score)/);
-	$_screen->at($_screen->HEADINGLINE,0)
+	$_screen->at($_screen->HEADINGLINE, 0)
 		->putcolored($linecolor, formatted(
 			$_screen->listing->currentformatlinewithinfo,
 			@_fieldheadings{@fields}))
@@ -382,6 +404,31 @@ sub clear_footer {
 #							if ($linecolor =~ /under(line|score)/);
 	$_screen->at($_screen->BASELINE + $_screen->screenheight + 1, 0)
 		->putcolored($linecolor, $padding)->reset()->normal();
+}
+
+=item show_bookmark_headings()
+
+Displays the column headings for the bookmarks screen.
+
+=cut
+
+sub show_bookmark_headings {
+	my ($self, $swapmode) = @_;
+	my @headline  = $self->bookmark_headings;
+	my $linecolor = $swapmode
+		? $_pfm->config->{framecolors}->{$_screen->color_mode}{swap}
+		: $_pfm->config->{framecolors}->{$_screen->color_mode}{headings};
+	# in case colorizable() is off:
+	$_screen->bold()		if ($linecolor =~ /bold/);
+	$_screen->reverse()		if ($linecolor =~ /reverse/);
+	$_screen->underline()	if ($linecolor =~ /underline/);
+#	$_screen->term()->Tputs('us', 1, *STDOUT)
+#							if ($linecolor =~ /under(line|score)/);
+	$_screen->at($_screen->HEADINGLINE, $_screen->listing->filerecordcol)
+		->putcolored($linecolor, sprintf($headline[0], ' ', ' ', 'path'));
+	$_screen->at($_screen->HEADINGLINE, $_screen->diskinfo->infocol)
+		->putcolored($linecolor, sprintf($headline[1], 'disk info'))
+		->reset()->normal();
 }
 
 =item update_headings()

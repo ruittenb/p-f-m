@@ -39,7 +39,7 @@ use App::PFM::Directory;
 
 use strict;
 
-my $_pfm;
+our $_pfm;
 
 ##########################################################################
 # private subs
@@ -53,7 +53,7 @@ Instantiates a App::PFM::Directory object.
 
 sub _init {
 	my ($self, $pfm) = @_;
-	$_pfm					= $pfm;
+	$_pfm					||= $pfm;
 	$self->{_directory}		= new App::PFM::Directory($pfm);
 	# We might not have useful values for these yet since the config file
 	# might not have been read yet.

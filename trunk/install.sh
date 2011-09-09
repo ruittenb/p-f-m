@@ -2,9 +2,9 @@
 ############################################################################
 #
 # Name:         install.sh
-# Version:      0.31
+# Version:      0.33
 # Authors:      Rene Uittenbogaard
-# Date:         2010-05-30
+# Date:         2010-06-11
 # Usage:        sh install.sh
 # Description:  Un*x-like systems can be very diverse.
 #		This script is meant as an example how pfm dependencies
@@ -343,44 +343,45 @@ download_and_install_perl_module_term_readline_gnu() {
 		download_and_install_perl_module $packagename
 		return
 	fi
-	# Term::RL::Gnu gives a lot of compilation trouble on MacOSX.
-	# Offer to install it from macports/fink.
-	perlver=`perl -e'print $]'`
-	finkpkg=
-	if [ $perlver = 5.010000 ]; then
-		finkpkg=term-readline-gnu-pm5100
-	elif [ $perlver = 5.008008 ]; then
-		finkpkg=term-readline-gnu-pm588
-	elif [ $perlver = 5.008006 ]; then
-		finkpkg=term-readline-gnu-pm586
-	fi
-	if [ "$finkpkg" ]; then
-		finkalternative=" or Finkproject (F)"
-	fi
+#	# Term::RL::Gnu gives a lot of compilation trouble on MacOSX.
+#	# Offer to install it from macports/fink.
+#	perlver=`perl -e'print $]'`
+#	finkpkg=
+#	if [ $perlver = 5.010000 ]; then
+#		finkpkg=term-readline-gnu-pm5100
+#	elif [ $perlver = 5.008008 ]; then
+#		finkpkg=term-readline-gnu-pm588
+#	elif [ $perlver = 5.008006 ]; then
+#		finkpkg=term-readline-gnu-pm586
+#	fi
+#	if [ "$finkpkg" ]; then
+#		finkalternative=" or Finkproject (F)"
+#	fi
 	install_opt=
 	while [ "x$install_opt" != xb -a "x$install_opt" != xc \
 	-a	"x$install_opt" != xm -a "x$install_opt" != xf ]
 	do
 		echo "Do you want to install the bundled version (B),"
-		test "$cpan_available" && echo "download the latest version from CPAN (C),"
-		echo $n "or download the version from Macports (M)${finkalternative}? "
+#		test "$cpan_available" && echo "download the latest version from CPAN (C),"
+#		echo $n "or download the version from Macports (M)${finkalternative}? "
+		test "$cpan_available" && echo "or download the latest version from CPAN (C)?"
 		read install_opt
 		install_opt=$(echo $install_opt | cut -c1 | tr A-Z a-z)
 	done
 
 	if [ "x$install_opt" = xc ]; then
 		$sudo perl -MCPAN -e"install $packagename"
-	elif [ "x$install_opt" = xm ]; then
-		$sudo port install p5-term-readline-gnu
-	elif [ "x$install_opt" = xf ]; then
-		perlver=`perl -e'print $]'`
-		if [ $perlver = 5.010000 ]; then
-			$sudo apt-get install term-readline-gnu-pm5100
-		elif [ $perlver = 5.008008 ]; then
-			$sudo apt-get install term-readline-gnu-pm588
-		elif [ $perlver = 5.008006 ]; then
-			$sudo apt-get install term-readline-gnu-pm586
-		fi
+#	elif [ "x$install_opt" = xm ]; then
+#		$sudo port install p5-term-readline-gnu
+#	elif [ "x$install_opt" = xf ]; then
+#		perlver=`perl -e'print $]'`
+#		if [ $perlver = 5.010000 ]; then
+#			$sudo apt-get install term-readline-gnu-pm5100
+#		elif [ $perlver = 5.008008 ]; then
+#			$sudo apt-get install term-readline-gnu-pm588
+#		elif [ $perlver = 5.008006 ]; then
+#			$sudo apt-get install term-readline-gnu-pm586
+#		fi
 	else
 		target="$(echo $packagename | sed -es/::/-/g)"
 		make -C modules $target
@@ -411,7 +412,8 @@ check_pfmrc() {
 
 check_listwhite() {
 	echo
-	echo "Do you use either: unionfs, tfs (translucent filesystem),"
+	echo "Do you use a filesystem which makes use of whiteout files,"
+	echo "such as: unionfs, tfs (translucent filesystem),"
 	echo "ovlfs (overlay filesystem) or ifs (inheriting filesystem)?"
 	echo $n "If you don't know what this is about, say no. (Yes/No) "
 	read answer

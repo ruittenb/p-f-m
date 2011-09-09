@@ -82,9 +82,9 @@ our @EXPORT = qw(R_NOP R_STRIDE R_MENU R_PATHINFO R_HEADINGS R_FOOTER R_FRAME
 	R_DIRCONTENTS R_CHDIR R_NEWDIR
 );
 
+our ($_pfm, $_frame, $_listing, $_diskinfo);
 
-my ($_pfm, $_frame, $_listing, $_diskinfo,
-	$_screenwidth, $_screenheight, $_deferred_refresh, $_wasresized,
+my	($_screenwidth, $_screenheight, $_deferred_refresh, $_wasresized,
 	$_color_mode,
 );
 

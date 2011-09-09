@@ -52,8 +52,8 @@ use constant {
 
 use constant IDENTMODES => { user => 0, host => 1, 'user@host' => 2 };
 
-my ($_pfm, $_screen,
-	$_infocol, $_infolength, $_ident, $_ident_mode);
+our ($_pfm, $_screen);
+my	($_infocol, $_infolength, $_ident, $_ident_mode);
 
 ##########################################################################
 # private subs

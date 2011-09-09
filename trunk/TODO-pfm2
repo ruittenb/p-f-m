@@ -15,3 +15,12 @@
 - after (C)opy, the rcs status is not automatically added 
 
 - 'editor' option niet van kracht na (M)ore (C)onfig
+
+- after handledelete in multiple mode, it is possible that so many entries
+  have been deleted that the cursor target (position_at) is completely
+  off-screen. Somehow, this is not corrected by validate_position() and the
+  cursor ends up at line 0.
+
+- F7 to same directory: no refresh is done, so the marks stay in place.
+
+- $pfm->bootstrap() already displays screen: ok?

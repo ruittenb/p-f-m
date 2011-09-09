@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 0.80
+# @(#) App::PFM::Config 0.81
 #
 # Name:			App::PFM::Config
-# Version:		0.80
+# Version:		0.81
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-05-08
+# Date:			2010-06-01
 #
 
 ##########################################################################
@@ -328,8 +328,11 @@ sub parse {
 	$self->{altscreen_mode}		= ($self->{altscreen_mode}  eq 'xterm' && isxterm($ENV{TERM}))
 								|| isyes($self->{altscreen_mode});
 	$self->{chdirautocmd}		= $pfmrc->{chdirautocmd};
+	$self->{windowtype}			= $pfmrc->{windowtype} eq 'standalone' ? 'standalone' : 'pfm';
 	$self->{windowcmd}			= $pfmrc->{windowcmd}
-								|| ($^O eq 'linux' ? 'gnome-terminal -e' : 'xterm -e');
+								|| ($pfmrc->{windowtype} eq 'standalone'
+									? 'nautilus'
+									: $^O eq 'linux' ? 'gnome-terminal -e' : 'xterm -e');
 	$self->{printcmd}			= $pfmrc->{printcmd}
 								|| ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER} ${e}2" : "lpr ${e}2");
 	$self->{showlockchar}		= ( $pfmrc->{showlock} eq 'sun' && $^O =~ /sun|solaris/i
@@ -456,11 +459,11 @@ Reads the bookmarks file.
 sub read_bookmarks {
 	my ($self) = @_;
 	my %bookmarks = ();
-	if (open BOOKMARKS, BOOKMARKFILENAME) {
+	if (open BOOKMARKS, CONFIGDIRNAME . "/" . BOOKMARKFILENAME) {
 		while (<BOOKMARKS>) {
+			# wrapping lines (ending in '\') are not allowed
 			s/#.*//;
-			if (/^[ \t]*([^: \t[]+(?:\[[^]]+\])?)[ \t]*:[ \t]*(.*)$/o) {
-#				print STDERR "-$1";
+			if (/^[ \t]*bookmark\[(.)\][ \t]*:[ \t]*(.*)$/o) {
 				$bookmarks{$1} = $2;
 			}
 		}
@@ -673,12 +676,28 @@ usecolor:force
 #viewer:xv
 viewer:eog
 
-## command used for starting a new pfm window for a directory.
-## Only applicable under X. The default is to take gnome-terminal under
-## Linux, xterm under other Unixes.
-## Be sure to include the option to start a program in the window.
+## Command used for starting a new directory window. Only useful under X.
+##
+## If 'windowtype' is 'standalone', then this command will be started
+## and the current directory will be passed on the commandline.
+## The command is responsible for opening its own window.
+##
+## If 'windowtype' is 'pfm', then 'windowcmd' should be a terminal
+## command, which will be used to start pfm (the default is
+## gnome-terminal for linux and xterm for other Unixes.
+## Be sure to include the option to start a program in the window
+## (for xterm, this is -e).
+##
 #windowcmd:gnome-terminal -e
 #windowcmd:xterm -e
+#windowcmd:nautilus
+
+## What to open when a directory is middle-clicked with the mouse?
+## 'pfm'       : open directories with pfm in a terminal window.
+##				 specify the terminal command with 'windowcmd'.
+## 'standalone': open directories in a new window with the 'windowcmd'.
+#windowtype:standalone
+windowtype:pfm
 
 ##########################################################################
 ## colors
