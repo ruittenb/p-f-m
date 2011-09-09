@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::CheckUpdates 0.10
+# @(#) App::PFM::Job::CheckUpdates 0.12
 #
 # Name:			App::PFM::Job::CheckUpdates
-# Version:		0.10
+# Version:		0.12
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-21
+# Date:			2010-06-03
 #
 
 ##########################################################################
@@ -91,22 +91,6 @@ sub _start_child {
 #	$self->{_pipe}->close();
 	$self->{_pipe}->reader($self->command);
 }
-
-#=item _check_for_updates()
-#
-#Tries to connect to the URL of the pfm project page to see if there
-#is a newer version. Reports this version to the application.
-#
-#=cut
-#
-#sub _check_for_updates {
-#	my $self = shift;
-#	my $latest_version;
-#	my $pfmpage = get(PFM_URL);
-#	($latest_version = $pfmpage) =~
-#		s/.*?latest version \(v?([\w.]+)\).*/$1/s;
-#	$self->{_pipe}->print($latest_version, "\n");
-#}
 
 ##########################################################################
 # constructor, getters and setters

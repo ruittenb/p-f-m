@@ -46,7 +46,7 @@ use POSIX ':sys_wait_h';
 
 use strict;
 
-my ($_pfm);
+our ($_pfm);
 
 ##########################################################################
 # private subs

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.05.7
+# @(#) App::PFM::Application 2.05.9
 #
 # Name:			App::PFM::Application
-# Version:		2.05.7
+# Version:		2.05.9
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-05-21
+# Date:			2010-06-01
 #
 
 ##########################################################################
@@ -49,6 +49,11 @@ use Cwd;
 
 use locale;
 use strict;
+
+use constant BOOKMARKKEYS => [qw(
+	a b c d e f g h i j k l m n o p q r s t u v w x y z
+	A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
+)];
 
 our ($_browser, $_screen, $_commandhandler, $_config, $_history, $_jobhandler);
 
@@ -253,6 +258,13 @@ sub state {
 	return $self->{_states}{$index};
 }
 
+=item newer_version()
+
+Getter/setter for the variable that indicates the latest version on the
+pfm website.
+
+=cut
+
 sub newer_version {
 	my ($self, $value) = @_;
 	$self->{NEWER_VERSION} = $value if defined $value;
@@ -270,11 +282,16 @@ Opens a new terminal window running pfm.
 
 sub openwindow {
 	my ($self, $file) = @_;
-	if (ref $self->{_states}{S_SWAP}) {
-		system($self->config->{windowcmd}." 'pfm \Q$file->{name}\E -s " .
-			quotemeta($self->{_states}{S_SWAP}->{path}) . "' &");
+	if ($self->config->{windowtype} eq 'pfm') {
+		if (ref $self->{_states}{S_SWAP}) {
+			system($self->config->{windowcmd} . " 'pfm \Q$file->{name}\E -s " .
+				quotemeta($self->{_states}{S_SWAP}->{path}) . "' &");
+		} else {
+			system($self->config->{windowcmd} . " 'pfm \Q$file->{name}\E' &");
+		}
 	} else {
-		system($self->config->{windowcmd}." 'pfm \Q$file->{name}\E' &");
+		# windowtype = external
+		system($self->config->{windowcmd} . " \Q$file->{name}\E' &");
 	}
 }
 
@@ -320,7 +337,8 @@ Instantiates the necessary objects.
 sub bootstrap {
 	my $self = shift;
 	my ($startingdir, $swapstartdir, $startinglayout,
-		$currentdir, $opt_version, $opt_help, $invalid, $state);
+		$currentdir, $opt_version, $opt_help,
+		%bookmarks, $invalid, $state);
 	
 	# hand over the application object to the other classes
 	# for easy access.
@@ -351,6 +369,9 @@ sub bootstrap {
 	$_config->read( $_config->READ_FIRST);
 	$_config->parse($_config->SHOW_COPYRIGHT);
 	$_config->apply();
+	%bookmarks = $_config->read_bookmarks();
+	@{$self->{_states}}{BOOKMARKKEYS} = ();
+	@{$self->{_states}}{keys %bookmarks} = values %bookmarks;
 	$_screen->listing->layout($startinglayout);
 	$_history->read();
 	$self->checkupdates();

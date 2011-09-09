@@ -2,9 +2,9 @@
 ############################################################################
 #
 # Name:         pfmrcupdate
-# Version:      2.05.8
+# Version:      2.05.9
 # Author:       Rene Uittenbogaard
-# Date:         2010-05-30
+# Date:         2010-06-11
 # Usage:        pfmrcupdate
 # Description:  Update an existing .pfmrc so that it can be used with
 #               newer versions of pfm.
@@ -24,7 +24,7 @@ our $ROFFVERSION = <<'=cut';
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfmrcupdate 2.05.8
+.ds Vw @(#) pfmrcupdate 2.05.9
 .de Vp
 This manual pertains to \f(CWpfmrcupdate\fP version \\$3.
 ..
@@ -432,6 +432,13 @@ sub update_to_1938 {
 ## use xterm alternate screen buffer (yes,no,xterm) (default: only in xterm)
 altscreenmode:xterm
 
+## command used for starting a new pfm window for a directory. 
+## Only applicable under X. The default is to take gnome-terminal under 
+## Linux, xterm under other Unixes. 
+## Be sure to include the option to start a program in the window. 
+#windowcmd:gnome-terminal -e 
+#windowcmd:xterm -e 
+
 _end_update_to_1938_
 }
 
@@ -565,6 +572,50 @@ launch[text/x-m3u-playlist]       : vlc =2 >/dev/null 2>&1
 _end_update_to_2053_
 }
 
+sub update_to_2059 {
+	my ($lines) = @_;
+	# added 'windowtype'
+	print "Updating to 2.05.9...\n";
+	my $i;
+	for ($i = $#$lines; $i > 0; $i--) {
+		if (${$lines}[$i] =~ /^#*\s*windowcmd:/
+		or  ${$lines}[$i] =~ /^#+\s*command used for starting a new pfm window for a directory/
+		or  ${$lines}[$i] =~ /^#+\s*Only applicable.*The default is to take gnome-terminal/
+		or  ${$lines}[$i] =~ /^#+\s*Linux, xterm under other Unixes/
+		or  ${$lines}[$i] =~ /^#+\s*Be sure to include the option to start a program/)
+		{
+			splice(@$lines, $i, 1);
+		}
+	}
+	push @$lines, <<_end_update_to_2059_;
+
+## Command used for starting a new directory window. Only useful under X.
+##
+## If 'windowtype' is 'standalone', then this command will be started
+## and the current directory will be passed on the commandline.
+## The command is responsible for opening its own window.
+##
+## If 'windowtype' is 'pfm', then 'windowcmd' should be a terminal
+## command, which will be used to start pfm (the default is
+## gnome-terminal for linux and xterm for other Unixes.
+## Be sure to include the option to start a program in the window
+## (for xterm, this is -e).
+##
+#windowcmd:gnome-terminal -e
+#windowcmd:xterm -e
+#windowcmd:nautilus
+
+## What to open when a directory is middle-clicked with the mouse?
+## 'pfm'       : open directories with pfm in a terminal window.
+##				 specify the terminal command with 'windowcmd'.
+## 'standalone': open directories in a new window with the 'windowcmd'.
+#windowtype:standalone
+windowtype:pfm
+
+_end_update_to_2059_
+}
+
+
 sub update_version {
 	my ($to, $lines) = @_;
 	# this updates the version field for any version
@@ -600,6 +651,7 @@ sub update_pfmrc {
 	update_to_2037($lines) if $from lt '2.03.7' and '2.03.7' le $to;
 	update_to_2044($lines) if $from lt '2.04.4' and '2.04.4' le $to;
 	update_to_2053($lines) if $from lt '2.05.3' and '2.05.3' le $to;
+	update_to_2059($lines) if $from lt '2.05.9' and '2.05.9' le $to;
 	update_version($to, $lines);
 }
 

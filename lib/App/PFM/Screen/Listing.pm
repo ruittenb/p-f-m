@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Listing 0.98
+# @(#) App::PFM::Screen::Listing 1.00
 #
 # Name:			App::PFM::Screen::Listing
-# Version:		0.98
+# Version:		1.00
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-05-14
+# Date:			2010-06-01
 #
 
 ##########################################################################
@@ -85,8 +85,8 @@ use constant FILETYPEFLAGS => {
 	 # => '+', # Hidden directory (AIX only) or context dependent (HP/UX only)
 };
 
-my ($_pfm, $_screen,
-	$_layout, $_cursorcol, $_filerecordcol, $_filenamecol,
+our ($_pfm, $_screen);
+my	($_layout, $_cursorcol, $_filerecordcol, $_filenamecol,
 	$_maxfilenamelength, $_maxfilesizelength, $_maxgrandtotallength,
 	@_layoutfields, @_layoutfieldswithinfo,
 	$_currentformatline, $_currentformatlinewithinfo,

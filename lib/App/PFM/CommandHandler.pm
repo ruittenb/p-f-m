@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.00
+# @(#) App::PFM::CommandHandler 1.04
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.00
+# Version:		1.04
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-05-23
+# Date:			2010-06-11
 #
 
 ##########################################################################
@@ -112,10 +112,9 @@ my @FIELDS_TO_SORTMODE = (
 	'*'=> '*', # mark
 );
 
+our ($_pfm, $_screen);
 our ($command);
-
-my ($_pfm, $_screen,
-	$_white_cmd, @_unwo_cmd);
+my	($_white_cmd, @_unwo_cmd);
 
 ##########################################################################
 # private subs
@@ -1182,8 +1181,7 @@ sub handlelink {
 	return if ($newname eq '');
 	$newname = canonicalize_path($newname);
 	# expand \[3456] at this point as a test, but not \[1278]
-	$self->_expand_3456_escapes(
-		QUOTE_OFF, ($testname = $newname), $_pfm->browser->currentfile);
+	$self->_expand_3456_escapes(QUOTE_OFF, ($testname = $newname));
 	return if $self->_multi_to_single($testname);
 	
 	$do_this = sub {
@@ -2012,6 +2010,8 @@ sub handledelete {
 	} elsif ($browser->position_at eq '') {
 		$_pfm->browser->validate_position();
 	}
+#	system "touch /tmp/gonna-validate-`date +%Y-%m-%d.%H-%M-%S`";
+#	$_pfm->browser->validate_position(); # new
 	return;
 }
 
@@ -2045,8 +2045,7 @@ sub handlecopyrename {
 	$_screen->raw_noecho();
 	return if ($newname eq '');
 	# expand \[3456] at this point as a test, but not \[1278]
-	$self->_expand_3456_escapes(
-		QUOTE_OFF, ($testname = $newname), $browser->currentfile);
+	$self->_expand_3456_escapes(QUOTE_OFF, ($testname = $newname));
 	return if $self->_multi_to_single($testname);
 	$_screen->at(1,0)->clreol() unless $self->{_clobber_mode};
 	$do_this = sub {
@@ -2335,7 +2334,7 @@ sub handlemore {
 			/^e$/io		and $self->handlemoreedit(),		last MORE_PAN;
 			/^h$/io		and $self->handlemoreshell(),		last MORE_PAN;
 #			/^b$/io		and $self->handlemorebookmark(),	last MORE_PAN;
-#			/^g$/io		and $self->handlemorego(),			last MORE_PAN;
+			/^g$/io		and $self->handlemorego(),			last MORE_PAN;
 			/^f$/io		and $self->handlemorefifo(),		last MORE_PAN;
 			/^v$/io		and $self->handlemoreversion(),		last MORE_PAN;
 			/^w$/io		and $_pfm->history->write(),		last MORE_PAN;
@@ -2509,14 +2508,95 @@ sub handlemorebookmark {
 =item handlemorego()
 
 Shows a list of the current bookmarks, then offers the user a choice to
-jump to one of them. (Not implemented)
+jump to one of them.
 
 =cut
 
 sub handlemorego {
 	my ($self) = @_;
-	# TODO
-	$self->not_implemented();
+	my $browser       = $_pfm->browser;
+	my $printline     = $_screen->BASELINE;
+	my $filerecordcol = $_screen->listing->filerecordcol;
+	my @heading       = $_screen->frame->bookmark_headings;
+	my $messcolor     =
+		$_pfm->config->{framecolors}{$_screen->color_mode}{message};
+	my $spacing       =
+		' ' x ($_screen->screenwidth - $_screen->diskinfo->infolength);
+	my ($dest, $flag, $key, $prompt, $destfile, $success,
+		$prevdir, $prevstate, $chdirautocmd);
+	$_screen->clear_footer()
+		->set_deferred_refresh(R_SCREEN)
+		->frame->show_bookmark_headings($_pfm->browser->swap_mode);
+	# list bookmarks
+	foreach (@{$_pfm->BOOKMARKKEYS}) {
+		last if ($printline > $_screen->BASELINE + $_screen->screenheight);
+		$dest = $_pfm->state($_);
+		$flag = ' ';
+		if (ref $dest) {
+			$dest = $dest->directory->path;
+			$flag = '*';
+		}
+		$_screen->at($printline++, $filerecordcol)
+			->puts(sprintf($heading[0], $_, $flag, $dest));
+	}
+	foreach ($printline .. $_screen->BASELINE + $_screen->screenheight) {
+		$_screen->at($printline++, $filerecordcol)->puts($spacing);
+	}
+	# choice
+	$prompt = 'Go to which bookmark? ';
+	$key = $_screen->at(0,0)->clreol()
+		->putcolored($messcolor, $prompt)->getch();
+	return if $key eq "\r";
+	$dest = $_pfm->state($key);
+	if ($dest eq '') {
+		# the bookmark is undefined
+		$_screen->at(0,0)->clreol()
+				->display_error('Bookmark not defined');
+		return;
+	} elsif (ref $dest) {
+		# the bookmark is an already prepared state object
+		$prevstate = $_pfm->state->clone();
+		$prevdir   = $prevstate->directory->path;
+		# go there
+		$_pfm->state('S_MAIN', $dest->clone());
+		# destination
+		$dest = $dest->directory->path;
+		# go there using bare chdir() - the state is already up to date
+		if ($success = chdir $dest and $dest ne $prevdir) {
+			# store the previous main state into S_PREV
+			$_pfm->state('S_PREV', $prevstate);
+			# restore the cursor position
+			$browser->baseindex(  $_pfm->state->{_baseindex});
+			$browser->position_at($_pfm->state->{_position});
+			# autocommand
+			$chdirautocmd = $_pfm->config->{chdirautocmd};
+			system("$chdirautocmd") if length($chdirautocmd);
+			$_screen->set_deferred_refresh(R_SCREEN);
+		} elsif (!$success) {
+			# the state needs refreshing as we counted on being
+			# able to chdir()
+			$_screen->at($_screen->PATHLINE, 0)->clreol()
+				->set_deferred_refresh(R_CHDIR)
+				->display_error("$dest: $!");
+		}
+	} else {
+		# the bookmark is an uninitialized directory path
+		$self->_expand_3456_escapes(QUOTE_OFF, $dest);
+		if (!-d $dest) {
+			$destfile = basename $dest;
+			$dest     = dirname  $dest;
+		}
+		if (!$_pfm->state->directory->chdir($dest)) {
+			$_screen->set_deferred_refresh(R_PATHINFO)
+				->display_error("$dest: $!");
+			return;
+		}
+		$_pfm->browser->position_at($destfile) if defined $destfile;
+		# TODO disable the next lines?
+		$_pfm->state->{_position}  = $browser->currentfile->{name};
+		$_pfm->state->{_baseindex} = $browser->baseindex;
+		$_pfm->state($key, $_pfm->state->clone());
+	}
 }
 
 =item handlemorefifo()

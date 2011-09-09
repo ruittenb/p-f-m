@@ -1,6 +1,14 @@
+2.05.9-alpha
+
+* added 'windowtype'
+* added reading bookmarks from file
+* added (M)ore - (G)o
+* code cleanup
+
 2.05.8-alpha
 
-*
+* converted state array to hash as preparation for bookmarks
+* fixed bug: state switching with F2 and F7 now works correctly
 
 2.05.7-alpha
 
@@ -215,6 +223,7 @@
 
 1.93.8
 
+* added: 'windowcmd' option to open directories in a new window
 * added: 'altscreenmode' option for switching to alternate screen buffer
 * code cleanup (a.o.: converted spaces to tabs)
 

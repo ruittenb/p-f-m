@@ -394,7 +394,7 @@ sub chdir {
 		$_pfm->state->{_position}  = $_pfm->browser->currentfile->{name};
 		$_pfm->state->{_baseindex} = $_pfm->browser->baseindex;
 		unless ($swapping) {
-			$_pfm->state('S_PREV', $_pfm->state->clone($_pfm));
+			$_pfm->state('S_PREV', $_pfm->state->clone());
 		}
 		if ($self->{_path_mode} eq 'phys') {
 			$self->{_path} = getcwd();

@@ -50,8 +50,9 @@ our $FIONREAD = 0;
 #	$FIONREAD = FIONREAD();
 #};
 
-my ($_pfm, $_screen,
-	$_currentline, $_baseindex, $_position_at);
+our ($_pfm, $_screen);
+
+my ($_currentline, $_baseindex, $_position_at);
 
 ##########################################################################
 # private subs
