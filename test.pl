@@ -3,9 +3,9 @@
 ##########################################################################
 #
 # Name:         test.pl
-# Version:      0.15
+# Version:      0.17
 # Author:       Rene Uittenbogaard
-# Date:         2010-10-23
+# Date:         2010-11-22
 # Usage:        test.pl
 # Description:  Test the pfm script and the associated libraries for
 #		syntax errors (using perl -cw).
@@ -19,6 +19,7 @@
 use lib '/usr/local/share/perl/devel/lib';
 
 use App::PFM::Application;
+use Module::Load;
 
 use POSIX;
 use strict;
@@ -33,13 +34,21 @@ sub produce_output {
 	# child process: perform tests
 	my $silent = 1;
 	my $libdir = POSIX::getcwd() . '/lib';
+	my $critic;
+	eval {
+		load 'Perl::Critic';
+		$critic = Perl::Critic->new(
+			-verbose  => "%F(%l,%c): %s: %m\n",
+			-severity => 'stern');
+	};
 
-	foreach (<lib/App/PFM/*.pm>,
-		<lib/App/PFM/Config/*.pm>,
-		<lib/App/PFM/Job/*.pm>,
-		<lib/App/PFM/OS/*.pm>,
-		<lib/App/PFM/Screen/*.pm>)
+	foreach (glob('lib/App/PFM/*.pm'),
+		 glob('lib/App/PFM/Config/*.pm'),
+		 glob('lib/App/PFM/Job/*.pm'),
+		 glob('lib/App/PFM/OS/*.pm'),
+		 glob('lib/App/PFM/Screen/*.pm'))
 	{
+#		print $critic->critique($_) if defined $critic;
 		system "perl -I $libdir -cw $_";
 	}
 

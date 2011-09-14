@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::Git 0.34
+# @(#) App::PFM::Job::Git 0.36
 #
 # Name:			App::PFM::Job::Git
-# Version:		0.34
+# Version:		0.36
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-10-18
+# Date:			2010-11-23
 #
 
 ##########################################################################
@@ -52,6 +52,7 @@ sub _init {
 	my ($self, $handlers, $options) = @_;
 	$self->{_COMMAND} = 'git status --porcelain %s';
 	$self->SUPER::_init($handlers, $options);
+	return;
 }
 
 =item _preprocess(string $data)
@@ -113,7 +114,7 @@ Split the status output in a filename- and a status-field.
 
 sub _preprocess {
 	my ($self, $data) = @_;
-	return undef if $data !~ /^([UMCRAD\? ]{2}) (?:.+ -> )?(.+)/o;
+	return if $data !~ /^([UMCRAD\? ]{2}) (?:.+ -> )?(.+)/o;
 	my $flags = $1;
 	my $file  = $2;
 	if ($file =~ /^"(.*)"$/) {

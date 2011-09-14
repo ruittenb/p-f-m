@@ -36,6 +36,7 @@ WriteMakefile(
 		'Term::ReadLine::Gnu'	=> 1.16,  # maybe as little as 1.09
 		'HTML::Parser'		=> 3.59,  # LWP needs it. maybe less, but 3.36 is too low
 		'LWP'			=> 5.827, # maybe less
+		'Module::Load'          => 0.16,
 	},
 	EXE_FILES		=> ['pfm'],
 #	DIR			=> ['listwhite'],

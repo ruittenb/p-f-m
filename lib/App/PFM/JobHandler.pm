@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::JobHandler 0.12
+# @(#) App::PFM::JobHandler 0.13
 #
 # Name:			App::PFM::JobHandler
-# Version:		0.12
+# Version:		0.13
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-29
+# Date:			2010-11-23
 #
 
 ##########################################################################
@@ -59,6 +59,7 @@ Initializes new instances. Called from the constructor.
 sub _init {
 	my ($self) = @_;
 	$self->{_jobs} = [];
+	return;
 }
 
 ##########################################################################
@@ -172,6 +173,7 @@ sub pollall {
 
 	# We could return the number of running jobs if count() wasn't unstable.
 	# (see below)
+	return;
 }
 
 =item count()

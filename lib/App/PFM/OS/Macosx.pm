@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::OS::Macosx 0.02
+# @(#) App::PFM::OS::Macosx 0.03
 #
 # Name:			App::PFM::OS::Macosx
-# Version:		0.02
+# Version:		0.03
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-20
-# Date:			2010-08-26
+# Date:			2010-11-21
 #
 
 ##########################################################################
@@ -77,14 +77,14 @@ sub aclput {
 	# 3: user:www inherited allow write,append,writesecurity,chown
 	#
 	my ($self, $path, $aclfilename, $aclfile) = @_;
-	my ($line, @lines, $flags, $res);
+	my (@lines, $flags, $res);
 	# slurp new ACL data
 	# flush? close/seek? open?
 	@lines = <$aclfile>;
 	# remove old ACL
 	$res = $self->system(qw{chmod -N}, $path);
 	# add new lines one at a time
-	foreach $line (@lines) {
+	foreach my $line (@lines) {
 		$line =~ s/^\s*\d+:\s*(user|group)i://;
 		if ($line =~s/\binherited\b//) {
 			$flags = '+ai';

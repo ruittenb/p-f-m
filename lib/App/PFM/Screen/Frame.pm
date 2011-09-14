@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Frame 0.39
+# @(#) App::PFM::Screen::Frame 0.41
 #
 # Name:			App::PFM::Screen::Frame
-# Version:		0.39
+# Version:		0.41
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-10-18
+# Date:			2010-11-22
 #
 
 ##########################################################################
@@ -119,8 +119,6 @@ our %EXPORT_TAGS = (
 
 our @EXPORT_OK = @{$EXPORT_TAGS{constants}};
 
-our ($_pfm, $_screen);
-
 ##########################################################################
 # private subs
 
@@ -133,10 +131,11 @@ Called from the constructor.
 
 sub _init {
 	my ($self, $pfm, $screen) = @_;
-	$_pfm	 = $pfm;
-	$_screen = $screen;
+	$self->{_pfm}        = $pfm;
+	$self->{_screen}     = $screen;
 	$self->{_currentpan} = 0;
 	$self->{_rcsrunning} = 0;
+	return;
 }
 
 =item _maxpan(string $banner, int $width)
@@ -147,12 +146,11 @@ Determines how many times a I<banner> (menu or footer) can be panned.
 
 sub _maxpan {
 	my ($self, $banner, $width) = @_;
-	my $panspace;
+	my ($charcount, $panspace);
 	# the next line is an assignment on purpose
 	if ($panspace = 2 * (length($banner) > $width)) {
-		eval "
-			\$banner =~ s/^((?:\\S+ )+?).{1,".($width - $panspace)."}\$/\$1/;
-		";
+		$charcount = $width - $panspace;
+		$banner =~ s/^((?:\S+ )+?).{1,$charcount}$/$1/;
 		return $banner =~ tr/ //;
 	} else {
 		return 0;
@@ -176,9 +174,7 @@ sub _fitbanner {
 		$maxwidth = $virtwidth	- 2 * ($currentpan > 0)
 								- 2 * ($currentpan < $spcount);
 		$banner  .= ' ';
-		eval "
-			\$banner =~ s/^(?:\\S+ ){$currentpan,}?(.{1,$maxwidth}) .*/\$1/;
-		";
+		$banner =~ s/^(?:\S+ ){$currentpan,}?(.{1,$maxwidth}) .*/$1/;
 		if ($currentpan > 0       ) { $banner  = '< ' . $banner; }
 		if ($currentpan < $spcount) { $banner .= ' >'; }
 	}
@@ -229,26 +225,27 @@ shown, using the B<HEADING_*> constants as defined in App::PFM::Screen::Frame.
 sub _getheadings {
 	my ($self, $heading_mode) = @_;
 	my ($heading, $fillin);
+	my $screen = $self->{_screen};
 	if ($heading_mode == HEADING_BOOKMARKS) {
 		# bookmarks heading
 		my @headline  = $self->bookmark_headings;
-		$heading = ' ' x $_screen->screenwidth;
+		$heading = ' ' x $screen->screenwidth;
 		$fillin  = sprintf($headline[0], ' ', ' ', 'path');
 		substr($heading,
-			$_screen->listing->filerecordcol,
+			$screen->listing->filerecordcol,
 			length($fillin),
 			$fillin);
 		$fillin  = sprintf($headline[1], 'disk info');
 		substr($heading,
-			$_screen->diskinfo->infocol,
+			$screen->diskinfo->infocol,
 			length($fillin),
 			$fillin);
 	} else {
 		# filelist heading
 		my ($diskinfo, $padding);
-		my @fields = @{$_screen->listing->layoutfieldswithinfo};
-		my $state  = $_pfm->state;
-		$padding = ' ' x ($_screen->diskinfo->infolength - 14);
+		my @fields = @{$screen->listing->layoutfieldswithinfo};
+		my $state  = $self->{_pfm}->state;
+		$padding = ' ' x ($screen->diskinfo->infolength - 14);
 		for ($heading_mode) {
 			$_ == HEADING_DISKINFO	and $diskinfo = "$padding     disk info";
 			$_ == HEADING_SORT		and $diskinfo = "sort mode     $padding";
@@ -259,11 +256,11 @@ sub _getheadings {
 		$_fieldheadings{diskinfo} = $diskinfo;
 		$self->update_headings();
 		$heading = formatted(
-			$_screen->listing->currentformatlinewithinfo,
+			$screen->listing->currentformatlinewithinfo,
 			@_fieldheadings{@fields});
 		# the rightmost field may be left-aligned, i.e. too short
-		if (length $heading < $_screen->screenwidth) {
-			$heading .= ' ' x ($_screen->screenwidth - length $heading);
+		if (length $heading < $screen->screenwidth) {
+			$heading .= ' ' x ($screen->screenwidth - length $heading);
 		}
 	}
 	return $heading;
@@ -279,23 +276,24 @@ using the B<FOOTER_*> constants as defined in App::PFM::Screen::Frame.
 
 sub _getfooter {
 	my ($self, $footer_mode) = @_;
-	my $f = '';
-	my %state = %{$_pfm->state};
+	my $f     = '';
+	my $pfm   = $self->{_pfm};
+	my %state = %{$pfm->state};
 	if ($footer_mode == FOOTER_MORE) {
 		$f = "F5-Smart-refresh F6-Multilevel-sort";
 	} elsif ($footer_mode == FOOTER_SINGLE or $footer_mode == FOOTER_MULTI) {
 		$f =	"F1-Help F2-Prev F3-Redraw"
-		.		" F4-Color[" . $_screen->color_mode . "] F5-Refresh"
-		.		" F6-Sort[" . $_pfm->state->sort_mode . "]"
-		.		" F7-Swap[$ONOFF{$_pfm->browser->swap_mode}] F8-In/Exclude"
-		.		" F9-Layout[" . $_screen->listing->layout . "]" # $layoutname ?
+		.		" F4-Color[" . $self->{_screen}->color_mode . "] F5-Refresh"
+		.		" F6-Sort[" . $pfm->state->sort_mode . "]"
+		.		" F7-Swap[$ONOFF{$pfm->browser->swap_mode}] F8-In/Exclude"
+		.		" F9-Layout[" . $self->{_screen}->listing->layout . "]"
 		.		" F10-Multiple[$ONOFF{$state{multiple_mode}}] F11-Restat"
-		.		" F12-Mouse[$ONOFF{$_pfm->browser->mouse_mode}]"
-		.		" !-Clobber[$ONOFF{$_pfm->commandhandler->clobber_mode}]"
+		.		" F12-Mouse[$ONOFF{$pfm->browser->mouse_mode}]"
+		.		" !-Clobber[$ONOFF{$pfm->commandhandler->clobber_mode}]"
 		.		" .-Dotfiles[$ONOFF{$state{dot_mode}}]"
 		.		" %-Whiteouts[$ONOFF{$state{white_mode}}]"
-		.		" \"-Pathnames[" . $_pfm->state->directory->path_mode . "]"
-		.		" ;-Ignored[$ONOFF{$_pfm->state->directory->ignore_mode}]"
+		.		" \"-Pathnames[" . $pfm->state->directory->path_mode . "]"
+		.		" ;-Ignored[$ONOFF{$pfm->state->directory->ignore_mode}]"
 #		.		" *-Radix[$state{radix_mode}]"
 #		.		" SP-Spaces[$state{trspace}]"
 #		.		" =-Ident[$state{ident_mode}]"
@@ -342,16 +340,11 @@ and format.
 
 sub bookmark_headings {
 	my ($self) = @_;
-	my $infolength = $_screen->diskinfo->infolength;
+	my $infolength = $self->{_screen}->diskinfo->infolength;
 	my @headings =
-		(" %1s%1s %-" . ($_screen->screenwidth - 5 - $infolength) . 's',
+		(" %1s%1s %-" . ($self->{_screen}->screenwidth -5 - $infolength) . 's',
 		 "%${infolength}s",
-		$_screen->screenwidth - 5 - $infolength);
-#		(' @@ @' . '<' x ($_screen->screenwidth - 6 - $infolength),
-#		 '@'    . '>' x ($infolength - 1));
-#	if ($_screen->diskinfo->infocol < $_screen->listing->filerecordcol) {
-#		@headings = reverse @headings;
-#	}
+		$self->{_screen}->screenwidth - 5 - $infolength);
 	return @headings;
 	#  |--------------screenwidth---------------|
 	#  11111                     11 (infolength-1)
@@ -397,13 +390,14 @@ sub show {
 			: $menu_mode == MENU_MULTI
 				? FOOTER_MULTI
 				: FOOTER_NONE;
-	$self->show_headings($_pfm->browser->swap_mode, $heading_mode);
+	$self->show_headings($self->{_pfm}->browser->swap_mode, $heading_mode);
 	$self->show_footer($footer_mode);
 	if ($prompt) {
-#        $_screen->at(0,0)->clreol()->putcolored(
-#			$_pfm->config->{framecolors}{$_screen->color_mode}{message},
+#		my $color_mode = $self->{_screen}->color_mode;
+#		$self->{_screen}->at(0,0)->clreol()->putcolored(
+#			$self->{_pfm}->config->{framecolors}{$color_mode}{message},
 #			$prompt);
-        $_screen->at(0,0)->clreol()->putmessage($prompt);
+		$self->{_screen}->at(0,0)->clreol()->putmessage($prompt);
 		$menulength = length $prompt;
 	} else {
 		$menulength = $self->show_menu($menu_mode);
@@ -422,27 +416,29 @@ using the B<MENU_> constants as defined in App::PFM::Screen::Frame.
 sub show_menu {
 	my ($self, $menu_mode) = @_;
 	my ($pos, $menu, $menulength, $vscreenwidth, $color, $do_multi);
-	$menu_mode ||= ($_pfm->state->{multiple_mode} * MENU_MULTI);
+	my $screen      = $self->{_screen};
+	my $framecolors = $self->{_pfm}->config->{framecolors};
+	$menu_mode ||= ($self->{_pfm}->state->{multiple_mode} * MENU_MULTI);
 	$do_multi = $menu_mode & MENU_MULTI;
-	$vscreenwidth = $_screen->screenwidth - 9 * $do_multi;
+	$vscreenwidth = $screen->screenwidth - 9 * $do_multi;
 	$menu         = $self->_fitbanner(
 		$self->_getmenu($menu_mode), $vscreenwidth);
 	$menulength   = length($menu);
 	if ($menulength < $vscreenwidth) {
 		$menu .= ' ' x ($vscreenwidth - $menulength);
 	}
-	$_screen->at(0,0);
+	$screen->at(0,0);
 	if ($do_multi) {
-		$color = $_pfm->config->{framecolors}{$_screen->color_mode}{multi};
-		$_screen->putcolored($color, 'Multiple');
+		$color = $framecolors->{$screen->color_mode}{multi};
+		$screen->putcolored($color, 'Multiple');
 	}
-	$color = $_pfm->config->{framecolors}{$_screen->color_mode}{menu};
-	$_screen->putcolor($color)->puts(' ' x $do_multi)->puts($menu)->bold();
+	$color = $framecolors->{$screen->color_mode}{menu};
+	$screen->putcolor($color)->puts(' ' x $do_multi)->puts($menu)->bold();
 	while ($menu =~ /[[:upper:]<>](?![xn]clude\?)/g) {
 		$pos = pos($menu) -1;
-		$_screen->at(0, $pos + 9*$do_multi)->puts(substr($menu, $pos, 1));
+		$screen->at(0, $pos + 9*$do_multi)->puts(substr($menu, $pos, 1));
 	}
-	$_screen->reset()->normal();
+	$screen->reset()->normal();
 	return $menulength;
 }
 
@@ -458,12 +454,15 @@ defined in App::PFM::Screen::Frame.
 sub show_headings {
 	my ($self, $swapmode, $heading_mode) = @_;
 	my $heading   = $self->_getheadings($heading_mode);
+	my $colors    =
+		$self->{_pfm}->config->{framecolors}{$self->{_screen}->color_mode};
 	my $linecolor = $swapmode
-		? $_pfm->config->{framecolors}->{$_screen->color_mode}{swap}
-		: $_pfm->config->{framecolors}->{$_screen->color_mode}{headings};
-	$_screen->at($_screen->HEADINGLINE, 0)
+		? $colors->{swap}
+		: $colors->{headings};
+	$self->{_screen}->at($self->{_screen}->HEADINGLINE, 0)
 		->putcolored($linecolor, $heading)
 		->reset()->normal();
+	return $self->{_screen};
 }
 
 =item show_footer( [ int $footer_mode ] )
@@ -474,15 +473,17 @@ Displays the footer, i.e. the last line on screen with the status info.
 
 sub show_footer {
 	my ($self, $footer_mode) = @_;
-	$footer_mode ||= ($_pfm->state->{multiple_mode} * FOOTER_MULTI);
-	my $width	   = $_screen->screenwidth;
-	my $footer	   = $self->_fitbanner($self->_getfooter($footer_mode), $width);
-	my $padding	   = ' ' x ($width - length $footer);
+	$footer_mode ||= ($self->{_pfm}->state->{multiple_mode} * FOOTER_MULTI);
+	my $screen     = $self->{_screen};
+	my $width      = $screen->screenwidth;
+	my $footer     = $self->_fitbanner($self->_getfooter($footer_mode), $width);
+	my $padding    = ' ' x ($width - length $footer);
 	my $linecolor  =
-		$_pfm->config->{framecolors}{$_screen->color_mode}{footer};
-	$_screen->at($_screen->BASELINE + $_screen->screenheight + 1, 0)
+		$self->{_pfm}->config->{framecolors}{$screen->color_mode}{footer};
+	$screen->at($screen->BASELINE + $screen->screenheight + 1, 0)
 		->putcolored($linecolor, $footer, $padding)
 		->reset()->normal();
+	return $screen;
 }
 
 =item update_headings()
@@ -493,7 +494,7 @@ Updates the column headings in case of a mode change.
 
 sub update_headings {
 	my ($self) = @_;
-	my $state = $_pfm->state;
+	my $state = $self->{_pfm}->state;
 	my $filters = ($state->{white_mode} ? '' : '%')
 				. ($state->{dot_mode}   ? '' : '.');
 	$_fieldheadings{display} = $_fieldheadings{name} .
@@ -503,6 +504,7 @@ sub update_headings {
 	} else {
 		$_fieldheadings{rcs} =~ s/!+$//;
 	}
+	return $self->{_screen};
 }
 
 =item pan(string $key, $string $menu_mode)
@@ -515,14 +517,17 @@ using the B<MENU_> constants as defined in App::PFM::Screen::Frame.
 
 sub pan {
 	my ($self, $key, $menu_mode) = @_;
-	my $width = $_screen->screenwidth - 9 * $_pfm->state->{multiple_mode};
-	my $count = max(
+	my $screen = $self->{_screen};
+	my $width  =
+		$screen->screenwidth - 9 * $self->{_pfm}->state->{multiple_mode};
+	my $count  = max(
 		$self->_maxpan($self->_getmenu($menu_mode), $width),
 		$self->_maxpan($self->_getfooter($menu_mode), $width)
 	);
 	$self->{_currentpan} += ($key eq '>' and $self->{_currentpan} < $count)
 						  - ($key eq '<' and $self->{_currentpan} > 0);
-	$_screen->set_deferred_refresh($_screen->R_MENU | $_screen->R_FOOTER);
+	$screen->set_deferred_refresh($screen->R_MENU | $screen->R_FOOTER);
+	return $screen;
 }
 
 ##########################################################################

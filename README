@@ -1,5 +1,5 @@
 
-Package: pfm-2.10.5
+Package: pfm-2.10.6
 
 
 * This package is available from http://sourceforge.net/projects/p-f-m/
@@ -13,12 +13,13 @@ Package: pfm-2.10.5
     File::Temp             0.22 ?        0.22
     HTML::Parser           3.59 ?        3.68
       LWP                  5.827 ?       5.837
+    Module::Load           0.16          0.18
   readline                 4.1           5
     Term-ReadLine-Gnu      1.09          1.20
   ncurses                  ?             5
     Term-Screen            1.03          1.03
       Term-ScreenColor     1.13          1.20
-        pfm                2.10.5
+        pfm                2.10.6
 
 
 * Confusingly, the package File-Stat-Bits-1.01.tar.gz provides

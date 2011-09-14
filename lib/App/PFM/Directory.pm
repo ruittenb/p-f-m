@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Directory 0.96
+# @(#) App::PFM::Directory 0.98
 #
 # Name:			App::PFM::Directory
-# Version:		0.96
+# Version:		0.98
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-16
+# Date:			2010-11-22
 #
 
 ##########################################################################
@@ -127,6 +127,7 @@ sub _init {
 	$self->{_dirty}			 = 0;
 
 	$self->_install_event_handlers();
+	return;
 }
 
 =item _clone(App::PFM::Directory $original [ , array @args ] )
@@ -146,6 +147,7 @@ sub _clone {
 	$self->{_disk}			 = { %{$original->{_disk}			} };
 
 	$self->_install_event_handlers();
+	return;
 }
 
 =item _install_event_handlers()
@@ -166,6 +168,7 @@ sub _install_event_handlers {
 		'after_set_color_mode',     $self->{_on_after_set_color_mode});
 	$self->{_screen}->listing->register_listener(
 		'after_change_formatlines', $self->{_on_after_change_formatlines});
+	return;
 }
 
 =item _by_sort_mode()
@@ -275,6 +278,7 @@ sub _sort_singlelevel {
 			/F/ and return lc($extb) cmp lc($exta);
 		};
 	}
+	return;
 }
 
 =item _init_filesystem_info()
@@ -307,6 +311,7 @@ sub _init_dircount {
 		%{$self->{_total_nr_of}} =
 			( d=>0, '-'=>0, l=>0, c=>0, b=>0, D=>0, P=>0,
 			  p=>0, 's'=>0, n=>0, w=>0, bytes => 0 );
+	return;
 }
 
 =item _countcontents(array @entries)
@@ -323,6 +328,7 @@ sub _countcontents {
 		$self->{_marked_nr_of}{$entries[$i]{type}}++
 			if $entries[$i]{mark} eq M_MARK;
 	}
+	return;
 }
 
 =item _readcontents(bool $smart)
@@ -336,7 +342,7 @@ is refreshed but the marks are retained.
 
 sub _readcontents {
 	my ($self, $smart) = @_;
-	my ($entry, $file, %namemarkmap);
+	my ($file, %namemarkmap);
 	my @allentries    = ();
 	my @white_entries = ();
 	my $screen        = $self->{_screen};
@@ -348,9 +354,9 @@ sub _readcontents {
 	$self->{_showncontents} = [];
 	# don't use '.' as the directory path to open: we may be just
 	# prepare()ing this object without actually entering the directory
-	if (opendir CURRENT, $self->{_path}) {
-		@allentries = readdir CURRENT;
-		closedir CURRENT;
+	if (opendir my $CURRENT, $self->{_path}) {
+		@allentries = readdir $CURRENT;
+		closedir $CURRENT;
 		@white_entries = $self->{_os}->listwhite($self->{_path});
 	} else {
 		$screen->at(0,0)->clreol()->display_error("Cannot read . : $!");
@@ -363,14 +369,14 @@ sub _readcontents {
 	if ($#allentries > SLOWENTRIES) {
 		$screen->at(0,0)->clreol()->putmessage('Please Wait');
 	}
-	foreach $entry (@allentries) {
+	foreach my $entry (@allentries) {
 		# have the mark cleared on first stat with ' '
 		$self->add(
 			entry => $entry,
 			white => '',
 			mark  => $smart ? $namemarkmap{$entry} : ' ');
 	}
-	foreach $entry (@white_entries) {
+	foreach my $entry (@white_entries) {
 		chop $entry;
 		$self->add(
 			entry => $entry,
@@ -392,6 +398,7 @@ sub _sortcontents {
 	my ($self) = @_;
 	@{$self->{_dircontents}} =
 		sort { $self->_by_sort_mode } @{$self->{_dircontents}};
+	return;
 }
 
 =item _filtercontents()
@@ -407,6 +414,7 @@ sub _filtercontents {
 		$_pfm->state->{dot_mode}   || $_->{name} =~ /^(\.\.?|[^\.].*)$/ and
 		$_pfm->state->{white_mode} || $_->{type} ne 'w'
 	} @{$self->{_dircontents}};
+	return;
 }
 
 =item _catch_quit()
@@ -419,6 +427,7 @@ sub _catch_quit {
 	my ($self) = @_;
 	$self->{_wasquit} = 1;
 	$SIG{QUIT} = \&_catch_quit;
+	return;
 }
 
 ##########################################################################
@@ -435,10 +444,18 @@ Directory object for garbage collection.
 
 sub destroy {
 	my ($self) = @_;
-	$self->{_screen}->unregister_listener(
-		'after_set_color_mode',     $self->{_on_after_set_color_mode});
-	$self->{_screen}->listing->unregister_listener(
-		'after_change_formatlines', $self->{_on_after_change_formatlines});
+	my $screen = $self->{_screen};
+	if (defined $screen) {
+		$screen->unregister_listener(
+			'after_set_color_mode',
+			$self->{_on_after_set_color_mode});
+		if (defined $screen->listing) {
+			$screen->listing->unregister_listener(
+				'after_change_formatlines',
+				$self->{_on_after_change_formatlines});
+		}
+	}
+	return;
 }
 
 =item path( [ string $nextdir [, bool $swapping [, string $direction ] ] ] )
@@ -594,6 +611,7 @@ sub prepare {
 	$self->_sortcontents();
 	$self->_filtercontents();
 	$self->{_dirty} = 0;
+	return;
 }
 
 =item chdir(string $nextdir [, bool $swapping [, string $direction ] ] )
@@ -634,7 +652,7 @@ sub chdir {
 		}
 	}
 	$nextdir = canonicalize_path($nextdir);
-	$self->fire(new App::PFM::Event({
+	$self->fire(App::PFM::Event->new({
 		name => 'before_change_directory',
 		type => 'soft',
 	}));
@@ -699,6 +717,7 @@ sub addifabsent {
 			$self->{_screen}->set_deferred_refresh(R_LISTING);
 		}
 	}
+	return;
 }
 
 =item add(hashref { entry => string $filename, white => char
@@ -710,13 +729,14 @@ Adds the entry as file to the directory. Also calls register().
 
 sub add {
 	my ($self, %o) = @_; # ($entry, $white, $mark, $refresh);
-	my $file = new App::PFM::File(%o, parent => $self->{_path});
+	my $file = App::PFM::File->new(%o, parent => $self->{_path});
 	push @{$self->{_dircontents}}, $file;
 	$self->register($file);
 	$self->set_dirty(D_FILTER | D_SORT);
 	if ($o{refresh}) {
 		$self->{_screen}->set_deferred_refresh(R_LISTING);
 	}
+	return;
 }
 
 =item register(App::PFM::File $file)
@@ -732,6 +752,7 @@ sub register {
 		$self->register_include($entry);
 	}
 	$self->{_screen}->set_deferred_refresh(R_DISKINFO);
+	return;
 }
 
 =item unregister(App::PFM::File $file)
@@ -761,6 +782,7 @@ sub include {
 	my ($self, $entry) = @_;
 	$self->register_include($entry) if ($entry->{mark} ne M_MARK);
 	$entry->{mark} = M_MARK;
+	return;
 }
 
 =item exclude(App::PFM::File $file [, char $to_mark ] )
@@ -789,6 +811,7 @@ sub register_include {
 	$self->{_marked_nr_of}{$entry->{type}}++;
 	$entry->{type} =~ /-/ and $self->{_marked_nr_of}{bytes} += $entry->{size};
 	$self->{_screen}->set_deferred_refresh(R_DISKINFO);
+	return;
 }
 
 =item register_exclude(App::PFM::File $file)
@@ -802,6 +825,7 @@ sub register_exclude {
 	$self->{_marked_nr_of}{$entry->{type}}--;
 	$entry->{type} =~ /-/ and $self->{_marked_nr_of}{bytes} -= $entry->{size};
 	$self->{_screen}->set_deferred_refresh(R_DISKINFO);
+	return;
 }
 
 =item ls()
@@ -813,10 +837,10 @@ Used for debugging.
 sub ls {
 	my ($self) = @_;
 	my $listing = $self->{_screen}->listing;
-	my $file;
-	foreach $file (@{$self->{_dircontents}}) {
+	foreach my $file (@{$self->{_dircontents}}) {
 		print $listing->fileline($file), "\n";
 	}
+	return;
 }
 
 =item set_dirty(int $flag_bits)
@@ -829,6 +853,7 @@ constants (see below) may be used to specify which aspect.
 sub set_dirty {
 	my ($self, $bits) = @_;
 	$self->{_dirty} |= $bits;
+	return;
 }
 
 =item unset_dirty(int $flag_bits)
@@ -841,6 +866,7 @@ constants (see below) may be used to specify which aspect.
 sub unset_dirty {
 	my ($self, $bits) = @_;
 	$self->{_dirty} &= ~$bits;
+	return;
 }
 
 =item refresh()
@@ -885,6 +911,7 @@ sub refresh {
 	if ($dirty & D_FILTER) {
 		$self->_filtercontents();
 	}
+	return;
 }
 
 =item checkrcsapplicable( [ string $path ] )
@@ -896,7 +923,7 @@ and starts them.
 
 sub checkrcsapplicable {
 	my ($self, $entry) = @_;
-	my ($class, $fullclass);
+	my ($fullclass);
 	my $path   = $self->{_path};
 	my $screen = $self->{_screen};
 	$entry = defined $entry ? $entry : $path;
@@ -910,10 +937,9 @@ sub checkrcsapplicable {
 		my $event = shift;
 		my $job   = $event->{origin};
 		my $count = 0;
-		my $data_line;
 		my %nameindexmap =
 			map { $_->{name}, $count++ } @{$self->{_showncontents}};
-		foreach $data_line (@{$event->{data}}) {
+		foreach my $data_line (@{$event->{data}}) {
 			my ($flags, $file) = @$data_line;
 			my ($topdir, $mapindex, $oldval);
 			if (substr($file, 0, length($path)) eq $path) {
@@ -953,7 +979,7 @@ sub checkrcsapplicable {
 	};
 	# TODO when a directory is swapped out, the jobs should continue
 	# TODO when a directory is cloned, what to do?
-	foreach $class (@{$self->RCS}) {
+	foreach my $class (@{$self->RCS}) {
 		$fullclass = "App::PFM::Job::$class";
 		if ($fullclass->isapplicable($path)) {
 			if (defined $self->{_rcsjob}) {
@@ -973,6 +999,7 @@ sub checkrcsapplicable {
 			return;
 		}
 	}
+	return;
 }
 
 =item preparercscol( [ App::PFM::File $file ] )
@@ -994,6 +1021,7 @@ sub preparercscol {
 		$self->{_showncontents}[$_]{$layoutfields->{'v'}} = '-';
 	}
 	$self->{_screen}->set_deferred_refresh(R_LISTING);
+	return;
 }
 
 =item reformat()
@@ -1010,6 +1038,7 @@ sub reformat {
 	foreach (@{$self->{_dircontents}}) {
 		$_->format();
 	}
+	return;
 }
 
 =item dirlookup(string $filename, array @dircontents)
@@ -1049,7 +1078,7 @@ being processed will be displayed on the second line of the screen.
 sub apply {
 	my ($self, $do_this, $event, @args) = @_;
 	my $applyflags = $event->{lunchbox}{applyflags};
-	my ($i, $loopfile, $deleted_index, $count, %nameindexmap);
+	my ($loopfile, $deleted_index, $count, %nameindexmap);
 	if ($_pfm->state->{multiple_mode}) {
 		#$self->{_wasquit} = 0;
 		#local $SIG{QUIT} = \&_catch_quit;
@@ -1063,7 +1092,7 @@ sub apply {
 			%nameindexmap =
 				map { $_->{name}, $count++ } @{$self->{_dircontents}};
 		}
-		foreach $i (@range) {
+		foreach my $i (@range) {
 			$loopfile = $self->{_showncontents}[$i];
 			if ($loopfile->{mark} eq M_MARK) {
 				# don't give feedback in cOmmand or Your
@@ -1112,9 +1141,10 @@ sub apply {
 			$deleted_index = $self->dirlookup(
 				$loopfile->{name}, @{$self->{_dircontents}});
 			splice @{$self->{_dircontents}}, $deleted_index, 1;
-			splice @{$self->{_showncontents}}, $i, 1;
+#			splice @{$self->{_showncontents}}, $i, 1; # TODO WRONG
 		}
 	}
+	return;
 }
 
 ##########################################################################

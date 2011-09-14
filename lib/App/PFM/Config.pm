@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 1.08
+# @(#) App::PFM::Config 1.10
 #
 # Name:			App::PFM::Config
-# Version:		1.08
+# Version:		1.10
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-18
+# Date:			2010-11-23
 #
 
 ##########################################################################
@@ -50,7 +50,7 @@ use constant {
 	READ_FIRST		 => 1,
 	CONFIGDIRNAME	 => "$ENV{HOME}/.pfm",
 	CONFIGFILENAME	 => '.pfmrc',
-	CONFIGDIRMODE	 => 0700,
+	CONFIGDIRMODE	 => oct(700),
 	BOOKMARKFILENAME => 'bookmarks',
 };
 
@@ -100,6 +100,7 @@ sub _init {
 	$self->{_pfmrc}          = {};
 	$self->{_text}           = [];
 	$self->{_configfilename} = $self->location();
+	return;
 }
 
 =item _parse_colorsets()
@@ -147,6 +148,7 @@ sub _parse_colorsets {
 			$self->{framecolors}{$_}{$1} = $2;
 		}
 	}
+	return;
 }
 
 =item _ask_to_backup(string $message)
@@ -260,23 +262,23 @@ sub read {
 			$self->write_default();
 		}
 		# open and read in
-		if (open PFMRC, $self->{_configfilename}) {
-			$self->{_text} = [ <PFMRC> ];
-			seek(PFMRC, 0, 0); # rewind
-			while (<PFMRC>) {
+		if (open my $PFMRC, '<', $self->{_configfilename}) {
+			$self->{_text} = [ <$PFMRC> ];
+			seek($PFMRC, 0, 0); # rewind
+			while (<$PFMRC>) {
 				if (/#\s*Version\D+([[:alnum:].]+)$/) {
 					$pfmrc_version = $1;
 					next;
 				}
 				s/#.*//;
-				if (s/\\\n?$//) { $_ .= <PFMRC>; redo; }
+				if (s/\\\n?$//) { $_ .= <$PFMRC>; redo; }
 #				if (/^\s*([^:[\s]+(?:\[[^]]+\])?)\s*:\s*(.*)$/o) {
 				if (/^[ \t]*([^: \t[]+(?:\[[^]]+\])?)[ \t]*:[ \t]*(.*)$/o) {
 #					print STDERR "-$1";
 					$self->{_pfmrc}{$1} = $2;
 				}
 			}
-			close PFMRC;
+			close $PFMRC;
 			return unless $read_first;
 			# messages will not be in message color: usecolor not yet parsed
 			if (!defined $pfmrc_version) {
@@ -289,7 +291,7 @@ sub read {
 				$screen->important_delay();
 			} elsif ($pfmrc_version lt $self->{_pfm_version}) {
 				# pfmrc version outdated
-				$updater = new App::PFM::Config::Update();
+				$updater = App::PFM::Config::Update->new();
 				$wanna = "Warning: your $self->{_configfilename} version "
 					.	"$pfmrc_version\r\nmay be too old for this version "
 					.	"of pfm ($self->{_pfm_version}).\r\nDo you want me to "
@@ -314,6 +316,7 @@ sub read {
 			} # if !defined($version) or $version lt $pfm_version
 		} # if open()
 	} # READ_ATTEMPT
+	return;
 }
 
 =item parse()
@@ -342,7 +345,7 @@ sub parse {
 		$self->{usecolor} = $self->{_screen}->colorizable;
 	}
 	# copyright message
-	$self->fire(new App::PFM::Event({
+	$self->fire(App::PFM::Event->new({
 		name   => 'after_parse_usecolor',
 		origin => $self,
 		type   => 'soft',
@@ -385,6 +388,7 @@ sub parse {
 	$self->{escapechar} =
 	$self->{e}			= $e	 = $pfmrc->{escapechar} || '=';
 	$self->{sortcycle}			 = $pfmrc->{sortcycle} || 'n,en,dn,Dn,sn,Sn,tn,un';
+	$self->{keymap}				 = $pfmrc->{keymap} || 'emacs';
 	$self->{paste_protection}	 = $pfmrc->{paste_protection} || 'xterm';
 	$self->{paste_protection}	 = ($self->{paste_protection} eq 'xterm' && isxterm($ENV{TERM}))
 								 || isyes($self->{paste_protection});
@@ -424,12 +428,13 @@ sub parse {
 			: DEFAULTFORMAT
 	];
 	$self->_parse_colorsets();
-	$self->fire(new App::PFM::Event({
+	$self->fire(App::PFM::Event->new({
 		name   => 'after_parse_config',
 		origin => $self,
 		type   => 'soft',
 		data   => $pfmrc,
 	}));
+	return;
 }
 
 =item write_default()
@@ -458,7 +463,7 @@ sub write_default {
 			length strftime("%b", gmtime($secs_per_32_days * $_)));
 	}
 	$maxdatelen -= 3;
-	if (open MKPFMRC, ">$self->{_configfilename}") { # ignore failure
+	if (open my $MKPFMRC, '>', $self->{_configfilename}) { # ignore failure
 		# both __DATA__ and __END__ markers are used at the same time
 		while (($_ = <DATA>) !~ /^__END__/) {
 			s/^(##? Version )x/$1$version/m;
@@ -471,11 +476,12 @@ sub write_default {
 				s/([cma])/$1 x ($maxdatelen+1)/e &&
 				s/nnnnn{$maxdatelen}/nnnn/;
 			}
-			print MKPFMRC;
+			print $MKPFMRC $_;
 		}
 		close DATA;
-		close MKPFMRC;
+		close $MKPFMRC;
 	} # no success? well, that's just too bad
+	return;
 }
 
 =item backup()
@@ -501,9 +507,9 @@ Creates a new config file by writing the raw text to it.
 
 sub write_text {
 	my ($self) = @_;
-	open MKPFMRC, ">$self->{_configfilename}" or return 0;
-	print MKPFMRC @{$self->{_text}};
-	close MKPFMRC or return 0;
+	open my $MKPFMRC, '>', $self->{_configfilename} or return;
+	print $MKPFMRC @{$self->{_text}};
+	close $MKPFMRC or return;
 	return 1;
 }
 
@@ -517,15 +523,15 @@ Fails silently if the bookmarks file cannot be read.
 sub read_bookmarks {
 	my ($self) = @_;
 	my %bookmarks = ();
-	if (open BOOKMARKS, CONFIGDIRNAME . "/" . BOOKMARKFILENAME) {
-		while (<BOOKMARKS>) {
+	if (open my $BOOKMARKS, '<', CONFIGDIRNAME . "/" . BOOKMARKFILENAME) {
+		while (<$BOOKMARKS>) {
 			# wrapping lines (ending in '\') are not allowed
 			s/#.*//;
 			if (/^[ \t]*bookmark\[(.)\][ \t]*:[ \t]*(.*)$/o) {
 				$bookmarks{$1} = $2;
 			}
 		}
-		close BOOKMARKS;
+		close $BOOKMARKS;
 	} # fail silently
 	return %bookmarks;
 }
@@ -542,17 +548,17 @@ should be shown without delay.
 
 sub write_bookmarks {
 	my ($self, $finishing) = @_;
-	my ($state, $path);
+	my ($state, $path, $BOOKMARKS);
 	my $screen = $self->{_screen};
 	unless ($finishing) {
 		$screen->at(0,0)->clreol()
 			->set_deferred_refresh($screen->R_MENU);
 	}
-	unless (open BOOKMARKS, ">" . CONFIGDIRNAME . "/" . BOOKMARKFILENAME) {
+	unless (open $BOOKMARKS, '>', CONFIGDIRNAME . "/" . BOOKMARKFILENAME) {
 		$screen->display_error("Error writing bookmarks: $!");
 		return;
 	}
-	print BOOKMARKS '#' x 74, "\n## bookmarks for pfm\n\n";
+	print $BOOKMARKS '#' x 74, "\n## bookmarks for pfm\n\n";
 	foreach (@{BOOKMARKKEYS()}) {
 		next if /^S_/; # skip S_MAIN, S_PREV, S_SWAP
 		$state = $_pfm->state($_);
@@ -564,10 +570,10 @@ sub write_bookmarks {
 		} else {
 			$path = $state;
 		}
-		print BOOKMARKS "bookmark[$_]:$path\n";
+		print $BOOKMARKS "bookmark[$_]:$path\n";
 	}
-	print BOOKMARKS "\n## vim: set filetype=xdefaults:\n";
-	unless (close BOOKMARKS) {
+	print $BOOKMARKS "\n## vim: set filetype=xdefaults:\n";
+	unless (close $BOOKMARKS) {
 		$screen->display_error("Error writing bookmarks: $!");
 		return;
 	}
@@ -576,6 +582,7 @@ sub write_bookmarks {
 	unless ($finishing) {
 		$screen->error_delay();
 	}
+	return;
 }
 
 =item on_shutdown()
@@ -588,6 +595,7 @@ to file if so indicated by the config.
 sub on_shutdown {
 	my ($self) = @_;
 	$self->write_bookmarks(1) if $self->{autowritebookmarks};
+	return;
 }
 
 ##########################################################################
@@ -763,8 +771,11 @@ keydef[*]:kmous=\e[M:pgdn=\e[62~:pgup=\e[63~:
 ## gnome-terminal handles F11 itself. enable shift-F11 by adding:
 #k11=\e[23;2~:
 
-## the keymap to use in readline (vi,emacs). (default emacs)
-#keymap:vi
+## the keymap to use in readline. Allowed values are:
+## emacs (=emacs-standard), emacs-standard, emacs-meta, emacs-ctlx,
+## vi (=vi-command), vi-command, vi-move, and vi-insert.
+## emacs is the default.
+#keymap:vi-insert
 
 ## turn off mouse support during execution of commands?
 ## caution: if you set this to 'no', your (external) commands (like $pager

@@ -9,6 +9,8 @@ FILE_TEMP_VER      = 0.22
 FILE_TEMP          = File-Temp-$(FILE_TEMP_VER)
 FILE_STAT_BITS_VER = 0.19
 FILE_STAT_BITS     = File-Stat-Bits-1.01
+MODULE_LOAD_VER    = 0.18
+MODULE_LOAD        = Module-Load-$(MODULE_LOAD_VER)
 HTML_PARSER_VER    = 3.68
 HTML_PARSER        = HTML-Parser-$(HTML_PARSER_VER)
 LWP_VER            = 5.837
@@ -18,12 +20,87 @@ DARWINOPTS = --includedir=/opt/local/include --libdir=/opt/local/lib
 
 SUDO = $$SUDO
 
-all: LWP HTML-Parser Term-Screen Term-ScreenColor Term-ReadLine-Gnu	\
-	File-Temp File-Stat-Bits
+all: LWP HTML-Parser File-Temp File-Stat-Bits				\
+	Module-Load Term-Screen Term-ScreenColor Term-ReadLine-Gnu
 
 clean:
-	rm -rf $(TERM_SCREEN) $(TERM_SCRCOL) $(TERM_RL_GNU)		\
-		$(FILE_TEMP) $(FILE_STAT_BITS) $(HTML_PARSER) $(LWP)
+	rm -rf $(LWP) $(HTML_PARSER) $(FILE_TEMP) $(FILE_STAT_BITS)	\
+	$(MODULE_LOAD) $(TERM_SCREEN) $(TERM_SCRCOL) $(TERM_RL_GNU)
+
+LWP:
+	@echo 'Checking installation of LWP...'
+	@if 2>/dev/null perl -MLWP -e					\
+	'exit !($$LWP::VERSION ge "$(LWP_VER)")';			\
+	then :;								\
+	else								\
+		gunzip < $(LWP).tar.gz | tar xvf - ;			\
+		(							\
+			cd $(LWP)		&&			\
+			perl Makefile.PL	&&			\
+			make all test		&&			\
+			${SUDO} make install				\
+		)							\
+	fi
+
+HTML-Parser:
+	@echo 'Checking installation of HTML::Parser...'
+	@if 2>/dev/null perl -MHTML::Parser -e				\
+	'exit !($$HTML::Parser::VERSION ge "$(HTML_PARSER_VER)")';	\
+	then :;								\
+	else								\
+		gunzip < $(HTML_PARSER).tar.gz | tar xvf - ;		\
+		(							\
+			cd $(HTML_PARSER)	&&			\
+			perl Makefile.PL	&&			\
+			make all test		&&			\
+			${SUDO} make install				\
+		)							\
+	fi
+
+File-Temp:
+	@echo 'Checking installation of File::Temp...'
+	@if 2>/dev/null perl -MFile::Temp -e				\
+	'exit !($$File::Temp::VERSION ge "$(FILE_TEMP_VER)")';		\
+	then :;								\
+	else								\
+		gunzip < $(FILE_TEMP).tar.gz | tar xvf - ;		\
+		(							\
+			cd $(FILE_TEMP)		&&			\
+			perl Makefile.PL	&&			\
+			make all test		&&			\
+			${SUDO} make install				\
+		)							\
+	fi
+
+File-Stat-Bits:
+	@echo 'Checking installation of File::Stat::Bits...'
+	@if 2>/dev/null perl -MFile::Stat::Bits -e			\
+	'exit!($$File::Stat::Bits::VERSION ge "$(FILE_STAT_BITS_VER)")';\
+	then :;								\
+	else								\
+		gunzip < $(FILE_STAT_BITS).tar.gz | tar xvf - ;		\
+		(							\
+			cd $(FILE_STAT_BITS)	&&			\
+			perl Makefile.PL	&&			\
+			make all test		&&			\
+			${SUDO} make install				\
+		)							\
+	fi
+
+Module-Load:
+	@echo 'Checking installation of Module::Load...'
+	@if 2>/dev/null perl -MModule::Load -e				\
+	'exit !($$Module::Load::VERSION ge "$(MODULE_LOAD_VER)")';	\
+	then :;								\
+	else								\
+		gunzip < $(MODULE_LOAD).tar.gz | tar xvf - ;		\
+		(							\
+			cd $(MODULE_LOAD)	&&			\
+			perl Makefile.PL	&&			\
+			make all test		&&			\
+			${SUDO} make install				\
+		)							\
+	fi
 
 Term-Screen:
 	@echo 'Checking installation of Term::Screen...'
@@ -79,66 +156,6 @@ Term-ReadLine-Gnu:
 		)							\
 	fi
 
-File-Temp:
-	@echo 'Checking installation of File::Temp...'
-	@if 2>/dev/null perl -MFile::Temp -e				\
-	'exit !($$File::Temp::VERSION ge "$(FILE_TEMP_VER)")';		\
-	then :;								\
-	else								\
-		gunzip < $(FILE_TEMP).tar.gz | tar xvf - ;		\
-		(							\
-			cd $(FILE_TEMP)		&&			\
-			perl Makefile.PL	&&			\
-			make all test		&&			\
-			${SUDO} make install				\
-		)							\
-	fi
-
-File-Stat-Bits:
-	@echo 'Checking installation of File::Stat::Bits...'
-	@if 2>/dev/null perl -MFile::Stat::Bits -e			\
-	'exit!($$File::Stat::Bits::VERSION ge "$(FILE_STAT_BITS_VER)")';\
-	then :;								\
-	else								\
-		gunzip < $(FILE_STAT_BITS).tar.gz | tar xvf - ;		\
-		(							\
-			cd $(FILE_STAT_BITS)	&&			\
-			perl Makefile.PL	&&			\
-			make all test		&&			\
-			${SUDO} make install				\
-		)							\
-	fi
-
-HTML-Parser:
-	@echo 'Checking installation of HTML::Parser...'
-	@if 2>/dev/null perl -MHTML::Parser -e				\
-	'exit !($$HTML::Parser::VERSION ge "$(HTML_PARSER_VER)")';	\
-	then :;								\
-	else								\
-		gunzip < $(HTML_PARSER).tar.gz | tar xvf - ;		\
-		(							\
-			cd $(HTML_PARSER)	&&			\
-			perl Makefile.PL	&&			\
-			make all test		&&			\
-			${SUDO} make install				\
-		)							\
-	fi
-
-LWP:
-	@echo 'Checking installation of LWP...'
-	@if 2>/dev/null perl -MLWP -e					\
-	'exit !($$LWP::VERSION ge "$(LWP_VER)")';			\
-	then :;								\
-	else								\
-		gunzip < $(LWP).tar.gz | tar xvf - ;			\
-		(							\
-			cd $(LWP)		&&			\
-			perl Makefile.PL	&&			\
-			make all test		&&			\
-			${SUDO} make install				\
-		)							\
-	fi
-
-.PHONY: Term-Screen Term-ScreenColor Term-ReadLine-Gnu			\
-	File-Temp File-Stat-Bits HTML-Parser LWP
+.PHONY: LWP HTML-Parser File-Temp File-Stat-Bits			\
+	Module-Load Term-Screen Term-ScreenColor Term-ReadLine-Gnu
 

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Abstract 0.15
+# @(#) App::PFM::Abstract 0.16
 #
 # Name:			App::PFM::Abstract
-# Version:		0.15
+# Version:		0.16
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-15
+# Date:			2010-11-21
 #
 
 ##########################################################################
@@ -48,7 +48,7 @@ Stub init method to ensure it exists.
 
 =cut
 
-sub _init() {
+sub _init {
 }
 
 =item _clone()
@@ -57,7 +57,7 @@ Stub clone method to ensure it exists.
 
 =cut
 
-sub _clone() {
+sub _clone {
 }
 
 ##########################################################################
@@ -93,15 +93,15 @@ The I<args> are passed to the _clone() methods of individual classes.
 =cut
 
 sub clone {
-	my $original = shift;
-	my $type     = ref $original;
+	my ($original, @args) = @_;
+	my $type = ref $original;
 	unless ($type) {
 		croak("clone() cannot be called statically " .
 			"(it needs an object to clone)");
 	}
 	my $clone = { %$original };
 	bless($clone, $type);
-	$clone->_clone($original, @_);
+	$clone->_clone($original, @args);
 	return $clone;
 }
 
@@ -194,14 +194,14 @@ sub fire {
 	return wantarray ? @res : join ':', @res;
 }
 
-=item dump()
+=item debug()
 
 Dumps the contents of this object using Data::Dumper(3pm).
 Primarily used for debugging.
 
 =cut
 
-sub dump {
+sub debug {
 	my ($self) = @_;
 	$Data::Dumper::Sortkeys = sub {
 		my %h = %{$_[0]};
@@ -210,6 +210,7 @@ sub dump {
 		];
 	};
 	print Dumper $self;
+	return;
 }
 
 ##########################################################################

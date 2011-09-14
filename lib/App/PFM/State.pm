@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::State 0.21
+# @(#) App::PFM::State 0.22
 #
 # Name:			App::PFM::State
-# Version:		0.21
+# Version:		0.22
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-15
+# Date:			2010-11-23
 #
 
 ##########################################################################
@@ -84,7 +84,7 @@ sub _init {
 	$self->{_screen}        = $screen;
 	$self->{_config}        = $config;
 	$self->{_os}            = $os;
-	$self->{_directory}		= new App::PFM::Directory(
+	$self->{_directory}		= App::PFM::Directory->new(
 		$pfm, $screen, $config, $os, $jobhandler, $path);
 	# We might not have useful values for these yet since the config file
 	# might not have been read yet.
@@ -102,6 +102,7 @@ sub _init {
 	# mouse_mode   sits in App::PFM::Browser
 	# swap_mode    sits in App::PFM::Browser
 	# clobber_mode sits in App::PFM::CommandHandler
+	return;
 }
 
 =item _clone( [ array @args ] )
@@ -116,6 +117,7 @@ Arguments are passed to the clone() function of the Directory object.
 sub _clone {
 	my ($self, $original, @args) = @_;
 	$self->{_directory} = $original->{_directory}->clone(@args);
+	return;
 }
 
 =item DESTROY()
@@ -130,6 +132,7 @@ sub DESTROY {
 	if (defined $self->{_directory}) {
 		$self->{_directory}->destroy();
 	}
+	return;
 }
 
 ##########################################################################
@@ -206,6 +209,7 @@ sub prepare {
 	$self->{_position}  = '.';
 	$self->{_baseindex} = 0;
 	$self->{_directory}->prepare($path);
+	return;
 }
 
 =item on_after_parse_config(App::PFM::Event $event)
@@ -236,6 +240,7 @@ sub on_after_parse_config {
 	unless (defined $self->directory->path_mode) {
 		$self->directory->path_mode($self->{_config}{path_mode});
 	}
+	return;
 }
 
 ##########################################################################

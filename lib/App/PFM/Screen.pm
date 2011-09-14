@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen 0.43
+# @(#) App::PFM::Screen 0.45
 #
 # Name:			App::PFM::Screen
-# Version:		0.43
+# Version:		0.45
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-15
+# Date:			2010-11-23
 # Requires:		Term::ScreenColor
 #
 
@@ -147,11 +147,11 @@ not yet been read.
 
 sub _init {
 	my ($self, $pfm, $config) = @_;
-	$_pfm = $pfm;
+	$_pfm               = $pfm;
 	$self->{_config}    = $config; # undefined, see on_after_parse_config
-	$self->{_frame}     = new App::PFM::Screen::Frame(   $pfm, $self, $config);
-	$self->{_listing}   = new App::PFM::Screen::Listing( $pfm, $self, $config);
-	$self->{_diskinfo}  = new App::PFM::Screen::Diskinfo($pfm, $self, $config);
+	$self->{_frame}     = App::PFM::Screen::Frame->new(   $pfm, $self, $config);
+	$self->{_listing}   = App::PFM::Screen::Listing->new( $pfm, $self, $config);
+	$self->{_diskinfo}  = App::PFM::Screen::Diskinfo->new($pfm, $self, $config);
 	$self->{_winheight}        = 0;
 	$self->{_winwidth}         = 0;
 	$self->{_screenheight}     = 0;
@@ -164,6 +164,7 @@ sub _init {
 	$self->def_key(BRACKETED_PASTE_END,   "\e[201~");
 	# we cannot check the minimum size of the terminal yet, because the
 	# config option 'force_minimum_size' is not yet known.
+	return;
 }
 
 =item _catch_resize()
@@ -175,6 +176,7 @@ Catches window resize signals (WINCH).
 sub _catch_resize {
 	$_wasresized = 1;
 	$SIG{WINCH} = \&_catch_resize;
+	return;
 }
 
 ##########################################################################
@@ -190,7 +192,7 @@ Term::ScreenColor.
 sub new {
 	my ($type, @args) = @_;
 	$type = ref($type) || $type;
-	my $self = new Term::ScreenColor();
+	my $self = Term::ScreenColor->new();
 	$self->{_event_handlers} = {};
 	bless($self, $type);
 	$self->_init(@args);
@@ -286,11 +288,13 @@ Sets the terminal to I<raw> or I<cooked> mode.
 sub raw_noecho {
 	my ($self) = @_;
 	$self->raw()->noecho();
+	return $self;
 }
 
 sub cooked_echo {
 	my ($self) = @_;
 	$self->cooked()->echo();
+	return $self;
 }
 
 =item mouse_enable()
@@ -363,7 +367,7 @@ If a bracketed paste is received, it is returned as one unit.
 
 =cut
 
-sub getch() {
+sub getch {
 	my ($self) = @_;
 	my $key = $self->SUPER::getch();
 	my $buffer = '';
@@ -440,11 +444,12 @@ sub fit {
 	$self->set_deferred_refresh(R_CLRSCR); # D_FILTER necessary?
 	# History is interested (wants to set terminal object's terminal width)
 	# Browser is interested (wants to validate cursor position)
-	$self->fire(new App::PFM::Event({
+	$self->fire(App::PFM::Event->new({
 		name   => 'after_resize_window',
 		type   => 'soft',
 		origin => $self,
 	}));
+	return $self;
 }
 
 =item handleresize()
@@ -487,12 +492,12 @@ pending_input()).
 
 =cut
 
-sub get_event() {
+sub get_event {
 	my ($self) = @_;
 	# resize event
 	if ($_wasresized) {
 		$_wasresized = 0;
-		return new App::PFM::Event({
+		return App::PFM::Event->new({
 			name   => 'resize_window',
 			origin => $self,
 			type   => 'resize',
@@ -500,7 +505,7 @@ sub get_event() {
 	}
 	# must be keyboard/mouse/paste input here
 	my ($key, $buffer) = $self->getch();
-	my $event = new App::PFM::Event({
+	my $event = App::PFM::Event->new({
 		name   => 'after_receive_user_input',
 		origin => $self,
 	});
@@ -522,9 +527,9 @@ sub get_event() {
 	$event->{data} = $key; # 'kmous'
 
 	$self->noecho();
-	$event->{mousebutton} = ord($self->getch()) - 040;
-	$event->{mousecol}    = ord($self->getch()) - 041;
-	$event->{mouserow}    = ord($self->getch()) - 041;
+	$event->{mousebutton} = ord($self->getch()) - oct(40);
+	$event->{mousecol}    = ord($self->getch()) - oct(41);
+	$event->{mouserow}    = ord($self->getch()) - oct(41);
 	$self->echo();
 
 	$event->{mousemodifier} = $event->{mousebutton} &  MOUSE_MODIFIER_ANY;
@@ -542,7 +547,8 @@ Uses the App::PFM::Screen::Frame object to redisplay the frame.
 
 sub show_frame {
 	my ($self, $options) = @_;
-	return $self->{_frame}->show($options);
+	$self->{_frame}->show($options);
+	return $self;
 }
 
 =item clear_footer()
@@ -577,11 +583,12 @@ sub select_next_color {
 	$self->color_mode($self->{_color_mode});
 	# Directory is interested (wants to reformat files)
 	# History is interested (wants to set ornaments).
-	$self->fire(new App::PFM::Event({
+	$self->fire(App::PFM::Event->new({
 		name   => 'after_set_color_mode',
 		type   => 'soft',
 		origin => $self,
 	}));
+	return $self;
 }
 
 =item putcentered(string $message)
@@ -593,6 +600,7 @@ Displays a message on the current screen line, horizontally centered.
 sub putcentered {
 	my ($self, $string) = @_;
 	$self->puts(' ' x (($self->{_screenwidth} - length $string)/2) . $string);
+	return $self;
 }
 
 =item putmessage(string $message_part1 [, string $message_part2 ... ] )
@@ -612,6 +620,7 @@ sub putmessage {
 	} else {
 		$self->puts(join '', @message);
 	}
+	return $self;
 }
 
 =item pressanykey()
@@ -624,7 +633,9 @@ sub pressanykey {
 	my ($self) = @_;
 	$self->putmessage("\r\n*** Hit any key to continue ***");
 	$self->raw_noecho();
-	if ($_pfm->browser->mouse_mode && $self->{_config}->{clickiskeypresstoo}) {
+	if ($_pfm->browser->mouse_mode &&
+		$self->{_config}->{clickiskeypresstoo}
+	) {
 		$self->mouse_enable();
 	} else {
 		$self->mouse_disable();
@@ -639,6 +650,7 @@ sub pressanykey {
 	$self->mouse_enable() if $_pfm->browser->{mouse_mode};
 	$self->alternate_on() if $self->{_config}->{altscreen_mode};
 	$self->handleresize() if $_wasresized;
+	return $self;
 }
 
 =item ok_to_remove_marks()
@@ -833,6 +845,7 @@ sub path_info {
 	my $path = $physical ? getcwd() : $directory->path;
 	$self->at(PATHLINE, 0)
 		 ->puts($self->pathline($path, $directory->device));
+	 return $self;
 }
 
 =item pathline(string $path, string $device [, ref $baselen, ref $ellipssize ] )
@@ -868,9 +881,10 @@ Applies the 'usecolor' config option to the Term::ScreenColor(3pm) object.
 
 =cut
 
-sub on_after_parse_usecolor() {
+sub on_after_parse_usecolor {
 	my ($self, $event) = @_;
 	$self->colorizable($event->{origin}{usecolor});
+	return $self;
 }
 
 =item on_after_parse_config(App::PFM::Event $event)
@@ -917,6 +931,7 @@ sub on_after_parse_config {
 	$self->set_deferred_refresh(R_ALTERNATE);
 	$self->diskinfo->on_after_parse_config($event);
 	$self->listing->on_after_parse_config($event);
+	return $self;
 }
 
 =item on_shutdown(bool $altscreen_mode [, bool $silent ] )
@@ -956,6 +971,7 @@ sub on_shutdown {
 		$self->at($self->screenheight + BASELINE + 1, 0)
 				->clreol();
 	}
+	return $self;
 }
 
 ##########################################################################
