@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 1.25
+# @(#) App::PFM::Config 1.26
 #
 # Name:			App::PFM::Config
-# Version:		1.25
+# Version:		1.26
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-03-28
+# Date:			2011-09-05
 #
 
 ##########################################################################
@@ -1061,7 +1061,7 @@ di=bold:ln=underscore:
 ## g    group                    >=8 (system-dependent)
 ## w    uid                      >=5 (system-dependent)
 ## h    gid                      >=5 (system-dependent)
-## p    mode (permissions)       10
+## p    mode (permissions)       10 (+1 for ACL flag '+')
 ## m    modification time        15 (using "%y %b %d %H:%M" if len(%b) == 3)
 ## a    access time              15 (using "%y %b %d %H:%M" if len(%b) == 3)
 ## c    change time              15 (using "%y %b %d %H:%M" if len(%b) == 3)
@@ -1078,16 +1078,16 @@ di=bold:ln=underscore:
 
 #<------------------------- file info -------------------------># #<-diskinfo->#
 columnlayouts:\
-* nnnnnnnnnnnnnnnnnnnnnnnnnnnsssssssss mmmmmmmmmmmmmmm pppppppppp ffffffffffffff:\
-* nnnnnnnnnnnnnnnnnnnnnnnnnnnsssssssss aaaaaaaaaaaaaaa pppppppppp ffffffffffffff:\
-* nnnnnnnnnnnnnnnnnnnnnssssssss uuuuuuuu gggggggglllll pppppppppp ffffffffffffff:\
-* nnnnnnnnnnnnnnnnnnnnnnnnnnnsssssss uuuuuuuu gggggggg pppppppppp ffffffffffffff:\
-* nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnuuuuuuuu gggggggg pppppppppp ffffffffffffff:\
-* nnnnnnnnnnnnnnnnnnnnnnnssssssss vvvv mmmmmmmmmmmmmmm pppppppppp ffffffffffffff:\
+* nnnnnnnnnnnnnnnnnnnnnnnnnnnsssssssss mmmmmmmmmmmmmmm pppppppppppffffffffffffff:\
+* nnnnnnnnnnnnnnnnnnnnnnnnnnnsssssssss aaaaaaaaaaaaaaa pppppppppppffffffffffffff:\
+* nnnnnnnnnnnnnnnnnnnnnssssssss uuuuuuuu gggggggglllll pppppppppppffffffffffffff:\
+* nnnnnnnnnnnnnnnnnnnnnnnnnnnsssssss uuuuuuuu gggggggg pppppppppppffffffffffffff:\
+* nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnuuuuuuuu gggggggg pppppppppppffffffffffffff:\
+* nnnnnnnnnnnnnnnnnnnnnnnssssssss vvvv mmmmmmmmmmmmmmm pppppppppppffffffffffffff:\
 * nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnzzzzzzzz mmmmmmmmmmmmmmm ffffffffffffff:\
 * nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnsssssssss ffffffffffffff:\
-pppppppppp uuuuuuuu gggggggg mmmmmmmmmmmmmmm sssssss* nnnnnnnnnnn ffffffffffffff:\
-ppppppppppllll uuuuuuuu ggggggggssssssss mmmmmmmmmmmmmmm *nnnnnnn ffffffffffffff:
+ppppppppppp uuuuuuuu gggggggg mmmmmmmmmmmmmmm sssssss* nnnnnnnnnn ffffffffffffff:\
+pppppppppppllll uuuuuuuu ggggggggssssssss mmmmmmmmmmmmmmm *nnnnnn ffffffffffffff:
 
 ##########################################################################
 ## your commands
@@ -1169,6 +1169,8 @@ extension[*.aiff] : audio/x-aiff
 extension[*.arj]  : application/x-arj
 extension[*.au]   : audio/basic
 extension[*.avi]  : video/x-msvideo
+extension[*.awk]  : application/x-awk
+extension[*.bash] : application/x-bash
 extension[*.bat]  : application/x-msdos-batch
 extension[*.bin]  : application/octet-stream
 extension[*.bf]   : application/x-befunge
@@ -1181,6 +1183,7 @@ extension[*.cmd]  : application/x-msdos-batch
 extension[*.com]  : application/x-executable
 extension[*.cpio] : application/x-cpio
 extension[*.cs]   : text/x-csharp
+extension[*.csh]  : application/x-csh
 extension[*.css]  : text/css
 extension[*.deb]  : application/x-deb
 extension[*.doc]  : application/msword
@@ -1197,6 +1200,8 @@ extension[*.f95]  : text/x-fortran
 extension[*.flv]  : video/x-flv
 extension[*.gif]  : image/gif
 extension[*.gz]   : application/x-gzip
+extension[*.h]    : text/plain
+extension[*.hh]   : text/plain
 extension[*.hqx]  : application/mac-binhex40
 extension[*.htm]  : text/html
 extension[*.html] : text/html
@@ -1211,10 +1216,12 @@ extension[*.json] : application/json
 extension[*.latex]: application/x-latex
 extension[*.lha]  : application/x-lha
 extension[*.lzh]  : application/x-lha
+extension[*.lsp]  : application/x-lisp
 extension[*.m3u]  : text/x-m3u-playlist
 extension[*.mid]  : audio/midi
 extension[*.midi] : audio/midi
 extension[*.mov]  : video/quicktime
+extension[*.movie]: video/x-sgi-movie
 extension[*.man]  : application/x-groff-man
 extension[*.mm]   : application/x-groff-mm
 extension[*.mp2]  : audio/mpeg
@@ -1253,22 +1260,35 @@ extension[*.rar]  : application/x-rar
 #extension[*.rpm]  : audio/x-pn-realaudio-plugin
 extension[*.rpm]  : application/x-rpm
 extension[*.rtf]  : text/rtf
+extension[*.rtx]  : text/richtext
+extension[*.scm]  : application/x-scheme
+extension[*.ss]   : application/x-scheme
+extension[*.sh]   : application/x-sh
+extension[*.shar] : application/x-shar
 extension[*.sit]  : application/x-stuffit
 extension[*.smi]  : application/smil
 extension[*.smil] : application/smil
+extension[*.spl]  : application/x-futuresplash
 extension[*.sql]  : application/x-sql
+extension[*.sty]  : text/x-tex-style
 extension[*.svg]  : image/svg+xml
 extension[*.swf]  : application/x-shockwave-flash
 extension[*.tar]  : application/x-tar
 extension[*.taz]  : application/x-tar-compress
+extension[*.tcl]  : application/x-tcl
 extension[*.tex]  : application/x-tex
 extension[*.texi] : application/x-texinfo
 extension[*.texinfo]: application/x-texinfo
 extension[*.tgz]  : application/x-tar-gzip
 extension[*.tif]  : image/tiff
 extension[*.tiff] : image/tiff
+extension[*.tcsh] : application/x-tcsh
 extension[*.txt]  : text/plain
 extension[*.uue]  : application/x-uuencoded
+extension[*.viv]  : video/vnd.vivo
+extension[*.vivo] : video/vnd.vivo
+extension[*.vrml] : model/vrml
+extension[*.wrl]  : model/vrml
 extension[*.wav]  : audio/x-wav
 extension[*.wmv]  : video/x-winmedia
 extension[*.xcf]  : image/x-gimp
@@ -1288,6 +1308,7 @@ extension[*.yml]  : application/x-yaml
 extension[*.z]    : application/x-compress
 extension[*.Z]    : application/x-compress
 extension[*.zip]  : application/zip
+extension[*.zsh]  : application/x-zsh
 
 ## launchby magic
 ## these will search by regular expression in the file(1) output

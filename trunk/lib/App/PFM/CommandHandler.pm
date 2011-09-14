@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.68
+# @(#) App::PFM::CommandHandler 1.71
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.68
+# Version:		1.71
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-06-15
+# Date:			2011-09-05
 #
 
 ##########################################################################
@@ -67,6 +67,7 @@ use constant INC_CRITERIA => [
 	's' => 'Smaller',
 	'u' => 'User',
 	'f' => 'Files only',
+	'd' => 'Dirs only',
 	'.' => 'Dotfiles',
 	'i' => 'Invert',
 ];
@@ -182,7 +183,7 @@ sub _helppage {
   F3    redraw screen                 !   toggle clobber mode                   
   F4    cycle colorsets               "   toggle pathmode                       
   S-F4  cycle colorsets backward      ;   toggle show svn ignored               
-  F5    refresh directory listing     =   cycle idents                          
+  F5    refresh directory listing     =   cycle identities                      
   m F5  smart refresh listing         <   pan commands menu left                
   F6    sort directory listing        >   pan commands menu right               
   m F6  multilevel sort listing       @   perl command (for debugging)          
@@ -203,25 +204,25 @@ sub _helppage {
 --------------------------------------------------------------------------------
                                     COMMAND KEYS                           [$pp]
 --------------------------------------------------------------------------------
- a       Attribute (chmod)                        v   Version status            
- c       Copy                                     w   remove Whiteout           
- d, DEL  Delete                                   x   eXclude                   
- e       Edit                                     y   Your command              
- E       Edit with foreground editor              z   siZe (grand total)        
- f, /    Find                                   --------------------------------
- g       change symlink tarGet                   IN-/EXCLUDE                    
- i       Include                                                                
- L       symLink / hard Link                      e   Every (all files)         
- m       More commands (see next page)            o   Oldmarks                  
- n       show Name (press n to change base)       n   Newmarks                  
- o       OS cOmmand                               a   After  (+wildcards)       
- p       Print                                    b   Before (+wildcards)       
- q       Quit                                     g   Greater than size         
- Q       Quick quit                               s   Smaller than size         
- r       Rename/move                              u   Current User only         
- s       Show file or directory                   f   Regular Files (wildcards) 
- t       change Timestamp                         .   Dotfiles (but not ./..)   
- u       change User/group (chown)                i   Invert selection          
+ a       Attribute (chmod)                       v   Version status             
+ c       Copy                                    w   remove Whiteout            
+ d, DEL  Delete                                  x   eXclude                    
+ e       Edit                                    y   Your command               
+ E       Edit with foreground editor             z   siZe (grand total)         
+ f, /    Find                                  -------------------------------- 
+ g       change symlink tarGet                  IN-/EXCLUDE                     
+ i       Include                                 e   Every (all files)          
+ L       symLink / hard Link                     o   Oldmarks                   
+ m       More commands (see next page)           n   Newmarks                   
+ n       show Name (press n to change base)      a   After  (+wildcards)        
+ o       OS cOmmand                              b   Before (+wildcards)        
+ p       Print                                   g   Greater than size          
+ q       Quit                                    s   Smaller than size          
+ Q       Quick quit                              u   Current User only          
+ r       Rename/move                             f   Regular Files (wildcards)  
+ s       Show file or directory                  d   Directories (but not ./..) 
+ t       change Timestamp                        .   Dotfiles    (but not ./..) 
+ u       change User/group (chown)               i   Invert selection           
 --------------------------------------------------------------------------------
         _endPage3_
 	} elsif ($page == 4) {
@@ -241,12 +242,12 @@ sub _helppage {
  mm  Make new directory                   ==  literal =                         
  mo  Open new window                      =e  editor                            
  mp  show Physical path                   =E  foreground editor                 
- ms  Show directory (chdir)               =p  pager                             
- mt  show alTernate screen                =v  viewer                            
+ mr  Read history and/or bookmarks        =p  pager                             
+ ms  Show directory (chdir)               =v  viewer                            
+ mt  show alTernate screen                                                      
  mv  Version status all files                                                   
- mw  Write history                                                              
+ mw  Write history and/or bookmarks                                             
  m@  perl shell (for debugging)                                                 
-                                                                                
                                                                                 
 --------------------------------------------------------------------------------
         _endPage4_
@@ -2127,6 +2128,8 @@ sub handleinclude { # include/exclude flag (from keypress)
 			$file->{name} =~ /$wildfilename/ and
 			$file->{type} eq '-';
 		};
+	} elsif ($key eq 'd') { # directories
+		$criterion = sub { my $file = shift; $file->{type} eq 'd'; };
 	} elsif ($key eq 'i') { # invert selection
 		$self->handlemarkinverse();
 		return;
@@ -2282,6 +2285,7 @@ sub handlecommand { # Y or O
 		my ($event) = @_;
 		# propagate to the application, which will poll jobs.
 		$self->fire($event);
+		return;
 	};
 	my ($command, $do_this, $prompt, $newdir, $eightset, $chooser);
 	unless ($_pfm->state->{multiple_mode}) {
@@ -2858,10 +2862,11 @@ sub handlemore {
 			/^b$/io    and $self->handlemorebookmark($event),	 last MORE_PAN;
 			/^l$/io    and $self->handlemorefollow($event),		 last MORE_PAN;
 			/^f$/io    and $self->handlemorefifo($event),		 last MORE_PAN;
-			/^w$/io    and $self->handlemorehistwrite(),		 last MORE_PAN;
+			/^w$/io    and $self->handlemorewritehistbookmarks(),last MORE_PAN;
 			/^t$/io    and $self->handlemorealtscreen(),		 last MORE_PAN;
 			/^p$/io    and $self->handlemorephyspath(),			 last MORE_PAN;
 			/^v$/io    and $self->handlemoreversion(),			 last MORE_PAN;
+			/^r$/io    and $self->handlemorereadhistbookmarks(), last MORE_PAN;
 			/^o$/io    and $self->handlemoreopenwindow($event),  last MORE_PAN;
 			/^k6$/o    and $self->handlemoremultisort($event),	 last MORE_PAN;
 			/^\@$/o    and $self->handlemoreperlshell($event),	 last MORE_PAN;
@@ -3258,22 +3263,63 @@ sub handlemorefifo {
 	return;
 }
 
-=item handlemorehistwrite()
+=item handlemorewritehistbookmarks()
 
-Writes the histories and the bookmarks to file (B<M>ore - B<W>rite-history).
+Prompts the user to write the histories and the bookmarks to disk
+(B<M>ore - B<W>rite-history/bookmarks).
 
 =cut
 
-sub handlemorehistwrite {
+sub handlemorewritehistbookmarks {
 	my ($self) = @_;
 	$self->{_screen}->show_frame({
 		footer => FOOTER_NONE,
 	});
-	$self->{_history}->write();
-	$self->{_config}->write_bookmarks();
+	$self->{_screen}->at(0,0)->clreol()
+		->set_deferred_refresh(R_MENU)->putmessage(
+		'Write input history? ');
+	if (lc $self->{_screen}->getch() eq 'y') {
+		$self->{_history}->write();
+	}
+	$self->{_screen}->at(0,0)->clreol()->putmessage(
+		'Write bookmarks? ');
+	if (lc $self->{_screen}->getch() eq 'y') {
+		$self->{_config}->write_bookmarks();
+	}
 	return;
 }
 
+=item handlemorereadhistbookmarks()
+
+Prompts the user to read the histories and the bookmarks from disk
+(B<M>ore - B<R>ead-history/bookmarks).
+
+=cut
+
+sub handlemorereadhistbookmarks {
+	my ($self) = @_;
+	$self->{_screen}->show_frame({
+		footer => FOOTER_NONE,
+	});
+	$self->{_screen}->at(0,0)->clreol()
+		->set_deferred_refresh(R_MENU)->putmessage(
+		'Read input history? ');
+	if (lc $self->{_screen}->getch() eq 'y') {
+		$self->{_history}->read();
+	}
+	$self->{_screen}->at(0,0)->clreol()->putmessage(
+		'Read bookmarks? ');
+	if (lc $self->{_screen}->getch() eq 'y') {
+		# Bookmarks are kept in the Application object.
+		# Signal it.
+		$self->fire(App::PFM::Event->new({
+			name   => 'reload_bookmarks',
+			origin => $self,
+			type   => 'soft',
+		}));
+	}
+	return;
+}
 
 =item handlemorealtscreen()
 

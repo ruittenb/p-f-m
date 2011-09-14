@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config::Update 2.11.7
+# @(#) App::PFM::Config::Update 2.11.8
 #
 # Name:			App::PFM::Config::Update
-# Version:		2.11.7
+# Version:		2.11.8
 # Author:		Rene Uittenbogaard
 # Created:		2010-05-28
-# Date:			2011-06-05
+# Date:			2011-09-05
 #
 
 ##########################################################################
@@ -1213,8 +1213,81 @@ use constant UPDATES => {
 			],
 		}],
 	},
+	# ----- 2.11.8 ---------------------------------------------------------
+	'2.11.8' => {
+		substitutions => sub {
+			s{## p    mode .permissions.       10}
+			 {## p    mode .permissions.       10 (+1 for ACL flag '+')};
+		},
+		additions => [{
+			ifnotpresent => qr{extension\[\*\.tcl\]},
+			before => qr{^extension\[\*\.tex\]},
+			batch => [
+				"extension[*.tcl]  : application/x-tcl\n",
+			],
+		}, {
+			ifnotpresent => qr{extension\[\*\.sty\]},
+			before => qr{^extension\[\*\.svg\]},
+			batch => [
+				"extension[*.sty]  : text/x-tex-style\n",
+			],
+		}, {
+			ifnotpresent => qr{extension\[\*\.csh\]},
+			after => qr{^extension\[\*\.rtf\]},
+			batch => [
+				"extension[*.awk]  : application/x-awk\n",
+				"extension[*.bash] : application/x-bash\n",
+				"extension[*.csh]  : application/x-csh\n",
+				"extension[*.tcsh] : application/x-tcsh\n",
+				"extension[*.zsh]  : application/x-zsh\n",
+				"extension[*.sh]   : application/x-sh\n",
+				"extension[*.shar] : application/x-shar\n",
+			],
+		}, {
+			ifnotpresent => qr{extension\[\*\.viv\]},
+			before => qr{^extension\[\*\.wav\]},
+			batch => [
+				"extension[*.viv]  : video/vnd.vivo\n",
+				"extension[*.vivo] : video/vnd.vivo\n",
+			],
+		}, {
+			ifnotpresent => qr{extension\[\*\.vrml\]},
+			before => qr{^extension\[\*\.wav\]},
+			batch => [
+				"extension[*.vrml] : model/vrml\n",
+				"extension[*.wrl]  : model/vrml\n",
+			],
+		}, {
+			ifnotpresent => qr{extension\[\*\.spl\]},
+			before => qr{^extension\[\*\.sql\]},
+			batch => [
+				"extension[*.movie]: video/x-sgi-movie\n",
+				"extension[*.spl]  : application/x-futuresplash\n",
+			],
+		}, {
+			ifnotpresent => qr{extension\[\*\.scm\]},
+			before => qr{^extension\[\*\.sh\]},
+			batch => [
+				"extension[*.scm]  : application/x-scheme\n",
+				"extension[*.ss]   : application/x-scheme\n",
+				"extension[*.lsp]  : application/x-lisp\n",
+			],
+		}, {
+			ifnotpresent => qr{extension\[\*\.rtx\]},
+			after => qr{^extension\[\*\.rtf\]},
+			batch => [
+				"extension[*.rtx]  : text/richtext\n",
+			],
+		}, {
+			ifnotpresent => qr{extension\[\*\.h\]},
+			after => qr{^extension\[\*\.gz\]},
+			batch => [
+				"extension[*.h]    : text/plain\n",
+				"extension[*.hh]   : text/plain\n",
+			],
+		}],
+	},
 };
-
 
 ##########################################################################
 # private subs

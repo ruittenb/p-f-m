@@ -3,10 +3,10 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.11.7
+# Version:		2.11.8
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-04-15
+# Date:			2011-07-29
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				    [ -l, --layout <number> ] [ -o, --sort <mode> ]
 #					[ -c, --colorset <mode> ] [ --login ]
@@ -28,13 +28,13 @@
 # version
 
 # for MakeMaker only
-our $VERSION  = '2.11.7';
+our $VERSION  = '2.11.8';
 
 =pod
 
 =for roff
 .ds Yr 2011
-.ds Vw @(#) pfm.pl 2.11.7
+.ds Vw @(#) pfm.pl 2.11.8
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -56,9 +56,9 @@ use locale;
 my $pfm;
 
 END {
-	# in case of emergency: make sure that the alternate screen
+	# In case of emergency: make sure that the alternate screen
 	# is off, mouse mode is off, bracketed paste mode is off
-	# and that the terminal is in 'cooked' mode
+	# and that the terminal is in 'cooked' mode.
 	print "\e[?47l\e[?9l\e[?2004l";
 	system qw(stty -raw echo);
 }
@@ -386,6 +386,10 @@ all files, including dotfiles (but not the F<.> and F<..> entries)
 
 regular files of which the filenames match a specified regular expression
 (not a glob pattern!)
+
+=item B<D>irectories only
+
+all directories (but not the F<.> and F<..> entries)
 
 =item B<G>reater / B<S>maller
 
@@ -907,6 +911,22 @@ If 'windowtype' is "standalone" and 'windowcmd' is something like
 
 Shows the physical pathname of the current directory until a key is pressed.
 
+=item B<Read history/bookmarks>
+
+Offers the user the choice to read the input history and/or bookmarks
+from disk.
+
+The input history is the history of Unix commands, pathnames, regular
+expressions, modification times, and file modes that the user enters.
+C<pfm> uses the readline library to manage these.
+
+The input history is also read in when C<pfm> starts, from individual files in
+F<$HOME/.pfm/>.
+
+The bookmarks are also read in when C<pfm> starts, from F<$HOME/.pfm/bookmarks>.
+
+See also B<M>ore-B<W>rite history/bookmarks.
+
 =item B<Show directory>
 
 You will be asked for the directory you want to view. Note that this
@@ -930,14 +950,18 @@ Subversion, CVS, Bazaar and Git.
 If you set the 'autorcs' option in your F<.pfmrc>, this will automatically
 be done every time C<pfm> shows directory contents.
 
-=item B<Write history>
+=item B<Write history/bookmarks>
 
-C<pfm> uses the readline library for keeping track of the Unix commands,
-pathnames, regular expressions, modification times, and file modes
-entered. The history is read from individual files in F<$HOME/.pfm/>
-every time C<pfm> starts. The history is written only when this command
-is given, or when C<pfm> exits and the 'autowritehistory' option is set
-in F<.pfmrc>.
+Offers the user the choice to write the input history and/or bookmarks
+to disk.
+
+The input history is also written when C<pfm> exits and the
+'autowritehistory' option is set in F<.pfmrc>.
+
+The bookmarks are also written when C<pfm> exits and the
+'autowritebookmarks' option is set in F<.pfmrc>.
+
+See also B<M>ore-B<R>ead history/bookmarks.
 
 =item B<F5> Smart refresh
 
@@ -1078,7 +1102,8 @@ Switch between single-file and multiple-file mode.
 
 =item B<F11>
 
-Refresh (using lstat(2)) the displayed file data for the current file.
+Refresh (using lstat(2)) the displayed file data for the current file (or
+files, in multiple mode).
 
 =item B<F12>
 
@@ -1826,6 +1851,7 @@ file(1), less(1), ln(1), locale(7), lpr(1), touch(1), vi(1).
 .ad l \" right-justification off
 
 For developers:
+
 Term::Screen(3pm),
 Term::ScreenColor(3pm),
 Term::ReadLine(3pm),

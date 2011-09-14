@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen 0.55
+# @(#) App::PFM::Screen 0.59
 #
 # Name:			App::PFM::Screen
-# Version:		0.55
+# Version:		0.59
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-05-27
+# Date:			2011-09-08
 # Requires:		Term::ScreenColor
 #
 
@@ -63,6 +63,8 @@ use constant {
 	MOUSE_MODIFIER_CONTROL => 16,
 	MOUSE_WHEEL_UP         => 64,
 	MOUSE_WHEEL_DOWN       => 65,
+	DEVICE_SPEC_START      => '[',
+	DEVICE_SPEC_END        => ']',
 	PATH_PHYSICAL	=> 1,
 	ERRORDELAY		=> 1,	 # in seconds (fractions allowed)
 	IMPORTANTDELAY	=> 2,	 # extra time for important errors
@@ -127,10 +129,7 @@ our %EXPORT_TAGS = (
 
 our @EXPORT_OK = @{$EXPORT_TAGS{constants}};
 
-# _wasresized needs to be a package global because it is accessed by a
-# signal handler.
-# This is no problem as this class is supposed to be a singleton anyway.
-our ($_pfm, $_wasresized);
+our ($_pfm);
 
 ##########################################################################
 # private subs
@@ -160,7 +159,10 @@ sub _init {
 	$self->{_deferred_refresh} = 0;
 	$self->{_color_mode}       = '';
 	$self->{_chooser}          = undef;
-	$SIG{WINCH} = \&_catch_resize;
+	$self->{_on_resize}        = sub {
+		$self->_catch_resize();
+	};
+	$SIG{WINCH} = $self->{_on_resize};
 	# special key bindings for bracketed paste
 	$self->def_key(BRACKETED_PASTE_START, "\e[200~");
 	$self->def_key(BRACKETED_PASTE_END,   "\e[201~");
@@ -176,8 +178,9 @@ Catches window resize signals (WINCH).
 =cut
 
 sub _catch_resize {
-	$_wasresized = 1;
-	$SIG{WINCH} = \&_catch_resize;
+	my ($self) = @_;
+	$self->{_wasresized} = 1;
+	$SIG{WINCH} = $self->{_on_resize};
 	return;
 }
 
@@ -256,8 +259,8 @@ and needs to be updated.
 
 sub wasresized {
 	my ($self, $value) = @_;
-	$_wasresized = $value if defined $value;
-	return $_wasresized;
+	$self->{_wasresized} = $value if defined $value;
+	return $self->{_wasresized};
 }
 
 =item color_mode( [ string $colormodename ] )
@@ -485,7 +488,7 @@ the cursor position.
 
 sub handleresize {
 	my ($self) = @_;
-	$_wasresized = 0;
+	$self->{_wasresized} = 0;
 	$self->fit();
 	return $self;
 }
@@ -499,8 +502,8 @@ The delay indicates how long should be waited for input.
 
 sub pending_input {
 	my ($self, $delay) = @_;
-	my $input_ready =
-		length($self->{IN}) || $_wasresized || $self->key_pressed($delay);
+	my $input_ready = length($self->{IN}) ||
+		$self->{_wasresized} || $self->key_pressed($delay);
 	while ($input_ready == -1 and $! == 4) {
 		# 'Interrupted system call'
 		$input_ready = $self->key_pressed(0.1);
@@ -519,8 +522,8 @@ pending_input()).
 sub get_event {
 	my ($self) = @_;
 	# resize event
-	if ($_wasresized) {
-		$_wasresized = 0;
+	if ($self->{_wasresized}) {
+		$self->{_wasresized} = 0;
 		return App::PFM::Event->new({
 			name   => 'resize_window',
 			origin => $self,
@@ -678,7 +681,7 @@ sub pressanykey {
 	$self->cooked_echo()->puts("\n")->raw_noecho();
 	$self->mouse_enable() if $_pfm->browser->{mouse_mode};
 	$self->alternate_on() if $self->{_config}->{altscreen_mode};
-	$self->handleresize() if $_wasresized;
+	$self->handleresize() if $self->{_wasresized};
 	return $self;
 }
 
@@ -931,7 +934,8 @@ sub pathline {
 	$$p_baselen    = $baselen;
 	$$p_ellipssize = $ellipssize;
 	return $disppath . $spacer
-		. ($overflow ? $self->{_listing}->NAMETOOLONGCHAR : ' ') . "[$dev]";
+		. ($overflow ? $self->{_listing}->NAMETOOLONGCHAR : ' ')
+		. DEVICE_SPEC_START . $dev . DEVICE_SPEC_END;
 }
 
 =item on_after_parse_usecolor(App::PFM::Event $event)
@@ -980,6 +984,9 @@ sub on_after_parse_config {
 	}
 	# determine color_mode if unset
 	$lunchboxcolorset = $event->{lunchbox}{colorset};
+	if (!defined($lunchboxcolorset)) {
+		$lunchboxcolorset = '';
+	}
 	$defaultcolorset  = $pfmrc->{defaultcolorset};
 	$newcolormode =
 		(length($self->{_color_mode})

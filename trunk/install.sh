@@ -2,9 +2,9 @@
 ############################################################################
 #
 # Name:         install.sh
-# Version:      0.50
+# Version:      0.54
 # Authors:      Rene Uittenbogaard
-# Date:         2011-03-20
+# Date:         2011-09-08
 # Usage:        sh install.sh
 # Description:  Un*x-like systems can be very diverse.
 #		This script is meant as an example how pfm dependencies
@@ -211,7 +211,12 @@ make_minusC() {
 
 check_package() {
 	packagename="$1"
-	question="Has lib$packagename successfully been installed on your system? (Yes/No/Tell me) "
+	if [ "$uname" = linux ]; then
+		question="Have lib$packagename and lib$packagename-dev"
+	else
+		question="Has lib$packagename"
+	fi
+	question="${question} successfully been installed\non your system? (Yes/No/Tell me) "
 	answer=n
 	echo $n "$question"
 	read answer
@@ -462,10 +467,36 @@ check_listwhite() {
 	fi
 	echo
 	echo "Proceeding with installation of listwhite..."
-	cd listwhite
+	cd tools/listwhite
 	./configure
 	make all test
 	$sudo make install
+	cd -
+}
+
+check_hasacl() {
+	echo
+	echo "Do you use a filesystem which makes use of access control lists (ACLs)?"
+	echo $n "If you don't know what this is about, say no. (Yes/No) "
+	read answer
+	answer=$(echo $answer | cut -c1 | tr A-Z a-z)
+	if [ "x$answer" != xy ]; then
+		return
+	fi
+	echo
+	check_package acl
+	echo
+	echo "Proceeding with installation of hasacl..."
+	cd tools/hasacl
+	./configure
+	make all test
+	$sudo make install
+	cd -
+}
+
+check_tools() {
+	check_listwhite
+	check_hasacl
 }
 
 ############################################################################
@@ -494,7 +525,7 @@ check_download_and_install_perl_module_term_readline_gnu 1.09
 install_pfm
 
 # check the need for tools
-check_listwhite
+check_tools
 
 echo
 echo "Installation done."

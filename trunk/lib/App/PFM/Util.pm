@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Util 0.58
+# @(#) App::PFM::Util 0.59
 #
 # Name:			App::PFM::Util
-# Version:		0.58
+# Version:		0.59
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-03-20
+# Date:			2011-06-17
 #
 
 ##########################################################################
@@ -42,7 +42,7 @@ use locale;
 use POSIX qw(mktime strftime);
 use Carp;
 
-use constant ELLIPSIS => '..'; # path ellipsis string
+use constant ELLIPSIS => '**'; # path ellipsis string
 
 our %EXPORT_TAGS = (
 	all => [ qw(
