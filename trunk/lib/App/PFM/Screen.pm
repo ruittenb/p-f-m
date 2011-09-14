@@ -88,8 +88,6 @@ our @EXPORT = qw(R_NOP R_STRIDE R_MENU R_PATHINFO R_HEADINGS R_FOOTER R_FRAME
 # This is no problem as this class is supposed to be singleton anyway.
 our ($_pfm, $_frame, $_listing, $_diskinfo, $_wasresized);
 
-my	($_deferred_refresh);
-
 ##########################################################################
 # private subs
 
@@ -107,11 +105,12 @@ sub _init {
 	$_frame		= new App::PFM::Screen::Frame(   $pfm, $self);
 	$_listing	= new App::PFM::Screen::Listing( $pfm, $self);
 	$_diskinfo	= new App::PFM::Screen::Diskinfo($pfm, $self);
-	$self->{_winheight}    = 0;
-	$self->{_winwidth}     = 0;
-	$self->{_screenheight} = 0;
-	$self->{_screenwidth}  = 0;
-	$self->{_color_mode}   = '';
+	$self->{_winheight}        = 0;
+	$self->{_winwidth}         = 0;
+	$self->{_screenheight}     = 0;
+	$self->{_screenwidth}      = 0;
+	$self->{_deferred_refresh} = 0;
+	$self->{_color_mode}       = '';
 	$SIG{WINCH} = \&_catch_resize;
 }
 
@@ -559,7 +558,7 @@ Flags a screen element as 'needs to be redrawn'.
 
 sub set_deferred_refresh {
 	my ($self, $bits) = @_;
-	$_deferred_refresh |= $bits;
+	$self->{_deferred_refresh} |= $bits;
 	return $self;
 }
 
@@ -571,7 +570,7 @@ Flags a screen element as 'does not need to be redrawn'.
 
 sub unset_deferred_refresh {
 	my ($self, $bits) = @_;
-	$_deferred_refresh &= ~$bits;
+	$self->{_deferred_refresh} &= ~$bits;
 	return $self;
 }
 
@@ -583,10 +582,10 @@ Redisplays the headings if they have been flagged as 'needs to be redrawn'.
 
 sub refresh_headings {
 	my ($self) = @_;
-	if ($_deferred_refresh & R_HEADINGS) {
+	if ($self->{_deferred_refresh} & R_HEADINGS) {
 		$_frame->show_headings(
 			$_pfm->browser->swap_mode, $_frame->HEADING_DISKINFO);
-		$_deferred_refresh &= ~R_HEADINGS;
+		$self->{_deferred_refresh} &= ~R_HEADINGS;
 	}
 	return $self;
 }
@@ -598,11 +597,13 @@ Redisplays all screen elements that have been flagged as 'needs to be redrawn'.
 =cut
 
 sub refresh {
-	my ($self)    = @_;
-	my $directory = $_pfm->state->directory;
-	my $browser   = $_pfm->browser;
+	my ($self)           = @_;
+	my $directory        = $_pfm->state->directory;
+	my $browser          = $_pfm->browser;
+	my $deferred_refresh = $self->{_deferred_refresh};
+	$self->{_deferred_refresh} = 0;
 	
-	if ($_deferred_refresh & R_ALTERNATE) {
+	if ($deferred_refresh & R_ALTERNATE) {
 		if ($_pfm->config->{altscreen_mode}) {
 			$self->alternate_on()->at(0,0);
 		} else {
@@ -610,60 +611,59 @@ sub refresh {
 		}
 	}
 	# show frame as soon as possible: this looks better on slow terminals
-	if ($_deferred_refresh & R_CLEAR) {
+	if ($deferred_refresh & R_CLEAR) {
 		$self->clrscr();
 	}
-	if ($_deferred_refresh & R_FRAME) {
+	if ($deferred_refresh & R_FRAME) {
 		$_frame->show();
 	}
 	# now in order of severity
-	if ($_deferred_refresh & R_NEWDIR) {
+	if ($deferred_refresh & R_NEWDIR) {
 		# it's dangerous to leave multiple_mode on when changing directories
 		# ('autoexitmultiple' is only for leaving it on between commands)
 		$_pfm->state->{multiple_mode} = 0;
 	}
-	if ($_deferred_refresh & R_DIRCONTENTS or
-		$_deferred_refresh & R_DIRSORT)
+	if ($deferred_refresh & R_DIRCONTENTS or
+		$deferred_refresh & R_DIRSORT)
 	{
 		# first time round 'currentfile' is undefined
 		if (defined $browser->currentfile) {
 			$browser->position_at($browser->currentfile->{name});
 		}
 	}
-	if ($_deferred_refresh & R_DIRCONTENTS) {
+	if ($deferred_refresh & R_DIRCONTENTS) {
 		$directory->init_dircount();
 		$directory->readcontents();
 	}
-	if ($_deferred_refresh & R_DIRSORT) {
+	if ($deferred_refresh & R_DIRSORT) {
 		$directory->sortcontents();
 	}
-	if ($_deferred_refresh & R_DIRFILTER) {
+	if ($deferred_refresh & R_DIRFILTER) {
 		$directory->filtercontents();
 	}
-	if ($_deferred_refresh & R_STRIDE) {
+	if ($deferred_refresh & R_STRIDE) {
 		$browser->position_cursor_fuzzy();
 		$browser->position_cursor('.') unless defined $browser->currentfile;
 	}
-	if ($_deferred_refresh & R_DIRLIST) {
+	if ($deferred_refresh & R_DIRLIST) {
 		$_listing->show();
 	}
-	if ($_deferred_refresh & R_DISKINFO) {
+	if ($deferred_refresh & R_DISKINFO) {
 		$_pfm->screen->diskinfo->show();
 	}
-	if ($_deferred_refresh & R_MENU) {
+	if ($deferred_refresh & R_MENU) {
 		$_frame->show_menu();
 	}
-	if ($_deferred_refresh & R_PATHINFO) {
+	if ($deferred_refresh & R_PATHINFO) {
 		$self->path_info();
 	}
-	if ($_deferred_refresh & R_HEADINGS) {
+	if ($deferred_refresh & R_HEADINGS) {
 		$_frame->show_headings(
 			$_pfm->browser->swap_mode, $_frame->HEADING_DISKINFO);
 	}
-	if ($_deferred_refresh & R_FOOTER) {
+	if ($deferred_refresh & R_FOOTER) {
 		$_frame->show_footer();
 	}
-	$_deferred_refresh = 0;
 	return $self;
 }
 

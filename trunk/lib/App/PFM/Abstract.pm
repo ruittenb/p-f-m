@@ -73,9 +73,9 @@ The I<args> are passed to the _init() methods of individual classes.
 sub new {
 	my $type = shift;
 	$type = ref($type) || $type;
-	if ($type =~ /::Abstract$/) {
-		croak("$type should not be instantiated");
-	}
+#	if ($type =~ /::Abstract$/) {
+#		croak("$type should not be instantiated");
+#	}
 	my $self = {
 		event_handlers => {},
 	};
@@ -150,7 +150,7 @@ sub unregister_listener {
 	return $success;
 }
 
-=item fire(string $event [, array @args ] )
+=item fire_event(string $event [, array @args ] )
 
 Fire an event. Calls all event handlers that have registered themselves.
 
@@ -179,7 +179,7 @@ Example usage:
 
 =cut
 
-sub fire {
+sub fire_event {
 	my ($self, $event, @args) = @_;
 	my $handlers = $self->{event_handlers}->{$event};
 	my @res;

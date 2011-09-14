@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.11
+# @(#) App::PFM::CommandHandler 1.13
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.11
+# Version:		1.13
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-20
+# Date:			2010-08-22
 #
 
 ##########################################################################
@@ -78,6 +78,7 @@ my %CMDESCAPES = (
 	'7' => 'extension',
 	'8' => 'selection',
 	'e' => 'editor',
+#	'f' => 'fg editor', # don't advocate
 	'p' => 'pager',
 	'v' => 'viewer',
 );
@@ -115,7 +116,6 @@ my @FIELDS_TO_SORTMODE = (
 
 our ($_pfm, $_screen);
 our ($command);
-my	($_white_cmd, @_unwo_cmd);
 
 ##########################################################################
 # private subs
@@ -131,41 +131,6 @@ sub _init {
 	$_pfm    = $pfm;
 	$_screen = $pfm->screen;
 	$self->{_clobber_mode} = 0;
-	$self->_init_white_commands();
-}
-
-=item _init_white_commands()
-
-Finds out which commands should be used for listing and deleting whiteouts.
-Called from _init().
-
-=cut
-
-sub _init_white_commands {
-	my ($self) = @_;
-	my $white_cmd = '';
-	my @unwo_cmd  = ();
-	foreach (split /:/, $ENV{PATH}) {
-		if (!$white_cmd) {
-			if (-f "$_/listwhite") {
-				$white_cmd = 'listwhite';
-			} elsif (-f "$_/lsw") {
-				$white_cmd = 'lsw';
-			}
-		}
-		if (!@unwo_cmd) {
-			if (-f "$_/unwhiteout") {
-				@unwo_cmd = qw(unwhiteout);
-			} elsif (-f "$_/unwo") {
-				@unwo_cmd = qw(unwo);
-			}
-		}
-	}
-	unless (@unwo_cmd) {
-		@unwo_cmd = qw(rm -W);
-	}
-	$_white_cmd = $white_cmd;
-	@_unwo_cmd  = @unwo_cmd;
 }
 
 =item _credits()
@@ -248,6 +213,7 @@ sub _expand_replace {
 		/7/ and return condquotemeta($qif, $extension);
 		/8/ and return join (' ', $self->_markednames($qif));
 		/e/ and return condquotemeta($qif, $_pfm->config->{editor});
+		/f/ and return condquotemeta($qif, $_pfm->config->{fg_editor});
 		/p/ and return condquotemeta($qif, $_pfm->config->{pager});
 		/v/ and return condquotemeta($qif, $_pfm->config->{viewer});
 		# this also handles the special $e$e case - don't quotemeta() this!
@@ -469,16 +435,6 @@ sub clobber_mode {
 	my ($self, $value) = @_;
 	$self->{_clobber_mode} = $value if defined $value;
 	return $self->{_clobber_mode};
-}
-
-=item whitecommand()
-
-Getter for the command for listing whiteouts.
-
-=cut
-
-sub whitecommand {
-	return $_white_cmd;
 }
 
 ##########################################################################
@@ -985,17 +941,19 @@ sub handleperlcommand {
 	my ($self) = @_;
 	my $perlcmd;
 	# for ease of use when debugging
+	my $pfm            = $_pfm;
+	my $config         = $_pfm->config;
+	my $os             = $_pfm->os;
+	my $jobhandler     = $_pfm->jobhandler;
+	my $commandhandler = $_pfm->commandhandler;
+	my $history        = $_pfm->history;
 	my $screen         = $_screen;
 	my $listing        = $screen->listing;
 	my $frame          = $screen->frame;
-	my $config         = $_pfm->config;
 	my $browser        = $_pfm->browser;
 	my $currentfile    = $browser->currentfile;
 	my $state          = $_pfm->state;
 	my $directory      = $state->directory;
-	my $jobhandler     = $_pfm->jobhandler;
-	my $commandhandler = $_pfm->commandhandler;
-	my $history        = $_pfm->history;
 	# now do!
 	$_screen->listing->markcurrentline('@'); # disregard multiple_mode
 	$_screen->show_frame({
@@ -1656,7 +1614,7 @@ sub handleunwo {
 	$do_this = sub {
 		my $file = shift;
 		if ($file->{type} eq 'w') {
-			if (system(@_unwo_cmd, $file->{name})) {
+			if ($_pfm->os->unwo($file->{name})) {
 				$_screen->neat_error('Whiteout removal failed');
 			}
 		} else {
@@ -1806,10 +1764,8 @@ sub handlesize {
 	$do_this = sub {
 		my $file = shift;
 		my ($recursivesize, $command, $tempfile, $res);
-		# $self is the commandhandler (closure!)
-		$self->_expand_escapes(
-			QUOTE_ON, ($command = $_pfm->config->{ducmd}), $file);
-		($recursivesize = `$command 2>/dev/null`) =~ s/^\D*(\d+).*/$1/;
+		$recursivesize = $_pfm->os->du($file->{name});
+		$recursivesize =~ s/^\D*(\d+).*/$1/;
 		chomp $recursivesize;
 		# if a CHLD signal handler is installed, $? is not always reliable.
 		if ($?) {
@@ -1840,7 +1796,7 @@ sub handlesize {
 		}
 		return $file;
 	};
-	$_pfm->state->directory->apply($do_this);
+	$_pfm->state->directory->apply($do_this, 'norestat');
 }
 
 =item handletarget()
@@ -1990,7 +1946,7 @@ sub handlecommand { # Y or O
 		system $do_command
 			and $_screen->display_error("External command failed\n");
 	};
-	$_pfm->state->directory->apply($do_this, 'O');
+	$_pfm->state->directory->apply($do_this, 'nofeedback');
 	$_screen->pressanykey();
 	$_screen->alternate_on() if $_pfm->config->{altscreen_mode};
 	$_screen->raw_noecho()->set_deferred_refresh(R_CLRSCR);
@@ -2103,7 +2059,7 @@ sub handledelete {
 		return $success ? 'deleted' : '';
 	};
 	$oldpos = $browser->currentfile->{name};
-	$directory->apply($do_this, 'D');
+	$directory->apply($do_this, 'reverse');
 	if ($_pfm->state->{multiple_mode}) {
 		# %nameindexmap may be completely invalid at this point. use dirlookup()
 		if (dirlookup($oldpos, @{$directory->showncontents}) > 0) {
@@ -2112,8 +2068,6 @@ sub handledelete {
 	} elsif ($browser->position_at eq '') {
 		$_pfm->browser->validate_position();
 	}
-#	system "touch /tmp/gonna-validate-`date +%Y-%m-%d.%H-%M-%S`";
-#	$_pfm->browser->validate_position(); # new
 	return;
 }
 

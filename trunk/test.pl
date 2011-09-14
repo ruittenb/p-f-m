@@ -1,24 +1,73 @@
 #!/usr/bin/env perl
+#
+############################################################################
+#
+# Name:         test.pl
+# Version:      0.10
+# Author:       Rene Uittenbogaard
+# Date:         2010-08-22
+# Usage:        test.pl
+# Description:  Test the pfm script and the associated libraries for
+#		syntax errors (using perl -cw).
+#
 
-use lib './lib';
+##########################################################################
+# declarations
 
 use App::PFM::Application;
 
-print "INC1:", join ":", @INC, "\n";
-system 'perl -cw pfm';
-print "INC2:", join ":", @INC, "\n";
+use POSIX;
+use strict;
 
-$dir = 'lib/App/PFM';
-print "INC3:", join ":", @INC, "\n";
+##########################################################################
+# functions
 
-foreach (<$dir/*.pm>, <$dir/Screen/*.pm>, <$dir/Job/*.pm>) {
-	system "perl -cw $_";
+sub produce_output {
+	# child process: perform tests
+	my $silent = 1;
+	my $libdir = POSIX::getcwd() . '/lib';
+
+	foreach (<lib/App/PFM/*.pm>,
+		<lib/App/PFM/Screen/*.pm>,
+		<lib/App/PFM/Job/*.pm>,
+		<lib/App/PFM/OS/*.pm>)
+	{
+		system "perl -I $libdir -cw $_";
+	}
+
+	system 'perl -cw pfm';
+
+	my $pfm = new App::PFM::Application();
+	$pfm->bootstrap($silent);
 }
 
-print "INC4:", join ":", @INC, "\n";
-print "INC5:", join ":", @INC, "\n";
+sub filter_output {
+	# parent process: filter result
+	while (<HANDLE>) {
+		s/\e\[(1;1H|\d+;1H|H|2J|\?12;25h|\?9[hl]|34l)//g;
+		print;
+	}
+	#print "\n";
+}
 
-$p = new App::PFM::Application();
-#$p->bootstrap($silent = 1);
-$p->screen->at(21,0);
+sub main {
+	# setup pipe
+	my $childpid = open(HANDLE, "-|");
+	die "cannot fork(): $!" unless (defined $childpid);
+
+	if ($childpid) {
+		# parent
+		filter_output();
+	} else {
+		# child
+		produce_output();
+	}
+}
+
+##########################################################################
+# main
+
+main();
+
+__END__
 

@@ -53,35 +53,12 @@ use constant {
 	BOOKMARKFILENAME => 'bookmarks',
 };
 
-# AIX,BSD,Tru64	: du gives blocks, du -k kbytes
-# Solaris		: du gives kbytes
-# HP			: du gives blocks,               du -b blocks in swap(?)
-# Linux			: du gives blocks, du -k kbytes, du -b bytes
-# Darwin		: du gives blocks, du -k kbytes
-# the ${e} is replaced later
-my %DUCMDS = (
-	default	=> q(du -sk ${e}2 | awk '{ printf "%d", 1024 * $1 }'),
-	solaris	=> q(du -s  ${e}2 | awk '{ printf "%d", 1024 * $1 }'),
-	sunos	=> q(du -s  ${e}2 | awk '{ printf "%d", 1024 * $1 }'),
-	hpux	=> q(du -s  ${e}2 | awk '{ printf "%d",  512 * $1 }'),
-	linux	=> q(du -sb ${e}2),
-#	aix		=> can use the default
-#	freebsd	=> can use the default
-#	netbsd	=> can use the default
-#	dec_osf	=> can use the default unless proven otherwise
-#	beos	=> can use the default unless proven otherwise
-#	irix	=> can use the default unless proven otherwise
-#	sco		=> can use the default unless proven otherwise
-#	darwin	=> can use the default
-	# MSWin32, os390 etc. not supported
-);
-
 our ($_pfm);
 
 ##########################################################################
 # private subs
 
-=item _init()
+=item _init(App:PFM::Application $pfm)
 
 Initializes new instances. Called from the constructor.
 
@@ -95,7 +72,7 @@ sub _init {
 		$ENV{PFMRC} ? $ENV{PFMRC} : CONFIGDIRNAME . "/" . CONFIGFILENAME;
 }
 
-=item _copyright()
+=item _copyright(float $delay)
 
 Prints a short copyright message. Called at startup.
 
@@ -166,7 +143,7 @@ sub _parse_colorsets {
 ##########################################################################
 # constructor, getters and setters
 
-=item configfilename()
+=item configfilename( [ string $filename ] )
 
 Getter/setter for the current filename of the F<.pfmrc> file.
 
@@ -178,7 +155,7 @@ sub configfilename {
 	return $self->{_configfilename};
 }
 
-=item pfmrc()
+=item pfmrc( [ hashref $pfmrc ] )
 
 Getter/setter for the _pfmrc member variable holding the config options.
 
@@ -217,9 +194,11 @@ sub give_location {
 	return ($ENV{PFMRC} ? "$ENV{PFMRC}" : CONFIGDIRNAME . "/" . CONFIGFILENAME);
 }
 
-=item read()
+=item read(bool $firstread)
 
 Reads in the F<.pfmrc> file. If none exists, a default F<.pfmrc> is written.
+The I<firstread> variable ensures that the message "Your config file may
+be outdated" is given only once.
 
 =cut
 
@@ -257,7 +236,7 @@ sub read {
 	}
 }
 
-=item parse()
+=item parse(bool $show_copyright)
 
 Processes the settings from the F<.pfmrc> file.
 Most options are fetched into member variables. Those that aren't,
@@ -287,6 +266,7 @@ sub parse {
 	# do 'cvvis' _now_ so that the copyright message shows the new cursor.
 	system ('tput', $pfmrc->{cursorveryvisible} ? 'cvvis' : 'cnorm');
 	# copyright message
+#	$self->fire_event('after_screen_config');
 	$self->_copyright($pfmrc->{copyrightdelay}) if $show_copyright;
 	# time/date format for clock and timestamps
 	$self->{clockdateformat}	= $pfmrc->{clockdateformat} || '%Y %b %d';
@@ -321,8 +301,6 @@ sub parse {
 								  $diskinfo->IDENTMODES->{$pfmrc->{defaultident}} || 0);
 	$self->{escapechar} =
 	$self->{e}			= $e	= $pfmrc->{escapechar} || '=';
-	$self->{ducmd}				= $pfmrc->{ducmd} || $DUCMDS{$^O} || $DUCMDS{default};
-	$self->{ducmd}				=~ s/\$\{e\}/${e}/g;
 	$self->{sortcycle}			= $pfmrc->{sortcycle} || 'nNeEdDaAsStu';
 	$self->{force_minimum_size}	= $pfmrc->{force_minimum_size} || 'xterm';
 	$self->{force_minimum_size}	= ($self->{force_minimum_size} eq 'xterm' && isxterm($ENV{TERM}))
@@ -642,11 +620,6 @@ defaultwhitemode:no
 ## '.' and '..' entries always at the top of the dirlisting?
 dotdotmode:no
 
-## your system's du(1) command (needs =2 for the current filename).
-## specify so that the outcome is in bytes.
-## this is commented out because pfm makes a clever guess for your OS.
-#ducmd:du -sk =2 | awk '{ printf "%d", 1024 * $1 }'
-
 ## specify your favorite editor (don't specify =2 here).
 ## you can also use $EDITOR for this
 editor:vi
@@ -909,9 +882,10 @@ ppppppppppllll uuuuuuuu ggggggggssssssss mmmmmmmmmmmmmmm *nnnnnnn ffffffffffffff
 ##  =7 : current filename extension
 ##  =8 : list of selected filenames
 ##  == : a single literal '='
-##  =e : 'editor' (defined above)
-##  =p : 'pager'  (defined above)
-##  =v : 'viewer' (defined above)
+##  =e : 'editor'    (defined above)
+##  =f : 'fg_editor' (defined above)
+##  =p : 'pager'     (defined above)
+##  =v : 'viewer'    (defined above)
 
 your[a]:acroread =2 &
 your[B]:bunzip2 =2

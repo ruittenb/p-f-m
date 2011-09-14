@@ -1,3 +1,12 @@
+2.06.9-alpha
+
+* fixed bug: si(Z)e correctly fills the 'total' column now.
+* fixed bug in processing df(1) output on AIX
+* fixed bugs in test script
+* added (non-prominent) '=f' escape
+* restructured source using OS-specific classes
+* deprecated 'ducmd' option
+
 2.06.8-alpha
 
 * restructured frame updates
@@ -712,5 +721,4 @@
 * added 'translatespace'
 * added / as synonym for (F)ind
 * start using ReadLine's prompt
-
 

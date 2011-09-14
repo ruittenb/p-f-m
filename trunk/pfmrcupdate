@@ -1,10 +1,11 @@
 #!/usr/bin/env perl
+#
 ############################################################################
 #
 # Name:         pfmrcupdate
-# Version:      2.06.8
+# Version:      2.06.9
 # Author:       Rene Uittenbogaard
-# Date:         2010-08-17
+# Date:         2010-08-22
 # Usage:        pfmrcupdate
 # Description:  Update an existing .pfmrc so that it can be used with
 #               newer versions of pfm.
@@ -24,7 +25,7 @@ our $ROFFVERSION = <<'=cut';
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfmrcupdate 2.06.8
+.ds Vw @(#) pfmrcupdate 2.06.9
 .de Vp
 This manual pertains to \f(CWpfmrcupdate\fP version \\$3.
 ..
@@ -696,6 +697,22 @@ sub update_to_2064 {
 _end_update_to_2064_
 }
 
+sub update_to_2069 {
+	my ($lines) = @_;
+	# deprecated 'ducmd'
+	print "Updating to 2.06.9...\n";
+	my $i;
+	for ($i = $#$lines; $i > 0; $i--) {
+		if (${$lines}[$i] =~ /^#*\s*ducmd:/
+		or  ${$lines}[$i] =~ /^#+\s*your system's du.+command.+needs =2 for the current filename/
+		or  ${$lines}[$i] =~ /^#+\s*specify so that the outcome is in bytes/
+		or  ${$lines}[$i] =~ /^#+\s*this is commented out because pfm makes a clever guess for your OS/)
+		{
+			splice(@$lines, $i, 1);
+		}
+	}
+}
+
 sub update_version {
 	my ($to, $lines) = @_;
 	# this updates the version field for any version
@@ -737,6 +754,7 @@ sub update_pfmrc {
 	update_to_2062($lines) if $from lt '2.06.2' and '2.06.2' le $to;
 	update_to_2063($lines) if $from lt '2.06.3' and '2.06.3' le $to;
 	update_to_2064($lines) if $from lt '2.06.4' and '2.06.4' le $to;
+	update_to_2069($lines) if $from lt '2.06.9' and '2.06.9' le $to;
 	update_version($to, $lines);
 }
 

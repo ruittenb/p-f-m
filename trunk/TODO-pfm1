@@ -9,13 +9,6 @@ bug: 'f' field in layout: characters in the 'gap' between filerecord & infocolum
 	are not cleared when switching columnformats -> insert an artificial "gap" field?
 
 
-does DFCMD handle columns correctly on AIX?  @tdisk{qw/device total used avail/}
-prove1sup7:/home/ruittenb>df -k 
-Filesystem  1024-blocks   Free  %Used   Iused  %Iused  Mounted on
-/dev/hd4          45056   3528    93%    1389      7%  /
-/dev/hd2         303104  31984    90%   10081     14%  /usr
-
-
 fix timetouchformat. see shar(1) archives
 if touch -am -t 200112312359.59 $$.touch >/dev/null 2>&1 && test ! -f 200112312359.59 -a -f $$.touch; then
 shar_touch='touch -am -t $1$2$3$4$5$6.$7 "$8"'
