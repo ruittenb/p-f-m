@@ -3,10 +3,10 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.09.9
+# Version:		2.10.0
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-10-18
+# Date:			2010-10-23
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				    [ -l, --layout <number> ] [ -o, --sort <mode> ]
 #				pfm { -v, --version | -h, --help }
@@ -24,14 +24,14 @@
 # version
 
 # for MakeMaker
-our $VERSION  = '2.09.9';
+our $VERSION  = '2.10.0';
 our $LASTYEAR = 2010;
 
 =pod
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.09.9
+.ds Vw @(#) pfm.pl 2.10.0
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -114,8 +114,8 @@ self-explanatory. C<pfm> will issue a warning if the version number of an
 existing config file is less than the version of C<pfm> you are running, and
 will offer to update it to its own version.  Alternatively, you could let
 C<pfm> create a new default config file and compare the changes with your
-own settings, so that you can configure the new options right away.
-See also the B<C>onfig command under MORE COMMANDS below, and DIAGNOSIS.
+own settings, so that you can configure the new options right away. See
+also the B<C>onfig command under L</MORE COMMANDS> below, and L</DIAGNOSIS>.
 
 There are two commandline options that specify starting directories.
 The CDPATH environment variable is taken into account when C<pfm>
@@ -283,8 +283,8 @@ pfm will execute that command after every chdir(). This can be used
 I<e.g.> to set the title of an xterm window.
 
 Note: the B<l> and B<ENTER> keys function differently when the cursor
-is on a non-directory file (see below under B<L>ink and LAUNCHING FILES
-respectively).
+is on a non-directory file (see below under B<L>ink and
+L</LAUNCHING FILES> respectively).
 
 =head1 COMMANDS
 
@@ -314,7 +314,7 @@ under cB<O>mmand).
 If clobber mode is off (see below under the B<!> command), existing files
 will not be overwritten unless the action is confirmed by the user.
 
-Whether B<Copy> follows symlinks or copies them is OS-specific; you can
+Whether B<C>opy follows symlinks or copies them is OS-specific; you can
 change the default behavior by setting the 'copyoptions' option in your
 F<.pfmrc>. See cp(1).
 
@@ -462,8 +462,8 @@ command will I<always> try to make a link.
 Presents you with a choice of operations not related to the current
 file. Use this I<e.g.> to configure C<pfm>, edit a new file, make a
 new directory, show a different directory, or write the history files to
-disk. See below under MORE COMMANDS. Pressing B<ESC> or B<ENTER> will take
-you back to the main menu.
+disk. See below under L</MORE COMMANDS>. Pressing B<ESC> or B<ENTER> will
+take you back to the main menu.
 
 =item B<Name>
 
@@ -646,40 +646,26 @@ Examples:
 <table border="0" cellspacing="4" align="center" width="50%">
 <tr><td colspan="3"><hr /></td></tr>
 <tr>
-	<td><b>=2</b></td>
-	<td><b>=1</b></td>
-	<td><b>=7</b></td>
+	<td><b>=2</b></td>		<td><b>=1</b></td>		<td><b>=7</b></td>
 </tr>
-<tr><td colspan="3"><hr /></td></tr>
+<tr><td	colspan="3"><hr	/></td></tr>
 <tr>
-	<td>track01.wav</td>
-	<td>track01</td>
-	<td>.wav</td>
+	<td>track01.wav</td>	<td>track01</td>		<td>.wav</td>
 </tr>
 <tr>
-	<td>garden.jpg</td>
-	<td>garden</td>
-	<td>.jpg</td>
+	<td>garden.jpg</td>		<td>garden</td>			<td>.jpg</td>
 </tr>
 <tr>
-	<td>end.</td>
-	<td>end</td>
-	<td>.</td>
+	<td>end.</td>			<td>end</td>			<td>.</td>
 </tr>
 <tr>
-	<td>somename</td>
-	<td>somename</td>
-	<td><i>empty</i></td>
+	<td>somename</td>		<td>somename</td>		<td><i>empty</i></td>
 </tr>
 <tr>
-	<td>.profile</td>
-	<td><i>empty</i></td>
-	<td>.profile</td>
+	<td>.profile</td>		<td><i>empty</i></td>	<td>.profile</td>
 </tr>
 <tr>
-	<td>.profile.old</td>
-	<td>.profile</td>
-	<td>.old</td>
+	<td>.profile.old</td>	<td>.profile</td>		<td>.old</td>
 </tr>
 <tr><td colspan="3"><hr /></td></tr>
 </table>
@@ -707,7 +693,7 @@ _
 
 =end roff
 
-See also below under QUOTING RULES.
+See also below under L</ESCAPE MODIFIERS> and L</QUOTING RULES>.
 
 =item B<Print>
 
@@ -775,7 +761,7 @@ criterion. See B<I>nclude for details.
 
 Like cB<O>mmand (see above), except that it uses one-letter commands
 (case-sensitive) that have been preconfigured in the F<.pfmrc> file.
-B<Y>our commands may use B<=1> up to B<=8> and B<=e>, B<=f>, B<=p>
+B<Y>our commands may use B<=1> up to B<=8> and B<=e>, B<=E>, B<=p>
 and B<=v> escapes just as in cB<O>mmand, e.g.
 
     your[c]:tar cvf - =2 | gzip > =2.tar.gz
@@ -934,8 +920,8 @@ Starts a perl shell in the context of C<pfm>. Primarily used for debugging.
 =item B<ENTER>
 
 If the current file is a directory, C<pfm> will chdir() to that directory.
-Otherwise, C<pfm> will attempt to I<launch> the file. See LAUNCHING
-FILES below.
+Otherwise, C<pfm> will attempt to I<launch> the file. See
+L</LAUNCHING FILES> below.
 
 =item B<DEL>
 
@@ -1051,9 +1037,162 @@ Refresh (using lstat(2)) the displayed file data for the current file.
 
 =item B<F12>
 
-Toggle mouse use. See below under MOUSE COMMANDS.
+Toggle mouse use. See below under L</MOUSE COMMANDS>.
 
 =back
+
+=head1 ESCAPE MODIFIERS
+
+The above mentioned escapes B<=1> to B<=8> and B<=e>, B<=E>, B<=p>
+and B<=v> can make use of the following modifiers:
+
+=over 4
+
+=item B<={escape#prefix}>
+
+=item B<={escape##prefix}>
+
+I<prefix> is a word which may use B<*> characters as a wildcard.
+If the I<prefix> matches the beginning of the value of the escape,
+then the result of the expansion is the expanded value of
+I<escape> with the shortest (B<#>) or longest (B<##>) matching
+string deleted.
+
+=item B<={escape%suffix}>
+
+=item B<={escape%%suffix}>
+
+I<suffix> is a word which may use B<*> characters as a wildcard.
+If the I<suffix> matches a trailing portion of the value of the
+escape, then the result of the expansion is the expanded
+value of I<escape> with the shortest (B<%>) or longest (B<%%>)
+matching string deleted.
+
+=item B<={escape^letters}>
+
+=item B<={escape^^letters}>
+
+=item B<={escape,letters}>
+
+=item B<={escape,,letters}>
+
+This expansion modifies the case of alphabetic characters in I<escape>.
+The B<^> operator converts letters in I<letters> to uppercase;
+the B<,> operator converts letters in I<letters> to lowercase.
+The B<^^> and B<,,> expansions convert each matched character in the expanded
+value; the B<^> and B<,> expansions match and convert only the first
+character in the expanded value. If I<letters> is omitted, it is treated like
+a B<?>, which matches every letter.
+
+=back
+
+If a modification is done on B<=8>, it is done on each of the expanded values.
+
+Examples:
+
+=begin html
+
+<table border="0" cellspacing="4" align="center" width="50%">
+<tr><td colspan="2"><hr /></td></tr>
+<tr>
+	<td><b>escape</b></td>	<td><b>result</b></td>
+</tr>
+<tr><td colspan="2"><hr /></td></tr>
+<tr>
+	<td>=2</td>				<td>ActivateDebtor.php</td>
+</tr>
+<tr>
+	<td>={2}</td>			<td>ActivateDebtor.php</td>
+</tr>
+<tr>
+	<td>={2#Activate}</td>	<td>Debtor.php</td>
+</tr>
+<tr>
+	<td>={2#t}</td>			<td>ActivateDebtor.php</td>
+</tr>
+<tr>
+	<td>={2#*t}</td>		<td>ivateDebtor.php</td>
+</tr>
+<tr>
+	<td>={2##*t}</td>		<td>or.php</td>
+</tr>
+<tr>
+	<td>={2%hp}</td>		<td>ActivateDebtor.p</td>
+</tr>
+<tr>
+	<td>={2%t}</td>			<td>ActivateDebtor.php</td>
+</tr>
+<tr>
+	<td>={2%t*}</td>		<td>ActivateDeb</td>
+</tr>
+<tr>
+	<td>={2%%t*}</td>		<td>Ac</td>
+</tr>
+<tr>
+	<td>={2,d}</td>			<td>Activatedebtor.php</td>
+</tr>
+<tr>
+	<td>={2^ph}</td>		<td>ActivateDebtor.Php</td>
+</tr>
+<tr>
+	<td>={2,,t}</td>		<td>ActivateDebtor.php</td>
+</tr>
+<tr>
+	<td>={2^^t}</td>		<td>AcTivaTeDebTor.php</td>
+</tr>
+<tr>
+	<td>={2,,}</td>			<td>activatedebtor.php</td>
+</tr>
+<tr>
+	<td>={2^^}</td>			<td>ACTIVATEDEBTOR.PHP</td>
+</tr>
+<tr>
+	<td>=8</td>				<td>UserName.php UserId.php</td>
+</tr>
+<tr>
+	<td>={8,}</td>			<td>userName.php userId.php</td>
+</tr>
+<tr>
+	<td>={8#User}</td>		<td>Name.php Id.php</td>
+</tr>
+<tr><td colspan="2"><hr /></td></tr>
+</table>
+
+=end html
+
+=begin roff
+
+.in +4n
+.TS
+lb lb
+l  l  .
+_
+escape	result
+_
+=2	ActivateDebtor.php
+={2}	ActivateDebtor.php
+={2#Activate}	Debtor.php
+={2#t}	ActivateDebtor.php
+={2#*t}	ivateDebtor.php
+={2##*t}	or.php
+={2%hp}	ActivateDebtor.p
+={2%t}	ActivateDebtor.php
+={2%t*}	ActivateDeb
+={2%%t*}	Ac
+={2,d}	Activatedebtor.php
+={2^ph}	ActivateDebtor.Php
+={2,,t}	ActivateDebtor.php
+={2^^t}	AcTivaTeDebTor.php
+={2,,}	activatedebtor.php
+={2^^}	ACTIVATEDEBTOR.PHP
+=8	UserName.php UserId.php
+={8,}	userName.php userId.php
+={8#User}	Name.php Id.php
+_
+.TE
+.in -4n
+
+=end roff
 
 =head1 LAUNCHING FILES
 
@@ -1155,10 +1294,10 @@ The input is taken literally.
 
 First of all, tilde expansion is performed.
 
-Next, any C<=[1-8efpv]> character sequence is expanded to the corresponding
+Next, any C<=[1-8eEpv]> character sequence is expanded to the corresponding
 value.
 
-At the same time, any C<=[^1-8efpv]> character sequence is just replaced
+At the same time, any C<=[^1-8eEpv]> character sequence is just replaced
 with the character itself.
 
 Finally, if the filename is to be processed by C<pfm>, it is taken literally;
@@ -1169,10 +1308,10 @@ I<escaped>.
 
 First of all, tilde expansion is performed.
 
-Next, any C<=[1-8efpv]> character sequence is expanded to the corresponding
+Next, any C<=[1-8eEpv]> character sequence is expanded to the corresponding
 value, I<with shell metacharacters escaped>.
 
-At the same time, any C<=[^1-8efpv]> character sequence is just replaced
+At the same time, any C<=[^1-8eEpv]> character sequence is just replaced
 with the character itself.
 
 =back
@@ -1534,16 +1673,16 @@ The default location for the config file is F<$HOME/.pfm/.pfmrc>.
 
 =over
 
-=item 0
+=item S< >0
 
 Success (could also be a user requested exit, I<e.g.> after
 B<--help> or B<--version>).
 
-=item 1
+=item S< >1
 
 Invalid commandline option.
 
-=item 2
+=item S< >2
 
 No valid layout found in the F<.pfmrc> file.
 
@@ -1620,6 +1759,9 @@ with debugging.
 The documentation on PFMS<.>COM. The manual pages for chmod(1), cp(1),
 file(1), less(1), ln(1), locale(7), lpr(1), touch(1), vi(1).
 
+=for roff
+.ad l \" right-justification off
+
 For developers: Term::Screen(3pm), Term::ScreenColor(3pm),
 Term::ReadLine(3pm), App::PFM::Abstract(3pm), App::PFM::Application(3pm),
 App::PFM::Browser(3pm), App::PFM::CommandHandler(3pm), App::PFM::Config(3pm),
@@ -1628,9 +1770,9 @@ App::PFM::History(3pm), App::PFM::JobHandler(3pm),
 App::PFM::Job::Abstract(3pm), App::PFM::OS(3pm), App::PFM::Screen(3pm),
 App::PFM::State(3pm) and App::PFM::Util(3pm).
 
-The pfm project page: http://sourceforge.net/projects/p-f-m/
+The pfm project page: L<http://sourceforge.net/projects/p-f-m/>
 
-The pfm homepage: http://p-f-m.sourceforge.net/
+The pfm homepage: L<http://p-f-m.sourceforge.net/>
 
 =cut
 

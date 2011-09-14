@@ -7,7 +7,7 @@
 # Version:		1.42
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-10-20
+# Date:			2010-10-23
 #
 
 ##########################################################################
@@ -222,16 +222,16 @@ sub _helppage {
 	return $prompt;
 }
 
-=item _markednames()
+=item _markednames(bool $do_quote)
 
 Returns a list of names of marked files, used for expanding the B<=8> escape.
 
 =cut
 
 sub _markednames {
-	my ($self) = @_;
+	my ($self, $qif) = @_;
 	my $directory = $_pfm->state->directory;
-	my @res =	map  { quotemeta $_->{name} }
+	my @res =	map  { condquotemeta($qif, $_->{name}) }
 				grep { $_->{mark} eq M_MARK }
 				@{$directory->showncontents};
 	return @res;
@@ -278,7 +278,7 @@ sub _expand_replace {
                                     basename($_pfm->state->directory->path));
 		/7/o and return condquotemeta($qif, $extension);
 		/8/o and do {
-			return join(' ', $self->_markednames());
+			return join(' ', $self->_markednames($qif));
 		};
 		/e/o and return condquotemeta($qif, $self->{_config}{editor});
 		/E/o and return condquotemeta($qif, $self->{_config}{fg_editor});
@@ -302,7 +302,7 @@ sub _expand_3456_escapes {
 	# replace tildes
 	$self->_expand_tildes($command);
 	# replace the escapes
-	$$command =~ s/$qe([^1278])/_expand_replace($self, $qif, $1)/ge;
+	$$command =~ s/$qe([^1278])/$self->_expand_replace($qif, $1)/ge;
 }
 
 =item _expand_8_escapes(stringref $command)
@@ -317,7 +317,23 @@ sub _expand_8_escapes {
 	my $qe = quotemeta $self->{_config}{e};
 	# replace the escapes
 	my $number_of_substitutes =
-		$$command =~ s/$qe(?:8)/join(' ', $self->_markednames())/ge;
+		$$command =~ s/$qe(?:8)/
+			join(' ',
+				$self->_markednames(QUOTE_ON)
+			)
+		/ge;
+#		$$command =~ s/(?<!$qe)((?:$qe$qe)*)$qe(?:8)/
+#		$2 . join(' ', $self->_markednames(QUOTE_ON))/ge;
+	$number_of_substitutes +=
+		$$command =~ s/$qe\{8([#%^,]?)(\1?)([^}]*)\}/
+			join(' ',
+				map {
+					quotemeta(
+						$self->_expansion_modifier($_, $1, $2, $3))
+				}
+				$self->_markednames(QUOTE_OFF)
+			)
+		/ge;
 	return $number_of_substitutes;
 }
 
@@ -344,10 +360,55 @@ sub _expand_escapes {
 	# replace tildes
 	$self->_expand_tildes($command);
 	# replace the escapes
-	$$command =~ s/$qe([^8])/
-		_expand_replace(
-			$self, $qif, $1, $name_no_extension, $name, $extension)
+	$$command =~ s/$qe([^{8])/
+		$self->_expand_replace(
+			$qif, $1, $name_no_extension, $name, $extension)
 	/ge;
+	$$command =~ s/$qe\{([^8])([#%^,]?)(\2?)([^}]*)\}/
+		condquotemeta($qif,
+			$self->_expansion_modifier(
+				$self->_expand_replace(
+					QUOTE_OFF, $1, $name_no_extension, $name, $extension
+				), $2, $3, $4)
+		)
+	/ge;
+}
+
+=item _expansion_modifier(string $name, string $mode, string $pattern)
+
+Performs modifications (I<e.g.> B<={2#App::}>) on an expanded string,
+like bash(1) does.  See L<pfm/"ESCAPE MODIFIERS">.
+
+=cut
+
+sub _expansion_modifier {
+	my ($self, $name, $mode, $greedy, $pattern) = @_;
+	return $name unless $mode;
+	my ($translate, $regexp, $ungreedy);
+	if ($mode eq '#' or $mode eq '%') {
+		$ungreedy = $greedy ? '.*?' : '.*';
+		$greedy   = $greedy ? '.*' : '.*?';
+		$regexp = $pattern;
+		$regexp =~ s/([^*[:alnum:]])/\\$1/g; # escape everything
+		$regexp =~ s/\*/$greedy/g;
+		if ($mode eq '#') {	# ## or #
+			$name =~ s/^$regexp//;
+		} else {			# %% or %
+			$name =~ s/^($ungreedy)$regexp$/$1/;
+		}
+	} else {
+		if ($pattern eq '' or $pattern =~ /\?/) {
+			$regexp = '(.)';
+		} else {
+			$regexp = $mode eq '^' ? "([\L$pattern])" : "([\U$pattern])";
+		}
+		if ($greedy) {		# ^^ or ,,
+			$name =~ s/$regexp/$mode eq '^' ? uc($1) : lc($1)/eg;
+		} else {			# ^ or ,
+			$name =~ s/$regexp/$mode eq '^' ? uc($1) : lc($1)/e;
+		}
+	}
+	return $name;
 }
 
 =item _unmark_eightset()
@@ -358,7 +419,7 @@ Unmarks all the files if an B<=8> escape has been used.
 
 sub _unmark_eightset {
 	my ($self) = @_;
-	# unmark all files (only for =8)
+	# unmark all files
 	foreach (@{$_pfm->state->directory->showncontents}) {
 		if ($_->{mark} eq M_MARK) {
 			$_pfm->state->directory->exclude($_, M_OLDMARK);
@@ -785,7 +846,7 @@ sub handleswap {
 		# there is no swap state yet
 		# --------------------------------------------------
 		# ask and swap forward
-		$screen->at(0,0)->clreol()->cooked_echo();
+		$screen->clear_footer->at(0,0)->clreol()->cooked_echo();
 		$nextdir = $self->{_history}->input({
 			history => H_PATH,
 			prompt  => $prompt
@@ -2847,6 +2908,7 @@ sub handlemorego {
 	my $screen  = $self->{_screen};
 	my ($dest, $key, $prompt, $destfile, $success,
 		$prevdir, $prevstate, $chdirautocmd);
+	return if !$screen->ok_to_remove_marks();
 	# the footer has already been cleared by handlemore()
 	$self->_listbookmarks();
 	# choice

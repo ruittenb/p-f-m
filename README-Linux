@@ -1,8 +1,10 @@
 
-On Ubuntu Jaunty, it is advisable to install the following packages:
+On Ubuntu 9.04 (Jaunty), 9.10 (Karmic), and 10.04 (Lucid),
+it is advisable to install the following packages:
+
 - libncurses5
 - libncurses5-dev
-- libreadline5
-- libreadline5-dev
+- libreadline5     (or libreadline6)
+- libreadline5-dev (or libreadline6-dev)
 - libterm-readline-gnu-perl
 
