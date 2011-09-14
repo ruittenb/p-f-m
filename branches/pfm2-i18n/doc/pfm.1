@@ -124,13 +124,13 @@
 .\" ========================================================================
 .\"
 .IX Title "PFM 1"
-.TH PFM 1 "2011-09-06" " " " "
+.TH PFM 1 "2011-09-08" " " " "
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
 .nh
 .ds Yr 2011
-.ds Vw @(#) pfm.pl 2.11.8
+.ds Vw @(#) pfm.pl 2.11.9
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -524,12 +524,14 @@ the image viewer specified with the 'viewer' option in the config file
 .Sp
 The \fIextension\fR of the filename is defined as follows:
 .Sp
-If the filename does not contain a period at all, then the file has no
-extension (\fB=7\fR is empty) and its whole name is regarded as \fB=1\fR.
+If the filename does not contain a period at all (\fIe.g.\fR \fIhosts\fR) or only
+has an initial period (\fIe.g.\fR \fI.profile\fR), then the file has no extension
+(\fB=7\fR is empty) and its whole name is regarded as \fB=1\fR.
 .Sp
-If the filename does contain a period, the extension \fB=7\fR is defined
-as the final part of the filename, starting at the last period in the
-name. The filename \fB=1\fR is the part before the period.
+If the filename does contain a non-initial period (\fIe.g.\fR \fImail.log\fR
+or \fI.profile.old\fR), the extension \fB=7\fR is defined as the final
+part of the filename, starting at the last period in the name. The
+filename \fB=1\fR is the part before the last period.
 .Sp
 In all cases, the concatenation of \fB=1\fR and \fB=7\fR is equal to \fB=2\fR.
 .Sp
@@ -544,8 +546,8 @@ _
 track01.wav	track01	.wav
 garden.jpg	garden	.jpg
 end.	end	.
-somename	somename	\fIempty\fP
-\.profile	\fIempty\fP	.profile
+hosts	hosts	\fIempty\fP
+\.profile	.profile	\fIempty\fP
 \.profile.old	.profile	.old
 _
 .TE
@@ -944,6 +946,7 @@ _
 ={2%%t*}	Ac
 ={2,d}	Activatedebtor.php
 ={2^ph}	ActivateDebtor.Php
+={2^^ph}	ActivateDebtor.PHP
 ={2,,t}	ActivateDebtor.php
 ={2^^t}	AcTivaTeDebTor.php
 ={2,,}	activatedebtor.php
@@ -1374,12 +1377,11 @@ For developers:
 .PP
 \&\fITerm::Screen\fR\|(3pm),
 \&\fITerm::ScreenColor\fR\|(3pm),
-\&\fITerm::ReadLine\fR\|(3pm),
+\&\fITerm::ReadLine\fR\|(3pm).
+.PP
 \&\fIApp::PFM::Abstract\fR\|(3pm),
 \&\fIApp::PFM::Application\fR\|(3pm),
 \&\fIApp::PFM::Browser\fR\|(3pm),
-\&\fIApp::PFM::Browser::Files\fR\|(3pm),
-\&\fIApp::PFM::Browser::Bookmarks\fR\|(3pm),
 \&\fIApp::PFM::CommandHandler\fR\|(3pm),
 \&\fIApp::PFM::Config\fR\|(3pm),
 \&\fIApp::PFM::Directory\fR\|(3pm),

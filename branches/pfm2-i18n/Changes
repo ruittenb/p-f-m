@@ -1,3 +1,15 @@
+2.11.9E
+
+* merged changes from 2.11.9 into 2.11.8E.
+
+2.11.9
+
+* fixed: a problem expanding sequences like '==8'.
+* fixed: a problem expanding the '=7' escape.
+* fixed: a problem when testing if a newer version is available.
+* added: menu message providing help for the (N)ame command.
+* changed: the semantics for the '=7' escape were changed.
+
 2.11.8E
 
 * merged changes from 2.11.8 into 2.11.7E.

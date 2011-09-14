@@ -117,8 +117,6 @@ A  +    doc/pfm.pdf
 - who determines which command was clicked in the menu?
   is that the CommandHandler::handlemousefooter* or Screen::Frame?
 
-- after addition of --login and moving options to _argv, cmdline parsing no longer works.
-
 - implement 'after_create_entry'
 
 - have a look at IPC::Run

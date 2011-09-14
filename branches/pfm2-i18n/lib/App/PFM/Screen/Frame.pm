@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Frame 0.49
+# @(#) App::PFM::Screen::Frame 0.51
 #
 # Name:			App::PFM::Screen::Frame
-# Version:		0.49
+# Version:		0.51
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-06-29
+# Date:			2011-09-05
 #
 
 ##########################################################################
@@ -49,6 +49,7 @@ use constant {
 	MENU_INCLUDE		=> 8,
 	MENU_EXCLUDE		=> 16,
 	MENU_LNKTYPE		=> 32,
+	MENU_NAME			=> 64,
 	MENU_NONE			=> 65536,
 	HEADING_DISKINFO	=> 0,
 	HEADING_YCOMMAND	=> 1,
@@ -103,6 +104,7 @@ our %EXPORT_TAGS = (
 		MENU_INCLUDE
 		MENU_EXCLUDE
 		MENU_LNKTYPE
+		MENU_NAME
 		MENU_NONE
 		HEADING_DISKINFO
 		HEADING_YCOMMAND
@@ -206,6 +208,13 @@ sub _getmenu {
 		.		"Greater/Smaller, User, Files only:";
 	} elsif ($mode == MENU_LNKTYPE) {
 		return	'Absolute, Relative symlink or Hard link:';
+	} elsif ($mode == MENU_NAME) {
+		my $state = $self->{_pfm}->state;
+		return	sprintf("N to change radix [%s], " .
+			"SPACE to toggle spaces [%s], any other key to exit",
+			$state->radix_mode,
+			$state->{trspace} ? 'on' : 'off'
+		);
 	} elsif ($mode == MENU_NONE) {
 		return	'';
 	} else { # SINGLE or MULTI
