@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 0.89
+# @(#) App::PFM::Config 0.90
 #
 # Name:			App::PFM::Config
-# Version:		0.89
+# Version:		0.90
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-23
+# Date:			2010-08-30
 #
 
 ##########################################################################
@@ -37,6 +37,7 @@ package App::PFM::Config;
 use base 'App::PFM::Abstract';
 
 use App::PFM::Util qw(isyes isno isxterm ifnotdefined);
+use App::PFM::Event;
 
 use POSIX qw(strftime mktime);
 
@@ -242,7 +243,11 @@ sub parse {
 		$screen->colorizable(1);
 	}
 	# copyright message
-	$self->fire_event('after_parse_usecolor');
+	$self->fire(new App::PFM::Event({
+		name   => 'after_parse_usecolor',
+		origin => $self, # not used ATM
+		type   => 'soft',
+	}));
 	# time/date format for clock and timestamps
 	$self->{clockdateformat}	= $pfmrc->{clockdateformat} || '%Y %b %d';
 	$self->{clocktimeformat}	= $pfmrc->{clocktimeformat} || '%H:%M:%S';

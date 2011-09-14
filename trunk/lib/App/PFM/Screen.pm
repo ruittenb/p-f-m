@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen 0.34
+# @(#) App::PFM::Screen 0.35
 #
 # Name:			App::PFM::Screen
-# Version:		0.34
+# Version:		0.35
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-26
+# Date:			2010-08-30
 # Requires:		Term::ScreenColor
 #
 
@@ -76,6 +76,19 @@ use constant R_SCREEN => R_LISTING | R_DISKINFO | R_FRAME;
 use constant R_CLRSCR => R_CLEAR | R_SCREEN;
 use constant R_CHDIR  => R_NEWDIR | R_SCREEN | R_STRIDE;
 
+use constant MAXBURSTSIZE => 30;
+
+our $FIONREAD = 0;
+#eval {
+#	# suppresses the warnings by changing line 3 in
+#	# /usr/lib/perl/5.8.8/features.ph from
+#	# no warnings 'redefine';
+#	# to
+#	# no warnings qw(redefine misc);
+#	require 'sys/ioctl.ph';
+#	$FIONREAD = FIONREAD();
+#};
+
 our %EXPORT_TAGS = (
 	constants => [ qw(
 		R_NOP
@@ -138,6 +151,21 @@ Catches window resize signals (WINCH).
 sub _catch_resize {
 	$_wasresized = 1;
 	$SIG{WINCH} = \&_catch_resize;
+}
+
+=item _burst_size()
+
+Checks how many characters are waiting for input. This could be used
+to filter out unwanted paste actions when commands are expected.
+
+=cut
+
+sub _burst_size {
+#	my ($self) = @_;
+	return 0 unless $FIONREAD;
+	my $size = pack("L", 0);
+	ioctl(STDIN, $FIONREAD, $size);
+	return unpack("L", $size);
 }
 
 ##########################################################################
@@ -390,7 +418,74 @@ sub pending_input {
 		# 'Interrupted system call'
 		$input_ready = $self->key_pressed(0.1);
 	}
+	# the next block is highly experimental - maybe this
+	# could be used to suppress paste actions in command mode
+	if ($input_ready and $self->_burst_size > MAXBURSTSIZE) {
+		$self->flush_input()->flash();	# experimental
+		$input_ready = 0;				# experimental
+	}									# experimental
 	return $input_ready;
+}
+
+=item get_event()
+
+Returns an App::PFM::Event object of type B<mouse>, B<key> or B<resize>,
+containing the event that was currently pending (as determined by
+pending_input()).
+
+=cut
+
+sub get_event() {
+	my ($self) = @_;
+	if ($_wasresized) {
+		$_wasresized = 0;
+		return new App::PFM::Event({
+			name   => 'resize_window',
+			origin => $self,
+			type   => 'resize',
+		});
+	}
+	# must be keyboard/mouse input here
+	my $key   = $self->getch();
+	# first assume it was a keyboard event
+	my $event = new App::PFM::Event({
+		name   => 'after_receive_user_input',
+		origin => $self,
+		type   => 'key',
+		data   => $key,
+	});
+	if ($key ne 'kmous') {
+		# it is a key command.
+		return $event;
+	}
+	
+	# only mouse commands here.
+	$self->noecho();
+	$event->{mousebutton} = ord($self->getch()) - 040;
+	$event->{mousecol}    = ord($self->getch()) - 041;
+	$event->{mouserow}    = ord($self->getch()) - 041;
+	$self->echo();
+
+	if ($event->{mousebutton} < 64) {
+		# first or second button clicked is considered
+		# type=mouse, data:kmous
+		$event->{type} = 'mouse';
+		# the mousewheel will be considered a key:
+		# type=key, data=mup/mdown/etc.
+	} elsif ($event->{mousebutton} == 64) {
+		# wheel up
+		$event->{data} = 'mup';
+	} elsif ($event->{mousebutton} == 65) {
+		# wheel down
+		$event->{data} = 'mdown';
+	} elsif ($event->{mousebutton} == 68) {
+		# shift-wheel up
+		$event->{data} = 'mshiftup';
+	} elsif ($event->{mousebutton} == 69) {
+		# shift-wheel down
+		$event->{data} = 'mshiftdown';
+	}
+	return $event;
 }
 
 =item show_frame(hashref { menu => int $menu_mode, footer => int $footer_mode,
