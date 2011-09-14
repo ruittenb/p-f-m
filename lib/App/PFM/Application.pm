@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.08.6
+# @(#) App::PFM::Application 2.08.7
 #
 # Name:			App::PFM::Application
-# Version:		2.08.6
+# Version:		2.08.7
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-09
+# Date:			2010-09-11
 #
 
 ##########################################################################
@@ -52,11 +52,6 @@ use Cwd;
 
 use locale;
 use strict;
-
-use constant BOOKMARKKEYS => [qw(
-	a b c d e f g h i j k l m n o p q r s t u v w x y z
-	A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
-)];
 
 ##########################################################################
 # private subs
@@ -135,13 +130,15 @@ sub _usage {
 	$screen->colorizable(1);
 	my $directory  = $screen->colored('underline', 'directory');
 	my $number     = $screen->colored('underline', 'number');
+	my $sortmode   = $screen->colored('underline', 'sortmode');
 	my $configname = App::PFM::Config::location();
-	print "Usage: pfm [ -l, --layout $number ] ",
-		  "[ $directory ] [ -s, --swap $directory ]\n",
+	print "Usage: pfm [ $directory ] [ -s, --swap $directory ]\n",
+		  "           [ -l, --layout $number ] [ -o, --sort $sortmode ]\n",
 		  "       pfm { -h, --help | -v, --version }\n\n",
 		  "    $directory            : specify starting directory\n",
 		  "    -h, --help           : print this help and exit\n",
 		  "    -l, --layout $number  : startup with specified layout\n",
+		  "    -o, --sort $sortmode  : startup with specified sortmode\n",
 		  "    -s, --swap $directory : specify swap directory\n",
 		  "    -v, --version        : print version information and exit\n\n",
 		  "Configuration options will be read from $configname\n",
@@ -304,7 +301,7 @@ sub _bootstrap_members {
 			'after_parse_usecolor', $on_after_parse_usecolor);
 	
 	%bookmarks = $config->read_bookmarks();
-	@{$self->{_states}}{@{BOOKMARKKEYS()}} = ();
+	@{$self->{_states}}{@{$config->BOOKMARKKEYS}} = ();
 	@{$self->{_states}}{keys %bookmarks} = values %bookmarks;
 	$screen->listing->layout($self->{_options}{'layout'});
 	$self->{_history}->read();

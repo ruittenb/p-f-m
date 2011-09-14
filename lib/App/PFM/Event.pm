@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Event 0.09
+# @(#) App::PFM::Event 0.10
 #
 # Name:			App::PFM::Event
-# Version:		0.09
+# Version:		0.10
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-30
-# Date:			2010-09-09
+# Date:			2010-09-10
 #
 
 ##########################################################################
@@ -54,6 +54,7 @@ use constant KNOWN_PROPERTIES => {
 use constant KNOWN_EVENTS => {
 	browser_idle					=> 1, # Browser
 	resize_window					=> 1, # Screen
+	before_change_directory			=> 1, # Directory
 	before_job_start				=> 1, # Job
 	after_job_start					=> 1, # Job
 	after_job_receive_data			=> 1, # Job

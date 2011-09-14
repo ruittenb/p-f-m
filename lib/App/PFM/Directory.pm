@@ -557,6 +557,10 @@ sub chdir {
 		}
 	}
 	$nextdir = canonicalize_path($nextdir);
+	$self->fire(new App::PFM::Event({
+		name => 'before_change_directory',
+		type => 'soft',
+	}));
 	if ($success = chdir $nextdir and $nextdir ne $prevdir) {
 		# store the cursor position in the state
 		$_pfm->state->{_position}  = $_pfm->browser->currentfile->{name};

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 0.96
+# @(#) App::PFM::Config 0.98
 #
 # Name:			App::PFM::Config
-# Version:		0.96
+# Version:		0.98
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-10
+# Date:			2010-09-11
 #
 
 ##########################################################################
@@ -48,13 +48,16 @@ use locale;
 use constant {
 	READ_AGAIN		 => 0,
 	READ_FIRST		 => 1,
-	NO_COPYRIGHT	 => 0,
-	SHOW_COPYRIGHT	 => 1,
 	CONFIGDIRNAME	 => "$ENV{HOME}/.pfm",
 	CONFIGFILENAME	 => '.pfmrc',
 	CONFIGDIRMODE	 => 0700,
 	BOOKMARKFILENAME => 'bookmarks',
 };
+
+use constant BOOKMARKKEYS => [qw(
+	a b c d e f g h i j k l m n o p q r s t u v w x y z
+	A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
+)];
 
 our ($_pfm);
 
@@ -70,8 +73,9 @@ Initializes new instances. Called from the constructor.
 sub _init {
 	my ($self, $pfm) = @_;
 	$_pfm = $pfm;
-	$self->{_pfmrc} = {};
-	$self->{_text}  = [];
+	$self->{_screen} = $_pfm->screen;
+	$self->{_pfmrc}  = {};
+	$self->{_text}   = [];
 	$self->{_configfilename} = $self->location();
 }
 
@@ -119,6 +123,27 @@ sub _parse_colorsets {
 			$self->{framecolors}{$_}{$1} = $2;
 		}
 	}
+}
+
+=item _ask_to_backup(string $message)
+
+Prompts for confirmation to backup the current F<.pfmrc> and work on
+a new one.
+
+=cut
+
+sub _ask_to_backup {
+	my ($self, $message) = @_;
+	my $screen = $self->{_screen};
+	$screen->neat_error("$message (y/n)? ");
+	return 0 if (lc $screen->getch() ne 'y');
+	$screen->puts("\r\n");
+	unless ($self->backup()) {
+		$screen->puts("Could not backup your config file, aborting");
+		$screen->important_delay();
+		return 0;
+	}
+	return 1;
 }
 
 ##########################################################################
@@ -193,24 +218,24 @@ sub location {
 
 Reads in the F<.pfmrc> file. If none exists, a default F<.pfmrc> is written.
 The I<firstread> variable ensures that the message "Your config file may
-be outdated" is given only once.
+be outdated" is given only once.  If the config file is outdated, offer
+to update it (see App::PFM::Config::Update).
 
 =cut
 
 sub read {
 	my ($self, $read_first) = @_;
-	my ($pfmrc_version, $updater);
+	my ($pfmrc_version, $updater, $wanna);
 	my $screen = $_pfm->screen;
 	READ_ATTEMPT: {
 		$self->{_pfmrc} = {};
 		$self->{_text}  = [];
+		# try to find a config file
 		unless (-r $self->{_configfilename}) {
-			unless ($ENV{PFMRC} || -d CONFIGDIRNAME) {
-				# create the directory only if $ENV{PFMRC} is not set
-				mkdir CONFIGDIRNAME, CONFIGDIRMODE;
-			}
+			# create a default config file
 			$self->write_default();
 		}
+		# open and read in
 		if (open PFMRC, $self->{_configfilename}) {
 			$self->{_text} = [ <PFMRC> ];
 			seek(PFMRC, 0, 0); # rewind
@@ -228,35 +253,40 @@ sub read {
 				}
 			}
 			close PFMRC;
+			return unless $read_first;
+			# messages will not be in message color: usecolor not yet parsed
 			if (!defined $pfmrc_version) {
-				# will not be in message color: usecolor not yet parsed
+				# undefined pfmrc version
 				$screen->neat_error(
 					"Warning: the version of your $self->{_configfilename}\r\n"
-				.	"could not be determined. Please see pfm(1), under DIAGNOSIS."
+				.	"could not be determined. Please see pfm(1), under "
+				.	"DIAGNOSIS."
 				);
 				$screen->important_delay();
-			} elsif ($pfmrc_version lt $_pfm->{VERSION} and $read_first) {
-				# will not be in message color: usecolor not yet parsed
-				$screen->neat_error(
-					"Warning: your $self->{_configfilename} version $pfmrc_version"
-				.	"\r\nmay be too old for this version of pfm ($_pfm->{VERSION})."
-				.	"\r\nDo you want me to backup this config file and update it "
-				.	"now (y/n)? ");
-				return if (lc $screen->getch() ne 'y');
-				$screen->puts("\r\n");
-				if (!$self->backup()) {
-					$screen->puts(
-						"Could not backup your config file, aborting update");
-					$screen->important_delay();
-					return;
-				}
-				$screen->cooked_echo();
+			} elsif ($pfmrc_version lt $_pfm->{VERSION}) {
+				# pfmrc version outdated
 				$updater = new App::PFM::Config::Update();
-				$updater->update(
-					$pfmrc_version, $_pfm->{VERSION}, $self->{_text});
-				$self->write_text();
-				$screen->raw_noecho();
-				redo READ_ATTEMPT;
+				$wanna = "Warning: your $self->{_configfilename} version "
+					.	"$pfmrc_version\r\nmay be too old for this version "
+					.	"of pfm ($_pfm->{VERSION}).\r\nDo you want me to "
+					.	"backup this config file\r\nand";
+				if ($pfmrc_version ge $updater->get_minimum_version()) {
+					# outdated but can be updated
+					return unless $self->_ask_to_backup(
+						"$wanna update it now");
+					$screen->cooked_echo();
+					$updater->update(
+						$pfmrc_version, $_pfm->{VERSION}, $self->{_text});
+					$self->write_text();
+					$screen->raw_noecho();
+					redo READ_ATTEMPT;
+				} else {
+					# outdated and too old to update
+					return unless $self->_ask_to_backup(
+						"$wanna create a new default one for this version");
+					$self->write_default();
+					redo READ_ATTEMPT;
+				}
 			} # if !defined($version) or $version lt $pfm_version
 		} # if open()
 	} # READ_ATTEMPT
@@ -370,8 +400,7 @@ sub parse {
 		$pfmrc->{columnlayouts}
 			? split(/:/, $pfmrc->{columnlayouts})
 			:('* nnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss mmmmmmmmmmmmmmmm pppppppppp ffffffffffffff'
-			, '* nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss mmmmmmmmmmmmmmmm ffffffffffffff'
-			, '* nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss uuuuuuuu pppppppppp ffffffffffffff')
+			, '* nnnnnnnnnnnnnnnnnnnnnnnnnnssssssss uuuuuuuu gggggggg pppppppppp ffffffffffffff')
 	];
 	$self->_parse_colorsets();
 }
@@ -431,7 +460,8 @@ sub apply {
 
 =item write_default()
 
-Writes a default config file in case none exists.
+Writes a default config file. Creates the default containing directory
+(F<~/.pfm>) if does not exist. An existing config file will be clobbered.
 
 =cut
 
@@ -442,6 +472,10 @@ sub write_default {
 	my $maxdatelen = 0;
 	my $version    = $_pfm->{VERSION};
 	local $_;
+	# if necessary, create the directory, but only if $ENV{PFMRC} is not set
+	unless ($ENV{PFMRC} || -d CONFIGDIRNAME) {
+		mkdir CONFIGDIRNAME, CONFIGDIRMODE;
+	}
 	# The default layouts assume that the default timestamp format
 	# is 15 chars wide.
 	# Find out if this is enough, taking the current locale into account.
@@ -450,7 +484,7 @@ sub write_default {
 			length strftime("%b", gmtime($secs_per_32_days * $_)));
 	}
 	$maxdatelen -= 3;
-	if (open MKPFMRC, ">$self->{_configfilename}") {
+	if (open MKPFMRC, ">$self->{_configfilename}") { # ignore failure
 		# both __DATA__ and __END__ markers are used at the same time
 		while (($_ = <DATA>) !~ /^__END__/) {
 			s/^(##? Version )x/$1$version/m;
@@ -458,6 +492,7 @@ sub write_default {
 				s{^(\s*(?:your\[[[:alpha:]]\]|launch\[[^]]+\])\s*:\s*\w+.*?\s+)more(\s*)$}
 				 {$1less$2}mg;
 			}
+			# if we need more room for the timestampformat, create it
 			if (/nnnnn/ and $maxdatelen) {
 				s/([cma])/$1 x ($maxdatelen+1)/e &&
 				s/nnnnn{$maxdatelen}/nnnn/;
@@ -544,8 +579,8 @@ sub write_bookmarks {
 		return;
 	}
 	print BOOKMARKS '#' x 74, "\n## bookmarks for pfm\n\n";
-	foreach (@{$_pfm->BOOKMARKKEYS}) {
-		next if /../;
+	foreach (@{BOOKMARKKEYS()}) {
+		next if /^S_/; # skip S_MAIN, S_PREV, S_SWAP
 		$state = $_pfm->state($_);
 		if (ref $state) {
 			$path = $state->directory->path;
@@ -730,11 +765,11 @@ importlscolors:yes
 ## definitely look in the Term::Screen(3pm) manpage for details.
 ## also check 'kmous' from terminfo if your mouse is malfunctioning.
 keydef[*]:kmous=\e[M:pgdn=\e[62~:pgup=\e[63~:
-# gnome-terminal handles F1  itself. enable shift-F1 by adding:
+## gnome-terminal handles F1  itself. enable shift-F1 by adding:
 #k1=\eO1;2P:
-# gnome-terminal handles F10 itself. enable shift-F10 by adding:
+## gnome-terminal handles F10 itself. enable shift-F10 by adding:
 #k10=\e[21;2~:
-# gnome-terminal handles F11 itself. enable shift-F11 by adding:
+## gnome-terminal handles F11 itself. enable shift-F11 by adding:
 #k11=\e[23;2~:
 
 ## the keymap to use in readline (vi,emacs). (default emacs)

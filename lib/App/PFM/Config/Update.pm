@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config::Update 2.08.6
+# @(#) App::PFM::Config::Update 2.08.7
 #
 # Name:			App::PFM::Config::Update
-# Version:		2.08.6
+# Version:		2.08.7
 # Author:		Rene Uittenbogaard
 # Created:		2010-05-28
-# Date:			2010-09-10
+# Date:			2010-09-11
 #
 
 ##########################################################################
@@ -50,11 +50,6 @@ use strict;
 use locale;
 
 use constant UPDATES => {
-	# removals is an arrayref with regexps.
-	# substitutions is a coderef.
-	# insertions is an arrayref with hashrefs with members 'before'
-	#   and 'batch', the latter being an arrayref.
-	# additions is an arrayref.
 	# ----- template -------------------------------------------------------
 	'template' => {
 		removals => [
@@ -62,10 +57,18 @@ use constant UPDATES => {
 		],
 		substitutions => sub {},
 		insertions => [{
+			ifnotpresent => qr//,
 			before => qr//,
 			batch => [],
 		}],
-		additions => [],
+		additions => [{
+			ifnotpresent => qr//,
+			batch => [],
+		}],
+	},
+	# ----- 1.88 -----------------------------------------------------------
+	'1.88' => {
+		# minimum version required for update
 	},
 	# ----- 1.89 -----------------------------------------------------------
 	'1.89' => {
@@ -79,12 +82,16 @@ use constant UPDATES => {
 			(?:"[^"]*")*
 			\)
 			)"/$1/gx;
+			s{(if you have .LS_COLORS or .LS_COLOURS set,)$}
+			 {$1, and 'importlscolors' above is set,};
 		},
-		additions => [
-			"# convert \$LS_COLORS into an additional colorset?\n",
-			"importlscolors:yes\n",
-			"\n",
-		],
+		additions => [{
+			batch => [
+				"# convert \$LS_COLORS into an additional colorset?\n",
+				"importlscolors:yes\n",
+				"\n",
+			],
+		}],
 	},
 	# ----- 1.90.1 ---------------------------------------------------------
 	'1.90.1' => {
@@ -95,28 +102,54 @@ use constant UPDATES => {
 				s/\$EDITOR\b/\\e/g;
 			}
 		},
-		additions => [
-			"## preferred image editor/viewer (don't specify \\2 here)\n",
-			"#viewer:eog\n",
-			"viewer:xv\n",
-			"\n",
-			"## The special set 'framecolors[*]' will be used for every 'dircolors[x]'\n",
-			"## for which there is no corresponding 'framecolors[x]' (like ls_colors)\n",
-			"framecolors[*]:\\\n",
-			"title=reverse:swap=reverse:footer=reverse:highlight=bold:\n",
-			"\n",
-			"## The special set 'dircolors[*]' will be used for every 'framecolors[x]'\n",
-			"## for which there is no corresponding 'dircolors[x]'\n",
-			"dircolors[*]:\\\n",
-			"di=bold:ln=underscore:\n",
-			"\n",
-		],
+		additions => [{
+			batch => [
+				"## preferred image editor/viewer (don't specify \\2 here)\n",
+				"#viewer:eog\n",
+				"viewer:xv\n",
+				"\n",
+				"## The special set 'framecolors[*]' will be used for every 'dircolors[x]'\n",
+				"## for which there is no corresponding 'framecolors[x]' (like ls_colors)\n",
+				"framecolors[*]:\\\n",
+				"title=reverse:swap=reverse:footer=reverse:highlight=bold:\n",
+				"\n",
+				"## The special set 'dircolors[*]' will be used for every 'framecolors[x]'\n",
+				"## for which there is no corresponding 'dircolors[x]'\n",
+				"dircolors[*]:\\\n",
+				"di=bold:ln=underscore:\n",
+				"\n",
+			],
+		}],
+	},
+	# ----- 1.90.3 ---------------------------------------------------------
+	'1.90.3' => {
+		additions => [{
+			batch => [
+				"## initial ident mode (user, host, or user\@host, cycle with = key)\n",
+				"#defaultident:user\n",
+				"\n",
+			],
+		}],
 	},
 	# ----- 1.90.4 ---------------------------------------------------------
 	'1.90.4' => {
 		substitutions => sub {
 			s/\bviewbase\b/defaultnumbase/g;
 		},
+	},
+	# ----- 1.91 -----------------------------------------------------------
+	'1.91' => {
+		additions => [{
+			batch => [
+				"## how should pfm try to determine the file type? by its magic (using file(1)),\n",
+				"## by extension, should we try to run it as an executable if the 'x' bit is set,\n",
+				"## or should we prefer one method and fallback on another one?\n",
+				"## allowed values: combinations of 'xbit', 'extension' and 'magic'\n",
+				"launchby:extension,xbit\n",
+				"#launchby:extension,xbit,magic\n",
+				"\n",
+			],
+		}],
 	},
 	# ----- 1.91.3 ---------------------------------------------------------
 	'1.91.3' => {
@@ -133,17 +166,19 @@ use constant UPDATES => {
 	},
 	# ----- 1.91.5 ---------------------------------------------------------
 	'1.91.5' => {
-		additions => [
-			"## clock date/time format; see strftime(3).\n",
-			"## %x and %X provide properly localized time and date.\n",
-			"## the defaults are \"%Y %b %d\" and \"%H:%M:%S\"\n",
-			"## the diskinfo field (f) in the layouts below must be wide enough for this.\n",
-			"clockdateformat:%Y %b %d\n",
-			"#clocktimeformat:%H:%M:%S\n",
-			"#clockdateformat:%x\n",
-			"clocktimeformat:%X\n",
-			"\n",
-		],
+		additions => [{
+			batch => [
+				"## clock date/time format; see strftime(3).\n",
+				"## %x and %X provide properly localized time and date.\n",
+				"## the defaults are \"%Y %b %d\" and \"%H:%M:%S\"\n",
+				"## the diskinfo field (f) in the layouts below must be wide enough for this.\n",
+				"clockdateformat:%Y %b %d\n",
+				"#clocktimeformat:%H:%M:%S\n",
+				"#clockdateformat:%x\n",
+				"clocktimeformat:%X\n",
+				"\n",
+			],
+		}],
 	},
 	# ----- 1.91.7 ---------------------------------------------------------
 	'1.91.7' => {
@@ -168,12 +203,15 @@ use constant UPDATES => {
 			batch => [
 				'## The option itself may not contain whitespace or colons,'."\n",
 				'## except in a classifier enclosed in [] that immediately follows it.'."\n",
-				'## In other words: /^\s*([^[:\s]+(?:\[[^]]+\])?)\s*:\s*(.*)$/'."\n",
+				'## In other words: /^\s*([^:[\s]+(?:\[[^]]+\])?)\s*:\s*(.*)$/'."\n",
 			],
 		}],
 	},
 	# ----- 1.92.1 ---------------------------------------------------------
 	'1.92.1' => {
+		removals => [
+			qr'^## [iI]n other words: /\^\\s\*\(\[\^:\\s\]\+\)\\s\*:\\s\*\(\.\*\)\$/',
+		],
 		substitutions => sub {
 			s/^(#*\s*)\bclobber\b/$1defaultclobber/g;
 		},
@@ -182,14 +220,20 @@ use constant UPDATES => {
 	'1.92.3' => {
 		substitutions => sub {
 			s/^(#*\s*)\bmousemode\b/$1defaultmousemode/g;
-		}
+		},
+		insertions => [{
+			after => qr/^##  .6 . current directory basename/,
+			batch => [
+			  "##  \\7 = current filename extension\n",
+			],
+		}],
 		# added 'waitlaunchexec', but this was deprecated later.
 		# no need to add it here because it was never implemented.
 	},
 	# ----- 1.92.6 ---------------------------------------------------------
 	'1.92.6' => {
 		substitutions => sub {
-			s{hide dot files initially.*show them otherwise}
+			s{hide dot files.*show them otherwise}
 			 {show dot files initially? (hide them otherwise}g;
 			s/\bdotmode:\s*yes\b/defaultdotmode: no/g;
 			s/\bdotmode:\s*no\b/defaultdotmode: yes/g;
@@ -202,91 +246,126 @@ use constant UPDATES => {
 		substitutions => sub {
 			s/\\([1-7pv])/=$1/g;
 			# watch out for keydefs with \e[M, \eOF etc.
-			s/\\e(?!\[|O[ABCDPQRSFH1])/=e/g;
+			!/be entered as a real escape/ and s/\\e(?!\[|O[ABCDPQRSFH1])/=e/g;
 			s/\\\\/==/g;
+			s{^## these must NOT be quoted any more!}
+			 {## these must NOT be quoted.};
+			s{^(##  =[3467] )= (.*)}
+			 {$1: $2};
+			s{^##  =1 = filename without extension}
+			 {##  =1 : current filename without extension};
+			s{^##  =2 = filename entirely}
+			 {##  =2 : current filename entirely};
+			s{^##  .5 = swap path .F7.}
+			 {##  =5 : swap directory path (F7)};
+			s{^##  == = a literal.*}
+			 {##  == : a single literal '='};
 		},
-		additions => [
-			"extension[*.dvi] : application/x-dvi\n",
-			"extension[*.jar] : application/zip\n",
-			"extension[*.man] : application/x-groff-man\n",
-			"extension[*.mm]  : application/x-groff-mm\n",
-			"extension[*.pdb] : chemical/x-pdb\n",
-			"magic[TeX DVI file] : application/x-dvi\n",
-			"\n",
-			"## the character that pfm recognizes as special abbreviation character\n",
-			"## (default =)\n",
-			"## previous versions used \\ (note that this leads to confusing results)\n",
-			"#escapechar:=\n",
-			"#escapechar:\\\n",
-			"\n",
-		],
+		additions => [{
+			batch => [
+				"extension[*.dvi] : application/x-dvi\n",
+				"extension[*.jar] : application/zip\n",
+				"extension[*.man] : application/x-groff-man\n",
+				"extension[*.mm]  : application/x-groff-mm\n",
+				"extension[*.pdb] : chemical/x-pdb\n",
+				"magic[TeX DVI file] : application/x-dvi\n",
+				"\n",
+				"## the character that pfm recognizes as special abbreviation character\n",
+				"## (default =)\n",
+				"## previous versions used \\ (note that this leads to confusing results)\n",
+				"#escapechar:=\n",
+				"#escapechar:\\\n",
+				"\n",
+			],
+		}],
 	},
 	# ----- 1.93.8 ---------------------------------------------------------
 	'1.93.8' => {
-		additions => [
-			"## use xterm alternate screen buffer (yes,no,xterm) (default: only in xterm)\n",
-			"altscreenmode:xterm\n",
-			"\n",
-			"## command used for starting a new pfm window for a directory. \n",
-			"## Only applicable under X. The default is to take gnome-terminal under \n",
-			"## Linux, xterm under other Unices. \n",
-			"## Be sure to include the option to start a program in the window. \n",
-			"#windowcmd:gnome-terminal -e \n",
-			"#windowcmd:xterm -e \n",
-			"\n",
-		],
+		additions => [{
+			batch => [
+				"## use xterm alternate screen buffer (yes,no,xterm) (default: only in xterm)\n",
+				"altscreenmode:xterm\n",
+				"\n",
+				"## command used for starting a new pfm window for a directory. \n",
+				"## Only applicable under X. The default is to take gnome-terminal under \n",
+				"## Linux, xterm under other Unices. \n",
+				"## Be sure to include the option to start a program in the window. \n",
+				"#windowcmd:gnome-terminal -e \n",
+				"#windowcmd:xterm -e \n",
+				"\n",
+			],
+		}],
 	},
 	# ----- 1.94.0 ---------------------------------------------------------
 	'1.94.0' => {
-		additions => [
-			"## command to perform automatically after every chdir()\n",
-			"#chdirautocmd:printf \"\\033]0;pfm - \$(basename \$(pwd))\\007\"\n",
-			"\n",
-		],
+		additions => [{
+			batch => [
+				"## command to perform automatically after every chdir()\n",
+				"#chdirautocmd:printf \"\\033]0;pfm - \$(basename \$(pwd))\\007\"\n",
+				"\n",
+			],
+		}],
 	},
 	# ----- 1.94.2 ---------------------------------------------------------
 	'1.94.2' => {
-		additions => [
-			"## request rcs status automatically?\n",
-			"autorcs:yes\n",
-			"\n",
-			"## command to use for requesting the file status in your rcs system.\n",
-			"rcscmd:svn status\n",
-			"\n",
-		],
+		additions => [{
+			batch => [
+				"## request rcs status automatically?\n",
+				"autorcs:yes\n",
+				"\n",
+				"## command to use for requesting the file status in your rcs system.\n",
+				"rcscmd:svn status\n",
+				"\n",
+			],
+		}],
+	},
+	# ----- 1.94.7 ---------------------------------------------------------
+	'1.94.7' => {
+		insertions => [{
+			after => qr/##  .7 . current filename extension/,
+			batch => [
+				"##  =8 : list of selected filenames\n",
+			],
+		}],
 	},
 	# ----- 1.94.8 ---------------------------------------------------------
 	'1.94.8' => {
-		additions => [
-			"extension[*.odp]  : application/x-openoffice\n",
-			"extension[*.ods]  : application/x-openoffice\n",
-			"extension[*.odt]  : application/x-openoffice\n",
-			"launch[application/x-openoffice]  : ooffice =2 &\n",
-			"\n",
-		],
+		additions => [{
+			batch => [
+				"extension[*.odp]  : application/x-openoffice\n",
+				"extension[*.ods]  : application/x-openoffice\n",
+				"extension[*.odt]  : application/x-openoffice\n",
+				"launch[application/x-openoffice]  : ooffice =2 &\n",
+				"\n",
+			],
+		}],
 	},
 	# ----- 1.95.1 ---------------------------------------------------------
 	'1.95.1' => {
-		additions => [
-			"## is it always \"OK to remove marks?\" without confirmation?\n",
-			"remove_marks_ok:no\n",
-			"\n",
-		],
+		additions => [{
+			batch => [
+				"## is it always \"OK to remove marks?\" without confirmation?\n",
+				"remove_marks_ok:no\n",
+				"\n",
+			],
+		}],
 	},
 	# ----- 1.95.2 ---------------------------------------------------------
 	'1.95.2' => {
 		# this option was deprecated later
-		additions => [
-			"## automatically check for updates on exit (default: no) \n",
-			"checkforupdates:no \n",
-			"\n",
-		],
+		additions => [{
+			batch => [
+				"## automatically check for updates on exit (default: no) \n",
+				"checkforupdates:no \n",
+				"\n",
+			],
+		}],
 	},
 	# ----- 2.00.0 ---------------------------------------------------------
 	'2.00.0' => {
 		substitutions => sub {
-			s/(^|:)header=/${1}menu=/;
-			s/(^|:)title=/${1}headings=/;
+			s/(^#*|:)header=/${1}menu=/;
+			s/(^#*|:)title=/${1}headings=/;
 		},
 	},
 	# ----- 2.01.7 ---------------------------------------------------------
@@ -299,33 +378,37 @@ use constant UPDATES => {
 	# ----- 2.03.7 ---------------------------------------------------------
 	'2.03.7' => {
 		removals => [
-			qr/^[ #]*waitlaunchexec:/,
-			qr/^[ #]*wait for launched executables to finish/,
+			qr/^#*\s*waitlaunchexec:/,
+			qr/^#+\s*wait for launched executables to finish/,
 		],
 	},
 	# ----- 2.04.4 ---------------------------------------------------------
 	'2.04.4' => {
-		additions => [
-			"## commandline options to add to the cp(1) command, in the first place for\n",
-			"## changing the 'follow symlinks' behavior.\n",
-			"#copyoptions:-P\n",
-			"\n",
-		],
+		additions => [{
+			batch => [
+				"## commandline options to add to the cp(1) command, in the first place for\n",
+				"## changing the 'follow symlinks' behavior.\n",
+				"#copyoptions:-P\n",
+				"\n",
+			],
+		}],
 	},
 	# ----- 2.05.3 ---------------------------------------------------------
 	'2.05.3' => {
-		additions => [
-			"extension[*.3pm]  : application/x-nroff-man\n",
-			"extension[*.js]   : application/javascript\n",
-			"extension[*.m3u]  : text/x-m3u-playlist\n",
-			"extension[*.sql]  : application/x-sql\n",
-			"\n",
-			"launch[application/javascript]    : =e =2\n",
-			"launch[application/x-sql]         : =e =2\n",
-			"launch[audio/mpeg]                : vlc =2 >/dev/null 2>&1\n",
-			"launch[text/x-m3u-playlist]       : vlc =2 >/dev/null 2>&1\n",
-			"\n",
-		],
+		additions => [{
+			batch => [
+				"extension[*.3pm]  : application/x-nroff-man\n",
+				"extension[*.js]   : application/javascript\n",
+				"extension[*.m3u]  : text/x-m3u-playlist\n",
+				"extension[*.sql]  : application/x-sql\n",
+				"\n",
+				"launch[application/javascript]    : =e =2\n",
+				"launch[application/x-sql]         : =e =2\n",
+				"launch[audio/mpeg]                : vlc =2 >/dev/null 2>&1\n",
+				"launch[text/x-m3u-playlist]       : vlc =2 >/dev/null 2>&1\n",
+				"\n",
+			],
+		}],
 	},
 	# ----- 2.05.9 ---------------------------------------------------------
 	'2.05.9' => {
@@ -336,93 +419,106 @@ use constant UPDATES => {
 			qr/^#+\s*Linux, xterm under other Uni[xc]es/,
 			qr/^#+\s*Be sure to include the option to start a program/,
 		],
-		additions => [
-			"## Command used for starting a new directory window. Only useful under X.\n",
-			"##\n",
-			"## If 'windowtype' is 'standalone', then this command will be started\n",
-			"## and the current directory will be passed on the commandline.\n",
-			"## The command is responsible for opening its own window.\n",
-			"##\n",
-			"## If 'windowtype' is 'pfm', then 'windowcmd' should be a terminal\n",
-			"## command, which will be used to start pfm (the default is to use\n",
-			"## gnome-terminal for linux and xterm for other Unices).\n",
-			"## Be sure to include the option to start a program in the window\n",
-			"## (for xterm, this is -e).\n",
-			"##\n",
-			"#windowcmd:gnome-terminal -e\n",
-			"#windowcmd:xterm -e\n",
-			"#windowcmd:nautilus\n",
-			"\n",
-			"## What to open when a directory is middle-clicked with the mouse?\n",
-			"## 'pfm'       : open directories with pfm in a terminal window.\n",
-			"##               specify the terminal command with 'windowcmd'.\n",
-			"## 'standalone': open directories in a new window with the 'windowcmd'.\n",
-			"#windowtype:standalone\n",
-			"windowtype:pfm\n",
-			"\n",
-		],
+		additions => [{
+			batch => [
+				"## Command used for starting a new directory window. Only useful under X.\n",
+				"##\n",
+				"## If 'windowtype' is 'standalone', then this command will be started\n",
+				"## and the current directory will be passed on the commandline.\n",
+				"## The command is responsible for opening its own window.\n",
+				"##\n",
+				"## If 'windowtype' is 'pfm', then 'windowcmd' should be a terminal\n",
+				"## command, which will be used to start pfm (the default is to use\n",
+				"## gnome-terminal for linux and xterm for other Unices).\n",
+				"## Be sure to include the option to start a program in the window\n",
+				"## (for xterm, this is -e).\n",
+				"##\n",
+				"#windowcmd:gnome-terminal -e\n",
+				"#windowcmd:xterm -e\n",
+				"#windowcmd:nautilus\n",
+				"\n",
+				"## What to open when a directory is middle-clicked with the mouse?\n",
+				"## 'pfm'       : open directories with pfm in a terminal window.\n",
+				"##               specify the terminal command with 'windowcmd'.\n",
+				"## 'standalone': open directories in a new window with the 'windowcmd'.\n",
+				"#windowtype:standalone\n",
+				"windowtype:pfm\n",
+				"\n",
+			],
+		}],
 	},
 	# ----- 2.06.0 ---------------------------------------------------------
 	'2.06.0' => {
-		additions => [
-			"## write bookmarks to file automatically upon exit\n",
-			"autowritebookmarks:yes\n",
-			"\n",
-		],
+		additions => [{
+			batch => [
+				"## write bookmarks to file automatically upon exit\n",
+				"autowritebookmarks:yes\n",
+				"\n",
+			],
+		}],
 	},
 	# ----- 2.06.1 ---------------------------------------------------------
 	'2.06.1' => {
-		additions => [
-			"## sort modes to cycle through when clicking 'Sort' in the footer.\n",
-			"## default: nNeEdDaAsStu\n",
-			"#sortcycle:nNeEdDaAsStu\n",
-			"\n",
-		],
+		additions => [{
+			batch => [
+				"## sort modes to cycle through when clicking 'Sort' in the footer.\n",
+				"## default: nNeEdDaAsStu\n",
+				"#sortcycle:nNeEdDaAsStu\n",
+				"\n",
+			],
+		}],
 	},
 	# ----- 2.06.2 ---------------------------------------------------------
 	'2.06.2' => {
-		additions => [
-			"## pfm does not support a terminal size of less than 80 columns or 24 rows.\n",
-			"## this option will make pfm try to resize the terminal to the minimum\n",
-			"## dimensions if it is resized too small.\n",
-			"## valid options: yes,no,xterm.\n",
-			"force_minimum_size:xterm\n",
-			"\n",
-		],
+		additions => [{
+			batch => [
+				"## pfm does not support a terminal size of less than 80 columns or 24 rows.\n",
+				"## this option will make pfm try to resize the terminal to the minimum\n",
+				"## dimensions if it is resized too small.\n",
+				"## valid options: yes,no,xterm.\n",
+				"force_minimum_size:xterm\n",
+				"\n",
+			],
+		}],
 	},
 	# ----- 2.06.3 ---------------------------------------------------------
 	'2.06.3' => {
-		additions => [
-			"## In case the regular editor automatically forks in the background, you\n",
-			"## may want to specify a foreground editor here. If defined, this editor\n",
-			"## will be used for editing the config file, so that pfm will be able to\n",
-			"## wait for the editor to finish before rereading the config file.\n",
-			"#fg_editor:vim\n",
-			"\n",
-		],
+		additions => [{
+			batch => [
+				"## In case the regular editor automatically forks in the background, you\n",
+				"## may want to specify a foreground editor here. If defined, this editor\n",
+				"## will be used for editing the config file, so that pfm will be able to\n",
+				"## wait for the editor to finish before rereading the config file.\n",
+				"#fg_editor:vim\n",
+				"\n",
+			],
+		}],
 	},
 	# ----- 2.06.4 ---------------------------------------------------------
 	'2.06.4' => {
-		additions => [
-			"## automatically sort the directory's contents again after a\n",
-			"## (T)ime or (U)ser command? (default: yes)\n",
-			"#autosort:yes\n",
-			"\n",
-		],
+		additions => [{
+			batch => [
+				"## automatically sort the directory's contents again after a\n",
+				"## (T)ime or (U)ser command? (default: yes)\n",
+				"#autosort:yes\n",
+				"\n",
+			],
+		}],
 	},
 	# ----- 2.06.9 ---------------------------------------------------------
 	'2.06.9' => {
 		removals => [
-			qr/^[# ]*ducmd:/,
-			qr/^[# ]*your system's du.+command.+needs.+for the current filename/,
-			qr/^[# ]*[sS]pecify so that the outcome is in bytes/,
-			qr/^[# ]*this is commented out because pfm makes a clever guess for your OS/,
+			qr/^#*\s*ducmd:/,
+			qr/^#+\s*your system's du.1. command.+?(?:needs.+?for the current filename)?/,
+			qr/need to specify '=2' for the name of the current file/,
+			qr/^#+\s*[sS]pecify so that the outcome is in bytes/,
+			qr/^#+\s*this is commented out because pfm makes a clever guess for your OS/,
 		],
 	},
 	# ----- 2.08.0 ---------------------------------------------------------
 	'2.08.0' => {
 		substitutions => sub {
-			s{## do=door nt=network special .not implemented. wh=whiteout}
+			s{## do=door nt=network special .not implemented. wh=whiteout.*}
 			 {## do=door nt=network special wh=whiteout ep=event pipe};
 			s{(^|:)(pi=[^:]*:so=[^:]*:)}
 			 {$1$2ep=black on yellow:};
@@ -453,26 +549,28 @@ use constant UPDATES => {
 				"## tw=sticky and other-writable dir (d???????wt)\n",
 			],
 		}],
-		additions => [
-			"## overlay the highlight color onto the current filename? (default yes)\n",
-			"highlightname:yes\n",
-			"\n",
-			"## characteristics of the mouse wheel: the number of lines that the\n",
-			"## mouse wheel will scroll. This can be an integer or 'variable'.\n",
-			"#mousewheeljumpsize:5\n",
-			"mousewheeljumpsize:variable\n",
-			"\n",
-			"## if 'mousewheeljumpsize' is 'variable', the next two values are taken\n",
-			"## into account.\n",
-			"## 'mousewheeljumpratio' is used to calculate the number of lines that\n",
-			"## the cursor will jump, namely: the total number of enties in the\n",
-			"## directory divided by 'mousewheeljumpratio'.\n",
-			"## 'mousewheeljumpmax' sets an upper bound to the number of lines that\n",
-			"## the cursor is allowed to jump when using the mousewheel.\n",
-			"mousewheeljumpratio:4\n",
-			"mousewheeljumpmax:11\n",
-			"\n",
-		],
+		additions => [{
+			batch => [
+				"## overlay the highlight color onto the current filename? (default yes)\n",
+				"highlightname:yes\n",
+				"\n",
+				"## characteristics of the mouse wheel: the number of lines that the\n",
+				"## mouse wheel will scroll. This can be an integer or 'variable'.\n",
+				"#mousewheeljumpsize:5\n",
+				"mousewheeljumpsize:variable\n",
+				"\n",
+				"## if 'mousewheeljumpsize' is 'variable', the next two values are taken\n",
+				"## into account.\n",
+				"## 'mousewheeljumpratio' is used to calculate the number of lines that\n",
+				"## the cursor will jump, namely: the total number of enties in the\n",
+				"## directory divided by 'mousewheeljumpratio'.\n",
+				"## 'mousewheeljumpmax' sets an upper bound to the number of lines that\n",
+				"## the cursor is allowed to jump when using the mousewheel.\n",
+				"mousewheeljumpratio:4\n",
+				"mousewheeljumpmax:11\n",
+				"\n",
+			],
+		}],
 	},
 	# ----- 2.08.2 ---------------------------------------------------------
 	'2.08.2' => {
@@ -485,39 +583,157 @@ use constant UPDATES => {
 			 {'mousewheeljumpmin' and 'mousewheeljumpmax' set bounds to the number};
 			s{the cursor is allowed to jump when using the mousewheel.}
 			 {of lines that the cursor is allowed to jump when using the mousewheel.};
-			# these should have been done in an earlier version.
-			s{initial sort mode .nNmMeEfFsS(?:zZ)?iItTdDaA. }
-			 {initial sort mode (nNmMeEfFdDaAsSzZtTuUgGvViI*) };
-			s{F7 key swap path method is persistent...default no.}
-			 {F7 key swap path method is persistent? (default yes)};
-			s{title, title in swap mode}
-			 {headings, headings in swap mode};
-			s{colors for header, header in multiple mode}
-			 {colors for menu, menu in multiple mode};
 		},
 		insertions => [{
 			before => qr/^[ #]*mousewheeljumpmax:/,
 			batch => [
 				"mousewheeljumpmin:1\n",
 			],
+		}],
+		additions => [{
+			batch => [
+				"## Must 'Hit any key to continue' also accept mouse clicks?\n",
+				"clickiskeypresstoo:yes\n",
+				"\n",
+			],
+		}],
+	},
+	# ----- 2.08.3-backlog -------------------------------------------------
+	'2.08.3-backlog' => {
+		# backlog of fixes that should have been updated in earlier versions.
+		removals => [
+			qr'^## [iI]n other words: /\^\\s\*\(\[\^:\\s\]\+\)\\s\*:\\s\*\(\.\*\)\$/',
+			qr/## the first three layouts were the old .pre-v1.72. defaults/,
+		],
+		substitutions => sub {
+			s{(every option line in this file should have the)}
+			 {ucfirst $1}e;
+			s{^(## .whitespace is optional.)}
+			 {$1.};
+			s{(everything following a # is regarded)}
+			 {ucfirst $1}e;
+			s{(binary options may have yes/no, true/false,)}
+			 {ucfirst $1}e;
+			s{(some options can be set using environment variables)}
+			 {ucfirst $1}e;
+			s{(your environment settings override the options in this file)}
+			 {ucfirst $1}e;
+			s{escape.+(may be entered as a real escape, as ).e(.*)}
+			 {Escapes $1\\e$2.};
+			s{(lines may be continued on the next line by ending them in ).*}
+			 {ucfirst($1) . "\\ (backslash)."}e;
+			s{^(#*\s*)\bmousemode\b}
+			 {$1defaultmousemode};
+			s{initial sort mode .nNmMeEfFsS(?:zZ)?iItTdDaA. }
+			 {initial sort mode (nNmMeEfFdDaAsSzZtTuUgGvViI*) };
+			s{F7 key swap path method is persistent...default no.}
+			 {F7 key swap path method is persistent? (default yes)};
+			s{hide dot files.*show them otherwise}
+			 {show dot files initially? (hide them otherwise}g;
+			s{title, title in swap mode}
+			 {headings, headings in swap mode};
+			s{colors for header, header in multiple mode}
+			 {colors for menu, menu in multiple mode};
+			s{(if you have .LS_COLORS or .LS_COLOURS set,)$}
+			 {$1, and 'importlscolors' above is set,};
+			s{## char column name             needed}
+			 {## char column name  mandatory? needed};
+			s{## \*    (mark|selected flag)\s+1}
+			 {## *    mark                yes 1};
+			s{## n    filename                variable length;}
+			 {## n    filename            yes variable length;};
+			s{## p    permissions .mode.      10}
+			 {## p    mode (permissions)      10};
+			s{(## a    access time             15)}
+			 {$1 (using "%y %b %d %H:%M" if len(%b) == 3)};
+			s{(## c    change time             15)}
+			 {$1 (using "%y %b %d %H:%M" if len(%b) == 3)};
+			s{(## m    modification time       15)}
+			 {$1 (using "%y %b %d %H:%M" if len(%b) == 3)};
+			s{## i    inode                   7}
+			 {## i    inode                   >=7 (system-dependent)};
+			s{## a final : after the last layout is allowed.}
+			 {## a final colon (:) after the last layout is allowed.};
+			s{## these must NOT be quoted any more!}
+			 {## these must NOT be quoted.};
+			s{##  =1 = filename without extension}
+			 {##  =1 : current filename without extension};
+			s{##  =2 = filename entirely}
+			 {##  =2 : current filename entirely};
+			s{##  =3 = current directory path}
+			 {##  =3 : current directory path};
+			s{##  =4 = current mountpoint}
+			 {##  =4 : current mountpoint};
+			s{##  =5 = swap path .F7.}
+			 {##  =5 : swap directory path (F7)};
+			s{##  =6 = current directory basename}
+			 {##  =6 : current directory basename};
+		},
+		insertions => [{
+			ifnotpresent => qr/the diskinfo field .must. be the _first_ or _last_ field on the line/,
+			before => qr/## a final.*after the last layout is allowed/,
+			batch  => [
+				"## the diskinfo field *must* be the _first_ or _last_ field on the line.\n",
+			],
 		}, {
-			# this should have been done in an earlier version.
-			before => qr/^clsonexit:/,
+			ifnotpresent => qr/(?:## v    versioning info|## f    diskinfo)/,
+			after => qr/^## l    link count/,
+			batch => [
+				"## v    versioning info         >=4\n",
+				"## f    diskinfo            yes >=14 (using clockformat, if len(%x) <= 14)\n",
+			],
+		}, {
+			ifnotpresent => qr/^## Has no effect if altscreenmode is set/,
+			after => qr/whether you want to have the screen cleared when pfm exits/,
 			batch => [
 				"## Has no effect if altscreenmode is set.\n",
 			],
 		}, {
-			# this should have been done in an earlier version.
-			before => qr/^[ #]*fg_editor:/,
+			ifnotpresent => qr/## It will also be used for editing ACLs/,
+			before => qr/^#*\s*fg_editor:/,
 			batch => [
 				"## It will also be used for editing ACLs.\n",
 			],
+		}, {
+			ifnotpresent => qr/7 . current filename extension/,
+			after => qr/^##  .6 . current directory basename/,
+			batch => [
+			  "##  =7 : current filename extension\n",
+			],
+		}, {
+			ifnotpresent => qr/8 . list of selected filenames/,
+			after => qr/##  .7 . current filename extension/,
+			batch => [
+				"##  =8 : list of selected filenames\n",
+			],
 		}],
-		additions => [
-			"## Must 'Hit any key to continue' also accept mouse clicks?\n",
-			"clickiskeypresstoo:yes\n",
-			"\n",
-		],
+		additions => [{
+			ifnotpresent => qr/defaultpathmode/,
+			batch => [
+				"## initially display logical or physical paths? (log,phys) (default: log)\n",
+				"## (toggle with \")\n",
+				"defaultpathmode:log\n",
+				"\n",
+			],
+		}, {
+			ifnotpresent => qr/defaultwhitemode/,
+			batch => [
+				"## show whiteout files initially? (hide them otherwise, toggle with % key)\n",
+				"defaultwhitemode:no\n",
+				"\n",
+			],
+		}, {
+			ifnotpresent => qr/launchby/,
+			batch => [
+				"## how should pfm try to determine the file type? by its magic (using file(1)),\n",
+				"## by extension, should we try to run it as an executable if the 'x' bit is set,\n",
+				"## or should we prefer one method and fallback on another one?\n",
+				"## allowed values: combinations of 'xbit', 'extension' and 'magic'\n",
+				"launchby:extension,xbit\n",
+				"#launchby:extension,xbit,magic\n",
+				"\n",
+			],
+		}],
 	},
 	# ----- 2.08.4 ---------------------------------------------------------
 	'2.08.4' => {
@@ -532,23 +748,13 @@ use constant UPDATES => {
 	},
 	# ----- 2.08.5 ---------------------------------------------------------
 	'2.08.5' => {
-		removals => [
-			# this should have been done in an earlier version.
-			qr'in other words: /^\\s\*\(\[^:\\s\]\+\)\\s\*:\\s\*\(\.\*\)\$/',
-		],
 		substitutions => sub {
-			s{## .*<ext> defines extension colors}
+			s{##.*<ext> defines extension colors}
 			 {## *.ext      defines colors for files with a specific extension};
-			# this should have been done in an earlier version.
-			s/^(#*\s*)\bmousemode\b/$1defaultmousemode/g;
-			# this should have been done in an earlier version.
-			s{hide dot files initially.*show them otherwise}
-			 {show dot files initially? (hide them otherwise}g;
 		},
 		insertions => [{
-			before => qr/(?:<ext> defines extension colors|
-						defines colors for files with a specific extension)/x,
-			batch  => [
+			after => qr/defines colors for files with a specific extension/,
+			batch => [
 				"## 'filename' defines colors for complete specific filenames\n",
 				"\n",
 			],
@@ -556,6 +762,16 @@ use constant UPDATES => {
 			before => qr/cmd=[^:]*:..exe=[^:]*:..com=[^:]*/,
 			batch  => [
 				"'Makefile'=underline:'Makefile.PL'=underline:\\\n",
+			],
+		}, {
+			after => qr/## also check 'kmous' from terminfo if your mouse is malfunctioning/,
+			batch => [
+				"## gnome-terminal handles F1  itself. enable shift-F1 by adding:\n",
+				"#k1=\\eO1;2P:\n",
+				"## gnome-terminal handles F10 itself. enable shift-F10 by adding:\n",
+				"#k10=\\e[21;2~:\n",
+				"## gnome-terminal handles F11 itself. enable shift-F11 by adding:\n",
+				"#k11=\\e[23;2~:\n",
 				"\n",
 			],
 		}],
@@ -643,22 +859,27 @@ sub _append {
 	push @$lines, @addition;
 }
 
-=item _insertbefore(arrayref $text, regexp $where, array @addition)
+=item _insert(arrayref $text, regexp $before, regexp $after, array @addition)
 
 Adds the specified lines at the specified place in the config text.
+If I<before> is specified, the I<addition> is inserted before the matching line.
+If I<after> is specified, the I<addition> is inserted after the matching line.
 
 =cut
 
-sub _insertbefore {
-	my ($self, $lines, $where, @addition) = @_;
+sub _insert {
+	my ($self, $lines, $before, $after, @addition) = @_;
+	my ($where, $delta);
 	if ($#addition == 0) {
 		@addition = split (/(?<=\n)/, $addition[0]);
 	}
-	foreach my $i (reverse 0 .. $#$lines) {
+	$where = defined $after ? $after : $before;
+	$delta = defined $after;
+	foreach my $i (reverse 1 .. $#$lines) {
 		if (${$lines}[$i] =~ /$where/) {
 			# this changes the total number of lines, but this does not
 			# matter because we are processing the list in reverse order.
-			splice(@$lines, $i, 0, @addition);
+			splice(@$lines, $i + $delta, 0, @addition);
 		}
 	}
 }
@@ -672,10 +893,6 @@ Executes the I<substitutor> code for all lines in the config text.
 sub _substitute {
 	my ($self, $lines, $substitutor) = @_;
 	local $_;
-	if (!ref($substitutor)) { # TODO
-		cluck "substitutor is no ref"; # TODO
-	} # TODO
-
 	foreach (@$lines) {
 		$substitutor->();
 	}
@@ -764,17 +981,35 @@ sub _update_text {
 	my ($version, $change);
 	foreach $version (sort keys %updates) {
 		next unless $self->_cross($version, $from, $to);
-		foreach $change ($updates{$version}{removals}) {
+		if (defined($change = $updates{$version}{removals})) {
+			# $change is an arrayref with regexps
 			$self->_remove($lines, @$change);
 		}
 		if (defined($change = $updates{$version}{substitutions})) {
+			# $change is a coderef
 			$self->_substitute($lines, $change);
 		}
-		foreach $change (@{$updates{$version}{insertions}}) {
-			$self->_insertbefore($lines, $change->{before}, @{$change->{batch}});
-		}
-		foreach $change ($updates{$version}{additions}) {
-			$self->_append($lines, @$change);
+		foreach $change (
+			@{$updates{$version}{insertions}},
+			@{$updates{$version}{additions}},
+		) {
+			# $change is a hashref
+			if (!exists $change->{ifnotpresent} or
+				(exists($change->{ifnotpresent}) &&
+				!grep { $_ =~ $change->{ifnotpresent} } @$lines)
+			) {
+				if (exists $change->{before} or
+					exists $change->{after}
+				) {
+					$self->_insert(
+						$lines,
+						$change->{before},
+						$change->{after},
+						@{$change->{batch}});
+				} else {
+					$self->_append($lines, @{$change->{batch}});
+				}
+			}
 		}
 	}
 	$self->_update_version_identifier($to, $lines);
@@ -782,6 +1017,18 @@ sub _update_text {
 
 ##########################################################################
 # public subs
+
+=item get_minimum_version()
+
+Fetches the minimum version a F<.pfmrc> must have in order for this class
+to be able to update it.
+
+=cut
+
+sub get_minimum_version {
+	my ($self) = @_;
+	return (sort { $a cmp $b } keys %{UPDATES()})[0];
+}
 
 =item check_date_locale(arrayref $text)
 
@@ -828,10 +1075,14 @@ Updates the lines in the array pointed to by I<$text>.
 sub update {
 	my ($self, $version_pfmrc, $version_pfm, $text) = @_;
 	return if $version_pfmrc ge $version_pfm;
+	if ($version_pfmrc lt $self->get_minimum_version()) {
+		return 0;
+	}
 
 	$self->check_date_locale($text);
 	$self->_update_text($version_pfmrc, $version_pfm, $text);
 	$self->_sort_pfmrc($text);
+	return 1;
 }
 
 ##########################################################################
