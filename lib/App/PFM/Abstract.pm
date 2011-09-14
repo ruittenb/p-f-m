@@ -42,7 +42,7 @@ use strict;
 ##########################################################################
 # private subs
 
-=item _init()
+=item I<_init()>
 
 Stub init method to ensure it exists.
 
@@ -51,7 +51,7 @@ Stub init method to ensure it exists.
 sub _init {
 }
 
-=item _clone()
+=item I<_clone()>
 
 Stub clone method to ensure it exists.
 
@@ -63,7 +63,7 @@ sub _clone {
 ##########################################################################
 # constructor, getters and setters
 
-=item new( [ array @args ] )
+=item I<new( [ array @args ] )>
 
 Constructor for all classes based on App::PFM::Abstract.
 
@@ -82,7 +82,7 @@ sub new {
 	return $self;
 }
 
-=item clone( [ array @args ] )
+=item I<clone( [ array @args ] )>
 
 Clone one object to create an independent one. By providing
 a _clone() method, each class can define which contained objects
@@ -108,7 +108,7 @@ sub clone {
 ##########################################################################
 # public subs
 
-=item register_listener(string $event_name, coderef $code)
+=item I<register_listener(string $event_name, coderef $code)>
 
 Register the code reference provided as listener for the specified event.
 For an example, see below under fire().
@@ -127,7 +127,7 @@ sub register_listener {
 	return 1;
 }
 
-=item unregister_listener(string $event_name, coderef $code)
+=item I<unregister_listener(string $event_name, coderef $code)>
 
 Unregisters the code reference provided as listener for the specified event.
 
@@ -148,7 +148,7 @@ sub unregister_listener {
 	return $success;
 }
 
-=item fire(App::PFM::Event $event)
+=item I<fire(App::PFM::Event $event)>
 
 Fire an event. Calls all event handlers that have registered themselves.
 Returns the handler results as an array or joined string, or I<'0 but true'>
@@ -194,7 +194,7 @@ sub fire {
 	return wantarray ? @res : join ':', @res;
 }
 
-=item debug()
+=item I<debug()>
 
 Dumps the contents of this object using Data::Dumper(3pm).
 Primarily used for debugging.

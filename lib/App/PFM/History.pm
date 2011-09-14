@@ -41,6 +41,7 @@ use Term::ReadLine;
 use strict;
 use locale;
 
+# for readline completion.
 use constant PERL_COMMANDS => [qw(
 	accept alarm bind binmode bless break carp case chdir chmod chop chown
 	chroot close closedir cluck confess connect continue croak dbmclose
@@ -56,6 +57,7 @@ use constant PERL_COMMANDS => [qw(
 	unlink unpack unshift untie use utime warn write 
 )];
 
+# for readline completion.
 # single-character functions like m s y q are not expanded.
 use constant PERL_FUNCTIONS => [qw(
 	abs atan2 caller cos chr crypt defined each eof exp exists fileno formline

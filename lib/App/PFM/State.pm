@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::State 0.22
+# @(#) App::PFM::State 0.23
 #
 # Name:			App::PFM::State
-# Version:		0.22
+# Version:		0.23
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-23
+# Date:			2011-02-10
 #
 
 ##########################################################################
@@ -51,6 +51,7 @@ use constant SORTMODES => [
 	's'=>'Size',		S =>' reverse',
 	'z'=>'siZe total',	Z =>' reverse',
 	 t =>'Type',		T =>' reverse',
+	 p =>'Mode',		P =>' reverse',
 	 u =>'User',		U =>' reverse',
 	 w =>' Uid',		W =>' reverse',
 	 g =>'Group',		G =>' reverse',

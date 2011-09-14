@@ -37,9 +37,13 @@
 
 - move CommandHandler::_listbookmarks() to Screen/Listing/Bookmarks::list()
 
-- pager: 'less -e' causes problems in Your[i]:svn diff =2 | =p
+- test if all move/copy/rename/link(h,a,r) and (M)ore - fo(L)low are well with
+  the new version of Util::basename().
+  reproduce: cursor on /. (L)ink (R)elative /tmp/b/rootdir creates
+  /tmp/b/rootdir -> ../../..
 
-- bug: if a file is copied to subdir/newname, the cursor doesn't follow around.
+- maybe allow for file sizes to be displayed with thousands separator,
+  e.g. 51_130_240.
 
 ################################################################################
 # structural enhancements
@@ -96,15 +100,18 @@
 ################################################################################
 # documentation enhancements
 
+- UML: NEWER_VERSION
+
 - manpages: use I<...> in =items
 
-  DONE:
+  DONE: Application Abstract
 
-  TODO: Abstract Application Browser CommandHandler Config Directory
+  TODO: Browser CommandHandler Config Directory
 	Event File History State Util
 	OS OS/Abstract OS/Linux OS/Aix OS/Hpux OS/Sco OS/Solaris
 	Screen Screen/Frame Screen/Diskinfo Screen/Listing
-	JobHandler Job/CheckUpdates
+	JobHandler Job/CheckUpdates Job/Mercurial
 	Job/Abstract Job/RCS Job/Bazaar Job/Cvs Job/Git Job/Subversion
+
 
 

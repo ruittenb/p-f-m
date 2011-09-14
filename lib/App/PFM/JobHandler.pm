@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::JobHandler 0.13
+# @(#) App::PFM::JobHandler 0.14
 #
 # Name:			App::PFM::JobHandler
-# Version:		0.13
+# Version:		0.14
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-23
+# Date:			2011-03-07
 #
 
 ##########################################################################
@@ -37,10 +37,11 @@ package App::PFM::JobHandler;
 use base 'App::PFM::Abstract';
 
 use App::PFM::Job::CheckUpdates;
-use App::PFM::Job::Subversion;
 use App::PFM::Job::Cvs;
 use App::PFM::Job::Bazaar;
 use App::PFM::Job::Git;
+use App::PFM::Job::Mercurial;
+use App::PFM::Job::Subversion;
 
 use POSIX ':sys_wait_h';
 
@@ -204,7 +205,7 @@ sub count {
 pfm(1), App::PFM::Job::Abstract(3pm), App::PFM::Job::Bazaar(3pm),
 App::PFM::Job::CheckUpdates(3pm), App::PFM::Job::Cvs(3pm),
 App::PFM::Job::Git(3pm), App::PFM::Job::RCS(3pm),
-App::PFM::Job::Subversion(3pm).
+App::PFM::Job::Mercurial(3pm), App::PFM::Job::Subversion(3pm).
 
 =cut
 

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Frame 0.44
+# @(#) App::PFM::Screen::Frame 0.45
 #
 # Name:			App::PFM::Screen::Frame
-# Version:		0.44
+# Version:		0.45
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-12-05
+# Date:			2010-12-14
 #
 
 ##########################################################################
@@ -195,7 +195,7 @@ sub _getmenu {
 	if		($mode == MENU_SORT) {
 		return	'Sort by which mode? (uppercase=reverse): ';
 	} elsif ($mode == MENU_MORE) {
-		return	'Acl Bookmark Config Edit-any mkFifo Go sHell Mkdir '
+		return	'Acl Bookmark Config Edit-any mkFifo Go sHell foLlow Mkdir '
 		.		'Open-window Physical-path Show-dir alTscreen Version Write-hist';
 	} elsif ($mode == MENU_EXCLUDE) {
 		return	"Exclude? Every, Old-/Newmarks, After/Before, "

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.54
+# @(#) App::PFM::CommandHandler 1.57
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.54
+# Version:		1.57
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-12-12
+# Date:			2011-02-10
 #
 
 ##########################################################################
@@ -42,7 +42,7 @@ use App::PFM::Screen		qw(:constants); # imports the R_* constants
 use App::PFM::Screen::Frame qw(:constants); # MENU_*, HEADING_*, and FOOTER_*
 use App::PFM::Browser::Bookmarks;
 
-use POSIX qw(strftime mktime);
+use POSIX qw(strftime mktime getcwd);
 use Config;
 
 use strict;
@@ -99,7 +99,7 @@ use constant FIELDS_TO_SORTMODE => [
 	 a => 'a', # atime
 	's'=> 's', # size
 	'z'=> 'z', # grand total (siZe)
-	 p => 't', # perm --> type
+	 p => 'p', # mode (permissions)
 	 i => 'i', # inode
 	 l => 'l', # link count
 	 v => 'v', # version(rcs)
@@ -174,25 +174,25 @@ sub _helppage {
 --------------------------------------------------------------------------------
                                   COMMAND KEYS                             [2/3]
 --------------------------------------------------------------------------------
- a      Attribute (chmod)                x   eXclude                            
- c      Copy                             y   Your command                       
- d DEL  Delete                           z   siZe (grand total)                 
- e E    (foreground) Edit                ----------------------------------------
- f /    Find                             m@  perl shell (for debugging)         
- g      change symlink tarGet            ma  edit ACL                           
- i      Include                          mb  make Bookmark                      
- L      sym/hard Link                    mc  Configure pfm                      
- m      More commands --->               me  Edit any file                      
+ a      Attribute (chmod)                y   Your command                       
+ c      Copy                             z   siZe (grand total)                 
+ d DEL  Delete                          ----------------------------------------
+ e E    Edit / foreground Edit           m@  perl shell (for debugging)         
+ f /    Find                             ma  edit ACL                           
+ g      change symlink tarGet            mb  make Bookmark                      
+ i      Include                          mc  Configure pfm                      
+ L      sym/hard Link                    me  Edit any file                      
  n      show Name                        mf  make FIFO                          
  o      OS cOmmand                       mg  Go to bookmark                     
  p      Print                            mh  spawn sHell                        
- q Q    (Quick) quit                     mm  Make new directory                 
- r      Rename/move                      mo  Open new window                    
- s      Show                             mp  show Physical path                 
- t      change Time                      ms  Show directory (chdir)             
- u      change User/group (chown)        mt  show alTernate screen              
- v      Version status                   mv  Version status all files           
- w      remove Whiteout                  mw  Write history                      
+ q Q    (Quick) quit                     ml  foLlow symlink to target           
+ r      Rename/move                      mm  Make new directory                 
+ s      Show                             mo  Open new window                    
+ t      change Timestamp                 mp  show Physical path                 
+ u      change User/group (chown)        ms  Show directory (chdir)             
+ v      Version status                   mt  show alTernate screen              
+ w      remove Whiteout                  mv  Version status all files           
+ x      eXclude                          mw  Write history                      
 --------------------------------------------------------------------------------
         _endPage2_
 		$prompt = 'F1 or ? for manpage, arrows or BS/ENTER to browse ';
@@ -2752,6 +2752,7 @@ sub handlemore {
 			/^c$/io		and $self->handlemoreconfig($event),	  last MORE_PAN;
 			/^a$/io		and $self->handlemoreacl($event),		  last MORE_PAN;
 			/^b$/io		and $self->handlemorebookmark($event),	  last MORE_PAN;
+			/^l$/io		and $self->handlemorefollow($event),	  last MORE_PAN;
 			/^f$/io		and $self->handlemorefifo($event),		  last MORE_PAN;
 			/^w$/io		and $self->handlemorehistwrite(),		  last MORE_PAN;
 			/^t$/io		and $self->handlemorealtscreen(),		  last MORE_PAN;
@@ -2883,7 +2884,8 @@ Opens any file in the configured editor (B<M>ore - B<E>dit).
 
 sub handlemoreedit {
 	my ($self, $event, $key) = @_;
-	my $editor = $key eq 'E'
+	my $foreground = $key eq 'E';
+	my $editor = $foreground
 		? $self->{_config}{fg_editor}
 		: $self->{_config}{editor};
 	my $newname;
@@ -2894,7 +2896,9 @@ sub handlemoreedit {
 		->set_deferred_refresh(R_CLRSCR);
 	$newname = $self->{_history}->input({
 		history => H_PATH,
-		prompt  => 'Filename to edit: ',
+		prompt  => $foreground
+			? 'Filename for foreground edit: '
+			: 'Filename to edit: ',
 	});
 	$self->_expand_escapes(QUOTE_OFF, \$newname, $event->{currentfile});
 	if (system $editor." \Q$newname\E") {
@@ -2972,6 +2976,45 @@ sub handlemorebookmark {
 	$_pfm->state->{_position}  = $event->{currentfile}{name};
 	$_pfm->state->{_baseindex} = $event->{lunchbox}{baseindex};
 	$_pfm->state($key, $_pfm->state->clone());
+	return;
+}
+
+=item handlemorefollow(App::PFM::Event $event)
+
+Follow the current symlink to its target.
+
+=cut
+
+sub handlemorefollow {
+	my ($self, $event) = @_;
+	my $currentdir = getcwd();
+	my $target     = $event->{currentfile}{target};
+	my $screen     = $self->{_screen};
+	my ($canonical_path, $targetdir);
+
+	if ($event->{currentfile}{type} ne 'l') {
+		$screen->at(0,0)->clreol()
+			->display_error('Current file is not a symbolic link');
+		return;
+	}
+	if (!-e $target) {
+		$screen->at(0,0)->clreol()
+			->display_error('Current symbolic link is orphaned');
+		return;
+	}
+	$canonical_path = canonicalize_path(
+		$target =~ m{^/}
+			? $target
+			: "$currentdir/$target");
+	$targetdir = dirname $canonical_path;
+	if (!$_pfm->state->directory->chdir($targetdir)) {
+		$screen->set_deferred_refresh(R_SCREEN)
+			->at(2,0)->display_error("$targetdir: $!");
+		return;
+	}
+	# provide the force option because the chdir()
+	# above may already have set the position_at
+	$_pfm->browser->position_at(basename($canonical_path), { force => 1 });
 	return;
 }
 

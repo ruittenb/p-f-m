@@ -1,7 +1,14 @@
+2.11.2
+
+* added: support for Mercurial versioning system
+* added: (M)ore - fo(L)low
+
 2.11.1
 
+* fixed quoting of '=p' escape and friends
 * fixed crash when the 'defaultcolorset' was not defined as a colorset
 * fixed bug positioning the cursor in the bookmark browser
+* fixed bug positioning the cursor after (C)opy/(R)ename/(L)ink
 * added commandline option '-c' (initial colorset)
 * added =9 escape (previous path)
 * added: if a file is (C)opied/(R)enamed/(L)inked to the previous directory

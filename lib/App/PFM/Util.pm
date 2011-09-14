@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Util 0.53
+# @(#) App::PFM::Util 0.54
 #
 # Name:			App::PFM::Util
-# Version:		0.53
+# Version:		0.54
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-23
+# Date:			2010-12-13
 #
 
 ##########################################################################
@@ -173,8 +173,10 @@ sub dirname {
 }
 
 sub basename {
-	$_[0] =~ m{/([^/]*)/?$};
-	return length($1) ? $1 : $_[0];
+	$_[0] =~ m{([^/]*)/?$};
+	return length($1) ? $1 : '.';
+#	$_[0] =~ m{/([^/]*)/?$};
+#	return length($1) ? $1 : $_[0];
 }
 
 =item formatted( [ $field1 [, $field2 [, ... ] ] ] )
