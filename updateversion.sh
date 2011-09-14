@@ -28,9 +28,12 @@ if [ "$previousver" = "$currentver" ]; then
 fi
 
 
-treesed "$previousver" "$currentver" \
+treesed "$previousver" "$currentver"	\
 	-files README pfm pfmrcupdate lib/App/PFM/Application.pm
 
+treesed "# @(#) App::PFM::Config::Update $previousver"	\
+	"# Version:..$currentver"			\
+	-files lib/App/PFM/Config/Update.pm
 
 
 

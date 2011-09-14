@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.08.9
+# @(#) App::PFM::Application 2.09.0
 #
 # Name:			App::PFM::Application
-# Version:		2.08.9
+# Version:		2.09.0
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-09-13
@@ -225,18 +225,23 @@ if the application bootstraps correctly.
 
 sub _bootstrap_members {
 	my ($self, $silent) = @_;
-	my ($screen, $config, $os, %bookmarks);
+	my ($screen, $config, $history, $os, $jh, %bookmarks);
 
 	# hand over the application object to the other classes
 	# for easy access.
-	$screen                    = $self->{_screen};
-	$self->{_config} = $config = new App::PFM::Config($self, $screen, $self->{VERSION});
-	$self->{_os}     = $os     = new App::PFM::OS($self);
-	$self->{_states}{S_MAIN}   = new App::PFM::State($self, $screen, $config, $os);
-	$self->{_commandhandler}   = new App::PFM::CommandHandler($self, $screen, $config, $os);
-	$self->{_history}          = new App::PFM::History($self, $screen, $config);
-	$self->{_browser}          = new App::PFM::Browser($self, $screen, $config);
-	$self->{_jobhandler}       = new App::PFM::JobHandler($self);
+	$screen                      = $self->{_screen};
+	$self->{_config}  = $config  = new App::PFM::Config(
+									$self, $screen, $self->{VERSION});
+	$self->{_history} = $history = new App::PFM::History(
+									$self, $screen, $config);
+	$self->{_os}         = $os   = new App::PFM::OS($self);
+	$self->{_jobhandler} = $jh   = new App::PFM::JobHandler($self);
+	$self->{_states}{S_MAIN}     = new App::PFM::State(
+									$self, $screen, $config, $os, $jh);
+	$self->{_commandhandler}     = new App::PFM::CommandHandler(
+									$self, $screen, $config, $os, $history);
+	$self->{_browser}            = new App::PFM::Browser(
+									$self, $screen, $config);
 	
 	$self->_bootstrap_event_hub();
 
@@ -298,7 +303,11 @@ sub _bootstrap_states {
 	my $startingswapdir = $self->{_options}{swap};
 	if (defined $startingswapdir) {
 		$self->{_states}{S_SWAP} = new App::PFM::State($self,
-			$self->{_screen}, $self->{_config}, $self->{_os}, $startingswapdir);
+			$self->{_screen},
+			$self->{_config},
+			$self->{_os},
+			$self->{_jobhandler},
+			$startingswapdir);
 		$self->{_states}{S_SWAP}->prepare(undef, $startingsort);
 	}
 }

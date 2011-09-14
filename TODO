@@ -21,12 +21,6 @@
 
 - in install.sh wordt ${pkgadd} niet geinterpoleerd
 
-- handlemousedown: if the current file is being marked, the mark is not shown
-  on screen.
-  Cause: handlemark() calls Listing->highlightline_off(), which uses
-  $browser->currentfile instead of $event->{currentfile}.
-  Possible solution: give highlightline_off($line, $file) arguments?
-
 - call $pfm->checkupdates() in '@' (perlcommand) does not finish the job;
   call $pfm->checkupdates(); sleep 2; finishes it.
 

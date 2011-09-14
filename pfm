@@ -3,10 +3,10 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.08.9
+# Version:		2.09.0
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-12
+# Date:			2010-09-13
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				    [ -l, --layout <number> ] [ -o, --sort <mode> ]
 #				pfm { -v, --version | -h, --help }
@@ -24,7 +24,7 @@
 # version
 
 # for MakeMaker
-our $VERSION = '2.08.9';
+our $VERSION = '2.09.0';
 
 # macros for *roff
 our $ROFFVERSION = <<'=cut';
@@ -33,7 +33,7 @@ our $ROFFVERSION = <<'=cut';
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.08.9
+.ds Vw @(#) pfm.pl 2.09.0
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -846,6 +846,17 @@ Specify a new directory name and C<pfm> will create it for you. Furthermore,
 if you don't have any files marked, your current directory will be set to
 the newly created directory.
 
+=item B<Open window>
+
+Opens a new (file manager) window on the current directory, as configured
+with 'windowtype' and 'windowcmd' in the F<.pfmrc>. Some examples:
+
+If 'windowtype' is "pfm" and 'windowcmd' is something like "S<xterm -e>",
+then a new terminal window running C<pfm> will be opened.
+
+If 'windowtype' is "standalone" and 'windowcmd' is something like
+"nautilus", then a new C<nautilus> window will be opened.
+
 =item B<Physical path>
 
 Shows the physical pathname of the current directory until a key is pressed.
@@ -1287,7 +1298,7 @@ the B<F12> key) will give mouse access to the following commands:
 	<td>sort rev</td>
 	<td><b>S</b>how</td>
 	<td>ENTER</td>
-	<td><i>new window</i></td>
+	<td><b>M</b>ore - <b>O</b>pen window</i></td>
 </tr>
 <tr>
 	<td>3</td>
@@ -1296,16 +1307,16 @@ the B<F12> key) will give mouse access to the following commands:
 	<td>sort rev</td>
 	<td><b>S</b>how</td>
 	<td>ENTER</td>
-	<td><i>new window</i></td>
+	<td><b>M</b>ore - <b>O</b>pen window</i></td>
 </tr>
 <tr><td colspan="7"><hr /><td></tr>
 <tr>
 	<td>wheel up</td>
-	<td colspan="6" align="center"><i>three lines up</i></td>
+	<td colspan="6" align="center"><i>five lines up</i></td>
 </tr>
 <tr>
 	<td>wheel down</td>
-	<td colspan="6" align="center"><i>three lines down</i></td>
+	<td colspan="6" align="center"><i>five lines down</i></td>
 </tr>
 <tr><td colspan="7"><hr /></td></tr>
 </table>
@@ -1329,11 +1340,19 @@ _
 menu/
 .br
 footer
-T}	heading	fileline	filename	dirname
+T}	heading	T{
+file-
+.br
+line
+T}	T{
+file-
+.br
+name
+T}	dirname
 _
-1	\fIchdir()\fR	\fIpfm command\fP	sort	F8	\fBS\fPhow	\fBS\fPhow
-2	c\fBO\fPmmand	\fIpfm command\fP	sort rev	\fBS\fPhow	ENTER	\fInew win\fP\0
-3	c\fBO\fPmmand	\fIpfm command\fP	sort rev	\fBS\fPhow	ENTER	\fInew win\fP
+1	\fIchdir()\fR	\fIpfm-cmd\fP	sort	F8	\fBS\fPhow	\fBS\fPhow
+2	c\fBO\fPmmand	\fIpfm-cmd\fP	sort rev	\fBS\fPhow	ENTER	\fBM\fPore - \fBO\fPpen win\0
+3	c\fBO\fPmmand	\fIpfm-cmd\fP	sort rev	\fBS\fPhow	ENTER	\fBM\fPore - \fBO\fPpen win
 _
 up	\fIfive lines up\fP
 down	\fIfive lines down\fP
@@ -1344,16 +1363,21 @@ _
 
 The cursor will I<only> moved to another file when a directory is clicked
 or the mouse wheel is used.  The mouse wheel moves the cursor five lines
-per notch, or one line if shift is pressed.
+per notch by default, or one line if shift is pressed. The actual number
+of lines can be configured in your F<.pfmrc> using 'mousewheeljumpsize'.
 
 Clicking button 1 on the current directory path will chdir() up to the
 clicked ancestor directory. If the current directory was clicked, or the
 device name, it will act like a B<M>ore - B<S>how command.
 
-Clicking button 2 on a directory name will open a new pfm terminal window.
+Clicking button 2 on a directory name will open a new window like B<M>ore
+- B<O>pen window.
 
 Clicking on the column headings will sort the directory contents by that
 heading. Clicking again will sort the directory in reverse order.
+
+Clicking on "Sort" in the footer will cycle through a number of
+preconfigured sort modes as defined in the config option 'sortcycle'.
 
 Clicking on the menu or footer will execute the command that was clicked.
 
