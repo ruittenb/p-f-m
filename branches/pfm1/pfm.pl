@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) pfm.pl 2010-04-16 v1.95.6
+# @(#) pfm.pl 2010-05-25 v1.95.6b
 #
 # Name:			pfm
-# Version:		1.95.6
+# Version:		1.95.6b
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-16
+# Date:			2010-05-25
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				    [ -l, --layout <number> ]
 #				pfm { -v, --version | -h, --help }
@@ -2236,8 +2236,10 @@ sub handlesize {
 		expand_escapes($QUOTE_ON, ($command = $ducmd), $loopfile);
 		($recursivesize = `$command 2>/dev/null`) =~ s/\D*(\d+).*/$1/;
 		chomp $recursivesize;
+		# if a CHLD signal handler is installed, $? is not always reliable.
 		if ($?) {
-			neat_error('Could not read all directories');
+			$scr->at(0,0)->clreol();
+			putmessage('Could not read all directories');
 			$recursivesize ||= 0;
 			$do_a_refresh |= $R_SCREEN;
 		}
@@ -6150,7 +6152,7 @@ up if you resize your terminal window to a smaller size.
 
 =head1 VERSION
 
-This manual pertains to C<pfm> version 1.95.6.
+This manual pertains to C<pfm> version 1.95.6b.
 
 =head1 AUTHOR and COPYRIGHT
 
