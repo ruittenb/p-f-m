@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::File 0.32
+# @(#) App::PFM::File 0.35
 #
 # Name:			App::PFM::File
-# Version:		0.32
+# Version:		0.35
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-05-21
+# Date:			2010-08-22
 #
 
 ##########################################################################
@@ -42,26 +42,9 @@ use POSIX qw(strftime);
 use strict;
 use locale;
 
-use constant {
-	MAJORMINORSEPARATOR => ',',
-};
-
-my %RDEVTOMAJOR = (
-	default	=> 2 **  8,
-	aix		=> 2 ** 16,
-	irix	=> 2 ** 18,
-	solaris	=> 2 ** 18,
-	sunos	=> 2 ** 18,
-	dec_osf	=> 2 ** 20,
-	tru64	=> 2 ** 20, # correct value for $OSNAME on Tru64?
-	hpux	=> 2 ** 24,
-);
-
-my $RDEVTOMAJOR = $RDEVTOMAJOR{$^O} || $RDEVTOMAJOR{default};
-
 my @SYMBOLIC_MODES = qw(--- --x -w- -wx r-- r-x rw- rwx);
 
-my $MODE2STR = ($^O eq 'solaris' or $^O eq 'sunos')
+my $IFMT2STR = ($^O eq 'solaris' or $^O eq 'sunos')
 				? ' pc?d?b?-nl?sDP?' # Solaris has event ports
 				: ' pc?d?b?-nl?sDw?';# BSD has whiteouts
 
@@ -153,7 +136,7 @@ sub mode2str {
 	my $strmode;
 	my $octmode = sprintf("%lo", $nummode);
 	$octmode	=~ /(\d\d?)(\d)(\d)(\d)(\d)$/;
-	$strmode	= substr($MODE2STR, oct($1) & 017, 1)
+	$strmode	= substr($IFMT2STR, oct($1) & 017, 1)
 				. $SYMBOLIC_MODES[$3] . $SYMBOLIC_MODES[$4] . $SYMBOLIC_MODES[$5];
 	#
 	if ($2 & 4) { substr($strmode,3,1) =~ tr/-x/Ss/ }
@@ -194,22 +177,19 @@ a new directory) or kept intact (when re-statting).
 
 sub stat_entry {
 	my ($self, $entry, $iswhite, $selected_flag) = @_;
-	my ($ptr, $name_too_long, $target, @white_entries, $whitecommand);
+	my ($ptr, $name_too_long, $target, @white_entries);
 	my %filetypeflags = %{$_pfm->config->{filetypeflags}};
 	my ($device, $inode, $mode, $nlink, $uid, $gid, $rdev, $size,
 		$atime, $mtime, $ctime, $blksize, $blocks) =
 			lstat "$self->{_parent}/$entry";
 
 	if (!defined $mode) {
-		$whitecommand = $_pfm->commandhandler->whitecommand;
-		if (defined $whitecommand) {
-			if ($iswhite eq '?') {
-				@white_entries =
-					map { chop; $_ } `$whitecommand \Q$self->{_parent}\E`;
-			}
-			if ($iswhite eq 'w' or grep /^$entry$/, @white_entries) {
-				$mode = 0160000;
-			}
+		if ($iswhite eq '?') {
+			@white_entries = $_pfm->os->listwhite($self->{_parent});
+			chop @white_entries;
+		}
+		if ($iswhite eq 'w' or grep /^$entry$/, @white_entries) {
+			$mode = 0160000;
 		}
 	}
 	$ptr = {
@@ -241,8 +221,8 @@ sub stat_entry {
 		$self->{display} = $entry . $filetypeflags{'l'}
 						. ' -> ' . $self->{target};
 	} elsif ($self->{type} =~ /[bc]/) {
-		$self->{size_num} = sprintf("%d", $rdev / $RDEVTOMAJOR) .
-							MAJORMINORSEPARATOR . ($rdev % $RDEVTOMAJOR);
+		$self->{size_num} =
+			sprintf('%d,%d', $_pfm->os->rdev_to_major_minor($rdev));
 	}
 	$self->format();
 	return $self;
@@ -297,7 +277,7 @@ Applies the supplied function to the current file.
 =cut
 
 sub apply {
-	my ($self, $do_this, @args) = @_;
+	my ($self, $do_this, $special_mode, @args) = @_;
 	my $state     = $_pfm->state;
 	my $directory = $state->directory;
 	my ($to_mark, $res);
@@ -308,7 +288,11 @@ sub apply {
 	} else {
 		$to_mark = $self->{selected};
 	}
-	$self->stat_entry($self->{name}, '?', $to_mark);
+	if ($special_mode ne 'norestat') {
+		$self->stat_entry($self->{name}, '?', $to_mark);
+	} else {
+		$self->{selected} = $to_mark;
+	}
 	$directory->register($self);
 	return $res;
 }

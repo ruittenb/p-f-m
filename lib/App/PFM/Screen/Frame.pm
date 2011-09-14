@@ -205,17 +205,16 @@ sub _getfooter {
 		return '';
 	}
 	my $f =	"F1-Help F2-Prev F3-Redraw"
-	.		" F4-Color[".$_screen->color_mode."] F5-Reread"
+	.		" F4-Color[" . $_screen->color_mode . "] F5-Reread"
 	.		" F6-Sort[$state{sort_mode}]"
-	.		" F7-Swap[".$ONOFF{$_pfm->browser->swap_mode}."] F8-In/Exclude"
-	.		" F9-Layout[".$_screen->listing->layout."]" # $layoutname ?
+	.		" F7-Swap[$ONOFF{$_pfm->browser->swap_mode}] F8-In/Exclude"
+	.		" F9-Layout[" . $_screen->listing->layout . "]" # $layoutname ?
 	.		" F10-Multiple[$ONOFF{$state{multiple_mode}}] F11-Restat"
-	.		" F12-Mouse[".$ONOFF{$_pfm->browser->mouse_mode}."]"
-	.		" !-Clobber[".$ONOFF{$_pfm->commandhandler->clobber_mode}."]"
+	.		" F12-Mouse[$ONOFF{$_pfm->browser->mouse_mode}]"
+	.		" !-Clobber[$ONOFF{$_pfm->commandhandler->clobber_mode}]"
 	.		" .-Dotfiles[$ONOFF{$state{dot_mode}}]"
-	.		($_pfm->commandhandler->whitecommand
-				? " %-Whiteouts[$ONOFF{$state{white_mode}}]" : '')
-	.		" \"-Pathnames[".$_pfm->state->directory->path_mode."]"
+	.		" %-Whiteouts[$ONOFF{$state{white_mode}}]"
+	.		" \"-Pathnames[" . $_pfm->state->directory->path_mode . "]"
 	.		" *-Radix[$state{radix_mode}]"
 #	.		" =-Ident[$state{ident_mode}]"
 	;

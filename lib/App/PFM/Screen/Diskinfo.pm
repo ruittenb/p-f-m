@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Diskinfo 0.04
+# @(#) App::PFM::Screen::Diskinfo 0.10
 #
 # Name:			App::PFM::Screen::Diskinfo
-# Version:		0.04
+# Version:		0.10
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-03
+# Date:			2010-08-21
 #
 
 ##########################################################################
@@ -53,12 +53,11 @@ use constant {
 use constant IDENTMODES => { user => 0, host => 1, 'user@host' => 2 };
 
 our ($_pfm, $_screen);
-my	($_infocol, $_infolength, $_ident, $_ident_mode);
 
 ##########################################################################
 # private subs
 
-=item _init()
+=item _init(App::PFM::Application $pfm, App::PFM::Screen $screen)
 
 Initializes new instances. Called from the constructor.
 
@@ -68,31 +67,34 @@ sub _init {
 	my ($self, $pfm, $screen) = @_;
 	$_pfm        = $pfm;
 	$_screen     = $screen;
-	$_ident_mode = 0;
+	$self->{_ident}      = '';
+	$self->{_ident_mode} = 0;
+	$self->{_infolength} = 0;
+	$self->{_infocol}	 = 0;
 }
 
-=item _str_informatted()
+=item _str_informatted(string $info)
 
-=item _data_informatted()
+=item _data_informatted(int $data, string $info)
 
 Formats lines for printing in the diskinfo area.
 
 =cut
 
 sub _str_informatted {
-	my $self = shift;
-	return formatted('@' . '>' x ($_infolength-1), @_);
+	my ($self, @args) = @_;
+	return formatted('@' . '>' x ($self->{_infolength}-1), @args);
 }
 
 sub _data_informatted {
-	my $self = shift;
-	return formatted('@' . '>' x ($_infolength-7) . ' @<<<<<', @_);
+	my ($self, @args) = @_;
+	return formatted('@' . '>' x ($self->{_infolength}-7) . ' @<<<<<', @args);
 }
 
 ##########################################################################
 # constructor, getters and setters
 
-=item infocol()
+=item infocol( [ int $column ] )
 
 Getter/setter for the infocol variable, that controls in which terminal
 column the diskinfo area starts.
@@ -102,12 +104,12 @@ column the diskinfo area starts.
 sub infocol {
 	my ($self, $value) = @_;
 	if (defined $value) {
-		$_infocol = $value >= 0 ? $value : 0;
+		$self->{_infocol} = $value >= 0 ? $value : 0;
 	}
-	return $_infocol;
+	return $self->{_infocol};
 }
 
-=item infolength()
+=item infolength( [ int $infolength ] )
 
 Getter/setter for the infolength variable, that indicates the width
 of the diskinfo area, in characters.
@@ -116,11 +118,11 @@ of the diskinfo area, in characters.
 
 sub infolength {
 	my ($self, $value) = @_;
-	$_infolength = $value if defined $value;
-	return $_infolength;
+	$self->{_infolength} = $value if defined $value;
+	return $self->{_infolength};
 }
 
-=item ident_mode()
+=item ident_mode( [ int $ident_mode ] )
 
 Getter/setter for the ident_mode variable, which controls whether
 to display just the username, just the hostname or both.
@@ -130,10 +132,10 @@ to display just the username, just the hostname or both.
 sub ident_mode {
 	my ($self, $value) = @_;
 	if (defined $value) {
-		$_ident_mode = $value;
+		$self->{_ident_mode} = $value;
 		$self->initident();
 	}
-	return $_ident_mode;
+	return $self->{_ident_mode};
 }
 
 =item initident()
@@ -145,9 +147,9 @@ displayed on screen.
 
 sub initident {
 	my ($self) = @_;
-	chomp ($_ident  = getpwuid($>)  ) unless $_ident_mode == 1;
-	chomp ($_ident  = `hostname`    )     if $_ident_mode == 1;
-	chomp ($_ident .= '@'.`hostname`)     if $_ident_mode == 2;
+	chomp ($self->{_ident}  = getpwuid($>)  ) unless $self->{_ident_mode} == 1;
+	chomp ($self->{_ident}  = `hostname`    )     if $self->{_ident_mode} == 1;
+	chomp ($self->{_ident} .= '@'.`hostname`)     if $self->{_ident_mode} == 2;
 	$_screen->set_deferred_refresh($_screen->R_DISKINFO | $_screen->R_FOOTER);
 }
 
@@ -159,11 +161,11 @@ Cycles through showing the username, hostname or both.
 
 sub select_next_ident {
 	my ($self) = @_;
-	if (++$_ident_mode > 2) {
-		$_ident_mode = 0;
+	if (++$self->{_ident_mode} > 2) {
+		$self->{_ident_mode} = 0;
 	}
 	$self->initident();
-	return $_ident_mode;
+	return $self->{_ident_mode};
 }
 
 ##########################################################################
@@ -176,24 +178,25 @@ Displays the entire diskinfo column.
 =cut
 
 sub show {
-	my $self = shift;
-	my $spaces = ' ' x $_infolength;
+	my ($self) = @_;
+	my $spaces            = ' ' x $self->{_infolength};
+	my $infocol           = $self->{_infocol};
 	my $filerecordcol     = $_screen->listing->filerecordcol;
 	my $currentformatline = $_screen->listing->currentformatline;
 	# gap is not filled in yet
 	my $gap = ' ' x (max(
-		$_infocol-length($currentformatline)-$filerecordcol,
-		$filerecordcol-$_infolength));
+		$infocol - length($currentformatline)-$filerecordcol,
+		$filerecordcol - $self->{_infolength}));
 	$self->disk_info();
-	$_screen->at(DIRINFOLINE-2, $_infocol)->puts($spaces);
+	$_screen->at(DIRINFOLINE-2, $infocol)->puts($spaces);
 	$self->dir_info();
-	$_screen->at(MARKINFOLINE-2, $_infocol)->puts($spaces);
+	$_screen->at(MARKINFOLINE-2, $infocol)->puts($spaces);
 	$self->mark_info();
-	$_screen->at(USERINFOLINE-1, $_infocol)->puts($spaces);
+	$_screen->at(USERINFOLINE-1, $infocol)->puts($spaces);
 	$self->user_info();
 	$self->clock_info();
 	foreach (DATEINFOLINE+2 .. $_screen->BASELINE + $_screen->screenheight) {
-		$_screen->at($_, $_infocol)->puts($spaces);
+		$_screen->at($_, $infocol)->puts($spaces);
 	}
 	return $_screen;
 }
@@ -205,10 +208,10 @@ Clears the entire diskinfo column.
 =cut
 
 sub clearcolumn {
-	my $self = shift;
-	my $spaces = ' ' x $_infolength;
+	my ($self) = @_;
+	my $spaces = ' ' x $self->{_infolength};
 	foreach ($_screen->BASELINE .. $_screen->BASELINE+$_screen->screenheight) {
-		$_screen->at($_, $_infocol)->puts($spaces);
+		$_screen->at($_, $self->{_infocol})->puts($spaces);
 	}
 	return $_screen;
 }
@@ -220,9 +223,10 @@ Displays the hostname, username or username@hostname.
 =cut
 
 sub user_info {
-	my $self = shift;
-	$_screen->at(USERINFOLINE, $_infocol)
-		->putcolored(($> ? 'normal' : 'red'), $self->_str_informatted($_ident));
+	my ($self) = @_;
+	$_screen->at(USERINFOLINE, $self->{_infocol})->putcolored(
+		($> ? 'normal' : 'red'), $self->_str_informatted($self->{_ident})
+	);
 }
 
 =item disk_info()
@@ -232,18 +236,18 @@ Displays the filesystem usage.
 =cut
 
 sub disk_info {
-	my $self = shift;
-	my @desc		= ('K tot','K usd','K avl');
-	my @values		= @{$_pfm->state->directory->disk}{qw/total used avail/};
-	my $startline	= DISKINFOLINE;
-	$_screen->at($startline-1, $_infocol)
+	my ($self) = @_;
+	my @desc      = ('K tot','K usd','K avl');
+	my @values    = @{$_pfm->state->directory->disk}{qw/total used avail/};
+	my $startline = DISKINFOLINE;
+	$_screen->at($startline-1, $self->{_infocol})
 		->puts($self->_str_informatted('Disk space'));
 	foreach (0..2) {
 		while ($values[$_] > 99_999) {
 			$values[$_] /= 1024;
 			$desc[$_] =~ tr/KMGTPEZ/MGTPEZY/;
 		}
-		$_screen->at($startline + $_, $_infocol)
+		$_screen->at($startline + $_, $self->{_infocol})
 				->puts($self->_data_informatted(int($values[$_]), $desc[$_]));
 	}
 }
@@ -255,7 +259,7 @@ Displays the number of directory entries of different types.
 =cut
 
 sub dir_info {
-	my $self = shift;
+	my ($self) = @_;
 	my @desc   = ('files','dirs ','symln','spec ');
 	my %total_nr_of = %{$_pfm->state->directory->total_nr_of};
 	my @values = @total_nr_of{'-','d','l'};
@@ -265,15 +269,16 @@ sub dir_info {
 			   + $total_nr_of{'n'};
 	my $startline = DIRINFOLINE;
 	my $heading = 'Directory';
+	# pfm1 style
 #	my $heading = 'Directory'
 #				. '('
 #				.  $_pfm->state->{sort_mode}
 #				. ($_pfm->state->{white_mode} ? '' : '%')
 #				. ($_pfm->state->{dot_mode} ? '' : '.') . ')';
-	$_screen->at($startline-1, $_infocol)
+	$_screen->at($startline-1, $self->{_infocol})
 			->puts($self->_str_informatted($heading));
 	foreach (0..3) {
-		$_screen->at($startline + $_, $_infocol)
+		$_screen->at($startline + $_, $self->{_infocol})
 				->puts($self->_data_informatted($values[$_], $desc[$_]));
 	}
 }
@@ -285,7 +290,7 @@ Displays the number of directory entries that have been marked.
 =cut
 
 sub mark_info {
-	my $self = shift;
+	my ($self) = @_;
 	my @desc = ('bytes','files','dirs ','symln','spec ');
 	my %selected_nr_of = %{$_pfm->state->directory->selected_nr_of};
 	my @values = @selected_nr_of{'bytes','-','d','l'};
@@ -298,10 +303,10 @@ sub mark_info {
 	my $total = 0;
 	$values[0] = join ('', fit2limit($values[0], 9_999_999));
 	$values[0] =~ s/ $//;
-	$_screen->at($startline-1, $_infocol)
+	$_screen->at($startline-1, $self->{_infocol})
 			->puts($self->_str_informatted($heading));
 	foreach (0..4) {
-		$_screen->at($startline + $_, $_infocol)
+		$_screen->at($startline + $_, $self->{_infocol})
 				->puts($self->_data_informatted($values[$_], $desc[$_]));
 		$total += $values[$_] if $_;
 	}
@@ -315,7 +320,7 @@ Displays the clock in the diskinfo column.
 =cut
 
 sub clock_info {
-	my $self = shift;
+	my ($self) = @_;
 	my $line = DATEINFOLINE;
 	my $now = time;
 	my $date = strftime($_pfm->config->{clockdateformat}, localtime $now),
@@ -323,9 +328,9 @@ sub clock_info {
 	$date = $self->_str_informatted($date);
 	$time = $self->_str_informatted($time);
 	if ($_screen->rows() > 24) {
-		$_screen->at($line++, $_infocol)->puts($date);
+		$_screen->at($line++, $self->{_infocol})->puts($date);
 	}
-	$_screen->at($line, $_infocol)->puts($time);
+	$_screen->at($line, $self->{_infocol})->puts($time);
 }
 
 ##########################################################################

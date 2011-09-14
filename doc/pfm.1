@@ -124,13 +124,13 @@
 .\" ========================================================================
 .\"
 .IX Title "PFM 1"
-.TH PFM 1 "2010-08-12" " " " "
+.TH PFM 1 "2010-08-23" " " " "
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
 .nh
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.06.3
+.ds Vw @(#) pfm.pl 2.06.9
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -472,6 +472,11 @@ a single literal \fB=\fR
 .IP "\fB=e\fR" 4
 .IX Item "=e"
 the editor specified with the 'editor' option in the config file
+.IP "\fB=f\fR" 4
+.IX Item "=f"
+the 'foreground' editor, specified with the 'fg_editor' option in the
+config file (this is supposed to be an editor that does not fork
+into the background)
 .IP "\fB=p\fR" 4
 .IX Item "=p"
 the pager specified with the 'pager' option in the config file
@@ -568,8 +573,8 @@ criterion. See \fBI\fRnclude for details.
 .IX Item "Your command"
 Like c\fBO\fRmmand (see above), except that it uses one-letter commands
 (case-sensitive) that have been preconfigured in the \fI.pfmrc\fR file.
-\&\fBY\fRour commands may use \fB=1\fR up to \fB=8\fR and \fB=e\fR, \fB=p\fR and \fB=v\fR
-escapes just as in c\fBO\fRmmand, e.g.
+\&\fBY\fRour commands may use \fB=1\fR up to \fB=8\fR and \fB=e\fR, \fB=f\fR, \fB=p\fR
+and \fB=v\fR escapes just as in c\fBO\fRmmand, e.g.
 .Sp
 .Vb 3
 \&    your[c]:tar cvf \- =2 | gzip > =2.tar.gz
@@ -586,17 +591,15 @@ data blocks. For regular files, this is often more than the reported
 file size. For special files and \fIfast symbolic links\fR, the number is
 zero, as no data blocks are allocated for these file types.
 .Sp
-If the screen layout (selected with \fBF9\fR) contains a 'grand total' column,
-that column will be used. Otherwise, the 'filesize' column will temporarily
-be used. A 'grand total' column in the layout will never be filled in
-when entering the directory.
+If the screen layout (selected with \fBF9\fR) does not contain the
+\&'grand total' column, then the 'filesize' column will temporarily be
+used instead. A 'grand total' column in the layout will never be
+filled in when entering the directory.
 .Sp
 Note: since \fIdu\fR\|(1) commands are not portable, \f(CW\*(C`pfm\*(C'\fR guesses how it can
-calculate the size according to the Unix variant that it runs on. If \f(CW\*(C`pfm\*(C'\fR
-makes an incorrect guess, you might have to specify the \f(CW\*(C`du\*(C'\fR command (or
-\&\f(CW\*(C`du | awk\*(C'\fR combination) applicable for your Unix version in the \fI.pfmrc\fR
-file. Examples are provided. Please notify the author of any corrections
-that should be made.
+calculate the size according to the Unix variant that it runs on. If
+\&\f(CW\*(C`pfm\*(C'\fR makes an incorrect guess, please notify the author of any
+corrections that should be made.
 .SH "MORE COMMANDS"
 .IX Header "MORE COMMANDS"
 These commands are accessible through the main screen \fBM\fRore command.

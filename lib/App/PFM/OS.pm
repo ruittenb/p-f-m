@@ -7,7 +7,7 @@
 # Version:		0.01
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-20
-# Date:			2010-08-20
+# Date:			2010-08-21
 #
 
 ##########################################################################
@@ -36,47 +36,59 @@ package App::PFM::OS;
 use base 'App::PFM::Abstract';
 
 use App::PFM::OS::Abstract;
-#use App::PFM::OS::Linux;
-use Carp;
+use App::PFM::OS::Aix;
+use App::PFM::OS::Dec_osf;
+use App::PFM::OS::Hpux;
+use App::PFM::OS::Irix;
+use App::PFM::OS::Linux;
+use App::PFM::OS::Sco;
+use App::PFM::OS::Solaris;
+use App::PFM::OS::Sunos;
+use App::PFM::OS::Tru64;
 
+use Carp;
 use strict;
 
-our $_os;
+our ($AUTOLOAD);
 
 ##########################################################################
 # private subs
 
-=item _init()
+=item _init( [ App::PFM::Application $pfm ] )
 
 Initializes new instances. Called from the constructor.
-Figures out if we have a specific App::PFM::OS class for this OS.
+Figures out if we have a specific App::PFM::OS class for this OS,
+and stores it internally.
 
 =cut
 
 sub _init {
-	my ($self) = @_;
-	my $osname = ucfirst lc($^O);
-	my $class  = "App::PFM::OS::$osname";
+	my ($self, $pfm) = @_;
+	my $osname	= ucfirst lc($^O);
+	my $class	= "App::PFM::OS::$osname";
 	eval {
-		$App::PFM::OS::_os = $class->new();
+		$self->{_os} = $class->new($pfm);
 	};
 	if ($@) {
-		$_os = App::PFM::OS::Abstract->new();
+		$self->{_os} = new App::PFM::OS::Abstract($pfm);
 	}
 }
 
 ##########################################################################
 # constructor, getters and setters
 
-=item AUTOLOAD()
+=item AUTOLOAD( [ args... ] )
 
 Loads the corresponding method in the OS-specific class.
 
 =cut
 
 sub AUTOLOAD {
-	my ($command, @args) = @_;
-	return $_os->$command(@args);
+	my ($self, @args) = @_;
+	my $command = $AUTOLOAD;
+	$command =~ s/.*:://;
+	return if $command eq 'DESTROY';
+	return $self->{_os}->$command(@args);
 }
 
 ##########################################################################
@@ -88,7 +100,7 @@ sub AUTOLOAD {
 
 =head1 SEE ALSO
 
-pfm(1).
+pfm(1), App::PFM::OS::Abstract(3pm).
 
 =cut
 

@@ -2,9 +2,6 @@
 ################################################################################
 # issues
 
-- si(Z)e does not work correctly because a restat() is done afterwards.
-  The restat() is done in File::apply().
-
 - handlecopyrename: if "overwrite?" is answered with "no", then the
   cursor is repositioned anyway
 
@@ -28,10 +25,13 @@
 
 - have directories keep track of their own background jobs
 
-- have jobs use new events?
+- have jobs use new events
 
 - have the browser use events to tell the application that the commandhandler
   should be called; keep the browser for browsing
+
+- have the config class fire an event to signal to the application that
+  it is time for the copyright message
 
 - extract abstract code so that browser may be reused for bookmarks and your
   commands; ideally:
@@ -42,10 +42,11 @@
   - Browser/Bookmarks
   - Browser/YourCommands
 
+- decide if File::Stat::Bits is the answer to major/minor trouble
+
 - move all OS-specific commands to OS-class:
   old: $dfcmd = $DFCMDS{$^O}; $result = `$dfcmd \Q$path\E`;
   new: $result = $_pfm->os->df($path);
-- move CommandHandler::_init_white_commands() to OS::_init_white_commands()
 
 - cast a critical eye on show_headings;
   make a $frame->getheadings($headings_mode)
@@ -61,7 +62,7 @@
 
 - introduce SIGQUIT for interrupt multi?
 
-- add -s commandline option for starting with a certain sort mode
+- add -o commandline option for starting with a certain sort mode
 
 ################################################################################
 # documentation enhancements
@@ -71,11 +72,11 @@
 
   DONE(ITALICS):
 
-  DONE(ARGS): Abstract Application Browser JobHandler State Util
-	Screen/Frame 
+  DONE(ARGS): Abstract Application Browser Config JobHandler State Util
+	OS OS/Abstract OS/Linux OS/Aix OS/Hpux OS/Sco OS/Solaris
+	Screen/Frame Screen/Diskinfo Screen/Listing
 
-  TODO: CommandHandler Config Directory File History Screen
-	Job/Abstract Job/Bazaar Job/CheckUpdates Job/Cvs Job/Git Job/RCS
-	Job/Subversion
-	Screen/Diskinfo Screen/Listing
+  TODO: CommandHandler Directory File History Screen
+	Job/Abstract
+	Job/Bazaar Job/CheckUpdates Job/Cvs Job/Git Job/RCS Job/Subversion
 

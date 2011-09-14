@@ -42,7 +42,7 @@ use App::PFM::CommandHandler;
 use App::PFM::Config;
 use App::PFM::History;
 use App::PFM::JobHandler;
-#use App::PFM::OS;
+use App::PFM::OS;
 use App::PFM::Screen;
 use App::PFM::State;
 use Getopt::Long;
@@ -56,7 +56,7 @@ use constant BOOKMARKKEYS => [qw(
 	A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
 )];
 
-our ($_os, $_config, $_browser, $_screen, $_commandhandler, $_history,
+our ($_config, $_browser, $_screen, $_commandhandler, $_history,
 	$_jobhandler);
 
 ##########################################################################
@@ -74,7 +74,7 @@ sub _init {
 	$self->{NEWER_VERSION} = '';
 	$self->{_bootstrapped} = 0;
 	$self->{_states}       = {};
-#	$_os                   = new App::PFM::OS();
+	$self->{_os}           = new App::PFM::OS($self);
 }
 
 =item _findversionfromfile()
@@ -261,7 +261,8 @@ sub jobhandler {
 }
 
 sub os {
-	return $_os;
+	my ($self) = @_;
+	return $self->{_os};
 }
 
 sub screen {
@@ -388,9 +389,11 @@ sub bootstrap {
 	$_screen->clrscr()->raw_noecho();
 	$_screen->calculate_dimensions();
 	$_config = new App::PFM::Config($self);
+	$_config->register_listener('after_screen_config', \&{$_config->_copyright});
 	$_config->read( $silent ? $_config->READ_AGAIN   :$_config->READ_FIRST);
 	$_config->parse($silent ? $_config->NO_COPYRIGHT :$_config->SHOW_COPYRIGHT);
 	$_config->apply();
+	$_config->unregister_listener('after_screen_config', \&{$_config->_copyright});
 	%bookmarks = $_config->read_bookmarks();
 	@{$self->{_states}}{@{BOOKMARKKEYS()}} = ();
 	@{$self->{_states}}{keys %bookmarks} = values %bookmarks;

@@ -3,10 +3,10 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.06.8
+# Version:		2.06.9
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-17
+# Date:			2010-08-21
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				    [ -l, --layout <number> ]
 #				pfm { -v, --version | -h, --help }
@@ -24,7 +24,7 @@
 # version
 
 # for MakeMaker
-our $VERSION = '2.06.8';
+our $VERSION = '2.06.9';
 
 # macros for *roff
 our $ROFFVERSION = <<'=cut';
@@ -33,7 +33,7 @@ our $ROFFVERSION = <<'=cut';
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.06.8
+.ds Vw @(#) pfm.pl 2.06.9
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -585,6 +585,12 @@ a single literal B<=>
 
 the editor specified with the 'editor' option in the config file
 
+=item B<=f>
+
+the 'foreground' editor, specified with the 'fg_editor' option in the
+config file (this is supposed to be an editor that does not fork
+into the background)
+
 =item B<=p>
 
 the pager specified with the 'pager' option in the config file
@@ -741,8 +747,8 @@ criterion. See B<I>nclude for details.
 
 Like cB<O>mmand (see above), except that it uses one-letter commands
 (case-sensitive) that have been preconfigured in the F<.pfmrc> file.
-B<Y>our commands may use B<=1> up to B<=8> and B<=e>, B<=p> and B<=v>
-escapes just as in cB<O>mmand, e.g.
+B<Y>our commands may use B<=1> up to B<=8> and B<=e>, B<=f>, B<=p>
+and B<=v> escapes just as in cB<O>mmand, e.g.
 
     your[c]:tar cvf - =2 | gzip > =2.tar.gz
     your[t]:tar tvf =2 | =p
@@ -758,17 +764,15 @@ data blocks. For regular files, this is often more than the reported
 file size. For special files and I<fast symbolic links>, the number is
 zero, as no data blocks are allocated for these file types.
 
-If the screen layout (selected with B<F9>) contains a 'grand total' column,
-that column will be used. Otherwise, the 'filesize' column will temporarily
-be used. A 'grand total' column in the layout will never be filled in
-when entering the directory.
+If the screen layout (selected with B<F9>) does not contain the
+'grand total' column, then the 'filesize' column will temporarily be
+used instead. A 'grand total' column in the layout will never be
+filled in when entering the directory.
 
 Note: since du(1) commands are not portable, C<pfm> guesses how it can
-calculate the size according to the Unix variant that it runs on. If C<pfm>
-makes an incorrect guess, you might have to specify the C<du> command (or
-C<du | awk> combination) applicable for your Unix version in the F<.pfmrc>
-file. Examples are provided. Please notify the author of any corrections
-that should be made.
+calculate the size according to the Unix variant that it runs on. If
+C<pfm> makes an incorrect guess, please notify the author of any
+corrections that should be made.
 
 =back
 

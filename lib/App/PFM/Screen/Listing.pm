@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Listing 1.00
+# @(#) App::PFM::Screen::Listing 1.01
 #
 # Name:			App::PFM::Screen::Listing
-# Version:		1.00
+# Version:		1.01
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-06-01
+# Date:			2010-08-22
 #
 
 ##########################################################################
@@ -42,8 +42,8 @@ use strict;
 
 use constant {
 	NAMETOOLONGCHAR => '+',
-	HIGHLIGHT_OFF	=> 0,
-	HIGHLIGHT_ON	=> 1,
+	FALSE			=> 0,
+	TRUE			=> 1,
 	FILENAME_SHORT	=> 0,
 	FILENAME_LONG	=> 1,
 };
@@ -82,21 +82,15 @@ use constant FILETYPEFLAGS => {
 	 b => '#',
 	 c => '%',
 	 n => ':',
-	 # => '+', # Hidden directory (AIX only) or context dependent (HP/UX only)
+	 # => '+', # Hidden directory (AIX only) or context dependent (HP-UX only)
 };
 
 our ($_pfm, $_screen);
-my	($_layout, $_cursorcol, $_filerecordcol, $_filenamecol,
-	$_maxfilenamelength, $_maxfilesizelength, $_maxgrandtotallength,
-	@_layoutfields, @_layoutfieldswithinfo,
-	$_currentformatline, $_currentformatlinewithinfo,
-	$_formatname,
-);
 
 ##########################################################################
 # private subs
 
-=item _init()
+=item _init(App::PFM::Application $pfm, App::PFM::Screen $screen)
 
 Initializes new instances. Called from the constructor.
 
@@ -106,9 +100,19 @@ sub _init {
 	my ($self, $pfm, $screen) = @_;
 	$_pfm    = $pfm;
 	$_screen = $screen;
+	$self->{_layout}               = 0;
+	$self->{_layoutname}           = '';
+	$self->{_layoutfields}         = [];
+	$self->{_layoutfieldswithinfo} = [];
+	$self->{_maxfilenamelength}    = 0;
+	$self->{_maxfilesizelength}    = 0;
+	$self->{_maxgrandtotallength}  = 0;
+	$self->{_cursorcol}            = 0;
+	$self->{_filerecordcol}        = 0;
+	$self->{_filenamecol}          = 0;
 }
 
-=item _validate_layoutnum()
+=item _validate_layoutnum(int $layoutnr)
 
 Checks if the layout number does not exceed the total number of layouts.
 
@@ -123,7 +127,7 @@ sub _validate_layoutnum {
 	return $num;
 }
 
-=item _highlightline()
+=item _highlightline(bool $onoff)
 
 Turns highlight on/off on the line with the cursor.
 
@@ -134,8 +138,8 @@ sub _highlightline {
 	my $screenline  = $_pfm->browser->currentline + $_screen->BASELINE;
 	my $currentfile = $_pfm->browser->currentfile;
 	my $linecolor;
-	$_screen->at($screenline, $_filerecordcol);
-	if ($on == HIGHLIGHT_ON) {
+	$_screen->at($screenline, $self->{_filerecordcol});
+	if ($on) {
 		$linecolor =
 			$_pfm->config->{framecolors}{$_screen->color_mode}{highlight};
 		# in case colorizable() is off:
@@ -147,13 +151,13 @@ sub _highlightline {
 	}
 	$_screen->putcolored($linecolor, $self->fileline($currentfile));
 	$self->applycolor($screenline, FILENAME_SHORT, $currentfile);
-	$_screen->reset()->normal()->at($screenline, $_cursorcol);
+	$_screen->reset()->normal()->at($screenline, $self->{_cursorcol});
 }
 
 ##########################################################################
 # constructor, getters and setters
 
-=item layout()
+=item layout( [ int $layoutnr ] )
 
 Getter/setter for the current layout number. If this is called to set
 the current layout, it will do all the necessary changes.
@@ -163,15 +167,15 @@ the current layout, it will do all the necessary changes.
 sub layout {
 	my ($self, $value) = @_;
 	if (defined $value) {
-		$_layout = $self->_validate_layoutnum($value);
+		$self->{_layout} = $self->_validate_layoutnum($value);
 		$self->makeformatlines();
 		$self->reformat();
 		$_screen->set_deferred_refresh($_screen->R_SCREEN);
 	}
-	return $_layout;
+	return $self->{_layout};
 }
 
-=item cursorcol()
+=item cursorcol( [ int $column ] )
 
 Getter/setter for the column of the cursor in the current layout.
 
@@ -180,40 +184,42 @@ Getter/setter for the column of the cursor in the current layout.
 sub cursorcol {
 	my ($self, $value) = @_;
 	if (defined $value) {
-		$_cursorcol = $value >= 0 ? $value : 0;
+		$self->{_cursorcol} = $value >= 0 ? $value : 0;
 	}
-	return $_cursorcol;
+	return $self->{_cursorcol};
 }
 
-=item filerecordcol()
+=item filerecordcol( [ int $column ] )
 
-Getter/setter for the column of the file record in the current layout.
+Getter/setter for the column where the file record starts in the
+current layout.
 
 =cut
 
 sub filerecordcol {
 	my ($self, $value) = @_;
 	if (defined $value) {
-		$_filerecordcol = $value >= 0 ? $value : 0;
+		$self->{_filerecordcol} = $value >= 0 ? $value : 0;
 	}
-	return $_filerecordcol;
+	return $self->{_filerecordcol};
 }
 
-=item filenamecol()
+=item filenamecol( [ int $column ] )
 
-Getter/setter for the column of the filename in the current layout.
+Getter/setter for the column where the filename starts in the
+current layout.
 
 =cut
 
 sub filenamecol {
 	my ($self, $value) = @_;
 	if (defined $value) {
-		$_filenamecol = $value >= 0 ? $value : 0;
+		$self->{_filenamecol} = $value >= 0 ? $value : 0;
 	}
-	return $_filenamecol;
+	return $self->{_filenamecol};
 }
 
-=item layoutfields()
+=item layoutfields( [ string $layoutfield1, ... ] )
 
 Getter/setter for the array with layout fields.
 
@@ -221,11 +227,11 @@ Getter/setter for the array with layout fields.
 
 sub layoutfields {
 	my ($self, @value) = @_;
-	@_layoutfields = @value if @value;
-	return \@_layoutfields;
+	$self->{_layoutfields} = [ @value ] if @value;
+	return $self->{_layoutfields};
 }
 
-=item layoutfieldswithinfo()
+=item layoutfieldswithinfo( [ string $layoutfield1, ... ] )
 
 Getter/setter for the array with layout fields, with the diskinfo
 field included.
@@ -234,8 +240,8 @@ field included.
 
 sub layoutfieldswithinfo {
 	my ($self, @value) = @_;
-	@_layoutfieldswithinfo = @value if @value;
-	return \@_layoutfieldswithinfo;
+	$self->{_layoutfieldswithinfo} = [ @value ] if @value;
+	return $self->{_layoutfieldswithinfo};
 }
 
 =item currentlayoutline()
@@ -246,12 +252,12 @@ Getter for the string defining the layout of a file record.
 
 sub currentlayoutline {
 	my ($self) = @_;
-	my $currentlayoutline = $_pfm->config->{columnlayouts}->[$_layout];
+	my $currentlayoutline = $_pfm->config->{columnlayouts}->[$self->{_layout}];
 	$currentlayoutline =~ s/n/'n' x ($_screen->screenwidth - 79)/e;
 	return $currentlayoutline;
 }
 
-=item currentformatline()
+=item currentformatline( [ string $formatline ] )
 
 Getter/setter for the string defining the format of a file record.
 
@@ -259,11 +265,11 @@ Getter/setter for the string defining the format of a file record.
 
 sub currentformatline {
 	my ($self, $value) = @_;
-	$_currentformatline = $value if defined $value;
-	return $_currentformatline;
+	$self->{_currentformatline} = $value if defined $value;
+	return $self->{_currentformatline};
 }
 
-=item currentformatlinewithinfo()
+=item currentformatlinewithinfo( [ string $formatline ] )
 
 Getter/setter for the string defining the format of a file record,
 with the diskinfo field included.
@@ -272,11 +278,11 @@ with the diskinfo field included.
 
 sub currentformatlinewithinfo {
 	my ($self, $value) = @_;
-	$_currentformatlinewithinfo = $value if defined $value;
-	return $_currentformatlinewithinfo;
+	$self->{_currentformatlinewithinfo} = $value if defined $value;
+	return $self->{_currentformatlinewithinfo};
 }
 
-=item maxfilenamelength()
+=item maxfilenamelength( [ int $fieldlength ] )
 
 Getter/setter for the length of the filename field in the current layout.
 
@@ -284,11 +290,11 @@ Getter/setter for the length of the filename field in the current layout.
 
 sub maxfilenamelength {
 	my ($self, $value) = @_;
-	$_maxfilenamelength = $value if defined $value;
-	return $_maxfilenamelength;
+	$self->{_maxfilenamelength} = $value if defined $value;
+	return $self->{_maxfilenamelength};
 }
 
-=item maxfilesizelength()
+=item maxfilesizelength( [ int $fieldlength ] )
 
 Getter/setter for the length of the filesize field in the current layout.
 
@@ -296,11 +302,11 @@ Getter/setter for the length of the filesize field in the current layout.
 
 sub maxfilesizelength {
 	my ($self, $value) = @_;
-	$_maxfilesizelength = $value if defined $value;
-	return $_maxfilesizelength;
+	$self->{_maxfilesizelength} = $value if defined $value;
+	return $self->{_maxfilesizelength};
 }
 
-=item maxgrandtotallength()
+=item maxgrandtotallength( [ int $fieldlength ] )
 
 Getter/setter for the length of the 'siZe' (grand total) field in the
 current layout.
@@ -309,8 +315,8 @@ current layout.
 
 sub maxgrandtotallength {
 	my ($self, $value) = @_;
-	$_maxgrandtotallength = $value if defined $value;
-	return $_maxgrandtotallength;
+	$self->{_maxgrandtotallength} = $value if defined $value;
+	return $self->{_maxgrandtotallength};
 }
 
 ##########################################################################
@@ -325,11 +331,11 @@ Turns highlight on/off on the line with the cursor.
 =cut
 
 sub highlight_off {
-	$_[0]->_highlightline(HIGHLIGHT_OFF);
+	$_[0]->_highlightline(FALSE);
 }
 
 sub highlight_on {
-	$_[0]->_highlightline(HIGHLIGHT_ON);
+	$_[0]->_highlightline(TRUE);
 }
 
 =item select_next_layout()
@@ -339,7 +345,8 @@ Switch the directory listing to the next configured layout.
 =cut
 
 sub select_next_layout {
-	return $_[0]->layout($_layout + 1);
+	my ($self) = @_;
+	return $_[0]->layout($self->{_layout} + 1);
 }
 
 =item show()
@@ -349,13 +356,13 @@ Displays the directory listing.
 =cut
 
 sub show {
-	my $self = shift;
+	my ($self) = @_;
 	my $contents  = $_pfm->state->directory->showncontents;
 	my $baseindex = $_pfm->browser->baseindex;
 	my $baseline  = $_screen->BASELINE;
 	my $file;
 	foreach my $i ($baseindex .. $baseindex+$_screen->screenheight) {
-		$_screen->at($i+$baseline-$baseindex, $_filerecordcol);
+		$_screen->at($i+$baseline-$baseindex, $self->{_filerecordcol});
 		unless ($i > $#$contents) {
 			$file = $$contents[$i];
 			$_screen->puts($self->fileline($file));
@@ -374,22 +381,25 @@ sub show {
 	return $_screen;
 }
 
-=item applycolor()
+=item applycolor(int $line, bool $usemax, App::PFM::File $file)
 
-Applies color to the current file line.
+Applies color to the provided file at the provided screenline.
+The I<usemax> parameter indicates if the coloring is to be applied
+for the entire name (true) or just the width of the filename field
+(false).
 
 =cut
 
 sub applycolor {
-	my ($self, $line, $usemax, $fileref) = @_;
-	my $maxlength = $usemax ? 255 : $_maxfilenamelength-1;
-	$_screen->at($line, $_filenamecol)
+	my ($self, $line, $usemax, $file) = @_;
+	my $maxlength = $usemax ? 255 : $self->{_maxfilenamelength} - 1;
+	$_screen->at($line, $self->{_filenamecol})
 		->putcolored(
-			$fileref->{color},
-			substr($fileref->{name}, 0, $maxlength));
+			$file->{color},
+			substr($file->{name}, 0, $maxlength));
 }
 
-=item fileline()
+=item fileline(App::PFM::File $file)
 
 Formats the current file data according to the current layoutfields.
 
@@ -397,7 +407,10 @@ Formats the current file data according to the current layoutfields.
 
 sub fileline {
 	my ($self, $currentfile) = @_;
-	return formatted($_currentformatline, @{$currentfile}{@_layoutfields});
+	return formatted(
+		$self->{_currentformatline},
+		@{$currentfile}{@{$self->{_layoutfields}}}
+	);
 }
 
 =item makeformatlines()
@@ -407,7 +420,7 @@ Parses the configured layouts.
 =cut
 
 sub makeformatlines {
-	my $self = shift;
+	my ($self) = @_;
 	my ($squeezedlayoutline, $currentlayoutline, $firstwronglayout, $prev,
 		$letter, $trans, $temp, $infocol, $infolength, $miss);
 	LAYOUT: {
@@ -421,13 +434,13 @@ sub makeformatlines {
 			    ? '*'
 				: '';
 		if ($miss) {
-			$firstwronglayout ||= $_layout || '0 but true';
-			$_screen->at(0,0)->clreol()
-				->display_error(
-					"Bad layout #$_layout: mandatory field '$miss' is missing");
+			$firstwronglayout ||= $self->{_layout} || '0 but true';
+			$_screen->at(0,0)->clreol()->display_error(
+				"Bad layout #" . $self->{_layout} .
+				": mandatory field '$miss' is missing");
 			$_screen->important_delay();
-			$_layout = $self->_validate_layoutnum($_layout+1);
-			if ($_layout != $firstwronglayout) {
+			$self->{_layout} = $self->_validate_layoutnum($self->{_layout}+1);
+			if ($self->{_layout} != $firstwronglayout) {
 				redo LAYOUT;
 			} else {
 				$_screen
@@ -445,11 +458,15 @@ sub makeformatlines {
 	# find out the length of the filename, filesize, grand total and info fields
 	$infolength =
 	$_screen->diskinfo->infolength($infolength = $currentlayoutline =~ tr/f//);
-	$_maxfilenamelength =           ($currentlayoutline =~ tr/n//);
-	$_maxfilesizelength =     10 ** ($currentlayoutline =~ tr/s// -1) -1;
-	if ($_maxfilesizelength < 2)   { $_maxfilesizelength = 2 }
-	$_maxgrandtotallength =   10 ** ($currentlayoutline =~ tr/z// -1) -1;
-	if ($_maxgrandtotallength < 2) { $_maxgrandtotallength = 2 }
+	$self->{_maxfilenamelength}   = ($currentlayoutline =~ tr/n//);
+	$self->{_maxfilesizelength}   = 10 ** ($currentlayoutline =~ tr/s// -1) -1;
+	if ($self->{_maxfilesizelength} < 2) {
+		$self->{_maxfilesizelength} = 2;
+	}
+	$self->{_maxgrandtotallength} = 10 ** ($currentlayoutline =~ tr/z// -1) -1;
+	if ($self->{_maxgrandtotallength} < 2) {
+		$self->{_maxgrandtotallength} = 2;
+	}
 	# provide N, S and Z fields
 	# N = overflow char for name
 	# S = power of 1024 for size
@@ -469,39 +486,45 @@ sub makeformatlines {
 	# determine the layout field set (no spaces)
 	($squeezedlayoutline = $currentlayoutline) =~
 		tr/*nNsSzZugpacmdilvf /*nNsSzZugpacmdilvf/ds;
-	($_formatname = $squeezedlayoutline) =~ s/[*SNZ]//g;
-	@_layoutfields         =
-		map { LAYOUTFIELDS->{$_} } grep { !/f/ } (split //,$squeezedlayoutline);
-	@_layoutfieldswithinfo =
-		map { LAYOUTFIELDS->{$_} }               (split //,$squeezedlayoutline);
+	($self->{_layoutname} = $squeezedlayoutline) =~ s/[*SNZ]//g;
+	$self->{_layoutfields}         = [
+		map { LAYOUTFIELDS->{$_} } grep { !/f/ } (split //,$squeezedlayoutline)
+	];
+	$self->{_layoutfieldswithinfo} = [
+		map { LAYOUTFIELDS->{$_} }               (split //,$squeezedlayoutline)
+	];
 	# make the formatline
-	$_currentformatlinewithinfo = $_currentformatline = $prev = '';
+	$self->{_currentformatlinewithinfo}	= '';
+	$self->{_currentformatline}			= '';
+	$prev = '';
 	foreach $letter (split //, $currentlayoutline) {
 		if ($letter eq ' ') {
-			$_currentformatlinewithinfo .= ' ';
+			$self->{_currentformatlinewithinfo} .= ' ';
 		} elsif ($prev ne $letter) {
-			$_currentformatlinewithinfo .= '@';
+			$self->{_currentformatlinewithinfo} .= '@';
 		} else {
 			($trans = $letter) =~ tr{*nNsSzZugpacmdilvf}
 									{<<<><><<<<<<<<>><<};
-			$_currentformatlinewithinfo .= $trans;
+			$self->{_currentformatlinewithinfo} .= $trans;
 		}
 		$prev = $letter;
 	}
-	$_currentformatline = $_currentformatlinewithinfo;
-	substr($_currentformatline, $infocol, $infolength, '');
-	return $_currentformatline;
+	$self->{_currentformatline} = $self->{_currentformatlinewithinfo};
+	substr($self->{_currentformatline}, $infocol, $infolength, '');
+	return $self->{_currentformatline};
 }
 
-=item markcurrentline()
+=item markcurrentline(string $letter)
 
-Shows the current command on the current file in the cursor column.
+Shows the current command letter on the current file in the cursor column.
 
 =cut
 
 sub markcurrentline {
 	my ($self, $letter) = @_;
-	$_screen->at($_pfm->browser->currentline + $_screen->BASELINE, $_cursorcol)
+	$_screen->at(
+			$_pfm->browser->currentline + $_screen->BASELINE,
+			$self->{_cursorcol})
 		->puts($letter);
 }
 

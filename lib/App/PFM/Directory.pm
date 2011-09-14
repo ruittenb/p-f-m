@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Directory 0.79
+# @(#) App::PFM::Directory 0.80
 #
 # Name:			App::PFM::Directory
-# Version:		0.79
+# Version:		0.80
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-05-23
+# Date:			2010-08-22
 #
 
 ##########################################################################
@@ -63,8 +63,6 @@ use constant RCS => [
 ];
 
 our @EXPORT = qw(M_MARK M_OLDMARK M_NEWMARK);
-
-my $DFCMD = ($^O eq 'hpux') ? 'bdf' : ($^O eq 'sco') ? 'dfspace' : 'df -k';
 
 our ($_pfm);
 
@@ -195,13 +193,9 @@ Determines the current filesystem usage and stores it in an internal hash.
 sub _init_filesystem_info {
 	my ($self) = @_;
 	my @dflist;
-	chop (@dflist = (`$DFCMD \Q$self->{_path}\E`, ''));
+	chop (@dflist = $_pfm->os->df($self->{_path}));
 	shift @dflist; # skip header
-	$dflist[0] .= $dflist[1]; # in case filesystem info wraps onto next line
 	@{$self->{_disk}}{qw/device total used avail/} = split (/\s+/, $dflist[0]);
-	if ($self->{_disk}{avail} =~ /%/) {
-		$self->{_disk}{avail} = $self->{_disk}{total} - $self->{_disk}{used};
-	}
 	$dflist[0] =~ /(\S*)$/;
 	$self->{_disk}{mountpoint} = $1;
 	return $self->{_disk};
@@ -463,7 +457,6 @@ sub readcontents {
 	my ($entry, $file);
 	my @allentries    = ();
 	my @white_entries = ();
-	my $whitecommand  = $_pfm->commandhandler->whitecommand;
 	my $screen        = $_pfm->screen;
 	# TODO stop jobs here
 	clearugidcache();
@@ -476,9 +469,7 @@ sub readcontents {
 	if (opendir CURRENT, $self->{_path}) {
 		@allentries = readdir CURRENT;
 		closedir CURRENT;
-		if ($whitecommand) {
-			@white_entries = `$whitecommand \Q$self->{_path}\E`;
-		}
+		@white_entries = $_pfm->os->listwhite($self->{_path});
 	} else {
 		$screen->at(0,0)->clreol()->display_error("Cannot read . : $!");
 	}
@@ -796,7 +787,7 @@ sub apply {
 		#$SIG{QUIT} = \&_catch_quit;
 		my $screen = $_pfm->screen;
 		my @range = 0 .. $#{$self->{_showncontents}};
-		if ($special_mode eq 'D') {
+		if ($special_mode eq 'reverse') {
 			@range = reverse @range;
 			# build nameindexmap on dircontents, not showncontents.
 			# this is faster than doing a dirlookup() every iteration
@@ -808,16 +799,16 @@ sub apply {
 			$loopfile = $self->{_showncontents}[$i];
 			if ($loopfile->{selected} eq M_MARK) {
 				# don't give feedback in cOmmand or Your
-				if ($special_mode ne 'O') {
+				if ($special_mode ne 'nofeedback') {
 					$screen->at($screen->PATHLINE, 0)->clreol()
 						->puts($loopfile->{name})->at($screen->PATHLINE+1, 0);
 				}
-				$loopfile->apply($do_this, @args);
+				$loopfile->apply($do_this, $special_mode, @args);
 				# see if the file was lost, and we were deleting.
 				# we could also test if return value of File->apply eq 'deleted'
 				if (!$loopfile->{nlink} and
 					$loopfile->{type} ne 'w' and
-					$special_mode eq 'D')
+					$special_mode eq 'reverse')
 				{
 					$self->unregister($loopfile);
 					$deleted_index = $nameindexmap{$loopfile->{name}};
@@ -842,14 +833,14 @@ sub apply {
 			$screen->R_DIRLIST | $screen->R_PATHINFO | $screen->R_FRAME);
 	} else {
 		$loopfile = $_pfm->browser->currentfile;
-		$loopfile->apply($do_this, @args);
+		$loopfile->apply($do_this, $special_mode, @args);
 		$self->checkrcsapplicable($loopfile->{name})
 			if $_pfm->config->{autorcs};
 		# see if the file was lost, and we were deleting.
 		# we could also test if return value of File->apply eq 'deleted'
 		if (!$loopfile->{nlink} and
 			$loopfile->{type} ne 'w' and
-			$special_mode eq 'D')
+			$special_mode eq 'reverse')
 		{
 			$self->unregister($loopfile);
 			$deleted_index = $self->dirlookup(
