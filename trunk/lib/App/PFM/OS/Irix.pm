@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::OS::Irix 0.01
+# @(#) App::PFM::OS::Irix 0.02
 #
 # Name:			App::PFM::OS::Irix
-# Version:		0.01
+# Version:		0.02
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-22
-# Date:			2010-08-22
+# Date:			2010-08-25
 #
 
 ##########################################################################
@@ -81,6 +81,33 @@ sub df {
 		$lines[$_] = join ' ', @fields;
 	}
 	return @lines;
+}
+
+=item aclget(string $path)
+
+Gets a file's Access Control List.
+
+=cut
+
+sub aclget {
+	my ($self, $path) = @_;
+	# the linux port of XFS uses 'chacl -l', but this is not IRIX compatible
+	return $self->backtick(qw{ls -dD}, $path);
+}
+
+=item aclput(string $path, string $aclfilename, File::Temp $aclfile)
+
+Sets a file's Access Control List from the data in a temporary file.
+
+=cut
+
+sub aclput {
+	# chacl u::rwx,g::r-x,o::r--,u:bob:r--,m::r-x file1
+	my ($self, $path, $aclfilename, $aclfile) = @_;
+	my $line = <$aclfile>;
+	$line =~ s/^\s+//;
+	$line =~ s/\s+$//;
+	$self->system('chacl', $line, $path);
 }
 
 ##########################################################################

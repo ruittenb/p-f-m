@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::OS::Solaris 0.02
+# @(#) App::PFM::OS::Solaris 0.03
 #
 # Name:			App::PFM::OS::Solaris
-# Version:		0.02
+# Version:		0.03
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-22
 # Date:			2010-08-25
@@ -53,8 +53,7 @@ use constant {
 
 =item du(string $path)
 
-Solaris-specific method for requesting file space usage info
-using du(1).
+Returns file space usage info using du(1).
 
 =cut
 
@@ -64,6 +63,28 @@ sub du {
 	$line =~ /(\d+)/;
 	$line = 1024 * $1;
 	return $line;
+}
+
+=item aclget(string $path)
+
+Gets a file's Access Control List.
+
+=cut
+
+sub aclget {
+	my ($self, $path) = @_;
+	return $self->backtick('getfacl', $path);
+}
+
+=item aclput(string $path, string $aclfilename)
+
+Sets a file's Access Control List from the data in a temporary file.
+
+=cut
+
+sub aclput {
+	my ($self, $path, $aclfilename) = @_;
+	$self->system(qw{setfacl -f}, $aclfilename, $path);
 }
 
 ##########################################################################

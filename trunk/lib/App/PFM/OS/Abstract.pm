@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::OS::Abstract 0.02
+# @(#) App::PFM::OS::Abstract 0.10
 #
 # Name:			App::PFM::OS::Abstract
-# Version:		0.02
+# Version:		0.10
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-20
 # Date:			2010-08-25
@@ -36,6 +36,7 @@ package App::PFM::OS::Abstract;
 
 use base 'App::PFM::Abstract';
 
+use File::Temp;
 use File::Stat::Bits;
 
 use strict;
@@ -60,7 +61,8 @@ Called from the constructor.
 
 sub _init {
 	my ($self, $pfm) = @_;
-	$self->{_pfm} = $pfm;
+	$self->{_pfm}     = $pfm;
+    $self->{_aclfile} = undef;
 	$self->_init_white_commands();
 }
 
@@ -182,6 +184,52 @@ sub ifmt2str {
 	return substr($self->IFMTCHARS, oct($mode) & 017, 1);
 }
 
+=item aclget_to_file(string $path)
+
+Gets a file's Access Control List into a temporary file and returns its
+filename.
+
+=cut
+
+sub aclget_to_file {
+	my ($self, $path) = @_;
+	# destroy and unlink any old file
+	$self->{_aclfile} = new File::Temp(
+		TEMPLATE => 'pfm.acl.XXXXXXXX',
+		DIR      => '/tmp',
+	);
+	$self->{_aclfile}->print($self->aclget($path));
+	$self->{_aclfile}->close();
+	return $self->{_aclfile}->filename;
+}
+
+=item aclput_from_file(string $path, string $aclfilename)
+
+Sets a file's Access Control List from the data in a temporary file.
+Removes the temporary file afterwards.
+
+=cut
+
+sub aclput_from_file {
+	my ($self, $path, $aclfilename) = @_;
+	$self->aclput($path, $aclfilename, $self->{_aclfile});
+	undef $self->{_aclfile}; # destroy and unlink
+}
+
+=item acledit_via_file(string $aclfilename)
+
+Allows the user to edit a temporary file containing an Access Control
+List description.
+
+=cut
+
+sub acledit_via_file {
+	my ($self, $aclfilename) = @_;
+	$self->system(
+		$self->{_pfm}->config->{fg_editor},
+		$aclfilename);
+}
+
 ##########################################################################
 # public interface helper functions
 
@@ -289,6 +337,42 @@ sub du {
 	$line =~ /(\d+)/;
 	$line = 1024 * $1;
 	return $line;
+}
+
+=item aclget(string $path)
+
+Stub method for getting a file's Access Control List.
+
+=cut
+
+sub aclget {
+	my ($self, $path) = @_;
+	return '';
+}
+
+=item aclput(string $path, string $aclfilename)
+
+Stub method for setting a file's Access Control List.
+
+=cut
+
+sub aclput {
+	my ($self, $path, $aclfilename) = @_;
+	print "Not implemented\n";
+	return 0;
+}
+
+=item acledit(string $path)
+
+Platform-independent method for editing Access Control Lists.
+
+=cut
+
+sub acledit {
+	my ($self, $path) = @_;
+	my $aclfilename = $self->aclget_to_file($path);
+	$self->acledit_via_file($aclfilename);
+	$self->aclput_from_file($path, $aclfilename);
 }
 
 ##########################################################################

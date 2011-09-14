@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::OS::Tru64 0.01
+# @(#) App::PFM::OS::Freebsd 0.01
 #
-# Name:			App::PFM::OS::Tru64
+# Name:			App::PFM::OS::Freebsd
 # Version:		0.01
 # Author:		Rene Uittenbogaard
-# Created:		2010-08-22
-# Date:			2010-08-22
+# Created:		2010-08-20
+# Date:			2010-08-25
 #
 
 ##########################################################################
@@ -16,11 +16,11 @@
 
 =head1 NAME
 
-App::PFM::OS::Tru64
+App::PFM::OS::Freebsd
 
 =head1 DESCRIPTION
 
-PFM OS class for access to Tru64-specific OS commands.
+PFM OS class for access to FreeBSD-specific OS commands.
 
 =head1 METHODS
 
@@ -31,13 +31,13 @@ PFM OS class for access to Tru64-specific OS commands.
 ##########################################################################
 # declarations
 
-package App::PFM::OS::Tru64;
+package App::PFM::OS::Freebsd;
 
 use base 'App::PFM::OS::Abstract';
 
 use strict;
 
-use constant MINORBITS => 2 ** 20;
+#use constant MINORBITS => 2 ** n;
 
 ##########################################################################
 # private subs
@@ -48,16 +48,26 @@ use constant MINORBITS => 2 ** 20;
 ##########################################################################
 # public subs
 
-=item acledit(string $path)
+=item aclget(string $path)
 
-Tru64-specific method for editing Access Control Lists.
+Gets a file's Access Control List.
 
 =cut
 
-sub acledit {
+sub aclget {
 	my ($self, $path) = @_;
-	local $ENV{EDITOR} = $self->{_pfm}->config->{fg_editor};
-	$self->system(qw{setacl -E}, $path);
+	return $self->backtick('getfacl', $path);
+}
+
+=item aclput(string $path, string $aclfilename)
+
+Sets a file's Access Control List from the data in a temporary file.
+
+=cut
+
+sub aclput {
+	my ($self, $path, $aclfilename) = @_;
+	$self->system(qw{setfacl -M}, $aclfilename, $path);
 }
 
 ##########################################################################

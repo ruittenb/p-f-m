@@ -37,10 +37,13 @@ use base 'App::PFM::Abstract';
 
 use App::PFM::OS::Abstract;
 use App::PFM::OS::Aix;
+use App::PFM::OS::Darwin;
 use App::PFM::OS::Dec_osf;
+use App::PFM::OS::Freebsd;
 use App::PFM::OS::Hpux;
 use App::PFM::OS::Irix;
 use App::PFM::OS::Linux;
+use App::PFM::OS::Macosx;
 use App::PFM::OS::Sco;
 use App::PFM::OS::Solaris;
 use App::PFM::OS::Sunos;

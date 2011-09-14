@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::OS::Linux 0.01
+# @(#) App::PFM::OS::Linux 0.05
 #
 # Name:			App::PFM::OS::Linux
-# Version:		0.01
+# Version:		0.05
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-20
-# Date:			2010-08-21
+# Date:			2010-08-25
 #
 
 ##########################################################################
@@ -68,6 +68,28 @@ sub du {
 	my ($self, $file) = @_;
 	my $line = $self->backtick(qw{du -sb}, $file);
 	return $line;
+}
+
+=item aclget(string $path)
+
+Gets a file's Access Control List.
+
+=cut
+
+sub aclget {
+	my ($self, $path) = @_;
+	return $self->backtick('getfacl', $path);
+}
+
+=item aclput(string $path, string $aclfilename)
+
+Sets a file's Access Control List from the data in a temporary file.
+
+=cut
+
+sub aclput {
+	my ($self, $path, $aclfilename) = @_;
+	$self->system(qw{setfacl -M}, $aclfilename, $path);
 }
 
 ##########################################################################

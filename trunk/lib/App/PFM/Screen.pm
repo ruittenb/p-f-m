@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen 0.31
+# @(#) App::PFM::Screen 0.32
 #
 # Name:			App::PFM::Screen
-# Version:		0.31
+# Version:		0.32
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-24
+# Date:			2010-08-25
 # Requires:		Term::ScreenColor
 #
 
@@ -22,6 +22,7 @@ App::PFM::Screen
 =head1 DESCRIPTION
 
 PFM class used for coordinating how all elements are displayed on screen.
+This class extends B<Term::ScreenColor>.
 
 =head1 METHODS
 
@@ -78,15 +79,20 @@ use constant R_CLRSCR => R_CLEAR | R_SCREEN;
 use constant R_CHDIR  =>
 					R_NEWDIR | R_DIRCONTENTS | R_DIRSORT | R_SCREEN | R_STRIDE;
 
-our @EXPORT = qw(R_NOP R_STRIDE R_MENU R_PATHINFO R_HEADINGS R_FOOTER R_FRAME
-	R_DISKINFO R_DIRLIST R_DIRFILTER R_SCREEN R_CLEAR R_CLRSCR R_DIRSORT
-	R_DIRCONTENTS R_CHDIR R_NEWDIR
+our %EXPORT_TAGS = (
+	constants => [ qw(
+		R_NOP R_STRIDE R_MENU R_PATHINFO R_HEADINGS R_FOOTER R_FRAME
+		R_DISKINFO R_DIRLIST R_DIRFILTER R_SCREEN R_CLEAR R_CLRSCR
+		R_DIRSORT R_DIRCONTENTS R_CHDIR R_NEWDIR
+	) ]
 );
+
+our @EXPORT_OK = @{$EXPORT_TAGS{constants}};
 
 # _wasresized needs to be a package global because it is accessed by a
 # signal handler.
 # This is no problem as this class is supposed to be singleton anyway.
-our ($_pfm, $_frame, $_listing, $_diskinfo, $_wasresized);
+our ($_pfm, $_wasresized);
 
 ##########################################################################
 # private subs
@@ -101,10 +107,10 @@ and App::PFM::Screen::Listing object.
 
 sub _init {
 	my ($self, $pfm) = @_;
-	$_pfm		= $pfm;
-	$_frame		= new App::PFM::Screen::Frame(   $pfm, $self);
-	$_listing	= new App::PFM::Screen::Listing( $pfm, $self);
-	$_diskinfo	= new App::PFM::Screen::Diskinfo($pfm, $self);
+	$_pfm = $pfm;
+	$self->{_frame}    = new App::PFM::Screen::Frame(   $pfm, $self);
+	$self->{_listing}  = new App::PFM::Screen::Listing( $pfm, $self);
+	$self->{_diskinfo} = new App::PFM::Screen::Diskinfo($pfm, $self);
 	$self->{_winheight}        = 0;
 	$self->{_winwidth}         = 0;
 	$self->{_screenheight}     = 0;
@@ -176,15 +182,18 @@ and App::PFM::Screen::Diskinfo objects.
 =cut
 
 sub frame {
-	return $_frame;
+	my ($self) = @_;
+	return $self->{_frame};
 }
 
 sub listing {
-	return $_listing;
+	my ($self) = @_;
+	return $self->{_listing};
 }
 
 sub diskinfo {
-	return $_diskinfo;
+	my ($self) = @_;
+	return $self->{_diskinfo};
 }
 
 =item wasresized()
@@ -383,7 +392,7 @@ Uses the App::PFM::Screen::Frame object to redisplay the frame.
 
 sub show_frame {
 	my ($self, $options) = @_;
-	return $_frame->show($options);
+	return $self->{_frame}->show($options);
 }
 
 =item clear_footer()
@@ -395,7 +404,7 @@ for the footer.
 
 sub clear_footer {
 	my $self = shift;
-	$_frame->show_footer($_frame->FOOTER_NONE);
+	$self->{_frame}->show_footer($self->{_frame}->FOOTER_NONE);
 	$self->set_deferred_refresh(R_FOOTER);
 	return $self;
 }
@@ -489,15 +498,16 @@ their marks in the current directory.
 sub ok_to_remove_marks {
 	my $self = shift;
 	my $sure;
-	if ($_pfm->config->{remove_marks_ok} or $_diskinfo->mark_info() <= 0) {
+	if ($_pfm->config->{remove_marks_ok} or
+		$self->{_diskinfo}->mark_info() <= 0)
+	{
 		return 1;
 	}
-	$_diskinfo->show();
+	$self->{_diskinfo}->show();
 	$self->clear_footer()
 		->at(0,0)->clreol()
 		->putmessage('OK to remove marks [Y/N]? ');
 	$sure = $self->getch();
-#	$_frame->show_menu();
 	$self->set_deferred_refresh(R_FRAME);
 	return ($sure =~ /y/i);
 }
@@ -583,8 +593,8 @@ Redisplays the headings if they have been flagged as 'needs to be redrawn'.
 sub refresh_headings {
 	my ($self) = @_;
 	if ($self->{_deferred_refresh} & R_HEADINGS) {
-		$_frame->show_headings(
-			$_pfm->browser->swap_mode, $_frame->HEADING_DISKINFO);
+		$self->{_frame}->show_headings(
+			$_pfm->browser->swap_mode, $self->{_frame}->HEADING_DISKINFO);
 		$self->{_deferred_refresh} &= ~R_HEADINGS;
 	}
 	return $self;
@@ -615,7 +625,7 @@ sub refresh {
 		$self->clrscr();
 	}
 	if ($deferred_refresh & R_FRAME) {
-		$_frame->show();
+		$self->{_frame}->show();
 	}
 	# now in order of severity
 	if ($deferred_refresh & R_NEWDIR) {
@@ -646,23 +656,23 @@ sub refresh {
 		$browser->position_cursor('.') unless defined $browser->currentfile;
 	}
 	if ($deferred_refresh & R_DIRLIST) {
-		$_listing->show();
+		$self->{_listing}->show();
 	}
 	if ($deferred_refresh & R_DISKINFO) {
 		$_pfm->screen->diskinfo->show();
 	}
 	if ($deferred_refresh & R_MENU) {
-		$_frame->show_menu();
+		$self->{_frame}->show_menu();
 	}
 	if ($deferred_refresh & R_PATHINFO) {
 		$self->path_info();
 	}
 	if ($deferred_refresh & R_HEADINGS) {
-		$_frame->show_headings(
-			$_pfm->browser->swap_mode, $_frame->HEADING_DISKINFO);
+		$self->{_frame}->show_headings(
+			$_pfm->browser->swap_mode, $self->{_frame}->HEADING_DISKINFO);
 	}
 	if ($deferred_refresh & R_FOOTER) {
-		$_frame->show_footer();
+		$self->{_frame}->show_footer();
 	}
 	return $self;
 }
@@ -703,7 +713,7 @@ sub pathline {
 	$$p_baselen    = $baselen;
 	$$p_ellipssize = $ellipssize;
 	return $disppath . $spacer
-		. ($overflow ? $_listing->NAMETOOLONGCHAR : ' ') . "[$dev]";
+		. ($overflow ? $self->{_listing}->NAMETOOLONGCHAR : ' ') . "[$dev]";
 }
 
 ##########################################################################
@@ -713,7 +723,8 @@ sub pathline {
 =head1 CONSTANTS
 
 This package provides the B<R_*> constants which indicate which part of
-the terminal screen needs to be redrawn. They are:
+the terminal screen needs to be redrawn.
+They can be imported with C<use App::PFM::Screen qw(:constants)>.
 
 =over
 
@@ -795,7 +806,7 @@ these constants to set_deferred_refresh(), I<e.g.>
 =head1 SEE ALSO
 
 pfm(1), App::PFM::Screen::Diskinfo(3pm), App::PFM::Screen::Frame(3pm),
-App::PFM::Screen::Listing(3pm).
+App::PFM::Screen::Listing(3pm), Term::ScreenColor(3pm).
 
 =cut
 
