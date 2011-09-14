@@ -118,7 +118,7 @@ sub _clone {
 	$self->{_directory} = $original->{_directory}->clone(@args);
 }
 
-=item DESTROY
+=item DESTROY()
 
 Signals the Directory object to unregister itself with the Screen::Listing
 object.
@@ -127,7 +127,9 @@ object.
 
 sub DESTROY {
 	my ($self) = @_;
-	$self->{_directory}->destroy();
+	if (defined $self->{_directory}) {
+		$self->{_directory}->destroy();
+	}
 }
 
 ##########################################################################

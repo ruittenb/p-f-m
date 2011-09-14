@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::File 0.41
+# @(#) App::PFM::File 0.42
 #
 # Name:			App::PFM::File
-# Version:		0.41
+# Version:		0.42
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-10-03
+# Date:			2010-11-19
 #
 
 ##########################################################################
@@ -149,6 +149,7 @@ Formats a timestamp for printing.
 
 sub stamp2str {
 	my ($self, $time) = @_;
+	$time ||= 0;
 	return strftime($_pfm->config->{timestampformat}, localtime $time);
 }
 
@@ -237,7 +238,7 @@ sub filetypeflag {
 	if ($self->{type} eq '-' and $self->{mode} =~ /.[xst]/) {
 		return $filetypeflags->{'x'};
 	} else {
-		return $filetypeflags->{$self->{type}};
+		return $filetypeflags->{$self->{type}} || '';
 	}
 }
 

@@ -134,7 +134,7 @@ sub _initident {
 	my ($self) = @_;
 	my $user  = getpwuid($>);
 	my $host  = hostname();
-	my $tty   = ttyname(*STDIN);
+	my $tty   = ttyname(fileno(STDIN));
 	$host =~ s/\..*//; # host part of hostname
 	$tty  =~ s!/dev/!!;
 	$self->{_ident_elements} = {

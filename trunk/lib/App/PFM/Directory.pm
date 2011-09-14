@@ -126,11 +126,7 @@ sub _init {
 	$self->{_disk}			 = {};
 	$self->{_dirty}			 = 0;
 
-	$self->{_on_after_change_formatlines} = sub {
-		$self->reformat();
-	};
-	$screen->listing->register_listener(
-		'after_change_formatlines', $self->{_on_after_change_formatlines});
+	$self->_install_event_handlers();
 }
 
 =item _clone(App::PFM::Directory $original [ , array @args ] )
@@ -149,9 +145,25 @@ sub _clone {
 	$self->{_total_nr_of}	 = { %{$original->{_total_nr_of}	} };
 	$self->{_disk}			 = { %{$original->{_disk}			} };
 
-	$self->{_on_after_change_formatlines} = sub {
+	$self->_install_event_handlers();
+}
+
+=item _install_event_handlers()
+
+Installs listeners for the events 'after_set_color_mode' (fired
+by App::PFM::Screen) and 'after_change_formatlines' (fired by
+App::PFM::Screen::Listing), that require reformatting of the File objects.
+
+=cut
+
+sub _install_event_handlers {
+	my ($self) = @_;
+	$self->{_on_after_change_formatlines} =
+	$self->{_on_after_set_color_mode}     = sub {
 		$self->reformat();
 	};
+	$self->{_screen}->register_listener(
+		'after_set_color_mode',     $self->{_on_after_set_color_mode});
 	$self->{_screen}->listing->register_listener(
 		'after_change_formatlines', $self->{_on_after_change_formatlines});
 }
@@ -414,14 +426,17 @@ sub _catch_quit {
 
 =item destroy
 
-Unregisters our 'after_change_formatlines' event listener with the
-App::PFM::Screen::Listing object. This removes the reference that it
-has to us, readying the Directory object for garbage collection.
+Unregisters our 'after_change_formatlines' and 'after_set_color_mode'
+event listeners with the App::PFM::Screen and App::PFM::Screen::Listing
+objects. This removes the references that they have to us, readying the
+Directory object for garbage collection.
 
 =cut
 
 sub destroy {
 	my ($self) = @_;
+	$self->{_screen}->unregister_listener(
+		'after_set_color_mode',     $self->{_on_after_set_color_mode});
 	$self->{_screen}->listing->unregister_listener(
 		'after_change_formatlines', $self->{_on_after_change_formatlines});
 }

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Util 0.50
+# @(#) App::PFM::Util 0.51
 #
 # Name:			App::PFM::Util
-# Version:		0.50
+# Version:		0.51
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-19
+# Date:			2010-11-19
 #
 
 ##########################################################################
@@ -47,7 +47,7 @@ use constant ELLIPSIS => '..'; # path ellipsis string
 our %EXPORT_TAGS = (
 	all => [ qw(
 		min max inhibit toggle triggle isxterm isyes isno dirname basename
-		formatted in_array time2str fit2limit canonicalize_path reducepaths
+		formatted time2str fit2limit canonicalize_path reducepaths
 		reversepath isorphan ifnotdefined setifnotdefined clearugidcache
 		find_uid find_gid condquotemeta touch2time testdirempty fitpath
 	) ]
@@ -185,17 +185,6 @@ sub formatted (@) {
 	return $^A;
 }
 
-=item in_array(mixed $needle, array $haystack)
-
-Returns a boolean indicating if the I<needle> is found in the I<haystack>.
-
-=cut
-
-sub in_array ($@) {
-	my $needle = shift;
-	return undef != grep { $_ == $needle } @_;
-}
-
 =item fit2limit(int $number, int $limit)
 
 Fits a file size into a certain number of characters by converting it
@@ -206,6 +195,7 @@ to a number with kilo (mega, giga, ...) specification.
 sub fit2limit ($$) {
 	my ($size_num, $limit) = @_;
 	my $size_power = ' ';
+	return ('', ' ') unless defined $size_num && length $size_num;
 	while ($size_num > $limit) {
 		$size_num = int($size_num/1024);
 		$size_power =~ tr/ KMGTPEZ/KMGTPEZY/;
@@ -392,6 +382,7 @@ and caches the result.
 
 sub find_uid ($) {
 	my ($uid) = @_;
+	return '' unless defined $uid;
 	return $_usercache{$uid} ||
 		+($_usercache{$uid} =
 			(defined($uid) ? getpwuid($uid) : '') || $uid);
@@ -399,6 +390,7 @@ sub find_uid ($) {
 
 sub find_gid ($) {
 	my ($gid) = @_;
+	return '' unless defined $gid;
 	return $_groupcache{$gid} ||
 		+($_groupcache{$gid} =
 			(defined($gid) ? getgrgid($gid) : '') || $gid);

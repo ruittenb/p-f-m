@@ -1,3 +1,9 @@
+2.10.5
+
+* fixed: on changing the colorset, the applied colors are correctly updated
+  for the swap state, previous state, and bookmarked states.
+* added: readline completion for usernames, unix commands and perl commands.
+
 2.10.4
 
 * fixed: pressing 'l' on a symbolic link pointing to a directory will now
@@ -5,8 +11,8 @@
 * fixed: incremental find in case-insensitive sort mode now correctly finds
   the best match.
 * added: 'launchname' option to define launch commands for specific filenames
-* added: if a file is copied to the swap directory (=5), it is added to the
-  swap directory listing
+* added: if a file is (C)opied/(R)enamed/(L)inked to the swap directory (=5),
+  it is added to the swap directory listing.
 
 2.10.3
 
