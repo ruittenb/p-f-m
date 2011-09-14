@@ -124,13 +124,13 @@
 .\" ========================================================================
 .\"
 .IX Title "PFM 1"
-.TH PFM 1 "2010-11-28" " " " "
+.TH PFM 1 "2011-03-07" " " " "
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
 .nh
-.ds Yr 2010
-.ds Vw @(#) pfm.pl 2.10.8
+.ds Yr 2011
+.ds Vw @(#) pfm.pl 2.11.2
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -141,6 +141,7 @@ This manual pertains to \f(CWpfm\fP version \\$3.
 .IX Header "SYNOPSIS"
 \&\f(CW\*(C`pfm [\*(C'\fR\ \fIdirectory\fR\ \f(CW\*(C`] [\*(C'\fR\ \f(CW\*(C`\-s, \-\-swap \*(C'\fR\fIdirectory\fR\ \f(CW\*(C`]\*(C'\fR
 \&\f(CW\*(C` [\*(C'\fR\ \f(CW\*(C`\-l, \-\-layout \*(C'\fR\fInumber\fR\ \f(CW\*(C`] [\*(C'\fR\ \f(CW\*(C`\-o, \-\-sort \*(C'\fR\fImode\fR\ \f(CW\*(C`]\*(C'\fR
+\&\f(CW\*(C` [\*(C'\fR\ \f(CW\*(C`\-c, \-\-colorset \*(C'\fR\fIstring\fR\ \f(CW\*(C`]\*(C'\fR
 .PP
 \&\f(CW\*(C`pfm { \-\-help | \-\-usage | \-\-version }\*(C'\fR
 .SH "DESCRIPTION"
@@ -182,6 +183,9 @@ unspecified, the current directory is used.
 .IP "\-\-help" 4
 .IX Item "--help"
 Print extended usage information, then exit.
+.IP "\-c, \-\-colorset \fIstring\fR" 4
+.IX Item "-c, --colorset string"
+Start \f(CW\*(C`pfm\*(C'\fR using the specified colorset (as defined in the \fI.pfmrc\fR).
 .IP "\-l, \-\-layout \fInumber\fR" 4
 .IX Item "-l, --layout number"
 Start \f(CW\*(C`pfm\*(C'\fR using the specified column layout (as defined in the \fI.pfmrc\fR).
@@ -486,6 +490,9 @@ the extension of the current filename (see below)
 .IP "\fB=8\fR" 4
 .IX Item "=8"
 a space-separated list of all marked filenames
+.IP "\fB=9\fR" 4
+.IX Item "=9"
+the full previous directory path (see \fBF2\fR command)
 .IP "\fB==\fR" 4
 .IX Item "=="
 a single literal \fB=\fR
@@ -595,7 +602,7 @@ criterion. See \fBI\fRnclude for details.
 .IX Item "Your command"
 Like c\fBO\fRmmand (see above), except that it uses one-letter commands
 (case-sensitive) that have been preconfigured in the \fI.pfmrc\fR file.
-\&\fBY\fRour commands may use \fB=1\fR up to \fB=8\fR and \fB=e\fR, \fB=E\fR, \fB=p\fR
+\&\fBY\fRour commands may use \fB=1\fR up to \fB=9\fR and \fB=e\fR, \fB=E\fR, \fB=p\fR
 and \fB=v\fR escapes just as in c\fBO\fRmmand, e.g.
 .Sp
 .Vb 3
@@ -664,6 +671,10 @@ the bookmark is loaded and a \fIchdir()\fR is done to the directory.
 .IP "\fBsHell\fR" 4
 .IX Item "sHell"
 Spawns your default login shell. When you exit from it, \f(CW\*(C`pfm\*(C'\fR will resume.
+.IP "\fBfoLlow\fR" 4
+.IX Item "foLlow"
+If the current file is a symlink, it is followed and the cursor positioned
+at the target file.
 .IP "\fBMake new directory\fR" 4
 .IX Item "Make new directory"
 Specify a new directory name and \f(CW\*(C`pfm\*(C'\fR will create it for you. Furthermore,
@@ -777,7 +788,8 @@ of \f(CW\*(C`pfm\*(C'\fR. Primarily used for debugging.
 Display help, version number and license information.
 .IP "\fBF2\fR" 4
 .IX Item "F2"
-\&\fIchdir()\fR back to the previous directory.
+\&\fIchdir()\fR back to the previous directory. In shell commands,
+the previous directory path may be referred to as \fB=9\fR.
 .IP "\fBF3\fR" 4
 .IX Item "F3"
 Fit the file list into the current window and refresh the display.
@@ -824,7 +836,7 @@ Refresh (using \fIlstat\fR\|(2)) the displayed file data for the current file.
 Toggle mouse use. See below under \*(L"\s-1MOUSE\s0 \s-1COMMANDS\s0\*(R".
 .SH "ESCAPE MODIFIERS"
 .IX Header "ESCAPE MODIFIERS"
-The above mentioned escapes \fB=1\fR to \fB=8\fR and \fB=e\fR, \fB=E\fR, \fB=p\fR
+The above mentioned escapes \fB=1\fR to \fB=9\fR and \fB=e\fR, \fB=E\fR, \fB=p\fR
 and \fB=v\fR can make use of the following modifiers:
 .IP "\fB={escape#prefix}\fR" 4
 .IX Item "={escape#prefix}"
@@ -900,36 +912,32 @@ _
 .in -4n
 .SH "LAUNCHING FILES"
 .IX Header "LAUNCHING FILES"
-The \fB\s-1ENTER\s0\fR key, when used on a non-directory file, will attempt to launch
-the file.
+The \fB\s-1ENTER\s0\fR key, when used on a non-directory file, will make \f(CW\*(C`pfm\*(C'\fR
+attempt to launch the file.
 .PP
-The command used for launching a file is determined by the file type. File
-types are identified by a unique name, preferably \s-1MIME\s0 type names. Launch
-commands for every file type may be defined using the config file
-\&'launch[\fIfiletype\fR]' options.
-.PP
-Example:
-.PP
-.Vb 2
-\&    launch[image/gif]      :=v =2 &
-\&    launch[application/pdf]:acroread =2 &
-.Ve
-.PP
-There are three methods for determining the file type. You may opt to
-use one, two, or all three of these methods, thereby using the second and
-third method as fallback.
-.PP
-The following methods are available:
+\&\f(CW\*(C`pfm\*(C'\fR can be configured to use any combination of four methods for
+determining the appropriate command. These methods are:
 .IP "\fBextension\fR" 4
 .IX Item "extension"
-The filename extension will be translated to a file type using the
-\&'extension[*.\fIextension\fR]' options in the config file.
+The filename extension will be translated to a file type (preferably a
+\&\s-1MIME\s0 type) using the 'extension[*.\fIextension\fR]' options in the config
+file.
 .Sp
 Example:
 .Sp
 .Vb 2
-\&    extension[*.gif]:image/gif
-\&    extension[*.pdf]:application/pdf
+\&    extension[*.gif]: image/gif
+\&    extension[*.pdf]: application/pdf
+.Ve
+.Sp
+Launch commands for every file type may be defined using the
+\&'launch[\fIfiletype\fR]' options.
+.Sp
+Example:
+.Sp
+.Vb 2
+\&    launch[image/gif]      : =v =2 &
+\&    launch[application/pdf]: acroread =2 &
 .Ve
 .IP "\fBmagic\fR" 4
 .IX Item "magic"
@@ -940,24 +948,41 @@ options in the config file.
 Example:
 .Sp
 .Vb 2
-\&    magic[GIF image data]:image/gif
-\&    magic[PDF document]  :application/pdf
+\&    magic[GIF image data]: image/gif
+\&    magic[PDF document]  : application/pdf
 .Ve
+.Sp
+The file type will then be used to look up a launch command as described
+above.
 .IP "\fBxbit\fR" 4
 .IX Item "xbit"
 The executable bits in the file permissions will be checked (after
 symbolic links have been followed). If the current file is executable,
 \&\f(CW\*(C`pfm\*(C'\fR will attempt to start the file as an executable command.
+.IP "\fBname\fR" 4
+.IX Item "name"
+Some filenames have their own unique way of launching them. These can be
+configured using the 'launchname' config option:
+.Sp
+.Vb 3
+\&    launchname[Makefile]   : make
+\&    launchname[Imakefile]  : xmkmf
+\&    launchname[Makefile.PL]: perl =2
+.Ve
 .PP
-To select which method or methods (\fIextension\fR, \fImagic\fR, and/or \fIxbit\fR)
-should be used for determining the file type, you should specify these
-using the 'launchby' option (separated by commas if more than one).
+To select which method or methods (\fIextension\fR, \fImagic\fR, \fIxbit\fR, and/or
+\&\fIname\fR) should be used for determining the file type, you should specify
+these using the 'launchby' option (separated by commas if there is more
+than one).
 .PP
 Example:
 .PP
 .Vb 1
-\&    launchby:xbit,extension
+\&    launchby:name,xbit,extension
 .Ve
+.PP
+\&\f(CW\*(C`pfm\*(C'\fR will try these methods in succession until one succeeds, or all
+fail.
 .PP
 If the file type cannot be determined, the current file will be displayed
 using your pager.
@@ -991,10 +1016,10 @@ The input is taken literally.
 .IX Item "a filename (e.g. in Copy or tarGet)."
 First of all, tilde expansion is performed.
 .Sp
-Next, any \f(CW\*(C`=[1\-8eEpv]\*(C'\fR character sequence is expanded to the corresponding
+Next, any \f(CW\*(C`=[1\-9eEpv]\*(C'\fR character sequence is expanded to the corresponding
 value.
 .Sp
-At the same time, any \f(CW\*(C`=[^1\-8eEpv]\*(C'\fR character sequence is just replaced
+At the same time, any \f(CW\*(C`=[^1\-9eEpv]\*(C'\fR character sequence is just replaced
 with the character itself.
 .Sp
 Finally, if the filename is to be processed by \f(CW\*(C`pfm\*(C'\fR, it is taken literally;
@@ -1004,10 +1029,10 @@ if it is to be handed over to a shell, all metacharacters are replaced
 .IX Item "a shell command (e.g. in cOmmand or Print)"
 First of all, tilde expansion is performed.
 .Sp
-Next, any \f(CW\*(C`=[1\-8eEpv]\*(C'\fR character sequence is expanded to the corresponding
+Next, any \f(CW\*(C`=[1\-9eEpv]\*(C'\fR character sequence is expanded to the corresponding
 value, \fIwith shell metacharacters escaped\fR.
 .Sp
-At the same time, any \f(CW\*(C`=[^1\-8eEpv]\*(C'\fR character sequence is just replaced
+At the same time, any \f(CW\*(C`=[^1\-9eEpv]\*(C'\fR character sequence is just replaced
 with the character itself.
 .PP
 In short:
@@ -1108,10 +1133,7 @@ Clicking on the menu or footer will execute the command that was clicked.
 Clicking on one of the identity lines in the info column will toggle the
 display like the \fB=\fR command does.
 .PP
-Mouse use will be turned off during the execution of commands, unless
-\&'mouseturnoff' is set to 'no' in \fI.pfmrc\fR. Note that setting this to
-\&'no' means that your (external) commands (like your pager and editor)
-will receive escape codes when the mouse is clicked.
+Mouse use will be turned off during the execution of commands.
 .SH "WORKING DIRECTORY INHERITANCE"
 .IX Header "WORKING DIRECTORY INHERITANCE"
 Upon exit, \f(CW\*(C`pfm\*(C'\fR will save its current working directory in the file
@@ -1283,9 +1305,8 @@ the cursor on the file \fI/sbin/reboot\fR. You have been warned.
 Copyright \*(co 1999-\*(Yr, Ren\*(e' Uittenbogaard
 (ruittenb@users.sourceforge.net).
 .PP
-All rights reserved. This program is free software; you can redistribute
-it and/or modify it under the terms described by the \s-1GNU\s0 General Public
-License version 2.
+This program is free software; you can redistribute it and/or modify it
+under the terms described by the \s-1GNU\s0 General Public License version 3.
 .PP
 This program was based on \s-1PFM\s0.COM version 2.32, originally written for
 MS-DOS by Paul R. Culley and Henk de Heer. The name 'pfm' was adopted
@@ -1301,13 +1322,27 @@ The documentation on \s-1PFM\s0.COM. The manual pages for \fIchmod\fR\|(1), \fIc
 \&\fIfile\fR\|(1), \fIless\fR\|(1), \fIln\fR\|(1), \fIlocale\fR\|(7), \fIlpr\fR\|(1), \fItouch\fR\|(1), \fIvi\fR\|(1).
 .ad l \" right-justification off
 .PP
-For developers: \fITerm::Screen\fR\|(3pm), \fITerm::ScreenColor\fR\|(3pm),
-\&\fITerm::ReadLine\fR\|(3pm), \fIApp::PFM::Abstract\fR\|(3pm), \fIApp::PFM::Application\fR\|(3pm),
-\&\fIApp::PFM::Browser\fR\|(3pm), \fIApp::PFM::CommandHandler\fR\|(3pm), \fIApp::PFM::Config\fR\|(3pm),
-\&\fIApp::PFM::Directory\fR\|(3pm), \fIApp::PFM::Event\fR\|(3pm), \fIApp::PFM::File\fR\|(3pm),
-\&\fIApp::PFM::History\fR\|(3pm), \fIApp::PFM::JobHandler\fR\|(3pm),
-\&\fIApp::PFM::Job::Abstract\fR\|(3pm), \fIApp::PFM::OS\fR\|(3pm), \fIApp::PFM::Screen\fR\|(3pm),
-\&\fIApp::PFM::State\fR\|(3pm) and \fIApp::PFM::Util\fR\|(3pm).
+For developers:
+\&\fITerm::Screen\fR\|(3pm),
+\&\fITerm::ScreenColor\fR\|(3pm),
+\&\fITerm::ReadLine\fR\|(3pm),
+\&\fIApp::PFM::Abstract\fR\|(3pm),
+\&\fIApp::PFM::Application\fR\|(3pm),
+\&\fIApp::PFM::Browser\fR\|(3pm),
+\&\fIApp::PFM::Browser::Files\fR\|(3pm),
+\&\fIApp::PFM::Browser::Bookmarks\fR\|(3pm),
+\&\fIApp::PFM::CommandHandler\fR\|(3pm),
+\&\fIApp::PFM::Config\fR\|(3pm),
+\&\fIApp::PFM::Directory\fR\|(3pm),
+\&\fIApp::PFM::Event\fR\|(3pm),
+\&\fIApp::PFM::File\fR\|(3pm),
+\&\fIApp::PFM::History\fR\|(3pm),
+\&\fIApp::PFM::JobHandler\fR\|(3pm),
+\&\fIApp::PFM::Job::Abstract\fR\|(3pm),
+\&\fIApp::PFM::OS\fR\|(3pm),
+\&\fIApp::PFM::Screen\fR\|(3pm),
+\&\fIApp::PFM::State\fR\|(3pm) and
+\&\fIApp::PFM::Util\fR\|(3pm).
 .PP
 The pfm project page: <http://sourceforge.net/projects/p\-f\-m/>
 .PP

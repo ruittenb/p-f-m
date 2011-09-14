@@ -1087,6 +1087,7 @@ ppppppppppllll uuuuuuuu ggggggggssssssss mmmmmmmmmmmmmmm *nnnnnnn ffffffffffffff
 ##  =6 : current directory basename
 ##  =7 : current filename extension
 ##  =8 : list of marked filenames
+##  =9 : previous directory path (F2)
 ##  == : a single literal '='
 ##  =e : 'editor'    (defined above)
 ##  =E : 'fg_editor' (defined above)

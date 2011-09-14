@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config::Update 2.11.1
+# @(#) App::PFM::Config::Update 2.11.2
 #
 # Name:			App::PFM::Config::Update
-# Version:		2.11.1
+# Version:		2.11.2
 # Author:		Rene Uittenbogaard
 # Created:		2010-05-28
-# Date:			2010-12-05
+# Date:			2010-12-13
 #
 
 ##########################################################################
@@ -990,6 +990,11 @@ use constant UPDATES => {
 				"## automatically check for updates on the web (default: yes) \n",
 				"#checkforupdates:no \n",
 				"\n",
+			],
+		}, {
+			after => qr{^##  =8 : list of marked filenames},
+			batch => [
+				"##  =9 : previous directory path (F2)\n",
 			],
 		}],
 	},

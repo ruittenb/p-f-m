@@ -40,5 +40,7 @@ treesed	"# Version:		$previousver"	\
 	"# Version:		$currentver"	\
 	-files lib/App/PFM/Config/Update.pm
 
-
+# no workie
+#perl -i -ple 'BEGIN { print '\'$currentver\''; print "\n\n"; }' Changes
+	
 

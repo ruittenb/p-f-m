@@ -2,9 +2,9 @@
 ############################################################################
 #
 # Name:         install.sh
-# Version:      0.48
+# Version:      0.49
 # Authors:      Rene Uittenbogaard
-# Date:         2010-11-22
+# Date:         2011-03-07
 # Usage:        sh install.sh
 # Description:  Un*x-like systems can be very diverse.
 #		This script is meant as an example how pfm dependencies
@@ -259,6 +259,21 @@ download_and_install() {
 		eval "echo $packageinstallcmd"
 	fi
 	echo
+	if [ "$uname" = darwin -a $packagename = readline ]; then
+		echo "Alternatively, you may try to compile it using something like:"
+		echo
+		echo '#!/usr/bin/sh'
+		echo 'VERSION=6.1'
+		echo 'curl -O ftp://ftp.gnu.org/pub/gnu/readline/readline-$VERSION.tar.gz'
+		echo 'tar zxvf readline-$VERSION.tar.gz'
+		echo 'cd readline-$VERSION'
+		echo 'perl -i.bak -p -e "s{SHLIB_LIBS=.*}'
+		echo '    {SHLIB_LIBS='\''-lSystem -lncurses -lcc_dynamic'\''}g" support/shobj-conf'
+		echo './configure'
+		echo 'make'
+		echo 'sudo make install'
+		echo
+	fi
 }
 
 check_readline_gnu_wanted() {

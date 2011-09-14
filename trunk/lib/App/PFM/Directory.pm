@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Directory 0.99
+# @(#) App::PFM::Directory 1.01
 #
 # Name:			App::PFM::Directory
-# Version:		0.99
+# Version:		1.01
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-28
+# Date:			2011-03-07
 #
 
 ##########################################################################
@@ -36,10 +36,11 @@ package App::PFM::Directory;
 
 use base qw(App::PFM::Abstract Exporter);
 
-use App::PFM::Job::Subversion;
-use App::PFM::Job::Cvs;
 use App::PFM::Job::Bazaar;
+use App::PFM::Job::Cvs;
 use App::PFM::Job::Git;
+use App::PFM::Job::Mercurial;
+use App::PFM::Job::Subversion;
 use App::PFM::File;
 use App::PFM::Screen qw(:constants);
 use App::PFM::Util qw(clearugidcache canonicalize_path basename dirname);
@@ -70,6 +71,7 @@ use constant D_ALL				=> D_CHDIR | D_FILELIST;
 
 use constant RCS => [ qw(
 	Subversion
+	Mercurial
 	Cvs
 	Bazaar
 	Git
@@ -253,6 +255,14 @@ sub _sort_singlelevel {
 				return -1 if ($b->{type} eq 'd');
 				return  1 if ($a->{type} eq 'd');
 				return        $b->{type} cmp $a->{type};
+		};
+		/p/  and do {
+				return  0 if ($a->{mode} eq  $b->{mode});
+				return        $a->{mode} cmp $b->{mode};
+		};
+		/P/  and do {
+				return  0 if ($a->{mode} eq  $b->{mode});
+				return        $b->{mode} cmp $a->{mode};
 		};
 		/\*/ and do {
 				return  0 if ($a->{mark} eq $b->{mark});

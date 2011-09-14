@@ -1,4 +1,3 @@
-<?xml version="1.0" ?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -53,7 +52,8 @@
 <hr />
 <h1><a name="synopsis">SYNOPSIS</a></h1>
 <p><code>pfm [</code>&nbsp;<em>directory</em>&nbsp;<code>] [</code>&nbsp;<code>-s, --swap </code><em>directory</em>&nbsp;<code>]</code>
-<code> [</code>&nbsp;<code>-l, --layout </code><em>number</em>&nbsp;<code>] [</code>&nbsp;<code>-o, --sort </code><em>mode</em>&nbsp;<code>]</code></p>
+<code> [</code>&nbsp;<code>-l, --layout </code><em>number</em>&nbsp;<code>] [</code>&nbsp;<code>-o, --sort </code><em>mode</em>&nbsp;<code>]</code>
+<code> [</code>&nbsp;<code>-c, --colorset </code><em>string</em>&nbsp;<code>]</code></p>
 <p><code>pfm { --help | --usage | --version }</code></p>
 <p>
 </p>
@@ -97,6 +97,11 @@ unspecified, the current directory is used.</p>
 
 <dd>
 <p>Print extended usage information, then exit.</p>
+</dd>
+<dt><strong><a name="c_colorset_string" class="item">-c, --colorset <em>string</em></a></strong></dt>
+
+<dd>
+<p>Start <code>pfm</code> using the specified colorset (as defined in the <em class="file">.pfmrc</em>).</p>
 </dd>
 <dt><strong><a name="l_layout_number" class="item">-l, --layout <em>number</em></a></strong></dt>
 
@@ -497,6 +502,11 @@ are using <strong>=</strong> as 'escapechar').</p>
 <dd>
 <p>a space-separated list of all marked filenames</p>
 </dd>
+<dt><strong><a name="9" class="item"><strong>=9</strong></a></strong></dt>
+
+<dd>
+<p>the full previous directory path (see <strong>F2</strong> command)</p>
+</dd>
 <dt><strong><a name="__" class="item"><strong>==</strong></a></strong></dt>
 
 <dd>
@@ -635,7 +645,7 @@ criterion. See <strong>I</strong>nclude for details.</p>
 <dd>
 <p>Like c<strong>O</strong>mmand (see above), except that it uses one-letter commands
 (case-sensitive) that have been preconfigured in the <em class="file">.pfmrc</em> file.
-<strong>Y</strong>our commands may use <strong>=1</strong> up to <strong>=8</strong> and <strong>=e</strong>, <strong>=E</strong>, <strong>=p</strong>
+<strong>Y</strong>our commands may use <strong>=1</strong> up to <strong>=9</strong> and <strong>=e</strong>, <strong>=E</strong>, <strong>=p</strong>
 and <strong>=v</strong> escapes just as in c<strong>O</strong>mmand, e.g.</p>
 <pre>
     your[c]:tar cvf - =2 | gzip &gt; =2.tar.gz
@@ -716,6 +726,12 @@ the bookmark is loaded and a <code>chdir()</code> is done to the directory.</p>
 
 <dd>
 <p>Spawns your default login shell. When you exit from it, <code>pfm</code> will resume.</p>
+</dd>
+<dt><strong><a name="follow" class="item"><strong>foLlow</strong></a></strong></dt>
+
+<dd>
+<p>If the current file is a symlink, it is followed and the cursor positioned
+at the target file.</p>
 </dd>
 <dt><strong><a name="make_new_directory" class="item"><strong>Make new directory</strong></a></strong></dt>
 
@@ -880,7 +896,8 @@ of <code>pfm</code>. Primarily used for debugging.</p>
 <dt><strong><a name="f2" class="item"><strong>F2</strong></a></strong></dt>
 
 <dd>
-<p><code>chdir()</code> back to the previous directory.</p>
+<p><code>chdir()</code> back to the previous directory. In shell commands,
+the previous directory path may be referred to as <strong>=9</strong>.</p>
 </dd>
 <dt><strong><a name="f3" class="item"><strong>F3</strong></a></strong></dt>
 
@@ -950,7 +967,7 @@ the si<strong>Z</strong>e command is issued, not when reading the directory cont
 </p>
 <hr />
 <h1><a name="escape_modifiers">ESCAPE MODIFIERS</a></h1>
-<p>The above mentioned escapes <strong>=1</strong> to <strong>=8</strong> and <strong>=e</strong>, <strong>=E</strong>, <strong>=p</strong>
+<p>The above mentioned escapes <strong>=1</strong> to <strong>=9</strong> and <strong>=e</strong>, <strong>=E</strong>, <strong>=p</strong>
 and <strong>=v</strong> can make use of the following modifiers:</p>
 <dl>
 <dt><strong><a name="escape_prefix" class="item"><strong>={escape#prefix}</strong></a></strong></dt>
@@ -1063,30 +1080,27 @@ a <strong>?</strong>, which matches every letter.</p>
 </p>
 <hr />
 <h1><a name="launching_files">LAUNCHING FILES</a></h1>
-<p>The <strong>ENTER</strong> key, when used on a non-directory file, will attempt to launch
-the file.</p>
-<p>The command used for launching a file is determined by the file type. File
-types are identified by a unique name, preferably MIME type names. Launch
-commands for every file type may be defined using the config file
-'launch[<em>filetype</em>]' options.</p>
-<p>Example:</p>
-<pre>
-    launch[image/gif]      :=v =2 &amp;
-    launch[application/pdf]:acroread =2 &amp;</pre>
-<p>There are three methods for determining the file type. You may opt to
-use one, two, or all three of these methods, thereby using the second and
-third method as fallback.</p>
-<p>The following methods are available:</p>
+<p>The <strong>ENTER</strong> key, when used on a non-directory file, will make <code>pfm</code>
+attempt to launch the file.</p>
+<p><code>pfm</code> can be configured to use any combination of four methods for
+determining the appropriate command. These methods are:</p>
 <dl>
 <dt><strong><a name="extension" class="item"><strong>extension</strong></a></strong></dt>
 
 <dd>
-<p>The filename extension will be translated to a file type using the
-'extension[*.<em>extension</em>]' options in the config file.</p>
+<p>The filename extension will be translated to a file type (preferably a
+MIME type) using the 'extension[*.<em>extension</em>]' options in the config
+file.</p>
 <p>Example:</p>
 <pre>
-    extension[*.gif]:image/gif
-    extension[*.pdf]:application/pdf</pre>
+    extension[*.gif]: image/gif
+    extension[*.pdf]: application/pdf</pre>
+<p>Launch commands for every file type may be defined using the
+'launch[<em>filetype</em>]' options.</p>
+<p>Example:</p>
+<pre>
+    launch[image/gif]      : =v =2 &amp;
+    launch[application/pdf]: acroread =2 &amp;</pre>
 </dd>
 <dt><strong><a name="magic" class="item"><strong>magic</strong></a></strong></dt>
 
@@ -1096,8 +1110,10 @@ be translated to a file type using the 'magic[<em>regular expression</em>]'
 options in the config file.</p>
 <p>Example:</p>
 <pre>
-    magic[GIF image data]:image/gif
-    magic[PDF document]  :application/pdf</pre>
+    magic[GIF image data]: image/gif
+    magic[PDF document]  : application/pdf</pre>
+<p>The file type will then be used to look up a launch command as described
+above.</p>
 </dd>
 <dt><strong><a name="xbit" class="item"><strong>xbit</strong></a></strong></dt>
 
@@ -1106,13 +1122,26 @@ options in the config file.</p>
 symbolic links have been followed). If the current file is executable,
 <code>pfm</code> will attempt to start the file as an executable command.</p>
 </dd>
+<dt><strong><a name="name" class="item"><strong>name</strong></a></strong></dt>
+
+<dd>
+<p>Some filenames have their own unique way of launching them. These can be
+configured using the 'launchname' config option:</p>
+<pre>
+    launchname[Makefile]   : make
+    launchname[Imakefile]  : xmkmf
+    launchname[Makefile.PL]: perl =2</pre>
+</dd>
 </dl>
-<p>To select which method or methods (<em>extension</em>, <em>magic</em>, and/or <em>xbit</em>)
-should be used for determining the file type, you should specify these
-using the 'launchby' option (separated by commas if more than one).</p>
+<p>To select which method or methods (<em>extension</em>, <em>magic</em>, <em>xbit</em>, and/or
+<em>name</em>) should be used for determining the file type, you should specify
+these using the 'launchby' option (separated by commas if there is more
+than one).</p>
 <p>Example:</p>
 <pre>
-    launchby:xbit,extension</pre>
+    launchby:name,xbit,extension</pre>
+<p><code>pfm</code> will try these methods in succession until one succeeds, or all
+fail.</p>
 <p>If the file type cannot be determined, the current file will be displayed
 using your pager.</p>
 <p>The <strong>ENTER</strong> key will always behave as if <code>pfm</code> runs in single-file mode.
@@ -1153,9 +1182,9 @@ discouraged from using it.</p>
 
 <dd>
 <p>First of all, tilde expansion is performed.</p>
-<p>Next, any <code>=[1-8eEpv]</code> character sequence is expanded to the corresponding
+<p>Next, any <code>=[1-9eEpv]</code> character sequence is expanded to the corresponding
 value.</p>
-<p>At the same time, any <code>=[^1-8eEpv]</code> character sequence is just replaced
+<p>At the same time, any <code>=[^1-9eEpv]</code> character sequence is just replaced
 with the character itself.</p>
 <p>Finally, if the filename is to be processed by <code>pfm</code>, it is taken literally;
 if it is to be handed over to a shell, all metacharacters are replaced
@@ -1165,9 +1194,9 @@ if it is to be handed over to a shell, all metacharacters are replaced
 
 <dd>
 <p>First of all, tilde expansion is performed.</p>
-<p>Next, any <code>=[1-8eEpv]</code> character sequence is expanded to the corresponding
+<p>Next, any <code>=[1-9eEpv]</code> character sequence is expanded to the corresponding
 value, <em>with shell metacharacters escaped</em>.</p>
-<p>At the same time, any <code>=[^1-8eEpv]</code> character sequence is just replaced
+<p>At the same time, any <code>=[^1-9eEpv]</code> character sequence is just replaced
 with the character itself.</p>
 </dd>
 </dl>
@@ -1315,10 +1344,7 @@ preconfigured sort modes as defined in the config option 'sortcycle'.</p>
 <p>Clicking on the menu or footer will execute the command that was clicked.</p>
 <p>Clicking on one of the identity lines in the info column will toggle the
 display like the <strong>=</strong> command does.</p>
-<p>Mouse use will be turned off during the execution of commands, unless
-'mouseturnoff' is set to 'no' in <em class="file">.pfmrc</em>. Note that setting this to
-'no' means that your (external) commands (like your pager and editor)
-will receive escape codes when the mouse is clicked.</p>
+<p>Mouse use will be turned off during the execution of commands.</p>
 <p>
 </p>
 <hr />
@@ -1508,9 +1534,8 @@ the cursor on the file <em class="file">/sbin/reboot</em>. You have been warned.
 <hr />
 <h1><a name="author_and_copyright">AUTHOR and COPYRIGHT</a></h1>
 Copyright &copy; Ren&eacute; Uittenbogaard
-(ruittenb&#64;users.sourceforge.net).<p>All rights reserved. This program is free software; you can redistribute
-it and/or modify it under the terms described by the GNU General Public
-License version 2.</p>
+(ruittenb&#64;users.sourceforge.net).<p>This program is free software; you can redistribute it and/or modify it
+under the terms described by the GNU General Public License version 3.</p>
 <p>This program was based on PFM.COM version 2.32, originally written for
 MS-DOS by Paul R. Culley and Henk de Heer. The name 'pfm' was adopted
 with kind permission of the original authors.</p>
@@ -1523,13 +1548,27 @@ with debugging.</p>
 <h1><a name="see_also">SEE ALSO</a></h1>
 <p>The documentation on PFM.COM. The manual pages for <code>chmod(1)</code>, <code>cp(1)</code>,
 <code>file(1)</code>, <code>less(1)</code>, <code>ln(1)</code>, <code>locale(7)</code>, <code>lpr(1)</code>, <code>touch(1)</code>, <code>vi(1)</code>.</p>
-<p>For developers: Term::Screen(3pm), Term::ScreenColor(3pm),
-Term::ReadLine(3pm), App::PFM::Abstract(3pm), App::PFM::Application(3pm),
-App::PFM::Browser(3pm), App::PFM::CommandHandler(3pm), App::PFM::Config(3pm),
-App::PFM::Directory(3pm), App::PFM::Event(3pm), App::PFM::File(3pm),
-App::PFM::History(3pm), App::PFM::JobHandler(3pm),
-App::PFM::Job::Abstract(3pm), App::PFM::OS(3pm), App::PFM::Screen(3pm),
-App::PFM::State(3pm) and App::PFM::Util(3pm).</p>
+<p>For developers:</p>
+<p>Term::Screen(3pm),
+Term::ScreenColor(3pm),
+Term::ReadLine(3pm),
+App::PFM::Abstract(3pm),
+App::PFM::Application(3pm),
+App::PFM::Browser(3pm),
+App::PFM::Browser::Files(3pm),
+App::PFM::Browser::Bookmarks(3pm),
+App::PFM::CommandHandler(3pm),
+App::PFM::Config(3pm),
+App::PFM::Directory(3pm),
+App::PFM::Event(3pm),
+App::PFM::File(3pm),
+App::PFM::History(3pm),
+App::PFM::JobHandler(3pm),
+App::PFM::Job::Abstract(3pm),
+App::PFM::OS(3pm),
+App::PFM::Screen(3pm),
+App::PFM::State(3pm) and
+App::PFM::Util(3pm).</p>
 <p>The pfm project page: <a href="http://sourceforge.net/projects/p-f-m/">http://sourceforge.net/projects/p-f-m/</a></p>
 <p>The pfm homepage: <a href="http://p-f-m.sourceforge.net/">http://p-f-m.sourceforge.net/</a></p>
 

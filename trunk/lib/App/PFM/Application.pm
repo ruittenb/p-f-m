@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.11.1
+# @(#) App::PFM::Application 2.11.2
 #
 # Name:			App::PFM::Application
-# Version:		2.11.1
+# Version:		2.11.2
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-12-07
+# Date:			2011-03-07
 #
 
 ##########################################################################
@@ -54,13 +54,13 @@ use Cwd;
 use locale;
 use strict;
 
-our $VERSION  = '2.11.1';
-our $LASTYEAR = 2010;
+our $VERSION  = '2.11.2';
+our $LASTYEAR = 2011;
 
 ##########################################################################
 # private subs
 
-=item _init()
+=item I<_init()>
 
 Initializes new instances. Called from the constructor.
 
@@ -77,7 +77,7 @@ sub _init {
 	return;
 }
 
-=item _usage(bool $extended)
+=item I<_usage(bool $extended)>
 
 Prints usage information for the user: commandline options and
 if extended information is requested, the location of the F<.pfmrc> file.
@@ -110,7 +110,7 @@ sub _usage {
 	return;
 }
 
-=item _printversion()
+=item I<_printversion()>
 
 Prints version information.
 
@@ -122,7 +122,7 @@ sub _printversion {
 	return;
 }
 
-=item _copyright(float $delay)
+=item I<_copyright(float $delay)>
 
 Prints a short copyright message. Called at startup.
 
@@ -144,7 +144,7 @@ sub _copyright {
 	return $self->{_screen}->key_pressed($delay || 0);
 }
 
-=item _bootstrap_commandline()
+=item I<_bootstrap_commandline()>
 
 Phase 1 of the bootstrap process: parse commandline arguments.
 
@@ -183,7 +183,7 @@ sub _bootstrap_commandline {
 	return;
 }
 
-=item _bootstrap_members( [ bool $silent ] )
+=item I<_bootstrap_members( [ bool $silent ] )>
 
 Phase 2 of the bootstrap process: instantiate member objects
 and parse config file.
@@ -256,7 +256,7 @@ sub _bootstrap_members {
 	return;
 }
 
-=item _bootstrap_states()
+=item I<_bootstrap_states()>
 
 Phase 3 of the bootstrap process: initialize the B<S_*> state objects.
 
@@ -295,7 +295,7 @@ sub _bootstrap_states {
 	return;
 }
 
-=item _bootstrap_event_hub()
+=item I<_bootstrap_event_hub()>
 
 Phase 4 of the bootstrap process: register event listeners.
 
@@ -336,35 +336,35 @@ sub _bootstrap_event_hub {
 ##########################################################################
 # constructor, getters and setters
 
-=item browser()
+=item I<browser()>
 
 Getter for the App::PFM::Browser object.
 
-=item commandhandler()
+=item I<commandhandler()>
 
 Getter for the App::PFM::CommandHandler object.
 
-=item config()
+=item I<config()>
 
 Getter for the App::PFM::Config object.
 
-=item history()
+=item I<history()>
 
 Getter for the App::PFM::History object.
 
-=item jobhandler()
+=item I<jobhandler()>
 
 Getter for the App::PFM::JobHandler object.
 
-=item os()
+=item I<os()>
 
 Getter for the App::PFM::OS object.
 
-=item screen()
+=item I<screen()>
 
 Getter for the App::PFM::Screen object.
 
-=item state( [ string $statename [, App::PFM::State $state ] ] )
+=item I<state( [ string $statename [, App::PFM::State $state ] ] )>
 
 Getter/setter for the current App::PFM::State object. If a I<statename>
 is provided, it indicates which item from the state stack is to be returned.
@@ -421,7 +421,7 @@ sub state {
 	return $self->{_states}{$index};
 }
 
-=item states()
+=item I<states()>
 
 Getter for the hash of states.
 
@@ -432,7 +432,7 @@ sub states {
 	return $self->{_states};
 }
 
-=item latest_version( [ string $version ] )
+=item I<latest_version( [ string $version ] )>
 
 Getter/setter for the variable that indicates the latest version on the
 pfm website.
@@ -445,7 +445,7 @@ sub latest_version {
 	return $self->{LATEST_VERSION};
 }
 
-=item bootstrapped()
+=item I<bootstrapped()>
 
 Getter/setter for the flag indicating that the application has been
 bootstrapped.  If the flag is set this way, the appropriate action
@@ -468,7 +468,7 @@ sub bootstrapped {
 ##########################################################################
 # public subs
 
-=item swap_states(string $statename1, string $statename2)
+=item I<swap_states(string $statename1, string $statename2)>
 
 Swaps two state objects in the hash %_states.
 
@@ -480,7 +480,7 @@ sub swap_states {
 	return;
 }
 
-=item checkupdates()
+=item I<checkupdates()>
 
 Starts the job for checking if there are new versions of the application
 available for download.
@@ -503,7 +503,7 @@ sub checkupdates {
 	return;
 }
 
-=item bootstrap( [ bool $silent ] )
+=item I<bootstrap( [ bool $silent ] )>
 
 Initializes the application and instantiates the necessary member objects.
 
@@ -521,7 +521,7 @@ sub bootstrap {
 	return;
 }
 
-=item run(bool $autoshutdown)
+=item I<run(bool $autoshutdown)>
 
 Runs the application. Calls bootstrap() first, if that has not
 been done yet.
@@ -538,7 +538,7 @@ sub run {
 	return;
 }
 
-=item shutdown( [ bool $silent ] )
+=item I<shutdown( [ bool $silent ] )>
 
 Called when pfm exits.
 Prints a goodbye message and restores the screen to a usable state.
