@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Util 0.54
+# @(#) App::PFM::Util 0.56
 #
 # Name:			App::PFM::Util
-# Version:		0.54
+# Version:		0.56
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-12-13
+# Date:			2011-03-09
 #
 
 ##########################################################################
@@ -50,6 +50,7 @@ our %EXPORT_TAGS = (
 		formatted time2str fit2limit canonicalize_path reducepaths
 		reversepath isorphan ifnotdefined setifnotdefined clearugidcache
 		find_uid find_gid condquotemeta touch2time testdirempty fitpath
+		alphabetically by_name
 	) ]
 );
 
@@ -501,6 +502,28 @@ sub fitpath {
 		$r_overflow,
 		$r_baselen,
 		$r_ellipssize);
+}
+
+=item alphabetically()
+
+Sorting routine: sorts strings alphabetically, case-insensitive.
+
+=cut
+
+sub alphabetically {
+	my ($a, $b) = @_;
+	return uc($a) cmp uc($b) || $a cmp $b;
+}
+
+=item by_name()
+
+Sorting routine: sorts files by name.
+
+=cut
+
+sub by_name {
+	my ($a, $b) = @_;
+	return $a->{name} cmp $b->{name};
 }
 
 ##########################################################################

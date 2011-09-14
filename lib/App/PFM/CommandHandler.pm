@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.57
+# @(#) App::PFM::CommandHandler 1.58
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.57
+# Version:		1.58
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-02-10
+# Date:			2011-03-09
 #
 
 ##########################################################################
@@ -41,6 +41,7 @@ use App::PFM::History		qw(:constants); # imports the H_* constants
 use App::PFM::Screen		qw(:constants); # imports the R_* constants
 use App::PFM::Screen::Frame qw(:constants); # MENU_*, HEADING_*, and FOOTER_*
 use App::PFM::Browser::Bookmarks;
+use App::PFM::Browser::YourCommands;
 
 use POSIX qw(strftime mktime getcwd);
 use Config;
@@ -655,29 +656,6 @@ sub on_after_parse_config {
 	setifnotdefined \$self->{_clobber_mode}, $self->{_config}{clobber_mode};
 	return;
 }
-
-
-
-=item by_name()
-
-Sorting routine: sorts files by name.
-
-=cut
-
-sub by_name {
-	return $a->{name} cmp $b->{name};
-}
-
-=item alphabetically()
-
-Sorting routine: sorts strings alphabetically, case-insensitive.
-
-=cut
-
-sub alphabetically {
-	return uc($a) cmp uc($b) || $a cmp $b;
-}
-
 
 =item escape_midway()
 
@@ -1634,7 +1612,7 @@ sub handlefind {
 	return if $findme eq '';
 	FINDENTRY:
 	foreach my $file (
-		sort by_name @{$_pfm->state->directory->showncontents}
+		sort { by_name($a, $b) } @{$_pfm->state->directory->showncontents}
 	) {
 		if ($findme le $file->{name}) {
 			$_pfm->browser->position_at($file->{name});
@@ -2175,41 +2153,29 @@ Executes a shell command (cB<O>mmand and B<Y>our-command).
 sub handlecommand { # Y or O
 	my ($self, $event) = @_;
 	my $screen     = $self->{_screen};
+	my $browser    = $_pfm->browser;
 	my $printline  = $screen->BASELINE;
 	my $infocol    = $screen->diskinfo->infocol;
 	my $infolength = $screen->diskinfo->infolength;
 	my $e          = $self->{_config}{e};
 	my $key        = uc $event->{data};
-	my ($command, $do_this, $prompt, $printstr, $newdir, $eightset);
+	my ($command, $do_this, $prompt, $newdir, $eightset, $selector);
 	unless ($_pfm->state->{multiple_mode}) {
 		$screen->listing->markcurrentline($key);
 	}
 	$screen->diskinfo->clearcolumn();
 	if ($key eq 'Y') { # Your command
-		$prompt = 'Enter one of the highlighted characters below: ';
-		foreach (
-			sort alphabetically $self->{_config}->your_commands
-		) {
-			last if ($printline > $screen->BASELINE + $screen->screenheight);
-			$printstr = $self->{_config}->pfmrc->{$_};
-			$printstr =~ s/\e/^[/g; # in case real escapes are used
-			$screen->at($printline++, $infocol)
-				->puts(sprintf('%1s %s',
-						substr($_,5,1),
-						substr($printstr,0,$infolength-2)));
-		}
-		$screen->show_frame({
-			headings => HEADING_YCOMMAND,
-			footer   => FOOTER_NONE,
-			prompt   => $prompt,
-		});
-		$screen->bracketed_paste_on() if $self->{_config}{paste_protection};
-		$key = $screen->getch();
-		$screen->bracketed_paste_off()->diskinfo->clearcolumn()
-			->set_deferred_refresh(R_DISKINFO | R_FRAME);
+		$selector = App::PFM::Browser::YourCommands->new(
+			$self->{_screen},
+			$self->{_config},
+			$_pfm->state('S_MAIN'));
+		$selector->mouse_mode($browser->mouse_mode);
+		$key = $selector->choose(
+			'Enter one of the highlighted characters below: ');
 		# next line contains an assignment on purpose
-		return unless $command = $self->{_config}->pfmrc->{"your[$key]"};
+		return unless $command = $self->{_config}->your($key);
 		$screen->cooked_echo();
+		$screen->diskinfo->clearcolumn();
 	} else { # cOmmand
 		$prompt =
 			"Enter Unix command ($e"."[1-9] or $e"."[eEpv] escapes see below):";
@@ -3034,7 +3000,9 @@ sub handlemorego {
 	return if !$screen->ok_to_remove_marks();
 	# the footer has already been cleared by handlemore()
 	$selector = App::PFM::Browser::Bookmarks->new(
-		$self->{_screen}, $self->{_config}, $_pfm->states);
+		$self->{_screen},
+		$self->{_config},
+		$_pfm->states);
 	$selector->mouse_mode($browser->mouse_mode);
 	$key = $selector->choose('Go to which bookmark? ');
 	return if $key eq "\r";

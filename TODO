@@ -26,6 +26,14 @@
   Command failed  [delay]
   *** Hit any key to continue ***
 
+- cursor on /. (L)ink (R)elative /tmp/b/rootdir creates
+  /tmp/b/rootdir -> ../../..
+- test if all move/copy/rename/link(h,a,r) and (M)ore - fo(L)low are well with
+  the new version of Util::basename().
+
+- maybe allow for file sizes to be displayed with thousands separator,
+  e.g. 51_130_240.
+
 - extract abstract code so that browser may be reused for bookmarks and your
   commands; ideally:
   - Screen/Listing/Files
@@ -35,15 +43,11 @@
   - Browser/Bookmarks
   - Browser/YourCommands
 
-- move CommandHandler::_listbookmarks() to Screen/Listing/Bookmarks::list()
+- Browser: integrate the different choose() and browse() methods.
+  Use Screen::Listing to refresh the different screen states and highlight the
+  correct screen line.
 
-- test if all move/copy/rename/link(h,a,r) and (M)ore - fo(L)low are well with
-  the new version of Util::basename().
-  reproduce: cursor on /. (L)ink (R)elative /tmp/b/rootdir creates
-  /tmp/b/rootdir -> ../../..
-
-- maybe allow for file sizes to be displayed with thousands separator,
-  e.g. 51_130_240.
+- on resize: does not work well in Browser::Bookmarks and Browser::YourCommands.
 
 ################################################################################
 # structural enhancements
@@ -100,7 +104,8 @@
 ################################################################################
 # documentation enhancements
 
-- UML: NEWER_VERSION
+- 
+  $browser->show_clock property
 
 - manpages: use I<...> in =items
 

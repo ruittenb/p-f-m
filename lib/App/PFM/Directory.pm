@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Directory 1.01
+# @(#) App::PFM::Directory 1.02
 #
 # Name:			App::PFM::Directory
-# Version:		1.01
+# Version:		1.02
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-03-07
+# Date:			2011-03-09
 #
 
 ##########################################################################
@@ -443,7 +443,7 @@ sub _catch_quit {
 ##########################################################################
 # constructor, getters and setters
 
-=item destroy
+=item destroy()
 
 Unregisters our 'after_change_formatlines' and 'after_set_color_mode'
 event listeners with the App::PFM::Screen and App::PFM::Screen::Listing

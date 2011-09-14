@@ -3,9 +3,9 @@
 ##########################################################################
 #
 # Name:         test.pl
-# Version:      0.18
+# Version:      0.20
 # Author:       Rene Uittenbogaard
-# Date:         2010-11-28
+# Date:         2011-03-09
 # Usage:        test.pl
 # Description:  Test the pfm script and the associated libraries for
 #		syntax errors (using perl -cw).
@@ -43,6 +43,7 @@ sub produce_output {
 	};
 
 	foreach (glob('lib/App/PFM/*.pm'),
+		 glob('lib/App/PFM/Browser/*.pm'),
 		 glob('lib/App/PFM/Config/*.pm'),
 		 glob('lib/App/PFM/Job/*.pm'),
 		 glob('lib/App/PFM/OS/*.pm'),

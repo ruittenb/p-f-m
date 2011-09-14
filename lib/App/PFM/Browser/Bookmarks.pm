@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Browser::Bookmarks 0.04
+# @(#) App::PFM::Browser::Bookmarks 0.05
 #
 # Name:			App::PFM::Browser::Bookmarks
-# Version:		0.04
+# Version:		0.05
 # Author:		Rene Uittenbogaard
 # Created:		2010-12-01
-# Date:			2010-12-05
+# Date:			2011-03-09
 #
 
 ##########################################################################
@@ -22,7 +22,6 @@ App::PFM::Browser::Bookmarks
 
 This class is responsible for the bookmark-specific part of browsing
 through bookmarks and selecting one.
-It provides the Browser class with the necessary file data.
 
 =head1 METHODS
 
@@ -44,7 +43,10 @@ use App::PFM::Util			qw(fitpath);
 use strict;
 use locale;
 
-use constant SPAWNEDCHAR => '*';
+
+use constant {
+	SPAWNEDCHAR => '*',
+};
 
 use constant MOTION_COMMANDS_EXCEPT_SPACE =>
 	qr/^(?:[-+\cF\cB\cD\cU]|ku|kd|pgup|pgdn|home|end)$/io; # no 'j', 'k'
@@ -68,13 +70,13 @@ sub _init {
 	return;
 }
 
-=item _listbookmarks()
+=item _list_items()
 
 List the bookmarks from the hash of states.
 
 =cut
 
-sub _listbookmarks {
+sub _list_items {
 	my ($self)          = @_;
 	my $screen          = $self->{_screen};
 	my $printline       = $screen->BASELINE;
@@ -129,11 +131,11 @@ and flash the cursor.
 
 sub _wait_loop {
 	my ($self) = @_;
-	my $screen     = $self->{_screen};
-	my $screenline = $self->{_currentline} + $screen->BASELINE;
-	my $cursorcol  = $screen->listing->bookmarkpathcol;
+	my $screen         = $self->{_screen};
+	my $screenline     = $self->{_currentline} + $screen->BASELINE;
+	my $cursorcol      = $self->cursorcol;
 	my $cursorjumptime = $self->{_config}{cursorjumptime};
-	my $event_idle = App::PFM::Event->new({
+	my $event_idle     = App::PFM::Event->new({
 		name   => 'browser_idle',
 		origin => $self,
 		type   => 'soft',
@@ -145,8 +147,10 @@ sub _wait_loop {
 		# note: fire() called in vain. nobody has had the chance to register.
 		$screen->at(0, length($self->{_prompt})); # jump cursor
 		return if $screen->pending_input($cursorjumptime);
-		$screen->diskinfo->clock_info()
-			->at($screenline, $cursorcol); # jump cursor
+		if ($self->SHOW_CLOCK) {
+			$screen->diskinfo->clock_info();
+		}
+		$screen->at($screenline, $cursorcol); # jump cursor
 	}
 	return;
 }
@@ -165,18 +169,28 @@ sub browselist {
 	return $self->{_config}->BOOKMARKKEYS;
 }
 
-=item currentbookmark()
+=item cursorcol()
+
+Getter for the cursor column to be used in this browser.
+
+=cut
+
+sub cursorcol {
+	my ($self) = @_;
+	return $self->{_screen}->listing->bookmarkpathcol;
+}
+
+=item currentitem()
 
 Getter for the bookmark at the cursor position.
 
 =cut
 
-sub currentbookmark {
-	my ($self)   = @_;
-	my $index    = $self->{_currentline} + $self->{_baseindex};
-	my $key      = ${$self->{_config}->BOOKMARKKEYS}[$index];
-	my $bookmark = ${$self->{_states}}{$key};
-	return $bookmark;
+sub currentitem {
+	my ($self) = @_;
+	my $index  = $self->{_currentline} + $self->{_baseindex};
+	my $key    = $self->browselist->[$index];
+	return $self->{_states}{$key};
 }
 
 ##########################################################################
@@ -195,19 +209,20 @@ sub handle_non_motion_input {
 	my ($self, $event) = @_;
 	my $screenheight = $self->{_screen}->screenheight;
 	my $BASELINE     = $self->{_screen}->BASELINE;
+	my $browselist   = $self->browselist;
 	my $res          = {};
 	if ($event->{type} eq 'mouse') {
 		if ($event->{mouserow} >= $BASELINE and
 			$event->{mouserow} <= $BASELINE + $screenheight)
 		{
-			# potentially on a fileline (might be diskinfo column though)
-			$res->{data} = ${$self->{_config}->BOOKMARKKEYS}[
+			# potentially on an item, regardless of column
+			$res->{data} = $browselist->[
 				$self->{_baseindex} + $event->{mouserow} - $BASELINE
 			];
 		}
 	} elsif ($event->{data} eq "\r") {
 		# ENTER key
-		$res->{data} = ${$self->{_config}->BOOKMARKKEYS}[
+		$res->{data} = $browselist->[
 			$self->{_currentline} + $self->{_baseindex}
 		];
 	} else {
@@ -231,7 +246,7 @@ sub choose {
 	my $listing      = $screen->listing;
 	$self->{_prompt} = $prompt;
 	do {
-		$self->_listbookmarks();
+		$self->_list_items();
 #TODO		$listing->highlight_on();
 		# don't send mouse escapes to the terminal if not necessary
 		$screen->bracketed_paste_on() if $self->{_config}{paste_protection};

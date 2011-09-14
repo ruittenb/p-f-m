@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Browser::Files 0.02
+# @(#) App::PFM::Browser::Files 0.10
 #
 # Name:			App::PFM::Browser::Files
-# Version:		0.02
+# Version:		0.10
 # Author:		Rene Uittenbogaard
 # Created:		2010-11-29
-# Date:			2010-12-03
+# Date:			2011-03-09
 #
 
 ##########################################################################
@@ -47,14 +47,14 @@ use locale;
 App::PFM::State $state)
 
 Initializes new instances. Called from the constructor.
-Stores the application's array of states internally.
+Stores the application's current state internally.
 
 =cut
 
 sub _init {
 	my ($self, $screen, $config, $state) = @_;
-	$self->{_state}     = $state;
-	$self->{_swap_mode} = 0;
+	$self->{_state}      = $state;
+	$self->{_swap_mode}  = 0;
 	$self->SUPER::_init($screen, $config);
 	return;
 }
@@ -73,6 +73,28 @@ sub browselist {
 	return $self->{_state}->directory->showncontents;
 }
 
+=item cursorcol()
+
+Getter for the cursor column to be used in this browser.
+
+=cut
+
+sub cursorcol {
+	my ($self) = @_;
+	return $self->{_screen}->listing->cursorcol;
+}
+
+=item currentitem()
+
+Getter for the file at the cursor position.
+
+=cut
+
+sub currentitem {
+	my ($self) = @_;
+	return $self->currentfile;
+}
+
 =item currentfile()
 
 Getter for the file at the cursor position.
@@ -81,9 +103,8 @@ Getter for the file at the cursor position.
 
 sub currentfile {
 	my ($self) = @_;
-	return ${$self->browselist}[
-		$self->{_currentline} + $self->{_baseindex}
-	];
+	my $index  = $self->{_currentline} + $self->{_baseindex};
+	return $self->browselist->[$index];
 }
 
 =item swap_mode( [ bool $swap_mode ] )

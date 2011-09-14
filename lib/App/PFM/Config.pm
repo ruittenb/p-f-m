@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 1.15
+# @(#) App::PFM::Config 1.16
 #
 # Name:			App::PFM::Config
-# Version:		1.15
+# Version:		1.16
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-12-07
+# Date:			2011-03-09
 #
 
 ##########################################################################
@@ -222,9 +222,20 @@ Getter for the keys of the Your commands in the config file.
 
 sub your_commands {
 	my ($self) = @_;
-	my @your = # map { $_, $self->{_pfmrc}{$_} }
+	my @your =  map { substr($_, 5, 1) }
 				grep /^your\[[[:alpha:]]\]$/, keys %{$self->{_pfmrc}};
 	return @your;
+}
+
+=item your(char $key)
+
+Getter for a specific Your command from the config file.
+
+=cut
+
+sub your {
+	my ($self, $key) = @_;
+	return $self->{_pfmrc}{"your[$key]"};
 }
 
 ##########################################################################
