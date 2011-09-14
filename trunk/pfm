@@ -3,12 +3,13 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.11.0
+# Version:		2.11.1
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-12-04
+# Date:			2010-12-11
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				    [ -l, --layout <number> ] [ -o, --sort <mode> ]
+#					[ -c, --colorset <mode> ]
 #				pfm { --help | --usage | --version }
 # Requires:		PFM::Application
 #				Term::ReadLine (preferably Term::ReadLine::Gnu)
@@ -27,13 +28,13 @@
 # version
 
 # for MakeMaker only
-our $VERSION  = '2.11.0';
+our $VERSION  = '2.11.1';
 
 =pod
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.11.0
+.ds Vw @(#) pfm.pl 2.11.1
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -84,6 +85,7 @@ C<pfm> - Personal File Manager for Linux/Unix
 
 C<pfm [>S< >I<directory>S< >C<] [>S< >C<-s, --swap >I<directory>S< >C<]>
 C< [>S< >C<-l, --layout >I<number>S< >C<] [>S< >C<-o, --sort >I<mode>S< >C<]>
+C< [>S< >C<-c, --colorset >I<string>S< >C<]>
 
 C<pfm { --help | --usage | --version }>
 
@@ -133,6 +135,10 @@ unspecified, the current directory is used.
 =item --help
 
 Print extended usage information, then exit.
+
+=item -c, --colorset I<string>
+
+Start C<pfm> using the specified colorset (as defined in the F<.pfmrc>).
 
 =item -l, --layout I<number>
 
@@ -610,6 +616,10 @@ the extension of the current filename (see below)
 
 a space-separated list of all marked filenames
 
+=item B<=9>
+
+the full previous directory path (see B<F2> command)
+
 =item B<==>
 
 a single literal B<=>
@@ -768,7 +778,7 @@ criterion. See B<I>nclude for details.
 
 Like cB<O>mmand (see above), except that it uses one-letter commands
 (case-sensitive) that have been preconfigured in the F<.pfmrc> file.
-B<Y>our commands may use B<=1> up to B<=8> and B<=e>, B<=E>, B<=p>
+B<Y>our commands may use B<=1> up to B<=9> and B<=e>, B<=E>, B<=p>
 and B<=v> escapes just as in cB<O>mmand, e.g.
 
     your[c]:tar cvf - =2 | gzip > =2.tar.gz
@@ -990,7 +1000,8 @@ Display help, version number and license information.
 
 =item B<F2>
 
-chdir() back to the previous directory.
+chdir() back to the previous directory. In shell commands,
+the previous directory path may be referred to as B<=9>.
 
 =item B<F3>
 
@@ -1050,7 +1061,7 @@ Toggle mouse use. See below under L</MOUSE COMMANDS>.
 
 =head1 ESCAPE MODIFIERS
 
-The above mentioned escapes B<=1> to B<=8> and B<=e>, B<=E>, B<=p>
+The above mentioned escapes B<=1> to B<=9> and B<=e>, B<=E>, B<=p>
 and B<=v> can make use of the following modifiers:
 
 =over 4
@@ -1568,10 +1579,7 @@ Clicking on the menu or footer will execute the command that was clicked.
 Clicking on one of the identity lines in the info column will toggle the
 display like the B<=> command does.
 
-Mouse use will be turned off during the execution of commands, unless
-'mouseturnoff' is set to 'no' in F<.pfmrc>. Note that setting this to
-'no' means that your (external) commands (like your pager and editor)
-will receive escape codes when the mouse is clicked.
+Mouse use will be turned off during the execution of commands.
 
 =head1 WORKING DIRECTORY INHERITANCE
 

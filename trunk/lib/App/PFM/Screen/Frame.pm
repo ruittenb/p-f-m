@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Frame 0.43
+# @(#) App::PFM::Screen::Frame 0.44
 #
 # Name:			App::PFM::Screen::Frame
-# Version:		0.43
+# Version:		0.44
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-12-05
@@ -340,15 +340,14 @@ and format.
 
 sub bookmark_headings {
 	my ($self) = @_;
-	my $infolength = $self->{_screen}->diskinfo->infolength;
-	my @headings =
-		(" %1s%1s %-" . ($self->{_screen}->screenwidth -5 - $infolength) . 's',
-		 "%${infolength}s",
-		$self->{_screen}->screenwidth - 5 - $infolength);
+	my $infolength    = $self->{_screen}->diskinfo->infolength;
+	my $bookmarkwidth = $self->{_screen}->screenwidth -5 - $infolength;
+	my @headings      =
+		(" %1s%1s %-${bookmarkwidth}s", "%${infolength}s", $bookmarkwidth);
 	return @headings;
 	#  |--------------screenwidth---------------|
-	#  11111                     11 (infolength-1)
-	# ' A* @<<<<<<<<<<<<<<<<<<<<< @>>>>>>>>>>>>>>>'
+	#  1111                      1  $infolength
+	# ' A* <<<<<<<<<<<<<<<<<<<<<< >>>>>>>>>>>>>>>'
 }
 
 =item rcsrunning( [ bool $rcsrunning_value ] )

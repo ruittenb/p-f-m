@@ -17,14 +17,9 @@
   -> is this due to the fact that Directory::_clone() does not clone the files?
   -> handleswap() has different conditions for executing its blocks
 
-- call $pfm->checkupdates() in '@' (perlcommand) does not finish the job;
-  call $pfm->checkupdates(); sleep 2; finishes it.
-
 - bug: a file can be (R)enamed to '=e'
 - if =5 is requested but there is no swap state, what to do?
 - in general, if an escape is invalid, what to do?
-
-- bug: if a file is copied to subdir/newname, the cursor doesn't follow around.
 
 - fix the unnecessary delay after:
   ^Cmake: *** [data] Interrupt
@@ -41,6 +36,10 @@
   - Browser/YourCommands
 
 - move CommandHandler::_listbookmarks() to Screen/Listing/Bookmarks::list()
+
+- pager: 'less -e' causes problems in Your[i]:svn diff =2 | =p
+
+- bug: if a file is copied to subdir/newname, the cursor doesn't follow around.
 
 ################################################################################
 # structural enhancements
