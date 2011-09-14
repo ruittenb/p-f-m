@@ -1,0 +1,8 @@
+
+hasacl is an optional tool for listing the presence of ACLs.
+
+This tool is *only* useful on filesystems that support ACLs and that
+have the feature turned on.
+
+If you don't use ACLs, you can skip the installation of hasacl.
+

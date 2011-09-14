@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::Abstract 0.99
+# @(#) App::PFM::Job::Abstract 1.02
 #
 # Name:			App::PFM::Job::Abstract
-# Version:		0.99
+# Version:		1.02
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-22
+# Date:			2011-09-02
 #
 
 ##########################################################################
@@ -43,6 +43,8 @@ use Carp;
 use strict;
 use locale;
 
+use constant KILL_DELAY => 0.100;
+
 ##########################################################################
 # private subs
 
@@ -77,7 +79,8 @@ Cleans up finished child processes.
 
 sub _catch_child {
 	my ($self) = @_;
-	my $ret = (wait() == -1) ? 0 : $?;
+	my $pid = wait();
+	my $ret = ($pid == -1) ? 0 : $?;
 #	$? = 0;
 	return;
 }
@@ -94,12 +97,29 @@ sub _start_child {
 
 =item _stop_child()
 
-Stub routine for stopping the job.
+Routine for stopping the job. Send TERM, INT and QUIT signals.
+Returns whether the job was stopped correctly.
 
 =cut
 
 sub _stop_child {
-	# my ($self) = @_;
+	my ($self) = @_;
+	return "0 but true" unless $self->{_childpid};
+	my $alive = kill TERM => $self->{_childpid};
+	if ($alive) {
+		select(undef, undef, undef, KILL_DELAY);
+		$alive = kill TERM => $self->{_childpid} ||
+				 kill INT  => $self->{_childpid} ||
+				 kill QUIT => $self->{_childpid};
+		if ($alive) {
+			select(undef, undef, undef, KILL_DELAY);
+			$alive = kill TERM => $self->{_childpid} ||
+					 kill INT  => $self->{_childpid} ||
+					 kill QUIT => $self->{_childpid};
+#					 kill KILL => $self->{_childpid};
+		}
+	}
+	return !$alive;
 }
 
 =item _poll_data()
@@ -107,6 +127,8 @@ sub _stop_child {
 Checks if there is data available on the pipe, and if so, reads it and
 sends it to the preprocessor.  If the preprocessor returns a defined value,
 The output is accumulated in the poll buffer.
+
+Returns a true value if the job is still running, false if it has finished.
 
 =cut
 
@@ -120,8 +142,9 @@ sub _poll_data {
 		$self->stop();
 		return 0;
 	}
-	# check if there is data ready on the filehandle
-	return if $self->{_selector}->can_read(0) <= 0;
+	# Check if there is data ready on the filehandle. Make sure we return
+	# true, because we want poll() to know we're still running.
+	return $self->{_childpid} if ($self->{_selector}->can_read(0) <= 0);
 	# the filehandle is ready
 	if ($self->{_pipe}->sysread($input, 10000) > 0 or
 		length $self->{_line_buffer})
@@ -196,11 +219,15 @@ sub start {
 		origin => $self,  # not used ATM
 		type   => 'soft', # not used ATM
 	}));
-#	$SIG{CHLD} = \&_catch_child;
+	$SIG{CHLD} = sub {
+		$self->_catch_child();
+	};
 	$self->{_stop_next_iteration} = 0;
 	$self->{_line_buffer} = '';
 	$self->{_pipe}        = IO::Pipe->new();
-	$self->{_childpid}    = $self->_start_child() || 1;
+	$self->{_childpid}    = $self->_start_child();
+	# If we were not successful, return false.
+	return 0 unless $self->{_childpid};
 	$self->{_selector}->add($self->{_pipe});
 	$self->fire(App::PFM::Event->new({
 		name   => 'after_job_start',
@@ -244,8 +271,8 @@ I<after_job_finish> event.
 sub stop {
 	my ($self) = @_;
 	return 0 unless $self->{_childpid};
-	$self->{_childpid} = 0;
 	$self->_stop_child();
+	$self->{_childpid} = 0;
 	$self->{_pipe}->close();
 	$self->fire(App::PFM::Event->new({
 		name   => 'after_job_finish',

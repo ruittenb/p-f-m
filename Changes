@@ -1,3 +1,28 @@
+2.11.8
+
+* fixed: child processes were not always correctly reaped. This caused
+  lots of zombie processes.
+* fixed: if a child process took a long time to make new data available on
+  the filehandle, the process was erroneously removed from the job stack.
+* fixed: svn does not complain any more if the current directory is a working
+  copy, but '..' is not.
+* fixed: when writing bookmarks, bookmark 0 is now correctly saved.
+* fixed: editing an ACL did not work if the fg_editor contained spaces.
+
+* added MIME types to config file for: awk, sh, bash, csh, tcsh, zsh, shar,
+  h, hh, lsp, scm, ss, rtx, sty, tcl, movie, spl, viv, vivo, vrml, wrl.
+* added: ACL detection. If an ACL is present, a + is appended to the mode field.
+* added helper app: hasacl(1) (currently Linux-only).
+* added: (I)nclude - (D)irectories only
+* added: (M)ore - (R)ead history/bookmarks prompts to read the input
+  history and/or bookmarks from disk.
+* changed: (M)ore - (W)rite history/bookmarks now prompts to write the
+  input history and/or bookmarks to disk.
+
+2.11.7E
+
+* merged changes from 2.11.6E into 2.11.7.
+
 2.11.7
 
 * renamed 'timestamptruncate' to 'timefieldstretch'
@@ -9,6 +34,11 @@
   which cycle backwards through colorsets and layouts, respectively.
 * fixed problem where a newly created file in the current directory is not
   added if the current directory is not known by its canonical name
+
+2.11.6E
+
+* added usage of Encode::Locale, to be able to correctly calculate
+  localized string widths. Needs much testing.
 
 2.11.6
 

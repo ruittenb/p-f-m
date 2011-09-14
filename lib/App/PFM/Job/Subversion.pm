@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::Subversion 0.37
+# @(#) App::PFM::Job::Subversion 0.38
 #
 # Name:			App::PFM::Job::Subversion
-# Version:		0.37
+# Version:		0.38
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-29
+# Date:			2011-09-05
 #
 
 ##########################################################################
@@ -156,9 +156,15 @@ Subversion commands would not be applicable.
 
 sub isapplicable {
 	my ($self, $path, $entry) = @_;
-	return unless -d "$path/.svn";
-	return if $entry eq '.svn';
-	return 1;
+	if (-d "$path/$entry") {
+		# Directory file
+		return 0 if $entry eq '.svn';
+		return 1 if -d "$path/$entry/.svn";
+	} else {
+		# Non-directory file
+		return 1 if -d "$path/.svn";
+	}
+	return 0;
 }
 
 ##########################################################################

@@ -34,22 +34,48 @@
 - maybe allow for file sizes to be displayed with thousands separator,
   e.g. 51_130_240.
 
-- do something about "svn: write error: broken pipe" (errno 141: 128 + 13).
-  keep the process running?
+- when an svn directory is entered (kr) and then left (kl) before the svn
+  command has finished, there is a noticable delay in browsing; subsequently,
+  svn reports "svn: write error: broken pipe".
 
 - find out if chooser objects check the 'handled' member correctly in choose()
 - find out if the browser::baseline() can miss the set_deferred_refresh that
   has been commented out.
 
-- add MIME types
+- fix encodings with wide characters.
+- fix filenames in russian addressed in LC_ALL=fr_FR.utf8;
+  do we need a $file->{bytename} ?
+- read/save config file in '<:encoding(locale)'
+- check the luit(1) program
 
-- fix 'mouse_moves_cursor' in combination with clicks in diskinfo column.
-  Browser::Files seems to need _infocol and _infolen
+- BUG: c(O)mmand -> 'cd $YODA/tags' does not work
 
-- add 'esc_timeout'?
+- BUG: when returning (M)(G) to an instantiated bookmark, the cursor is not positioned correctly.
 
-- BUG: on return to an instantiated bookmark, the cursor is not positioned correctly.
-- rename 'truncate' to negative formule
+- remove date/time warning in Config
+
+- svn status output:
+$ svn st
+M      .
+!     C pfm1.95.5
+      >   local delete, incoming delete upon merge
+A  +    doc
+A  +    doc/pfm.1
+A  +    doc/pfm.ps
+A  +    doc/pfm.html
+A  +    doc/pfm.pdf
+
+- registered multiple times: clone() registers it doubly
+'_event_handlers' => HASH(0x9f99040)
+'after_resize_window' => ARRAY(0x9f853e0)
+0  CODE(0x9d922c0) -> &App::PFM::History::__ANON__[:152]
+1  CODE(0x9718500) -> &App::PFM::Browser::__ANON__[:82]
+2  CODE(0xa057d10) -> &App::PFM::Browser::__ANON__[:82]
+3  CODE(0x9ff5c10) -> &App::PFM::Browser::__ANON__[:82]
+4  CODE(0xa195a88) -> &App::PFM::Browser::__ANON__[:82]
+5  CODE(0xa1aedb0) -> &App::PFM::Browser::__ANON__[:82]
+6  CODE(0xa1f5aa8) -> &App::PFM::Browser::__ANON__[:82]
+'after_set_color_mode' => ARRAY(0x9f85430)
 
 ################################################################################
 # structural enhancements
@@ -82,12 +108,16 @@
 - who determines which command was clicked in the menu?
   is that the CommandHandler::handlemousefooter* or Screen::Frame?
 
+- after addition of --login and moving options to _argv, cmdline parsing no longer works.
+
 - implement 'after_create_entry'
 
 - have a look at IPC::Run
 
 - Browser: integrate the different choose() and browse() methods.
 - get rid of Chooser class?
+
+- autowritebookmarks: write after bookmarking?
 
 ################################################################################
 # functional enhancements
@@ -101,32 +131,6 @@
 - make si(Z)e a job in the background just like (V)ersion
 
 - nice to have: implement an 'after_job_receive_no_data' event
-
-################################################################################
-# mime types
-
-extension[*.tcl]  : application/x-tcl
-extension[*.sty]  : text/x-tex-style
-
-   .latex  -  text/x-latex
-     .tex  -  text/x-tex
-    .texi  -  text/x-texinfo
-  .texinfo -  text/x-texinfo
-
-extension[*.csh]  : application/x-csh
-extension[*.sh]   : application/x-sh
-extension[*.shar] : application/x-shar
-
-extension[*.h]    : text/plain
-extension[*.hh]   : text/plain
-extension[*.lsp]  : application/x-lisp
-extension[*.movie]: video/x-sgi-movie
-extension[*.rtx]  : text/richtext
-extension[*.spl]  : application/x-futuresplash
-extension[*.viv]  : video/vnd.vivo
-extension[*.vivo] : video/vnd.vivo
-extension[*.vrml] : model/vrml
-extension[*.wrl]  : model/vrml
 
 ################################################################################
 # documentation enhancements

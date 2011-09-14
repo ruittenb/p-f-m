@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::File 0.45
+# @(#) App::PFM::File 0.47
 #
 # Name:			App::PFM::File
-# Version:		0.45
+# Version:		0.47
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-03-25
+# Date:			2011-09-05
 #
 
 ##########################################################################
@@ -228,6 +228,7 @@ sub stat_entry {
 		group		=> find_gid($gid),
 		mode_num	=> sprintf('%lo', $mode),
 		mode		=> $self->mode2str($mode),
+		has_acl     => $_pfm->os->hasacl("$self->{_parent}/$entry"),
 		device		=> $device,
 		inode		=> $inode,
 		nlink		=> $nlink,
@@ -256,6 +257,7 @@ sub stat_entry {
 		$self->{size_num} =
 			sprintf(MAJORMINORTEMPLATE, $_pfm->os->rdev_to_major_minor($rdev));
 	}
+	$self->{mode} .= $self->{has_acl} ? '+' : ' ';
 	$self->format();
 	return $self;
 }

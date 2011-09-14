@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::OS::Abstract 0.20
+# @(#) App::PFM::OS::Abstract 0.22
 #
 # Name:			App::PFM::OS::Abstract
-# Version:		0.20
+# Version:		0.22
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-20
-# Date:			2011-03-19
+# Date:			2011-09-05
 #
 
 ##########################################################################
@@ -66,21 +66,23 @@ sub _init {
 	my ($self, $config) = @_;
 	$self->{_config}  = $config;
     $self->{_aclfile} = undef;
-	$self->_init_white_commands();
+	$self->_init_tool_commands();
 	return;
 }
 
-=item _init_white_commands()
+=item _init_tool_commands()
 
-Finds out which commands should be used for listing and deleting whiteouts.
+Finds out which commands should be used for listing and deleting
+whiteouts, and for testing the presence of an ACL.
 Called from _init().
 
 =cut
 
-sub _init_white_commands {
+sub _init_tool_commands {
 	my ($self) = @_;
 	my $listwhite_cmd = '';
 	my @unwo_cmd      = ();
+	my @hasacl_cmd    = ();
 	foreach (split /:/, $ENV{PATH}) {
 		if (!$listwhite_cmd) {
 			if (-f "$_/listwhite") {
@@ -96,12 +98,18 @@ sub _init_white_commands {
 				@unwo_cmd = qw(unwo);
 			}
 		}
+		if (!@hasacl_cmd) {
+			if (-f "$_/hasacl") {
+				@hasacl_cmd = qw(hasacl -v);
+			}
+		}
 	}
 	unless (@unwo_cmd) {
 		@unwo_cmd = qw(rm -W);
 	}
 	$self->{_listwhite_cmd} = $listwhite_cmd;
 	$self->{_unwo_cmd}      = [ @unwo_cmd ];
+	$self->{_hasacl_cmd}    = [ @hasacl_cmd ];
 	return;
 }
 
@@ -141,17 +149,6 @@ sub AUTOLOAD {
 	$command =~ s/.*:://;
 	return if $command eq 'DESTROY';
 	return $self->system($command, @args);
-}
-
-=item listwhite_command()
-
-Getter for the command for listing whiteouts.
-
-=cut
-
-sub listwhite_command {
-	my ($self) = @_;
-	return $self->{_listwhite_cmd};
 }
 
 ##########################################################################
@@ -276,9 +273,10 @@ List description.
 
 sub acledit_via_file {
 	my ($self, $aclfilename) = @_;
-	my $res = $self->system(
-		$self->{_config}{fg_editor},
-		$aclfilename);
+	# The fg_editor may contain spaces.
+	# Split it at spaces before calling quotemeta().
+	my @editor = split(/\s+/, $self->{_config}{fg_editor});
+	my $res = $self->system(@editor, $aclfilename);
 	return $res;
 }
 
@@ -391,6 +389,19 @@ sub du {
 	$line =~ /(\d+)/;
 	$line = 1024 * $1;
 	return $line;
+}
+
+=item hasacl(string $path)
+
+Returns a boolean value indicating if the current file has an acl.
+
+=cut
+
+sub hasacl {
+	my ($self, $file) = @_;
+	return 0 unless @{$self->{_hasacl_cmd}};
+	my $res = $self->backtick(@{$self->{_hasacl_cmd}}, $file);
+	return $res eq "1\n";
 }
 
 =item aclget(string $path)
