@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::Abstract 0.97
+# @(#) App::PFM::Job::Abstract 0.98
 #
 # Name:			App::PFM::Job::Abstract
-# Version:		0.97
+# Version:		0.98
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-10-18
+# Date:			2010-11-10
 #
 
 ##########################################################################
@@ -194,7 +194,7 @@ sub start {
 		origin => $self,  # not used ATM
 		type   => 'soft', # not used ATM
 	}));
-	$SIG{CHLD} = \&_catch_child;
+#	$SIG{CHLD} = \&_catch_child;
 	$self->{_stop_next_iteration} = 0;
 	$self->{_line_buffer} = '';
 	$self->{_pipe}        = new IO::Pipe();

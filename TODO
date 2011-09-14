@@ -17,8 +17,6 @@
   -> is this due to the fact that Directory::_clone() does not clone the files?
   -> handleswap() has different conditions for executing its blocks
 
-- after (C)opy, the rcs status is not automatically added 
-
 - in install.sh wordt ${pkgadd} niet geinterpoleerd -
   ? linux goed bevonden; test op opensolaris
 
@@ -33,14 +31,11 @@
 - if =5 is requested but there is no swap state, what to do?
 - in general, if an escape is invalid, what to do?
 
-- bug: resizing a very tall window can leave the currentfile on the last line of
-  the screen, overwriting the footer. the cursor position is not correctly validated
-  then.
+- bug: on resize window, all states need to be fitted, otherwise the overflow '+'
+  may appear without reason.
 
-- on starting pfm, the screen size is not checked for minimum size
-
-- multi_to_single(): old/={2%~} arrives as old/{2%~}, which is a reason to
-  reject the name. Check expansion by _expand_3456_escapes().
+- bug: (I)nclude/(A)fter etc. select the '.' and '..' entries as well.
+  '.' and '..' entries should never be selected.
 
 ################################################################################
 # structural enhancements
@@ -82,7 +77,13 @@
 
 - implement 'after_create_entry'
 
-- implement ={2/pat/string}
+- look at Term::ReadLine::Gnu completion functions: completion for:
+  ~username
+  =5/bla
+  foo/=2
+  =<tab>
+
+- have a look at IPC::Run
 
 ################################################################################
 # functional enhancements

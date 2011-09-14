@@ -2,9 +2,9 @@
 ############################################################################
 #
 # Name:         install.sh
-# Version:      0.45
+# Version:      0.46
 # Authors:      Rene Uittenbogaard
-# Date:         2010-10-29
+# Date:         2010-11-09
 # Usage:        sh install.sh
 # Description:  Un*x-like systems can be very diverse.
 #		This script is meant as an example how pfm dependencies
@@ -345,7 +345,7 @@ download_and_install_perl_module() {
 	fi
 
 	if [ "x$install_opt" = xc ]; then
-		$sudo perl -MCPAN -e"install $packagename"
+		$sudo perl -MCPAN -e"install '$packagename'"
 	else
 		target="$(echo $packagename | sed -es/::/-/g)"
 		SUDO=$sudo make_minusC modules $target

@@ -1,3 +1,15 @@
+2.10.2
+
+* fixed bug in install.sh
+* fixed bug: on resize, the cursor position is now correctly validated
+* fixed: on some platforms c(O)mmand incorrectly reported "External
+  command failed"
+* fixed: on starting pfm, check the minimum size of the terminal window
+  and adjust the window size if so configured.
+* fixed: applying modifiers to filenames in (C)opy, (R)ename or (L)ink
+* fixed: after (C)opy, (R)ename or (L)ink to the current directory,
+  the rcs status is directly shown.
+
 2.10.1
 
 * fixed: when an escape modifier is used, pfm no longer incorrectly
