@@ -23,6 +23,9 @@ use App::PFM::Application;
 use POSIX;
 use strict;
 
+use warnings;
+use diagnostics;
+
 ##########################################################################
 # functions
 

@@ -44,7 +44,6 @@ use App::PFM::Screen::Frame    qw(:constants);  # imports the MENU_*, HEADER_*
 use App::PFM::Util qw(fitpath max);
 use App::PFM::Event;
 
-use Data::Dumper;
 use POSIX qw(getcwd);
 
 use strict;
@@ -439,7 +438,7 @@ sub fit {
 	}
 	$self->listing->makeformatlines();
 	$self->set_deferred_refresh(R_CLRSCR); # D_FILTER necessary?
-	# History is interested (wants to set keyboard object's terminal width)
+	# History is interested (wants to set terminal object's terminal width)
 	# Browser is interested (wants to validate cursor position)
 	$self->fire(new App::PFM::Event({
 		name   => 'after_resize_window',
@@ -576,7 +575,7 @@ sub select_next_color {
 	if ($index-- <= 0) { $index = $#colorsetnames }
 	$self->{_color_mode} = $colorsetnames[$index];
 	$self->color_mode($self->{_color_mode});
-	$self->listing->reformat();
+	# Directory is interested (wants to reformat files)
 	# History is interested (wants to set ornaments).
 	$self->fire(new App::PFM::Event({
 		name   => 'after_set_color_mode',
@@ -893,12 +892,14 @@ sub on_after_parse_config {
 	# set colorizable
 	$self->on_after_parse_usecolor($event);
 	# additional key definitions 'keydef'
-	if ($keydefs = $pfmrc->{'keydef[*]'} .':'. $pfmrc->{"keydef[$ENV{TERM}]"}) {
-		$keydefs =~ s/(\\e|\^\[)/\e/gi;
-		# this does not allow colons (:) to appear in escape sequences!
-		foreach (split /:/, $keydefs) {
-			/^(\w+)=(.*)/ and $self->def_key($1, $2);
-		}
+	$keydefs = $pfmrc->{'keydef[*]'};
+	if ($pfmrc->{"keydef[$ENV{TERM}]"}) {
+		$keydefs .= ':' . $pfmrc->{"keydef[$ENV{TERM}]"};
+	}
+	$keydefs =~ s/(\\e|\^\[)/\e/gi;
+	# there can be no colons (:) in escape sequences
+	foreach (split /:/, $keydefs) {
+		/^(\w+)=(.*)/ and $self->def_key($1, $2);
 	}
 	# determine color_mode if unset
 	$newcolormode =

@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.10.4
+# @(#) App::PFM::Application 2.10.5
 #
 # Name:			App::PFM::Application
-# Version:		2.10.4
+# Version:		2.10.5
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-11-15
@@ -253,7 +253,7 @@ sub _bootstrap_states {
 	my $currentdir = getcwd();
 	$self->{_states}{S_MAIN}->prepare($currentdir, $startingsort);
 	# do we have a starting directory?
-	my $startingdir = $self->{_options}{directory};
+	my $startingdir = $self->{_options}{directory} || '';
 	if ($startingdir ne '') {
 		# if so, make it MAIN; currentdir becomes PREV
 		unless ($self->{_states}{S_MAIN}->directory->path($startingdir)) {

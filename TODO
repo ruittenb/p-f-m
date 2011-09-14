@@ -68,26 +68,13 @@
 
 - implement 'after_create_entry'
 
+- in Copy/Rename/Link, take care of =5/newname and add to swap dir with new name
+
 - have a look at IPC::Run
 
 - look at Term::ReadLine::Gnu completion functions: completion for:
-  ~username
   =5/bla
-  foo/=2
-  =<tab>
-
-  complete_internal([WHAT_TO_DO])
-    int     rl_complete_internal(int what_to_do = TAB)
-  completion_mode(FUNCTION)
-    int     rl_completion_mode(FunctionPtr|str function)
-  completion_matches(TEXT [,FUNC])
-    (@str)  rl_completion_matches(str text, pfunc func = filename_completion_function)
-  filename_completion_function(TEXT, STATE)
-    str     rl_filename_completion_function(str text, int state)
-  username_completion_function(TEXT, STATE)
-    str     rl_username_completion_function(str text, int state)
-  list_completion_function(TEXT, STATE)
-    str     list_completion_function(str text, int state)
+- command completion only for first word
 
 ################################################################################
 # functional enhancements

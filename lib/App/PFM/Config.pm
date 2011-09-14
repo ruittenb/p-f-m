@@ -76,6 +76,7 @@ use constant FILETYPEFLAGS => {
 	 c => '%',
 	 n => ':',
 	 # => '+', # Hidden directory (AIX only) or context dependent (HP-UX only)
+	'-'=> '',
 	' '=> '',  # was ' (lost)'
 };
 

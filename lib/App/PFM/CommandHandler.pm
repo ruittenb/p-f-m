@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.45
+# @(#) App::PFM::CommandHandler 1.46
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.45
+# Version:		1.46
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-11-18
@@ -502,7 +502,7 @@ sub _promptforboundarysize {
 			   . " file size: ";
 	my $boundarysize;
 	$self->{_screen}->at(0,0)->clreol()->cooked_echo();
-	$boundarysize = $self->{_history}->keyboard->readline($prompt);
+	$boundarysize = $self->{_history}->terminal->readline($prompt);
 	# show_menu is done in handleinclude
 	$self->{_screen}->raw_noecho();
 	$boundarysize =~ tr/0-9//dc;
@@ -1305,7 +1305,10 @@ lowercase B<l> if on a non-directory).
 sub handlelink {
 	my ($self, $event) = @_;
 	my ($newname, $do_this, $testname, $headerlength, $absrel, $histpush);
-	my @lncmd = $self->{_clobber_mode} ? qw(ln -f) : qw(ln);
+	my @lncmd      = $self->{_clobber_mode} ? qw(ln -f) : qw(ln);
+	my $state      = $_pfm->state;
+	my $swap_state = $_pfm->state('S_SWAP');
+	my $currentdir = $state->directory->path;
 	
 	if ($_pfm->state->{multiple_mode}) {
 		$self->{_screen}->set_deferred_refresh(R_SCREEN);
@@ -1343,8 +1346,6 @@ sub handlelink {
 	$do_this = sub {
 		my $file = shift;
 		my $newnameexpanded = $newname;
-		my $state           = $_pfm->state;
-		my $currentdir      = $state->directory->path;
 		my ($simpletarget, $simplename, $targetstring, $mark);
 		# $self is the commandhandler (closure!)
 		$self->_expand_escapes(QUOTE_OFF, \$newnameexpanded, $file);
@@ -1386,10 +1387,17 @@ sub handlelink {
 			$state->directory->checkrcsapplicable($orignewnameexpanded)
 				if $self->{_config}{autorcs};
 			# add newname to the current directory listing.
-			# TODO if newnameexpanded == swapdir, add there
 			$mark = ($state->{multiple_mode}) ? M_NEWMARK : " ";
 			$state->directory->addifabsent(
 				entry   => $orignewnameexpanded,
+				white   => '',
+				mark    => $mark,
+				refresh => TRUE);
+		} elsif ($newname =~ m{^=5/?$} and $swap_state) {
+			# add newname to the swap directory listing.
+			$mark = ($swap_state->{multiple_mode}) ? M_NEWMARK : " ";
+			$swap_state->directory->addifabsent(
+				entry   => $file->{name},
 				white   => '',
 				mark    => $mark,
 				refresh => TRUE);
@@ -2475,10 +2483,9 @@ sub handlemousedown {
 		and	$screen->diskinfo->infocol > $listing->filerecordcol))
 	{
 		# diskinfo
-		if (in_array($mouserow,
-			$screen->diskinfo->LINE_USERINFO ..
-			$screen->diskinfo->line_dateinfo - 1)
-		) {
+		if ($mouserow >= $screen->diskinfo->LINE_USERINFO and
+			$mouserow <= $screen->diskinfo->line_dateinfo - 1)
+		{
 			$self->handleident($event);
 		}
 	} elsif (defined $event->{mouseitem}) {
@@ -3182,7 +3189,9 @@ sub handlemoreperlshell {
 	my $currentfile    = $event->{currentfile};
 
 	# debugging helper functions
-	sub say  { print @_, "\n"; }
+	unless (eval 'say') {
+		sub say { print @_, "\n"; }
+	}
 	sub echo { $_pfm->screen->cooked_echo(); }
 
 	my $currentpath = $directory->path eq '/' ? '' : $directory->path;
