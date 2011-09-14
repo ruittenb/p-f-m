@@ -1,3 +1,10 @@
+2.07.2-alpha
+
+* changed: split help information over two pages.
+* changed implementation of Job event system: now uses generic
+  PFM::Abstract event system.
+* moved some OS-specific code to App::PFM::OS::*
+
 2.07.1-alpha
 
 * fixed pfmrcupdate

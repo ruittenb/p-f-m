@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::OS::Solaris 0.01
+# @(#) App::PFM::OS::Solaris 0.02
 #
 # Name:			App::PFM::OS::Solaris
-# Version:		0.01
+# Version:		0.02
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-22
-# Date:			2010-08-22
+# Date:			2010-08-25
 #
 
 ##########################################################################
@@ -37,7 +37,10 @@ use base 'App::PFM::OS::Abstract';
 
 use strict;
 
-use constant MINORBITS => 2 ** 18;
+use constant {
+	MINORBITS => 2 ** 18,
+	IFMTCHARS => ' pc?d?b?-nl?sDP?', # event ports instead of whiteouts
+};
 
 ##########################################################################
 # private subs

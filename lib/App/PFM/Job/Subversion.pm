@@ -40,7 +40,7 @@ use strict;
 ##########################################################################
 # private subs
 
-=item _init(string $event1 => coderef $handler1 [, ...] )
+=item _init(hashref { $event1 => coderef $handler1 [, ...] })
 
 Initializes new instances. Called from the constructor.
 

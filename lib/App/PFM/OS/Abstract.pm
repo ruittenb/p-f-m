@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::OS::Abstract 0.01
+# @(#) App::PFM::OS::Abstract 0.02
 #
 # Name:			App::PFM::OS::Abstract
-# Version:		0.01
+# Version:		0.02
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-20
-# Date:			2010-08-21
+# Date:			2010-08-25
 #
 
 ##########################################################################
@@ -40,7 +40,10 @@ use File::Stat::Bits;
 
 use strict;
 
-use constant MINORBITS => 2 ** 8;
+use constant {
+	MINORBITS => 2 ** 8,
+	IFMTCHARS => ' pc?d?b?-nl?sDw?', # includes whiteouts
+};
 
 our ($AUTOLOAD);
 
@@ -144,10 +147,12 @@ sub listwhite_command {
 	return $self->{_listwhite_cmd};
 }
 
+##########################################################################
+# public helper functions
+
 =item rdev_to_major_minor(int $rdev)
 
-Getter for the constant used for splitting the I<st_rdev> field
-of a I<stat> structure (see stat(2)).
+Splits the I<st_rdev> field of a I<stat> structure (see stat(2)).
 Returns an array of two values: the major and minor number.
 
 =cut
@@ -165,8 +170,20 @@ sub rdev_to_major_minor {
 	return ($maj, $min);
 }
 
+=item ifmt2str(int $mode)
+
+Translates the S_IFMT bits of the mode field of a stat(2) structure
+to a character indicating the file type.
+
+=cut
+
+sub ifmt2str {
+	my ($self, $mode) = @_;
+	return substr($self->IFMTCHARS, oct($mode) & 017, 1);
+}
+
 ##########################################################################
-# public subs
+# public interface helper functions
 
 =item system( [ args... ] )
 

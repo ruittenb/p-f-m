@@ -15,6 +15,9 @@
 
 - Term::ScreenColor does not pass some tests on some platforms
 
+- call $pfm->checkupdates() in '@' (perlcommand) does not finish the job;
+  call $pfm->checkupdates(); sleep 2; finishes it.
+
 ################################################################################
 # structural enhancements
 
@@ -31,13 +34,8 @@
 
 - have directories keep track of their own background jobs
 
-- have jobs use new events
-
 - have the browser use events to tell the application that the commandhandler
   should be called; keep the browser for browsing
-
-- have the config class fire an event to signal to the application that
-  it is time for the copyright message
 
 - extract abstract code so that browser may be reused for bookmarks and your
   commands; ideally:
@@ -47,8 +45,6 @@
   - Browser/Files
   - Browser/Bookmarks
   - Browser/YourCommands
-
-- split help over two pages.
 
 - cast a critical eye on show_headings;
   make a $frame->getheadings($headings_mode)

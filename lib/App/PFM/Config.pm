@@ -242,7 +242,7 @@ sub parse {
 		$screen->colorizable(1);
 	}
 	# copyright message
-	$self->fire_event('after_screen_config', $_pfm, $pfmrc->{copyrightdelay});
+	$self->fire_event('after_parse_usecolor');
 	# time/date format for clock and timestamps
 	$self->{clockdateformat}	= $pfmrc->{clockdateformat} || '%Y %b %d';
 	$self->{clocktimeformat}	= $pfmrc->{clocktimeformat} || '%H:%M:%S';
@@ -1098,6 +1098,20 @@ launch[video/x-msvideo]           : divxPlayer =2 &
 
 ## vim: set filetype=xdefaults: # fairly close
 __END__
+
+=back
+
+=head1 EVENTS
+
+This package implements the following events:
+
+=over 2
+
+=item after_parse_usecolor
+
+Called when the 'usecolor' setting of the config file has been
+parsed.  This allows the caller to show a colored message on
+screen while the rest of the config file is being parsed.
 
 =back
 

@@ -43,56 +43,23 @@ use strict;
 ##########################################################################
 # private subs
 
-=item _init(string $event1 => coderef $handler1 [, ...] )
+=item _init(hashref { $event1 => coderef $handler1 [, ...] })
 
-Initializes the 'running' flag ('childpid'), and assigns the hash of
-event handlers.
+Initializes the 'running' flag ('childpid'), and registers the
+provided event handlers.
 
 =cut
 
 sub _init {
-	my ($self, %o) = @_;
+	my ($self, $handlers) = @_;
 	$self->{_childpid} = 0;
 	$self->{_pipe}     = undef;
 	$self->{_selector} = new IO::Select();
-	$self->{_on}       = { %o };
 	$self->{_buffer}   = '';
 	$self->{_stop_next_iteration} = 0;
-}
-
-=item _fire_event(string $event, array @args)
-
-Fires an event. Currently supported events are:
-
-=over 2
-
-=item before_start
-
-Called before starting the job. If the handler returns false, starting
-the job is aborted.
-
-=item after_start
-
-Called when the job has started.
-
-=item after_receive_data
-
-Called when data has been received from the job.
-
-=item after_finish
-
-Called when the job has finished.
-
-=back
-
-=cut
-
-sub _fire_event {
-	my ($self, $event, @args) = @_;
-	if (defined $self->{_on}->{$event}) {
-		return $self->{_on}->{$event}->(@args);
+	foreach (keys %$handlers) {
+		$self->register_listener($_, ${$handlers}{$_});
 	}
-	return 1;
 }
 
 =item _catch_child()
@@ -143,17 +110,6 @@ sub _preprocess {
 ##########################################################################
 # constructor, getters and setters
 
-=item on(string $event, coderef $handler)
-
-Registers an event handler. At most one handler is supported per event.
-
-=cut
-
-sub on {
-	my ($self, $event, $handler) = @_;
-	$self->{_on}->{$event} = $handler;
-}
-
 ##########################################################################
 # public subs
 
@@ -179,14 +135,14 @@ I<after_start> event.
 sub start {
 	my ($self) = @_;
 	return 0 if $self->{_childpid};
-	return 0 unless $self->_fire_event('before_start');
+	return 0 unless $self->fire_event('before_start');
 	$SIG{CHLD} = \&_catch_child;
 	$self->{_stop_next_iteration} = 0;
 	$self->{_buffer}   = '';
 	$self->{_pipe}     = new IO::Pipe();
 	$self->{_childpid} = $self->_start_child() || 1;
 	$self->{_selector}->add($self->{_pipe});
-	$self->_fire_event('after_start');
+	$self->fire_event('after_start');
 	return 1;
 }
 
@@ -220,7 +176,7 @@ sub poll {
 			$self->{_buffer} = substr($self->{_buffer}, $newlinepos+1);
 			# the next line contains an assignment on purpose
 			if (defined($input = $self->_preprocess($input))) {
-				$self->_fire_event('after_receive_data', $self, $input);
+				$self->fire_event('after_receive_data', $self, $input);
 			}
 		}
 		goto &poll; # continue parsing
@@ -245,13 +201,38 @@ sub stop {
 	$self->{_childpid} = 0;
 	$self->_stop_child();
 	$self->{_pipe}->close();
-	$self->_fire_event('after_finish');
-	$self->{_buffer}  = '';
-	#$self->{_on}      = {}; # necessary for garbage collection?
+	$self->fire_event('after_finish');
+	$self->{_buffer} = '';
+	#$self->{_event_handlers} = {}; # necessary for garbage collection?
 	return 0;
 }
 
 ##########################################################################
+
+=back
+
+=head1 EVENTS
+
+This package implements the following events:
+
+=over 2
+
+=item before_start
+
+Called before starting the job. If the handler returns false,
+starting the job is aborted.
+
+=item after_start
+
+Called when the job has started.
+
+=item after_receive_data
+
+Called when data has been received from the job.
+
+=item after_finish
+
+Called when the job has finished.
 
 =back
 
