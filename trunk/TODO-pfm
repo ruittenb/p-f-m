@@ -2,6 +2,10 @@
 ################################################################################
 # issues
 
+- config file layouts: characters in the "gap" between filerecord and
+  infocolumn ("f") are not cleared when switching columnformats.
+  Solve this by inserting an artificial "gap" field?
+
 - handlecopyrename: if "overwrite?" is answered with "no", then the
   cursor is repositioned anyway
 
@@ -44,20 +48,12 @@
   - Browser/Bookmarks
   - Browser/YourCommands
 
-- decide if File::Stat::Bits is the answer to major/minor trouble
-
-- move all OS-specific commands to OS-class:
-  touch()
-  aclget()
-  acledit()
-  aclput()
+- split help over two pages.
 
 - cast a critical eye on show_headings;
   make a $frame->getheadings($headings_mode)
 
 - move CommandHandler::_listbookmarks() to Screen/Listing/Bookmarks::list()
-
-- use utime(2) instead of touch(1).
 
 ################################################################################
 # functional enhancements
@@ -70,6 +66,11 @@
 
 - add -o commandline option for starting with a certain sort mode
 
+- re-introduce (M)ore-(A)cl command.
+  aclget()
+  acledit()
+  aclput()
+
 ################################################################################
 # documentation enhancements
 
@@ -78,11 +79,11 @@
 
   DONE(ITALICS):
 
-  DONE(ARGS): Abstract Application Browser Config JobHandler State Util
+  DONE(ARGS): Abstract Application Browser Config State Util
 	OS OS/Abstract OS/Linux OS/Aix OS/Hpux OS/Sco OS/Solaris
 	Screen/Frame Screen/Diskinfo Screen/Listing
+	JobHandler Job/Abstract Job/CheckUpdates
+	Job/Bazaar Job/Cvs Job/Git Job/RCS Job/Subversion
 
   TODO: CommandHandler Directory File History Screen
-	Job/Abstract
-	Job/Bazaar Job/CheckUpdates Job/Cvs Job/Git Job/RCS Job/Subversion
 

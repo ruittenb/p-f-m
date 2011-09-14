@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::CheckUpdates 0.12
+# @(#) App::PFM::Job::CheckUpdates 0.13
 #
 # Name:			App::PFM::Job::CheckUpdates
-# Version:		0.12
+# Version:		0.13
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-06-03
+# Date:			2010-08-24
 #
 
 ##########################################################################
@@ -44,7 +44,7 @@ use constant PFM_URL => 'http://p-f-m.sourceforge.net/';
 ##########################################################################
 # private subs
 
-=item _init()
+=item _init(string $event1 => coderef $handler1 [, ...] )
 
 Initializes new instances. Called from the constructor.
 

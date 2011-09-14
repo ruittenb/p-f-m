@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Diskinfo 0.10
+# @(#) App::PFM::Screen::Diskinfo 0.11
 #
 # Name:			App::PFM::Screen::Diskinfo
-# Version:		0.10
+# Version:		0.12
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-21
+# Date:			2010-08-24
 #
 
 ##########################################################################
@@ -36,7 +36,7 @@ package App::PFM::Screen::Diskinfo;
 
 use base 'App::PFM::Abstract';
 
-use App::PFM::Util;
+use App::PFM::Util qw(formatted fit2limit max);
 use POSIX qw(strftime);
 
 use locale;

@@ -36,7 +36,7 @@ package App::PFM::Config;
 
 use base 'App::PFM::Abstract';
 
-use App::PFM::Util;
+use App::PFM::Util qw(isyes isno isxterm ifnotdefined);
 
 use POSIX qw(strftime mktime);
 

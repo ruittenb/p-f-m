@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Frame 0.31
+# @(#) App::PFM::Screen::Frame 0.32
 #
 # Name:			App::PFM::Screen::Frame
-# Version:		0.31
+# Version:		0.32
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-20
+# Date:			2010-08-24
 #
 
 ##########################################################################
@@ -36,7 +36,7 @@ package App::PFM::Screen::Frame;
 
 use base 'App::PFM::Abstract';
 
-use App::PFM::Util;
+use App::PFM::Util qw(formatted max);
 
 use locale;
 use strict;

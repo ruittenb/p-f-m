@@ -10,22 +10,6 @@ setfacl
 ###########################################################################
 MacOS/X
 
-fsaclctl - Enable or disable Access Control List support on a given file system. 
-
-Enter access control lists. An ACL is an ordered list of rules that control file permissions. Each rule specifies three things: an actor, an action, and whether that action is allowed or denied. A rule is also known as an ACE, or access control entry.
-
-To determine whether or not to allow an action, the rules are considered in order. The first rule that is applicable to the current actor and action determines the decision, and no further rules are considered. If none of the rules apply, then the decision is determined by the traditional Unix file permissions.
-
-Note that the Unix permissions are not even considered unless none of the ACEs are applicable. It's possible to have a file that "appears" to be readable to everyone, for example, but that actually allows no one to read it, or just allows a single user to read it, and so on. In effect, the Unix file permissions can be totally ignored if the access control list contains rules that apply to all potential actions and actors.
-
-(It's actually a bit more complex in the case where multiple actions are requested simultaneously—opening a file for reading and writing, for example. But the overriding rule is the same: ACEs take precedence over Unix permissions.)
-
-ACLs can be modified from the command line using the chmod command (run "man chmod" for details) or the Workgroup Manager application in Mac OS X Server.
-
-For ACLs to work at all, they must be enabled for a particular volume. The Workgroup Manager application in Mac OS X 10.4 Server can do this, but that application is not included with the normal (non-server) version of Tiger. There is a command-line work-around, however. This command will enable ACLs on the boot volume.
-
-% sudo /usr/sbin/fsaclctl -p / -e
-
 Here's a brief demonstration of ACLs. Let's start with a file named, appropriately, "file."
 
 % touch file
@@ -94,32 +78,6 @@ $ setacl -m user:brucewayne:rwx filename
 Viewing ACL of a file
 $ getacl filename
 
-###########################################################################
-AIX ACL command
-
-Adding modifying users or group to ACL
-
-$ acledit filename
-
-Then you should see something like the one below, changed disable to enable to enable the extended permission if it is disabled.
-
-attributes: SUID
-base permissions:
-    owner(root): rw-
-    group(root): r-x
-    others: ---
-extended permissions:
-    enabled
-    permit  r--  u:oracle
-    permit  rw-  u:robin
-    deny    r-x  u:catwoman
-    deny    rwx  g:intergang
-
-Viewing ACL of a file
-
-$ getacl filename
-
-ls -e
 
 
 

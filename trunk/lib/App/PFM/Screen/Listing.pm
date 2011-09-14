@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Listing 1.01
+# @(#) App::PFM::Screen::Listing 1.03
 #
 # Name:			App::PFM::Screen::Listing
-# Version:		1.01
+# Version:		1.03
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-22
+# Date:			2010-08-24
 #
 
 ##########################################################################
@@ -35,7 +35,7 @@ package App::PFM::Screen::Listing;
 
 use base 'App::PFM::Abstract';
 
-use App::PFM::Util;
+use App::PFM::Util qw(formatted);
 
 use locale;
 use strict;

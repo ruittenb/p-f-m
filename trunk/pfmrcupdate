@@ -3,7 +3,7 @@
 ############################################################################
 #
 # Name:         pfmrcupdate
-# Version:      2.07.0
+# Version:      2.07.1
 # Author:       Rene Uittenbogaard
 # Date:         2010-08-23
 # Usage:        pfmrcupdate
@@ -25,7 +25,7 @@ our $ROFFVERSION = <<'=cut';
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfmrcupdate 2.07.0
+.ds Vw @(#) pfmrcupdate 2.07.1
 .de Vp
 This manual pertains to \f(CWpfmrcupdate\fP version \\$3.
 ..
@@ -528,6 +528,7 @@ sub update_to_200 {
 
 sub update_to_2017 {
 	my ($lines) = @_;
+	return if $amphibian;
 	# this removes 'checkforupdates' for version 2.01.7
 	print "Updating to 2.01.7...\n";
 	my $i;
@@ -542,6 +543,7 @@ sub update_to_2017 {
 
 sub update_to_2037 {
 	my ($lines) = @_;
+	return if $amphibian;
 	# this removes 'waitlaunchexec' for version 2.03.7
 	print "Updating to 2.03.7...\n";
 	my $i;
@@ -699,12 +701,13 @@ _end_update_to_2064_
 
 sub update_to_2069 {
 	my ($lines) = @_;
+	return if $amphibian;
 	# deprecated 'ducmd'
 	print "Updating to 2.06.9...\n";
 	my $i;
 	for ($i = $#$lines; $i > 0; $i--) {
 		if (${$lines}[$i] =~ /^#*\s*ducmd:/
-		or  ${$lines}[$i] =~ /^#+\s*your system's du.+command.+needs =2 for the current filename/
+		or  ${$lines}[$i] =~ /^#+\s*your system's du.+command.+needs.+for the current filename/
 		or  ${$lines}[$i] =~ /^#+\s*specify so that the outcome is in bytes/
 		or  ${$lines}[$i] =~ /^#+\s*this is commented out because pfm makes a clever guess for your OS/)
 		{
@@ -716,7 +719,7 @@ sub update_to_2069 {
 sub update_version {
 	my ($to, $lines) = @_;
 	# this updates the version field for any version
-	print "Updating to $to...\n";
+	print "Updating version field to $to...\n";
 	foreach (@$lines) {
 		s/^(#.*?Version\D+)[[:alnum:].]+/$1$to/;
 	}

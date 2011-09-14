@@ -1,8 +1,16 @@
+2.07.1-alpha
+
+* fixed pfmrcupdate
+* fixed install script
+* changed implementation of (T)ime: does not use touch(1) any
+  more, but uses perl's utime(3) instead
+* changed Util.pm: don't export all subs by default
+
 2.07.0-alpha
 
+* fixed install script
 * use File::Stat::Bits(3pm) to split rdev into major/minor
   numbers (more portable)
-* updated install script
 
 2.06.9-alpha
 
