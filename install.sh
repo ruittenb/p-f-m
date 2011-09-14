@@ -2,9 +2,9 @@
 ############################################################################
 #
 # Name:         install.sh
-# Version:      0.43
+# Version:      0.44
 # Authors:      Rene Uittenbogaard
-# Date:         2010-10-16
+# Date:         2010-10-23
 # Usage:        sh install.sh
 # Description:  Un*x-like systems can be very diverse.
 #		This script is meant as an example how pfm dependencies
@@ -465,9 +465,9 @@ check_package readline
 # check, download and install the Perl modules.
 # check with the minimum required version.
 check_cpan
+check_download_and_install_perl_module HTML::Parser      3.59
 check_download_and_install_perl_module File::Temp        0.22
 check_download_and_install_perl_module File::Stat::Bits  0.19
-check_download_and_install_perl_module HTML::Parser      3.59
 check_download_and_install_perl_module LWP               5.827
 check_download_and_install_perl_module Term::Screen      1.03
 check_download_and_install_perl_module Term::ScreenColor 1.13
