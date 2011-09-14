@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Browser 0.42
+# @(#) App::PFM::Browser 0.43
 #
 # Name:			App::PFM::Browser
-# Version:		0.42
+# Version:		0.43
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-31
+# Date:			2010-09-02
 #
 
 ##########################################################################
@@ -36,6 +36,8 @@ the command handler, and refreshing the screen.
 package App::PFM::Browser;
 
 use base 'App::PFM::Abstract';
+
+use App::PFM::Util qw(min);
 
 use strict;
 
@@ -300,18 +302,18 @@ sub position_cursor_fuzzy {
 
 	# don't position fuzzy if sort mode is not by name,
 	# or exact positioning was requested
-	if ($self->{_position_exact} or uc($_pfm->state->{sort_mode}) ne 'N') {
+	if ($self->{_position_exact} or uc($_pfm->state->sort_mode) ne 'N') {
 		goto &position_cursor;
 	}
 
-	if ($_pfm->state->{sort_mode} eq 'n') {
+	if ($_pfm->state->sort_mode eq 'n') {
 		$criterion = sub {
 			return (
 				$self->{_position_at} le
 					substr($_[0], 0, length($self->{_position_at}))
 			);
 		};
-	} else { # $_pfm->state->{sort_mode} eq 'N'
+	} else { # $_pfm->state->sort_mode eq 'N'
 		$criterion = sub {
 			return (
 				$self->{_position_at} ge
@@ -377,15 +379,23 @@ Handles the keys which move around in the current directory.
 sub handlemove {
 	my ($self, $key) = @_;
 	local $_ = $key;
-	my $screenheight  = $_screen->screenheight;
-	my $baseindex     = $self->{_baseindex};
-	my $currentline   = $self->{_currentline};
-	my $showncontents = $_pfm->state->directory->showncontents;
+	my $screenheight   = $_screen->screenheight;
+	my $baseindex      = $self->{_baseindex};
+	my $currentline    = $self->{_currentline};
+	my $showncontents  = $_pfm->state->directory->showncontents;
+	my $wheeljumpsize  = $_pfm->config->{mousewheeljumpsize};
+	if ($wheeljumpsize eq 'variable') {
+		$wheeljumpsize = min(
+			$_pfm->config->{mousewheeljumpmax},
+			sprintf('%d', 0.51 +
+				$#$showncontents / $_pfm->config->{mousewheeljumpratio}
+			));
+	}
 	my $displacement  =
 			- (/^(?:ku|k|mshiftup)$/o    )
 			+ (/^(?:kd|j|mshiftdown| )$/o)
-			- (/^mup$/o  )		* 5
-			+ (/^mdown$/o)		* 5
+			- (/^mup$/o  )		* $wheeljumpsize
+			+ (/^mdown$/o)		* $wheeljumpsize
 			- (/^-$/o)			* 10
 			+ (/^\+$/o)			* 10
 			- (/\cB|pgup/o)		* $screenheight

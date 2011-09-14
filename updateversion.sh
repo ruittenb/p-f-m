@@ -29,8 +29,7 @@ fi
 
 
 treesed "$previousver" "$currentver" \
-	-files README pfm pfmrcupdate lib/App/PFM/Application.pm \
-		lib/App/PFM/Config/Update.pm
+	-files README pfm pfmrcupdate lib/App/PFM/Application.pm
 
 
 

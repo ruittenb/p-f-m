@@ -78,22 +78,36 @@ Decides which color should be used on a particular file.
 sub _decidecolor {
 	my ($self) = @_;
 	my %dircolors  = %{$_pfm->config->{dircolors}{$_pfm->screen->color_mode}};
-	$self->{type}  eq 'w'			and return $dircolors{wh};
-	$self->{nlink} ==  0 			and return $dircolors{lo};
-	$self->{type}  eq 'd'			and return $dircolors{di};
-	$self->{type}  eq 'l'			and return $dircolors{
+	# by file type
+	$self->{type}  eq 'w'				and return $dircolors{wh};
+	$self->{nlink} ==  0 				and return $dircolors{lo};
+	# by permissions
+	$self->{mode}  =~ /^d.......wt/o	and return $dircolors{tw};
+	$self->{mode}  =~ /^d........t/o	and return $dircolors{st};
+	$self->{mode}  =~ /^d.......w./o	and return $dircolors{ow};
+	$self->{mode}  =~ /^-..s/o			and return $dircolors{su};
+	$self->{mode}  =~ /^-.....s/o		and return $dircolors{sg};
+	# by file type
+	$self->{type}  eq 'd'				and return $dircolors{di};
+	$self->{type}  eq 'l'				and return $dircolors{
 										isorphan($self->{name}) ?'or':'ln' };
-	$self->{type}  eq 'b'			and return $dircolors{bd};
-	$self->{type}  eq 'c'			and return $dircolors{cd};
-	$self->{type}  eq 'p'			and return $dircolors{pi};
-	$self->{type}  eq 's'			and return $dircolors{so};
-	$self->{type}  eq 'D'			and return $dircolors{'do'};
-	$self->{type}  eq 'n'			and return $dircolors{nt};
-	$self->{type}  eq 'P'			and return $dircolors{ep};
-	$self->{mode}  =~ /[xst]/		and return $dircolors{ex};
-	$self->{name}  =~ /(\.\w+)$/	&&
-		defined ($dircolors{$1})	and return $dircolors{$1};
-	$self->{type}  eq '-'			and return $dircolors{fi};
+	$self->{type}  eq 'b'				and return $dircolors{bd};
+	$self->{type}  eq 'c'				and return $dircolors{cd};
+	$self->{type}  eq 'p'				and return $dircolors{pi};
+	$self->{type}  eq 's'				and return $dircolors{so};
+	$self->{type}  eq 'D'				and return $dircolors{'do'};
+	$self->{type}  eq 'n'				and return $dircolors{nt};
+	$self->{type}  eq 'P'				and return $dircolors{ep};
+	# by nr. of hard links
+	$self->{type}  eq '-'			&&
+		$self->{nlink}  >  1 			and return $dircolors{hl};
+	# by permissions
+	$self->{mode}  =~ /[xst]/o			and return $dircolors{ex};
+	# by extension
+	$self->{name}  =~ /(\.\w+)$/o	&&
+		defined ($dircolors{$1})		and return $dircolors{$1};
+	# regular file
+	$self->{type}  eq '-'				and return $dircolors{fi};
 }
 
 ##########################################################################

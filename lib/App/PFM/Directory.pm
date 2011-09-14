@@ -147,7 +147,7 @@ sub _by_sort_mode {
 		elsif ($a->{name} eq '..') { return -1 }
 		elsif ($b->{name} eq '..') { return  1 }
 	}
-	for ($_pfm->state->{sort_mode}) {
+	for ($_pfm->state->sort_mode) {
 		/n/  and return		$a->{name}		cmp		$b->{name};
 		/N/  and return		$b->{name}		cmp		$a->{name};
 		/m/  and return	 lc($a->{name})		cmp	 lc($b->{name});

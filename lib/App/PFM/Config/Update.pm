@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config::Update 2.08.0
+# @(#) App::PFM::Config::Update 2.08.1
 #
 # Name:			App::PFM::Config::Update
-# Version:		2.08.0
+# Version:		2.08.1
 # Author:		Rene Uittenbogaard
 # Created:		2010-05-28
 # Date:			2010-09-02
@@ -681,6 +681,58 @@ sub _update_to_2080 {
 	}
 }
 
+sub _update_to_2081 {
+	my ($self, $lines) = @_;
+	# added 'mousewheeljump{size,max,ratio}' and 'highlightname'
+	print "Updating to 2.08.1...\n";
+	foreach my $i (reverse 0 .. $#$lines) {
+		${$lines}[$i] =~
+			s{## no=normal fi=file ex=executable lo=lost file ln=symlink or=orphan link}
+			 {## no=normal fi=file lo=lost file ln=symlink or=orphan link hl=hard link};
+		${$lines}[$i] =~
+			s{ln=([^:]*):or=([^:]*):}
+			 {ln=$1:or=$2:hl=white on blue:};
+		if (${$lines}[$i] =~ /^([^#]*:|)wh=([^:]*):/) {
+			# this changes the total number of lines, but this does not
+			# matter because we are processing the list in reverse order.
+			splice(@$lines, $i, 0, <<_end_update_1_to_2081_);
+su=white on red:sg=black on yellow:\\
+ow=blue on green:st=white on blue:tw=black on green:\\
+_end_update_1_to_2081_
+		}
+		if (${$lines}[$i] =~ /## ..<ext> defines extension colors/) {
+			# this changes the total number of lines, but this does not
+			# matter because we are processing the list in reverse order.
+			splice(@$lines, $i, 0, <<_end_update_2_to_2081_);
+## ex=executable su=setuid sg=setgid ca=capability (not implemented)
+## ow=other-writable dir (d???????w?) st=sticky dir (d????????t)
+### tw=sticky and other-writable dir (d???????wt)
+_end_update_2_to_2081_
+		}
+	}
+	push @$lines, <<_end_update_3_to_2081_;
+
+## overlay the highlight color onto the current filename? (default yes)
+highlightname:yes
+
+## characteristics of the mouse wheel: the number of lines that the
+## mouse wheel will scroll. This can be an integer or 'variable'.
+#mousewheeljumpsize:5
+mousewheeljumpsize:variable
+
+## if 'mousewheeljumpsize' is 'variable', the next two values are taken
+## into account.
+## 'mousewheeljumpratio' is used to calculate the number of lines that
+## the cursor will jump, namely: the total number of enties in the
+## directory divided by 'mousewheeljumpratio'.
+## 'mousewheeljumpmax' sets an upper bound to the number of lines that
+## the cursor is allowed to jump when using the mousewheel.
+mousewheeljumpratio:4
+mousewheeljumpmax:11
+
+_end_update_3_to_2081_
+}
+
 =item _update_version
 
 Updates the 'Version:' line in I<text> to the new version.
@@ -736,6 +788,7 @@ sub _update_text {
 	$self->_update_to_2064($lines) if $self->_cross('2.06.4', $from, $to);
 	$self->_update_to_2069($lines) if $self->_cross('2.06.9', $from, $to);
 	$self->_update_to_2080($lines) if $self->_cross('2.08.0', $from, $to);
+	$self->_update_to_2081($lines) if $self->_cross('2.08.1', $from, $to);
 	$self->_update_version($to, $lines);
 }
 
