@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Frame 0.46
+# @(#) App::PFM::Screen::Frame 0.47
 #
 # Name:			App::PFM::Screen::Frame
-# Version:		0.46
+# Version:		0.47
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-03-12
+# Date:			2011-03-13
 #
 
 ##########################################################################

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.11.4
+# @(#) App::PFM::Application 2.11.5
 #
 # Name:			App::PFM::Application
-# Version:		2.11.4
+# Version:		2.11.5
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-03-12
+# Date:			2011-03-17
 #
 
 ##########################################################################
@@ -54,7 +54,7 @@ use Cwd;
 use locale;
 use strict;
 
-our $VERSION  = '2.11.4';
+our $VERSION  = '2.11.5';
 our $LASTYEAR = 2011;
 
 ##########################################################################
@@ -417,9 +417,9 @@ sub state {
 	my ($self, $index, $value) = @_;
 	$index ||= 'S_MAIN';
 	if (defined $value) {
-		if (defined $self->{_states}{$index}) {
-			$self->{_states}{$index} = $value;
-		}
+		# do not explicitly check if the index is defined:
+		# S_SWAP is not present in the states array
+		$self->{_states}{$index} = $value;
 	}
 	return $self->{_states}{$index};
 }

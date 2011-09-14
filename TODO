@@ -36,12 +36,19 @@
 
 - locale fr_FR.utf8 makes the screen a mess, out-of-the-box
 
-- do something about "svn: write error: broken pipe" (errno 141: 128 + 13)
+- do something about "svn: write error: broken pipe" (errno 141: 128 + 13).
+  keep the process running?
 
 - Browser: integrate the different choose() and browse() methods.
-- Highlight the correct screen line.
-- pass browser_idle event when a chooser is active.
+- get rid of Chooser class?
 - find out if chooser objects check the 'handled' member correctly in choose()
+- find out if the browser::baseline() can miss the set_deferred_refresh that
+  has been commented out.
+- move initialization of Y-command/Bookmark browser more to Chooser.
+
+- Y-chooser: don't select a Y-command if the user clicks outside the diskinfo column.
+
+- add MIME types
 
 ################################################################################
 # structural enhancements
@@ -96,16 +103,34 @@
 - nice to have: implement an 'after_job_receive_no_data' event
 
 ################################################################################
-# documentation enhancements
+# mime types
 
-- 
-  $browser->show_clock property
+extension[*.tcl]  : application/x-tcl
+
+extension[*.csh]  : application/x-csh
+extension[*.sh]   : application/x-sh
+extension[*.shar] : application/x-shar
+
+extension[*.h]    : text/plain
+extension[*.hh]   : text/plain
+extension[*.lsp]  : application/x-lisp
+extension[*.movie]: video/x-sgi-movie
+extension[*.rtx]  : text/richtext
+extension[*.spl]  : application/x-futuresplash
+extension[*.viv]  : video/vnd.vivo
+extension[*.vivo] : video/vnd.vivo
+extension[*.vrml] : model/vrml
+extension[*.wrl]  : model/vrml
+
+################################################################################
+# documentation enhancements
 
 - manpages: use I<...> in =items
 
   DONE: Application Abstract
 
   TODO: Browser CommandHandler Config Directory
+	Browser/Chooser Browser/Files Browser/YourCommands Browser/Bookmarks
 	Event File History State Util
 	OS OS/Abstract OS/Linux OS/Aix OS/Hpux OS/Sco OS/Solaris
 	Screen Screen/Frame Screen/Diskinfo Screen/Listing

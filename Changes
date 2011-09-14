@@ -1,3 +1,13 @@
+2.11.5
+
+* added: the bookmark browser and Y-command browser now apply highlighting
+  to the current line
+* fixed: refreshing the screen listing with RCS info now works again
+  in the Your command browser
+* fixed: The 'Y' character on the currentfile line is no longer missing
+  in the Your command browser
+* added several MIME types to the config file
+
 2.11.4
 
 * added support for numeric Your commands, e.g. (Y)our - (1)

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Browser::Bookmarks 0.07
+# @(#) App::PFM::Browser::Bookmarks 0.09
 #
 # Name:			App::PFM::Browser::Bookmarks
-# Version:		0.07
+# Version:		0.09
 # Author:		Rene Uittenbogaard
 # Created:		2010-12-01
-# Date:			2011-03-12
+# Date:			2011-03-18
 #
 
 ##########################################################################
@@ -44,11 +44,12 @@ use strict;
 use locale;
 
 use constant {
-	SHOW_CLOCK  => 1,
-	SCREENTYPE  => R_LISTING,
-	HEADERTYPE  => HEADING_BOOKMARKS,
-	FOOTERTYPE  => FOOTER_NONE,
-	SPAWNEDCHAR => '*',
+	SHOW_MARKCURRENT => '',
+	SHOW_CLOCK       => 1,
+	SCREENTYPE       => R_LISTING,
+	HEADERTYPE       => HEADING_BOOKMARKS,
+	FOOTERTYPE       => FOOTER_NONE,
+	SPAWNEDCHAR      => '*',
 };
 
 use constant MOTION_COMMANDS_EXCEPT_SPACE =>
@@ -68,7 +69,6 @@ Stores the application's array of states internally.
 sub _init {
 	my ($self, $screen, $config, $states) = @_;
 	$self->{_states} = $states;
-	$self->{_prompt} = '';
 	$self->SUPER::_init($screen, $config);
 	return;
 }
@@ -78,7 +78,7 @@ sub _init {
 
 =item browselist()
 
-Getter for the key listing (a..z, A..Z) that is to be shown.
+Getter for the key listing (a..z, A..Z, 0..9) that is to be shown.
 
 =cut
 
@@ -116,20 +116,23 @@ sub currentitem {
 
 =item list_items()
 
-List the bookmarks from the hash of states.
+Lists the bookmarks from the hash of states. Calls show_item() to display
+each item.
 
 =cut
 
 sub list_items {
-	my ($self)          = @_;
-	my $screen          = $self->{_screen};
-	my $printline       = $screen->BASELINE;
-	my $bookmarkpathcol = $screen->listing->bookmarkpathcol;
-	my @heading         = $screen->frame->bookmark_headings;
-	my $bookmarkpathlen = $heading[2];
-	my $spacing         =
-		' ' x ($screen->screenwidth - $screen->diskinfo->infolength);
-	my ($dest, $spawned, $overflow, $bookmarkkey);
+	my ($self)  = @_;
+	my $screen  = $self->{_screen};
+	my @heading = $screen->frame->bookmark_headings;
+
+	$self->{_browselist} = $self->browselist;
+	$self->{_itemcol}    = $screen->listing->bookmarkpathcol;
+	$self->{_itemlen}    = $heading[2];
+	$self->{_template}   = $heading[0];
+	my $spacing          = ' ' x $self->{_itemlen};
+	my $total            = @{$self->{_browselist}};
+
 	# headings
 	$screen
 		->set_deferred_refresh(R_SCREEN)
@@ -139,30 +142,49 @@ sub list_items {
 			prompt   => $self->{_prompt},
 		});
 	# list bookmarks
-	foreach (
-		$self->{_baseindex} .. $self->{_baseindex} + $screen->screenheight
-	) {
-		last if ($printline > $screen->BASELINE + $screen->screenheight);
-		$bookmarkkey = ${$self->{_config}->BOOKMARKKEYS}[$_];
-		$dest        = ${$self->{_states}}{$bookmarkkey};
-		$spawned     = ' ';
-		if (ref $dest) {
-			$dest    = $dest->directory->path . '/' . $dest->{_position};
-			$dest    =~ s{/\.$}{/};
-			$dest    =~ s{^//}{/};
-			$spawned = SPAWNEDCHAR;
+	foreach (0 .. $screen->screenheight) {
+		if ($self->{_baseindex} + $_ <= $total) {
+			$self->show_item($_);
+		} else {
+			$screen->at($screen->BASELINE + $_, $self->{_itemcol})
+				->puts($spacing);
 		}
-		if (length($dest)) {
-			($dest, undef, $overflow) = fitpath($dest, $bookmarkpathlen);
-			$dest .= ($overflow ? $screen->listing->NAMETOOLONGCHAR : ' ');
-		}
-		$screen->at($printline++, $bookmarkpathcol)
-			->puts(sprintf($heading[0], $bookmarkkey, $spawned, $dest));
 	}
-	foreach ($printline .. $screen->BASELINE + $screen->screenheight) {
-		$screen->at($printline++, $bookmarkpathcol)->puts($spacing);
+	$screen->at($self->{_currentline} + $screen->BASELINE, $self->cursorcol);
+	return;
+}
+
+=item show_item(int $which, boolean $highlight)
+
+Shows one bookmark item. Applies highlighting if the I<highlight> argument
+is true.
+
+=cut
+
+sub show_item {
+	my ($self, $which, $highlight) = @_;
+	my ($dest, $spawned, $overflow, $bookmarkkey, $printstring);
+	my $screen    = $self->{_screen};
+	my $linecolor = $highlight
+		? $self->{_config}{framecolors}{$screen->color_mode}{highlight}
+		: '';
+
+	$bookmarkkey = $self->{_browselist}[$self->{_baseindex} + $which];
+	$dest        = ${$self->{_states}}{$bookmarkkey};
+	$spawned     = ' ';
+	if (ref $dest) {
+		$dest    = $dest->directory->path . '/' . $dest->{_position};
+		$dest    =~ s{/\.$}{/};
+		$dest    =~ s{^//}{/};
+		$spawned = SPAWNEDCHAR;
 	}
-	$screen->at($self->{_currentline} + $screen->BASELINE, $bookmarkpathcol);
+	if (length($dest)) {
+		($dest, undef, $overflow) = fitpath($dest, $self->{_itemlen});
+		$dest .= ($overflow ? $screen->listing->NAMETOOLONGCHAR : ' ');
+	}
+	$printstring = sprintf($self->{_template}, $bookmarkkey, $spawned, $dest);
+	$screen->at($screen->BASELINE + $which, $self->{_itemcol})
+		->putcolored($linecolor, $printstring);
 	return;
 }
 

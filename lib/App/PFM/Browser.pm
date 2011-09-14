@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Browser 0.59
+# @(#) App::PFM::Browser 0.61
 #
 # Name:			App::PFM::Browser
-# Version:		0.59
+# Version:		0.61
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-03-12
+# Date:			2011-03-18
 #
 
 ##########################################################################
@@ -45,6 +45,7 @@ use strict;
 use locale;
 
 use constant {
+	SHOW_MARKCURRENT  => '',
 	SHOW_CLOCK        => 1,
 	SCREENTYPE        => R_LISTING,
 	HEADERTYPE        => HEADING_DISKINFO,
@@ -107,6 +108,24 @@ sub _wait_loop {
 			$screen->diskinfo->clock_info();
 		}
 		$screen->at($screenline, $cursorcol);
+	}
+	return;
+}
+
+
+=item _highlight(boolean $value)
+
+Highlights the current screen line, if I<value> is true. Otherwise, removes
+highlight.
+
+=cut
+
+sub _highlight {
+	my ($self, $value) = @_;
+	if ($value) {
+		$self->{_screen}->listing->highlight_on();
+	} else {
+		$self->{_screen}->listing->highlight_off();
 	}
 	return;
 }
@@ -396,10 +415,9 @@ sub browse {
 	my ($choice, $event);
 	# prefetch objects
 	my $screen  = $self->{_screen};
-	my $listing = $screen->listing;
 	do {
 		$screen->refresh();
-		$listing->highlight_on();
+		$self->_highlight(1);
 		# don't send mouse escapes to the terminal if not necessary
 		$screen->bracketed_paste_on() if $self->{_config}{paste_protection};
 		$screen->mouse_enable()       if $self->{_mouse_mode};
@@ -413,7 +431,7 @@ sub browse {
 			$screen->handleresize();
 		} else {
 			# must be keyboard/mouse input here
-			$listing->highlight_off();
+			$self->_highlight(0);
 			$screen->bracketed_paste_off();
 			$screen->mouse_disable();
 			$choice = $self->handle($event);
