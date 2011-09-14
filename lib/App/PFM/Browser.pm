@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Browser 0.62
+# @(#) App::PFM::Browser 0.63
 #
 # Name:			App::PFM::Browser
-# Version:		0.62
+# Version:		0.63
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-03-20
+# Date:			2011-03-28
 #
 
 ##########################################################################
@@ -72,6 +72,8 @@ sub _init {
 	$self->{_baseindex}		 = 0;
 	$self->{_position_at}	 = '';
 	$self->{_position_exact} = 0;
+	$self->{_itemcol}        = 0;
+	$self->{_itemlen}        = 0;
 	$self->{_mouse_mode}	 = undef;
 
 	my $on_after_resize_window = sub {
@@ -417,6 +419,10 @@ sub browse {
 	my $screen  = $self->{_screen};
 	do {
 		$screen->refresh();
+		# refresh() could have recalculated things.
+		# _itemcol and _itemlen are needed by handle_non_motion_input.
+		$self->{_itemcol} = $screen->listing->filerecordcol;
+		$self->{_itemlen} = length $screen->listing->currentformatline;
 		$self->_highlight(1);
 		# don't send mouse escapes to the terminal if not necessary
 		$screen->bracketed_paste_on() if $self->{_config}{paste_protection};

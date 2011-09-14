@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 1.23
+# @(#) App::PFM::Config 1.25
 #
 # Name:			App::PFM::Config
-# Version:		1.23
+# Version:		1.25
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2011-03-28
@@ -374,6 +374,7 @@ sub parse {
 	$self->{mousewheeljumpmax}	 = $pfmrc->{mousewheeljumpmax}   || 10;
 	$self->{mousewheeljumpratio} = $pfmrc->{mousewheeljumpratio} || 4;
 	$self->{cursorjumptime}		 = $pfmrc->{cursorjumptime}      || 0.5;
+	$self->{esc_timeout}		 = $pfmrc->{esc_timeout}         || 0.4;
 	$self->{launchby}			 = $pfmrc->{launchby};
 	$self->{copyoptions}		 = $pfmrc->{copyoptions};
 	$self->{checkforupdates}	 = !isno($pfmrc->{checkforupdates});
@@ -395,7 +396,7 @@ sub parse {
 	$self->{clickiskeypresstoo}	 = isyes($pfmrc->{clickiskeypresstoo} || 'yes');
 	$self->{clobber_mode}		 = isyes($pfmrc->{defaultclobber});
 	$self->{clobber_compare}	 = isyes($pfmrc->{clobber_compare} || 'yes');
-	$self->{timestamptruncate}	 = isyes($pfmrc->{timestamptruncate});
+	$self->{timefieldstretch}	 = isyes($pfmrc->{timefieldstretch});
 	$self->{currentlayout}		 = $pfmrc->{defaultlayout} || 0;
 	$self->{white_mode}			 = isyes($pfmrc->{defaultwhitemode});
 	$self->{dot_mode}			 = isyes($pfmrc->{defaultdotmode});
@@ -753,6 +754,12 @@ editor:vi
 #escapechar:=
 #escapechar:\
 
+## timeout for escape sequences (in seconds). Smaller values can make
+## handling the ESC key snappier, but over a slow connection, function
+## keys and friends may not arrive correctly. Use with care.
+## (default: 0.4)
+#esc_timeout: 0.4
+
 ## In case the regular editor automatically forks in the background, you
 ## may want to specify a foreground editor here. If defined, this editor
 ## will be used for editing the config file, so that pfm will be able to
@@ -850,9 +857,9 @@ timestampformat:%y %b %d %H:%M
 #timestampformat:%c
 #timestampformat:%Y %V %a
 
-## should the timestamps be truncated to the field length? (otherwise,
-## the timestamp field is adjusted if necessary). (default: no)
-#timestamptruncate:yes
+## should the time field be stretched to the timestamp length? (otherwise,
+## the timestamp will be truncated). (default: yes)
+#timefieldstretch:no
 
 ## use color (yes,no,force) (may be overridden by ANSI_COLORS_DISABLED)
 ## 'no'    = use no color at all
