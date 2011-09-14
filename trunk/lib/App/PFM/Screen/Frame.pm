@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Frame 0.37
+# @(#) App::PFM::Screen::Frame 0.38
 #
 # Name:			App::PFM::Screen::Frame
-# Version:		0.37
+# Version:		0.38
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-13
+# Date:			2010-09-16
 #
 
 ##########################################################################
@@ -65,7 +65,7 @@ use constant {
 my %ONOFF = ('' => 'off', 0 => 'off', 1 => 'on');
 
 our %_fieldheadings = (
-	selected		=> ' ',
+	mark			=> ' ',
 	name			=> 'filename',
 	display			=> 'filename',
 	name_too_long	=> ' ',
@@ -279,7 +279,7 @@ sub _getfooter {
 	my $f = '';
 	my %state = %{$_pfm->state};
 	if ($footer_mode == FOOTER_MORE) {
-		$f = "F6-Multilevel sort";
+		$f = "F5-Smart-refresh F6-Multilevel-sort";
 	} elsif ($footer_mode == FOOTER_SINGLE or $footer_mode == FOOTER_MULTI) {
 		$f =	"F1-Help F2-Prev F3-Redraw"
 		.		" F4-Color[" . $_screen->color_mode . "] F5-Reread"

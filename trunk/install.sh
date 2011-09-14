@@ -2,9 +2,9 @@
 ############################################################################
 #
 # Name:         install.sh
-# Version:      0.39
+# Version:      0.41
 # Authors:      Rene Uittenbogaard
-# Date:         2010-09-05
+# Date:         2010-09-16
 # Usage:        sh install.sh
 # Description:  Un*x-like systems can be very diverse.
 #		This script is meant as an example how pfm dependencies
@@ -422,11 +422,16 @@ check_download_and_install_perl_module_term_readline_gnu() {
 install_pfm() {
 	echo
 	env MAKEFILE_PL_CALLED_FROM_INSTALL_SH=1 \
-	perl Makefile.PL && \
-	make		 && \
-	make test	 && \
-	$sudo make install
-	$sudo rm /usr/local/bin/pfmrcupdate /usr/local/man/man1/pfmrcupdate.1
+	perl Makefile.PL   && \
+	make		   && \
+	make test	   && \
+	$sudo make install && \
+	for oldfile in \
+		/usr/local/bin/pfmrcupdate \
+		/usr/local/man/man1/pfmrcupdate.1;
+	do
+		$sudo mv $oldfile $oldfile.old
+	done
 }
 
 check_listwhite() {

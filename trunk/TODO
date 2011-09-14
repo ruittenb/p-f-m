@@ -19,12 +19,13 @@
 
 - after (C)opy, the rcs status is not automatically added 
 
-- in install.sh wordt ${pkgadd} niet geinterpoleerd
+- in install.sh wordt ${pkgadd} niet geinterpoleerd -
+  ? linux goed bevonden; test op opensolaris
 
 - call $pfm->checkupdates() in '@' (perlcommand) does not finish the job;
   call $pfm->checkupdates(); sleep 2; finishes it.
 
-- allow incremental sort when sort_mode =~ /[mM]/
+- handlemorego should check to see if any files are marked (or? PREV still has them)
 
 ################################################################################
 # structural enhancements
@@ -68,7 +69,18 @@
 
 - implement 'after_create_entry'
 
-- implement jobhandler->stopall()
+- color names correctly (on black)
+
+- allow incremental sort when sort_mode =~ /[mM]/
+
+- use mouse tracking mode for screen (and others?)
+
+- make gap smaller (intelligent?) for memory usage
+
+- check if incremental find ^W works correctly
+
+- don't: Config: $self->{ident} = $state->{ident} // $pfmrc->{ident};
+  do   : Config: $pfmrc->{ident}; State: $self->{ident} ||= $config->{ident};
 
 ################################################################################
 # functional enhancements
@@ -83,14 +95,10 @@
 
 - accept mouse clicks on menu in (M)ore
 
-- (M)ore - <F5>: smart refresh: discard lost files, add new files, keep marks
-
 - make si(Z)e a job in the background just like (V)ersion
 
 ################################################################################
 # documentation enhancements
-
-- UML: FILETYPEFLAGS moved from Screen/Listing to Config
 
 - manpages: use I<...> in =items
 

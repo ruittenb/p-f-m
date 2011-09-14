@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 0.99
+# @(#) App::PFM::Config 1.02
 #
 # Name:			App::PFM::Config
-# Version:		0.99
+# Version:		1.02
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-14
+# Date:			2010-09-18
 #
 
 ##########################################################################
@@ -73,7 +73,7 @@ use constant FILETYPEFLAGS => {
 	 c => '%',
 	 n => ':',
 	 # => '+', # Hidden directory (AIX only) or context dependent (HP-UX only)
-#	' '=> ' (lost)',
+	' '=> '',  # was ' (lost)'
 };
 
 our ($_pfm);
@@ -125,7 +125,8 @@ sub _parse_colorsets {
 	defined($pfmrc->{'framecolors[*]'}) or $pfmrc->{'framecolors[*]'} =
 		'menu=white on blue:multi=bold reverse cyan on white:'
 	.	'headings=bold reverse cyan on white:swap=reverse black on cyan:'
-	.	'footer=bold reverse blue on white:message=bold cyan:highlight=bold:';
+	.	'footer=bold reverse blue on white:'
+	.	'rootuser=reverse red:message=bold cyan:highlight=bold:';
 	foreach (@{$self->{colorsetnames}}) {
 		# should there be no dircolors[thisname], use the default
 		defined($pfmrc->{"dircolors[$_]"})
@@ -326,6 +327,8 @@ sub parse {
 	my $diskinfo       = $screen->diskinfo;
 	my $commandhandler = $_pfm->commandhandler;
 	my $pfmrc          = $self->{_pfmrc};
+	my $i              = 0;
+	my %identmodes     = map { $_, $i++ } $diskinfo->IDENTMODES();
 	my $e;
 	local $_;
 	$self->{dircolors}     = {};
@@ -345,67 +348,68 @@ sub parse {
 		type   => 'soft',
 	}));
 	# time/date format for clock and timestamps
-	$self->{clockdateformat}	= $pfmrc->{clockdateformat} || '%Y %b %d';
-	$self->{clocktimeformat}	= $pfmrc->{clocktimeformat} || '%H:%M:%S';
-	$self->{timestampformat}	= $pfmrc->{timestampformat} || '%y %b %d %H:%M';
-	$self->{mousewheeljumpsize}	= $pfmrc->{mousewheeljumpsize}  || 'variable';
-	$self->{mousewheeljumpmin}	= $pfmrc->{mousewheeljumpmin}   || 1;
-	$self->{mousewheeljumpmax}	= $pfmrc->{mousewheeljumpmax}   || 10;
-	$self->{mousewheeljumpratio}= $pfmrc->{mousewheeljumpratio} || 4;
-	$self->{launchby}			= $pfmrc->{launchby};
-	$self->{copyoptions}		= $pfmrc->{copyoptions};
+	$self->{clockdateformat}	 = $pfmrc->{clockdateformat} || '%Y %b %d';
+	$self->{clocktimeformat}	 = $pfmrc->{clocktimeformat} || '%H:%M:%S';
+	$self->{timestampformat}	 = $pfmrc->{timestampformat} || '%y %b %d %H:%M';
+	$self->{mousewheeljumpsize}	 = $pfmrc->{mousewheeljumpsize}  || 'variable';
+	$self->{mousewheeljumpmin}	 = $pfmrc->{mousewheeljumpmin}   || 1;
+	$self->{mousewheeljumpmax}	 = $pfmrc->{mousewheeljumpmax}   || 10;
+	$self->{mousewheeljumpratio} = $pfmrc->{mousewheeljumpratio} || 4;
+	$self->{launchby}			 = $pfmrc->{launchby};
+	$self->{copyoptions}		 = $pfmrc->{copyoptions};
 	# Don't change settings back to the defaults if they may have
 	# been modified by key commands.
-	$self->{cursorveryvisible}	= isyes($pfmrc->{cursorveryvisible});
-	$self->{clsonexit}			= isyes($pfmrc->{clsonexit});
-	$self->{confirmquit}		= isyes($pfmrc->{confirmquit});
-	$self->{autowritehistory}	= isyes($pfmrc->{autowritehistory});
-	$self->{autowritebookmarks}	= isyes($pfmrc->{autowritebookmarks});
-	$self->{autoexitmultiple}	= isyes($pfmrc->{autoexitmultiple});
-	$self->{mouseturnoff}		= isyes($pfmrc->{mouseturnoff});
-	$self->{highlightname}		= isyes($pfmrc->{highlightname} || 'yes');
-	$self->{swap_persistent}	= isyes($pfmrc->{persistentswap} || 'yes');
-	$self->{autosort}			= isyes($pfmrc->{autosort} || 'yes');
-	$self->{trspace}			= isyes($pfmrc->{translatespace}) ? ' ' : '';
-	$self->{dotdot_mode}		= isyes($pfmrc->{dotdotmode});
-	$self->{autorcs}			= isyes($pfmrc->{autorcs});
-	$self->{remove_marks_ok}	= isyes($pfmrc->{remove_marks_ok});
-	$self->{clickiskeypresstoo}	= isyes($pfmrc->{clickiskeypresstoo} || 'yes');
-	$self->{clobber_mode}		= ifnotdefined($commandhandler->clobber_mode,isyes($pfmrc->{defaultclobber}));
-	$self->{path_mode}			= ifnotdefined($state->directory->path_mode, $pfmrc->{defaultpathmode} || 'log');
-	$self->{currentlayout}		= ifnotdefined($screen->listing->layout,     $pfmrc->{defaultlayout}   ||  0);
-	$self->{white_mode}			= ifnotdefined($state->{white_mode},         isyes($pfmrc->{defaultwhitemode}));
-	$self->{dot_mode}			= ifnotdefined($state->{dot_mode},           isyes($pfmrc->{defaultdotmode}));
-	$self->{sort_mode}			= ifnotdefined($state->sort_mode,            $pfmrc->{defaultsortmode} || 'n');
-	$self->{radix_mode}			= ifnotdefined($state->{radix_mode},         $pfmrc->{defaultradix}    || 'hex');
-	$self->{ident_mode}			= ifnotdefined($diskinfo->ident_mode,
-								  $diskinfo->IDENTMODES->{$pfmrc->{defaultident}} || 0);
+	$self->{cursorveryvisible}	 = isyes($pfmrc->{cursorveryvisible});
+	$self->{clsonexit}			 = isyes($pfmrc->{clsonexit});
+	$self->{confirmquit}		 = isyes($pfmrc->{confirmquit});
+	$self->{autowritehistory}	 = isyes($pfmrc->{autowritehistory});
+	$self->{autowritebookmarks}	 = isyes($pfmrc->{autowritebookmarks});
+	$self->{autoexitmultiple}	 = isyes($pfmrc->{autoexitmultiple});
+	$self->{refresh_always_smart}= isyes($pfmrc->{refresh_always_smart});
+	$self->{mouseturnoff}		 = isyes($pfmrc->{mouseturnoff});
+	$self->{highlightname}		 = isyes($pfmrc->{highlightname} || 'yes');
+	$self->{swap_persistent}	 = isyes($pfmrc->{persistentswap} || 'yes');
+	$self->{autosort}			 = isyes($pfmrc->{autosort} || 'yes');
+	$self->{trspace}			 = isyes($pfmrc->{translatespace}) ? ' ' : '';
+	$self->{dotdot_mode}		 = isyes($pfmrc->{dotdotmode});
+	$self->{autorcs}			 = isyes($pfmrc->{autorcs});
+	$self->{remove_marks_ok}	 = isyes($pfmrc->{remove_marks_ok});
+	$self->{clickiskeypresstoo}	 = isyes($pfmrc->{clickiskeypresstoo} || 'yes');
+	$self->{clobber_mode}		 = ifnotdefined($commandhandler->clobber_mode,isyes($pfmrc->{defaultclobber}));
+	$self->{path_mode}			 = ifnotdefined($state->directory->path_mode, $pfmrc->{defaultpathmode} || 'log');
+	$self->{currentlayout}		 = ifnotdefined($screen->listing->layout,     $pfmrc->{defaultlayout}   ||  0);
+	$self->{white_mode}			 = ifnotdefined($state->{white_mode},         isyes($pfmrc->{defaultwhitemode}));
+	$self->{dot_mode}			 = ifnotdefined($state->{dot_mode},           isyes($pfmrc->{defaultdotmode}));
+	$self->{sort_mode}			 = ifnotdefined($state->sort_mode,            $pfmrc->{defaultsortmode} || 'n');
+	$self->{radix_mode}			 = ifnotdefined($state->{radix_mode},         $pfmrc->{defaultradix}    || 'hex');
+	$self->{ident_mode}			 = ifnotdefined($diskinfo->ident_mode,
+								   $identmodes{$pfmrc->{defaultident}} || 0);
 	$self->{escapechar} =
-	$self->{e}			= $e	= $pfmrc->{escapechar} || '=';
-	$self->{sortcycle}			= $pfmrc->{sortcycle} || 'n,en,dn,Dn,sn,Sn,tn,un';
-	$self->{force_minimum_size}	= $pfmrc->{force_minimum_size} || 'xterm';
-	$self->{force_minimum_size}	= ($self->{force_minimum_size} eq 'xterm' && isxterm($ENV{TERM}))
-								|| isyes($self->{force_minimum_size});
-	$self->{mouse_mode}			= $_pfm->browser->mouse_mode || $pfmrc->{defaultmousemode} || 'xterm';
-	$self->{mouse_mode}			= ($self->{mouse_mode} eq 'xterm' && isxterm($ENV{TERM}))
-								|| isyes($self->{mouse_mode});
-	$self->{altscreen_mode}		= $pfmrc->{altscreenmode} || 'xterm';
-	$self->{altscreen_mode}		= ($self->{altscreen_mode}  eq 'xterm' && isxterm($ENV{TERM}))
-								|| isyes($self->{altscreen_mode});
-	$self->{chdirautocmd}		= $pfmrc->{chdirautocmd};
-	$self->{windowtype}			= $pfmrc->{windowtype} eq 'standalone' ? 'standalone' : 'pfm';
-	$self->{windowcmd}			= $pfmrc->{windowcmd}
-								|| ($pfmrc->{windowtype} eq 'standalone'
+	$self->{e}			= $e	 = $pfmrc->{escapechar} || '=';
+	$self->{sortcycle}			 = $pfmrc->{sortcycle} || 'n,en,dn,Dn,sn,Sn,tn,un';
+	$self->{force_minimum_size}	 = $pfmrc->{force_minimum_size} || 'xterm';
+	$self->{force_minimum_size}	 = ($self->{force_minimum_size} eq 'xterm' && isxterm($ENV{TERM}))
+								 || isyes($self->{force_minimum_size});
+	$self->{mouse_mode}			 = $_pfm->browser->mouse_mode || $pfmrc->{defaultmousemode} || 'xterm';
+	$self->{mouse_mode}			 = ($self->{mouse_mode} eq 'xterm' && isxterm($ENV{TERM}))
+								 || isyes($self->{mouse_mode});
+	$self->{altscreen_mode}		 = $pfmrc->{altscreenmode} || 'xterm';
+	$self->{altscreen_mode}		 = ($self->{altscreen_mode}  eq 'xterm' && isxterm($ENV{TERM}))
+								 || isyes($self->{altscreen_mode});
+	$self->{chdirautocmd}		 = $pfmrc->{chdirautocmd};
+	$self->{windowtype}			 = $pfmrc->{windowtype} eq 'standalone' ? 'standalone' : 'pfm';
+	$self->{windowcmd}			 = $pfmrc->{windowcmd}
+								 || ($pfmrc->{windowtype} eq 'standalone'
 									? 'nautilus'
 									: $^O eq 'linux' ? 'gnome-terminal -e' : 'xterm -e');
-	$self->{printcmd}			= $pfmrc->{printcmd}
-								|| ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER} ${e}2" : "lpr ${e}2");
-	$self->{showlockchar}		= ( $pfmrc->{showlock} eq 'sun' && $^O =~ /sun|solaris/i
-								or isyes($pfmrc->{showlock}) ) ? 'l' : 'S';
-	$self->{viewer}				= $pfmrc->{viewer} || 'xv';
-	$self->{editor}				= $ENV{VISUAL} || $ENV{EDITOR}   || $pfmrc->{editor} || 'vi';
-	$self->{fg_editor}			= $pfmrc->{fg_editor} || $self->{editor};
-	$self->{pager}				= $ENV{PAGER}  || $pfmrc->{pager} || ($^O =~ /linux/i ? 'less' : 'more');
+	$self->{printcmd}			 = $pfmrc->{printcmd}
+								 || ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER} ${e}2" : "lpr ${e}2");
+	$self->{showlockchar}		 = ( $pfmrc->{showlock} eq 'sun' && $^O =~ /sun|solaris/i
+								 or isyes($pfmrc->{showlock}) ) ? 'l' : 'S';
+	$self->{viewer}				 = $pfmrc->{viewer} || 'xv';
+	$self->{editor}				 = $ENV{VISUAL} || $ENV{EDITOR}   || $pfmrc->{editor} || 'vi';
+	$self->{fg_editor}			 = $pfmrc->{fg_editor} || $self->{editor};
+	$self->{pager}				 = $ENV{PAGER}  || $pfmrc->{pager} || ($^O =~ /linux/i ? 'less' : 'more');
 	# flags
 	if (isyes($pfmrc->{filetypeflags})) {
 		$self->{filetypeflags} = FILETYPEFLAGS;
@@ -677,8 +681,9 @@ defaultcolorset:dark
 ## show dot files initially? (hide them otherwise, toggle with . key)
 defaultdotmode:yes
 
-## initial ident mode (user, host, or user@host, cycle with = key)
-defaultident:user
+## initial ident mode (two of: 'host', 'user' or 'tty', separated by commas)
+## (cycle with = key)
+defaultident:user,host
 
 ## initial layout to pick from the array 'columnlayouts' (see below)
 ## (cycle with F9)
@@ -791,6 +796,9 @@ mousewheeljumpmax:11
 ## if $PRINTER is unset: 'lpr =2'
 #printcmd:lp -d$PRINTER =2
 
+## should F5 always leave marks untouched like (M)ore-F5?
+#refresh_always_smart:no
+
 ## is it always "OK to remove marks?" without confirmation?
 #remove_marks_ok:no
 
@@ -858,24 +866,28 @@ windowtype:pfm
 ## the special setname 'off' is used for no coloring.
 
 ## 'framecolors' defines the colors for menu, menu in multiple mode,
-## headings, headings in swap mode, footer, messages, and the highlighted file.
+## headings, headings in swap mode, footer, messages, the username (for root),
+## and the highlighted file.
 ## for the frame to become colored, 'usecolor' must be set to 'yes' or 'force'.
 
 ## pfm version 1 used 'header' instead of 'menu' and 'title' instead
 ## of 'headings'.
 
 framecolors[light]:\
+rootuser=reverse red:\
 menu=white on blue:multi=reverse cyan on black:\
 headings=reverse cyan on black:swap=reverse black on cyan:\
 footer=reverse blue on white:message=blue:highlight=bold:
 
 framecolors[dark]:\
+rootuser=reverse red:\
 menu=white on blue:multi=bold reverse cyan on white:\
 headings=bold reverse cyan on white:swap=black on cyan:\
 footer=bold reverse blue on white:message=bold cyan:highlight=bold:
 
 ## these are a suggestion
 #framecolors[dark]:\
+#rootuser=reverse red:\
 #menu=white on blue:multi=reverse cyan on black:\
 #headings=reverse cyan on black:swap=reverse yellow on black:\
 #footer=bold reverse blue on white:message=bold cyan:highlight=bold:
@@ -988,6 +1000,7 @@ ca=black on red:\
 ## for which there is no corresponding 'framecolors[x]' (like ls_colors)
 
 framecolors[*]:\
+rootuser=reverse red:\
 headings=reverse:swap=reverse:footer=reverse:highlight=bold:
 
 ## The special set 'dircolors[*]' will be used for every 'framecolors[x]'
@@ -1047,7 +1060,7 @@ ppppppppppllll uuuuuuuu ggggggggssssssss mmmmmmmmmmmmmmm *nnnnnnn ffffffffffffff
 ##  =5 : swap directory path (F7)
 ##  =6 : current directory basename
 ##  =7 : current filename extension
-##  =8 : list of selected filenames
+##  =8 : list of marked filenames
 ##  == : a single literal '='
 ##  =e : 'editor'    (defined above)
 ##  =f : 'fg_editor' (defined above)

@@ -49,7 +49,7 @@ use constant {
 };
 
 use constant LAYOUTFIELDS => {
-	'*' => 'selected',
+	'*' => 'mark',
 	'n' => 'display',
 	'N' => 'name_too_long',
 	's' => 'size_num',

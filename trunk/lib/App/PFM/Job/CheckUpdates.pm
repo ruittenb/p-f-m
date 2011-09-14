@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::CheckUpdates 0.13
+# @(#) App::PFM::Job::CheckUpdates 0.14
 #
 # Name:			App::PFM::Job::CheckUpdates
-# Version:		0.13
+# Version:		0.14
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-24
+# Date:			2010-09-17
 #
 
 ##########################################################################
@@ -35,8 +35,6 @@ package App::PFM::Job::CheckUpdates;
 
 use base 'App::PFM::Job::Abstract';
 
-use LWP::Simple;
-
 use strict;
 use locale;
 
@@ -54,11 +52,17 @@ Initializes new instances. Called from the constructor.
 sub _init {
 	my ($self, @args) = @_;
 	$self->{_COMMAND} = q!
-		perl -MLWP::Simple -e'
-			$pfmpage = get("%s");
-			($latest_version = $pfmpage) =~
-				s/.*?latest version \(v?([\w.]+)\).*/$1/s;
-			print $latest_version, "\n";
+		perl -MLWP::UserAgent -e'
+			$ua = new LWP::UserAgent(timeout => 5);
+			$pfmpage = $ua->get("%s");
+			if ($pfmpage->is_success) {
+				$pfmpagedata = $pfmpage->content;
+				if ($pfmpagedata =~ /latest version/) {
+					($latest_version = $pfmpagedata) =~
+						s/.*?latest version \(v?([\w.]+)\).*/$1/s;
+					print $latest_version, "\n";
+				}
+			}
 		'
 	!;
 	$self->SUPER::_init(@args);

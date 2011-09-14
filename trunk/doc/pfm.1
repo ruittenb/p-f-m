@@ -124,13 +124,13 @@
 .\" ========================================================================
 .\"
 .IX Title "PFM 1"
-.TH PFM 1 "2010-09-15" " " " "
+.TH PFM 1 "2010-09-17" " " " "
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
 .nh
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.09.1
+.ds Vw @(#) pfm.pl 2.09.2
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -697,6 +697,10 @@ entered. The history is read from individual files in \fI\f(CI$HOME\fI/.pfm/\fR
 every time \f(CW\*(C`pfm\*(C'\fR starts. The history is written only when this command
 is given, or when \f(CW\*(C`pfm\*(C'\fR exits and the 'autowritehistory' option is set
 in \fI.pfmrc\fR.
+.IP "\fBF5\fR Smart refresh" 4
+.IX Item "F5 Smart refresh"
+Refreshes the directory like \fBF5\fR (remove lost files from the listing,
+read the current directory again \fIetc.\fR) but keeps the marks.
 .IP "\fBF6\fR Multilevel Sort" 4
 .IX Item "F6 Multilevel Sort"
 Allows the user to enter a string of sort mode characters which will be
@@ -1043,15 +1047,15 @@ Example for \fIksh\fR\|(1), \fIbash\fR\|(1) and \fIzsh\fR\|(1):
 Example for \fIcsh\fR\|(1) and \fItcsh\fR\|(1):
 .PP
 .Vb 10
-\&    alias pfm \*(Aq:                                \e
-\&    if (\-s ~/.pfm/swd) then                     \e
-\&        set swd=\-s"\`cat ~/.pfm/swd\`"            \e
-\&    endif                                       \e
-\&    : providing $swd is optional                \e
-\&    env pfm $swd \e!*                            \e
-\&    if (\-s ~/.pfm/cwd) then                     \e
-\&        cd "\`cat ~/.pfm/cwd\`"                   \e
-\&        rm \-f ~/.pfm/cwd                        \e
+\&    alias pfm \*(Aq:                             \e
+\&    if (\-s ~/.pfm/swd) then                  \e
+\&        set swd=\-s"\`cat ~/.pfm/swd\`"         \e
+\&    endif                                    \e
+\&    : providing $swd is optional             \e
+\&    env pfm $swd \e!*                         \e
+\&    if (\-s ~/.pfm/cwd) then                  \e
+\&        cd "\`cat ~/.pfm/cwd\`"                \e
+\&        rm \-f ~/.pfm/cwd                     \e
 \&    endif\*(Aq
 .Ve
 .SH "ENVIRONMENT"
@@ -1065,6 +1069,9 @@ be used.
 A colon-separated list of directories specifying the search path when
 changing directories. There is always an implicit \fB.\fR entry at the start
 of this search path.
+.IP "\fB\s-1DISPLAY\s0\fR" 4
+.IX Item "DISPLAY"
+The X display on which the 'windowcmd' will be opened.
 .IP "\fB\s-1EDITOR\s0\fR" 4
 .IX Item "EDITOR"
 The editor to be used for the \fBE\fRdit command. Overridden by \s-1VISUAL\s0.

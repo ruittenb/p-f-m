@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::OS 0.01
+# @(#) App::PFM::OS 0.12
 #
 # Name:			App::PFM::OS
-# Version:		0.01
+# Version:		0.12
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-20
-# Date:			2010-08-21
+# Date:			2010-09-18
 #
 
 ##########################################################################
@@ -58,7 +58,7 @@ our ($AUTOLOAD);
 ##########################################################################
 # private subs
 
-=item _init( [ App::PFM::Application $pfm ] )
+=item _init( [ App::PFM::Config $config ] )
 
 Initializes new instances. Called from the constructor.
 Figures out if we have a specific App::PFM::OS class for this OS,
@@ -67,14 +67,14 @@ and stores it internally.
 =cut
 
 sub _init {
-	my ($self, $pfm) = @_;
-	my $osname	= ucfirst lc($^O);
-	my $class	= "App::PFM::OS::$osname";
+	my ($self, $config) = @_;
+	my $osname = ucfirst lc($^O);
+	my $class  = "App::PFM::OS::$osname";
 	eval {
-		$self->{_os} = $class->new($pfm);
+		$self->{_os} = $class->new($config);
 	};
 	if ($@) {
-		$self->{_os} = new App::PFM::OS::Abstract($pfm);
+		$self->{_os} = new App::PFM::OS::Abstract($config);
 	}
 }
 

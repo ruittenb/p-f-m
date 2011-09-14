@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Directory 0.91
+# @(#) App::PFM::Directory 0.92
 #
 # Name:			App::PFM::Directory
-# Version:		0.91
+# Version:		0.92
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-13
+# Date:			2010-09-16
 #
 
 ##########################################################################
@@ -53,18 +53,20 @@ use constant {
 	RCS_RUNNING		=> 1,
 	SLOWENTRIES		=> 300,
 	D_FILTER		=> 128,  # decide what to display (init @showncontents)
-	D_SORT			=> 1024, # sort @dircontents
-	D_CONTENTS		=> 2048, # read directory contents from disk
+	D_SORT			=> 256,  # sort @dircontents
+	D_CONTENTS		=> 512,  # read directory contents from disk
+	D_SMART			=> 1024, # make D_CONTENTS smart (i.e. smart refresh)
 #	D_FILELIST				 # D_CONTENTS + D_SORT + D_FILTER
-	D_FSINFO		=> 4096, # filesystem usage data
+	D_FSINFO		=> 2048, # filesystem usage data
 #	D_ALL					 # D_FSINFO + D_FILELIST
 	M_MARK			=> '*',
 	M_OLDMARK		=> '.',
 	M_NEWMARK		=> '~',
 };
 
-use constant D_FILELIST	=> D_CONTENTS | D_SORT | D_FILTER;
-use constant D_ALL		=> D_FSINFO | D_FILELIST;
+use constant D_FILELIST			=> D_SORT | D_FILTER | D_CONTENTS;
+use constant D_FILELIST_SMART	=> D_SORT | D_FILTER | D_CONTENTS | D_SMART;
+use constant D_ALL				=> D_FSINFO | D_FILELIST;
 
 use constant RCS => [
 	'Subversion',
@@ -78,7 +80,9 @@ our %EXPORT_TAGS = (
 		D_FILTER
 		D_SORT
 		D_CONTENTS
+		D_SMART
 		D_FILELIST
+		D_FILELIST_SMART
 		D_FSINFO
 		D_ALL
 		M_MARK
@@ -104,6 +108,7 @@ Initializes new instances. Called from the constructor.
 
 sub _init {
 	my ($self, $pfm, $screen, $config, $os, $jobhandler, $path) = @_;
+	$App::PFM::File::_pfm    = $pfm;
 	$_pfm					 = $pfm;
 	$self->{_screen}         = $screen;
 	$self->{_config}         = $config;
@@ -115,7 +120,7 @@ sub _init {
 	$self->{_path_mode}		 = 'log';
 	$self->{_dircontents}	 = [];
 	$self->{_showncontents}	 = [];
-	$self->{_selected_nr_of} = {};
+	$self->{_marked_nr_of}   = {};
 	$self->{_total_nr_of}	 = {};
 	$self->{_disk}			 = {};
 	$self->{_dirty}			 = 0;
@@ -133,7 +138,7 @@ sub _clone {
 	# note: we are not cloning the files here.
 	$self->{_dircontents}	 = [ @{$original->{_dircontents}	} ];
 	$self->{_showncontents}	 = [ @{$original->{_showncontents}	} ];
-	$self->{_selected_nr_of} = { %{$original->{_selected_nr_of}	} };
+	$self->{_marked_nr_of}   = { %{$original->{_marked_nr_of}	} };
 	$self->{_total_nr_of}	 = { %{$original->{_total_nr_of}	} };
 	$self->{_disk}			 = { %{$original->{_disk}			} };
 }
@@ -218,14 +223,14 @@ sub _sort_singlelevel {
 				return        $b->{type} cmp $a->{type};
 		};
 		/\*/ and do {
-				return  0 if ($a->{selected} eq $b->{selected});
-				return -1 if ($a->{selected} eq M_MARK   );
-				return  1 if ($b->{selected} eq M_MARK   );
-				return -1 if ($a->{selected} eq M_NEWMARK);
-				return  1 if ($b->{selected} eq M_NEWMARK);
-				return -1 if ($a->{selected} eq M_OLDMARK);
-				return  1 if ($b->{selected} eq M_OLDMARK);
-				return        $a->{selected} cmp $b->{selected};
+				return  0 if ($a->{mark} eq $b->{mark});
+				return -1 if ($a->{mark} eq M_MARK   );
+				return  1 if ($b->{mark} eq M_MARK   );
+				return -1 if ($a->{mark} eq M_NEWMARK);
+				return  1 if ($b->{mark} eq M_NEWMARK);
+				return -1 if ($a->{mark} eq M_OLDMARK);
+				return  1 if ($b->{mark} eq M_OLDMARK);
+				return        $a->{mark} cmp $b->{mark};
 		};
 		/[ef]/i and do {
 			$exta = $extb = '';
@@ -269,7 +274,7 @@ directory by zeroing them out.
 
 sub _init_dircount {
 	my ($self) = @_;
-	%{$self->{_selected_nr_of}} =
+	%{$self->{_marked_nr_of}} =
 		%{$self->{_total_nr_of}} =
 			( d=>0, '-'=>0, l=>0, c=>0, b=>0, D=>0, P=>0,
 			  p=>0, 's'=>0, n=>0, w=>0, bytes => 0 );
@@ -285,28 +290,31 @@ sub _countcontents {
 	my ($self, @entries) = @_;
 	$self->_init_dircount();
 	foreach my $i (0..$#entries) {
-		$self->{_total_nr_of   }{$entries[$i]{type}}++;
-		$self->{_selected_nr_of}{$entries[$i]{type}}++
-			if $entries[$i]{selected} eq M_MARK;
+		$self->{_total_nr_of }{$entries[$i]{type}}++;
+		$self->{_marked_nr_of}{$entries[$i]{type}}++
+			if $entries[$i]{mark} eq M_MARK;
 	}
 }
 
-=item _readcontents()
+=item _readcontents(bool $smart)
 
 Reads the entries in the current directory and performs a stat() on them.
+
+If I<smart> is false, the directory is read fresh. If true, the directory
+is refreshed but the marks are retained.
 
 =cut
 
 sub _readcontents {
-	my ($self) = @_;
-	my ($entry, $file);
+	my ($self, $smart) = @_;
+	my ($entry, $file, %namemarkmap);
 	my @allentries    = ();
 	my @white_entries = ();
 	my $screen        = $self->{_screen};
 	# TODO stop jobs here
 	clearugidcache();
 	$self->_init_dircount();
-	$App::PFM::File::_pfm = $_pfm;
+	%namemarkmap = map { $_->{name}, $_->{mark}; } @{$self->{_dircontents}};
 	$self->{_dircontents}   = [];
 	$self->{_showncontents} = [];
 	# don't use '.' as the directory path to open: we may be just
@@ -331,14 +339,14 @@ sub _readcontents {
 		$self->add(
 			entry => $entry,
 			white => '',
-			mark  => ' ');
+			mark  => $smart ? $namemarkmap{$entry} : ' ');
 	}
 	foreach $entry (@white_entries) {
 		chop $entry;
 		$self->add(
 			entry => $entry,
 			white => 'w',
-			mark  => ' ');
+			mark  => $smart ? $namemarkmap{$entry} : ' ');
 	}
 	$screen->set_deferred_refresh(R_MENU | R_HEADINGS);
 	$self->checkrcsapplicable() if $self->{_config}{autorcs};
@@ -440,15 +448,15 @@ sub total_nr_of {
 	return $_[0]->{_total_nr_of};
 }
 
-=item selected_nr_of()
+=item marked_nr_of()
 
 Getter for the hash which keeps track of how many directory entities
-of each type have been selected.
+of each type have been marked.
 
 =cut
 
-sub selected_nr_of {
-	return $_[0]->{_selected_nr_of};
+sub marked_nr_of {
+	return $_[0]->{_marked_nr_of};
 }
 
 =item disk()
@@ -519,7 +527,7 @@ sub prepare {
 		$self->{_path} = $path;
 	}
 	$self->_init_filesystem_info();
-	$self->_readcontents();
+	$self->_readcontents(); # prepare(), so no need for D_SMART
 	$self->_sortcontents();
 	$self->_filtercontents();
 	$self->{_dirty} = 0;
@@ -620,7 +628,7 @@ sub addifabsent {
 		$self->unregister($file);
 		# copy $white from caller, it may be a whiteout.
 		# copy $mark  from file (preserve).
-		$file->stat_entry($file->{name}, $o{white}, $file->{selected});
+		$file->stat_entry($file->{name}, $o{white}, $file->{mark});
 		$self->register($file);
 		# flag screen refresh
 		if ($o{refresh}) {
@@ -657,7 +665,7 @@ Adds the file to the internal (total and marked) counters.
 sub register {
 	my ($self, $entry) = @_;
 	$self->{_total_nr_of}{$entry->{type}}++;
-	if ($entry->{selected} eq M_MARK) {
+	if ($entry->{mark} eq M_MARK) {
 		$self->register_include($entry);
 	}
 	$self->{_screen}->set_deferred_refresh(R_DISKINFO);
@@ -673,7 +681,7 @@ sub unregister {
 	my ($self, $entry) = @_;
 	my $prevmark;
 	$self->{_total_nr_of}{$entry->{type}}--;
-	if ($entry->{selected} eq M_MARK) {
+	if ($entry->{mark} eq M_MARK) {
 		$prevmark = $self->register_exclude($entry);
 	}
 	$self->{_screen}->set_deferred_refresh(R_DISKINFO);
@@ -688,8 +696,8 @@ Marks a file. Updates the internal (marked) counters.
 
 sub include {
 	my ($self, $entry) = @_;
-	$self->register_include($entry) if ($entry->{selected} ne M_MARK);
-	$entry->{selected} = M_MARK;
+	$self->register_include($entry) if ($entry->{mark} ne M_MARK);
+	$entry->{mark} = M_MARK;
 }
 
 =item exclude(App::PFM::File $file [, char $to_mark ] )
@@ -701,9 +709,9 @@ internal (marked) counters.
 
 sub exclude {
 	my ($self, $entry, $to_mark) = @_;
-	my $prevmark = $entry->{selected};
-	$self->register_exclude($entry) if ($entry->{selected} eq M_MARK);
-	$entry->{selected} = $to_mark || ' ';
+	my $prevmark = $entry->{mark};
+	$self->register_exclude($entry) if ($entry->{mark} eq M_MARK);
+	$entry->{mark} = $to_mark || ' ';
 	return $prevmark;
 }
 
@@ -715,8 +723,8 @@ Adds a file to the counters of marked files.
 
 sub register_include {
 	my ($self, $entry) = @_;
-	$self->{_selected_nr_of}{$entry->{type}}++;
-	$entry->{type} =~ /-/ and $self->{_selected_nr_of}{bytes} += $entry->{size};
+	$self->{_marked_nr_of}{$entry->{type}}++;
+	$entry->{type} =~ /-/ and $self->{_marked_nr_of}{bytes} += $entry->{size};
 	$self->{_screen}->set_deferred_refresh(R_DISKINFO);
 }
 
@@ -728,9 +736,24 @@ Removes a file from the counters of marked files.
 
 sub register_exclude {
 	my ($self, $entry) = @_;
-	$self->{_selected_nr_of}{$entry->{type}}--;
-	$entry->{type} =~ /-/ and $self->{_selected_nr_of}{bytes} -= $entry->{size};
+	$self->{_marked_nr_of}{$entry->{type}}--;
+	$entry->{type} =~ /-/ and $self->{_marked_nr_of}{bytes} -= $entry->{size};
 	$self->{_screen}->set_deferred_refresh(R_DISKINFO);
+}
+
+=item ls()
+
+Used for debugging.
+
+=cut
+
+sub ls {
+	my ($self) = @_;
+	my $listing = $self->{_screen}->listing;
+	my $file;
+	foreach $file (@{$self->{_dircontents}}) {
+		print $listing->fileline($file), "\n";
+	}
 }
 
 =item set_dirty(int $flag_bits)
@@ -765,6 +788,7 @@ Refreshes the aspects of the directory that have been flagged as dirty.
 
 sub refresh {
 	my ($self)  = @_;
+	my $smart;
 	my $browser = $_pfm->browser;
 	my $dirty   = $self->{_dirty};
 	$self->{_dirty} = 0;
@@ -785,7 +809,8 @@ sub refresh {
 		$self->_init_filesystem_info();
 	}
 	if ($dirty & D_CONTENTS) {
-		$self->_readcontents();
+		$smart = ($dirty & D_SMART or $self->{_config}{refresh_always_smart});
+		$self->_readcontents($smart);
 	}
 	if ($dirty & D_SORT) {
 		$self->_sortcontents();
@@ -916,7 +941,7 @@ sub dirlookup {
 
 In single file mode: applies the supplied function to the current file,
 as passed in I<$event-E<gt>{currentfile}>.
-In multiple file mode: applies the supplied function to all selected files
+In multiple file mode: applies the supplied function to all marked files
 in the current directory.
 
 Special flags can be passed in I<$event-E<gt>{lunchbox}{applyflags}>.
@@ -948,7 +973,7 @@ sub apply {
 		}
 		foreach $i (@range) {
 			$loopfile = $self->{_showncontents}[$i];
-			if ($loopfile->{selected} eq M_MARK) {
+			if ($loopfile->{mark} eq M_MARK) {
 				# don't give feedback in cOmmand or Your
 				if ($applyflags !~ /\bnofeedback\b/o) {
 					$screen->at($screen->PATHLINE, 0)->clreol()

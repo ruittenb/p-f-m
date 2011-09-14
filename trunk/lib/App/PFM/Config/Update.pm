@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config::Update 2.09.1
+# @(#) App::PFM::Config::Update 2.09.2
 #
 # Name:			App::PFM::Config::Update
-# Version:		2.09.1
+# Version:		2.09.2
 # Author:		Rene Uittenbogaard
 # Created:		2010-05-28
-# Date:			2010-09-13
+# Date:			2010-09-18
 #
 
 ##########################################################################
@@ -795,6 +795,46 @@ use constant UPDATES => {
 				"#k10=\\e[21;2~:\n",
 				"## gnome-terminal handles F11 itself. enable shift-F11 by adding:\n",
 				"#k11=\\e[23;2~:\n",
+				"\n",
+			],
+		}],
+	},
+	# ----- 2.09.2 ---------------------------------------------------------
+	'2.09.2' => {
+		substitutions => sub {
+			s{^## initial ident mode .user, host, or user.host, cycle with = key.*}
+			 {## initial ident mode (two of: 'host', 'user' or 'tty', separated by commas)};
+			s{^defaultident:.*}
+			 {defaultident:user,host};
+			s{^(##  =8 : list of) selected (filenames)}
+			 {$1 marked $2};
+			s{^## headings, headings in swap mode, footer, messages,.*}
+			 {## headings, headings in swap mode, footer, messages, the username (for root),};
+		},
+		additions => [{
+			after => qr/^## initial ident mode /,
+			batch => [
+				"## (cycle with = key)\n",
+			],
+		}, {
+			after => qr/^## headings, headings in swap mode, footer/,
+			batch => [
+				"## and the highlighted file.\n",
+			],
+		}, {
+			after => qr/^framecolors\[/,
+			batch => [
+				"rootuser=reverse red:\\\n",
+			],
+		}, {
+			after => qr/^#framecolors\[/,
+			batch => [
+				"#rootuser=reverse red:\\\n",
+			],
+		}, {
+			batch => [
+				"## should F5 always leave marks untouched like (M)ore-F5?\n",
+				"#refresh_always_smart:no\n",
 				"\n",
 			],
 		}],

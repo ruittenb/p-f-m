@@ -1,3 +1,14 @@
+2.09.2-beta
+
+* fixed bugs in checking for pfm updates on the pfm site
+* fixed scrolling the directory listing in incremental find
+* added: (M)ore - <F5>: smart refresh: refresh directory contents
+  but keep the marks.
+* added: (M)ore - (@): perl shell
+* added config option: 'refresh_always_smart'
+* added config option to color the root username on-screen
+* changed ident modes: combinations of 'host','user','tty'
+
 2.09.1-beta
 
 * fixed bug: un(W)hiteout now correctly determines failure

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Diskinfo 0.13
+# @(#) App::PFM::Screen::Diskinfo 0.16
 #
 # Name:			App::PFM::Screen::Diskinfo
-# Version:		0.13
+# Version:		0.16
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-03
+# Date:			2010-09-18
 #
 
 ##########################################################################
@@ -37,52 +37,73 @@ package App::PFM::Screen::Diskinfo;
 use base qw(App::PFM::Abstract Exporter);
 
 use App::PFM::Util qw(formatted fit2limit max);
-use POSIX qw(strftime);
+
+use Sys::Hostname;
+use POSIX qw(strftime ttyname);
 
 use locale;
 use strict;
 
 use constant {
-	LINE_DISKINFO	=> 4,
-	LINE_DIRINFO	=> 9,
-	LINE_MARKINFO	=> 15,
-	LINE_USERINFO	=> 21,
-	LINE_DATEINFO	=> 22,
+	LINE_DISKINFO				=> 4,
+	LINE_DIRINFO				=> 9,
+	LINE_MARKINFO				=> 15,
+	LINE_USERINFO				=> 21,
+	LINE_DATEINFO				=> 22,
+	HEIGHT_EXTENDED_DATEINFO	=> 25,
+	HEIGHT_EXTENDED_USERINFO	=> 26,
 };
 
-use constant IDENTMODES => { user => 0, host => 1, 'user@host' => 2 };
+# Ident definitions must pairwise have the same initial field
+# (see select_next_ident()).
+use constant IDENTMODES => [
+	'user,host',
+	'user,tty',
+	'host,tty',
+	'host,user',
+	'tty,user',
+	'tty,host',
+];
 
 our %EXPORT_TAGS = (
+	# don't export LINE_DATEINFO: use line_dateinfo() instead.
 	constants => [ qw(
 		LINE_DISKINFO
 		LINE_DIRINFO
 		LINE_MARKINFO
 		LINE_USERINFO
-		LINE_DATEINFO
+		HEIGHT_EXTENDED_DATEINFO
+		HEIGHT_EXTENDED_USERINFO
 	) ]
 );
 
 our @EXPORT_OK = @{$EXPORT_TAGS{constants}};
 
-our ($_pfm, $_screen);
+our ($_pfm);
 
 ##########################################################################
 # private subs
 
-=item _init(App::PFM::Application $pfm, App::PFM::Screen $screen)
+=item _init(App::PFM::Application $pfm, App::PFM::Screen $screen
+[, App::PFM::Config $config ] )
 
 Initializes new instances. Called from the constructor.
+
+Note that at the time of instantiation, the config file has probably
+not yet been read.
 
 =cut
 
 sub _init {
-	my ($self, $pfm, $screen) = @_;
-	$_pfm        = $pfm;
-	$_screen     = $screen;
-	$self->{_ident}      = '';
-	$self->{_ident_mode} = 0;
+	my ($self, $pfm, $screen, $config) = @_;
+	$_pfm                = $pfm;
+	$self->{_screen}     = $screen;
+	$self->{_config}     = $config; # undefined, see after_parse_config
+	$self->{_ident}      = [];
+	$self->{_ident_mode} = undef;
 	$self->{_infolength} = 0;
 	$self->{_infocol}	 = 0;
+	$self->_initident();
 }
 
 =item _str_informatted(string $info)
@@ -101,6 +122,26 @@ sub _str_informatted {
 sub _data_informatted {
 	my ($self, @args) = @_;
 	return formatted('@' . '>' x ($self->{_infolength}-7) . ' @<<<<<', @args);
+}
+
+=item _initident()
+
+Figures out the current username, hostname, and ttyname.
+
+=cut
+
+sub _initident {
+	my ($self) = @_;
+	my $user  = getpwuid($>);
+	my $host  = hostname();
+	my $tty   = ttyname(*STDIN);
+	$host =~ s/\..*//; # host part of hostname
+	$tty  =~ s!/dev/!!;
+	$self->{_ident_elements} = {
+		user => $user,
+		host => $host,
+		tty  => $tty,
+	};
 }
 
 ##########################################################################
@@ -145,43 +186,96 @@ sub ident_mode {
 	my ($self, $value) = @_;
 	if (defined $value) {
 		$self->{_ident_mode} = $value;
-		$self->initident();
+		$self->setident();
 	}
 	return $self->{_ident_mode};
 }
 
-=item initident()
+=item setident()
 
-Translates the ident mode to the actual ident string
+Translates the ident mode to the symbolic ident strings
 displayed on screen.
 
 =cut
 
-sub initident {
+sub setident {
 	my ($self) = @_;
-	chomp ($self->{_ident}  = getpwuid($>)  ) unless $self->{_ident_mode} == 1;
-	chomp ($self->{_ident}  = `hostname`    )     if $self->{_ident_mode} == 1;
-	chomp ($self->{_ident} .= '@'.`hostname`)     if $self->{_ident_mode} == 2;
-	$_screen->set_deferred_refresh($_screen->R_DISKINFO | $_screen->R_FOOTER);
+	my @ident_mode = split /,/, IDENTMODES()->[$self->{_ident_mode}];
+	$self->{_ident} = [ map { $self->{_ident_elements}{$_}; } @ident_mode ];
+	$self->{_screen}->set_deferred_refresh(
+		$self->{_screen}->R_DISKINFO | $self->{_screen}->R_FOOTER);
 }
 
 =item select_next_ident()
 
-Cycles through showing the username, hostname or both.
+Cycles through showing any two of username, hostname or ttyname.
 
 =cut
 
 sub select_next_ident {
 	my ($self) = @_;
-	if (++$self->{_ident_mode} > 2) {
-		$self->{_ident_mode} = 0;
+	unless ($self->extended_userinfo) {
+		# This assumes that ident definitions pairwise have the
+		# same initial field.
+		$self->{_ident_mode}++;
 	}
-	$self->initident();
+	if (++$self->{_ident_mode} > $#{IDENTMODES()}) {
+		$self->{_ident_mode} -= scalar @{IDENTMODES()};
+	}
+	$self->setident();
 	return $self->{_ident_mode};
+}
+
+=item line_dateinfo()
+
+Returns LINE_DATEINFO, incremented by one if the ident field is
+extended because the screen has enough rows.
+
+=cut
+
+sub line_dateinfo {
+	my ($self) = @_;
+	return LINE_DATEINFO + $self->extended_userinfo();
+}
+
+=item extended_userinfo()
+
+Returns if the screen has enough rows to allow for an extended
+ident field.
+
+=cut
+
+sub extended_userinfo {
+	my ($self) = @_;
+	return $self->{_screen}->rows >= HEIGHT_EXTENDED_USERINFO;
+}
+
+=item extended_dateinfo()
+
+Returns if the screen has enough rows to allow for an extended
+datetime field.
+
+=cut
+
+sub extended_dateinfo {
+	my ($self) = @_;
+	return $self->{_screen}->rows >= HEIGHT_EXTENDED_DATEINFO;
 }
 
 ##########################################################################
 # public subs
+
+=item after_parse_config(App::PFM::Event $event)
+
+Applies the config settings when the config file has been read and parsed.
+
+=cut
+
+sub after_parse_config {
+	my ($self, $event) = @_;
+	$self->{_config} = $event->{origin};
+	$self->ident_mode($self->{_config}{ident_mode});
+}
 
 =item show()
 
@@ -191,26 +285,26 @@ Displays the entire diskinfo column.
 
 sub show {
 	my ($self) = @_;
+	my $screen            = $self->{_screen};
 	my $spaces            = ' ' x $self->{_infolength};
 	my $infocol           = $self->{_infocol};
-	my $filerecordcol     = $_screen->listing->filerecordcol;
-	my $currentformatline = $_screen->listing->currentformatline;
-	# gap is not filled in yet
-	my $gap = ' ' x (max(
-		$infocol - length($currentformatline)-$filerecordcol,
-		$filerecordcol - $self->{_infolength}));
+	my $filerecordcol     = $screen->listing->filerecordcol;
+	my $currentformatline = $screen->listing->currentformatline;
+
 	$self->disk_info();
-	$_screen->at(LINE_DIRINFO-2, $infocol)->puts($spaces);
+	$screen->at(LINE_DIRINFO-2, $infocol)->puts($spaces);
 	$self->dir_info();
-	$_screen->at(LINE_MARKINFO-2, $infocol)->puts($spaces);
+	$screen->at(LINE_MARKINFO-2, $infocol)->puts($spaces);
 	$self->mark_info();
-	$_screen->at(LINE_USERINFO-1, $infocol)->puts($spaces);
+	$screen->at(LINE_USERINFO-1, $infocol)->puts($spaces);
 	$self->user_info();
 	$self->clock_info();
-	foreach (LINE_DATEINFO+2 .. $_screen->BASELINE + $_screen->screenheight) {
-		$_screen->at($_, $infocol)->puts($spaces);
+	foreach ($self->line_dateinfo+2 ..
+			$screen->BASELINE + $screen->screenheight)
+	{
+		$screen->at($_, $infocol)->puts($spaces);
 	}
-	return $_screen;
+	return $screen;
 }
 
 =item clearcolumn()
@@ -221,24 +315,34 @@ Clears the entire diskinfo column.
 
 sub clearcolumn {
 	my ($self) = @_;
+	my $screen = $self->{_screen};
 	my $spaces = ' ' x $self->{_infolength};
-	foreach ($_screen->BASELINE .. $_screen->BASELINE+$_screen->screenheight) {
-		$_screen->at($_, $self->{_infocol})->puts($spaces);
+	foreach ($screen->BASELINE .. $screen->BASELINE+$screen->screenheight) {
+		$screen->at($_, $self->{_infocol})->puts($spaces);
 	}
-	return $_screen;
+	return $screen;
 }
 
 =item user_info()
 
-Displays the hostname, username or username@hostname.
+Displays the hostname, username, ttyname or a combination, as defined by
+'identmode'
 
 =cut
 
 sub user_info {
 	my ($self) = @_;
-	$_screen->at(LINE_USERINFO, $self->{_infocol})->putcolored(
-		($> ? 'normal' : 'red'), $self->_str_informatted($self->{_ident})
-	);
+	my $screen = $self->{_screen};
+	my $config = $self->{_config};
+	my $line   = LINE_USERINFO;
+	my $color  = ($> ? 'normal'
+		: $config->{framecolors}{$screen->color_mode}{rootuser});
+	$screen->at($line++, $self->{_infocol})
+		->putcolored($color, $self->_str_informatted($self->{_ident}[0]));
+	if ($self->extended_userinfo()) {
+		$screen->at($line++, $self->{_infocol})
+			->putcolored($color, $self->_str_informatted($self->{_ident}[1]));
+	}
 }
 
 =item disk_info()
@@ -251,15 +355,15 @@ sub disk_info {
 	my ($self) = @_;
 	my @desc      = ('K tot','K usd','K avl');
 	my @values    = @{$_pfm->state->directory->disk}{qw/total used avail/};
-	my $startline = LINE_DISKINFO;
-	$_screen->at($startline-1, $self->{_infocol})
+	my $line = LINE_DISKINFO;
+	$self->{_screen}->at($line-1, $self->{_infocol})
 		->puts($self->_str_informatted('Disk space'));
-	foreach (0..2) {
+	foreach (0 .. 2) {
 		while ($values[$_] > 99_999) {
 			$values[$_] /= 1024;
 			$desc[$_] =~ tr/KMGTPEZ/MGTPEZY/;
 		}
-		$_screen->at($startline + $_, $self->{_infocol})
+		$self->{_screen}->at($line + $_, $self->{_infocol})
 				->puts($self->_data_informatted(int($values[$_]), $desc[$_]));
 	}
 }
@@ -279,18 +383,12 @@ sub dir_info {
 			   + $total_nr_of{'p'} + $total_nr_of{'s'}
 			   + $total_nr_of{'D'} + $total_nr_of{'w'}
 			   + $total_nr_of{'n'};
-	my $startline = LINE_DIRINFO;
+	my $line = LINE_DIRINFO;
 	my $heading = 'Directory';
-	# pfm1 style
-#	my $heading = 'Directory'
-#				. '('
-#				.  $_pfm->state->{sort_mode}
-#				. ($_pfm->state->{white_mode} ? '' : '%')
-#				. ($_pfm->state->{dot_mode} ? '' : '.') . ')';
-	$_screen->at($startline-1, $self->{_infocol})
+	$self->{_screen}->at($line-1, $self->{_infocol})
 			->puts($self->_str_informatted($heading));
-	foreach (0..3) {
-		$_screen->at($startline + $_, $self->{_infocol})
+	foreach (0 .. 3) {
+		$self->{_screen}->at($line + $_, $self->{_infocol})
 				->puts($self->_data_informatted($values[$_], $desc[$_]));
 	}
 }
@@ -304,21 +402,21 @@ Displays the number of directory entries that have been marked.
 sub mark_info {
 	my ($self) = @_;
 	my @desc = ('bytes','files','dirs ','symln','spec ');
-	my %selected_nr_of = %{$_pfm->state->directory->selected_nr_of};
-	my @values = @selected_nr_of{'bytes','-','d','l'};
-	$values[4] = $selected_nr_of{'c'} + $selected_nr_of{'b'}
-			   + $selected_nr_of{'p'} + $selected_nr_of{'s'}
-			   + $selected_nr_of{'D'} + $selected_nr_of{'w'}
-			   + $selected_nr_of{'n'};
-	my $startline = LINE_MARKINFO;
+	my %marked_nr_of = %{$_pfm->state->directory->marked_nr_of};
+	my @values = @marked_nr_of{'bytes','-','d','l'};
+	$values[4] = $marked_nr_of{'c'} + $marked_nr_of{'b'}
+			   + $marked_nr_of{'p'} + $marked_nr_of{'s'}
+			   + $marked_nr_of{'D'} + $marked_nr_of{'w'}
+			   + $marked_nr_of{'n'};
+	my $line = LINE_MARKINFO;
 	my $heading = 'Marked files';
 	my $total = 0;
 	$values[0] = join ('', fit2limit($values[0], 9_999_999));
 	$values[0] =~ s/ $//;
-	$_screen->at($startline-1, $self->{_infocol})
+	$self->{_screen}->at($line-1, $self->{_infocol})
 			->puts($self->_str_informatted($heading));
-	foreach (0..4) {
-		$_screen->at($startline + $_, $self->{_infocol})
+	foreach (0 .. 4) {
+		$self->{_screen}->at($line + $_, $self->{_infocol})
 				->puts($self->_data_informatted($values[$_], $desc[$_]));
 		$total += $values[$_] if $_;
 	}
@@ -333,16 +431,17 @@ Displays the clock in the diskinfo column.
 
 sub clock_info {
 	my ($self) = @_;
-	my $line = LINE_DATEINFO;
-	my $now = time;
-	my $date = strftime($_pfm->config->{clockdateformat}, localtime $now),
-	my $time = strftime($_pfm->config->{clocktimeformat}, localtime $now);
+	my $screen = $self->{_screen};
+	my $now    = time; # fetch once to prevent overflow anomalies
+	my $line   = $self->line_dateinfo();
+	my $date   = strftime($_pfm->config->{clockdateformat}, localtime $now),
+	my $time   = strftime($_pfm->config->{clocktimeformat}, localtime $now);
 	$date = $self->_str_informatted($date);
 	$time = $self->_str_informatted($time);
-	if ($_screen->rows() > 24) {
-		$_screen->at($line++, $self->{_infocol})->puts($date);
+	if ($self->extended_dateinfo()) {
+		$self->{_screen}->at($line++, $self->{_infocol})->puts($date);
 	}
-	$_screen->at($line, $self->{_infocol})->puts($time);
+	$self->{_screen}->at($line, $self->{_infocol})->puts($time);
 }
 
 ##########################################################################

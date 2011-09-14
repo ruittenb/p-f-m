@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Event 0.12
+# @(#) App::PFM::Event 0.14
 #
 # Name:			App::PFM::Event
-# Version:		0.12
+# Version:		0.14
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-30
-# Date:			2010-09-13
+# Date:			2010-09-16
 #
 
 ##########################################################################
@@ -164,7 +164,7 @@ A job receives input
 
 =item soft
 
-A 'soft' event that does not provide data.
+An event that is triggered by one of C<pfm>'s functions.
 
 =item resize
 
@@ -187,6 +187,11 @@ The screen row on which the mouse was clicked (for B<mouse>).
 =item mousecol
 
 The screen column on which the mouse was clicked (for B<mouse>).
+
+=item mouseitem
+
+If the mouse has clicked on a list item, this property will contain it
+(for B<mouse>).
 
 =item currentfile
 

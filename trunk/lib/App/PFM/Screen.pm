@@ -134,10 +134,10 @@ not yet been read.
 sub _init {
 	my ($self, $pfm, $config) = @_;
 	$_pfm = $pfm;
-	$self->{_config}           = $config;
-	$self->{_frame}            = new App::PFM::Screen::Frame(   $pfm, $self);
-	$self->{_listing}          = new App::PFM::Screen::Listing( $pfm, $self);
-	$self->{_diskinfo}         = new App::PFM::Screen::Diskinfo($pfm, $self);
+	$self->{_config}    = $config; # undefined, see on_after_parse_config
+	$self->{_frame}     = new App::PFM::Screen::Frame(   $pfm, $self);
+	$self->{_listing}   = new App::PFM::Screen::Listing( $pfm, $self);
+	$self->{_diskinfo}  = new App::PFM::Screen::Diskinfo($pfm, $self, $config);
 	$self->{_winheight}        = 0;
 	$self->{_winwidth}         = 0;
 	$self->{_screenheight}     = 0;
@@ -615,7 +615,7 @@ their marks in the current directory.
 sub ok_to_remove_marks {
 	my ($self) = @_;
 	my $sure;
-	if ($self->{_config}->{remove_marks_ok} or
+	if ($self->{_config}{remove_marks_ok} or
 		$self->{_diskinfo}->mark_info() <= 0)
 	{
 		return 1;
@@ -862,7 +862,7 @@ sub on_after_parse_config {
 	# init colorsets
 	$self->color_mode($newcolormode);
 	$self->set_deferred_refresh(R_ALTERNATE);
-	$self->diskinfo->ident_mode($self->{_config}{ident_mode});
+	$self->diskinfo->after_parse_config($event);
 	$self->listing->layout($self->{_config}{currentlayout});
 }
 
