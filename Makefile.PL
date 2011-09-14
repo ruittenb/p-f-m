@@ -27,14 +27,15 @@ WriteMakefile(
 	LICENSE			=> 'gpl',
 	MIN_PERL_VERSION	=> 5.008,
 	PREREQ_PM		=> {
+		'File::stat'		=> 0,
+		'File::Stat::Bits'	=> 0.19,  # maybe less
+		'File::Temp'		=> 0,22,
 		'Term::Cap'		=> 0,
 		'Term::Screen'		=> 1.03,  # for Solaris; others 1.02
 		'Term::ScreenColor'	=> 1.13,  # no less than 1.13!
 		'Term::ReadLine::Gnu'	=> 1.16,  # maybe as little as 1.09
 		'HTML::Parser'		=> 3.59,  # LWP needs it. maybe less, but 3.36 is too low
 		'LWP'			=> 5.827, # maybe less
-		'File::stat'		=> 0,
-		'File::Stat::Bits'	=> 0.19,  # maybe less
 	},
 	EXE_FILES		=> ['pfm', 'pfmrcupdate'],
 #	DIR			=> ['listwhite'],

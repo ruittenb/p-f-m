@@ -10,7 +10,8 @@
   cursor is repositioned anyway
 
 - (M)ore (S)how same dir: doesn't remove marks
-  is this due to the fact that Directory::_clone() does not clone the files?
+  -> is this due to the fact that Directory::_clone() does not clone the files?
+  -> handleswap() has different conditions for executing its blocks
 
 - after (C)opy, the rcs status is not automatically added 
 
@@ -22,14 +23,18 @@
 ################################################################################
 # structural enhancements
 
-- rename R_DIRCONTENTS, R_DIRSORT, R_DIRFILTER to D_ constants (directory/dirty)
-  set_dirty_flag() etc.
+- rename D_DIR*    -> D_*
+
+- Directory: readcontents, sortcontents, filtercontents: make private
+
+- use D_FSINFO for _init_filesystem_info() ? -> on time?
 
 - Config->apply: call separate class's import() routines and have them import
   the config options that are interesting for them.
   Or use events.
 
-- restructure chdir(), handleswap() etc.
+- restructure chdir(), handleswap()/handlemoreshow()/handlemorego() etc.
+- check function of $swapping flag behavior
 
 - add a 'is_main' flag to directories so that they know if a job event may
   trigger a screen update
@@ -38,12 +43,18 @@
 
 - make our() variables member variables
 
-- add File::Temp to install procedure
+- standardize the names of constants
 
 - have History->input() accept a hash instead of 6 arguments
 
-- have the browser use events to tell the application that the commandhandler
-  should be called; keep the browser for browsing
+- have objects fire an event to indicate that the current position is to
+  be saved ('save_cursor_position' -> position_at())
+
+- have objects fire an event to indicate that the screen is to be updated?
+  ('request_deferred_refresh' -> set_deferred_refresh())
+
+- have the browser use events ('handle_command') to tell the application
+  that the commandhandler should be called; keep the browser for browsing
 
 - extract abstract code so that browser may be reused for bookmarks and your
   commands; ideally:
@@ -59,8 +70,6 @@
 
 - move CommandHandler::_listbookmarks() to Screen/Listing/Bookmarks::list()
 
-- Get Rid Of Slimy File::SYMBOLICMODES
-
 ################################################################################
 # functional enhancements
 
@@ -71,6 +80,8 @@
 - introduce SIGQUIT for interrupt multi?
 
 - add -o commandline option for starting with a certain sort mode
+
+- have applycolor() find out if the current line is reverse/italic/bold
 
 ################################################################################
 # documentation enhancements

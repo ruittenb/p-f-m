@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Directory 0.83
+# @(#) App::PFM::Directory 0.84
 #
 # Name:			App::PFM::Directory
-# Version:		0.83
+# Version:		0.84
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-08-26
@@ -41,19 +41,26 @@ use App::PFM::Job::Cvs;
 use App::PFM::Job::Bazaar;
 use App::PFM::Job::Git;
 use App::PFM::File;
+use App::PFM::Screen qw(:constants);
 use App::PFM::Util qw(clearugidcache canonicalize_path basename dirname);
 use POSIX qw(getcwd);
 
 use strict;
 
 use constant {
-	RCS_DONE	=> 0,
-	RCS_RUNNING	=> 1,
-	SLOWENTRIES	=> 300,
-	M_MARK		=> '*',
-	M_OLDMARK	=> '.',
-	M_NEWMARK	=> '~',
+	RCS_DONE		=> 0,
+	RCS_RUNNING		=> 1,
+	SLOWENTRIES		=> 300,
+	D_DIRFILTER		=> 128,  # decide what to display (init @showncontents)
+	D_DIRSORT		=> 1024, # sort @dircontents
+	D_DIRCONTENTS	=> 2048, # read directory contents from disk
+#	D_ALL					 # all of the above
+	M_MARK			=> '*',
+	M_OLDMARK		=> '.',
+	M_NEWMARK		=> '~',
 };
+
+use constant D_ALL	=> D_DIRCONTENTS | D_DIRSORT | D_DIRFILTER;
 
 use constant RCS => [
 	'Subversion',
@@ -64,6 +71,10 @@ use constant RCS => [
 
 our %EXPORT_TAGS = (
 	constants => [ qw(
+		D_DIRFILTER
+		D_DIRSORT
+		D_DIRCONTENTS
+		D_ALL
 		M_MARK
 		M_OLDMARK
 		M_NEWMARK
@@ -87,14 +98,15 @@ sub _init {
 	my ($self, $pfm, $path)	 = @_;
 	$_pfm					 = $pfm;
 	$self->{_path}			 = $path;
-	$self->{_path_mode}		 = 'log';
-	$self->{_wasquit}		 = undef;
 	$self->{_rcsjob}		 = undef;
+	$self->{_wasquit}		 = undef;
+	$self->{_path_mode}		 = 'log';
 	$self->{_dircontents}	 = [];
 	$self->{_showncontents}	 = [];
 	$self->{_selected_nr_of} = {};
 	$self->{_total_nr_of}	 = {};
 	$self->{_disk}			 = {};
+	$self->{_dirty}			 = 0;
 }
 
 =item _clone()
@@ -180,10 +192,16 @@ sub _by_sort_mode {
 				return $a->{selected} cmp $b->{selected};
 		};
 		/[ef]/i and do {
-			 if ($a->{name} =~ /^(.*)(\.[^\.]+)$/) { $exta = $2."\0377".$1 }
-											 else { $exta = "\0377".$a->{name} }
-			 if ($b->{name} =~ /^(.*)(\.[^\.]+)$/) { $extb = $2."\0377".$1 }
-											 else { $extb = "\0377".$b->{name} }
+			 if ($a->{name} =~ /^(.*)(\.[^\.]+)$/) {
+				 $exta = $2."\0377".$1;
+			 } else {
+				 $exta = "\0377".$a->{name};
+			 }
+			 if ($b->{name} =~ /^(.*)(\.[^\.]+)$/) {
+				 $extb = $2."\0377".$1;
+			 } else {
+				 $extb = "\0377".$b->{name};
+			 }
 			 /e/ and return    $exta  cmp    $extb;
 			 /E/ and return    $extb  cmp    $exta;
 			 /f/ and return lc($exta) cmp lc($extb);
@@ -332,10 +350,9 @@ Getter/setter for the path mode setting (physical or logical).
 sub path_mode {
 	my ($self, $value) = @_;
 	if (defined $value) {
-		my $screen = $_pfm->screen;
 		$self->{_path_mode} = $value;
 		$self->{_path} = getcwd() if $self->{_path_mode} eq 'phys';
-		$screen->set_deferred_refresh($screen->R_FOOTER | $screen->R_PATHINFO);
+		$_pfm->screen->set_deferred_refresh(R_FOOTER | R_PATHINFO);
 	}
 	return $self->{_path_mode};
 }
@@ -358,6 +375,7 @@ sub prepare {
 	$self->readcontents();
 	$self->sortcontents();
 	$self->filtercontents();
+	$self->{_dirty} = 0;
 }
 
 =item chdir()
@@ -407,14 +425,15 @@ sub chdir {
 		if ($swapping) {
 			$_pfm->browser->position_at($_pfm->state->{_position});
 			$_pfm->browser->baseindex(  $_pfm->state->{_baseindex});
-			$screen->set_deferred_refresh($screen->R_SCREEN);
+			$screen->set_deferred_refresh(R_SCREEN);
 		} else {
 			$nextpos = $direction eq 'up'
 				? basename($prevdir)
 				: $direction eq 'down' ? '..' : '.';
 			$_pfm->browser->position_at($nextpos);
 			$_pfm->browser->baseindex(0);
-			$screen->set_deferred_refresh($screen->R_CHDIR);
+			$screen->set_deferred_refresh(R_CHDIR);
+			$self->set_dirty(D_ALL); # TODO | D_FSINFO);
 			$self->_init_filesystem_info();
 		}
 		$chdirautocmd = $_pfm->config->{chdirautocmd};
@@ -502,7 +521,7 @@ sub readcontents {
 			white => 'w',
 			mark  => ' ');
 	}
-	$screen->set_deferred_refresh($screen->R_MENU | $screen->R_HEADINGS);
+	$screen->set_deferred_refresh(R_MENU | R_HEADINGS);
 	$self->checkrcsapplicable() if $_pfm->config->{autorcs};
 	return $self->{_dircontents};
 }
@@ -557,9 +576,8 @@ sub addifabsent {
 		$self->register($file);
 		# flag screen refresh
 		if ($o{refresh}) {
-			my $screen = $_pfm->screen;
-			$screen->set_deferred_refresh(
-				$screen->R_DIRLIST | $screen->R_DIRFILTER | $screen->R_DIRSORT);
+			$_pfm->screen->set_deferred_refresh(R_LISTING);
+			$self->set_dirty(D_DIRFILTER | D_DIRSORT);
 		}
 	}
 }
@@ -576,9 +594,8 @@ sub add {
 	push @{$self->{_dircontents}}, $file;
 	$self->register($file);
 	if ($o{refresh}) {
-		my $screen = $_pfm->screen;
-		$screen->set_deferred_refresh(
-			$screen->R_DIRLIST | $screen->R_DIRFILTER | $screen->R_DIRSORT);
+		$_pfm->screen->set_deferred_refresh(R_LISTING);
+		$self->set_dirty(D_DIRFILTER | D_DIRSORT);
 	}
 }
 
@@ -594,7 +611,7 @@ sub register {
 	if ($entry->{selected} eq M_MARK) {
 		$self->register_include($entry);
 	}
-	$_pfm->screen->set_deferred_refresh($_pfm->screen->R_DISKINFO);
+	$_pfm->screen->set_deferred_refresh(R_DISKINFO);
 }
 
 =item unregister()
@@ -610,7 +627,7 @@ sub unregister {
 	if ($entry->{selected} eq M_MARK) {
 		$prevmark = $self->register_exclude($entry);
 	}
-	$_pfm->screen->set_deferred_refresh($_pfm->screen->R_DISKINFO);
+	$_pfm->screen->set_deferred_refresh(R_DISKINFO);
 	return $prevmark;
 }
 
@@ -650,7 +667,7 @@ sub register_include {
 	my ($self, $entry) = @_;
 	$self->{_selected_nr_of}{$entry->{type}}++;
 	$entry->{type} =~ /-/ and $self->{_selected_nr_of}{bytes} += $entry->{size};
-	$_pfm->screen->set_deferred_refresh($_pfm->screen->R_DISKINFO);
+	$_pfm->screen->set_deferred_refresh(R_DISKINFO);
 }
 
 =item register_exclude()
@@ -663,7 +680,68 @@ sub register_exclude {
 	my ($self, $entry) = @_;
 	$self->{_selected_nr_of}{$entry->{type}}--;
 	$entry->{type} =~ /-/ and $self->{_selected_nr_of}{bytes} -= $entry->{size};
-	$_pfm->screen->set_deferred_refresh($_pfm->screen->R_DISKINFO);
+	$_pfm->screen->set_deferred_refresh(R_DISKINFO);
+}
+
+=item set_dirty(int $flag_bits)
+
+Flags that this directory needs to be updated. The B<D_*>
+constants (see below) may be used to specify which aspect.
+
+=cut
+
+sub set_dirty {
+	my ($self, $bits) = @_;
+	$self->{_dirty} |= $bits;
+}
+
+=item unset_dirty(int $flag_bits)
+
+Removes the flag that this directory needs to be updated. The B<D_*>
+constants (see below) may be used to specify which aspect.
+
+=cut
+
+sub unset_dirty {
+	my ($self, $bits) = @_;
+	$self->{_dirty} &= ~$bits;
+}
+
+=item refresh()
+
+Refreshes the aspects of the directory that have been flagged as dirty.
+
+=cut
+
+sub refresh {
+	my ($self)  = @_;
+	my $browser = $_pfm->browser;
+	my $dirty   = $self->{_dirty};
+	$self->{_dirty} = 0;
+
+	if ($dirty) {
+		# TODO we should handle this with an event.
+		# first time round 'currentfile' is undefined
+		if (defined $browser->currentfile) {
+			$browser->position_at($browser->currentfile->{name});
+		}
+		# next line comes too late (_deferred_refresh has already been
+		# fetched by $screen->refresh()). either we must trust our handle*
+		# subs to set the flags correctly, or the screen object must
+		# fetch the _deferred_refresh flags again after the $d->refresh().
+		#
+#		$screen->set_deferred_refresh(R_LISTING);
+	}
+	if ($dirty & D_DIRCONTENTS) {
+		$self->init_dircount();
+		$self->readcontents();
+	}
+	if ($dirty & D_DIRSORT) {
+		$self->sortcontents();
+	}
+	if ($dirty & D_DIRFILTER) {
+		$self->filtercontents();
+	}
 }
 
 =item checkrcsapplicable()
@@ -683,7 +761,7 @@ sub checkrcsapplicable {
 		after_start			=> sub {
 			# next line needs to provide a '1' argument because
 			# $self->{_rcsjob} has not yet been set
-			$screen->set_deferred_refresh($screen->R_HEADINGS);
+			$screen->set_deferred_refresh(R_HEADINGS);
 			$screen->frame->rcsrunning(RCS_RUNNING);
 		},
 		after_receive_data	=> sub {
@@ -718,11 +796,13 @@ sub checkrcsapplicable {
 					$self->{_showncontents}[$mapindex]{rcs} = $flags;
 #				}
 			}
+			# TODO only show if this directory is on-screen (is_main).
 			$screen->listing->show();
 			$screen->listing->highlight_on();
 		},
 		after_finish		=> sub {
 			$self->{_rcsjob} = undef;
+			# TODO is it safe to use the bare constant R_HEADINGS here?
 			$screen->set_deferred_refresh($screen->R_HEADINGS);
 			$screen->frame->rcsrunning(RCS_DONE);
 		},
@@ -837,8 +917,7 @@ sub apply {
 		#$SIG{QUIT} = 'DEFAULT';
 		$_pfm->state->{multiple_mode} = 0 if $_pfm->config->{autoexitmultiple};
 		$self->checkrcsapplicable() if $_pfm->config->{autorcs};
-		$screen->set_deferred_refresh(
-			$screen->R_DIRLIST | $screen->R_PATHINFO | $screen->R_FRAME);
+		$screen->set_deferred_refresh(R_LISTING | R_PATHINFO | R_FRAME);
 	} else {
 		$loopfile = $_pfm->browser->currentfile;
 		$loopfile->apply($do_this, $special_mode, @args);
@@ -865,8 +944,43 @@ sub apply {
 
 =head1 CONSTANTS
 
-This package provides the B<M_*> constants which indicate which characters
-are to be used for mark, oldmark and newmark.
+This package provides the B<D_*> constants which indicate
+which aspects of the directory object need to be refreshed.
+They can be imported with C<use App::PFM::Directory qw(:constants)>.
+
+=over
+
+=item D_DIRFILTER
+
+The directory contents should be filtered again.
+
+=item D_DIRSORT
+
+The directory contents should be sorted again.
+
+=item D_DIRCONTENTS
+
+The directory contents should be updated from disk.
+
+=item D_ALL
+
+Convenience alias for a combination of all of the above.
+
+=back
+
+A refresh need for an aspect of the directory may be flagged by
+providing one or more of these constants to set_dirty(), I<e.g.>
+
+	$directory->set_dirty(D_DIRSORT);
+
+The actual refresh will be performed on calling:
+
+	$directory->refresh();
+
+This will also reset the flags.
+
+In addition, this package provides the B<M_*> constants which
+indicate which characters are to be used for mark, oldmark and newmark.
 They can be imported with C<use App::PFM::Directory qw(:constants)>.
 
 =over

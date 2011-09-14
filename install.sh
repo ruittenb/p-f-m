@@ -2,9 +2,9 @@
 ############################################################################
 #
 # Name:         install.sh
-# Version:      0.35
+# Version:      0.37
 # Authors:      Rene Uittenbogaard
-# Date:         2010-08-23
+# Date:         2010-08-26
 # Usage:        sh install.sh
 # Description:  Un*x-like systems can be very diverse.
 #		This script is meant as an example how pfm dependencies
@@ -334,7 +334,7 @@ download_and_install_perl_module() {
 		$sudo perl -MCPAN -e"install $packagename"
 	else
 		target="$(echo $packagename | sed -es/::/-/g)"
-		make -C modules $target
+		SUDO=$sudo make -C modules $target
 	fi
 }
 
@@ -388,7 +388,7 @@ download_and_install_perl_module_term_readline_gnu() {
 #		fi
 	else # bundled
 		target="$(echo $packagename | sed -es/::/-/g)"
-		make -C modules $target
+		SUDO=$sudo make -C modules $target
 	fi
 }
 
@@ -458,6 +458,7 @@ check_package readline
 # check, download and install the Perl modules.
 # check with the minimum required version.
 check_cpan
+check_download_and_install_perl_module File::Temp        0.22
 check_download_and_install_perl_module File::Stat::Bits  0.19
 check_download_and_install_perl_module HTML::Parser      3.59
 check_download_and_install_perl_module LWP               5.827

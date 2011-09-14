@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::OS::Solaris 0.03
+# @(#) App::PFM::OS::Solaris 0.04
 #
 # Name:			App::PFM::OS::Solaris
-# Version:		0.03
+# Version:		0.04
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-22
-# Date:			2010-08-25
+# Date:			2010-08-26
 #
 
 ##########################################################################
@@ -39,7 +39,7 @@ use strict;
 
 use constant {
 	MINORBITS => 2 ** 18,
-	IFMTCHARS => ' pc?d?b?-Cl?sDP?', # event ports and contiguous files
+	IFMTCHARS => ' pc?d?b?-Cl?sDP?', # with event ports and contiguous files
 };
 
 ##########################################################################
@@ -84,7 +84,7 @@ Sets a file's Access Control List from the data in a temporary file.
 
 sub aclput {
 	my ($self, $path, $aclfilename) = @_;
-	$self->system(qw{setfacl -f}, $aclfilename, $path);
+	return $self->system(qw{setfacl -f}, $aclfilename, $path);
 }
 
 ##########################################################################

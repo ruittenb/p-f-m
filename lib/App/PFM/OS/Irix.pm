@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::OS::Irix 0.02
+# @(#) App::PFM::OS::Irix 0.03
 #
 # Name:			App::PFM::OS::Irix
-# Version:		0.02
+# Version:		0.03
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-22
-# Date:			2010-08-25
+# Date:			2010-08-26
 #
 
 ##########################################################################
@@ -57,18 +57,18 @@ IRIX-specific method for requesting filesystem info.
 sub df {
 	# we have:
 	# IRIX% df -k 
-	# Filesystem          Type    kbytes      use    avail %use Mounted on
-	# /dev/root            xfs     39287    29074    10213  75  /
-	# /dev/dsk/xlv/user2   xfs   3826740  3735108    91632  98  /usr
-	# /dev/dsk/xlv/e       xfs  35224840 34471480   753360  98  /e
-	#    0                  1        2        3        4    5    6
+	# Filesystem         Type    kbytes       use   avail %use Mounted on
+	# /dev/root           xfs     39287     29074   10213  75  /
+	# /dev/dsk/xlv/user2  xfs   3826740   3735108   91632  98  /usr
+	# /dev/dsk/xlv/e      xfs  35224840  34471480  753360  98  /e
+	#    0                 1        2         3       4    5    6
 	#
 	# we'd like:
 	# Linux$ df -k
-	# Filesystem      1K-blocks      Used  Available  Use%  Mounted on
-	# /dev/sda5       107890108  10446800   91962736   11%  /
-	# /dev/sda1        41286796   2862444   36327068    8%  /home
-	#    0                1           2          3      4    5
+	# Filesystem   1K-blocks      Used  Available  Use%  Mounted on
+	# /dev/sda5    107890108  10446800   91962736   11%  /
+	# /dev/sda1     41286796   2862444   36327068    8%  /home
+	#    0             1           2          3      4    5
 	#
 	my ($self, $file) = @_;
 	my (@fields);
@@ -107,7 +107,7 @@ sub aclput {
 	my $line = <$aclfile>;
 	$line =~ s/^\s+//;
 	$line =~ s/\s+$//;
-	$self->system('chacl', $line, $path);
+	return $self->system('chacl', $line, $path);
 }
 
 ##########################################################################

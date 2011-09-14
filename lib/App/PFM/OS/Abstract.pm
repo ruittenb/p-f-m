@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::OS::Abstract 0.10
+# @(#) App::PFM::OS::Abstract 0.11
 #
 # Name:			App::PFM::OS::Abstract
-# Version:		0.10
+# Version:		0.11
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-20
-# Date:			2010-08-25
+# Date:			2010-08-26
 #
 
 ##########################################################################
@@ -43,7 +43,7 @@ use strict;
 
 use constant {
 	MINORBITS => 2 ** 8,
-	IFMTCHARS => ' pc?d?b?-Cl?sDw?', # whiteouts and contiguous files
+	IFMTCHARS => ' pc?d?b?-Cl?sDw?', # with whiteouts and contiguous files
 };
 
 our ($AUTOLOAD);
@@ -175,7 +175,32 @@ sub rdev_to_major_minor {
 =item ifmt2str(int $mode)
 
 Translates the S_IFMT bits of the mode field of a stat(2) structure
-to a character indicating the file type.
+to a character indicating the inode type.
+
+Possible inode types are:
+
+ 0000                000000  unused inode
+ 1000  S_IFIFO   p|  010000  fifo (named pipe)
+ 2000  S_IFCHR   c   020000  character special
+ 3000  S_IFMPC       030000  multiplexed character special (V7)
+ 4000  S_IFDIR   d/  040000  directory
+ 5000  S_IFNAM       050000  named special file (XENIX) with two sub-
+                             types, distinguished by st_rdev values 1,2:
+ 0001  S_INSEM   s   000001    semaphore
+ 0002  S_INSHD   m   000002    shared data
+ 6000  S_IFBLK   b   060000  block special
+ 7000  S_IFMPB       070000  multiplexed block special (V7)
+ 8000  S_IFREG   -   100000  regular file
+ 9000  S_IFCNT   C   110000  contiguous file
+ 9000  S_IFNWK   n   110000  network special (HP-UX)
+ a000  S_IFLNK   l@  120000  symbolic link
+ b000  S_IFSHAD      130000  Solaris ACL shadow inode,
+                             not seen by userspace
+ c000  S_IFSOCK  s=  140000  socket AF_UNIX
+ d000  S_IFDOOR  D>  150000  door (Solaris)
+ e000  S_IFWHT   w%  160000  whiteout (BSD)
+ e000  S_IFPORT  P   160000  event port (Solaris)
+ f000  S_IFEVC       170000  UNOS event count
 
 =cut
 
@@ -193,14 +218,19 @@ filename.
 
 sub aclget_to_file {
 	my ($self, $path) = @_;
-	# destroy and unlink any old file
+	my $res = '';
+	# automatically destroys and unlinks any old file
 	$self->{_aclfile} = new File::Temp(
-		TEMPLATE => 'pfm.acl.XXXXXXXX',
+		TEMPLATE => 'pfm.XXXXXXXXXXXX',
 		DIR      => '/tmp',
 	);
-	$self->{_aclfile}->print($self->aclget($path));
-	$self->{_aclfile}->close();
-	return $self->{_aclfile}->filename;
+	my @lines = $self->aclget($path);
+	return '' unless @lines;
+	$self->{_aclfile}->print(@lines);
+	if ($self->{_aclfile}->close()) {
+		$res = $self->{_aclfile}->filename;
+	}
+	return $res;
 }
 
 =item aclput_from_file(string $path, string $aclfilename)
@@ -212,8 +242,9 @@ Removes the temporary file afterwards.
 
 sub aclput_from_file {
 	my ($self, $path, $aclfilename) = @_;
-	$self->aclput($path, $aclfilename, $self->{_aclfile});
+	my $res = $self->aclput($path, $aclfilename, $self->{_aclfile});
 	undef $self->{_aclfile}; # destroy and unlink
+	return $res;
 }
 
 =item acledit_via_file(string $aclfilename)
@@ -225,9 +256,10 @@ List description.
 
 sub acledit_via_file {
 	my ($self, $aclfilename) = @_;
-	$self->system(
+	my $res = $self->system(
 		$self->{_pfm}->config->{fg_editor},
 		$aclfilename);
+	return $res;
 }
 
 ##########################################################################
@@ -242,7 +274,7 @@ Starts the OS command provided. Output goes to the terminal.
 sub system {
 	my ($self, @args) = @_;
 	my $shellcmd = join ' ', map { quotemeta } (@args);
-	system $shellcmd;
+	return !system $shellcmd;
 }
 
 =item backtick( [ args... ] )
@@ -370,9 +402,12 @@ Platform-independent method for editing Access Control Lists.
 
 sub acledit {
 	my ($self, $path) = @_;
-	my $aclfilename = $self->aclget_to_file($path);
-	$self->acledit_via_file($aclfilename);
-	$self->aclput_from_file($path, $aclfilename);
+	my $aclfilename;
+	# next line contains an assignment on purpose
+	return 0 unless $aclfilename = $self->aclget_to_file($path);
+	return 0 unless $self->acledit_via_file($aclfilename);
+	return 0 unless $self->aclput_from_file($path, $aclfilename);
+	return 1;
 }
 
 ##########################################################################

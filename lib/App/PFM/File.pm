@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::File 0.36
+# @(#) App::PFM::File 0.37
 #
 # Name:			App::PFM::File
-# Version:		0.36
+# Version:		0.37
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-08-26
@@ -42,7 +42,7 @@ use POSIX qw(strftime);
 use strict;
 use locale;
 
-my @SYMBOLIC_MODES = qw(--- --x -w- -wx r-- r-x rw- rwx);
+use constant SYMBOLIC_MODES => [ qw(--- --x -w- -wx r-- r-x rw- rwx) ];
 
 our ($_pfm);
 
@@ -102,31 +102,7 @@ sub _decidecolor {
 
 Converts a numeric I<st_mode> field (permission bits) to a symbolic one
 (I<e.g.> C<drwxr-x--->).
-
-Possible inode types are:
-
- 0000                000000  unused inode
- 1000  S_IFIFO   p|  010000  fifo (named pipe)
- 2000  S_IFCHR   c   020000  character special
- 3000  S_IFMPC       030000  multiplexed character special (V7)
- 4000  S_IFDIR   d/  040000  directory
- 5000  S_IFNAM       050000  named special file (XENIX) with two subtypes,
-                             distinguished by st_rdev values 1,2:
- 0001  S_INSEM   s   000001    semaphore
- 0002  S_INSHD   m   000002    shared data
- 6000  S_IFBLK   b   060000  block special
- 7000  S_IFMPB       070000  multiplexed block special (V7)
- 8000  S_IFREG   -   100000  regular
- 9000  S_IFCNT   C   110000  contiguous file
- 9000  S_IFNWK   n   110000  network special (HP-UX)
- a000  S_IFLNK   l@  120000  symbolic link
- b000  S_IFSHAD      130000  Solaris ACL shadow inode,
-                             not seen by userspace
- c000  S_IFSOCK  s=  140000  socket AF_UNIX
- d000  S_IFDOOR  D>  150000  door (Solaris)
- e000  S_IFWHT   w%  160000  whiteout (BSD)
- e000  S_IFPORT  P   160000  event port (Solaris)
- f000  S_IFEVC       170000  UNOS event count
+Uses I<App::PFM::OS::*::ifmt2str>() to determine the inode type.
 
 =cut
 
@@ -136,7 +112,7 @@ sub mode2str {
 	my $octmode = sprintf("%lo", $nummode);
 	$octmode	=~ /(\d\d?)(\d)(\d)(\d)(\d)$/;
 	$strmode	= $_pfm->os->ifmt2str($1)
-				. join '', @SYMBOLIC_MODES[$3, $4, $5];
+				. join '', @{SYMBOLIC_MODES()}[$3, $4, $5];
 	#
 	if ($2 & 4) { substr($strmode,3,1) =~ tr/-x/Ss/ }
 	if ($2 & 2) {

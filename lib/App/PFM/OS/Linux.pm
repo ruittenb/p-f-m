@@ -89,7 +89,7 @@ Sets a file's Access Control List from the data in a temporary file.
 
 sub aclput {
 	my ($self, $path, $aclfilename) = @_;
-	$self->system(qw{setfacl -M}, $aclfilename, $path);
+	return $self->system(qw{setfacl --set-file}, $aclfilename, $path);
 }
 
 ##########################################################################
