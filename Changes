@@ -1,3 +1,14 @@
+2.09.9-beta
+
+* fixed: (M)ore - (V)ersion now correctly updates statuses
+* fixed: updating the count of marked files is now correctly updated when
+  using an =8 escape.
+* added: 'ignore' mode to show the status on svn-ignored files
+* added: ';' command to toggle 'ignore' mode
+* added: layout fields 'w' and 'h' (numeric user and group id)
+* added: sort modes 'w' and 'h' (numeric user and group id)
+* updated documentation
+
 2.09.8-beta
 
 * fixed: using the '=8' escape multiple times in one command is now possible

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::Git 0.31
+# @(#) App::PFM::Job::Git 0.34
 #
 # Name:			App::PFM::Job::Git
-# Version:		0.31
+# Version:		0.34
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-24
+# Date:			2010-10-18
 #
 
 ##########################################################################
@@ -41,16 +41,17 @@ use locale;
 ##########################################################################
 # private subs
 
-=item _init(hashref { $eventname1 => coderef $handler1 [, ...] })
+=item _init(hashref { $eventname1 => coderef $handler1 [, ...] },
+hashref $options)
 
 Initializes new instances. Called from the constructor.
 
 =cut
 
 sub _init {
-	my ($self, @args) = @_;
+	my ($self, $handlers, $options) = @_;
 	$self->{_COMMAND} = 'git status --porcelain %s';
-	$self->SUPER::_init(@args);
+	$self->SUPER::_init($handlers, $options);
 }
 
 =item _preprocess(string $data)

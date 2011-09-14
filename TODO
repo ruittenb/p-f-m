@@ -31,10 +31,12 @@
   case-insensitive. In other words, 'serviceore' matches 'ServiceOrderXPerson'
   better than 'ServiceTypeGp'.
 
-- bug: suppose files A and B are marked, and the cursor is on file C.
-  Executing a c(O)mmand - 'echo =8' sets the marked_number_of correctly.
-  However, pressing <F10> first, or setting the cursor on file A or B first,
-  corrupts the marked_number_of.
+- bug: a file can be (R)enamed to '=e'
+- if =5 is requested but there is no swap state, what to do?
+- in general, if an escape is invalid, what to do?
+
+- _expand_filename_escapes() ? 
+  _expand_command_escapes() ?
 
 - bug: resizing a very tall window can leave the currentfile on the last line of
   the screen, overwriting the footer. the cursor position is not correctly validated
@@ -45,9 +47,6 @@
 
 - OS: dynamically use() modules, as in:
   $c = 'Complex'; eval "use Math::$c; \$main::a = 4 + i";
-
-- rename 'uid' and 'gid' fields in File.pm to 'user' and 'group';
-  store numeric uid and gid in 'uid' and 'gid' members
 
 - restructure chdir(), handleswap()/handlemoreshow()/handlemorego() etc.
 - check function of $swapping flag behavior
@@ -101,13 +100,16 @@
 
 - make si(Z)e a job in the background just like (V)ersion
 
+- nice to have: implement an 'after_job_receive_no_data' event
+
 ################################################################################
 # documentation enhancements
 
-- UML: add
-    App::PFM::Job::Abstract
-     ::poll_data()
-     ::_poll_buffer : hashref
+- UML:
+  CommandHandler
+    ::_unmark_eightset()
+    ::_expand_tildes()
+    ::_expand_8_escapes()
 
 - manpages: use I<...> in =items
 

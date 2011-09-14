@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::RCS 0.33
+# @(#) App::PFM::Job::RCS 0.34
 #
 # Name:			App::PFM::Job::RCS
-# Version:		0.33
+# Version:		0.34
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-24
+# Date:			2010-10-18
 #
 
 ##########################################################################
@@ -41,16 +41,17 @@ use locale;
 ##########################################################################
 # private subs
 
-=item _init(hashref { $eventname1 => coderef $handler1 [, ...] })
+=item _init(hashref { $eventname1 => coderef $handler1 [, ...] },
+hashref { path => string $path })
 
 Initializes new instances. Called from the constructor.
 
 =cut
 
 sub _init() {
-	my ($self, $path, @args) = @_;
-	$self->{_path}    = $path;
-	$self->SUPER::_init(@args);
+	my ($self, $handlers, $options) = @_;
+	$self->{_path} = $options->{path};
+	$self->SUPER::_init($handlers, $options);
 }
 
 =item _start_child()

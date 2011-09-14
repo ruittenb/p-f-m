@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Frame 0.38
+# @(#) App::PFM::Screen::Frame 0.39
 #
 # Name:			App::PFM::Screen::Frame
-# Version:		0.38
+# Version:		0.39
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-16
+# Date:			2010-10-18
 #
 
 ##########################################################################
@@ -77,14 +77,17 @@ our %_fieldheadings = (
 	grand_power		=> ' ',
 	inode			=> 'inode',
 	mode			=> 'mode',
+	mode_num		=> 'mode_num',
 	atime			=> 'date/atime',
 	mtime			=> 'date/mtime',
 	ctime			=> 'date/ctime',
 	atimestring		=> 'date/atime',
 	mtimestring		=> 'date/mtime',
 	ctimestring		=> 'date/ctime',
-	uid				=> 'user',
-	gid				=> 'group',
+	user			=> 'user',
+	group			=> 'group',
+	uid				=> 'uid',
+	gid				=> 'gid',
 	nlink			=> 'lnks',
 	rdev			=> 'dev',
 	rcs				=> 'rcs',
@@ -292,6 +295,7 @@ sub _getfooter {
 		.		" .-Dotfiles[$ONOFF{$state{dot_mode}}]"
 		.		" %-Whiteouts[$ONOFF{$state{white_mode}}]"
 		.		" \"-Pathnames[" . $_pfm->state->directory->path_mode . "]"
+		.		" ;-Ignored[$ONOFF{$_pfm->state->directory->ignore_mode}]"
 #		.		" *-Radix[$state{radix_mode}]"
 #		.		" SP-Spaces[$state{trspace}]"
 #		.		" =-Ident[$state{ident_mode}]"

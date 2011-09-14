@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Directory 0.94
+# @(#) App::PFM::Directory 0.95
 #
 # Name:			App::PFM::Directory
-# Version:		0.94
+# Version:		0.95
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-10-18
@@ -118,6 +118,7 @@ sub _init {
 	$self->{_rcsjob}		 = undef;
 	$self->{_wasquit}		 = undef;
 	$self->{_path_mode}		 = 'log';
+	$self->{_ignore_mode}	 = 0;
 	$self->{_dircontents}	 = [];
 	$self->{_showncontents}	 = [];
 	$self->{_marked_nr_of}   = {};
@@ -200,10 +201,14 @@ sub _sort_singlelevel {
 		/S/  and return		$b->{size}		<=>		$a->{size};
 		/z/  and return		$a->{grand}		<=>		$b->{grand};
 		/Z/  and return		$b->{grand}		<=>		$a->{grand};
-		/u/  and return		$a->{uid}		cmp		$b->{uid};
-		/U/  and return		$b->{uid}		cmp		$a->{uid};
-		/g/  and return		$a->{gid}		cmp		$b->{gid};
-		/G/  and return		$b->{gid}		cmp		$a->{gid};
+		/u/  and return		$a->{user}		cmp		$b->{user};
+		/U/  and return		$b->{user}		cmp		$a->{user};
+		/g/  and return		$a->{group}		cmp		$b->{group};
+		/G/  and return		$b->{group}		cmp		$a->{group};
+		/w/  and return		$a->{uid}		<=>		$b->{uid};
+		/W/  and return		$b->{uid}		<=>		$a->{uid};
+		/h/  and return		$a->{gid}		<=>		$b->{gid};
+		/H/  and return		$b->{gid}		<=>		$a->{gid};
 		/l/  and return		$a->{nlink}		<=>		$b->{nlink};
 		/L/  and return		$b->{nlink}		<=>		$a->{nlink};
 		/i/  and return		$a->{inode}		<=>		$b->{inode};
@@ -508,6 +513,23 @@ sub path_mode {
 		$self->{_screen}->set_deferred_refresh(R_FOOTER | R_PATHINFO);
 	}
 	return $self->{_path_mode};
+}
+
+=item ignore_mode( [ bool $ignore_mode ] )
+
+Getter/setter for the ignore mode setting.
+
+=cut
+
+sub ignore_mode {
+	my ($self, $value) = @_;
+	if (defined $value) {
+		$self->{_ignore_mode} = $value;
+		$self->{_screen}->set_deferred_refresh(R_FOOTER);
+		$self->preparercscol();
+		$self->checkrcsapplicable();
+	}
+	return $self->{_ignore_mode};
 }
 
 ##########################################################################
@@ -899,19 +921,24 @@ sub checkrcsapplicable {
 				$self->{_jobhandler}->stop($self->{_rcsjob});
 				$entry = $path;
 			}
-			$self->{_rcsjob} = $self->{_jobhandler}->start($class, $entry, {
+			$self->{_rcsjob} = $self->{_jobhandler}->start($class, {
 				after_job_start			=> $on_after_job_start,
 				after_job_receive_data	=> $on_after_job_receive_data,
 				after_job_finish		=> $on_after_job_finish,
+			}, {
+				path     => $entry,
+				noignore => $self->{_ignore_mode},
 			});
 			return;
 		}
 	}
 }
 
-=item preparercscol(App::PFM::File $file)
+=item preparercscol( [ App::PFM::File $file ] )
 
 Prepares the 'Version' field in the directory contents by clearing it.
+If a I<file> argument is provided, then only process this file;
+otherwise, process this entire directory.
 
 =cut
 
@@ -925,6 +952,7 @@ sub preparercscol {
 	foreach (0 .. $#{$self->{_showncontents}}) {
 		$self->{_showncontents}[$_]{$layoutfields->{'v'}} = '-';
 	}
+	$self->{_screen}->set_deferred_refresh(R_LISTING);
 }
 
 =item dirlookup(string $filename, array @dircontents)

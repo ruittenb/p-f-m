@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config::Update 2.09.8
+# @(#) App::PFM::Config::Update 2.09.9
 #
 # Name:			App::PFM::Config::Update
-# Version:		2.09.8
+# Version:		2.09.9
 # Author:		Rene Uittenbogaard
 # Created:		2010-05-28
-# Date:			2010-10-03
+# Date:			2010-10-18
 #
 
 ##########################################################################
@@ -889,7 +889,17 @@ use constant UPDATES => {
 		substitutions => sub {
 			s{^##  =f : 'fg_editor' .defined above.}
 			 {##  =E : 'fg_editor' (defined above)};
-		 },
+		},
+	},
+	# ----- 2.09.9 ---------------------------------------------------------
+	'2.09.9' => {
+		additions => [{
+			after => qr{^## g    group\s+>=8.*system-dependent},
+			batch => [
+				"## w    uid                      >=5 (system-dependent)\n",
+				"## h    gid                      >=5 (system-dependent)\n",
+			],
+		}],
 	},
 };
 

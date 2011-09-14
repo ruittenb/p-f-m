@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::Abstract 0.95
+# @(#) App::PFM::Job::Abstract 0.97
 #
 # Name:			App::PFM::Job::Abstract
-# Version:		0.95
+# Version:		0.97
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-10-18
@@ -46,7 +46,8 @@ use locale;
 ##########################################################################
 # private subs
 
-=item _init(hashref { $eventname1 => coderef $handler1 [, ...] })
+=item _init(hashref { $eventname1 => coderef $handler1 [, ...] }
+[, hashref $options ] )
 
 Initializes the 'running' flag ('childpid'), and registers the
 provided event handlers.
@@ -54,11 +55,13 @@ provided event handlers.
 =cut
 
 sub _init {
-	my ($self, $handlers) = @_;
-	$self->{_childpid} = 0;
-	$self->{_pipe}     = undef;
-	$self->{_selector} = new IO::Select();
-	$self->{_buffer}   = '';
+	my ($self, $handlers, $options) = @_;
+	$self->{_childpid}    = 0;
+	$self->{_pipe}        = undef;
+	$self->{_selector}    = new IO::Select();
+	$self->{_options}     = $options;
+	$self->{_line_buffer} = '';
+	$self->{_poll_buffer} = undef;
 	$self->{_stop_next_iteration} = 0;
 	foreach (keys %$handlers) {
 		$self->register_listener($_, ${$handlers}{$_});
@@ -118,13 +121,16 @@ sub _poll_data {
 	# check if there is data ready on the filehandle
 	return if $self->{_selector}->can_read(0) <= 0;
 	# the filehandle is ready
-	if ($self->{_pipe}->sysread($input, 10000) > 0 or length $self->{_buffer}) {
-		$self->{_buffer} .= $input;
+	if ($self->{_pipe}->sysread($input, 10000) > 0 or
+		length $self->{_line_buffer})
+	{
+		$self->{_line_buffer} .= $input;
 		JOB_LINE_INPUT: # the next line contains an assignment on purpose
-		while (($newlinepos = index($self->{_buffer}, "\n")) >= 0) {
+		while (($newlinepos = index($self->{_line_buffer}, "\n")) >= 0) {
 			# process one line of input.
-			$input = substr($self->{_buffer}, 0, $newlinepos);
-			$self->{_buffer} = substr($self->{_buffer}, $newlinepos+1);
+			$input = substr($self->{_line_buffer}, 0, $newlinepos);
+			$self->{_line_buffer} =
+				substr($self->{_line_buffer}, $newlinepos + 1);
 			# the next line contains an assignment on purpose
 			if (defined($input = $self->_preprocess($input))) {
 				push @{$self->{_poll_buffer}}, $input;
@@ -190,9 +196,9 @@ sub start {
 	}));
 	$SIG{CHLD} = \&_catch_child;
 	$self->{_stop_next_iteration} = 0;
-	$self->{_buffer}   = '';
-	$self->{_pipe}     = new IO::Pipe();
-	$self->{_childpid} = $self->_start_child() || 1;
+	$self->{_line_buffer} = '';
+	$self->{_pipe}        = new IO::Pipe();
+	$self->{_childpid}    = $self->_start_child() || 1;
 	$self->{_selector}->add($self->{_pipe});
 	$self->fire(new App::PFM::Event({
 		name   => 'after_job_start',
@@ -244,7 +250,7 @@ sub stop {
 		origin => $self,  # not used ATM
 		type   => 'soft', # not used ATM
 	}));
-	$self->{_buffer} = '';
+	$self->{_line_buffer} = '';
 	#$self->{_event_handlers} = {}; # necessary for garbage collection?
 	return 0;
 }

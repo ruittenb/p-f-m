@@ -3,7 +3,7 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.09.8
+# Version:		2.09.9
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-10-18
@@ -24,14 +24,14 @@
 # version
 
 # for MakeMaker
-our $VERSION  = '2.09.8';
+our $VERSION  = '2.09.9';
 our $LASTYEAR = 2010;
 
 =pod
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.09.8
+.ds Vw @(#) pfm.pl 2.09.9
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -964,6 +964,10 @@ Toggle show/hide dot files.
 =item B</>
 
 Identical to B<F>ind (see above).
+
+=item B<;>
+
+Toggle show/hide svn ignored files.
 
 =item B<E<lt>>
 
