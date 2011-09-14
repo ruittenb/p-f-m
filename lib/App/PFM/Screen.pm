@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen 0.54
+# @(#) App::PFM::Screen 0.55
 #
 # Name:			App::PFM::Screen
-# Version:		0.54
+# Version:		0.55
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-03-28
+# Date:			2011-05-27
 # Requires:		Term::ScreenColor
 #
 
@@ -589,20 +589,25 @@ sub clear_footer {
 	return $self;
 }
 
-=item select_next_color()
+=item select_next_color(bool $direction)
 
-Finds the next colorset to use.
+Finds the next colorset to use. If I<direction> is true, cycle forward;
+else backward.
 
 =cut
 
 sub select_next_color {
-	my ($self) = @_;
+	my ($self, $direction) = @_;
 	my @colorsetnames = @{$self->{_config}->{colorsetnames}};
 	my $index = $#colorsetnames;
 	while ($self->{_color_mode} ne $colorsetnames[$index] and $index > 0) {
 		$index--;
 	}
-	if ($index-- <= 0) { $index = $#colorsetnames }
+	if ($direction) {
+		if ($index-- <= 0) { $index = $#colorsetnames }
+	} else {
+		if ($index++ >= $#colorsetnames) { $index = 0 }
+	}
 	$self->{_color_mode} = $colorsetnames[$index];
 	$self->color_mode($self->{_color_mode});
 	# Directory is interested (wants to reformat files)
@@ -965,9 +970,10 @@ sub on_after_parse_config {
 		$keydefs .= ':' . $pfmrc->{"keydef[$ENV{TERM}]"};
 	}
 	$keydefs =~ s/(\\e|\^\[)/\e/gi;
-	#if defined ($self->{_config}{esc_timeout}) {
-	#	$this->timeout($self->{_config}{esc_timeout});
-	#}
+	# see if we have esc_timeout
+	if (defined $self->{_config}{esc_timeout}) {
+		$self->timeout($self->{_config}{esc_timeout});
+	}
 	# there can be no colons (:) in escape sequences
 	foreach (split /:/, $keydefs) {
 		/^(\w+)=(.*)/ and $self->def_key($1, $2);

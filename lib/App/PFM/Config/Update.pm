@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config::Update 2.11.6
+# @(#) App::PFM::Config::Update 2.11.7
 #
 # Name:			App::PFM::Config::Update
-# Version:		2.11.6
+# Version:		2.11.7
 # Author:		Rene Uittenbogaard
 # Created:		2010-05-28
-# Date:			2011-03-28
+# Date:			2011-06-05
 #
 
 ##########################################################################
@@ -1174,6 +1174,41 @@ use constant UPDATES => {
 			batch => [
 				"## display file comparison information before asking to clobber (default: yes)\n",
 				"#clobber_compare:no\n",
+				"\n",
+			],
+		}],
+	},
+	# ----- 2.11.7 ---------------------------------------------------------
+	'2.11.7' => {
+		substitutions => sub {
+			s{## should the timestamps be truncated to the field length. .otherwise,}
+			 {## should the time field be stretched to the timestamp length? (otherwise,};
+			s{## the timestamp field is adjusted if necessary.*?default:.*}
+			 {## the timestamp will be truncated). (default: yes)};
+			s[^(#+\s*)timestamptruncate:\s*(yes|y|1|true|on)]
+			 [${1}timefieldstretch: no];
+			s[^(#+\s*)timestamptruncate:\s*(no|n|0|false|off)]
+			 [${1}timefieldstretch: yes];
+		},
+		additions => [{
+			ifnotpresent => qr/esc_timeout:/,
+			before => qr/## In case the regular editor automatically forks in the background/,
+			batch => [
+				"## timeout for escape sequences (in seconds). Smaller values can make\n",
+				"## handling the ESC key snappier, but over a slow connection, function\n",
+				"## keys and friends may not arrive correctly. Use with care.\n",
+				"## (default: 0.4 sec)\n",
+				"#esc_timeout: 0.4\n",
+				"\n",
+			],
+		}, {
+			ifnotpresent => qr/:ks4=.eO1;2S:  # shift-F4/,
+			before => qr/# gnome-terminal handles F1 itself/,
+			batch => [
+				"# :ks4=\\eO1;2S:  # shift-F4\n",
+				"# :ks9=\\e[20;2~: # shift-F9\n",
+				"# :ks4=\\e[26~:   # shift-F4\n",
+				"# :ks9=\\e[33~:   # shift-F9\n",
 				"\n",
 			],
 		}],

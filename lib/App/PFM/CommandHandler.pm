@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.63
+# @(#) App::PFM::CommandHandler 1.68
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.63
+# Version:		1.68
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-03-28
+# Date:			2011-06-15
 #
 
 ##########################################################################
@@ -54,6 +54,7 @@ use constant {
 	TRUE                => 1,
 	QUOTE_OFF           => 0,
 	QUOTE_ON            => 1,
+	NR_HELPPAGES        => 5,
 };
 
 use constant INC_CRITERIA => [
@@ -142,61 +143,113 @@ Returns the text for a specific help page.
 
 sub _helppage {
 	my ($self, $page) = @_;
-	my $prompt;
+	my $pages  = NR_HELPPAGES;
+	my $pp     = "$page/$pages";
+	my $prompt = 'F1 or ? for manpage, arrows or BS/ENTER to browse ';
 	if ($page == 1) {
-		print <<'        _endPage1_';
+		print <<"        _endPage1_";
 --------------------------------------------------------------------------------
-                          NAVIGATION AND DISPLAY KEYS                      [1/3]
+                              NAVIGATION and MOUSE                         [$pp]
 --------------------------------------------------------------------------------
- k, up arrow     move one line up                 F1 ? help                     
- j, down arrow   move one line down               F2   go to previous directory 
- -, +            move ten lines                   F3   redraw screen            
- CTRL-E          scroll listing one line up       F4   cycle colorsets          
- CTRL-Y          scroll listing one line down     F5   read directory contents  
- CTRL-U          move half a page up              F6   sort directory           
- CTRL-D          move half a page down            F7   toggle swap mode         
- CTRL-B, PgUp    move a full page up              F8   mark file                
- CTRL-F, PgDn    move a full page down            F9   cycle layouts            
- HOME, END       move to top, bottom              F10  toggle multiple mode     
- SPACE           mark file & advance              F11  restat file              
- l, right arrow  enter directory                  F12  toggle mouse mode        
- h, left arrow   leave directory                --------------------------------
- ENTER           enter directory; launch          ;    toggle show svn ignored  
- ESC, BS         leave directory                  !    toggle clobber mode      
------------------------------------------------   "    toggle pathmode          
- @   perl command (for debugging)                 =    cycle idents             
- <   pan commands menu left                       .    filter dotfiles          
- >   pan commands menu right                      %    filter whiteouts         
+ k, UpArrow     move one line up          CTRL-E   scroll listing one line up   
+ j, DownArrow   move one line down        CTRL-Y   scroll listing one line down 
+ -              move ten lines up         HOME     move to top of listing       
+ +              move ten lines down       END      move to bottom of listing    
+ CTRL-U         move half a page up       SPACE    mark file & move down        
+ CTRL-D         move half a page down     ENTER    enter directory; launch file 
+ CTRL-B, PgUp   move a full page up       ESC, BS  leave directory              
+ CTRL-F, PgDn   move a full page down                                           
+ l, RightArrow  enter directory                                                 
+ h, LeftArrow   leave directory                                                 
+                                                                                
+                                                                                
+--------------------------------------------------------------------------------
+ MOUSE    pathline  menu/footer  heading   fileline  filename  dirname          
+--------------------------------------------------------------------------------
+ Btn 1    chdir()   pfm-cmd      sort      F8        Show      Show             
+ Btn 2/3  cOmmand   pfm-cmd      sort rev  Show      ENTER     Open window (mo) 
+                                                                                
+                                                                                
 --------------------------------------------------------------------------------
         _endPage1_
-		$prompt = 'F1 or ? for manpage, arrows or BS/ENTER to browse ';
 	} elsif ($page == 2) {
-		print <<'        _endPage2_';
+		print <<"        _endPage2_";
 --------------------------------------------------------------------------------
-                                  COMMAND KEYS                             [2/3]
+                             DISPLAY and MODE KEYS                         [$pp]
 --------------------------------------------------------------------------------
- a      Attribute (chmod)                y   Your command                       
- c      Copy                             z   siZe (grand total)                 
- d DEL  Delete                          ----------------------------------------
- e E    Edit / foreground Edit           m@  perl shell (for debugging)         
- f /    Find                             ma  edit ACL                           
- g      change symlink tarGet            mb  make Bookmark                      
- i      Include                          mc  Configure pfm                      
- L      sym/hard Link                    me  Edit any file                      
- n      show Name                        mf  make FIFO                          
- o      OS cOmmand                       mg  Go to bookmark                     
- p      Print                            mh  spawn sHell                        
- q Q    (Quick) quit                     ml  foLlow symlink to target           
- r      Rename/move                      mm  Make new directory                 
- s      Show                             mo  Open new window                    
- t      change Timestamp                 mp  show Physical path                 
- u      change User/group (chown)        ms  Show directory (chdir)             
- v      Version status                   mt  show alTernate screen              
- w      remove Whiteout                  mv  Version status all files           
- x      eXclude                          mw  Write history                      
+  F1, ? help                          .   filter dotfiles                       
+  F2    go to previous directory      %   filter whiteouts                      
+  F3    redraw screen                 !   toggle clobber mode                   
+  F4    cycle colorsets               "   toggle pathmode                       
+  S-F4  cycle colorsets backward      ;   toggle show svn ignored               
+  F5    refresh directory listing     =   cycle idents                          
+  m F5  smart refresh listing         <   pan commands menu left                
+  F6    sort directory listing        >   pan commands menu right               
+  m F6  multilevel sort listing       @   perl command (for debugging)          
+  F7    toggle swap mode                                                        
+  F8    mark file                   --------------------------------------------
+  F9    cycle layouts                SORT MODES                                 
+  S-F9  cycle layouts backward                
+  F10   toggle multiple mode          n  Name          t  type    *  mark type  
+  F11   restat file                   m   ignorecase   p  mode                  
+  F12   toggle mouse mode             e  Extension     u  user    s  Size       
+                                      f   ignorecase   w  uid     z  siZe total 
+                                      d  Date/mtime    g  group   l  link count 
+                                      a  date/Atime    h  gid     v  version    
 --------------------------------------------------------------------------------
         _endPage2_
-		$prompt = 'F1 or ? for manpage, arrows or BS/ENTER to browse ';
+	} elsif ($page == 3) {
+		print <<"        _endPage3_";
+--------------------------------------------------------------------------------
+                                    COMMAND KEYS                           [$pp]
+--------------------------------------------------------------------------------
+ a       Attribute (chmod)                        v   Version status            
+ c       Copy                                     w   remove Whiteout           
+ d, DEL  Delete                                   x   eXclude                   
+ e       Edit                                     y   Your command              
+ E       Edit with foreground editor              z   siZe (grand total)        
+ f, /    Find                                   --------------------------------
+ g       change symlink tarGet                   IN-/EXCLUDE                    
+ i       Include                                                                
+ L       symLink / hard Link                      e   Every (all files)         
+ m       More commands (see next page)            o   Oldmarks                  
+ n       show Name (press n to change base)       n   Newmarks                  
+ o       OS cOmmand                               a   After  (+wildcards)       
+ p       Print                                    b   Before (+wildcards)       
+ q       Quit                                     g   Greater than size         
+ Q       Quick quit                               s   Smaller than size         
+ r       Rename/move                              u   Current User only         
+ s       Show file or directory                   f   Regular Files (wildcards) 
+ t       change Timestamp                         .   Dotfiles (but not ./..)   
+ u       change User/group (chown)                i   Invert selection          
+--------------------------------------------------------------------------------
+        _endPage3_
+	} elsif ($page == 4) {
+		print <<"        _endPage4_";
+--------------------------------------------------------------------------------
+                     MORE COMMAND KEYS and COMMAND ESCAPES                 [$pp]
+--------------------------------------------------------------------------------
+ ma  edit ACL                             =1  name                              
+ mb  make Bookmark                        =2  name.extension                    
+ mc  Configure pfm                        =3  current path                      
+ me  Edit any file                        =4  mountpoint                        
+ mE  Foreground Edit any file             =5  swap path (F7)                    
+ mf  make FIFO                            =6  basename of current path          
+ mg  Go to bookmark                       =7  extension                         
+ mh  spawn sHell                          =8  names of all selected files       
+ ml  foLlow symlink to target             =9  previous path (F2)                
+ mm  Make new directory                   ==  literal =                         
+ mo  Open new window                      =e  editor                            
+ mp  show Physical path                   =E  foreground editor                 
+ ms  Show directory (chdir)               =p  pager                             
+ mt  show alTernate screen                =v  viewer                            
+ mv  Version status all files                                                   
+ mw  Write history                                                              
+ m@  perl shell (for debugging)                                                 
+                                                                                
+                                                                                
+--------------------------------------------------------------------------------
+        _endPage4_
 	} else {
 		my $name = $self->{_screen}->colored('bold', 'pfm');
 		my $version_message = $_pfm->latest_version gt $_pfm->{VERSION}
@@ -204,7 +257,7 @@ sub _helppage {
 			: " New versions will be published";
 		print <<"        _endCredits_";
 --------------------------------------------------------------------------------
-                                     CREDITS                               [3/3]
+                                     CREDITS                               [$pp]
 --------------------------------------------------------------------------------
 
           $name for Unix and Unix-like operating systems. Version $_pfm->{VERSION}
@@ -464,7 +517,7 @@ sub _multi_to_single {
 	{
 		$self->{_screen}->at(0,0)->putmessage(
 			'Cannot do multifile operation when destination is a single file.'
-		)->at(0,0)->pressanykey();
+		)->at(1,0)->clreol()->at(0,0)->pressanykey();
 		return 1;
 	}
 	return 0;
@@ -555,7 +608,7 @@ directory before the file was processed.
 sub _chase_processed_file {
 	my ($self, $oldfilename, $newnameexpanded, $to_dir) = @_;
 	my $state        = $_pfm->state;
-	my $state_dir    = $state->directory->path;
+	my $state_dir    = canonicalize_path($state->directory->path);
 	my $newnamefull  = ($newnameexpanded =~ m!^/!)
 		? $newnameexpanded : "$state_dir/$newnameexpanded";
 	$newnamefull     = canonicalize_path($newnamefull);
@@ -791,8 +844,8 @@ sub handle {
 		/^(?:k1|\?)$/o		and $self->handlehelp($event),				  last;
 		/^k2$/o				and $self->handleprev($event),				  last;
 		/^\.$/o				and $self->handledot($event),				  last;
-		/^k9$/o				and $self->handlelayouts($event),			  last;
-		/^k4$/o				and $self->handlecolor($event),				  last;
+		/^(k9|ks9)$/o		and $self->handlelayouts($event),			  last;
+		/^(k4|ks4)$/o		and $self->handlecolor($event),				  last;
 		/^\@$/o				and $self->handleperlcommand($event),		  last;
 		/^u$/io				and $self->handlechown($event),				  last;
 		/^v$/io				and $self->handleversion($event),			  last;
@@ -1038,7 +1091,9 @@ Cycles through color modes (B<F4>).
 
 sub handlecolor {
 	my ($self, $event) = @_;
-	$self->{_screen}->select_next_color();
+	# F4 forward, shift-F4 backward
+	my $direction = $event->{data} eq 'k4';
+	$self->{_screen}->select_next_color($direction);
 	return;
 }
 
@@ -1063,7 +1118,9 @@ Handles moving on to the next configured layout (B<F9>).
 
 sub handlelayouts {
 	my ($self, $event) = @_;
-	$self->{_screen}->listing->select_next_layout();
+	# F9 forward, shift-F9 backward
+	my $direction = $event->{data} eq 'k9';
+	$self->{_screen}->listing->select_next_layout($direction);
 	return;
 }
 
@@ -1234,7 +1291,7 @@ Shows a help page with an overview of commands (B<F1>).
 
 sub handlehelp {
 	my ($self, $event) = @_;
-	my $pages = 3;
+	my $pages = NR_HELPPAGES;
 	my $page  = 1;
 	my ($key, $prompt);
 	while ($page <= $pages) {
@@ -1247,7 +1304,7 @@ sub handlehelp {
 		} elsif ($key =~ /(k1|\?)/o) {
 			system qw(man pfm);
 			last;
-		} elsif (uc $key eq 'Q') {
+		} elsif (uc $key eq 'Q' or $key eq "\e") {
 			last;
 		}
 	} continue {
@@ -2463,7 +2520,7 @@ sub handlecopyrename {
 	}
 	my $prompt = $key eq 'C' ? 'Destination: ' : 'New name: ';
 	my ($testname, $newname, $newnameexpanded, $do_this, $sure,
-		$to_dir, $absnewname);
+		$to_dir, $newfilenameexpanded);
 	my $browser    = $_pfm->browser;
 	my $state      = $_pfm->state;
 	if ($state->{multiple_mode}) {
@@ -2505,14 +2562,12 @@ sub handlecopyrename {
 		$newnameexpanded = $newname;
 		$self->_expand_escapes(QUOTE_OFF, \$newnameexpanded, $file);
 		$to_dir = -d $newnameexpanded;
-		if (-f $newnameexpanded and !$self->{_clobber_mode} and
+		$newfilenameexpanded =
+			$newnameexpanded . ($to_dir ? '/'.$file->{name} : '');
+		if (-f $newfilenameexpanded and !$self->{_clobber_mode} and
 			$self->{_config}{clobber_compare}
 		) {
-			$absnewname = $newnameexpanded;
-			if ($to_dir) {
-				$absnewname = $newnameexpanded . '/'.$file->{name};
-			}
-			$self->_comparefiles($file, $absnewname);
+			$self->_comparefiles($file, $newfilenameexpanded);
 		}
 		if (system @command, $file->{name}, $newnameexpanded) {
 			$screen->neat_error($key eq 'C' ? 'Copy failed' : 'Rename failed');

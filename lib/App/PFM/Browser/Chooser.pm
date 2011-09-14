@@ -57,8 +57,6 @@ sub _init {
 	$self->{_prompt}     = '';
 	$self->{_browselist} = undef;
 	$self->{_template}   = undef;
-	$self->{_itemcol}    = 0;
-	$self->{_itemlen}    = 0;
 	$self->SUPER::_init($screen, $config);
 	return;
 }

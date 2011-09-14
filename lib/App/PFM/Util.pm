@@ -550,7 +550,7 @@ sub by_name {
 
 =item lstrftime(string $format, array @datetime)
 
-Formats a date/time string and decodes it to the current locale encoding.
+Formats a date/time string.
 
 =cut
 
