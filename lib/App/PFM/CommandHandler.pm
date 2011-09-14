@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.71
+# @(#) App::PFM::CommandHandler 1.72
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.71
+# Version:		1.72
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-09-05
+# Date:			2011-09-07
 #
 
 ##########################################################################
@@ -338,15 +338,15 @@ sub _expand_replace {
 		/3/o and return condquotemeta($qif, $_pfm->state->directory->path);
 		/4/o and return condquotemeta($qif, $_pfm->state->directory->mountpoint);
 		/5/o and $_pfm->state('S_SWAP')
-			and return condquotemeta($qif,
-                                $_pfm->state('S_SWAP')->directory->path);
+			 and return condquotemeta($qif,
+                                  $_pfm->state('S_SWAP')->directory->path);
 		/6/o and return condquotemeta($qif,
-                                    basename($_pfm->state->directory->path));
+                                  basename($_pfm->state->directory->path));
 		/7/o and return condquotemeta($qif, $extension);
 		/8/o and return join(' ', $self->_markednames($qif));
 		/9/o and $_pfm->state('S_PREV')
-			and return condquotemeta($qif,
-                                $_pfm->state('S_PREV')->directory->path);
+			 and return condquotemeta($qif,
+                                  $_pfm->state('S_PREV')->directory->path);
 		/e/o and return $self->{_config}{editor};
 		/E/o and return $self->{_config}{fg_editor};
 		/p/o and return $self->{_config}{pager};
@@ -387,13 +387,16 @@ sub _expand_8_escapes {
 	my $qe = quotemeta $self->{_config}{e};
 	# replace the escapes
 	my $number_of_substitutes =
-		$$command =~ s/$qe(?:8)/
-			join(' ',
+#		$$command =~ s/$qe(?:8)/
+#			join(' ',
+#				$self->_markednames(QUOTE_ON)
+#			)
+#		/ge;
+		$$command =~ s/(?<!$qe)((?:$qe$qe)*)$qe(?:8)/
+			$1 . join(' ',
 				$self->_markednames(QUOTE_ON)
 			)
 		/ge;
-#		$$command =~ s/(?<!$qe)((?:$qe$qe)*)$qe(?:8)/
-#		$2 . join(' ', $self->_markednames(QUOTE_ON))/ge;
 	$number_of_substitutes +=
 		$$command =~ s/$qe\{8([#%^,]?)(\1?)([^}]*)\}/
 			join(' ',
@@ -420,7 +423,7 @@ sub _expand_escapes {
 	my $qe         = quotemeta $self->{_config}{e};
 	my ($name_no_extension, $extension);
 	# include '.' in =7
-	if ($name =~ /^(.*)(\.[^\.]+)$/) {
+	if ($name =~ /^(.+)(\.[^\.]*)$/) {
 		$name_no_extension = $1;
 		$extension         = $2;
 	} else {
@@ -1665,7 +1668,12 @@ sub handlename {
 	my $trspace     = $state->{trspace};
 	my $numformat   = $state->NUMFORMATS()->{$state->radix_mode};
 	my ($line, $linecolor, $key);
-	$screen->listing->markcurrentline('N'); # disregard multiple_mode
+	$screen->set_deferred_refresh(R_FRAME)
+		->show_frame({
+			menu     => MENU_NAME,
+			footer   => FOOTER_NONE
+		})
+		->listing->markcurrentline('N'); # disregard multiple_mode
 	for ($workfile->{name}, $workfile->{target}) {
 		s/\\/\\\\/;
 		s{([$trspace\177[:cntrl:]]|[^[:ascii:]])}

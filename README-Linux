@@ -7,4 +7,6 @@ it is advisable to install the following packages:
 - libreadline5     (or libreadline6)
 - libreadline5-dev (or libreadline6-dev)
 - libterm-readline-gnu-perl
+- libacl1
+- libacl1-dev
 

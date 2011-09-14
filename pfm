@@ -3,10 +3,10 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.11.8E
+# Version:		2.11.9E
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-07-29
+# Date:			2011-09-08
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				    [ -l, --layout <number> ] [ -o, --sort <mode> ]
 #					[ -c, --colorset <mode> ] [ --login ]
@@ -30,13 +30,13 @@
 # version
 
 # for MakeMaker only
-our $VERSION  = '2.11.8E';
+our $VERSION  = '2.11.9E';
 
 =pod
 
 =for roff
 .ds Yr 2011
-.ds Vw @(#) pfm.pl 2.11.8E
+.ds Vw @(#) pfm.pl 2.11.9E
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -659,12 +659,14 @@ the image viewer specified with the 'viewer' option in the config file
 
 The I<extension> of the filename is defined as follows:
 
-If the filename does not contain a period at all, then the file has no
-extension (B<=7> is empty) and its whole name is regarded as B<=1>.
+If the filename does not contain a period at all (I<e.g.> I<hosts>) or only
+has an initial period (I<e.g.> I<.profile>), then the file has no extension
+(B<=7> is empty) and its whole name is regarded as B<=1>.
 
-If the filename does contain a period, the extension B<=7> is defined
-as the final part of the filename, starting at the last period in the
-name. The filename B<=1> is the part before the period.
+If the filename does contain a non-initial period (I<e.g.> I<mail.log>
+or I<.profile.old>), the extension B<=7> is defined as the final
+part of the filename, starting at the last period in the name. The
+filename B<=1> is the part before the last period.
 
 In all cases, the concatenation of B<=1> and B<=7> is equal to B<=2>.
 
@@ -688,10 +690,10 @@ Examples:
 	<td>end.</td>			<td>end</td>			<td>.</td>
 </tr>
 <tr>
-	<td>somename</td>		<td>somename</td>		<td><i>empty</i></td>
+	<td>hosts</td>			<td>hosts</td>			<td><i>empty</i></td>
 </tr>
 <tr>
-	<td>.profile</td>		<td><i>empty</i></td>	<td>.profile</td>
+	<td>.profile</td>		<td>.profile</td>		<td><i>empty</i></td>
 </tr>
 <tr>
 	<td>.profile.old</td>	<td>.profile</td>		<td>.old</td>
@@ -713,8 +715,8 @@ _
 track01.wav	track01	.wav
 garden.jpg	garden	.jpg
 end.	end	.
-somename	somename	\fIempty\fP
-\.profile	\fIempty\fP	.profile
+hosts	hosts	\fIempty\fP
+\.profile	.profile	\fIempty\fP
 \.profile.old	.profile	.old
 _
 .TE
@@ -1207,6 +1209,9 @@ Examples:
 	<td>={2^ph}</td>		<td>ActivateDebtor.Php</td>
 </tr>
 <tr>
+	<td>={2^^ph}</td>		<td>ActivateDebtor.PHP</td>
+</tr>
+<tr>
 	<td>={2,,t}</td>		<td>ActivateDebtor.php</td>
 </tr>
 <tr>
@@ -1253,6 +1258,7 @@ _
 ={2%%t*}	Ac
 ={2,d}	Activatedebtor.php
 ={2^ph}	ActivateDebtor.Php
+={2^^ph}	ActivateDebtor.PHP
 ={2,,t}	ActivateDebtor.php
 ={2^^t}	AcTivaTeDebTor.php
 ={2,,}	activatedebtor.php
@@ -1856,12 +1862,11 @@ For developers:
 
 Term::Screen(3pm),
 Term::ScreenColor(3pm),
-Term::ReadLine(3pm),
+Term::ReadLine(3pm).
+
 App::PFM::Abstract(3pm),
 App::PFM::Application(3pm),
 App::PFM::Browser(3pm),
-App::PFM::Browser::Files(3pm),
-App::PFM::Browser::Bookmarks(3pm),
 App::PFM::CommandHandler(3pm),
 App::PFM::Config(3pm),
 App::PFM::Directory(3pm),
