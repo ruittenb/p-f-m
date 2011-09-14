@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::State 0.13
+# @(#) App::PFM::State 0.14
 #
 # Name:			App::PFM::State
-# Version:		0.13
+# Version:		0.14
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-06-16
+# Date:			2010-08-27
 #
 
 ##########################################################################
@@ -44,7 +44,7 @@ our $_pfm;
 ##########################################################################
 # private subs
 
-=item _init(App::PFM::Application $pfm)
+=item _init(App::PFM::Application $pfm [, string $path ] )
 
 Initializes new instances. Called from the constructor.
 Instantiates a App::PFM::Directory object.
@@ -52,9 +52,9 @@ Instantiates a App::PFM::Directory object.
 =cut
 
 sub _init {
-	my ($self, $pfm) = @_;
+	my ($self, $pfm, $path) = @_;
 	$_pfm					||= $pfm;
-	$self->{_directory}		= new App::PFM::Directory($pfm);
+	$self->{_directory}		= new App::PFM::Directory($pfm, $path);
 	# We might not have useful values for these yet since the config file
 	# might not have been read yet.
 	$self->{_position}		= undef;

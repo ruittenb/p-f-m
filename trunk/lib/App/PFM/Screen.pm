@@ -66,7 +66,7 @@ use constant {
 	R_CLEAR			=> 256,	 # clear the screen
 #	R_CLRSCR				 # R_CLEAR + R_SCREEN
 	R_ALTERNATE		=> 512,	 # switch screens according to 'altscreen_mode'
-	R_NEWDIR		=> 4096, # re-init directory-specific vars
+	R_NEWDIR		=> 8192, # re-init directory-specific vars
 #	R_CHDIR					 # R_NEWDIR + R_SCREEN + R_STRIDE
 };
 
@@ -354,7 +354,7 @@ sub fit {
 	}
 	$self->listing->makeformatlines();
 	$self->listing->reformat();
-	$self->set_deferred_refresh(R_CLRSCR); # D_DIRFILTER necessary?
+	$self->set_deferred_refresh(R_CLRSCR); # D_FILTER necessary?
 	# be careful here because the Screen object is instantiated
 	# before the browser and history objects.
 	$_pfm->browser and $_pfm->browser->validate_position();

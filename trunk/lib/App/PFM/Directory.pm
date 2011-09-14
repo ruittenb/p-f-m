@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Directory 0.84
+# @(#) App::PFM::Directory 0.86
 #
 # Name:			App::PFM::Directory
-# Version:		0.84
+# Version:		0.86
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-26
+# Date:			2010-08-27
 #
 
 ##########################################################################
@@ -51,16 +51,19 @@ use constant {
 	RCS_DONE		=> 0,
 	RCS_RUNNING		=> 1,
 	SLOWENTRIES		=> 300,
-	D_DIRFILTER		=> 128,  # decide what to display (init @showncontents)
-	D_DIRSORT		=> 1024, # sort @dircontents
-	D_DIRCONTENTS	=> 2048, # read directory contents from disk
-#	D_ALL					 # all of the above
+	D_FILTER		=> 128,  # decide what to display (init @showncontents)
+	D_SORT			=> 1024, # sort @dircontents
+	D_CONTENTS		=> 2048, # read directory contents from disk
+#	D_FILELIST				 # D_CONTENTS + D_SORT + D_FILTER
+	D_FSINFO		=> 4096, # filesystem usage data
+#	D_ALL					 # D_FSINFO + D_FILELIST
 	M_MARK			=> '*',
 	M_OLDMARK		=> '.',
 	M_NEWMARK		=> '~',
 };
 
-use constant D_ALL	=> D_DIRCONTENTS | D_DIRSORT | D_DIRFILTER;
+use constant D_FILELIST	=> D_CONTENTS | D_SORT | D_FILTER;
+use constant D_ALL		=> D_FSINFO | D_FILELIST;
 
 use constant RCS => [
 	'Subversion',
@@ -71,9 +74,11 @@ use constant RCS => [
 
 our %EXPORT_TAGS = (
 	constants => [ qw(
-		D_DIRFILTER
-		D_DIRSORT
-		D_DIRCONTENTS
+		D_FILTER
+		D_SORT
+		D_CONTENTS
+		D_FILELIST
+		D_FSINFO
 		D_ALL
 		M_MARK
 		M_OLDMARK
@@ -88,7 +93,7 @@ our ($_pfm);
 ##########################################################################
 # private subs
 
-=item _init()
+=item _init(App::PFM::Application $pfm, string $path)
 
 Initializes new instances. Called from the constructor.
 
@@ -109,7 +114,7 @@ sub _init {
 	$self->{_dirty}			 = 0;
 }
 
-=item _clone()
+=item _clone(App::PFM::Directory $original [ , array @args ] )
 
 Performs one phase of the cloning process by cloning an existing
 App::PFM::Directory instance.
@@ -227,6 +232,116 @@ sub _init_filesystem_info {
 	return $self->{_disk};
 }
 
+=item _init_dircount()
+
+Initializes the total number of entries of each type in the current
+directory by zeroing them out.
+
+=cut
+
+sub _init_dircount {
+	my ($self) = @_;
+	%{$self->{_selected_nr_of}} =
+		%{$self->{_total_nr_of}} =
+			( d=>0, '-'=>0, l=>0, c=>0, b=>0, D=>0, P=>0,
+			  p=>0, 's'=>0, n=>0, w=>0, bytes => 0 );
+}
+
+=item _countcontents(array @entries)
+
+Counts the total number of entries of each type in the current directory.
+
+=cut
+
+sub _countcontents {
+	my ($self, @entries) = @_;
+	$self->_init_dircount();
+	foreach my $i (0..$#entries) {
+		$self->{_total_nr_of   }{$entries[$i]{type}}++;
+		$self->{_selected_nr_of}{$entries[$i]{type}}++
+			if $entries[$i]{selected} eq M_MARK;
+	}
+}
+
+=item _readcontents()
+
+Reads the entries in the current directory and performs a stat() on them.
+
+=cut
+
+sub _readcontents {
+	my ($self) = @_;
+	my ($entry, $file);
+	my @allentries    = ();
+	my @white_entries = ();
+	my $screen        = $_pfm->screen;
+	# TODO stop jobs here
+	clearugidcache();
+	$self->_init_dircount();
+	$App::PFM::File::_pfm = $_pfm;
+	$self->{_dircontents}   = [];
+	$self->{_showncontents} = [];
+	# don't use '.' as the directory path to open: we may be just
+	# prepare()ing this object without actually entering the directory
+	if (opendir CURRENT, $self->{_path}) {
+		@allentries = readdir CURRENT;
+		closedir CURRENT;
+		@white_entries = $_pfm->os->listwhite($self->{_path});
+	} else {
+		$screen->at(0,0)->clreol()->display_error("Cannot read . : $!");
+	}
+	# next lines also correct for directories with no entries at all
+	# (this is sometimes the case on NTFS filesystems: why?)
+	if ($#allentries < 0) {
+		@allentries = ('.', '..');
+	}
+	if ($#allentries > SLOWENTRIES) {
+		$screen->at(0,0)->clreol()->putmessage('Please Wait');
+	}
+	foreach $entry (@allentries) {
+		# have the mark cleared on first stat with ' '
+		$self->add(
+			entry => $entry,
+			white => '',
+			mark  => ' ');
+	}
+	foreach $entry (@white_entries) {
+		$self->add(
+			entry => $entry,
+			white => 'w',
+			mark  => ' ');
+	}
+	$screen->set_deferred_refresh(R_MENU | R_HEADINGS);
+	$self->checkrcsapplicable() if $_pfm->config->{autorcs};
+	return $self->{_dircontents};
+}
+
+=item _sortcontents()
+
+Sorts the directory's contents according to the selected sort mode.
+
+=cut
+
+sub _sortcontents {
+	my ($self) = @_;
+	@{$self->{_dircontents}} = sort _by_sort_mode @{$self->{_dircontents}};
+}
+
+=item _filtercontents()
+
+Filters the directory contents according to the filter modes
+(displays or hides dotfiles and whiteouts).
+
+=cut
+
+sub _filtercontents {
+	my ($self) = @_;
+	@{$self->{_showncontents}} = grep {
+		$_pfm->state->{dot_mode}   || $_->{name} =~ /^(\.\.?|[^\.].*)$/ and
+		$_pfm->state->{white_mode} || $_->{type} ne 'w'
+	} @{$self->{_dircontents}};
+}
+
 =item _catch_quit()
 
 Catches terminal quit signals (SIGQUIT).
@@ -242,7 +357,7 @@ sub _catch_quit {
 ##########################################################################
 # constructor, getters and setters
 
-=item path()
+=item path( [ string $nextdir [, bool $swapping [, string $direction ] ] ] )
 
 Getter/setter for the current directory path.
 Setting the current directory in this way is identical to calling
@@ -258,10 +373,10 @@ sub path {
 	return $self->{_path};
 }
 
-=item dircontents()
+=item dircontents( [ arrayref $dircontents ] )
 
-Getter/setter for the $_dircontents variable, which points to the
-complete array of files in the directory.
+Getter/setter for the $_dircontents member variable, which points to
+the complete array of files in the directory.
 
 =cut
 
@@ -271,10 +386,10 @@ sub dircontents {
 	return $self->{_dircontents};
 }
 
-=item showncontents()
+=item showncontents( [ arrayref $showncontents ] )
 
-Getter/setter for the $_showncontents variable, which points to the
-array of the files shown on-screen.
+Getter/setter for the $_showncontents member variable, which points to
+the array of the files shown on-screen.
 
 =cut
 
@@ -317,7 +432,7 @@ sub disk {
 	return $_[0]->{_disk};
 }
 
-=item mountpoint()
+=item mountpoint( [ string $mountpoint ] )
 
 Getter/setter for the mountpoint on which the current directory is situated.
 
@@ -329,7 +444,7 @@ sub mountpoint {
 	return $self->{_disk}{mountpoint};
 }
 
-=item device()
+=item device( [ string $device ] )
 
 Getter/setter for the device on which the current directory is situated.
 
@@ -341,9 +456,9 @@ sub device {
 	return $self->{_disk}{device};
 }
 
-=item path_mode()
+=item path_mode( [ string $path_mode ] )
 
-Getter/setter for the path mode setting (physical or logical).
+Getter/setter for the path mode setting ('phys' or 'log')
 
 =cut
 
@@ -360,31 +475,40 @@ sub path_mode {
 ##########################################################################
 # public subs
 
-=item prepare()
+=item prepare( [ string $path ] )
 
-Prepares the contents of this directory object. Called in case this state
-is not to be displayed on-screen right away.
+Prepares the contents of this directory object. Can be used if this
+state should not be displayed on-screen right away.
 
 =cut
 
 sub prepare {
 	my ($self, $path) = @_;
 	$self->path_mode($_pfm->config->{path_mode});
-	$self->{_path} = $path;
+	if (defined $path) {
+		$self->{_path} = $path;
+	}
 	$self->_init_filesystem_info();
-	$self->readcontents();
-	$self->sortcontents();
-	$self->filtercontents();
+	$self->_readcontents();
+	$self->_sortcontents();
+	$self->_filtercontents();
 	$self->{_dirty} = 0;
 }
 
-=item chdir()
+=item chdir(string $nextdir [, bool $swapping [, string $direction ] ] )
 
 Tries to change the current working directory, if necessary using B<CDPATH>.
 If successful, it stores the previous state in App::PFM::Application->_states
 and executes the 'chdirautocmd' from the F<.pfmrc> file.
-The 'swapping' argument can be passed as true to prevent undesired pathname
+
+The I<swapping> argument can be passed as true to prevent undesired pathname
 parsing during pfm's B<F7> command.
+
+The I<direction> argument can be 'up' (when changing to a parent directory),
+'down' (when descending into a directory) or empty (when making a jump) and
+will determine where the cursor will be positioned in the new directory (at
+the previous directory when moving up, at '..' when descending, and at '.'
+when making a jump).
 
 =cut
 
@@ -433,8 +557,7 @@ sub chdir {
 			$_pfm->browser->position_at($nextpos);
 			$_pfm->browser->baseindex(0);
 			$screen->set_deferred_refresh(R_CHDIR);
-			$self->set_dirty(D_ALL); # TODO | D_FSINFO);
-			$self->_init_filesystem_info();
+			$self->set_dirty(D_ALL);
 		}
 		$chdirautocmd = $_pfm->config->{chdirautocmd};
 		system("$chdirautocmd") if length($chdirautocmd);
@@ -442,117 +565,8 @@ sub chdir {
 	return $success;
 }
 
-=item init_dircount()
-
-Initializes the total number of entries of each type in the current
-directory by zeroing them out.
-
-=cut
-
-sub init_dircount {
-	my ($self) = @_;
-	%{$self->{_selected_nr_of}} =
-		%{$self->{_total_nr_of}} =
-			( d=>0, '-'=>0, l=>0, c=>0, b=>0, D=>0, P=>0,
-			  p=>0, 's'=>0, n=>0, w=>0, bytes => 0 );
-}
-
-=item countcontents()
-
-Counts the total number of entries of each type in the current directory.
-
-=cut
-
-sub countcontents {
-	my ($self, @entries) = @_;
-	$self->init_dircount();
-	foreach my $i (0..$#entries) {
-		$self->{_total_nr_of   }{$entries[$i]{type}}++;
-		$self->{_selected_nr_of}{$entries[$i]{type}}++
-			if $entries[$i]{selected} eq M_MARK;
-	}
-}
-
-=item readcontents()
-
-Reads the entries in the current directory and performs a stat() on them.
-
-=cut
-
-sub readcontents {
-	my ($self) = @_;
-	my ($entry, $file);
-	my @allentries    = ();
-	my @white_entries = ();
-	my $screen        = $_pfm->screen;
-	# TODO stop jobs here
-	clearugidcache();
-	$self->init_dircount();
-	$App::PFM::File::_pfm = $_pfm;
-	$self->{_dircontents}   = [];
-	$self->{_showncontents} = [];
-	# don't use '.' as the directory path to open: we may be just
-	# prepare()ing this object without actually entering the directory
-	if (opendir CURRENT, $self->{_path}) {
-		@allentries = readdir CURRENT;
-		closedir CURRENT;
-		@white_entries = $_pfm->os->listwhite($self->{_path});
-	} else {
-		$screen->at(0,0)->clreol()->display_error("Cannot read . : $!");
-	}
-	# next lines also correct for directories with no entries at all
-	# (this is sometimes the case on NTFS filesystems: why?)
-	if ($#allentries < 0) {
-		@allentries = ('.', '..');
-	}
-	if ($#allentries > SLOWENTRIES) {
-		$screen->at(0,0)->clreol()->putmessage('Please Wait');
-	}
-	foreach $entry (@allentries) {
-		# have the mark cleared on first stat with ' '
-		$self->add(
-			entry => $entry,
-			white => '',
-			mark  => ' ');
-	}
-	foreach $entry (@white_entries) {
-		$self->add(
-			entry => $entry,
-			white => 'w',
-			mark  => ' ');
-	}
-	$screen->set_deferred_refresh(R_MENU | R_HEADINGS);
-	$self->checkrcsapplicable() if $_pfm->config->{autorcs};
-	return $self->{_dircontents};
-}
-
-=item sortcontents()
-
-Sorts the directory's contents according to the selected sort mode.
-
-=cut
-
-sub sortcontents {
-	my ($self) = @_;
-	@{$self->{_dircontents}} = sort _by_sort_mode @{$self->{_dircontents}};
-}
-
-=item filtercontents()
-
-Filters the directory contents according to the filter modes
-(displays or hides dotfiles and whiteouts).
-
-=cut
-
-sub filtercontents {
-	my ($self) = @_;
-	@{$self->{_showncontents}} = grep {
-		$_pfm->state->{dot_mode}   || $_->{name} =~ /^(\.\.?|[^\.].*)$/ and
-		$_pfm->state->{white_mode} || $_->{type} ne 'w'
-	} @{$self->{_dircontents}};
-}
-
-=item addifabsent()
+=item addifabsent(hashref { entry => string $filename, white => char
+$iswhite, mark => char $mark, refresh => bool $refresh } )
 
 Checks if the file is not yet in the directory. If not, add()s it.
 
@@ -577,12 +591,13 @@ sub addifabsent {
 		# flag screen refresh
 		if ($o{refresh}) {
 			$_pfm->screen->set_deferred_refresh(R_LISTING);
-			$self->set_dirty(D_DIRFILTER | D_DIRSORT);
+			$self->set_dirty(D_FILTER | D_SORT);
 		}
 	}
 }
 
-=item add()
+=item add(hashref { entry => string $filename, white => char
+$iswhite, mark => char $mark, refresh => bool $refresh } )
 
 Adds the entry as file to the directory. Also calls register().
 
@@ -595,13 +610,13 @@ sub add {
 	$self->register($file);
 	if ($o{refresh}) {
 		$_pfm->screen->set_deferred_refresh(R_LISTING);
-		$self->set_dirty(D_DIRFILTER | D_DIRSORT);
+		$self->set_dirty(D_FILTER | D_SORT);
 	}
 }
 
-=item register()
+=item register(App::PFM::File $file)
 
-Adds the file to the internal counters.
+Adds the file to the internal (total and marked) counters.
 
 =cut
 
@@ -614,9 +629,9 @@ sub register {
 	$_pfm->screen->set_deferred_refresh(R_DISKINFO);
 }
 
-=item unregister()
+=item unregister(App::PFM::File $file)
 
-Removes the file from the internal counters.
+Removes the file from the internal (total and marked) counters.
 
 =cut
 
@@ -631,9 +646,9 @@ sub unregister {
 	return $prevmark;
 }
 
-=item include()
+=item include(App::PFM::File $file)
 
-Marks a file.
+Marks a file. Updates the internal (marked) counters.
 
 =cut
 
@@ -643,9 +658,10 @@ sub include {
 	$entry->{selected} = M_MARK;
 }
 
-=item exclude()
+=item exclude(App::PFM::File $file [, char $to_mark ] )
 
-Removes a file's mark.
+Removes a file's mark, or replaces it with I<to_mark>. Updates the
+internal (marked) counters.
 
 =cut
 
@@ -657,7 +673,7 @@ sub exclude {
 	return $prevmark;
 }
 
-=item register_include()
+=item register_include(App::PFM::File $file)
 
 Adds a file to the counters of marked files.
 
@@ -670,7 +686,7 @@ sub register_include {
 	$_pfm->screen->set_deferred_refresh(R_DISKINFO);
 }
 
-=item register_exclude()
+=item register_exclude(App::PFM::File $file)
 
 Removes a file from the counters of marked files.
 
@@ -719,32 +735,33 @@ sub refresh {
 	my $dirty   = $self->{_dirty};
 	$self->{_dirty} = 0;
 
-	if ($dirty) {
-		# TODO we should handle this with an event.
+	if ($dirty & D_FILELIST) { # any of the flags
 		# first time round 'currentfile' is undefined
 		if (defined $browser->currentfile) {
+			# TODO we should handle this with an event.
 			$browser->position_at($browser->currentfile->{name});
 		}
-		# next line comes too late (_deferred_refresh has already been
-		# fetched by $screen->refresh()). either we must trust our handle*
-		# subs to set the flags correctly, or the screen object must
-		# fetch the _deferred_refresh flags again after the $d->refresh().
+		# next line works because $screen->refresh() will re-examine
+		# the _deferred_refresh flags after the $directory->refresh().
 		#
-#		$screen->set_deferred_refresh(R_LISTING);
+		$_pfm->screen->set_deferred_refresh(R_LISTING);
 	}
-	if ($dirty & D_DIRCONTENTS) {
-		$self->init_dircount();
-		$self->readcontents();
+	# now refresh individual elements
+	if ($dirty & D_FSINFO) {
+		$self->_init_filesystem_info();
 	}
-	if ($dirty & D_DIRSORT) {
-		$self->sortcontents();
+	if ($dirty & D_CONTENTS) {
+		$self->_readcontents();
 	}
-	if ($dirty & D_DIRFILTER) {
-		$self->filtercontents();
+	if ($dirty & D_SORT) {
+		$self->_sortcontents();
+	}
+	if ($dirty & D_FILTER) {
+		$self->_filtercontents();
 	}
 }
 
-=item checkrcsapplicable()
+=item checkrcsapplicable( [ string $path ] )
 
 Checks if any rcs jobs are applicable for this directory,
 and starts them.
@@ -802,8 +819,7 @@ sub checkrcsapplicable {
 		},
 		after_finish		=> sub {
 			$self->{_rcsjob} = undef;
-			# TODO is it safe to use the bare constant R_HEADINGS here?
-			$screen->set_deferred_refresh($screen->R_HEADINGS);
+			$screen->set_deferred_refresh(R_HEADINGS);
 			$screen->frame->rcsrunning(RCS_DONE);
 		},
 	};
@@ -824,7 +840,7 @@ sub checkrcsapplicable {
 	}
 }
 
-=item preparercscol()
+=item preparercscol(App::PFM::File $file)
 
 Prepares the 'Version' field in the directory contents by clearing it.
 
@@ -842,7 +858,7 @@ sub preparercscol {
 	}
 }
 
-=item dirlookup()
+=item dirlookup(string $filename, array @dircontents)
 
 Finds a directory entry by name and returns its index.
 Used by apply().
@@ -859,11 +875,17 @@ sub dirlookup {
 	return $found;
 }
 
-=item apply()
+=item apply(coderef $do_this, string $special_mode, array @args)
 
 In single file mode: applies the supplied function to the current file.
 In multiple file mode: applies the supplied function to all selected files
 in the current directory.
+
+If I<special_mode> equals 'reverse', the directory is processed in
+reverse order. This is important when deleting files.
+
+If I<special_mode> does not equal 'nofeedback', the filename of the file
+being processed will be displayed on the second line of the screen.
 
 =cut
 
@@ -950,17 +972,25 @@ They can be imported with C<use App::PFM::Directory qw(:constants)>.
 
 =over
 
-=item D_DIRFILTER
+=item D_FILTER
 
 The directory contents should be filtered again.
 
-=item D_DIRSORT
+=item D_SORT
 
 The directory contents should be sorted again.
 
-=item D_DIRCONTENTS
+=item D_CONTENTS
 
 The directory contents should be updated from disk.
+
+=item D_FILELIST
+
+Convenience alias for a combination of all of the above.
+
+=item D_FSINFO
+
+The filesystem usage information should be updated from disk.
 
 =item D_ALL
 
@@ -971,7 +1001,7 @@ Convenience alias for a combination of all of the above.
 A refresh need for an aspect of the directory may be flagged by
 providing one or more of these constants to set_dirty(), I<e.g.>
 
-	$directory->set_dirty(D_DIRSORT);
+	$directory->set_dirty(D_SORT);
 
 The actual refresh will be performed on calling:
 

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Browser 0.38
+# @(#) App::PFM::Browser 0.39
 #
 # Name:			App::PFM::Browser
-# Version:		0.38
+# Version:		0.39
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-16
+# Date:			2010-08-27
 #
 
 ##########################################################################
@@ -172,23 +172,18 @@ sub setview {
 	return ($self->{_currentline}, $self->{_baseindex});
 }
 
-=item position_at(string $filename [, hashref $options ] )
+=item position_at(string $filename [, hashref { force => bool $force,
+exact => bool $exact } ] )
 
 Getter/setter for the I<position_at> variable, which controls to which
 file the cursor should go as soon as the main browse loop is resumed.
 
-=over
+If the I<force> option is false, the old value of I<position_at>
+will only be replaced if it was undefined.
+If true, any old value of I<position_at> will be overwritten.
 
-=item bool $options->{force}
-
-Overwrite old value of I<position_at>. If false, any old value of
-I<position_at> will be retained.
-
-=item bool $options->{exact}
-
-Use exact placement instead of fuzzy placement.
-
-=back
+The I<exact> option indicates that exact placement should be used
+instead of fuzzy placement.
 
 =cut
 

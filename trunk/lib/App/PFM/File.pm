@@ -43,6 +43,7 @@ use strict;
 use locale;
 
 use constant SYMBOLIC_MODES => [ qw(--- --x -w- -wx r-- r-x rw- rwx) ];
+use constant MAJORMINORTEMPLATE => '%d,%d';
 
 our ($_pfm);
 
@@ -197,7 +198,7 @@ sub stat_entry {
 						. ' -> ' . $self->{target};
 	} elsif ($self->{type} =~ /[bc]/) {
 		$self->{size_num} =
-			sprintf('%d,%d', $_pfm->os->rdev_to_major_minor($rdev));
+			sprintf(MAJORMINORTEMPLATE, $_pfm->os->rdev_to_major_minor($rdev));
 	}
 	$self->format();
 	return $self;
