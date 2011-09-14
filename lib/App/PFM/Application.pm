@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.11.8
+# @(#) App::PFM::Application 2.11.9
 #
 # Name:			App::PFM::Application
-# Version:		2.11.8
+# Version:		2.11.9
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2011-09-05
@@ -55,7 +55,7 @@ use Cwd;
 use locale;
 use strict;
 
-our $VERSION  = '2.11.8';
+our $VERSION  = '2.11.9';
 our $LASTYEAR = 2011;
 
 ##########################################################################

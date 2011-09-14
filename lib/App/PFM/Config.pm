@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 1.26
+# @(#) App::PFM::Config 1.27
 #
 # Name:			App::PFM::Config
-# Version:		1.26
+# Version:		1.27
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-09-05
+# Date:			2011-09-07
 #
 
 ##########################################################################
@@ -1445,7 +1445,7 @@ screen while the rest of the config file is being parsed.
 
 =head1 SEE ALSO
 
-pfm(1).
+pfm(1), App::PFM::Config::Update(3pm).
 
 =cut
 
