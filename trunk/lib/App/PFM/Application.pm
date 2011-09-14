@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.10.2
+# @(#) App::PFM::Application 2.10.3
 #
 # Name:			App::PFM::Application
-# Version:		2.10.2
+# Version:		2.10.3
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-10-29
+# Date:			2010-11-15
 #
 
 ##########################################################################
@@ -395,6 +395,8 @@ sub state {
 	my ($self, $index, $value) = @_;
 	$index ||= 'S_MAIN';
 	if (defined $value) {
+		if (defined $self->{_states}{$index}) {
+		}
 		$self->{_states}{$index} = $value;
 	}
 	return $self->{_states}{$index};

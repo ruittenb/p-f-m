@@ -3,10 +3,10 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.10.2
+# Version:		2.10.3
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-10-29
+# Date:			2010-11-17
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				    [ -l, --layout <number> ] [ -o, --sort <mode> ]
 #				pfm { -v, --version | -h, --help }
@@ -24,14 +24,14 @@
 # version
 
 # for MakeMaker
-our $VERSION  = '2.10.2';
+our $VERSION  = '2.10.3';
 our $LASTYEAR = 2010;
 
 =pod
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.10.2
+.ds Vw @(#) pfm.pl 2.10.3
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -362,7 +362,7 @@ files newer/older than a specified date and time
 
 =item B<E>very file
 
-all files, including dotfiles, except for the F<.> and F<..> entries
+all files, including dotfiles (but not the F<.> and F<..> entries)
 
 =item B<F>iles only
 
@@ -389,13 +389,14 @@ files owned by the current user
 
 =item B<.>
 
-all filenames that start with a B<.> (dot), including the F<.> and F<..>
-entries.
+all dotfiles (but not the F<.> and F<..> entries).
 
 =back
 
 Oldmarks and newmarks may be used to perform more than one command on the
 same group of files.
+
+Note that the F<.> and F<..> entries will never automatically become marked.
 
 There is also the option:
 
@@ -403,8 +404,8 @@ There is also the option:
 
 =item B<I>nvert
 
-Inverts the selection, except for the F<.> and F<..> entries, which remain
-untouched.
+Inverts the selection, except for the F<.> and F<..> entries, which become
+unmarked.
 
 =back
 

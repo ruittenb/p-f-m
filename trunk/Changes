@@ -1,3 +1,10 @@
+2.10.3
+
+* fixed: semantics of (I)nclude and e(X)clude: '.' and '..' entries are
+  never automatically selected.
+* fixed: on window resize, the overflow characters are correctly updated
+  for the swap state, previous state, and bookmarked states.
+
 2.10.2
 
 * fixed bug in install.sh

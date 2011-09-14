@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::State 0.20
+# @(#) App::PFM::State 0.21
 #
 # Name:			App::PFM::State
-# Version:		0.20
+# Version:		0.21
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-19
+# Date:			2010-11-15
 #
 
 ##########################################################################
@@ -116,6 +116,18 @@ Arguments are passed to the clone() function of the Directory object.
 sub _clone {
 	my ($self, $original, @args) = @_;
 	$self->{_directory} = $original->{_directory}->clone(@args);
+}
+
+=item DESTROY
+
+Signals the Directory object to unregister itself with the Screen::Listing
+object.
+
+=cut
+
+sub DESTROY {
+	my ($self) = @_;
+	$self->{_directory}->destroy();
 }
 
 ##########################################################################

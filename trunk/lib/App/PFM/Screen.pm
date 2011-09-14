@@ -438,7 +438,6 @@ sub fit {
 		$self->calculate_dimensions();
 	}
 	$self->listing->makeformatlines();
-	$self->listing->reformat();
 	$self->set_deferred_refresh(R_CLRSCR); # D_FILTER necessary?
 	# History is interested (wants to set keyboard object's terminal width)
 	# Browser is interested (wants to validate cursor position)
