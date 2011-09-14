@@ -3,7 +3,7 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.10.7
+# Version:		2.10.8
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-11-28
@@ -27,13 +27,13 @@
 # version
 
 # for MakeMaker only
-our $VERSION  = '2.10.7';
+our $VERSION  = '2.10.8';
 
 =pod
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.10.7
+.ds Vw @(#) pfm.pl 2.10.8
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..

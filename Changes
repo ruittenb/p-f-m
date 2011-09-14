@@ -1,3 +1,8 @@
+2.10.8
+
+* fixed: no more crash in (C)opy/(R)ename/(L)ink when there is no swap state
+* added: option for silent bookmark writing
+
 2.10.7
 
 * fixed some small bugs
