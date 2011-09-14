@@ -184,9 +184,11 @@ sub stat_entry {
 	}
 	$ptr = {
 		name		=> $entry,
-		uid			=> find_uid($uid),
-		gid			=> find_gid($gid),
-		mode_num	=> $mode,
+		uid			=> $uid,
+		gid			=> $gid,
+		user		=> find_uid($uid),
+		group		=> find_gid($gid),
+		mode_num	=> sprintf('%lo', $mode),
 		mode		=> $self->mode2str($mode),
 		device		=> $device,
 		inode		=> $inode,

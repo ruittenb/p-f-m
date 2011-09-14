@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.41
+# @(#) App::PFM::CommandHandler 1.42
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.41
+# Version:		1.42
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-10-11
+# Date:			2010-10-20
 #
 
 ##########################################################################
@@ -96,6 +96,8 @@ use constant FIELDS_TO_SORTMODE => [
 	 v => 'v', # version(rcs)
 	 u => 'u', # user
 	 g => 'g', # group
+	 w => 'w', # uid
+	 h => 'h', # gid
 	'*'=> '*', # mark
 ];
 
@@ -135,11 +137,11 @@ sub _helppage {
 --------------------------------------------------------------------------------
                           NAVIGATION AND DISPLAY KEYS                      [1/3]
 --------------------------------------------------------------------------------
- k, up arrow     move one line up                 F1   help                     
+ k, up arrow     move one line up                 F1 ? help                     
  j, down arrow   move one line down               F2   go to previous directory 
  -, +            move ten lines                   F3   redraw screen            
  CTRL-E          scroll listing one line up       F4   cycle colorsets          
- CTRL-Y          scroll listing one line down     F5   reread directory         
+ CTRL-Y          scroll listing one line down     F5   read directory contents  
  CTRL-U          move half a page up              F6   sort directory           
  CTRL-D          move half a page down            F7   toggle swap mode         
  CTRL-B, PgUp    move a full page up              F8   mark file                
@@ -147,13 +149,13 @@ sub _helppage {
  HOME, END       move to top, bottom              F10  toggle multiple mode     
  SPACE           mark file & advance              F11  restat file              
  l, right arrow  enter directory                  F12  toggle mouse mode        
- h, left arrow   leave directory                 -------------------------------
- ENTER           enter directory; launch          ?    help                     
+ h, left arrow   leave directory                --------------------------------
+ ENTER           enter directory; launch          ;    toggle show svn ignored  
  ESC, BS         leave directory                  !    toggle clobber mode      
----------------------------------------------     "    toggle pathmode          
- @               enter perl command (debug)       =    cycle idents             
- <               pan commands menu left           .    filter dotfiles          
- >               pan commands menu right          %    filter whiteouts         
+-----------------------------------------------   "    toggle pathmode          
+ @   perl command (for debugging)                 =    cycle idents             
+ <   pan commands menu left                       .    filter dotfiles          
+ >   pan commands menu right                      %    filter whiteouts         
 --------------------------------------------------------------------------------
         _endPage1_
 		$prompt = 'F1 or ? for manpage, arrows or BS/ENTER to browse ';
@@ -220,26 +222,38 @@ sub _helppage {
 	return $prompt;
 }
 
-=item _markednames(bool $do_quote)
+=item _markednames()
 
-Creates a list of names of marked files, for the B<=8> escape.
+Returns a list of names of marked files, used for expanding the B<=8> escape.
 
 =cut
 
 sub _markednames {
-	my ($self, $qif) = @_;
+	my ($self) = @_;
 	my $directory = $_pfm->state->directory;
-	my @res =	map  {
-#					$directory->exclude($_, M_OLDMARK);
-					condquotemeta($qif, $_->{name});
-				}
+	my @res =	map  { quotemeta $_->{name} }
 				grep { $_->{mark} eq M_MARK }
 				@{$directory->showncontents};
 	return @res;
 }
 
+=item _expand_tildes(stringref $command)
+
+Expands B<~> and B<~>I<username> by replacing them with the user's
+homedirectory, as per the shell.
+
+=cut
+
+sub _expand_tildes {
+	my ($self, $command) = @_;
+	# readline understands ~ notation; now we understand it too
+	$$command =~ s/^~(\/|$)/$ENV{HOME}\//;
+	# the format of passwd(5) dictates that a username cannot contain colons
+	$$command =~ s/^~([^:\/]+)/(getpwnam $1)[7] || "~$1"/e;
+}
+
 =item _expand_replace(bool $do_quote, char $escapechar [, string
-$name_no_extension, string $name, string $extension, ref $eightset ] )
+$name_no_extension, string $name, string $extension ] )
 
 Does the actual escape expansion in commands and filenames
 for one occurrence of an escape sequence.
@@ -251,63 +265,74 @@ these escapes.
 =cut
 
 sub _expand_replace {
-	my ($self, $qif, $category, $name_no_extension, $name, $extension,
-		$eightset) = @_;
+	my ($self, $qif, $category, $name_no_extension, $name, $extension) = @_;
 	for ($category) {
-		/1/ and return condquotemeta($qif, $name_no_extension);
-		/2/ and return condquotemeta($qif, $name);
-		/3/ and return condquotemeta($qif, $_pfm->state->directory->path);
-		/4/ and return condquotemeta($qif, $_pfm->state->directory->mountpoint);
-		/5/ and $_pfm->state('S_SWAP')
+		/1/o and return condquotemeta($qif, $name_no_extension);
+		/2/o and return condquotemeta($qif, $name);
+		/3/o and return condquotemeta($qif, $_pfm->state->directory->path);
+		/4/o and return condquotemeta($qif, $_pfm->state->directory->mountpoint);
+		/5/o and $_pfm->state('S_SWAP')
 			and return condquotemeta($qif,
                                 $_pfm->state('S_SWAP')->directory->path);
-		/6/ and return condquotemeta($qif,
+		/6/o and return condquotemeta($qif,
                                     basename($_pfm->state->directory->path));
-		/7/ and return condquotemeta($qif, $extension);
-		/8/ and do {
-			$$eightset = 1 if $eightset;
-			return join (' ', $self->_markednames($qif));
+		/7/o and return condquotemeta($qif, $extension);
+		/8/o and do {
+			return join(' ', $self->_markednames());
 		};
-		/e/ and return condquotemeta($qif, $self->{_config}{editor});
-		/E/ and return condquotemeta($qif, $self->{_config}{fg_editor});
-		/p/ and return condquotemeta($qif, $self->{_config}{pager});
-		/v/ and return condquotemeta($qif, $self->{_config}{viewer});
+		/e/o and return condquotemeta($qif, $self->{_config}{editor});
+		/E/o and return condquotemeta($qif, $self->{_config}{fg_editor});
+		/p/o and return condquotemeta($qif, $self->{_config}{pager});
+		/v/o and return condquotemeta($qif, $self->{_config}{viewer});
 		# this also handles the special $e$e case - don't quotemeta() this!
 		return $_;
 	}
 }
 
-=item _expand_3456_escapes(bool $apply_quoting, stringref *command)
+=item _expand_3456_escapes(bool $apply_quoting, stringref $command)
 
-Expands all occurrences of B<=3> .. B<=6> escapes.
+Expands tildes and all occurrences of B<=3> .. B<=6> and B<=e>, B<=E>,
+B<=p> and B<=v> escapes.
 
 =cut
 
-sub _expand_3456_escapes { # quoteif, command
+sub _expand_3456_escapes {
 	my ($self, $qif, $command) = @_;
 	my $qe = quotemeta $self->{_config}{e};
-	# readline understands ~ notation; now we understand it too
-	$$command =~ s/^~(\/|$)/$ENV{HOME}\//;
-	# ~user is not replaced if it is not in the passwd file
-	# the format of passwd(5) dictates that a username cannot contain colons
-	$$command =~ s/^~([^:\/]+)/(getpwnam $1)[7] || "~$1"/e;
-	# the next generation in quoting
+	# replace tildes
+	$self->_expand_tildes($command);
+	# replace the escapes
 	$$command =~ s/$qe([^1278])/_expand_replace($self, $qif, $1)/ge;
 }
 
-=item _expand_escapes(bool $apply_quoting, stringref *command,
-App::PFM::File $file)
+=item _expand_8_escapes(stringref $command)
 
-Expands all occurrences of all types of escapes.
+Expands all occurrences of the B<=8> escape. This needs to be done
+separately, before individual files start to get unmarked.
 
 =cut
 
-sub _expand_escapes { # quoteif, command, \%currentfile
+sub _expand_8_escapes {
+	my ($self, $command) = @_;
+	my $qe = quotemeta $self->{_config}{e};
+	# replace the escapes
+	my $number_of_substitutes =
+		$$command =~ s/$qe(?:8)/join(' ', $self->_markednames())/ge;
+	return $number_of_substitutes;
+}
+
+=item _expand_escapes(bool $apply_quoting, stringref $command,
+App::PFM::File $file)
+
+Expands tildes and all occurrences of all types of escapes except B<=8>.
+
+=cut
+
+sub _expand_escapes {
 	my ($self, $qif, $command, $currentfile) = @_;
-#	local *command = \$_[2];
 	my $name       = $currentfile->{name};
 	my $qe         = quotemeta $self->{_config}{e};
-	my ($name_no_extension, $extension, $eightset);
+	my ($name_no_extension, $extension);
 	# include '.' in =7
 	if ($name =~ /^(.*)(\.[^\.]+)$/) {
 		$name_no_extension = $1;
@@ -316,22 +341,27 @@ sub _expand_escapes { # quoteif, command, \%currentfile
 		$name_no_extension = $name;
 		$extension         = '';
 	}
-	# readline understands ~ notation; now we understand it too
-	$$command =~ s/^~(\/|$)/$ENV{HOME}\//;
-	# ~user is not replaced if it is not in the passwd file
-	# the format of passwd(5) dictates that a username cannot contain colons
-	$$command =~ s/^~([^:\/]+)/(getpwnam $1)[7] || "~$1"/e;
-	# the next generation in quoting
-	$$command =~ s/$qe(.)/
+	# replace tildes
+	$self->_expand_tildes($command);
+	# replace the escapes
+	$$command =~ s/$qe([^8])/
 		_expand_replace(
-			$self, $qif, $1, $name_no_extension, $name, $extension, \$eightset)
+			$self, $qif, $1, $name_no_extension, $name, $extension)
 	/ge;
+}
+
+=item _unmark_eightset()
+
+Unmarks all the files if an B<=8> escape has been used.
+
+=cut
+
+sub _unmark_eightset {
+	my ($self) = @_;
 	# unmark all files (only for =8)
-	if ($eightset) {
-		foreach (@{$_pfm->state->directory->showncontents}) {
-			if ($_->{mark} eq M_MARK) {
-				$_pfm->state->directory->exclude($_, M_OLDMARK);
-			}
+	foreach (@{$_pfm->state->directory->showncontents}) {
+		if ($_->{mark} eq M_MARK) {
+			$_pfm->state->directory->exclude($_, M_OLDMARK);
 		}
 	}
 }
@@ -627,6 +657,7 @@ sub handle {
 		/^=$/o				and $self->handleident($event),				  last;
 		/^!$/o				and $self->handleclobber($event),			  last;
 		/^"$/o				and $self->handlepathmode($event),			  last;
+		/^;$/o				and $self->handleignoremode($event),		  last;
 		/^w$/io				and $self->handleunwo($event),				  last;
 		/^%$/o				and $self->handlewhiteout($event),			  last;
 		$handled = 0;
@@ -925,6 +956,19 @@ sub handlepathmode {
 	my ($self, $event) = @_;
 	my $directory = $_pfm->state->directory;
 	$directory->path_mode($directory->path_mode eq 'phys' ? 'log' : 'phys');
+}
+
+=item handleignoremode(App::PFM::Event $event)
+
+Toggles between showing and hiding rcs ignored files (key B<;>).
+Currently only supported for Subversion.
+
+=cut
+
+sub handleignoremode {
+	my ($self, $event) = @_;
+	my $directory = $_pfm->state->directory;
+	$directory->ignore_mode(!$directory->ignore_mode);
 }
 
 =item handleradix(App::PFM::Event $event)
@@ -1239,7 +1283,7 @@ sub handlelink {
 		my $currentdir      = $state->directory->path;
 		my ($simpletarget, $simplename, $targetstring, $mark);
 		# $self is the commandhandler (closure!)
-		$self->_expand_escapes($self->QUOTE_OFF, \$newnameexpanded, $file);
+		$self->_expand_escapes(QUOTE_OFF, \$newnameexpanded, $file);
 		# keep this expanded version of the filename:
 		# it will be used to determine if the newname is a subdirectory
 		# of the current directory, and to make the cursor follow around.
@@ -1544,7 +1588,7 @@ Handles changing the owner of a file (B<U>ser command).
 
 sub handlechown {
 	my ($self, $event) = @_;
-	my ($newuid, $do_this);
+	my ($newowner, $do_this);
 	if ($_pfm->state->{multiple_mode}) {
 		$self->{_screen}->set_deferred_refresh(R_MENU | R_PATHINFO | R_LISTING);
 	} else {
@@ -1552,15 +1596,15 @@ sub handlechown {
 		$self->{_screen}->listing->markcurrentline('U');
 	}
 	$self->{_screen}->clear_footer()->at(0,0)->clreol()->cooked_echo();
-	chomp($newuid = $self->{_history}->input({
+	chomp($newowner = $self->{_history}->input({
 		history => H_MODE,
 		prompt  => 'New [user][:group] ',
 	}));
 	$self->{_screen}->raw_noecho();
-	return if ($newuid eq '');
+	return if ($newowner eq '');
 	$do_this = sub {
 		my $file = shift;
-		if (system('chown', $newuid, $file->{name})) {
+		if (system('chown', $newowner, $file->{name})) {
 			$self->{_screen}->neat_error('Change owner failed');
 		}
 	};
@@ -1801,7 +1845,7 @@ sub handleinclude { # include/exclude flag (from keypress)
 	} elsif ($key eq 'e') { # every
 		$criterion = sub { my $file = shift; $file->{name} !~ /^\.\.?$/o };
 	} elsif ($key eq 'u') { # user only
-		$criterion = sub { my $file = shift; $file->{uid} eq $ENV{USER} };
+		$criterion = sub { my $file = shift; $file->{user} eq $ENV{USER} };
 	} elsif ($key eq '.') { # dotfiles
 		$criterion = sub { my $file = shift; $file->{name} =~ /^\./o };
 	} elsif ($key =~ /^[gs]$/) { # greater/smaller
@@ -1959,8 +2003,7 @@ sub handletarget {
 		} else {
 			# $self is the commandhandler (closure!)
 			$newtargetexpanded = $newtarget;
-			$self->_expand_escapes(
-				$self->QUOTE_OFF, \$newtargetexpanded, $file);
+			$self->_expand_escapes(QUOTE_OFF, \$newtargetexpanded, $file);
 			$oldtargetok = 1;
 			if (-d $file->{name}) {
 				# if it points to a dir, the symlink must be removed first
@@ -1993,7 +2036,7 @@ sub handlecommand { # Y or O
 	my $infolength = $screen->diskinfo->infolength;
 	my $e          = $self->{_config}{e};
 	my $key        = uc $event->{data};
-	my ($command, $do_this, $prompt, $printstr, $newdir);
+	my ($command, $do_this, $prompt, $printstr, $newdir, $eightset);
 	unless ($_pfm->state->{multiple_mode}) {
 		$screen->listing->markcurrentline($key);
 	}
@@ -2070,17 +2113,19 @@ sub handlecommand { # Y or O
 		return
 	}
 	$screen->alternate_off()->clrscr()->at(0,0);
+	$eightset = $self->_expand_8_escapes(\$command);
 	$do_this = sub {
 		my $file = shift;
 		my $do_command = $command;
 		# $self is the commandhandler (closure!)
-		$self->_expand_escapes($self->QUOTE_ON, \$do_command, $file);
+		$self->_expand_escapes(QUOTE_ON, \$do_command, $file);
 		$screen->puts("\n$do_command\n");
 		system $do_command
 			and $screen->display_error("External command failed\n");
 	};
 	$event->{lunchbox}{applyflags} = 'nofeedback';
 	$_pfm->state->directory->apply($do_this, $event);
+	$self->_unmark_eightset() if $eightset;
 	$screen->pressanykey();
 	$screen->alternate_on() if $self->{_config}{altscreen_mode};
 	$screen->raw_noecho()->set_deferred_refresh(R_CLRSCR);
@@ -2094,7 +2139,7 @@ Executes a print command (B<P>print).
 
 sub handleprint {
 	my ($self, $event) = @_;
-	my ($do_this, $command);
+	my ($do_this, $command, $eightset);
 	my $screen   = $self->{_screen};
 	my $printcmd = $self->{_config}{printcmd};
 	if (!$_pfm->state->{multiple_mode}) {
@@ -2118,16 +2163,18 @@ sub handleprint {
 		return;
 	}
 	#$screen->alternate_off()->clrscr()->at(0,0);
+	$eightset = $self->_expand_8_escapes(\$command);
 	$do_this = sub {
 		my $file = shift;
 		my $do_command = $command;
-		$self->_expand_escapes($self->QUOTE_ON, \$do_command, $file);
+		$self->_expand_escapes(QUOTE_ON, \$do_command, $file);
 		$screen->puts("\n$do_command\n");
 		system $do_command
 			and $screen->display_error("Print command failed\n");
 	};
 	# we could supply 'O' in the next line to treat it like a real cOmmand
 	$_pfm->state->directory->apply($do_this, $event);
+	$self->_unmark_eightset() if $eightset;
 	#$screen->pressanykey();
 	#$screen->alternate_on() if $self->{_config}{altscreen_mode};
 	$screen->set_deferred_refresh(R_SCREEN);
@@ -2962,6 +3009,7 @@ and starts a job for the current directory if so (B<M>ore - B<V>ersion).
 
 sub handlemoreversion {
 	my ($self) = @_;
+	$_pfm->state->directory->preparercscol();
 	$_pfm->state->directory->checkrcsapplicable();
 }
 
@@ -3118,6 +3166,7 @@ sub handleenter {
 		# a code reference: possible way to launch
 		$currentfile->apply($do_this);
 		$screen->set_deferred_refresh(R_CLRSCR)->pressanykey();
+#		$self->_unmark_eightset(); # TODO only unmark if the launch was not by xbit
 	} elsif (defined $do_this) {
 		# an error message: the file type was unknown.
 		# feed it to the pager instead.
@@ -3219,6 +3268,7 @@ sub launchbymime {
 	$do_this = sub {
 		my $file = shift;
 		my $command = $pfmrc->{"launch[$mime]"};
+#		$self->_expand_8_escapes(\$command); # complicated. don't.
 		$self->_expand_escapes(QUOTE_ON, \$command, $file);
 		$self->{_screen}->clrscr()->at(0,0)
 			->puts("Launch type $mime\n$command\n");

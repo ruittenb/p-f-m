@@ -1019,6 +1019,8 @@ di=bold:ln=underscore:
 ## z    grand total              >=4; last char == power of 1024 (K, M, G..)
 ## u    user                     >=8 (system-dependent)
 ## g    group                    >=8 (system-dependent)
+## w    uid                      >=5 (system-dependent)
+## h    gid                      >=5 (system-dependent)
 ## p    mode (permissions)       10
 ## m    modification time        15 (using "%y %b %d %H:%M" if len(%b) == 3)
 ## a    access time              15 (using "%y %b %d %H:%M" if len(%b) == 3)

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Listing 1.09
+# @(#) App::PFM::Screen::Listing 1.10
 #
 # Name:			App::PFM::Screen::Listing
-# Version:		1.09
+# Version:		1.10
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-29
+# Date:			2010-10-18
 #
 
 ##########################################################################
@@ -56,8 +56,10 @@ use constant LAYOUTFIELDS => {
 	'S' => 'size_power',
 	'z' => 'grand_num',
 	'Z' => 'grand_power',
-	'u' => 'uid',
-	'g' => 'gid',
+	'u' => 'user',
+	'g' => 'group',
+	'w' => 'uid',
+	'h' => 'gid',
 	'p' => 'mode',
 	'a' => 'atimestring',
 	'c' => 'ctimestring',
@@ -548,7 +550,7 @@ sub makeformatlines {
 	$self->{_gapcol}	= index($currentlayoutline, '_');
 	# determine the layout field set (no spaces)
 	($squeezedlayoutline = $currentlayoutline) =~
-		tr/*nNsSzZugpacmdilvf_ /*nNsSzZugpacmdilvf_/ds;
+		tr/*nNsSzZugwhpacmdilvf_ /*nNsSzZugwhpacmdilvf_/ds;
 	($self->{_layoutname} = $squeezedlayoutline) =~ s/[*SNZ]//g;
 	$self->{_layoutfields}         = [
 		map { LAYOUTFIELDS->{$_} } grep { !/f/ } (split //,$squeezedlayoutline)
@@ -566,8 +568,8 @@ sub makeformatlines {
 		} elsif ($prev ne $letter) {
 			$self->{_currentformatlinewithinfo} .= '@';
 		} else {
-			($trans = $letter) =~ tr{*nNsSzZugpacmdilvf_}
-									{<<<><><<<<<<<<>><<<};
+			($trans = $letter) =~ tr{*nNsSzZugwhpacmdilvf_}
+									{<<<><><<<>><<<<<>><<<};
 			$self->{_currentformatlinewithinfo} .= $trans;
 		}
 		$prev = $letter;

@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::Subversion 0.32
+# @(#) App::PFM::Job::Subversion 0.34
 #
 # Name:			App::PFM::Job::Subversion
-# Version:		0.32
+# Version:		0.34
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-10-18
@@ -41,17 +41,19 @@ use locale;
 ##########################################################################
 # private subs
 
-=item _init(hashref { $eventname1 => coderef $handler1 [, ...] })
+=item _init(hashref { $eventname1 => coderef $handler1 [, ...] },
+hashref { path => string $path, noignore => bool $noignore })
 
 Initializes new instances. Called from the constructor.
 
 =cut
 
 sub _init {
-	my ($self, @args) = @_;
-	$self->{_COMMAND} = 'svn status %s';
-#	$self->{_COMMAND} = 'svn status --no-ignore %s';
-	$self->SUPER::_init(@args);
+	my ($self, $handlers, $options) = @_;
+	$self->{_COMMAND} = $options->{noignore}
+		? 'svn status --no-ignore %s'
+		: 'svn status %s';
+	$self->SUPER::_init($handlers, $options);
 }
 
 =item _preprocess(string $data)
