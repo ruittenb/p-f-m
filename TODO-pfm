@@ -23,6 +23,8 @@
 ################################################################################
 # structural enhancements
 
+- Event: fix doc
+
 - Config->apply: call separate class's import() routines and have them import
   the config options that are interesting for them.
   Or use events.

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Abstract 0.10
+# @(#) App::PFM::Abstract 0.11
 #
 # Name:			App::PFM::Abstract
-# Version:		0.10
+# Version:		0.11
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-16
+# Date:			2010-08-30
 #
 
 ##########################################################################
@@ -110,7 +110,7 @@ sub clone {
 ##########################################################################
 # public subs
 
-=item register_listener(string $event, coderef $code)
+=item register_listener(string $event_name, coderef $code)
 
 Register the code reference provided as listener for the specified event.
 For an example, see below under fire().
@@ -118,41 +118,43 @@ For an example, see below under fire().
 =cut
 
 sub register_listener {
-	my ($self, $event, $listener) = @_;
+	my ($self, $event_name, $listener) = @_;
 	return 0 unless (ref $listener eq "CODE");
 	my $handlers = $self->{_event_handlers};
-	if (!exists $handlers->{$event}) {
-		$handlers->{$event} = [];
+	if (!exists $handlers->{$event_name}) {
+		$handlers->{$event_name} = [];
 	}
 	# do we want to push or unshift here?
-	push @{$handlers->{$event}}, $listener;
+	push @{$handlers->{$event_name}}, $listener;
 	return 1;
 }
 
-=item unregister_listener(string $event, coderef $code)
+=item unregister_listener(string $event_name, coderef $code)
 
 Unregisters the code reference provided as listener for the specified event.
 
 =cut
 
 sub unregister_listener {
-	my ($self, $event, $listener) = @_;
+	my ($self, $event_name, $listener) = @_;
 	return 0 unless (ref $listener eq "CODE");
 	my $handlers = $self->{_event_handlers};
-	return 0 unless exists $handlers->{$event};
+	return 0 unless exists $handlers->{$event_name};
 	my $success = 0;
-	foreach my $i (reverse 0 .. $#{$handlers->{$event}}) {
-		if ($listener == ${$handlers->{$event}}[$i]) {
+	foreach my $i (reverse 0 .. $#{$handlers->{$event_name}}) {
+		if ($listener == ${$handlers->{$event_name}}[$i]) {
 			$success = 1;
-			splice @{$handlers->{$event}}, $i, 1;
+			splice @{$handlers->{$event_name}}, $i, 1;
 		}
 	}
 	return $success;
 }
 
-=item fire_event(string $event [, array @args ] )
+=item fire(App::PFM::Event $event)
 
 Fire an event. Calls all event handlers that have registered themselves.
+Returns the handler results as an array or joined string, or I<'0 but true'>
+if there are no handlers.
 
 Example usage:
 
@@ -161,7 +163,8 @@ Example usage:
 	sub start()
 	{
 		my $onGreet = sub {
-			my $who = shift;
+			my $event = shift;
+			my $who = $event->{data};
 			system "xmessage 'Hello, $who!'";
 		};
 		$child = new Child();
@@ -174,18 +177,21 @@ Example usage:
 	sub do_something()
 	{
 		my $self = shift;
-		$self->fire('greetWorld', 'Fred');
+		$self->fire(new App::PFM::Event({
+			name => 'greetWorld', 
+			data => 'Fred'
+		});
 	}
 
 =cut
 
-sub fire_event {
-	my ($self, $event, @args) = @_;
-	my $handlers = $self->{_event_handlers}->{$event};
-	my @res;
+sub fire {
+	my ($self, $event) = @_;
+	my $handlers = $self->{_event_handlers}->{$event->{name}};
 	return '0 but true' unless $handlers;
+	my @res;
 	foreach (@$handlers) {
-		push @res, $_->(@args);
+		push @res, $_->($event);
 	}
 	return wantarray ? @res : join ':', @res;
 }

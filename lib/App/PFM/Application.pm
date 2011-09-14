@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.07.6
+# @(#) App::PFM::Application 2.07.7
 #
 # Name:			App::PFM::Application
-# Version:		2.07.6
+# Version:		2.07.7
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-08-26
@@ -365,8 +365,10 @@ sub checkupdates {
 			$self->{PFM_URL}		= $job->PFM_URL;
 		}
 	};
-	my $on = { after_receive_data => $compareversions };
-	$_jobhandler->start('CheckUpdates', $on);
+	my $on_after_receive_job_data = {
+		after_receive_job_data => $compareversions
+	};
+	$_jobhandler->start('CheckUpdates', $on_after_receive_job_data);
 }
 
 =item bootstrap( [ bool $silent ] )
@@ -411,16 +413,18 @@ sub bootstrap {
 	$_screen->calculate_dimensions();
 
 	$_config = new App::PFM::Config($self);
-	my $copyright_coderef = sub {
+	my $on_after_parse_usecolor = sub {
 		$self->_copyright($self->config->pfmrc->{copyrightdelay});
 	};
 	if (!$silent) {
-		$_config->register_listener('after_parse_usecolor', $copyright_coderef);
+		$_config->register_listener(
+			'after_parse_usecolor', $on_after_parse_usecolor);
 	}
 	$_config->read($silent ? $_config->READ_AGAIN : $_config->READ_FIRST);
 	$_config->parse();
 	$_config->apply();
-	$_config->unregister_listener('after_parse_usecolor', $copyright_coderef);
+	$_config->unregister_listener(
+			'after_parse_usecolor', $on_after_parse_usecolor);
 
 	%bookmarks = $_config->read_bookmarks();
 	@{$self->{_states}}{@{BOOKMARKKEYS()}} = ();
@@ -428,6 +432,12 @@ sub bootstrap {
 	$_screen->listing->layout($startinglayout);
 	$_history->read();
 	$self->checkupdates();
+	my $on_after_receive_non_motion_input = sub {
+		my $event = shift;
+		$_commandhandler->handle($event);
+	};
+	$_browser->register_listener(
+		'after_receive_non_motion_input', $on_after_receive_non_motion_input);
 	
 	# current directory - MAIN for the time being
 	$currentdir = getcwd();

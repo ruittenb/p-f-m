@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Directory 0.86
+# @(#) App::PFM::Directory 0.87
 #
 # Name:			App::PFM::Directory
-# Version:		0.86
+# Version:		0.87
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-27
+# Date:			2010-08-30
 #
 
 ##########################################################################
@@ -774,54 +774,53 @@ sub checkrcsapplicable {
 	my $path   = $self->{_path};
 	my $screen = $_pfm->screen;
 	$entry = defined $entry ? $entry : $path;
-	my $on = {
-		after_start			=> sub {
-			# next line needs to provide a '1' argument because
-			# $self->{_rcsjob} has not yet been set
-			$screen->set_deferred_refresh(R_HEADINGS);
-			$screen->frame->rcsrunning(RCS_RUNNING);
-		},
-		after_receive_data	=> sub {
-			my $job = shift;
-			my ($flags, $file) = @{ shift() };
-			my ($topdir, $mapindex, $oldval);
-			my $count = 0;
-			my %nameindexmap =
-				map { $_->{name}, $count++ } @{$self->{_showncontents}};
-			if (substr($file, 0, length($path)) eq $path) {
-				$file = substr($file, length($path)+1); # +1 for trailing /
-			}
-			# currentdir or subdir?
-			if ($file =~ m!/!) {
-				# change in subdirectory
-				($topdir = $file) =~ s!/.*!!;
-				$mapindex = $nameindexmap{$topdir};
-				# find highest prio marker
-				$oldval = $self->{_showncontents}[$mapindex]{rcs};
-				$self->{_showncontents}[$mapindex]{rcs} =
-					$job->rcsmax($oldval, $flags);
-#				# if there was a change in a subdir, then show M on currentdir
-#				$mapindex = $nameindexmap{'.'};
-#				# find highest prio marker
-#				$oldval = $self->{_showncontents}[$mapindex]{rcs};
-#				$self->{_showncontents}[$mapindex]{rcs} =
-#					$job->rcsmax($oldval, 'M');
-			} else {
-				# change file in current directory
-#				if (defined($mapindex = $nameindexmap{$file})) {
-					$mapindex = $nameindexmap{$file};
-					$self->{_showncontents}[$mapindex]{rcs} = $flags;
-#				}
-			}
-			# TODO only show if this directory is on-screen (is_main).
-			$screen->listing->show();
-			$screen->listing->highlight_on();
-		},
-		after_finish		=> sub {
-			$self->{_rcsjob} = undef;
-			$screen->set_deferred_refresh(R_HEADINGS);
-			$screen->frame->rcsrunning(RCS_DONE);
-		},
+	my $on_after_job_start = sub {
+		# next line needs to provide a '1' argument because
+		# $self->{_rcsjob} has not yet been set
+		$screen->set_deferred_refresh(R_HEADINGS);
+		$screen->frame->rcsrunning(RCS_RUNNING);
+	};
+	my $on_after_job_receive_data = sub {
+		my $event = shift;
+		my $job   = $event->{origin};
+		my ($flags, $file) = @{$event->{data}};
+		my ($topdir, $mapindex, $oldval);
+		my $count = 0;
+		my %nameindexmap =
+			map { $_->{name}, $count++ } @{$self->{_showncontents}};
+		if (substr($file, 0, length($path)) eq $path) {
+			$file = substr($file, length($path)+1); # +1 for trailing /
+		}
+		# currentdir or subdir?
+		if ($file =~ m!/!) {
+		# change in subdirectory
+		($topdir = $file) =~ s!/.*!!;
+		$mapindex = $nameindexmap{$topdir};
+		# find highest prio marker
+		$oldval = $self->{_showncontents}[$mapindex]{rcs};
+		$self->{_showncontents}[$mapindex]{rcs} =
+			$job->rcsmax($oldval, $flags);
+#			# if there was a change in a subdir, then show M on currentdir
+#			$mapindex = $nameindexmap{'.'};
+#			# find highest prio marker
+#			$oldval = $self->{_showncontents}[$mapindex]{rcs};
+#			$self->{_showncontents}[$mapindex]{rcs} =
+#				$job->rcsmax($oldval, 'M');
+		} else {
+			# change file in current directory
+#			if (defined($mapindex = $nameindexmap{$file})) {
+				$mapindex = $nameindexmap{$file};
+				$self->{_showncontents}[$mapindex]{rcs} = $flags;
+#			}
+		}
+		# TODO only show if this directory is on-screen (is_main).
+		$screen->listing->show();
+		$screen->listing->highlight_on();
+	};
+	my $on_after_job_finish = sub {
+		$self->{_rcsjob} = undef;
+		$screen->set_deferred_refresh(R_HEADINGS);
+		$screen->frame->rcsrunning(RCS_DONE);
 	};
 	# TODO when a directory is swapped out, the jobs should continue
 	# TODO when a directory is cloned, what to do?
@@ -834,7 +833,11 @@ sub checkrcsapplicable {
 				$_pfm->jobhandler->stop($self->{_rcsjob});
 				$entry = $path;
 			}
-			$self->{_rcsjob} = $_pfm->jobhandler->start($class, $entry, $on);
+			$self->{_rcsjob} = $_pfm->jobhandler->start($class, $entry, {
+				after_job_start			=> $on_after_job_start,
+				after_job_receive_data	=> $on_after_job_receive_data,
+				after_job_finish		=> $on_after_job_finish,
+			});
 			return;
 		}
 	}

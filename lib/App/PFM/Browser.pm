@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Browser 0.39
+# @(#) App::PFM::Browser 0.41
 #
 # Name:			App::PFM::Browser
-# Version:		0.39
+# Version:		0.41
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-27
+# Date:			2010-08-30
 #
 
 ##########################################################################
@@ -38,17 +38,6 @@ package App::PFM::Browser;
 use base 'App::PFM::Abstract';
 
 use strict;
-
-our $FIONREAD = 0;
-#eval {
-#	# suppresses the warnings by changing line 3 in
-#	# /usr/lib/perl/5.8.8/features.ph from
-#	# no warnings 'redefine';
-#	# to
-#	# no warnings qw(redefine misc);
-#	require 'sys/ioctl.ph';
-#	$FIONREAD = FIONREAD();
-#};
 
 our ($_pfm, $_screen);
 
@@ -93,21 +82,6 @@ sub _wait_loop {
 		$_screen->diskinfo->clock_info()
 			->at($screenline, $cursorcol);
 	}
-}
-
-=item _burst_size()
-
-Checks how many characters are waiting for input. This could be used
-to filter out unwanted paste actions when commands are expected.
-
-=cut
-
-sub _burst_size {
-#	my ($self) = @_;
-	return 0 unless $FIONREAD;
-	my $size = pack("L", 0);
-	ioctl(STDIN, $FIONREAD, $size);
-	return unpack("L", $size);
 }
 
 ##########################################################################
@@ -394,13 +368,73 @@ sub find_best_find_match {
 	return 1;
 }
 
+=item handlemove()
+
+Handles the keys which move around in the current directory.
+
+=cut
+
+sub handlemove {
+	my ($self, $key) = @_;
+	local $_ = $key;
+	my $screenheight  = $_screen->screenheight;
+	my $baseindex     = $self->{_baseindex};
+	my $currentline   = $self->{_currentline};
+	my $showncontents = $_pfm->state->directory->showncontents;
+	my $displacement  =
+			- (/^(?:ku|k|mshiftup)$/o    )
+			+ (/^(?:kd|j|mshiftdown| )$/o)
+			- (/^mup$/o  )		* 5
+			+ (/^mdown$/o)		* 5
+			- (/^-$/o)			* 10
+			+ (/^\+$/o)			* 10
+			- (/\cB|pgup/o)		* $screenheight
+			+ (/\cF|pgdn/o)		* $screenheight
+			- (/\cU/o)			* int($screenheight/2)
+			+ (/\cD/o)			* int($screenheight/2)
+			- (/^home$/o)		* ( $currentline +$baseindex)
+			+ (/^end$/o )		* (-$currentline -$baseindex +$#$showncontents);
+	$self->currentline($currentline + $displacement);
+	# return 'handled' flag
+	return $displacement ? 1 : 0;
+}
+
+=item handle(App::PFM::Event $event)
+
+Attempts to handle the user event (keyboard- or mouse-input).
+If unsuccessful, we return false.
+
+=cut
+
+sub handle {
+	my ($self, $event) = @_;
+	my $MOTION = qr/^(?:[-+jk\cF\cB\cD\cU]|ku|kd|
+		pgup|pgdn|home|end|m(shift)?(up|down))$/iox;
+	my $handled = 0;
+	if ($event->{type} eq 'key' and
+		$event->{data} =~ $MOTION)
+	{
+		$handled = $self->handlemove($event->{data});
+	} else {
+		# pass it to the commandhandler
+		$event->{name} = 'after_receive_non_motion_input';
+		$handled = $self->fire($event);
+		if ($event->{type} eq 'key' and
+			$event->{data} eq ' ')
+		{
+			$handled = $self->handlemove($event->{data});
+		}
+	}
+	return $handled;
+}
+
 =item browse()
 
 This sub, the main browse loop, is the heart of pfm. It has the
 following structure:
 
   do {
-    refresh everything flagged for refreshing;
+    refresh the screen;
     wait for keypress-, mousedown- or resize-event;
     handle the request;
   } until quit was requested.
@@ -411,33 +445,28 @@ sub browse {
 	my ($self) = @_;
 	my ($event, $command_result);
 	# prefetch objects
-	my $commandhandler = $_pfm->commandhandler;
-	my $listing        = $_screen->listing;
+	my $listing = $_screen->listing;
 	until ($command_result eq 'quit') {
 		$_screen->refresh();
 		$listing->highlight_on();
 		# don't send mouse escapes to the terminal if not necessary
 		$_screen->mouse_enable()
 			if $self->{_mouse_mode} && $_pfm->config->{mouseturnoff};
-		# enter main wait loop
+		# enter main wait loop, which is exited on a resize event
+		# or on keyboard/mouse input.
 		$self->_wait_loop();
-		# the main wait loop is exited on a resize event or
-		# on keyboard/mouse input
-		if ($_screen->wasresized) {
+		# find out what happened
+		$event = $_screen->get_event();
+		# was it a resize?
+		if ($event->{name} eq 'resize') {
 			$_screen->handleresize();
 		} else {
-			# the next block is highly experimental - maybe this
-			# could be used to suppress paste actions in command mode
-			if ($self->_burst_size > 30) {			# experimental
-				$_screen->flush_input()->flash();	# experimental
-				redo;								# experimental
-			}										# experimental
 			# must be keyboard/mouse input here
-			$event = $_screen->getch();
 			$listing->highlight_off();
 			$_screen->mouse_disable() if $_pfm->config->{mouseturnoff};
 			# the next line contains an assignment on purpose
-			if ($command_result = $commandhandler->handle($event)) {
+			if ($command_result = $self->handle($event))
+			{
 				# if the received input was valid, then the current
 				# cursor position must be validated again
 				$_screen->set_deferred_refresh($_screen->R_STRIDE);

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.15
+# @(#) App::PFM::CommandHandler 1.17
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.15
+# Version:		1.17
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-27
+# Date:			2010-08-31
 #
 
 ##########################################################################
@@ -562,61 +562,58 @@ Finds out how an event should be handled, and acts on it.
 
 sub handle {
 	my ($self, $event) = @_;
-	my $valid = 1; # assume the event was valid
-	for ($event) {
+	my $handled = 1; # assume the event was handled
+	for ($event->{data}) {
 		# order is determined by (supposed) frequency of use
-		/^(?:ku|kd|pgup|pgdn|[-+jk\cF\cB\cD\cU]|home|end)$/io
-							and $self->handlemove($_),				last;
 		/^(?:kr|kl|[h\e\cH])$/io
-							and $self->handleentry($_),				last;
-		/^[\cE\cY]$/o		and $self->handlescroll($_),			last;
-		/^l$/o				and $self->handlekeyell($_),			last;
-		/^ $/o				and $self->handleadvance($_),			last;
-		/^k5$/o				and $self->handlerefresh(),				last;
-		/^[cr]$/io			and $self->handlecopyrename($_),		last;
-		/^[yo]$/io			and $self->handlecommand($_),			last;
-		/^e$/io				and $self->handleedit(),				last;
-		/^(?:d|del)$/io		and $self->handledelete(),				last;
-		/^[ix]$/io			and $self->handleinclude($_),			last;
-		/^\r$/io			and $self->handleenter(),				last;
-		/^s$/io				and $self->handleshow(),				last;
-		/^kmous$/o			and $valid = $self->handlemousedown(),	last;
-		/^k7$/o				and $self->handleswap(),				last;
-		/^k10$/o			and $self->handlemultiple(),			last;
-		/^m$/io				and $self->handlemore(),				last;
-		/^p$/io				and $self->handleprint(),				last;
-		/^L$/o				and $self->handlelink(),				last;
-		/^n$/io				and $self->handlename(),				last;
-		/^k8$/o				and $self->handlemark(),				last;
-		/^k11$/o			and $self->handlerestat(),				last;
-		/^[\/f]$/io			and $self->handlefind(),				last;
-		/^[<>]$/io			and $self->handlepan($_, MENU_SINGLE),	last;
-		/^(?:k3|\cL|\cR)$/o	and $self->handlefit(),					last;
-		/^t$/io				and $self->handletime(),				last;
-		/^a$/io				and $self->handlechmod(),				last;
-		/^q$/io				and $valid = $self->handlequit($_),		last;
-		/^k6$/o				and $self->handlesort(),				last;
-		/^(?:k1|\?)$/o		and $self->handlehelp(),				last;
-		/^k2$/o				and $self->handleprev(),				last;
-		/^\.$/o				and $self->handledot(),					last;
-		/^k9$/o				and $self->handlelayouts(),				last;
-		/^k4$/o				and $self->handlecolor(),				last;
-		/^\@$/o				and $self->handleperlcommand(),			last;
-		/^u$/io				and $self->handlechown(),				last;
-		/^v$/io				and $self->handleversion(),				last;
-		/^z$/io				and $self->handlesize(),				last;
-		/^g$/io				and $self->handletarget(),				last;
-		/^k12$/o			and $self->handlemousemode(),			last;
-		/^=$/o				and $self->handleident(),				last;
-		/^\*$/o				and $self->handleradix(),				last;
-		/^!$/o				and $self->handleclobber(),				last;
-		/^"$/o				and $self->handlepathmode(),			last;
-		/^w$/io				and $self->handleunwo(),				last;
-		/^%$/o				and $self->handlewhiteout(),			last;
-		$valid = 0; # invalid key
+							and $self->handleentry($_),					  last;
+		/^[\cE\cY]$/o		and $self->handlescroll($_),				  last;
+		/^l$/o				and $self->handlekeyell($_),				  last;
+		/^k5$/o				and $self->handlerefresh(),					  last;
+		/^[cr]$/io			and $self->handlecopyrename($_),			  last;
+		/^[yo]$/io			and $self->handlecommand($_),				  last;
+		/^e$/io				and $self->handleedit(),					  last;
+		/^(?:d|del)$/io		and $self->handledelete(),					  last;
+		/^[ix]$/io			and $self->handleinclude($_),				  last;
+		/^\r$/io			and $self->handleenter(),					  last;
+		/^s$/io				and $self->handleshow(),					  last;
+		/^kmous$/o			and $handled = $self->handlemousedown($event),last;
+		/^k7$/o				and $self->handleswap(),					  last;
+		/^k10$/o			and $self->handlemultiple(),				  last;
+		/^m$/io				and $self->handlemore(),					  last;
+		/^p$/io				and $self->handleprint(),					  last;
+		/^L$/o				and $self->handlelink(),					  last;
+		/^n$/io				and $self->handlename(),					  last;
+		/^(k8| )$/o			and $self->handlemark(),					  last;
+		/^k11$/o			and $self->handlerestat(),					  last;
+		/^[\/f]$/io			and $self->handlefind(),					  last;
+		/^[<>]$/io			and $self->handlepan($_, MENU_SINGLE),		  last;
+		/^(?:k3|\cL|\cR)$/o	and $self->handlefit(),						  last;
+		/^t$/io				and $self->handletime(),					  last;
+		/^a$/io				and $self->handlechmod(),					  last;
+		/^q$/io				and $handled = $self->handlequit($_),		  last;
+		/^k6$/o				and $self->handlesort(),					  last;
+		/^(?:k1|\?)$/o		and $self->handlehelp(),					  last;
+		/^k2$/o				and $self->handleprev(),					  last;
+		/^\.$/o				and $self->handledot(),						  last;
+		/^k9$/o				and $self->handlelayouts(),					  last;
+		/^k4$/o				and $self->handlecolor(),					  last;
+		/^\@$/o				and $self->handleperlcommand(),				  last;
+		/^u$/io				and $self->handlechown(),					  last;
+		/^v$/io				and $self->handleversion(),					  last;
+		/^z$/io				and $self->handlesize(),					  last;
+		/^g$/io				and $self->handletarget(),					  last;
+		/^k12$/o			and $self->handlemousemode(),				  last;
+		/^=$/o				and $self->handleident(),					  last;
+		/^\*$/o				and $self->handleradix(),					  last;
+		/^!$/o				and $self->handleclobber(),					  last;
+		/^"$/o				and $self->handlepathmode(),				  last;
+		/^w$/io				and $self->handleunwo(),					  last;
+		/^%$/o				and $self->handlewhiteout(),				  last;
+		$handled = 0;
 		$_screen->flash();
 	}
-	return $valid;
+	return $handled;
 }
 
 =item handlepan()
@@ -654,36 +651,6 @@ sub handlescroll {
 	$currentline -= $displacement if $currentline-$displacement >= 0
 								 and $currentline-$displacement <= $screenheight;
 	$browser->setview($currentline, $baseindex);
-}
-
-=item handlemove()
-
-Handles the keys which move around in the current directory.
-
-=cut
-
-sub handlemove {
-	my ($self, $key) = @_;
-	local $_ = $key;
-	my $screenheight  = $_screen->screenheight;
-	my $browser       = $_pfm->browser;
-	my $baseindex     = $browser->baseindex;
-	my $currentline   = $browser->currentline;
-	my $showncontents = $_pfm->state->directory->showncontents;
-	my $displacement  =
-			- (/^(?:ku|k)$/o  )
-			+ (/^(?:kd|j| )$/o)
-			- (/^mup$/o  )		* 5
-			+ (/^mdown$/o)		* 5
-			- (/^-$/o)			* 10
-			+ (/^\+$/o)			* 10
-			- (/\cB|pgup/o)		* $screenheight
-			+ (/\cF|pgdn/o)		* $screenheight
-			- (/\cU/o)			* int($screenheight/2)
-			+ (/\cD/o)			* int($screenheight/2)
-			- (/^home$/o)		* ( $currentline +$baseindex)
-			+ (/^end$/o )		* (-$currentline -$baseindex +$#$showncontents);
-	$browser->currentline($currentline + $displacement);
 }
 
 =item handleprev()
@@ -1052,7 +1019,7 @@ sub handlehelp {
 			"F1 or ? for more elaborate help, " .
 			"arrows or BACKSPACE/ENTER to browse ");
 		$key = $_screen->getch();
-		if ($key =~ /(pgup|kl|ku|\cH)/) {
+		if ($key =~ /(pgup|kl|ku|\cH|\c?|del)/) {
 			$page-- if $page > 1;
 			redo;
 		} elsif ($key =~ /(k1|\?)/) {
@@ -1174,18 +1141,6 @@ sub handlemarkinverse {
 		}
 	}
 	$_screen->set_deferred_refresh(R_SCREEN);
-}
-
-=item handleadvance()
-
-Handles the space key: mark a file and advance to the next one.
-
-=cut
-
-sub handleadvance {
-	my ($self, $key) = @_;
-	$self->handlemark();
-	$self->handlemove($key); # pass space key on
 }
 
 =item handlekeyell()
@@ -1603,9 +1558,10 @@ sub handletime {
 	$_screen->raw_noecho();
 	return if ($newtime eq '');
 	if ($newtime eq '.') {
-		$newtime = localtime time;
+		$newtime = time;
 	} else {
-		$newtime = touch2time($newtime);
+		# translate from local timezone to UTC
+		$newtime = mktime gmtime touch2time($newtime);
 		return unless defined $newtime;
 	}
 	$do_this = sub {
@@ -2213,40 +2169,26 @@ sub handlecopyrename {
 
 =item handlemousedown()
 
-Handles mouse clicks.
+Handles mouse clicks. Note that the mouse wheel has already been handled
+by the browser. This handles only the first three mouse buttons.
 
 =cut
 
 sub handlemousedown {
-	my ($self) = @_;
-	my ($mbutton, $mousecol, $mouserow, $prevcurrentline, $on_name,
-		$currentfile);
-	my $listing = $_screen->listing;
-	$_screen->noecho();
-	$mbutton  = ord($_screen->getch()) - 040;
-	$mousecol = ord($_screen->getch()) - 041;
-	$mouserow = ord($_screen->getch()) - 041;
-	$_screen->echo();
+	my ($self, $event) = @_;
+	my ($prevcurrentline, $on_name, $currentfile);
+	my $browser  = $_pfm->browser;
+	my $listing  = $_screen->listing;
+	my $mbutton  = $event->{mousebutton};
+	my $mousecol = $event->{mousecol};
+	my $mouserow = $event->{mouserow};
 	# button ---------------- location clicked ------------------------
 	#       pathline  menu/footer  heading   fileline  filename dirname
 	# 1     chdir()   (command)    sort      F8        Show     Show
 	# 2     cOmmand   (command)    sort rev  Show      ENTER    new win
 	# 3     cOmmand   (command)    sort rev  Show      ENTER    new win
-	# up    ------------------ three lines up -------------------------
-	# down  ----------------- three lines down ------------------------
-	if ($mbutton == 64) {
-		# wheel up
-		$self->handlemove('mup');
-	} elsif ($mbutton == 65) {
-		# wheel down
-		$self->handlemove('mdown');
-	} elsif ($mbutton == 68) {
-		# shift-wheel up
-		$self->handlemove('ku');
-	} elsif ($mbutton == 69) {
-		# shift-wheel down
-		$self->handlemove('kd');
-	} elsif ($mouserow == $_screen->PATHLINE) {
+	# -----------------------------------------------------------------
+	if ($mouserow == $_screen->PATHLINE) {
 		# path line
 		if ($mbutton) {
 			$self->handlecommand('o');
@@ -2397,7 +2339,12 @@ sub handlemousemenucommand {
 		$choice = 'k10';
 	}
 	#$_screen->at(1,0)->puts("L-$left :$choice: R-$right    ");
-	return $self->handle($choice);
+	return $self->handle(new App::PFM::Event({
+		name   => 'after_receive_non_motion_input',
+		type   => 'key',
+		origin => $self,
+		data   => $choice,
+	}));
 }
 
 =item handlemousefootercommand()
@@ -2428,7 +2375,12 @@ sub handlemousefootercommand {
 	$choice			=~ s/^F/k/;	# transform F12  to k12
 	#$_screen->at(1,0)->puts("L-$left :$choice: R-$right    ");
 	return $self->handlecyclesort() if ($choice eq 'k6');
-	return $self->handle($choice);
+	return $self->handle(new App::PFM::Event({
+		name   => 'after_receive_non_motion_input',
+		type   => 'key',
+		origin => $self,
+		data   => $choice,
+	}));
 }
 
 =item handlemore()

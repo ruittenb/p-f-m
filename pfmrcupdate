@@ -3,7 +3,7 @@
 ############################################################################
 #
 # Name:         pfmrcupdate
-# Version:      2.07.6
+# Version:      2.07.7
 # Author:       Rene Uittenbogaard
 # Date:         2010-08-26
 # Usage:        pfmrcupdate
@@ -25,7 +25,7 @@ our $ROFFVERSION = <<'=cut';
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfmrcupdate 2.07.6
+.ds Vw @(#) pfmrcupdate 2.07.7
 .de Vp
 This manual pertains to \f(CWpfmrcupdate\fP version \\$3.
 ..

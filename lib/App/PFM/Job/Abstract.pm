@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::Abstract 0.92
+# @(#) App::PFM::Job::Abstract 0.93
 #
 # Name:			App::PFM::Job::Abstract
-# Version:		0.92
+# Version:		0.93
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-24
+# Date:			2010-08-30
 #
 
 ##########################################################################
@@ -34,6 +34,8 @@ Abstract PFM Job class for defining a common interface to Jobs.
 package App::PFM::Job::Abstract;
 
 use base 'App::PFM::Abstract';
+
+use App::PFM::Event;
 
 use IO::Pipe;
 use IO::Select;
@@ -126,23 +128,34 @@ sub isapplicable {
 
 =item start()
 
-Fires the I<before_start> event. If this returns true, it sets the
-'running' flag, opens a pipe, starts the job and fires the
-I<after_start> event.
+Fires the I<before_job_start> event. If this returns true, it sets
+the 'running' flag, opens a pipe, starts the job and fires the
+I<after_job_start> event.
+
+Note that if no handler has been registered, the fire() method will
+return I<0 but true>.
 
 =cut
 
 sub start {
 	my ($self) = @_;
 	return 0 if $self->{_childpid};
-	return 0 unless $self->fire_event('before_start');
+	return 0 unless $self->fire(new App::PFM::Event({
+		name   => 'before_job_start',
+		origin => $self,  # not used ATM
+		type   => 'soft', # not used ATM
+	}));
 	$SIG{CHLD} = \&_catch_child;
 	$self->{_stop_next_iteration} = 0;
 	$self->{_buffer}   = '';
 	$self->{_pipe}     = new IO::Pipe();
 	$self->{_childpid} = $self->_start_child() || 1;
 	$self->{_selector}->add($self->{_pipe});
-	$self->fire_event('after_start');
+	$self->fire(new App::PFM::Event({
+		name   => 'after_job_start',
+		origin => $self,  # not used ATM
+		type   => 'soft', # not used ATM
+	}));
 	return 1;
 }
 
@@ -150,7 +163,7 @@ sub start {
 
 Checks if there is data available on the pipe, and if so, reads it and
 sends it to the preprocessor.  If the preprocessor returns a defined value,
-the I<after_receive_data> event is fired.
+the I<after_job_receive_data> event is fired.
 
 =cut
 
@@ -176,7 +189,14 @@ sub poll {
 			$self->{_buffer} = substr($self->{_buffer}, $newlinepos+1);
 			# the next line contains an assignment on purpose
 			if (defined($input = $self->_preprocess($input))) {
-				$self->fire_event('after_receive_data', $self, $input);
+				$self->fire(
+					new App::PFM::Event({
+						name   => 'after_job_receive_data',
+						origin => $self,
+						type   => 'job',
+						data   => $input,
+					})
+				);
 			}
 		}
 		goto &poll; # continue parsing
@@ -191,7 +211,7 @@ sub poll {
 =item stop()
 
 Resets the 'running' flag, stops the job, closes the pipe and fires the
-I<after_finish> event.
+I<after_job_finish> event.
 
 =cut
 
@@ -201,7 +221,11 @@ sub stop {
 	$self->{_childpid} = 0;
 	$self->_stop_child();
 	$self->{_pipe}->close();
-	$self->fire_event('after_finish');
+	$self->fire(new App::PFM::Event({
+		name   => 'after_job_finish',
+		origin => $self,  # not used ATM
+		type   => 'soft', # not used ATM
+	}));
 	$self->{_buffer} = '';
 	#$self->{_event_handlers} = {}; # necessary for garbage collection?
 	return 0;
