@@ -334,6 +334,7 @@ sub _readcontents {
 			mark  => ' ');
 	}
 	foreach $entry (@white_entries) {
+		chop $entry;
 		$self->add(
 			entry => $entry,
 			white => 'w',

@@ -70,22 +70,6 @@ use constant LAYOUTFIELDS => {
 	'_' => 'gap',
 };
 
-use constant FILETYPEFLAGS => {
-	 # ls(1)
-	 x => '*',
-	 d => '/',
-	 l => '@',
-	 p => '|',
-	's'=> '=',
-	 D => '>',
-	 w => '%',
-	 # tcsh(1)
-	 b => '#',
-	 c => '%',
-	 n => ':',
-	 # => '+', # Hidden directory (AIX only) or context dependent (HP-UX only)
-};
-
 our ($_pfm, $_screen);
 
 ##########################################################################

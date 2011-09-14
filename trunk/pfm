@@ -3,7 +3,7 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.09.0
+# Version:		2.09.1
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-09-13
@@ -24,7 +24,7 @@
 # version
 
 # for MakeMaker
-our $VERSION = '2.09.0';
+our $VERSION = '2.09.1';
 
 # macros for *roff
 our $ROFFVERSION = <<'=cut';
@@ -33,7 +33,7 @@ our $ROFFVERSION = <<'=cut';
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.09.0
+.ds Vw @(#) pfm.pl 2.09.1
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -81,8 +81,8 @@ C<pfm> - Personal File Manager for Linux/Unix
 
 =head1 SYNOPSIS
 
-C<pfm [ -l, --layout >I<number>C< ] [ -o, --sort >I<mode>C< ]>
-C< [ >I<directory>C< ] [ -s, --swap >I<directory>C< ]>
+C<pfm [>S< >I<directory>S< >C<] [>S< >C<-s, --swap >I<directory>S< >C<]>
+C< [>S< >C<-l, --layout >I<number>S< >C<] [>S< >C<-o, --sort >I<mode>S< >C<]>
 
 C<pfm { -v, --version | -h, --help }>
 
@@ -471,9 +471,11 @@ will also show the target of the symbolic link. This is useful in case
 the terminal is not wide enough to display the entire name, or if the
 name contains non-printable characters. Non-ASCII characters and control
 characters will be displayed as their octal or hexadecimal equivalents like
-the examples in the following table. Spaces will be converted as well, if
-the 'translatespace' option is turned on in the F<.pfmrc> file.  When the
-name is shown in its converted form, pressing B<*> will change the radix.
+the examples in the following table. Spaces will be converted if
+the 'translatespace' option is turned on in the F<.pfmrc> file.
+
+When the name is shown in its converted form, pressing B<*> will change
+the radix, and pressing B<SPACE> will toggle the translation of spaces.
 The 'defaultradix' option specifies the initial radix that will be used.
 
 Examples:
@@ -730,9 +732,10 @@ variable PAGER, or with the 'pager' option in the F<.pfmrc> file.
 =item B<Time>
 
 Change mtime (modification date/time) of the file. The time may be entered
-either with or without clarifying interpunction (e.g. 2008-12-04 08:42.12)
-as the interpunction will be removed to obtain a format which touch(1)
-can use. Enter B<.> to set the mtime to the current date and time.
+either with or without clarifying interpunction (e.g. 2008-12-04 08:42.12).
+Enter B<.> to set the mtime to the current date and time.  If the current
+file does not exist in the directory (lost file or whiteout), it is
+touch(1)ed first.
 
 =item B<User>
 
@@ -946,7 +949,7 @@ Identical to B<F>ind (see above).
 
 =item B<E<lt>>
 
-Scroll the menu and footer, in order to view all available commands.
+Pan the menu and footer, in order to view all available commands.
 
 =item B<=>
 
@@ -954,7 +957,7 @@ Cycle through displaying the username, the hostname, or username@hostname.
 
 =item B<E<gt>>
 
-Scroll the menu and footer, in order to view all available commands.
+Pan the menu and footer, in order to view all available commands.
 
 =item B<?>
 
@@ -1129,10 +1132,10 @@ The input is taken literally.
 
 First of all, tilde expansion is performed.
 
-Next, any C<=[1-8evp]> character sequence is expanded to the corresponding
+Next, any C<=[1-8efpv]> character sequence is expanded to the corresponding
 value.
 
-At the same time, any C<=[^1-8evp]> character sequence is just replaced
+At the same time, any C<=[^1-8efpv]> character sequence is just replaced
 with the character itself.
 
 Finally, if the filename is to be processed by C<pfm>, it is taken literally;
@@ -1143,10 +1146,10 @@ I<escaped>.
 
 First of all, tilde expansion is performed.
 
-Next, any C<=[1-8evp]> character sequence is expanded to the corresponding
+Next, any C<=[1-8efpv]> character sequence is expanded to the corresponding
 value, I<with shell metacharacters escaped>.
 
-At the same time, any C<=[^1-8evp]> character sequence is just replaced
+At the same time, any C<=[^1-8efpv]> character sequence is just replaced
 with the character itself.
 
 =back

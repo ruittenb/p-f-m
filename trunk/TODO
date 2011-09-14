@@ -24,6 +24,8 @@
 - call $pfm->checkupdates() in '@' (perlcommand) does not finish the job;
   call $pfm->checkupdates(); sleep 2; finishes it.
 
+- allow incremental sort when sort_mode =~ /[mM]/
+
 ################################################################################
 # structural enhancements
 
@@ -32,20 +34,14 @@
 - "Setting the current directory with App::PFM::Directory::path is identical to
   calling App::PFM::Directory::chdir()" -> maybe uncouple these two?
 
-- add a 'is_main' flag to directories so that they know if a job event may
+- add an 'is_main' flag to directories so that they know if a job event may
   trigger a screen update
-  or use an event: 'determine_main_status'???
-
-- have directories keep track of their own background jobs
 
 - move History->write_dirs() to state objects;
   provide a state->on_shutdown to write the info
 
-- make our() variables member variables
+- make our() variables member variables (Get Rid of Slimy applicaSion object)
 - store $browser->{_screen, _config, _main_state}; remove _pfm
-  | $_pfm->config->{mouseturnoff};
-  | $_pfm->state->directory->showncontents;
-  | $_pfm->state->sort_mode
 
 - standardize the names of constants
   Config::READ_FIRST?
@@ -78,21 +74,23 @@
 # functional enhancements
 
 - intercept bursts of input
-
-- keep marks when F5 refreshing
-
+ 
 - if a file is copied/moved/linked to =5, add it to the swap state
 
 - introduce SIGQUIT for interrupt multi?
 
 - figure out and display if an ACL is applicable for a file
 
-- add (M)ore - (O)pen window?
+- accept mouse clicks on menu in (M)ore
+
+- (M)ore - <F5>: smart refresh: discard lost files, add new files, keep marks
 
 - make si(Z)e a job in the background just like (V)ersion
 
 ################################################################################
 # documentation enhancements
+
+- UML: FILETYPEFLAGS moved from Screen/Listing to Config
 
 - manpages: use I<...> in =items
 

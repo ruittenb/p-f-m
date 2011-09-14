@@ -7,7 +7,7 @@
 # Version:		0.39
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-08
+# Date:			2010-09-14
 #
 
 ##########################################################################
@@ -45,6 +45,7 @@ use locale;
 use constant SYMBOLIC_MODES     => [ qw(--- --x -w- -wx r-- r-x rw- rwx) ];
 use constant MAJORMINORTEMPLATE => '%d,%d';
 use constant GAPFILLING         => ' ' x 80; # 80 is safe enough
+use constant LOSTMSG            => ''; # was ' (lost)'
 
 our ($_pfm);
 
@@ -187,7 +188,7 @@ sub stat_entry {
 			@white_entries = $_pfm->os->listwhite($self->{_parent});
 			chop @white_entries;
 		}
-		if ($iswhite eq 'w' or grep /^$entry$/, @white_entries) {
+		if ($iswhite eq 'w' or grep { $_ eq $entry } @white_entries) {
 			$mode = 0160000;
 		}
 	}
@@ -220,9 +221,12 @@ sub stat_entry {
 		$self->{target}  = readlink("$self->{_parent}/$entry");
 		$self->{display} = $entry . $filetypeflags{'l'}
 						. ' -> ' . $self->{target};
-	} elsif ($self->{type} =~ /[bc]/) {
+	} elsif ($self->{type} =~ /^[bc]/o) {
 		$self->{size_num} =
 			sprintf(MAJORMINORTEMPLATE, $_pfm->os->rdev_to_major_minor($rdev));
+#	} elsif ($self->{type} eq ' ' and $self->{nlink} == 0) {
+#		# or do this using filetypeflags?
+#		$self->{display} .= LOSTMSG;
 	}
 	$self->format();
 	return $self;

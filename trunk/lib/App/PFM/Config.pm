@@ -7,7 +7,7 @@
 # Version:		0.99
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-12
+# Date:			2010-09-14
 #
 
 ##########################################################################
@@ -58,6 +58,23 @@ use constant BOOKMARKKEYS => [qw(
 	a b c d e f g h i j k l m n o p q r s t u v w x y z
 	A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
 )];
+
+use constant FILETYPEFLAGS => {
+	 # ls(1)
+	 x => '*',
+	 d => '/',
+	 l => '@',
+	 p => '|',
+	's'=> '=',
+	 D => '>',
+	 w => '%',
+	 # tcsh(1)
+	 b => '#',
+	 c => '%',
+	 n => ':',
+	 # => '+', # Hidden directory (AIX only) or context dependent (HP-UX only)
+#	' '=> ' (lost)',
+};
 
 our ($_pfm);
 
@@ -391,9 +408,9 @@ sub parse {
 	$self->{pager}				= $ENV{PAGER}  || $pfmrc->{pager} || ($^O =~ /linux/i ? 'less' : 'more');
 	# flags
 	if (isyes($pfmrc->{filetypeflags})) {
-		$self->{filetypeflags} = $screen->listing->FILETYPEFLAGS;
+		$self->{filetypeflags} = FILETYPEFLAGS;
 	} elsif ($pfmrc->{filetypeflags} eq 'dirs') {
-		$self->{filetypeflags} = { d => $screen->listing->FILETYPEFLAGS->{d} };
+		$self->{filetypeflags} = { d => FILETYPEFLAGS->{d} };
 	} else {
 		$self->{filetypeflags} = {};
 	}
