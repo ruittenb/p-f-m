@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Browser 0.43
+# @(#) App::PFM::Browser 0.44
 #
 # Name:			App::PFM::Browser
-# Version:		0.43
+# Version:		0.44
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-02
+# Date:			2010-09-04
 #
 
 ##########################################################################
@@ -37,7 +37,7 @@ package App::PFM::Browser;
 
 use base 'App::PFM::Abstract';
 
-use App::PFM::Util qw(min);
+use App::PFM::Util qw(min max);
 
 use strict;
 
@@ -385,11 +385,16 @@ sub handlemove {
 	my $showncontents  = $_pfm->state->directory->showncontents;
 	my $wheeljumpsize  = $_pfm->config->{mousewheeljumpsize};
 	if ($wheeljumpsize eq 'variable') {
-		$wheeljumpsize = min(
-			$_pfm->config->{mousewheeljumpmax},
-			sprintf('%d', 0.51 +
-				$#$showncontents / $_pfm->config->{mousewheeljumpratio}
-			));
+		$wheeljumpsize = sprintf('%d',
+			0.5 + $#$showncontents / $_pfm->config->{mousewheeljumpratio});
+		$wheeljumpsize = max(
+			min(
+				$wheeljumpsize,
+				$_pfm->config->{mousewheeljumpmax},
+			),
+			$_pfm->config->{mousewheeljumpmin},
+			1,
+		);
 	}
 	my $displacement  =
 			- (/^(?:ku|k|mshiftup)$/o    )
@@ -428,6 +433,9 @@ sub handle {
 	} else {
 		# pass it to the commandhandler
 		$event->{name} = 'after_receive_non_motion_input';
+		$event->{lunchbox}{currentfile} = $self->currentfile;
+		$event->{lunchbox}{baseindex}   = $self->{_baseindex};
+		$event->{lunchbox}{currentline} = $self->{_currentline};
 		$handled = $self->fire($event);
 		if ($event->{type} eq 'key' and
 			$event->{data} eq ' ')

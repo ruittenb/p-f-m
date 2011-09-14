@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Listing 1.04
+# @(#) App::PFM::Screen::Listing 1.05
 #
 # Name:			App::PFM::Screen::Listing
-# Version:		1.04
+# Version:		1.05
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-02
+# Date:			2010-09-03
 #
 
 ##########################################################################

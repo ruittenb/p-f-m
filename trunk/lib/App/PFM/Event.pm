@@ -41,7 +41,7 @@ use constant KNOWN_PROPERTIES => {
 	mousebutton	=> 1, # mouse button  (for 'mouse')
 	mouserow	=> 1, # mouse row     (for 'mouse')
 	mousecol	=> 1, # mouse column  (for 'mouse')
-	lunchbox	=> 1, # misc data
+	lunchbox	=> 1, # misc data (always added by constructor)
 };
 
 use constant KNOWN_EVENTS => {

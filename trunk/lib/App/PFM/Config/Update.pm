@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config::Update 2.08.1
+# @(#) App::PFM::Config::Update 2.08.2
 #
 # Name:			App::PFM::Config::Update
-# Version:		2.08.1
+# Version:		2.08.2
 # Author:		Rene Uittenbogaard
 # Created:		2010-05-28
-# Date:			2010-09-02
+# Date:			2010-09-03
 #
 
 ##########################################################################
@@ -45,10 +45,21 @@ use App::PFM::Util qw(min max);
 
 use POSIX qw(strftime);
 
+use constant UPDATES => {
+	2.08.2 => {
+		additions => {
+		},
+		insertions => {
+		},
+		removals => {
+		},
+		substitutions => {
+		},
+	},
+};
+
 use strict;
 use locale;
-
-our ($_pfm);
 
 ##########################################################################
 # private subs
@@ -100,6 +111,58 @@ from I<from> to I<to>.
 sub _cross {
 	my ($self, $cross, $from, $to) = @_;
 	return ($from lt $cross and $cross le $to);
+}
+
+=item _remove(arrayref $text, array @regexps)
+
+Removes matching lines from the config text.
+
+=cut
+
+sub _remove {
+	my ($self, $lines, @regexps) = @_;
+	LINE: foreach my $i (reverse 0 .. $#$lines) {
+		REGEXP: foreach (@regexps) {
+			if (${$lines}[$i] =~ /$_/) {
+				splice(@$lines, $i, 1);
+				next LINE;
+			}
+		}
+	}
+}
+
+=item _append(arrayref $text, array @addition)
+
+Adds the specified lines at the end of the config text.
+
+=cut
+
+sub _append {
+	my ($self, $lines, @addition) = @_;
+	if ($#addition == 0) {
+		@addition = split (/(?<=\n)/, $addition[0]);
+	}
+	push @$lines, @addition;
+}
+
+=item _insertbefore(arrayref $text, regexp $where, array @addition)
+
+Adds the specified lines at the specified place in the config text.
+
+=cut
+
+sub _insertbefore {
+	my ($self, $lines, $where, @addition) = @_;
+	if ($#addition == 0) {
+		@addition = split (/(?<=\n)/, $addition[0]);
+	}
+	foreach my $i (reverse 0 .. $#$lines) {
+		if (${$lines}[$i] =~ /$where/) {
+			# this changes the total number of lines, but this does not
+			# matter because we are processing the list in reverse order.
+			splice(@$lines, $i, 0, @addition);
+		}
+	}
 }
 
 =item _get_locale()
@@ -210,7 +273,7 @@ sub _update_to_189 {
 			$warned++;
 		}
 	}
-	push @$lines, <<'_end_update_to_189_';
+	$self->_append($lines, <<'_end_update_to_189_');
 
 # convert $LS_COLORS into an additional colorset?
 importlscolors:yes
@@ -230,7 +293,7 @@ sub _update_to_1901 {
 			s/\$EDITOR\b/\\e/g;
 		}
 	}
-	push @$lines, <<'_end_update_to_1901_';
+	$self->_append($lines, <<'_end_update_to_1901_');
 
 ## preferred image editor/viewer (don't specify \2 here)
 #viewer:eog
@@ -262,14 +325,11 @@ sub _update_to_1913 {
 	my ($self, $lines) = @_;
 	# this removes 'timeformat' for version 1.91.3
 	print "Updating to 1.91.3...\n";
-	my $i;
-	for ($i = $#$lines; $i > 0; $i--) {
-		if (${$lines}[$i] =~ /^#*\s*(timeformat:|format for entering time:)/
-		or ${$lines}[$i] =~ /^#*\s*touch MMDDhhmm\S* or pfm .*MMDDhhmm/)
-		{
-			splice(@{$lines}, $i, 1);
-		}
-	}
+	$self->_remove(
+		$lines,
+		qr/^#*\s*(timeformat:|format for entering time:)/,
+		qr/^#*\s*touch MMDDhhmm\S* or pfm .*MMDDhhmm/,
+	);
 }
 
 sub _update_to_1914 {
@@ -285,7 +345,7 @@ sub _update_to_1915 {
 	my ($self, $lines) = @_;
 	# added 'clockdateformat' and 'clocktimeformat' options
 	print "Updating to 1.91.5...\n";
-	push @$lines, <<_end_update_to_1915_;
+	$self->_append($lines, <<'_end_update_to_1915_');
 
 ## clock date/time format; see strftime(3).
 ## %x and %X provide properly localized time and date.
@@ -323,16 +383,15 @@ sub _update_to_1920 {
 		s{## launch commands.*not implemented.*}
 		 {## launch commands};
 	}
-	my @new = (
-"## the option itself may not contain whitespace or colons,\n",
-"## except in a classifier enclosed in [] that immediately follows it.\n",
-'## in other words: /^\s*([^[:\s]+(?:\[[^]]+\])?)\s*:\s*(.*)$/'."\n",
-);
-	for ($i = $#$lines; $i > 0; $i--) {
-		if (${$lines}[$i] =~ /## in other words:/) {
-			splice @$lines, $i, 1, @new;
-		}
-	}
+	$self->_insertbefore(
+		$lines,
+		qr/^## [iI]n other words:/,
+		<<'_end_update_to_1920_'
+## The option itself may not contain whitespace or colons,
+## except in a classifier enclosed in [] that immediately follows it.
+## In other words: /^\s*([^[:\s]+(?:\[[^]]+\])?)\s*:\s*(.*)$/
+_end_update_to_1920_
+	);
 }
 
 sub _update_to_1921 {
@@ -370,7 +429,7 @@ sub _update_to_1931 {
 		s/\\([1-7epv])/=$1/g;
 		s/\\\\/==/g;
 	}
-	push @$lines, <<'_end_update_to_1931_';
+	$self->_append($lines, <<'_end_update_to_1931_');
 
 extension[*.dvi] : application/x-dvi
 extension[*.jar] : application/zip
@@ -392,14 +451,14 @@ sub _update_to_1938 {
 	my ($self, $lines) = @_;
 	# added 'altscreenmode'
 	print "Updating to 1.93.8...\n";
-	push @$lines, <<'_end_update_to_1938_';
+	$self->_append($lines, <<'_end_update_to_1938_');
 
 ## use xterm alternate screen buffer (yes,no,xterm) (default: only in xterm)
 altscreenmode:xterm
 
 ## command used for starting a new pfm window for a directory. 
 ## Only applicable under X. The default is to take gnome-terminal under 
-## Linux, xterm under other Unixes. 
+## Linux, xterm under other Unices. 
 ## Be sure to include the option to start a program in the window. 
 #windowcmd:gnome-terminal -e 
 #windowcmd:xterm -e 
@@ -411,7 +470,7 @@ sub _update_to_1942 {
 	my ($self, $lines) = @_;
 	# subversion support; 'rcscmd', 'autorcs'
 	print "Updating to 1.94.2...\n";
-	push @$lines, <<_end_update_to_1942_;
+	$self->_append($lines, <<'_end_update_to_1942_');
 
 ## request rcs status automatically?
 autorcs:yes
@@ -426,7 +485,7 @@ sub _update_to_1948 {
 	my ($self, $lines) = @_;
 	# added openoffice document extensions to default .pfmrc
 	print "Updating to 1.94.8...\n";
-	push @$lines, <<_end_update_to_1948_;
+	$self->_append($lines, <<'_end_update_to_1948_');
 
 extension[*.odp]  : application/x-openoffice
 extension[*.ods]  : application/x-openoffice
@@ -440,7 +499,7 @@ sub _update_to_1951 {
 	my ($self, $lines) = @_;
 	# added 'remove_marks_ok' option
 	print "Updating to 1.95.1...\n";
-	push @$lines, <<_end_update_to_1951_;
+	$self->_append($lines, <<'_end_update_to_1951_');
 
 ## is it always "OK to remove marks?" without confirmation?
 remove_marks_ok:no
@@ -452,7 +511,7 @@ sub _update_to_1952 {
 	my ($self, $lines) = @_;
 	# added 'checkforupdates' option (was deprecated later).
 	print "Updating to 1.95.2...\n";
-	push @$lines, <<_end_update_to_1952_;
+	$self->_append($lines, <<'_end_update_to_1952_');
 
 ## automatically check for updates on exit (default: no) 
 checkforupdates:no 
@@ -482,14 +541,11 @@ sub _update_to_2017 {
 	return if $self->{_amphibian};
 	# this removes 'checkforupdates' for version 2.01.7
 	print "Updating to 2.01.7...\n";
-	my $i;
-	for ($i = $#$lines; $i > 0; $i--) {
-		if (${$lines}[$i] =~ /^#*\s*checkforupdates:/
-		or  ${$lines}[$i] =~ /^#+\s*automatically check for updates on exit/)
-		{
-			splice(@$lines, $i, 1);
-		}
-	}
+	$self->_remove(
+		$lines,
+		qr/^#*\s*checkforupdates:/,
+		qr/^#+\s*automatically check for updates on exit/,
+	);
 }
 
 sub _update_to_2037 {
@@ -497,21 +553,18 @@ sub _update_to_2037 {
 	return if $self->{_amphibian};
 	# this removes 'waitlaunchexec' for version 2.03.7
 	print "Updating to 2.03.7...\n";
-	my $i;
-	for ($i = $#$lines; $i > 0; $i--) {
-		if (${$lines}[$i] =~ /^#*\s*waitlaunchexec:/
-		or  ${$lines}[$i] =~ /^#+\s*wait for launched executables to finish/)
-		{
-			splice(@$lines, $i, 1);
-		}
-	}
+	$self->_remove(
+		$lines,
+		qr/^[ #]*waitlaunchexec:/,
+		qr/^[ #]*wait for launched executables to finish/,
+	);
 }
 
 sub _update_to_2044 {
 	my ($self, $lines) = @_;
 	# added 'copyoptions'
 	print "Updating to 2.04.4...\n";
-	push @$lines, <<_end_update_to_2044_;
+	$self->_append($lines, <<'_end_update_to_2044_');
 
 ## commandline options to add to the cp(1) command, in the first place for
 ## changing the 'follow symlinks' behavior.
@@ -524,7 +577,7 @@ sub _update_to_2053 {
 	my ($self, $lines) = @_;
 	# added extra MIME types
 	print "Updating to 2.05.3...\n";
-	push @$lines, <<_end_update_to_2053_;
+	$self->_append($lines, <<'_end_update_to_2053_');
 
 extension[*.3pm]  : application/x-nroff-man
 extension[*.js]   : application/javascript
@@ -544,17 +597,15 @@ sub _update_to_2059 {
 	# added 'windowtype'
 	print "Updating to 2.05.9...\n";
 	my $i;
-	for ($i = $#$lines; $i > 0; $i--) {
-		if (${$lines}[$i] =~ /^#*\s*windowcmd:/
-		or  ${$lines}[$i] =~ /^#+\s*command used for starting a new pfm window for a directory/
-		or  ${$lines}[$i] =~ /^#+\s*Only applicable.*The default is to take gnome-terminal/
-		or  ${$lines}[$i] =~ /^#+\s*Linux, xterm under other Unixes/
-		or  ${$lines}[$i] =~ /^#+\s*Be sure to include the option to start a program/)
-		{
-			splice(@$lines, $i, 1);
-		}
-	}
-	push @$lines, <<_end_update_to_2059_;
+	$self->_remove(
+		$lines,
+		qr/^#*\s*windowcmd:/,
+		qr/^#+\s*command used for starting a new pfm window for a directory/,
+		qr/^#+\s*Only applicable.*The default is to take gnome-terminal/,
+		qr/^#+\s*Linux, xterm under other Uni[xc]es/,
+		qr/^#+\s*Be sure to include the option to start a program/,
+	);
+	$self->_append($lines, <<'_end_update_to_2059_');
 
 ## Command used for starting a new directory window. Only useful under X.
 ##
@@ -563,8 +614,8 @@ sub _update_to_2059 {
 ## The command is responsible for opening its own window.
 ##
 ## If 'windowtype' is 'pfm', then 'windowcmd' should be a terminal
-## command, which will be used to start pfm (the default is
-## gnome-terminal for linux and xterm for other Unixes.
+## command, which will be used to start pfm (the default is to use
+## gnome-terminal for linux and xterm for other Unices).
 ## Be sure to include the option to start a program in the window
 ## (for xterm, this is -e).
 ##
@@ -586,7 +637,7 @@ sub _update_to_2060 {
 	my ($self, $lines) = @_;
 	# added 'autowritebookmarks'
 	print "Updating to 2.06.0...\n";
-	push @$lines, <<_end_update_to_2060_;
+	$self->_append($lines, <<'_end_update_to_2060_');
 
 ## write bookmarks to file automatically upon exit
 autowritebookmarks:yes
@@ -598,7 +649,7 @@ sub _update_to_2061 {
 	my ($self, $lines) = @_;
 	# added 'sortcycle'
 	print "Updating to 2.06.1...\n";
-	push @$lines, <<_end_update_to_2061_;
+	$self->_append($lines, <<'_end_update_to_2061_');
 
 ## sort modes to cycle through when clicking 'Sort' in the footer.
 ## default: nNeEdDaAsStu
@@ -611,7 +662,7 @@ sub _update_to_2062 {
 	my ($self, $lines) = @_;
 	# added 'force_minimum_size'
 	print "Updating to 2.06.2...\n";
-	push @$lines, <<_end_update_to_2062_;
+	$self->_append($lines, <<'_end_update_to_2062_');
 
 ## pfm does not support a terminal size of less than 80 columns or 24 rows.
 ## this option will make pfm try to resize the terminal to the minimum
@@ -626,7 +677,7 @@ sub _update_to_2063 {
 	my ($self, $lines) = @_;
 	# added 'fg_editor'
 	print "Updating to 2.06.3...\n";
-	push @$lines, <<_end_update_to_2063_;
+	$self->_append($lines, <<'_end_update_to_2063_');
 
 ## In case the regular editor automatically forks in the background, you
 ## may want to specify a foreground editor here. If defined, this editor
@@ -641,7 +692,7 @@ sub _update_to_2064 {
 	my ($self, $lines) = @_;
 	# added 'autosort'
 	print "Updating to 2.06.4...\n";
-	push @$lines, <<_end_update_to_2064_;
+	$self->_append($lines, <<'_end_update_to_2064_');
 
 ## automatically sort the directory's contents again after a
 ## (T)ime or (U)ser command? (default: yes)
@@ -655,16 +706,13 @@ sub _update_to_2069 {
 	return if $self->{_amphibian};
 	# deprecated 'ducmd'
 	print "Updating to 2.06.9...\n";
-	my $i;
-	for ($i = $#$lines; $i > 0; $i--) {
-		if (${$lines}[$i] =~ /^#*\s*ducmd:/
-		or  ${$lines}[$i] =~ /^#+\s*your system's du.+command.+needs.+for the current filename/
-		or  ${$lines}[$i] =~ /^#+\s*specify so that the outcome is in bytes/
-		or  ${$lines}[$i] =~ /^#+\s*this is commented out because pfm makes a clever guess for your OS/)
-		{
-			splice(@$lines, $i, 1);
-		}
-	}
+	$self->_remove(
+		$lines,
+		qr/^[# ]*ducmd:/,
+		qr/^[# ]*your system's du.+command.+needs.+for the current filename/,
+		qr/^[# ]*specify so that the outcome is in bytes/,
+		qr/^[# ]*this is commented out because pfm makes a clever guess for your OS/,
+	);
 }
 
 sub _update_to_2080 {
@@ -685,32 +733,30 @@ sub _update_to_2081 {
 	my ($self, $lines) = @_;
 	# added 'mousewheeljump{size,max,ratio}' and 'highlightname'
 	print "Updating to 2.08.1...\n";
-	foreach my $i (reverse 0 .. $#$lines) {
-		${$lines}[$i] =~
-			s{## no=normal fi=file ex=executable lo=lost file ln=symlink or=orphan link}
-			 {## no=normal fi=file lo=lost file ln=symlink or=orphan link hl=hard link};
-		${$lines}[$i] =~
-			s{ln=([^:]*):or=([^:]*):}
-			 {ln=$1:or=$2:hl=white on blue:};
-		if (${$lines}[$i] =~ /^([^#]*:|)wh=([^:]*):/) {
-			# this changes the total number of lines, but this does not
-			# matter because we are processing the list in reverse order.
-			splice(@$lines, $i, 0, <<_end_update_1_to_2081_);
+	foreach (@$lines) {
+		s{## no=normal fi=file ex=executable lo=lost file ln=symlink or=orphan link}
+		 {## no=normal fi=file lo=lost file ln=symlink or=orphan link hl=hard link};
+		s{ln=([^:]*):or=([^:]*):}
+		 {ln=$1:or=$2:hl=white on blue:};
+	}
+	$self->_insertbefore(
+		$lines,
+		qr/^([^#]*:|)wh=([^:]*):/,
+		<<_end_update_1_to_2081_
 su=white on red:sg=black on yellow:\\
 ow=blue on green:st=white on blue:tw=black on green:\\
 _end_update_1_to_2081_
-		}
-		if (${$lines}[$i] =~ /## ..<ext> defines extension colors/) {
-			# this changes the total number of lines, but this does not
-			# matter because we are processing the list in reverse order.
-			splice(@$lines, $i, 0, <<_end_update_2_to_2081_);
+	);
+	$self->_insertbefore(
+		$lines,
+		qr/## ..<ext> defines extension colors/,
+		<<_end_update_2_to_2081_
 ## ex=executable su=setuid sg=setgid ca=capability (not implemented)
 ## ow=other-writable dir (d???????w?) st=sticky dir (d????????t)
-### tw=sticky and other-writable dir (d???????wt)
+## tw=sticky and other-writable dir (d???????wt)
 _end_update_2_to_2081_
-		}
-	}
-	push @$lines, <<_end_update_3_to_2081_;
+	);
+	$self->_append($lines, <<_end_update_3_to_2081_);
 
 ## overlay the highlight color onto the current filename? (default yes)
 highlightname:yes
@@ -733,13 +779,70 @@ mousewheeljumpmax:11
 _end_update_3_to_2081_
 }
 
-=item _update_version
+sub _update_to_2082 {
+	my ($self, $lines) = @_;
+	# added 'mousewheeljumpmin'
+	print "Updating to 2.08.2...\n";
+	$self->_insertbefore(
+		$lines,
+		qr/^[ #]*mousewheeljumpmax:/,
+		<<'_end_update_1_to_2082_'
+mousewheeljumpmin:1
+_end_update_1_to_2082_
+	);
+	foreach (@$lines) {
+		s{'mousewheeljumpmax' sets an upper bound to the number of lines that}
+		 {'mousewheeljumpmin' and 'mousewheeljumpmax' set bounds to the number};
+		s{the cursor is allowed to jump when using the mousewheel.}
+		 {of lines that the cursor is allowed to jump when using the mousewheel.};
+		# these should have been done in an earlier version.
+		s{initial sort mode .nNmMeEfFsSzZiItTdDaA. }
+		 {initial sort mode (nNmMeEfFdDaAsSzZtTuUgGvViI*) };
+		s{F7 key swap path method is persistent...default no.}
+		 {F7 key swap path method is persistent? (default yes)};
+		s{title, title in swap mode}
+		 {headings, headings in swap mode};
+		s{colors for header, header in multiple mode}
+		 {colors for menu, menu in multiple mode};
+	}
+	# this should have been done in an earlier version.
+	$self->_insertbefore(
+		$lines,
+		qr/^clsonexit:/,
+		<<'_end_update_2_to_2082_'
+## Has no effect if altscreenmode is set.
+_end_update_2_to_2082_
+	);
+	# this should have been done in an earlier version.
+	$self->_insertbefore(
+		$lines,
+		qr/^[ #]*fg_editor:/,
+		<<'_end_update_3_to_2082_'
+## It will also be used for editing ACLs.
+_end_update_3_to_2082_
+	);
+	# this should have been done in an earlier version.
+	$self->_remove(
+		$lines,
+		qr/^[# ]*rcscmd:/,
+		qr/^[# ]*command to use for requesting the file status in your rcs system/,
+	);
+	# this should have been done in an earlier version.
+	$self->_append($lines, <<'_end_update_4_to_2082_');
+
+## Must 'Hit any key to continue' also accept mouse clicks?                                       
+clickiskeypresstoo:yes                                                                            
+
+_end_update_4_to_2082_
+}
+
+=item _update_version_identifier
 
 Updates the 'Version:' line in I<text> to the new version.
 
 =cut
 
-sub _update_version {
+sub _update_version_identifier {
 	my ($self, $to, $lines) = @_;
 	# this updates the version field for any version
 	print "Updating version field to $to...\n";
@@ -789,7 +892,8 @@ sub _update_text {
 	$self->_update_to_2069($lines) if $self->_cross('2.06.9', $from, $to);
 	$self->_update_to_2080($lines) if $self->_cross('2.08.0', $from, $to);
 	$self->_update_to_2081($lines) if $self->_cross('2.08.1', $from, $to);
-	$self->_update_version($to, $lines);
+	$self->_update_to_2082($lines) if $self->_cross('2.08.2', $from, $to);
+	$self->_update_version_identifier($to, $lines);
 }
 
 ##########################################################################

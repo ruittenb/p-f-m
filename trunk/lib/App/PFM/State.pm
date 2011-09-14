@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::State 0.16
+# @(#) App::PFM::State 0.18
 #
 # Name:			App::PFM::State
-# Version:		0.16
+# Version:		0.18
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-02
+# Date:			2010-09-04
 #
 
 ##########################################################################
@@ -51,6 +51,7 @@ use constant SORTMODES => [
 	 t =>'Type',		T =>' reverse',
 	 u =>'User',		U =>' reverse',
 	 g =>'Group',		G =>' reverse',
+	 l =>'Link count',	L =>' reverse',
 	 v =>'Version',		V =>' reverse',
 	 i =>'Inode',		I =>' reverse',
 	'*'=>'mark',
@@ -118,17 +119,25 @@ sub directory {
 	return $self->{_directory};
 }
 
-=item sort_mode( [ char $sort_mode ] )
+=item sort_mode( [ string $sort_mode ] )
 
-Getter/setter for the sort mode.
+Getter/setter for the sort mode. The sort mode must be a string consisting
+of valid sortmode characters as defined by the SORTMODES constant above.
 
 =cut
 
 sub sort_mode {
 	my ($self, $value) = @_;
 	if (defined $value) {
+		my $valid = 1;
 		my %sortmodes = @{SORTMODES()};
-		if (exists $sortmodes{$value}) {
+		foreach my $i (0 .. length($value) - 1) {
+			if (!exists $sortmodes{substr($value, $i, 1)}) {
+				$valid = 0;
+				last;
+			}
+		}
+		if ($valid) {
 			$self->{_sort_mode} = $value;
 		}
 	}
@@ -138,7 +147,7 @@ sub sort_mode {
 ##########################################################################
 # public subs
 
-=item prepare(string $path [, char $sort_mode ] )
+=item prepare(string $path [, string $sort_mode ] )
 
 Prepares the contents of this state object. Called in case this state
 is not to be displayed on-screen right away.

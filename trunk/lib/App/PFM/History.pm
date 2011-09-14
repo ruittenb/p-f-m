@@ -149,18 +149,22 @@ sub read {
 	}
 }
 
-=item write()
+=item write( [ bool $finishing ] )
 
 Writes the histories to files in the config directory.
+The argument I<finishing> indicates that the final message
+should be shown without delay.
 
 =cut
 
 sub write {
-	my ($self) = @_;
+	my ($self, $finishing) = @_;
 	my $failed;
 	my $screen = $_pfm->screen;
-	$screen->at(0,0)->clreol()
-		->set_deferred_refresh($screen->R_MENU);
+	unless ($finishing) {
+		$screen->at(0,0)->clreol()
+			->set_deferred_refresh($screen->R_MENU);
+	}
 	foreach (keys %{$self->{_histories}}) {
 		if (open HISTFILE, '>'.$_pfm->config->CONFIGDIRNAME."/$_") {
 			print HISTFILE join "\n", @{$self->{_histories}{$_}}, '';
@@ -170,8 +174,13 @@ sub write {
 			$failed++; # warn only once
 		}
 	}
-	$screen->putmessage('History written successfully') unless $failed;
-	$screen->error_delay();
+	unless ($failed) {
+		$screen->putmessage(
+			'History written successfully' . ($finishing ? "\n" : ''));
+	}
+	unless ($finishing) {
+		$screen->error_delay();
+	}
 }
 
 =item write_dirs()

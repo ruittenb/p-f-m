@@ -4,7 +4,7 @@
 
 - config columnlayouts: characters in the "gap" between filerecord and
   infocolumn ("f") are not cleared when switching columnlayouts.
-  Solve this by inserting an artificial "gap" field?
+  Solve this by inserting an artificial "gap" field? underscore?
 
 - handlecopyrename: if "overwrite?" is answered with "no", then the
   cursor is repositioned anyway
@@ -20,13 +20,6 @@
 
 - call $pfm->checkupdates() in '@' (perlcommand) does not finish the job;
   call $pfm->checkupdates(); sleep 2; finishes it.
-
-- crash: 'pfm -sv' ends up with:
-	Cannot read . : No such file or directory
-	Copyright (c) 1999-2010 Rene Uittenbogaard
-	This software comes with no warranty: see the file COPYING for details.
-	df: `v': No such file or directory
-	df: no file systems processed
 
 ################################################################################
 # structural enhancements
@@ -68,6 +61,8 @@
 - who determines which command was clicked in the menu?
   is that the CommandHandler::handlemousefooter* or Screen::Frame?
 
+- remove code duplication from Update
+
 ################################################################################
 # functional enhancements
 
@@ -79,16 +74,12 @@
 
 - introduce SIGQUIT for interrupt multi?
 
-- create a 'bypass' option for hl= etc. colors
-
 - figure out and display if an ACL is applicable for a file
 
 ################################################################################
 # documentation enhancements
 
 - add constants MENU_* HEADING_* etc. to uml
-
-- rename "format" to "layout" everywhere
 
 - manpages: update formatting of arguments.
 

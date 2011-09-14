@@ -82,8 +82,8 @@ sub _decidecolor {
 	$self->{type}  eq 'w'				and return $dircolors{wh};
 	$self->{nlink} ==  0 				and return $dircolors{lo};
 	# by permissions
-	$self->{mode}  =~ /^d.......wt/o	and return $dircolors{tw};
-	$self->{mode}  =~ /^d........t/o	and return $dircolors{st};
+	$self->{mode}  =~ /^d.......w[tT]/o	and return $dircolors{tw};
+	$self->{mode}  =~ /^d........[tT]/o	and return $dircolors{st};
 	$self->{mode}  =~ /^d.......w./o	and return $dircolors{ow};
 	$self->{mode}  =~ /^-..s/o			and return $dircolors{su};
 	$self->{mode}  =~ /^-.....s/o		and return $dircolors{sg};
@@ -100,7 +100,8 @@ sub _decidecolor {
 	$self->{type}  eq 'P'				and return $dircolors{ep};
 	# by nr. of hard links
 	$self->{type}  eq '-'			&&
-		$self->{nlink}  >  1 			and return $dircolors{hl};
+		$self->{nlink} > 1			&&
+		defined $dircolors{hl}			and return $dircolors{hl};
 	# by permissions
 	$self->{mode}  =~ /[xst]/o			and return $dircolors{ex};
 	# by extension

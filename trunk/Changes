@@ -1,3 +1,12 @@
+2.08.2-alpha
+
+* fixed crash when -s was used with a non-existant swap directory
+* fixed problems with updating config file
+* fixed: (D)elete no longer removes all lost files from the listing
+* added: sort by link count
+* added: multilevel sort: (M)ore - <F6>
+* updated documentation
+
 2.08.1-alpha
 
 * fixed bug in cyclic sort (config option 'sortcycle')
@@ -17,8 +26,8 @@
 * fixed applying colors to regular files
 * fixed applying the highlight color to the filename column
 * added configurable colors for event pipes
-* restructured code: pfmrcupdate script to its own class; pfm will now
-  propose to update an out-of-date config file.
+* restructured code: moved pfmrcupdate script to a pfm class (Update);
+  pfm will now propose to update an out-of-date config file.
 * updated install script
 
 2.07.9-beta

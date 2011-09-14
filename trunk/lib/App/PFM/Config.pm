@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 0.93
+# @(#) App::PFM::Config 0.94
 #
 # Name:			App::PFM::Config
-# Version:		0.93
+# Version:		0.94
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-02
+# Date:			2010-09-03
 #
 
 ##########################################################################
@@ -250,7 +250,7 @@ sub read {
 					return;
 				}
 				$screen->cooked_echo();
-				$updater = new App::PFM::Config::Update($_pfm);
+				$updater = new App::PFM::Config::Update();
 				$updater->update(
 					$pfmrc_version, $_pfm->{VERSION}, $self->{_text});
 				$self->write_text();
@@ -299,7 +299,8 @@ sub parse {
 	$self->{clocktimeformat}	= $pfmrc->{clocktimeformat} || '%H:%M:%S';
 	$self->{timestampformat}	= $pfmrc->{timestampformat} || '%y %b %d %H:%M';
 	$self->{mousewheeljumpsize}	= $pfmrc->{mousewheeljumpsize}  || 'variable';
-	$self->{mousewheeljumpmax}	= $pfmrc->{mousewheeljumpmax}   || 11;
+	$self->{mousewheeljumpmin}	= $pfmrc->{mousewheeljumpmin}   || 1;
+	$self->{mousewheeljumpmax}	= $pfmrc->{mousewheeljumpmax}   || 10;
 	$self->{mousewheeljumpratio}= $pfmrc->{mousewheeljumpratio} || 4;
 	$self->{launchby}			= $pfmrc->{launchby};
 	$self->{copyoptions}		= $pfmrc->{copyoptions};
@@ -519,40 +520,51 @@ sub read_bookmarks {
 	return %bookmarks;
 }
 
-=item write_bookmarks()
+=item write_bookmarks( [ bool $finishing ] )
 
 Writes the states to the bookmarks file.
 Reports an error if the bookmarks file cannot be written.
 
+The argument I<finishing> indicates that the final message
+should be shown without delay.
+
 =cut
 
 sub write_bookmarks {
-	my ($self) = @_;
+	my ($self, $finishing) = @_;
 	my ($state, $path);
 	my $screen = $_pfm->screen;
-	$screen->at(0,0)->clreol()
-		->set_deferred_refresh($screen->R_MENU);
-	if (open BOOKMARKS, ">" . CONFIGDIRNAME . "/" . BOOKMARKFILENAME) {
-		print BOOKMARKS '#' x 74, "\n## bookmarks for pfm\n\n";
-		foreach (@{$_pfm->BOOKMARKKEYS}) {
-			next if /../;
-			$state = $_pfm->state($_);
-			if (ref $state) {
-				$path = $state->directory->path;
-				if ($state->{_position}) {
-					$path .= '/' . $state->{_position};
-				}
-			} else {
-				$path = $state;
-			}
-			print BOOKMARKS "bookmark[$_]:$path\n";
-		}
-		print BOOKMARKS "\n## vim: set filetype=xdefaults:\n";
-		close BOOKMARKS;
-		$screen->putmessage('Bookmarks written successfully')
-			->error_delay();
-	} else {
+	unless ($finishing) {
+		$screen->at(0,0)->clreol()
+			->set_deferred_refresh($screen->R_MENU);
+	}
+	unless (open BOOKMARKS, ">" . CONFIGDIRNAME . "/" . BOOKMARKFILENAME) {
 		$screen->display_error("Error writing bookmarks: $!");
+		return;
+	}
+	print BOOKMARKS '#' x 74, "\n## bookmarks for pfm\n\n";
+	foreach (@{$_pfm->BOOKMARKKEYS}) {
+		next if /../;
+		$state = $_pfm->state($_);
+		if (ref $state) {
+			$path = $state->directory->path;
+			if ($state->{_position}) {
+				$path .= '/' . $state->{_position};
+			}
+		} else {
+			$path = $state;
+		}
+		print BOOKMARKS "bookmark[$_]:$path\n";
+	}
+	print BOOKMARKS "\n## vim: set filetype=xdefaults:\n";
+	unless (close BOOKMARKS) {
+		$screen->display_error("Error writing bookmarks: $!");
+		return;
+	}
+	$screen->putmessage(
+		'Bookmarks written successfully' . ($finishing ? "\n" : ''));
+	unless ($finishing) {
+		$screen->error_delay();
 	}
 }
 
@@ -618,13 +630,14 @@ clocktimeformat:%H:%M:%S
 #clocktimeformat:%X
 
 ## whether you want to have the screen cleared when pfm exits.
-## No effect if altscreenmode is set.
+## Has no effect if altscreenmode is set.
 clsonexit:no
 
 ## In case the regular editor automatically forks in the background, you
 ## may want to specify a foreground editor here. If defined, this editor
 ## will be used for editing the config file, so that pfm will be able to
 ## wait for the editor to finish before rereading the config file.
+## It will also be used for editing ACLs.
 #fg_editor:vim
 
 ## have pfm ask for confirmation when you press 'q'uit? (yes,no,marked)
@@ -746,9 +759,10 @@ mousewheeljumpsize:variable
 ## 'mousewheeljumpratio' is used to calculate the number of lines that
 ## the cursor will jump, namely: the total number of enties in the
 ## directory divided by 'mousewheeljumpratio'.
-## 'mousewheeljumpmax' sets an upper bound to the number of lines that
-## the cursor is allowed to jump when using the mousewheel.
+## 'mousewheeljumpmin' and 'mousewheeljumpmax' set bounds to the number
+## of lines that the cursor is allowed to jump when using the mousewheel.
 mousewheeljumpratio:4
+mousewheeljumpmin:1
 mousewheeljumpmax:11
 
 ## your pager (don't specify =2 here). you can also use $PAGER
@@ -804,8 +818,8 @@ viewer:eog
 ## The command is responsible for opening its own window.
 ##
 ## If 'windowtype' is 'pfm', then 'windowcmd' should be a terminal
-## command, which will be used to start pfm (the default is
-## gnome-terminal for linux and xterm for other Unixes.
+## command, which will be used to start pfm (the default is to use
+## gnome-terminal for linux and xterm for other Unices).
 ## Be sure to include the option to start a program in the window
 ## (for xterm, this is -e).
 ##

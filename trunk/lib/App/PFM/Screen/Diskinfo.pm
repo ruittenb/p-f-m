@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Diskinfo 0.11
+# @(#) App::PFM::Screen::Diskinfo 0.13
 #
 # Name:			App::PFM::Screen::Diskinfo
-# Version:		0.12
+# Version:		0.13
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-24
+# Date:			2010-09-03
 #
 
 ##########################################################################

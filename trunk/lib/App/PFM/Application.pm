@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.08.1
+# @(#) App::PFM::Application 2.08.2
 #
 # Name:			App::PFM::Application
-# Version:		2.08.1
+# Version:		2.08.2
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-02
+# Date:			2010-09-03
 #
 
 ##########################################################################
@@ -207,13 +207,13 @@ sub _goodbye {
 					->at($screen->PATHLINE, 0);
 		}
 	}
-	$self->{_history}->write_dirs();
-	$self->{_history}->write() if $config->{autowritehistory};
-	$config->write_bookmarks() if $config->{autowritebookmarks};
 	if ($state->{altscreen_mode} or !$config->{clsonexit}) {
 		$screen->at($screen->screenheight + $screen->BASELINE + 1, 0)
 				->clreol();
 	}
+	$self->{_history}->write_dirs();
+	$self->{_history}->write(1) if $config->{autowritehistory};
+	$config->write_bookmarks(1) if $config->{autowritebookmarks};
 	if ($self->{NEWER_VERSION} and $self->{PFM_URL}) {
 		$screen->putmessage(
 			"There is a newer version ($self->{NEWER_VERSION}) ",
