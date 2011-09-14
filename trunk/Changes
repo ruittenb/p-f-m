@@ -1,3 +1,13 @@
+2.06.4-alpha
+
+* fixed: swap (F7) to current directory now updates the listing,
+  marks and cursor position correctly
+* fixed: deleting all the files on-screen now positions the
+  cursor on the correct line.
+* added 'autosort' config option controlling sorting the directory's
+  contents again after a (T)ime or (U)ser command
+* added support for firing and listening to events
+
 2.06.3-alpha
 
 * added config option 'fg_editor' for editing the config file
@@ -5,14 +15,14 @@
 
 2.06.2-alpha
 
-* fixed a bug in refreshing the screen after jumping to a bookmark
+* fixed refreshing the screen after jumping to a bookmark
 * added config option 'force_minimum_size' to prevent the terminal
   from being resized to smaller than 80x24 characters
 
 2.06.1-alpha
 
-* fixed a bug parsing 'svn status' output
-* fixed a bug: display bookmark paths in correct length
+* fixed parsing 'svn status' output
+* fixed: display bookmark paths in correct length
 * added cycling through sort modes by clicking 'sort' in the footer
 * added 'sortcycle' config option
 

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Browser 0.36
+# @(#) App::PFM::Browser 0.37
 #
 # Name:			App::PFM::Browser
-# Version:		0.36
+# Version:		0.37
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-13
+# Date:			2010-08-16
 #
 
 ##########################################################################
@@ -244,16 +244,17 @@ sub validate_position {
 		$_baseindex  += $_currentline;
 		$_baseindex   < 0 and $_baseindex = 0;
 		$_currentline = 0;
-#		$screen->set_deferred_refresh($screen->R_DIRLIST);
 	}
 	if ($_currentline > $screenheight) {
 		$_baseindex  += $_currentline - $screenheight;
 		$_currentline = $screenheight;
-#		$screen->set_deferred_refresh($screen->R_DIRLIST);
+	}
+	if ($_baseindex > $#showncontents) {
+		$_currentline += $_baseindex - $#showncontents;
+		$_baseindex    = $#showncontents;
 	}
 	if ($_currentline + $_baseindex > $#showncontents) {
 		$_currentline = $#showncontents - $_baseindex;
-#		$screen->set_deferred_refresh($screen->R_DIRLIST);
 	}
 	# See if we need to refresh the listing.
 	# By limiting the number of listing-refreshes to when the baseindex
@@ -375,11 +376,11 @@ following structure:
 
 sub browse {
 	my ($self) = @_;
-	my ($event, $valid_input);
+	my ($event, $command_result);
 	# prefetch objects
 	my $commandhandler = $_pfm->commandhandler;
 	my $listing        = $_screen->listing;
-	until ($valid_input eq 'quit') {
+	until ($command_result eq 'quit') {
 		$_screen->refresh();
 		$listing->highlight_on();
 		# don't send mouse escapes to the terminal if not necessary
@@ -403,7 +404,7 @@ sub browse {
 			$listing->highlight_off();
 			$_screen->mouse_disable() if $_pfm->config->{mouseturnoff};
 			# the next line contains an assignment on purpose
-			if ($valid_input = $commandhandler->handle($event)) {
+			if ($command_result = $commandhandler->handle($event)) {
 				# if the received input was valid, then the current
 				# cursor position must be validated again
 				$_screen->set_deferred_refresh($_screen->R_STRIDE);

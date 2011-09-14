@@ -106,6 +106,57 @@ sub clone {
 ##########################################################################
 # public subs
 
+=item register_listener()
+
+Register the code reference provided as listener for the specified event.
+Example usage:
+
+	package Parent;
+
+	my $onGreet = sub {
+		system "xmessage 'Hello, world!'";
+	};
+	$child->register_listener('greetWorld', $onGreet);
+
+	package Child;
+
+	$self->fire('greetWorld');
+
+=cut
+
+sub register_listener {
+	my ($self, $event, $listener) = @_;
+	return 0 unless (ref $listener eq "CODE");
+	my $handlers = $self->{event_handlers};
+	if (!exists $handlers->{$event}) {
+		$handlers->{$event} = [];
+	}
+	# do we want to push or unshift here?
+	push @{$handlers->{$event}}, $listener;
+	return 1;
+}
+
+=item unregister_listener()
+
+Unregisters the code reference provided as listener for the specified event.
+
+=cut
+
+sub unregister_listener {
+	my ($self, $event, $listener) = @_;
+	return 0 unless (ref $listener eq "CODE");
+	my $handlers = $self->{event_handlers};
+	return 0 unless exists $handlers->{$event};
+	my $success = 0;
+	foreach my $i (reverse 0 .. $#{$handlers->{$event}}) {
+		if ($listener == ${$handlers->{$event}}[$i]) {
+			$success = 1;
+			splice @{$handlers->{$event}}, $i, 1;
+		}
+	}
+	return $success;
+}
+
 =item fire()
 
 Fire an event. Calls all event handlers that have registered themselves.
@@ -121,31 +172,6 @@ sub fire {
 		push @res, $_->(@args);
 	}
 	return wantarray ? @res : join ':', @res;
-}
-
-=item register_listener()
-
-Register the object provided as listener for the specified event.
-Example usage:
-
-	my $onGreet = sub {
-		system "xmessage 'Hello, world!'";
-	};
-	$obj->register_listener('greetWorld', $onGreet);
-	$obj->fire('greetWorld');
-
-=cut
-
-sub register_listener {
-	my ($self, $event, $listener) = @_;
-	return 0 unless (ref $listener eq "CODE");
-	my $handlers = $self->{event_handlers};
-	if (!exists $handlers->{$event}) {
-		$handlers->{$event} = [];
-	}
-	# do we want to push or unshift here?
-	push @{$handlers->{$event}}, $listener;
-	return 1;
 }
 
 ##########################################################################

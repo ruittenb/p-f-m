@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 0.87
+# @(#) App::PFM::Config 0.88
 #
 # Name:			App::PFM::Config
-# Version:		0.87
+# Version:		0.88
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-12
+# Date:			2010-08-15
 #
 
 ##########################################################################
@@ -304,6 +304,7 @@ sub parse {
 	$self->{autoexitmultiple}	= isyes($pfmrc->{autoexitmultiple});
 	$self->{mouseturnoff}		= isyes($pfmrc->{mouseturnoff});
 	$self->{swap_persistent}	= isyes($pfmrc->{persistentswap} || 'yes');
+	$self->{autosort}			= isyes($pfmrc->{autosort} || 'yes');
 	$self->{trspace}			= isyes($pfmrc->{translatespace}) ? ' ' : '';
 	$self->{dotdot_mode}		= isyes($pfmrc->{dotdotmode});
 	$self->{autorcs}			= isyes($pfmrc->{autorcs});
@@ -550,6 +551,10 @@ autoexitmultiple:yes
 
 ## request rcs status automatically?
 autorcs:yes
+
+## automatically sort the directory's contents again after a
+## (T)ime or (U)ser command? (default: yes)
+#autosort:yes
 
 ## write bookmarks to file automatically upon exit
 autowritebookmarks:yes
