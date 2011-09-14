@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Listing 1.08
+# @(#) App::PFM::Screen::Listing 1.09
 #
 # Name:			App::PFM::Screen::Listing
-# Version:		1.08
+# Version:		1.09
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-20
+# Date:			2010-09-29
 #
 
 ##########################################################################
@@ -139,12 +139,6 @@ sub _highlightline {
 	if ($onoff) {
 		$linecolor =
 			$self->{_config}{framecolors}{$screen->color_mode}{highlight};
-		# in case colorizable() is off:
-		$screen->bold()		if ($linecolor =~ /bold/);
-		$screen->reverse()		if ($linecolor =~ /reverse/);
-#		$screen->underline()	if ($linecolor =~ /under(line|score)/);
-		$screen->term()->Tputs('us', 1, *STDOUT)
-							if ($linecolor =~ /under(line|score)/);
 	}
 	$screen->putcolored($linecolor, $self->fileline($currentfile));
 	$self->applycolor($screenline, FILENAME_SHORT, $currentfile, $onoff);
@@ -413,21 +407,21 @@ option 'highlightname' must be 'yes' as well.
 sub applycolor {
 	my ($self, $line, $usemax, $file, $highlight) = @_;
 	my $screen = $self->{_screen};
-	my $linecolor;
+	my $hlcolor;
 	my $maxlength = $usemax ? 255 : $self->{_maxfilenamelength} - 1;
 	if ($highlight and $self->{_config}{highlightname}) {
-		# only bold, reverse and underscore are copied
-		$linecolor =
+		# this doesn't seem to work right, why?
+#		$screen->putcolor($hlcolor);
+		# only bold, reverse, underscore and on_* are applied
+		$hlcolor =
 			$self->{_config}{framecolors}{$screen->color_mode}{highlight};
-		$screen->bold()		if ($linecolor =~ /bold/);
-		$screen->reverse()		if ($linecolor =~ /reverse/);
-#		$screen->underline()	if ($linecolor =~ /under(line|score)/);
-		$screen->term()->Tputs('us', 1, *STDOUT)
-							if ($linecolor =~ /under(line|score)/);
+		if ($hlcolor =~ /(on[ _]\w+)/) {
+			$screen->putcolor($1);
+		}
 	}
 	$screen->at($line, $self->{_filenamecol})
 		->putcolored(
-			$file->{color} || $linecolor,
+			$file->{color} || $hlcolor,
 			substr($file->{name}, 0, $maxlength));
 }
 

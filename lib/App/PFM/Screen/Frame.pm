@@ -457,13 +457,6 @@ sub show_headings {
 	my $linecolor = $swapmode
 		? $_pfm->config->{framecolors}->{$_screen->color_mode}{swap}
 		: $_pfm->config->{framecolors}->{$_screen->color_mode}{headings};
-	# in case colorizable() is off:
-	$_screen->bold()		if ($linecolor =~ /bold/);
-	$_screen->reverse()		if ($linecolor =~ /reverse/);
-	$_screen->underline()	if ($linecolor =~ /underline/);
-#	$_screen->term()->Tputs('us', 1, *STDOUT)
-#							if ($linecolor =~ /under(line|score)/);
-
 	$_screen->at($_screen->HEADINGLINE, 0)
 		->putcolored($linecolor, $heading)
 		->reset()->normal();
@@ -483,12 +476,6 @@ sub show_footer {
 	my $padding	   = ' ' x ($width - length $footer);
 	my $linecolor  =
 		$_pfm->config->{framecolors}{$_screen->color_mode}{footer};
-	# in case colorizable() is off:
-	$_screen->bold()		if ($linecolor =~ /bold/);
-	$_screen->reverse()		if ($linecolor =~ /reverse/);
-	$_screen->underline()	if ($linecolor =~ /underline/);
-#	$_screen->term()->Tputs('us', 1, *STDOUT)
-#							if ($linecolor =~ /under(line|score)/);
 	$_screen->at($_screen->BASELINE + $_screen->screenheight + 1, 0)
 		->putcolored($linecolor, $footer, $padding)
 		->reset()->normal();

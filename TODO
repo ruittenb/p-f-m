@@ -27,8 +27,7 @@
 
 - handlemorego should check to see if any files are marked (or? PREV still has them)
 
-- upon entering a directory with 'refresh_always_smart', files in the new directory
-  will inherit the marks of identically-named files in the previous directory
+- test if /bold/ /reverse/ etc. don't give false positives with "noansibold" etc.
 
 ################################################################################
 # structural enhancements
@@ -43,8 +42,6 @@
 
 - move History->write_dirs() to state objects;
   provide a state->on_shutdown to write the info
-
-- get rid of slimy $oSname ($^O) for /solaris/ and lockchar
 
 - make our() variables member variables (Get Rid of Slimy applicaSion object)
 - store $browser->{_screen, _config, _main_state}; remove _pfm
@@ -73,17 +70,6 @@
   is that the CommandHandler::handlemousefooter* or Screen::Frame?
 
 - implement 'after_create_entry'
-
-- color filenames correctly (on black)
-
-
-- [g]cc -l[n]curses
-  #include <stdlib.h>
-  #include <term.h>
-  int main(int argc, char *argv[]) {
-  setupterm(NULL, 0, NULL);
-    return 0;
-  }
 
 ################################################################################
 # functional enhancements

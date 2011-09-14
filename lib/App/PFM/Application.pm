@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.09.4
+# @(#) App::PFM::Application 2.09.5
 #
 # Name:			App::PFM::Application
-# Version:		2.09.4
+# Version:		2.09.5
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-16
+# Date:			2010-10-03
 #
 
 ##########################################################################
@@ -56,65 +56,20 @@ use strict;
 ##########################################################################
 # private subs
 
-=item _init()
+=item _init(string $version, string $lastyear)
 
 Initializes new instances. Called from the constructor.
 
 =cut
 
 sub _init {
-	my ($self) = @_;
-	($self->{VERSION}, $self->{LASTYEAR}) = $self->_findversion();
+	my ($self, $version, $lastyear) = @_;
+	$self->{VERSION}       = $version;
+	$self->{LASTYEAR}      = $lastyear;
 	$self->{NEWER_VERSION} = '';
 	$self->{_bootstrapped} = 0;
 	$self->{_options}      = {};
 	$self->{_states}       = {};
-}
-
-=item _findversionfromfile()
-
-Reads the current file and parses it to find the current version
-and last change date.
-
-Returns: (string $version, string $year)
-
-=cut
-
-sub _findversionfromfile {
-#	my ($self)  = @_;
-	my $version = 'unknown';
-	# default year, in case the year cannot be determined
-	my $year    = 3 * 10 * 67;
-	# the pragma 'locale' used to cause problems when the source
-	# is read in using UTF-8
-	no locale;
-	if (open (SELF, __FILE__)) {
-		while (<SELF>) {
-			/^#+\s+Version:\s+([\w\.]+)/ and $version = "$1";
-			/^#+\s+Date:\s+(\d+)/        and $year    = "$1", last;
-		}
-		close SELF;
-	}
-	return ($version, $year);
-}
-
-=item _findversion()
-
-Determines the current version and year using the ROFFVERSION variable in
-the main package.
-
-Returns: (string $version, string $year)
-
-=cut
-
-sub _findversion {
-#	my ($self)   = @_;
-	my ($version)=($main::ROFFVERSION =~ /^\.ds Vw \S+ pfm.pl ([a-z0-9.]+)$/ms);
-	my ($year)   =($main::ROFFVERSION =~ /^\.ds Yr (\d+)$/ms);
-	# default values, in case they cannot be determined
-	$version  ||= $main::VERSION || 'unknown';
-	$year     ||= 3 * 10 * 67;
-	return ($version, $year);
 }
 
 =item _usage()
@@ -127,7 +82,7 @@ location of the F<.pfmrc> file.
 sub _usage {
 	my ($self) = @_;
 	my $screen = $self->{_screen};
-	$screen->colorizable(1);
+#	$screen->colorizable(1);
 	my $directory  = $screen->colored('underline', 'directory');
 	my $number     = $screen->colored('underline', 'number');
 	my $sortmode   = $screen->colored('underline', 'sortmode');
@@ -518,7 +473,7 @@ sub run {
 	}
 }
 
-=item shutdown()
+=item shutdown( [ bool $silent ] )
 
 Called when pfm exits.
 Prints a goodbye message and restores the screen to a usable state.
@@ -527,11 +482,11 @@ Writes bookmarks and history if so configured. Destroys member objects.
 =cut
 
 sub shutdown {
-	my ($self) = @_;
+	my ($self, $silent) = @_;
 	my $state   = $self->{_states}{S_MAIN};
 	return unless $self->{_bootstrapped};
 	
-	$self->{_screen}->on_shutdown($state->{altscreen_mode});
+	$self->{_screen}->on_shutdown($state->{altscreen_mode}, $silent);
 	$self->{_history}->on_shutdown();
 	$self->{_config}->on_shutdown();
 	$self->{_jobhandler}->stopall();

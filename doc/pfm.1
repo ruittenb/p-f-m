@@ -124,13 +124,13 @@
 .\" ========================================================================
 .\"
 .IX Title "PFM 1"
-.TH PFM 1 "2010-09-29" " " " "
+.TH PFM 1 "2010-09-30" " " " "
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
 .nh
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.09.4
+.ds Vw @(#) pfm.pl 2.09.5
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -407,31 +407,35 @@ you back to the main menu.
 .IP "\fBName\fR" 4
 .IX Item "Name"
 Shows the complete long filename. For a symbolic link, this command
-will also show the target of the symbolic link. This is useful in case
-the terminal is not wide enough to display the entire name, or if the
-name contains non-printable characters. Non-ASCII characters and control
-characters will be displayed as their octal or hexadecimal equivalents like
-the examples in the following table. Spaces will be converted if
-the 'translatespace' option is turned on in the \fI.pfmrc\fR file.
+will also show the complete target of the symbolic link. This is useful
+in case the terminal is not wide enough to display the entire name, or
+if the name contains non-printable characters. Non-ASCII characters and
+control characters will be displayed as their octal, decimal (html
+entity-like) or hexadecimal equivalents like the examples in the following
+table.
+.Sp
+The 'defaultradix' config file option specifies the radix that will
+initially be used.  The 'defaulttranslatespace' config file option
+controls whether spaces will initially be converted as well.
 .Sp
 When the name is shown in its converted form, pressing \fBN\fR will change
 the radix, and pressing \fB\s-1SPACE\s0\fR will toggle the translation of spaces.
-The 'defaultradix' option specifies the initial radix that will be used.
+Any other key will exit the \fBN\fR command.
 .Sp
 Examples:
 .in +4n
 .TS
-l  | c  s
-l6 | l8 l.
+l  | c  s s
+l6 | l8 l l.
 _
 character	representation in radix
 _
-\^	octal	hexadecimal\0
+\^	octal	hexadecimal	decimal\0
 _
-CTRL-A	\\001	\\0x01
-space	\\040	\\0x20
-c cedilla (\fB\(,c\fP)	\\347	\\0xe7
-backslash (\fB\\\fP)	\\\\	\\\\\0
+CTRL-A	\\001	\\0x01	&#1;
+space	\\040	\\0x20	&#32;
+c cedilla (\fB\(,c\fP)	\\347	\\0xe7	&#231;
+backslash (\fB\\\fP)	\\\\	\\\\	\\\\\0
 _
 .TE
 .in

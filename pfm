@@ -3,10 +3,10 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.09.4
+# Version:		2.09.5
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-23
+# Date:			2010-09-29
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				    [ -l, --layout <number> ] [ -o, --sort <mode> ]
 #				pfm { -v, --version | -h, --help }
@@ -24,16 +24,14 @@
 # version
 
 # for MakeMaker
-our $VERSION = '2.09.4';
-
-# macros for *roff
-our $ROFFVERSION = <<'=cut';
+our $VERSION  = '2.09.5';
+our $LASTYEAR = 2010;
 
 =pod
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.09.4
+.ds Vw @(#) pfm.pl 2.09.5
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -65,7 +63,7 @@ END {
 ##########################################################################
 # main
 
-$pfm = new App::PFM::Application();
+$pfm = new App::PFM::Application($VERSION, $LASTYEAR);
 $pfm->run();
 $pfm->shutdown();
 
@@ -468,56 +466,65 @@ you back to the main menu.
 =item B<Name>
 
 Shows the complete long filename. For a symbolic link, this command
-will also show the target of the symbolic link. This is useful in case
-the terminal is not wide enough to display the entire name, or if the
-name contains non-printable characters. Non-ASCII characters and control
-characters will be displayed as their octal or hexadecimal equivalents like
-the examples in the following table. Spaces will be converted if
-the 'translatespace' option is turned on in the F<.pfmrc> file.
+will also show the complete target of the symbolic link. This is useful
+in case the terminal is not wide enough to display the entire name, or
+if the name contains non-printable characters. Non-ASCII characters and
+control characters will be displayed as their octal, decimal (html
+entity-like) or hexadecimal equivalents like the examples in the following
+table.
+
+The 'defaultradix' config file option specifies the radix that will
+initially be used.  The 'defaulttranslatespace' config file option
+controls whether spaces will initially be converted as well.
 
 When the name is shown in its converted form, pressing B<N> will change
 the radix, and pressing B<SPACE> will toggle the translation of spaces.
-The 'defaultradix' option specifies the initial radix that will be used.
+Any other key will exit the B<N> command.
 
 Examples:
 
 =begin html
 
 <table border="0" cellspacing="4" align="center" width="50%">
-<tr><td colspan="3"><hr /></td></tr>
+<tr><td colspan="4"><hr /></td></tr>
 <tr>
 	<td rowspan="3">character</td>
-	<td colspan="2">representation in radix</td>
+	<td colspan="3">representation in radix</td>
 </tr>
 <tr>
-	<td colspan="2"><hr /></td>
+	<td colspan="3"><hr /></td>
 </tr>
 <tr>
 	<td>octal</td>
 	<td>hexadecimal</td>
+	<td>decimal</td>
 </tr>
-<tr><td colspan="3"><hr /></td></tr>
+<tr><td colspan="4"><hr /></td></tr>
 <tr>
 	<td>CTRL-A</td>
 	<td>\001</td>
 	<td>\0x01</td>
+	<td>&amp;#1;</td>
 </tr>
 <tr>
 	<td>space</td>
 	<td>\040</td>
 	<td>\0x20</td>
+	<td>&amp;#32;</td>
 </tr>
 <tr>
 	<td>c cedilla (<b>&ccedil;</b>)</td>
 	<td>\347</td>
 	<td>\0xe7</td>
+	<td>&amp;#231;</td>
 </tr>
 <tr>
 	<td>backslash (<b>\</b>)</td>
 	<td>\\</td>
 	<td>\\</td>
+	<td>\\</td>
 </tr>
-<tr><td colspan=3><hr /></td></tr>
+<tr><td colspan="4"><hr /></td></tr>
 </table>
 
 =end html
@@ -526,17 +533,17 @@ Examples:
 
 .in +4n
 .TS
-l  | c  s
-l6 | l8 l.
+l  | c  s s
+l6 | l8 l l.
 _
 character	representation in radix
 _
-\^	octal	hexadecimal\0
+\^	octal	hexadecimal	decimal\0
 _
-CTRL-A	\\001	\\0x01
-space	\\040	\\0x20
-c cedilla (\fB\(,c\fP)	\\347	\\0xe7
-backslash (\fB\\\fP)	\\\\	\\\\\0
+CTRL-A	\\001	\\0x01	&#1;
+space	\\040	\\0x20	&#32;
+c cedilla (\fB\(,c\fP)	\\347	\\0xe7	&#231;
+backslash (\fB\\\fP)	\\\\	\\\\	\\\\\0
 _
 .TE
 .in
@@ -960,7 +967,8 @@ Pan the menu and footer, in order to view all available commands.
 
 =item B<=>
 
-Cycle through displaying the username, the hostname, or username@hostname.
+Cycle through displaying identity information: username, hostname,
+and/or ttyname.
 
 =item B<E<gt>>
 
@@ -1391,8 +1399,8 @@ preconfigured sort modes as defined in the config option 'sortcycle'.
 
 Clicking on the menu or footer will execute the command that was clicked.
 
-Clicking on the identity line in the info column will switch the display
-like the B<=> command does.
+Clicking on one of the identity lines in the info column will toggle the
+display like the B<=> command does.
 
 Mouse use will be turned off during the execution of commands, unless
 'mouseturnoff' is set to 'no' in F<.pfmrc>. Note that setting this to

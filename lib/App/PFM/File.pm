@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::File 0.39
+# @(#) App::PFM::File 0.41
 #
 # Name:			App::PFM::File
-# Version:		0.39
+# Version:		0.41
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-18
+# Date:			2010-10-03
 #
 
 ##########################################################################
@@ -42,7 +42,6 @@ use POSIX qw(strftime);
 use strict;
 use locale;
 
-use constant SYMBOLIC_MODES     => [ qw(--- --x -w- -wx r-- r-x rw- rwx) ];
 use constant MAJORMINORTEMPLATE => '%d,%d';
 use constant LOSTMSG            => ''; # was ' (lost)'
 
@@ -124,9 +123,11 @@ sub _decidecolor {
 
 =item mode2str(int $st_mode)
 
-Converts a numeric I<st_mode> field (permission bits) to a symbolic one
-(I<e.g.> C<drwxr-x--->).
+Converts a numeric I<st_mode> field (file type/permission bits) to a
+symbolic one (I<e.g.> C<drwxr-x--->).
 Uses I<App::PFM::OS::*::ifmt2str>() to determine the inode type.
+Uses I<App::PFM::OS::*::mode2str>() to determine the symbolic
+representation of permissions.
 
 =cut
 
@@ -136,17 +137,7 @@ sub mode2str {
 	my $octmode = sprintf("%lo", $nummode);
 	$octmode	=~ /(\d\d?)(\d)(\d)(\d)(\d)$/;
 	$strmode	= $_pfm->os->ifmt2str($1)
-				. join '', @{SYMBOLIC_MODES()}[$3, $4, $5];
-	#
-	if ($2 & 4) { substr($strmode,3,1) =~ tr/-x/Ss/ }
-	if ($2 & 2) {
-		if ($_pfm->config->{showlockchar} eq 'l') {
-			substr($strmode,6,1) =~ tr/-x/ls/;
-		} else {
-			substr($strmode,6,1) =~ tr/-x/Ss/;
-		}
-	}
-	if ($2 & 1) { substr($strmode,9,1) =~ tr/-x/Tt/ }
+				. $_pfm->os->mode2str($2, $3, $4, $5);
 	return $strmode;
 }
 

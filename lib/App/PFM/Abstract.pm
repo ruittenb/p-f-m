@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Abstract 0.13
+# @(#) App::PFM::Abstract 0.14
 #
 # Name:			App::PFM::Abstract
-# Version:		0.13
+# Version:		0.14
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-29
+# Date:			2010-10-03
 #
 
 ##########################################################################
@@ -206,6 +206,12 @@ Primarily used for debugging.
 
 sub dump {
 	my ($self) = @_;
+	$Data::Dumper::Sortkeys = sub {
+		my %h = %{$_[0]};
+		return [
+			grep { $_ ne 'TERM' } keys %h
+		];
+	};
 	print Dumper $self;
 }
 

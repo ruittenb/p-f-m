@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 1.06
+# @(#) App::PFM::Config 1.07
 #
 # Name:			App::PFM::Config
-# Version:		1.06
+# Version:		1.07
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-23
+# Date:			2010-10-03
 #
 
 ##########################################################################
@@ -404,8 +404,6 @@ sub parse {
 									: $^O eq 'linux' ? 'gnome-terminal -e' : 'xterm -e');
 	$self->{printcmd}			 = $pfmrc->{printcmd}
 								 || ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER} ${e}2" : "lpr ${e}2");
-	$self->{showlockchar}		 = ( $pfmrc->{showlock} eq 'sun' && $^O =~ /sun|solaris/i
-								 or isyes($pfmrc->{showlock}) ) ? 'l' : 'S';
 	$self->{viewer}				 = $pfmrc->{viewer} || 'xv';
 	$self->{editor}				 = $ENV{VISUAL} || $ENV{EDITOR} || $pfmrc->{editor} || 'vi';
 	$self->{fg_editor}			 = $pfmrc->{fg_editor} || $self->{editor};
@@ -809,10 +807,6 @@ paste_protection:xterm
 
 ## is it always "OK to remove marks?" without confirmation?
 #remove_marks_ok:no
-
-## show whether mandatory locking is enabled (e.g. -rw-r-lr-- ) (yes,no,sun)
-## 'sun' = show locking only on sunos/solaris
-showlock:sun
 
 ## sort modes to cycle through when clicking 'Sort' in the footer.
 ## default: n,en,dn,Dn,sn,Sn,tn,un

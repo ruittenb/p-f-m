@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::OS::Solaris 0.04
+# @(#) App::PFM::OS::Solaris 0.05
 #
 # Name:			App::PFM::OS::Solaris
-# Version:		0.04
+# Version:		0.05
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-22
-# Date:			2010-08-26
+# Date:			2010-10-03
 #
 
 ##########################################################################
@@ -64,6 +64,21 @@ sub du {
 	$line =~ /(\d+)/;
 	$line = 1024 * $1;
 	return $line;
+}
+
+=item mode2str(char $sugid, char $user, char $group, char $others)
+
+Determines the symbolic representation of permission digits.
+Setgid files with the group execution bit off are represented as 'l'
+in position six (I<e.g.> 'rw-r-lr--')
+
+=cut
+
+sub mode2str {
+	my ($self, @digits) = @_;
+	my $strmode = $self->SUPER::mode2str(@digits);
+	substr($strmode,5,1) =~ s/S/l/;
+	return $strmode;
 }
 
 =item aclget(string $path)

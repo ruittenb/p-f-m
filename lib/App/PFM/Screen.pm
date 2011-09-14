@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen 0.39
+# @(#) App::PFM::Screen 0.41
 #
 # Name:			App::PFM::Screen
-# Version:		0.39
+# Version:		0.41
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-22
+# Date:			2010-10-03
 # Requires:		Term::ScreenColor
 #
 
@@ -44,6 +44,7 @@ use App::PFM::Screen::Frame    qw(:constants);  # imports the MENU_*, HEADER_*
 use App::PFM::Util qw(fitpath max);
 use App::PFM::Event;
 
+use Data::Dumper;
 use POSIX qw(getcwd);
 
 use strict;
@@ -412,7 +413,7 @@ sub check_minimum_size {
 	if ($self->{_config}->{force_minimum_size}) {
 		$newwidth  = $self->{_winwidth}  < 80 ? 80 : $self->{_winwidth};
 		$newheight = $self->{_winheight} < 24 ? 24 : $self->{_winheight};
-		$self->puts("\e[8;$newheight;${newwidth}t");
+		print "\e[8;$newheight;${newwidth}t";
 		return 1;
 	}
 	return 0;
@@ -914,7 +915,7 @@ sub on_after_parse_config {
 	$self->listing->on_after_parse_config($event);
 }
 
-=item on_shutdown(bool $altscreen_mode)
+=item on_shutdown(bool $altscreen_mode [, bool $silent ] )
 
 Called when the application is shutting down. I<altscreen_mode>
 indicates if the State has used the alternate screen buffer.
@@ -922,16 +923,21 @@ indicates if the State has used the alternate screen buffer.
 =cut
 
 sub on_shutdown {
-	my ($self, $altscreen_mode) = @_;
+	my ($self, $altscreen_mode, $silent) = @_;
 	my $message = 'Goodbye from your Personal File Manager!';
-	# reset bracketed paste mode twice: gnome-terminal has different
-	# bracketed paste settings for main and alternate screen buffers
+	# reset bracketed paste mode twice: gnome-terminal is shown to have
+	# different bracketed paste settings for main and alternate screen buffers
 	$self->cooked_echo()
 		->mouse_disable()
 		->bracketed_paste_off()
 		->alternate_off()
 		->bracketed_paste_off();
 	system qw(tput cnorm) if $self->{_config}{cursorveryvisible};
+
+	# in silent mode, just reset the terminal to its original state;
+	# don't clear the screen or print any messages.
+	return if $silent;
+
 	if ($altscreen_mode) {
 		print "\n";
 	} else {
@@ -939,7 +945,7 @@ sub on_shutdown {
 			$self->clrscr();
 		} else {
 			$self->at(0,0)->putcentered($message)->clreol()
-					->at(PATHLINE, 0);
+				->at(PATHLINE, 0);
 		}
 	}
 	if ($altscreen_mode or !$self->{_config}{clsonexit}) {

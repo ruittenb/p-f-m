@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config::Update 2.09.4
+# @(#) App::PFM::Config::Update 2.09.5
 #
 # Name:			App::PFM::Config::Update
-# Version:		2.09.4
+# Version:		2.09.5
 # Author:		Rene Uittenbogaard
 # Created:		2010-05-28
-# Date:			2010-09-23
+# Date:			2010-10-03
 #
 
 ##########################################################################
@@ -848,7 +848,7 @@ use constant UPDATES => {
 			 {## default translate spaces when viewing Name};
 			s[^(#*\s*)translatespace:(.*)]
 			 [${1}defaulttranslatespace:${2}];
-			s{^(#+\s*initial radix that Name will use to display.*)hex,oct(.*)}
+			s{^(#+\s*initial radix that Name will use to display.*)\(hex,oct\)(.*)}
 			 {$1(hex,oct,dec)$2};
 		},
 		additions => [{
@@ -864,6 +864,14 @@ use constant UPDATES => {
 				"## (toggle with SPACE when viewing Name)\n",
 			],
 		}],
+	},
+	# ----- 2.09.5 ---------------------------------------------------------
+	'2.09.5' => {
+		removals => [
+			qr/^(#+\s*)show whether mandatory locking is enabled.*-rw-r-lr--.*yes,no,sun/,
+			qr/^(#+\s*)'sun' = show locking only on sunos.solaris/,
+			qr/^(#*\s*)showlock:/,
+		],
 	},
 };
 
