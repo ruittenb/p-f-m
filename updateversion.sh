@@ -36,8 +36,8 @@ treesed "# @(#) App::PFM::Config::Update $previousver"	\
 	-files lib/App/PFM/Config/Update.pm
 
 
-treesed	"# Version:\t\t$previousver"			\
-	"# Version:\t\t$currentver"			\
+treesed	"# Version:		$previousver"	\
+	"# Version:		$currentver"	\
 	-files lib/App/PFM/Config/Update.pm
 
 

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Abstract 0.11
+# @(#) App::PFM::Abstract 0.12
 #
 # Name:			App::PFM::Abstract
-# Version:		0.11
+# Version:		0.12
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-30
+# Date:			2010-09-18
 #
 
 ##########################################################################
@@ -34,6 +34,7 @@ It defines shared functions.
 
 package App::PFM::Abstract;
 
+use Data::Dumper;
 use Carp;
 
 use strict;
@@ -194,6 +195,18 @@ sub fire {
 		push @res, $_->($event);
 	}
 	return wantarray ? @res : join ':', @res;
+}
+
+=item dump()
+
+Dumps the contents of this object using Data::Dumper(3pm).
+Primarily used for debugging.
+
+=cut
+
+sub dump {
+	my ($self) = @_;
+	print Dumper $self;
 }
 
 ##########################################################################

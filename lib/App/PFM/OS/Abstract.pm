@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::OS::Abstract 0.11
+# @(#) App::PFM::OS::Abstract 0.14
 #
 # Name:			App::PFM::OS::Abstract
-# Version:		0.11
+# Version:		0.14
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-20
-# Date:			2010-08-26
+# Date:			2010-09-18
 #
 
 ##########################################################################
@@ -52,17 +52,17 @@ our ($AUTOLOAD);
 ##########################################################################
 # private subs
 
-=item _init(App::PFM::Application $pfm)
+=item _init(App::PFM::Config $config)
 
-Initializes new instances by storing the application object and
+Initializes new instances by storing the config object and
 initializing some member variables.
 Called from the constructor.
 
 =cut
 
 sub _init {
-	my ($self, $pfm) = @_;
-	$self->{_pfm}     = $pfm;
+	my ($self, $config) = @_;
+	$self->{_config}  = $config;
     $self->{_aclfile} = undef;
 	$self->_init_white_commands();
 }
@@ -258,7 +258,7 @@ List description.
 sub acledit_via_file {
 	my ($self, $aclfilename) = @_;
 	my $res = $self->system(
-		$self->{_pfm}->config->{fg_editor},
+		$self->{_config}{fg_editor},
 		$aclfilename);
 	return $res;
 }

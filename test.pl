@@ -1,14 +1,15 @@
 #!/usr/bin/env perl
 #
-############################################################################
+##########################################################################
 #
 # Name:         test.pl
-# Version:      0.11
+# Version:      0.12
 # Author:       Rene Uittenbogaard
-# Date:         2010-09-02
+# Date:         2010-09-16
 # Usage:        test.pl
 # Description:  Test the pfm script and the associated libraries for
 #		syntax errors (using perl -cw).
+#		Additionally, try to bootstrap the pfm application.
 #
 
 ##########################################################################
@@ -40,6 +41,7 @@ sub produce_output {
 
 	my $pfm = new App::PFM::Application();
 	$pfm->bootstrap($silent);
+	print "pfm bootstrap OK\n" if $pfm->{_bootstrapped};
 }
 
 sub filter_output {

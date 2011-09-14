@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Util 0.48
+# @(#) App::PFM::Util 0.49
 #
 # Name:			App::PFM::Util
-# Version:		0.48
+# Version:		0.49
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-24
+# Date:			2010-09-18
 #
 
 ##########################################################################
@@ -47,9 +47,9 @@ use constant ELLIPSIS => '..'; # path ellipsis string
 our %EXPORT_TAGS = (
 	all => [ qw(
 		min max inhibit toggle triggle isxterm isyes isno dirname basename
-		formatted time2str fit2limit canonicalize_path reducepaths reversepath
-		isorphan ifnotdefined clearugidcache find_uid find_gid condquotemeta
-		touch2time testdirempty fitpath
+		formatted in_array time2str fit2limit canonicalize_path reducepaths
+		reversepath isorphan ifnotdefined clearugidcache find_uid find_gid
+		condquotemeta touch2time testdirempty fitpath
 	) ]
 );
 
@@ -183,6 +183,17 @@ sub formatted (@) {
 	local $^A = '';
 	formline(shift, @_);
 	return $^A;
+}
+
+=item in_array(mixed $needle, array $haystack)
+
+Returns a boolean indicating if the I<needle> is found in the I<haystack>.
+
+=cut
+
+sub in_array ($@) {
+	my $needle = shift;
+	return undef != grep { $_ == $needle } @_;
 }
 
 =item fit2limit(int $number, int $limit)

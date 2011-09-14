@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::OS::Aix 0.02
+# @(#) App::PFM::OS::Aix 0.03
 #
 # Name:			App::PFM::OS::Aix
-# Version:		0.02
+# Version:		0.03
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-20
-# Date:			2010-08-26
+# Date:			2010-09-18
 #
 
 ##########################################################################
@@ -108,7 +108,7 @@ sub acledit {
 	#     deny    rwx  g:intergang
 	#
 	my ($self, $path) = @_;
-	local $ENV{EDITOR} = $self->{_pfm}->config->{fg_editor};
+	local $ENV{EDITOR} = $self->{_config}{fg_editor};
 	return $self->system('acledit', $path);
 }
 

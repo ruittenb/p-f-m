@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.31
+# @(#) App::PFM::CommandHandler 1.33
 #   
 # Name:			App::PFM::CommandHandler
-# Version:		1.31
+# Version:		1.33
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-14
+# Date:			2010-09-18
 #
 
 ##########################################################################
@@ -203,8 +203,8 @@ sub _helppage {
 --------------------------------------------------------------------------------
 
           $name for Unix and Unix-like operating systems.  Version $_pfm->{VERSION}
-             Original idea/design: Paul R. Culley and Henk de Heer
-             Author and Copyright (c) 1999-$_pfm->{LASTYEAR} Rene Uittenbogaard
+         Original version (c) 1983-1993 Paul R. Culley and Henk de Heer
+                 This version (c) 1999-$_pfm->{LASTYEAR} Rene Uittenbogaard
 
        $name is distributed under the GNU General Public License version 2.
                     $name is distributed without any warranty,
@@ -241,7 +241,7 @@ sub _markednames {
 					$directory->exclude($_, M_OLDMARK);
 					condquotemeta($qif, $_->{name});
 				}
-				grep { $_->{selected} eq M_MARK }
+				grep { $_->{mark} eq M_MARK }
 				@{$directory->showncontents};
 	return @res;
 }
@@ -773,7 +773,9 @@ Handles the command to refresh the current directory (B<F5>).
 
 sub handlerefresh {
 	my ($self, $event) = @_;
-	if ($self->{_screen}->ok_to_remove_marks()) {
+	if ($self->{_config}{refresh_always_smart} or
+		$self->{_screen}->ok_to_remove_marks()
+	) {
 		$self->{_screen}->set_deferred_refresh(R_SCREEN);
 		$_pfm->state->directory->set_dirty(D_FILELIST);
 	}
@@ -963,6 +965,7 @@ sub handleperlcommand {
 	my $screen         = $self->{_screen};
 	my $listing        = $screen->listing;
 	my $frame          = $screen->frame;
+	my $diskinfo       = $screen->diskinfo;
 	my $state          = $_pfm->state;
 	my $directory      = $state->directory;
 	my $currentfile    = $event->{currentfile};
@@ -975,7 +978,7 @@ sub handleperlcommand {
 	$screen->at($screen->PATHLINE,0)->clreol()->cooked_echo();
 	$perlcmd = $self->{_history}->input({ history => H_PERLCMD });
 	$screen->raw_noecho();
-	eval $perlcmd;
+	eval $perlcmd unless $perlcmd =~ /^exit\b/o;
 	$screen->display_error($@) if $@;
 	$screen->set_deferred_refresh(R_SCREEN);
 }
@@ -1053,8 +1056,7 @@ sub handlemark {
 	my ($self, $event) = @_;
 	my $currentline  = $event->{lunchbox}{currentline};
 	my $currentfile  = $event->{currentfile};
-	my $was_selected = $currentfile->{selected} eq M_MARK;
-	if ($was_selected) {
+	if ($currentfile->{mark} eq M_MARK) {
 		$_pfm->state->directory->exclude($currentfile, ' ');
 	} else {
 		$_pfm->state->directory->include($currentfile);
@@ -1074,16 +1076,16 @@ The entries F<.> and F<..> are exempt from this action.
 sub handlemarkall {
 	my ($self) = @_;
 	my $file;
-	my $selected_nr_of = $_pfm->state->directory->selected_nr_of;
-	my $showncontents  = $_pfm->state->directory->showncontents;
-	if ($selected_nr_of->{d} + $selected_nr_of->{'-'} +
-		$selected_nr_of->{s} + $selected_nr_of->{p} +
-		$selected_nr_of->{c} + $selected_nr_of->{b} +
-		$selected_nr_of->{l} + $selected_nr_of->{D} +
-		$selected_nr_of->{w} + $selected_nr_of->{n} + 2 < @$showncontents)
+	my $marked_nr_of  = $_pfm->state->directory->marked_nr_of;
+	my $showncontents = $_pfm->state->directory->showncontents;
+	if ($marked_nr_of->{d} + $marked_nr_of->{'-'} +
+		$marked_nr_of->{s} + $marked_nr_of->{p} +
+		$marked_nr_of->{c} + $marked_nr_of->{b} +
+		$marked_nr_of->{l} + $marked_nr_of->{D} +
+		$marked_nr_of->{w} + $marked_nr_of->{n} + 2 < @$showncontents)
 	{
 		foreach $file (@$showncontents) {
-			if ($file->{selected} ne M_MARK and
+			if ($file->{mark} ne M_MARK and
 				$file->{name} ne '.' and
 				$file->{name} ne '..')
 			{
@@ -1092,7 +1094,7 @@ sub handlemarkall {
 		}
 	} else {
 		foreach $file (@$showncontents) {
-			if ($file->{selected} eq M_MARK)
+			if ($file->{mark} eq M_MARK)
 			{
 				$_pfm->state->directory->exclude($file);
 			}
@@ -1116,7 +1118,7 @@ sub handlemarkinverse {
 		if ($file->{name} ne '.' and
 			$file->{name} ne '..')
 		{
-			if ($file->{selected} ne M_MARK) {
+			if ($file->{mark} ne M_MARK) {
 				$_pfm->state->directory->include($file);
 			} else {
 				$_pfm->state->directory->exclude($file);
@@ -1145,7 +1147,7 @@ sub handlekeyell {
 
 =item handlerestat(App::PFM::Event $event)
 
-Re-executes a stat() on the current (or selected) files (B<F11>).
+Re-executes a stat() on the current (or marked) files (B<F11>).
 
 =cut
 
@@ -1412,7 +1414,8 @@ B<Find> or key B</>.
 
 sub handlefind {
 	my ($self, $event) = @_;
-	if (lc($_pfm->state->sort_mode) eq 'n') {
+#	if ($_pfm->state->sort_mode =~ /^[nm]$/io) {
+	if ($_pfm->state->sort_mode =~ /^n$/io) {
 		goto &handlefind_incremental;
 	}
 	my ($findme, $file);
@@ -1465,9 +1468,9 @@ sub handlefind_incremental {
 		} elsif ($key eq "\cH" or $key eq 'del' or $key eq "\x7F") {
 			chop($findme);
 		} elsif ($key eq "\cY" or $key eq "\cE") {
+			$_pfm->browser->handlescroll($key);
+		} elsif ($key eq "\cW") {
 			$findme =~ s/(.*\s+|^)(\S+\s*)$/$1/;
-#		} elsif ($key eq "\cW") {
-#			$findme =~ s/(.*\s+|^)(\S+\s*)$/$1/;
 		} elsif ($key eq "\cU") {
 			$findme = '';
 		} else {
@@ -1756,9 +1759,9 @@ sub handleinclude { # include/exclude flag (from keypress)
 		});
 	$key = lc $screen->at(0, $menulength+1)->getch();
 	if      ($key eq 'o') { # oldmarks
-		$criterion = sub { my $file = shift; $file->{selected} eq M_OLDMARK };
+		$criterion = sub { my $file = shift; $file->{mark} eq M_OLDMARK };
 	} elsif ($key eq 'n') { # newmarks
-		$criterion = sub { my $file = shift; $file->{selected} eq M_NEWMARK };
+		$criterion = sub { my $file = shift; $file->{mark} eq M_NEWMARK };
 	} elsif ($key eq 'e') { # every
 		$criterion = sub { my $file = shift; $file->{name} !~ /^\.\.?$/o };
 	} elsif ($key eq 'u') { # user only
@@ -2308,11 +2311,12 @@ sub handlemousedown {
 		and	$screen->diskinfo->infocol > $listing->filerecordcol))
 	{
 		# diskinfo
-		$self->handleident($event)
-			if $mouserow == $screen->diskinfo->LINE_USERINFO;
-#	} elsif (defined ${$_pfm->state->directory->showncontents}[
-#		$mouserow - $screen->BASELINE + $browser->baseindex]
-#	) {
+		if (in_array($mouserow,
+			$screen->diskinfo->LINE_USERINFO ..
+			$screen->diskinfo->line_dateinfo - 1)
+		) {
+			$self->handleident($event);
+		}
 	} elsif (defined $event->{mouseitem}) {
 		# clicked on an existing file
 		$propagated_event->{lunchbox}{currentline} =
@@ -2510,21 +2514,23 @@ sub handlemore {
 	MORE_PAN: {
 		$key = $self->{_screen}->at(0, $headerlength+1)->getch();
 		for ($key) {
-			/^s$/io		and $self->handlemoreshow($event),		last MORE_PAN;
-			/^m$/io		and $self->handlemoremake($event),		last MORE_PAN;
-			/^c$/io		and $self->handlemoreconfig($event),	last MORE_PAN;
-			/^e$/io		and $self->handlemoreedit($event),		last MORE_PAN;
-			/^h$/io		and $self->handlemoreshell(),			last MORE_PAN;
-			/^a$/io		and $self->handlemoreacl($event),		last MORE_PAN;
-			/^b$/io		and $self->handlemorebookmark($event),	last MORE_PAN;
-			/^g$/io		and $self->handlemorego($event),		last MORE_PAN;
-			/^f$/io		and $self->handlemorefifo($event),		last MORE_PAN;
-			/^w$/io		and $self->handlemorehistwrite(),		last MORE_PAN;
-			/^t$/io		and $self->handlemorealtscreen(),		last MORE_PAN;
-			/^p$/io		and $self->handlemorephyspath(),		last MORE_PAN;
-			/^v$/io		and $self->handlemoreversion(),			last MORE_PAN;
-			/^o$/io		and $self->handlemoreopenwindow($event),last MORE_PAN;
-			/^k6$/io	and $self->handlemoremultisort($event),	last MORE_PAN;
+			/^s$/io		and $self->handlemoreshow($event),		  last MORE_PAN;
+			/^g$/io		and $self->handlemorego($event),		  last MORE_PAN;
+			/^e$/io		and $self->handlemoreedit($event),		  last MORE_PAN;
+			/^h$/io		and $self->handlemoreshell(),			  last MORE_PAN;
+			/^k5$/o		and $self->handlemoresmartrefresh($event),last MORE_PAN;
+			/^m$/io		and $self->handlemoremake($event),		  last MORE_PAN;
+			/^c$/io		and $self->handlemoreconfig($event),	  last MORE_PAN;
+			/^a$/io		and $self->handlemoreacl($event),		  last MORE_PAN;
+			/^b$/io		and $self->handlemorebookmark($event),	  last MORE_PAN;
+			/^f$/io		and $self->handlemorefifo($event),		  last MORE_PAN;
+			/^w$/io		and $self->handlemorehistwrite(),		  last MORE_PAN;
+			/^t$/io		and $self->handlemorealtscreen(),		  last MORE_PAN;
+			/^p$/io		and $self->handlemorephyspath(),		  last MORE_PAN;
+			/^v$/io		and $self->handlemoreversion(),			  last MORE_PAN;
+			/^o$/io		and $self->handlemoreopenwindow($event),  last MORE_PAN;
+			/^k6$/o		and $self->handlemoremultisort($event),	  last MORE_PAN;
+			/^\@$/o		and $self->handlemoreperlshell($event),	  last MORE_PAN;
 			/^[<>]$/io	and do {
 				$event->{data} = $key;
 				$self->handlepan($event, MENU_MORE);
@@ -2533,7 +2539,7 @@ sub handlemore {
 				redo MORE_PAN;
 			};
 			# invalid key
-			$self->{_screen}->flash();
+			$self->{_screen}->flash() unless $_ eq "\cM" or $_ eq ' ';
 		}
 	}
 	$frame->currentpan($oldpan);
@@ -2959,6 +2965,74 @@ Handles asking for user input and setting multilevel sort mode.
 sub handlemoremultisort {
 	my ($self, $event) = @_;
 	$self->handlesort($event, TRUE);
+}
+
+=item handlemoresmartrefresh(App::PFM::Event $event)
+
+Refreshes the current directory but keeps the marks.
+
+=cut
+
+sub handlemoresmartrefresh {
+	my ($self, $event) = @_;
+	$_pfm->state->directory->set_dirty(D_FILELIST_SMART);
+}
+
+=item handlemoreperlshell(App::PFM::Event $event)
+
+Starts a 'perl shell' for debugging purposes.
+
+=cut
+
+sub handlemoreperlshell {
+	my ($self, $event) = @_;
+	my $perlcmd;
+	# for ease of use when debugging
+	my $pfm            = $_pfm;
+	my $config         = $self->{_config};
+	my $history        = $self->{_history};
+	my $os             = $self->{_os};
+	my $browser        = $_pfm->browser;
+	my $jobhandler     = $_pfm->jobhandler;
+	my $commandhandler = $self; # $_pfm->commandhandler;
+	my $screen         = $self->{_screen};
+	my $listing        = $screen->listing;
+	my $frame          = $screen->frame;
+	my $diskinfo       = $screen->diskinfo;
+	my $state          = $_pfm->state;
+	my $directory      = $state->directory;
+	my $currentfile    = $event->{currentfile};
+
+	# debugging helper functions
+	sub println { print @_, "\n"; }
+	sub echo    { $_pfm->screen->cooked_echo(); }
+
+	my $currentpath = $directory->path eq '/' ? '' : $directory->path;
+	$screen->alternate_off()->clrscr()->at(0,0)->cooked_echo()
+		->putmessage("Exit perl shell with 'exit'\n")
+		->putmessage("Current file: ",
+			$currentpath, '/', $currentfile->{name}, "\n");
+
+	while (1) {
+        no strict;
+		$perlcmd = $self->{_history}->input({
+			history => H_PERLCMD,
+			prompt  => 'pfm$ ',
+		});
+		while ($perlcmd =~ s/\\$//) {
+			$perlcmd .= $self->{_history}->input({
+				history => H_PERLCMD,
+				prompt  => '.... ',
+			});
+		}
+		$screen->handleresize() if $screen->wasresized();
+		last if $perlcmd =~ /^(\cD|exit|quit)$/o;
+#		$_ .= " "; # to prevent $@ from containing old errors
+		eval $perlcmd;
+		$screen->putmessage($@) if $@;
+	}
+	$screen->alternate_on() if $self->{_config}{altscreen_mode};
+	$screen->raw_noecho()->set_deferred_refresh(R_CLRSCR);
 }
 
 =item handleenter(App::PFM::Event $event)

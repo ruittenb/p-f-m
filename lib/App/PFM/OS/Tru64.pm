@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::OS::Tru64 0.02
+# @(#) App::PFM::OS::Tru64 0.03
 #
 # Name:			App::PFM::OS::Tru64
-# Version:		0.02
+# Version:		0.03
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-22
-# Date:			2010-08-26
+# Date:			2010-09-18
 #
 
 ##########################################################################
@@ -57,7 +57,7 @@ Tru64-specific method for editing Access Control Lists.
 
 sub acledit {
 	my ($self, $path) = @_;
-	local $ENV{EDITOR} = $self->{_pfm}->config->{fg_editor};
+	local $ENV{EDITOR} = $self->{_config}{fg_editor};
 	return $self->system(qw{setacl -E}, $path);
 }
 

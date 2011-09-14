@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.09.1
+# @(#) App::PFM::Application 2.09.2
 #
 # Name:			App::PFM::Application
-# Version:		2.09.1
+# Version:		2.09.2
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-13
+# Date:			2010-09-16
 #
 
 ##########################################################################
@@ -234,8 +234,8 @@ sub _bootstrap_members {
 									$self, $screen, $self->{VERSION});
 	$self->{_history} = $history = new App::PFM::History(
 									$self, $screen, $config);
-	$self->{_os}         = $os   = new App::PFM::OS($self);
-	$self->{_jobhandler} = $jh   = new App::PFM::JobHandler($self);
+	$self->{_os}         = $os   = new App::PFM::OS($config);
+	$self->{_jobhandler} = $jh   = new App::PFM::JobHandler();
 	$self->{_states}{S_MAIN}     = new App::PFM::State(
 									$self, $screen, $config, $os, $jh);
 	$self->{_commandhandler}     = new App::PFM::CommandHandler(
@@ -324,8 +324,8 @@ sub _bootstrap_event_hub {
 	# config file has been parsed
 	my $on_after_parse_config = sub {
 		my ($event) = @_;
-		$self->{_screen} ->on_after_parse_config($event);
-		$self->{_history}->on_after_parse_config($event);
+		$self->{_screen}        ->on_after_parse_config($event);
+		$self->{_history}       ->on_after_parse_config($event);
 		$self->{_commandhandler}->clobber_mode($event->{origin}{clobber_mode});
 		$self->{_browser}       ->mouse_mode(  $event->{origin}{mouse_mode});
 		$self->{_states}{S_MAIN}->on_after_parse_config($event);
@@ -532,6 +532,7 @@ sub shutdown {
 	$self->{_screen}->on_shutdown($state->{altscreen_mode});
 	$self->{_history}->on_shutdown();
 	$self->{_config}->on_shutdown();
+	$self->{_jobhandler}->stopall();
 	
 	if ($self->{NEWER_VERSION} and $self->{PFM_URL}) {
 		$self->{_screen}->putmessage(
@@ -543,8 +544,7 @@ sub shutdown {
 	$self->{_commandhandler} = undef;
 	$self->{_config}         = undef;
 	$self->{_history}        = undef;
-	# TODO implement a jobhandler->stopall() first
-#	$self->{_jobhandler}     = undef;
+	$self->{_jobhandler}     = undef;
 	$self->{_os}             = undef;
 	$self->{_screen}         = undef;
 	$self->{_states}         = {};

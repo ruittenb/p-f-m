@@ -7,7 +7,7 @@
 # Version:		0.39
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-14
+# Date:			2010-09-18
 #
 
 ##########################################################################
@@ -53,7 +53,7 @@ our ($_pfm);
 # private subs
 
 =item _init(hashref { parent => string $parent_dir, entry => string
-$filename, white => char $iswhite, mark => char $selected_flag } )
+$filename, white => char $iswhite, mark => char $marked_flag } )
 
 Initializes new instances. Called from the constructor.
 If I<entry> is defined, the method stat_entry() is called automatically.
@@ -162,21 +162,21 @@ sub stamp2str {
 	return strftime($_pfm->config->{timestampformat}, localtime $time);
 }
 
-=item stat_entry(string $entry, char $iswhite, char $selected_flag)
+=item stat_entry(string $entry, char $iswhite, char $marked_flag)
 
 Initializes the current file information by performing a stat() on it.
 
 The I<iswhite> argument indicates if the directory already has
 an idea if this file is a whiteout. Allowed values: 'w', '?', ''.
 
-The I<selected_flag> argument is used to have the caller specify whether
-the 'selected' field of the file info should be cleared (when reading
+The I<marked_flag> argument is used to have the caller specify whether
+the 'mark' field of the file info should be cleared (when reading
 a new directory) or kept intact (when re-statting).
 
 =cut
 
 sub stat_entry {
-	my ($self, $entry, $iswhite, $selected_flag) = @_;
+	my ($self, $entry, $iswhite, $marked_flag) = @_;
 	my ($ptr, $name_too_long, $target, @white_entries);
 	my %filetypeflags = %{$_pfm->config->{filetypeflags}};
 	my ($device, $inode, $mode, $nlink, $uid, $gid, $rdev, $size,
@@ -201,7 +201,7 @@ sub stat_entry {
 		inode		=> $inode,
 		nlink		=> $nlink,
 		rdev		=> $rdev,
-		selected	=> $selected_flag,
+		mark		=> $marked_flag,
 		atime		=> $atime,
 		mtime		=> $mtime,
 		ctime		=> $ctime,
@@ -298,12 +298,12 @@ sub apply {
 	if ($state->{multiple_mode}) {
 		$to_mark = $directory->M_OLDMARK;
 	} else {
-		$to_mark = $self->{selected};
+		$to_mark = $self->{mark};
 	}
 	if ($special_mode ne 'norestat') {
 		$self->stat_entry($self->{name}, '?', $to_mark);
 	} else {
-		$self->{selected} = $to_mark;
+		$self->{mark} = $to_mark;
 	}
 	$directory->register($self);
 	return $res;

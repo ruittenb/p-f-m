@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::JobHandler 0.09
+# @(#) App::PFM::JobHandler 0.11
 #
 # Name:			App::PFM::JobHandler
-# Version:		0.09
+# Version:		0.11
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-05-25
+# Date:			2010-09-18
 #
 
 ##########################################################################
@@ -47,20 +47,17 @@ use POSIX ':sys_wait_h';
 use strict;
 use locale;
 
-our ($_pfm);
-
 ##########################################################################
 # private subs
 
-=item _init(App::PFM::Application $pfm)
+=item _init()
 
 Initializes new instances. Called from the constructor.
 
 =cut
 
 sub _init {
-	my ($self, $pfm) = @_;
-	$_pfm = $pfm;
+	my ($self) = @_;
 	$self->{_jobs} = [];
 }
 
@@ -116,6 +113,22 @@ sub stop {
 	my $ret = $self->{_jobs}[$jobnr]->stop();
 	delete $self->{_jobs}[$jobnr];
 	return $ret;
+}
+
+=item stopall(int $jobno)
+
+Stops all jobs.
+
+=cut
+
+sub stopall {
+	my ($self) = @_;
+	my ($i);
+	for ($i = $#{$self->{_jobs}}; $i > 0; $i--) {
+		$self->{_jobs}[$i]->stop();
+		delete $self->{_jobs}[$i];
+	}
+	return 1;
 }
 
 =item poll(int $jobno)
