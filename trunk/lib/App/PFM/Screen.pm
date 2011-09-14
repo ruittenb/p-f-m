@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen 0.45
+# @(#) App::PFM::Screen 0.46
 #
 # Name:			App::PFM::Screen
-# Version:		0.45
+# Version:		0.46
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-23
+# Date:			2010-11-30
 # Requires:		Term::ScreenColor
 #
 
@@ -57,6 +57,7 @@ use constant {
 	MOUSE_BUTTON_MIDDLE    =>  1,
 	MOUSE_BUTTON_RIGHT     =>  2,
 	MOUSE_BUTTON_UP        =>  3,
+	MOUSE_BUTTON_MOTION    =>  32,
 	MOUSE_MODIFIER_SHIFT   =>  4,
 	MOUSE_MODIFIER_META    =>  8,
 	MOUSE_MODIFIER_CONTROL => 16,
@@ -307,13 +308,15 @@ Tells the terminal to start/stop receiving information about the mouse.
 
 sub mouse_enable {
 	my ($self) = @_;
-#	print "\e[?1000h";
-	print "\e[?9h";
+#	print "\e[?1002h"; # cell motion tracking: mouse-down, mouse-up and motion
+#	print "\e[?1000h"; # normal tracking     : mouse-down, mouse-up
+	print "\e[?9h";    # X10 compatibility   : mouse-down only
 	return $self;
 }
 
 sub mouse_disable {
 	my ($self) = @_;
+#	print "\e[?1002l";
 #	print "\e[?1000l";
 	print "\e[?9l";
 	return $self;

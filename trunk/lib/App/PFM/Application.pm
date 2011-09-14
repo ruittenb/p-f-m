@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.10.8
+# @(#) App::PFM::Application 2.10.9
 #
 # Name:			App::PFM::Application
-# Version:		2.10.8
+# Version:		2.10.9
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-28
+# Date:			2010-12-03
 #
 
 ##########################################################################
@@ -40,7 +40,7 @@ require 5.008;
 
 use base 'App::PFM::Abstract';
 
-use App::PFM::Browser;
+use App::PFM::Browser::Files;
 use App::PFM::CommandHandler;
 use App::PFM::Config;
 use App::PFM::History;
@@ -54,7 +54,7 @@ use Cwd;
 use locale;
 use strict;
 
-our $VERSION  = '2.10.8';
+our $VERSION  = '2.10.9';
 our $LASTYEAR = 2010;
 
 ##########################################################################
@@ -214,7 +214,7 @@ sub _bootstrap_members {
 	$self->{_commandhandler} = App::PFM::CommandHandler->new(
 								$self,
 								@{$self}{qw(_screen _config _os _history)});
-	$self->{_browser}		 = App::PFM::Browser->new(
+	$self->{_browser}		 = App::PFM::Browser::Files->new(
 								@{$self}{qw(_screen _config)},
 								$state);
 	
@@ -414,6 +414,17 @@ sub state {
 		$self->{_states}{$index} = $value;
 	}
 	return $self->{_states}{$index};
+}
+
+=item states()
+
+Getter for the hash of states.
+
+=cut
+
+sub states {
+	my ($self) = @_;
+	return $self->{_states};
 }
 
 =item newer_version( [ string $version ] )

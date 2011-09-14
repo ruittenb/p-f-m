@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Frame 0.41
+# @(#) App::PFM::Screen::Frame 0.42
 #
 # Name:			App::PFM::Screen::Frame
-# Version:		0.41
+# Version:		0.42
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-22
+# Date:			2010-12-03
 #
 
 ##########################################################################
@@ -282,7 +282,7 @@ sub _getfooter {
 	if ($footer_mode == FOOTER_MORE) {
 		$f = "F5-Smart-refresh F6-Multilevel-sort";
 	} elsif ($footer_mode == FOOTER_SINGLE or $footer_mode == FOOTER_MULTI) {
-		$f =	"F1-Help F2-Prev F3-Redraw"
+		$f =	"F1-Help F2-Previous F3-Redraw"
 		.		" F4-Color[" . $self->{_screen}->color_mode . "] F5-Refresh"
 		.		" F6-Sort[" . $pfm->state->sort_mode . "]"
 		.		" F7-Swap[$ONOFF{$pfm->browser->swap_mode}] F8-In/Exclude"
@@ -433,8 +433,10 @@ sub show_menu {
 		$screen->putcolored($color, 'Multiple');
 	}
 	$color = $framecolors->{$screen->color_mode}{menu};
-	$screen->putcolor($color)->puts(' ' x $do_multi)->puts($menu)->bold();
-	while ($menu =~ /[[:upper:]<>](?![xn]clude\?)/g) {
+	$screen->putcolor($color)->puts(' ' x $do_multi)->puts($menu);
+	$color = $framecolors->{$screen->color_mode}{menukeys};
+	$screen->putcolor($color);
+	while ($menu =~ /[[:upper:]<>](?![xn]clude\?)/go) {
 		$pos = pos($menu) -1;
 		$screen->at(0, $pos + 9*$do_multi)->puts(substr($menu, $pos, 1));
 	}

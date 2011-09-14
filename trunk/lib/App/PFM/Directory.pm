@@ -978,10 +978,9 @@ sub checkrcsapplicable {
 		$screen->frame->rcsrunning(RCS_DONE);
 	};
 	# TODO when a directory is swapped out, the jobs should continue
-	# TODO when a directory is cloned, what to do?
 	foreach my $class (@{$self->RCS}) {
 		$fullclass = "App::PFM::Job::$class";
-		if ($fullclass->isapplicable($path)) {
+		if ($fullclass->isapplicable($path, $entry)) {
 			if (defined $self->{_rcsjob}) {
 				# The previous job did not yet finish.
 				# Kill it and run the command for the entire directory.

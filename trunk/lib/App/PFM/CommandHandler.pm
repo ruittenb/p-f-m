@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.49
+# @(#) App::PFM::CommandHandler 1.52
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.49
+# Version:		1.52
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-28
+# Date:			2010-12-03
 #
 
 ##########################################################################
@@ -40,6 +40,7 @@ use App::PFM::Directory 	qw(:constants); # imports the D_* and M_* constants
 use App::PFM::History		qw(:constants); # imports the H_* constants
 use App::PFM::Screen		qw(:constants); # imports the R_* constants
 use App::PFM::Screen::Frame qw(:constants); # MENU_*, HEADING_*, and FOOTER_*
+use App::PFM::Browser::Bookmarks;
 
 use POSIX qw(strftime mktime);
 use Config;
@@ -52,7 +53,6 @@ use constant {
 	TRUE                => 1,
 	QUOTE_OFF           => 0,
 	QUOTE_ON            => 1,
-	SPAWNEDCHAR         => '*',
 };
 
 use constant INC_CRITERIA => [
@@ -197,8 +197,8 @@ sub _helppage {
 	} else {
 		my $name = $self->{_screen}->colored('bold', 'pfm');
 		my $version_message = $_pfm->{NEWER_VERSION}
-			? "A new version $_pfm->{NEWER_VERSION} is available from"
-			: "  New versions will be published on";
+			? "A new version $_pfm->{NEWER_VERSION} is available"
+			: " New versions will be published";
 		print <<"        _endCredits_";
 --------------------------------------------------------------------------------
                                      CREDITS                               [3/3]
@@ -217,7 +217,7 @@ sub _helppage {
       You are encouraged to copy and share this program with other users.
    Any bug, comment or suggestion is welcome in order to improve this product.
 
-  $version_message http://sourceforge.net/projects/p-f-m/
+   $version_message at http://sourceforge.net/projects/p-f-m/
 
                 For questions, remarks or suggestions about $name,
                  send email to: ruittenb\@users.sourceforge.net
@@ -547,53 +547,6 @@ sub _promptforwildfilename {
 		$wildfilename = '^$'; # clear illegal regexp
 	}
 	return $wildfilename;
-}
-
-=item _listbookmarks()
-
-List the bookmarks from the %states hash.
-
-=cut
-
-sub _listbookmarks {
-	my ($self) = @_;
-	my $screen = $self->{_screen};
-	my $printline       = $screen->BASELINE;
-	my $filerecordcol   = $screen->listing->filerecordcol;
-	my @heading         = $screen->frame->bookmark_headings;
-	my $bookmarkpathlen = $heading[2];
-	my $spacing         =
-		' ' x ($screen->screenwidth - $screen->diskinfo->infolength);
-	my ($dest, $spawned, $overflow);
-	# headings
-	$screen
-		->set_deferred_refresh(R_SCREEN)
-		->show_frame({
-			headings => HEADING_BOOKMARKS,
-			footer   => FOOTER_NONE,
-		});
-	# list bookmarks
-	foreach (@{$self->{_config}->BOOKMARKKEYS}) {
-		last if ($printline > $screen->BASELINE + $screen->screenheight);
-		$dest    = $_pfm->state($_);
-		$spawned = ' ';
-		if (ref $dest) {
-			$dest    = $dest->directory->path . '/' . $dest->{_position};
-			$dest    =~ s{/\.$}{/};
-			$dest    =~ s{^//}{/};
-			$spawned = SPAWNEDCHAR;
-		}
-		if (length($dest)) {
-			($dest, undef, $overflow) = fitpath($dest, $bookmarkpathlen);
-			$dest .= ($overflow ? $screen->listing->NAMETOOLONGCHAR : ' ');
-		}
-		$screen->at($printline++, $filerecordcol)
-			->puts(sprintf($heading[0], $_, $spawned, $dest));
-	}
-	foreach ($printline .. $screen->BASELINE + $screen->screenheight) {
-		$screen->at($printline++, $filerecordcol)->puts($spacing);
-	}
-	return;
 }
 
 ##########################################################################
@@ -1643,7 +1596,7 @@ sub handlefind_incremental {
 	my ($findme, $key, $screenline);
 	my $screen = $self->{_screen};
 	my $prompt = 'File to find: ';
-	my $cursorjumptime = .5;
+	my $cursorjumptime = $self->{_config}{cursorjumptime};
 	my $cursorcol = $screen->listing->cursorcol;
 	$screen->clear_footer();
 	FINDINCENTRY:
@@ -2347,8 +2300,9 @@ sub handledelete {
 	}
 	$screen->at($screen->PATHLINE, 0)
 		->set_deferred_refresh(R_SCREEN);
-	$_pfm->state->directory->set_dirty(D_FILELIST);
-	# D_FILTER is set by Directory->apply()
+	# Next line should _not_ have D_FILELIST: this removes all lost files.
+	$_pfm->state->directory->set_dirty(D_SORT | D_FILTER);
+	# D_FILTER is also set by Directory->apply()
 	$do_this = sub {
 		my $file = shift;
 		my ($msg, $success);
@@ -2972,18 +2926,11 @@ Creates a bookmark to the current directory (B<M>ore - B<B>ookmark).
 
 sub handlemorebookmark {
 	my ($self, $event) = @_;
-	my ($dest, $key, $prompt);# , $destfile
+	my ($dest, $key, $prompt, $selector);# , $destfile
 	# the footer has already been cleared by handlemore()
-	# choice
-	$self->_listbookmarks();
-	$self->{_screen}->show_frame({
-		headings => HEADING_BOOKMARKS,
-		footer   => FOOTER_NONE,
-		prompt   => 'Bookmark under which letter? ',
-	});
-	$self->{_screen}->bracketed_paste_on() if $self->{_config}{paste_protection};
-	$key = $self->{_screen}->getch();
-	$self->{_screen}->bracketed_paste_off();
+	$selector = App::PFM::Browser::Bookmarks->new(
+		$self->{_screen}, $self->{_config}, $_pfm->states);
+	$key = $selector->choose('Bookmark under which letter? ');
 	return if $key eq "\r";
 	# process key
 	if ($key !~ /^[a-zA-Z]$/) {
@@ -3010,17 +2957,14 @@ sub handlemorego {
 	my $browser = $_pfm->browser;
 	my $screen  = $self->{_screen};
 	my ($dest, $key, $prompt, $destfile, $success,
-		$prevdir, $prevstate, $chdirautocmd);
+		$prevdir, $prevstate, $chdirautocmd, $selector);
 	return if !$screen->ok_to_remove_marks();
 	# the footer has already been cleared by handlemore()
-	$self->_listbookmarks();
-	# choice
-	$self->{_screen}->bracketed_paste_on() if $self->{_config}{paste_protection};
-	$prompt = 'Go to which bookmark? ';
-	$key = $screen->at(0,0)->clreol()
-		->putmessage($prompt)->getch();
-	$self->{_screen}->bracketed_paste_off();
+	$selector = App::PFM::Browser::Bookmarks->new(
+		$self->{_screen}, $self->{_config}, $_pfm->states);
+	$key = $selector->choose('Go to which bookmark? ');
 	return if $key eq "\r";
+	# choice
 	$dest = $_pfm->state($key);
 	if ($dest eq '') {
 		# the bookmark is undefined

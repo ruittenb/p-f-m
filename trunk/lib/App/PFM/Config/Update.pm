@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config::Update 2.10.8
+# @(#) App::PFM::Config::Update 2.10.9
 #
 # Name:			App::PFM::Config::Update
-# Version:		2.10.8
+# Version:		2.10.9
 # Author:		Rene Uittenbogaard
 # Created:		2010-05-28
 # Date:			2010-11-23
@@ -952,7 +952,23 @@ use constant UPDATES => {
 			 {## the keymap to use in readline. Allowed values are:};
 		},
 	},
+	# ----- 2.10.9 ---------------------------------------------------------
+	'2.10.9' => {
+		additions => [{
+			batch => [
+				"## time between cursor jumps in incremental find and the bookmark browser\n",
+				"## (in seconds, fractions allowed)\n",
+				"#cursorjumptime:0.5\n",
+				"\n",
+			],
+		}],
+		substitutions => sub {
+			s{(menu=)([\w_ ]*):}
+			 {$1$2:menukeys=bold $2:};
+		},
+	},
 };
+
 
 ##########################################################################
 # private subs

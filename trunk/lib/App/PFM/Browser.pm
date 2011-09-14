@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Browser 0.55
+# @(#) App::PFM::Browser 0.56
 #
 # Name:			App::PFM::Browser
-# Version:		0.55
+# Version:		0.56
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-22
+# Date:			2010-12-03
 #
 
 ##########################################################################
@@ -49,25 +49,21 @@ use constant MOTION_COMMANDS_EXCEPT_SPACE =>
 ##########################################################################
 # private subs
 
-=item _init(App::PFM::Screen $screen, App::PFM::Config $config,
-App::PFM::State $state)
+=item _init(App::PFM::Screen $screen, App::PFM::Config $config)
 
 Initializes new instances. Called from the constructor.
-Expects to be passed the application object as the first parameter.
 
 =cut
 
 sub _init {
-	my ($self, $screen, $config, $state) = @_;
+	my ($self, $screen, $config) = @_;
 	$self->{_screen}		 = $screen;
 	$self->{_config}		 = $config;
-	$self->{_state}			 = $state;
 	$self->{_currentline}	 = 0;
 	$self->{_baseindex}		 = 0;
 	$self->{_position_at}	 = '';
 	$self->{_position_exact} = 0;
 	$self->{_mouse_mode}	 = undef;
-	$self->{_swap_mode}		 = 0;
 
 	my $on_after_resize_window = sub {
 #		my ($event) = @_;
@@ -107,18 +103,6 @@ sub _wait_loop {
 
 ##########################################################################
 # constructor, getters and setters
-
-=item currentfile()
-
-Getter for the file at the cursor position.
-
-=cut
-
-sub currentfile {
-	my ($self) = @_;
-	return $self->{_state}->directory->showncontents
-		->[$self->{_currentline} + $self->{_baseindex}];
-}
 
 =item currentline( [ int $lineno ] )
 
@@ -218,38 +202,6 @@ sub mouse_mode {
 	return $self->{_mouse_mode};
 }
 
-=item swap_mode( [ bool $swap_mode ] )
-
-Getter/setter for the swap_mode variable, which indicates if the browser
-considers its current directory as 'swap' directory.
-
-=cut
-
-sub swap_mode {
-	my ($self, $value) = @_;
-	my $screen = $self->{_screen};
-	if (defined($value)) {
-		$self->{_swap_mode} = $value;
-		$screen->set_deferred_refresh($screen->R_FRAME);
-	}
-	return $self->{_swap_mode};
-}
-
-=item main_state( [ App::PFM::State $state ] )
-
-Getter/setter for the I<_state> member variable, indicating which state
-this browser is operating on.
-
-=cut
-
-sub main_state {
-	my ($self, $value) = @_;
-	if (defined($value)) {
-		$self->{_state} = $value;
-	}
-	return $self->{_state};
-}
-
 ##########################################################################
 # public subs
 
@@ -264,10 +216,10 @@ cursor is on-screen.
 sub validate_position {
 	my ($self) = @_;
 	# requirement:
-	# $showncontents[ $self->{_currentline} + $self->{_baseindex} ] is defined
-	my $screenheight  = $self->{_screen}->screenheight;
-	my $oldbaseindex  = $self->{_baseindex};
-	my @showncontents = @{$self->{_state}->directory->showncontents};
+	# $browselist[ $self->{_currentline} + $self->{_baseindex} ] is defined
+	my $screenheight = $self->{_screen}->screenheight;
+	my $oldbaseindex = $self->{_baseindex};
+	my @browselist   = @{$self->browselist};
 	
 	if ($self->{_currentline} < 0) {
 		$self->{_baseindex}  += $self->{_currentline};
@@ -278,12 +230,12 @@ sub validate_position {
 		$self->{_baseindex}  += $self->{_currentline} - $screenheight;
 		$self->{_currentline} = $screenheight;
 	}
-	if ($self->{_baseindex} > $#showncontents) {
-		$self->{_currentline} += $self->{_baseindex} - $#showncontents;
-		$self->{_baseindex}    = $#showncontents;
+	if ($self->{_baseindex} > $#browselist) {
+		$self->{_currentline} += $self->{_baseindex} - $#browselist;
+		$self->{_baseindex}    = $#browselist;
 	}
-	if ($self->{_currentline} + $self->{_baseindex} > $#showncontents) {
-		$self->{_currentline} = $#showncontents - $self->{_baseindex};
+	if ($self->{_currentline} + $self->{_baseindex} > $#browselist) {
+		$self->{_currentline} = $#browselist - $self->{_baseindex};
 	}
 	# See if we need to refresh the listing.
 	# By limiting the number of listing-refreshes to when the baseindex
@@ -292,143 +244,6 @@ sub validate_position {
 		$self->{_screen}->set_deferred_refresh($self->{_screen}->R_LISTING);
 	}
 	return;
-}
-
-=item position_cursor( [ string $filename ] )
-
-Positions the cursor at a specific file. Specifying a filename here
-overrules the I<position_at> variable.
-
-=cut
-
-sub position_cursor {
-	my ($self, $target) = @_;
-	$self->{_position_at} = $target if (defined $target and $target ne '');
-	return if $self->{_position_at} eq '';
-	my @showncontents     = @{$self->{_state}->directory->showncontents};
-	$self->{_currentline} = 0;
-	$self->{_baseindex}   = 0 if $self->{_position_at} eq '..'; # descending
-	POSITION_ENTRY: {
-		for (0..$#showncontents) {
-			if ($self->{_position_at} eq $showncontents[$_]{name}) {
-				$self->{_currentline} = $_ - $self->{_baseindex};
-				last POSITION_ENTRY;
-			}
-		}
-		$self->{_baseindex} = 0;
-	}
-	$self->{_position_at}    = '';
-	$self->{_position_exact} = 0;
-	$self->validate_position();
-	$self->{_screen}->set_deferred_refresh($self->{_screen}->R_LISTING);
-	return;
-}
-
-=item position_cursor_fuzzy( [ string $filename ] )
-
-Positions the cursor at the file with the closest matching name.
-Used by incremental find.
-
-=cut
-
-sub position_cursor_fuzzy {
-	my ($self, $target) = @_;
-	$self->{_position_at} = $target if (defined $target and $target ne '');
-	return if $self->{_position_at} eq '';
-
-	my @showncontents = @{$self->{_state}->directory->showncontents};
-	my ($criterion);
-
-	# don't position fuzzy if sort mode is not by name,
-	# or exact positioning was requested
-	if ($self->{_position_exact} or $self->{_state}->sort_mode !~ /^[nm]$/io) {
-		goto &position_cursor;
-	}
-
-	for ($self->{_state}->sort_mode) {
-		$_ eq 'n' and do {
-			$criterion = sub {
-				return ($self->{_position_at} le
-						substr($_[0], 0, length($self->{_position_at}))
-				);
-			};
-		};
-		$_ eq 'N' and do {
-			$criterion = sub {
-				return ($self->{_position_at} ge
-						substr($_[0], 0, length($self->{_position_at}))
-				);
-			};
-		};
-		$_ eq 'm' and do {
-			$criterion = sub {
-				return (uc($self->{_position_at}) le
-						substr(uc($_[0]), 0, length($self->{_position_at}))
-				);
-			};
-		};
-		$_ eq 'M' and do {
-			$criterion = sub {
-				return (uc($self->{_position_at}) ge
-						substr(uc($_[0]), 0, length($self->{_position_at}))
-				);
-			};
-		};
-	}
-
-	$self->{_currentline} = 0;
-	if ($#showncontents > 1) {
-		POSITION_ENTRY_FUZZY: {
-			for my $i (1..$#showncontents) {
-				if ($criterion->($showncontents[$i]{name})) {
-					$self->{_currentline} =
-						$self->find_best_find_match(
-							$self->{_position_at},
-							$showncontents[$i-1]{name},
-							$showncontents[$i  ]{name}
-						)
-						+ $i - 1 - $self->{_baseindex};
-					last POSITION_ENTRY_FUZZY;
-				}
-			}
-			$self->{_currentline} = $#showncontents - $self->{_baseindex};
-		}
-	}
-	$self->{_position_at}    = '';
-	$self->{_position_exact} = 0;
-	$self->validate_position();
-	$self->{_screen}->set_deferred_refresh($self->{_screen}->R_LISTING);
-	return;
-}
-
-=item find_best_find_match(string $seek, string $first, string $second )
-
-Decides which file out of two is the best match, I<e.g.> if there are
-two files C<Contractor.php> and C<Dealer.php>, and 'Coz' is searched,
-this method decides that C<Contractor.php> is the better match.
-
-Returns 0 (first match is better) or 1 (second is better).
-
-=cut
-
-sub find_best_find_match {
-	my ($self, $seek, $first, $second) = @_;
-	my $char;
-	if (lc $self->{_state}->sort_mode eq 'm') {
-		# case-insensitive
-		$first  = lc $first;
-		$second = lc $second;
-		$seek   = lc $seek;
-	}
-	for ($char = length($seek); $char > 0; $char--) {
-		if (substr($first,  0, $char) eq substr($seek, 0, $char)) {
-			return 0;
-		}
-		if (substr($second, 0, $char) eq substr($seek, 0, $char)) {
-			return 1;
-		}
-	}
-	return 1;
 }
 
 =item handlescroll(char $key)
@@ -441,14 +256,13 @@ the directory.
 sub handlescroll {
 	my ($self, $key) = @_;
 	my $up = ($key =~ /^\cE$/o);
-	my $screenheight  = $self->{_screen}->screenheight;
-	my $showncontents = $self->{_state}->directory->showncontents;
+	my $screenheight = $self->{_screen}->screenheight;
+	my $browselist   = $self->browselist;
 	return 0 if ( $up and
-				  $self->{_baseindex} == $#$showncontents and
+				  $self->{_baseindex} == $#$browselist and
 				  $self->{_currentline} == 0)
 			 or (!$up and $self->{_baseindex} == 0);
 	my $displacement = $up - ! $up;
-	$self->{_baseindex} += $displacement;
 	my $newcurrentline = $self->{_currentline} -= $displacement;
 	if ($newcurrentline >= 0 and $newcurrentline <= $screenheight) {
 		$self->{_currentline} = $newcurrentline;
@@ -469,11 +283,11 @@ sub handlemove {
 	my $screenheight   = $self->{_screen}->screenheight;
 	my $baseindex      = $self->{_baseindex};
 	my $currentline    = $self->{_currentline};
-	my $showncontents  = $self->{_state}->directory->showncontents;
+	my $browselist     = $self->browselist;
 	my $wheeljumpsize  = $self->{_config}->{mousewheeljumpsize};
 	if ($wheeljumpsize eq 'variable') {
 		$wheeljumpsize = sprintf('%d',
-			0.5 + $#$showncontents / $self->{_config}->{mousewheeljumpratio});
+			0.5 + $#$browselist / $self->{_config}->{mousewheeljumpratio});
 		$wheeljumpsize = max(
 			min(
 				$wheeljumpsize,
@@ -495,7 +309,7 @@ sub handlemove {
 			- (/\cU/o)			* int($screenheight/2)
 			+ (/\cD/o)			* int($screenheight/2)
 			- (/^home$/o)		* ( $currentline +$baseindex)
-			+ (/^end$/o )		* (-$currentline -$baseindex +$#$showncontents);
+			+ (/^end$/o )		* (-$currentline -$baseindex +$#$browselist);
 	$self->currentline($currentline + $displacement);
 	# return 'handled' flag
 	return $displacement ? 1 : 0;
@@ -504,23 +318,25 @@ sub handlemove {
 =item handle(App::PFM::Event $event)
 
 Attempts to handle the user event (keyboard- or mouse-input).
-If unsuccessful, we return false.
+Returns a hash reference with a member 'handled' indicating if this
+was successful, and a member 'data' with additional data (like
+the string 'quit' in case the user requested an application quit).
 
 =cut
 
 sub handle {
 	my ($self, $event) = @_;
 	my $screenheight = $self->{_screen}->screenheight;
-	my $handled = 0;
+	my $res = {};
 	my ($BASELINE, $dir);
 	if ($event->{type} eq 'key' and
-		$event->{data} =~ MOTION_COMMANDS_EXCEPT_SPACE)
+		$event->{data} =~ $self->MOTION_COMMANDS_EXCEPT_SPACE)
 	{
-		$handled = $self->handlemove($event->{data});
+		$res->{handled} = $self->handlemove($event->{data});
 	} elsif ($event->{type} eq 'key' and
 			 $event->{data} =~ /^[\cE\cY]$/o)
 	{
-		$handled = $self->handlescroll($event->{data});
+		$res->{handled} = $self->handlescroll($event->{data});
 	} elsif ($event->{type} eq 'paste') {
 #		$self->{_screen}->at(1,0)->puts("Pasted:$event->{data}:");
 		$self->{_screen}->flash();
@@ -535,37 +351,11 @@ sub handle {
 			$dir = $event->{mousemodifier} == MOUSE_MODIFIER_SHIFT
 				? 'mshiftdown' : 'mdown';
 		}
-		$handled = $self->handlemove($dir);
+		$res->{handled} = $self->handlemove($dir);
 	} else {
-		if ($event->{type} eq 'mouse') {
-			$BASELINE = $self->{_screen}->BASELINE;
-			if ($event->{mouserow} >= $BASELINE and
-				$event->{mouserow} <= $BASELINE + $screenheight)
-			{
-				# potentially on a fileline (might be diskinfo column though)
-				$event->{mouseitem} =
-					${$self->{_state}->directory->showncontents}[
-						$self->{_baseindex} + $event->{mouserow} - $BASELINE
-					];
-			}
-		}
-		# pass it to the commandhandler
-		$event->{name} = 'after_receive_non_motion_input';
-		$event->{currentfile}             = $self->currentfile;
-		$event->{lunchbox}{baseindex}     = $self->{_baseindex};
-		$event->{lunchbox}{currentline}   = $self->{_currentline};
-		# TODO
-#		$event->{lunchbox}{showncontents} = $self->{_showncontents};
-		$handled = $self->fire($event);
-		# a space needs to be handled by both the CommandHandler
-		# and the Browser
-		if ($event->{type} eq 'key' and
-			$event->{data} eq ' ')
-		{
-			$handled = $self->handlemove($event->{data});
-		}
+		$res = $self->handle_non_motion_input($event);
 	}
-	return $handled;
+	return $res;
 }
 
 =item browse()
@@ -587,7 +377,7 @@ sub browse {
 	# prefetch objects
 	my $screen  = $self->{_screen};
 	my $listing = $screen->listing;
-	until ($command_result eq 'quit') {
+	do {
 		$screen->refresh();
 		$listing->highlight_on();
 		# don't send mouse escapes to the terminal if not necessary
@@ -607,15 +397,14 @@ sub browse {
 			$listing->highlight_off();
 			$screen->bracketed_paste_off();
 			$screen->mouse_disable() if $self->{_config}->{mouseturnoff};
-			# the next line contains an assignment on purpose
-			if ($command_result = $self->handle($event))
-			{
+			$command_result = $self->handle($event);
+			if ($command_result->{handled}) {
 				# if the received input was valid, then the current
 				# cursor position must be validated again
 				$screen->set_deferred_refresh($screen->R_STRIDE);
 			}
 		}
-	}
+	} until ($command_result->{data} eq 'quit');
 	return;
 }
 
@@ -638,7 +427,7 @@ the CommandHandler knows how to handle it.
 
 =head1 SEE ALSO
 
-pfm(1).
+pfm(1), App::PFM::Browser::Files(3pm).
 
 =cut
 

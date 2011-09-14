@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 1.11
+# @(#) App::PFM::Config 1.13
 #
 # Name:			App::PFM::Config
-# Version:		1.11
+# Version:		1.13
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-28
+# Date:			2010-12-03
 #
 
 ##########################################################################
@@ -116,7 +116,7 @@ sub _parse_colorsets {
 		$pfmrc->{'dircolors[ls_colors]'} =  $ENV{LS_COLORS} || $ENV{LS_COLOURS};
 	}
 	$pfmrc->{'dircolors[off]'}   = '';
-	$pfmrc->{'framecolors[off]'} =
+	$pfmrc->{'framecolors[off]'} = 'menukeys=underscore:' .
 		'headings=reverse:swap=reverse:footer=reverse:highlight=bold:';
 	# this %{{ }} construct keeps values unique
 	$self->{colorsetnames} = [
@@ -128,7 +128,8 @@ sub _parse_colorsets {
 	# keep the default outside of @colorsetnames
 	defined($pfmrc->{'dircolors[*]'})   or $pfmrc->{'dircolors[*]'}   = '';
 	defined($pfmrc->{'framecolors[*]'}) or $pfmrc->{'framecolors[*]'} =
-		'menu=white on blue:multi=bold reverse cyan on white:'
+		'menu=white on blue:menukeys=bold white on blue:'
+	.	'multi=bold reverse cyan on white:'
 	.	'headings=bold reverse cyan on white:swap=reverse black on cyan:'
 	.	'footer=bold reverse blue on white:'
 	.	'rootuser=reverse red:message=bold cyan:highlight=bold:';
@@ -359,6 +360,7 @@ sub parse {
 	$self->{mousewheeljumpmin}	 = $pfmrc->{mousewheeljumpmin}   || 1;
 	$self->{mousewheeljumpmax}	 = $pfmrc->{mousewheeljumpmax}   || 10;
 	$self->{mousewheeljumpratio} = $pfmrc->{mousewheeljumpratio} || 4;
+	$self->{cursorjumptime}		 = $pfmrc->{cursorjumptime}      || 0.5;
 	$self->{launchby}			 = $pfmrc->{launchby};
 	$self->{copyoptions}		 = $pfmrc->{copyoptions};
 	$self->{cursorveryvisible}	 = isyes($pfmrc->{cursorveryvisible});
@@ -495,7 +497,8 @@ sub backup {
 	my ($self) = @_;
 	my $now    = strftime('%Y%m%dT%H%M%S', localtime);
 	# quotemeta($now) as well: it may be tainted (determined by locale).
-	my $result = system("cp \Q$self->{_configfilename}\E \Q$self->{_configfilename}.$now\E");
+	my $result = system(
+		"cp \Q$self->{_configfilename}\E \Q$self->{_configfilename}.$now\E");
 	return !$result;
 }
 
@@ -682,6 +685,10 @@ confirmquit:yes
 ## make pfm a lookalike to the DOS version :)
 copyrightdelay:0.2
 
+## time between cursor jumps in incremental find and the bookmark browser
+## (in seconds, fractions allowed)
+#cursorjumptime:0.5
+
 ## use very visible cursor (e.g. block cursor on Linux console)
 cursorveryvisible:yes
 
@@ -711,8 +718,8 @@ defaultmousemode:xterm
 ## (toggle with ")
 defaultpathmode:log
 
-## initial radix that Name will use to display non-ascii chars with (hex,oct,dec)
-## (toggle with *)
+## initial radix that Name will use to display non-ascii chars with
+## (hex,oct,dec) (toggle with *)
 defaultradix:hex
 
 ## initial sort mode (nNmMeEfFdDaAsSzZtTuUgGvViI*) (default: n)
@@ -893,20 +900,20 @@ windowtype:pfm
 
 framecolors[light]:\
 rootuser=reverse red:\
-menu=white on blue:multi=reverse cyan on black:\
+menu=white on blue:menukeys=bold cyan on blue:multi=reverse cyan on black:\
 headings=reverse cyan on black:swap=reverse black on cyan:\
 footer=reverse blue on white:message=blue:highlight=bold:
 
 framecolors[dark]:\
 rootuser=reverse red:\
-menu=white on blue:multi=bold reverse cyan on white:\
+menu=white on blue:menukeys=bold cyan on blue:multi=bold reverse cyan on white:\
 headings=bold reverse cyan on white:swap=black on cyan:\
 footer=bold reverse blue on white:message=bold cyan:highlight=bold:
 
 ## these are a suggestion
 #framecolors[dark]:\
 #rootuser=reverse red:\
-#menu=white on blue:multi=reverse cyan on black:\
+#menu=white on blue:menukeys=bold white on blue:multi=reverse cyan on black:\
 #headings=reverse cyan on black:swap=reverse yellow on black:\
 #footer=bold reverse blue on white:message=bold cyan:highlight=bold:
 
