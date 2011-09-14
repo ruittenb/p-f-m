@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Event 0.06
+# @(#) App::PFM::Event 0.08
 #
 # Name:			App::PFM::Event
-# Version:		0.06
+# Version:		0.08
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-30
-# Date:			2010-09-02
+# Date:			2010-09-07
 #
 
 ##########################################################################
@@ -20,7 +20,7 @@ App::PFM::Event
 
 =head1 DESCRIPTION
 
-This class defines events that can occur and be handled in pfm.
+This class defines events that can occur in and be handled by pfm.
 
 =head1 METHODS
 
@@ -33,6 +33,11 @@ This class defines events that can occur and be handled in pfm.
 
 package App::PFM::Event;
 
+use Carp;
+
+use strict;
+use locale;
+
 use constant KNOWN_PROPERTIES => {
 	name		=> 1, # event name (mandatory)
 	origin		=> 1, # object
@@ -41,22 +46,21 @@ use constant KNOWN_PROPERTIES => {
 	mousebutton	=> 1, # mouse button  (for 'mouse')
 	mouserow	=> 1, # mouse row     (for 'mouse')
 	mousecol	=> 1, # mouse column  (for 'mouse')
+	currentfile	=> 1, # current file, if fired by the Browser
 	lunchbox	=> 1, # misc data (always added by constructor)
 };
 
 use constant KNOWN_EVENTS => {
-	resize_window					=> 1, # screen
-	before_job_start				=> 1, # job
-	after_job_start					=> 1, # job
-	after_job_receive_data			=> 1, # job
-	after_job_finish				=> 1, # job
-	after_parse_usecolor			=> 1, # config
-	after_receive_user_input		=> 1, # screen
-	after_receive_non_motion_input	=> 1, # browser
+	browser_idle					=> 1, # Browser
+	resize_window					=> 1, # Screen
+	before_job_start				=> 1, # Job
+	after_job_start					=> 1, # Job
+	after_job_receive_data			=> 1, # Job
+	after_job_finish				=> 1, # Job
+	after_parse_usecolor			=> 1, # Config
+	after_receive_user_input		=> 1, # Screen
+	after_receive_non_motion_input	=> 1, # Browser
 };
-
-use Carp;
-use strict;
 
 ##########################################################################
 # private subs
@@ -156,6 +160,14 @@ The screen row on which the mouse was clicked (for B<mouse>).
 =item mousecol
 
 The screen column on which the mouse was clicked (for B<mouse>).
+
+=item currentfile
+
+The current File object, to pass it from the Browser to the CommandHandler.
+
+=item lunchbox
+
+A container for miscellaneous data.
 
 =back
 

@@ -39,6 +39,7 @@ use base qw(App::PFM::Abstract Exporter);
 use Term::ReadLine;
 
 use strict;
+use locale;
 
 use constant {
 	MAXHISTSIZE  => 70,

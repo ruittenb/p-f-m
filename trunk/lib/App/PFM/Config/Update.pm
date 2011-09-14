@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config::Update 2.08.3
+# @(#) App::PFM::Config::Update 2.08.4
 #
 # Name:			App::PFM::Config::Update
-# Version:		2.08.3
+# Version:		2.08.4
 # Author:		Rene Uittenbogaard
 # Created:		2010-05-28
-# Date:			2010-09-04
+# Date:			2010-09-06
 #
 
 ##########################################################################
@@ -44,37 +44,498 @@ use base 'App::PFM::Abstract';
 use App::PFM::Util qw(min max);
 
 use POSIX qw(strftime);
-
-use constant UPDATES => {
-	2.08.2 => {
-		additions => {
-		},
-		insertions => {
-		},
-		removals => {
-		},
-		substitutions => {
-		},
-	},
-};
+use Carp qw(cluck);
 
 use strict;
 use locale;
 
+use constant UPDATES => {
+	# removals is an arrayref with regexps.
+	# substitutions is a coderef.
+	# insertions is an arrayref with hashrefs with members 'before'
+	#   and 'batch', the latter being an arrayref.
+	# additions is an arrayref.
+	# ----- template -------------------------------------------------------
+	'template' => {
+		removals => [
+			qr//,
+		],
+		substitutions => sub {},
+		insertions => [{
+			before => qr//,
+			batch => [],
+		}],
+		additions => [],
+	},
+	# ----- 1.89 -----------------------------------------------------------
+	'1.89' => {
+		substitutions => sub {
+			s/(['"])(\\[1-6])\1/$2/g;
+			s/(printcmd:.*)/$1 \\2/g;
+			/cp.*date.*touch.*date/ && s/"(
+			[^"()]*
+			\$\(
+			[^")]*
+			(?:"[^"]*")*
+			\)
+			)"/$1/gx;
+		},
+		additions => [
+			"# convert \$LS_COLORS into an additional colorset?\n",
+			"importlscolors:yes\n",
+			"\n",
+		],
+	},
+	# ----- 1.90.1 ---------------------------------------------------------
+	'1.90.1' => {
+		substitutions => sub {
+			if (/^(your|launch)/) {
+				s/(\$PAGER|\bmore|\bless)\b/\\p/g;
+				s/\$VIEWER\b/\\v/g;
+				s/\$EDITOR\b/\\e/g;
+			}
+		},
+		additions => [
+			"## preferred image editor/viewer (don't specify \\2 here)\n",
+			"#viewer:eog\n",
+			"viewer:xv\n",
+			"\n",
+			"## The special set 'framecolors[*]' will be used for every 'dircolors[x]'\n",
+			"## for which there is no corresponding 'framecolors[x]' (like ls_colors)\n",
+			"framecolors[*]:\\\n",
+			"title=reverse:swap=reverse:footer=reverse:highlight=bold:\n",
+			"\n",
+			"## The special set 'dircolors[*]' will be used for every 'framecolors[x]'\n",
+			"## for which there is no corresponding 'dircolors[x]'\n",
+			"dircolors[*]:\\\n",
+			"di=bold:ln=underscore:\n",
+			"\n",
+		],
+	},
+	# ----- 1.90.4 ---------------------------------------------------------
+	'1.90.4' => {
+		substitutions => sub {
+			s/\bviewbase\b/defaultnumbase/g;
+		},
+	},
+	# ----- 1.91.3 ---------------------------------------------------------
+	'1.91.3' => {
+		removals => [
+			qr/^#*\s*(timeformat:|format for entering time:)/,
+			qr/^#*\s*touch MMDDhhmm\S* or pfm .*MMDDhhmm/,
+		],
+	},
+	# ----- 1.91.4 ---------------------------------------------------------
+	'1.91.4' => {
+		substitutions => sub {
+			s/\bdefaultnumbase\b/defaultradix/g;
+		},
+	},
+	# ----- 1.91.5 ---------------------------------------------------------
+	'1.91.5' => {
+		additions => [
+			"## clock date/time format; see strftime(3).\n",
+			"## %x and %X provide properly localized time and date.\n",
+			"## the defaults are \"%Y %b %d\" and \"%H:%M:%S\"\n",
+			"## the diskinfo field (f) in the layouts below must be wide enough for this.\n",
+			"clockdateformat:%Y %b %d\n",
+			"#clocktimeformat:%H:%M:%S\n",
+			"#clockdateformat:%x\n",
+			"clocktimeformat:%X\n",
+			"\n",
+		],
+	},
+	# ----- 1.91.7 ---------------------------------------------------------
+	'1.91.7' => {
+		substitutions => sub {
+			s/^([^#].*nnnn.*)(:\\?)$/$1 ffffffffffffff$2/;
+			s{ layouts must not be wider than this! }
+			 {-------------- file info -------------};
+		},
+	},
+	# ----- 1.92.0 ---------------------------------------------------------
+	'1.92.0' => {
+		substitutions => sub {
+			s{magic\[Sun/NeXT audio data\](\s*:\s*)audio/basic}
+			 {magic\[Sun.NeXT audio data\]$1audio/basic};
+			s{(diskinfo field) is as yet only supported as the last column.}
+			 {$1 *must* be the _first_ or _last_ field on the line.};
+			s{## launch commands.*not implemented.*}
+			 {## launch commands};
+		},
+		insertions => [{
+			before => qr/^## [iI]n other words:/,
+			batch => [
+				'## The option itself may not contain whitespace or colons,'."\n",
+				'## except in a classifier enclosed in [] that immediately follows it.'."\n",
+				'## In other words: /^\s*([^[:\s]+(?:\[[^]]+\])?)\s*:\s*(.*)$/'."\n",
+			],
+		}],
+	},
+	# ----- 1.92.1 ---------------------------------------------------------
+	'1.92.1' => {
+		substitutions => sub {
+			s/^(#*\s*)\bclobber\b/$1defaultclobber/g;
+		},
+	},
+	# ----- 1.92.3 ---------------------------------------------------------
+	'1.92.3' => {
+		# added 'waitlaunchexec', but this was deprecated later.
+		# no need to add it here because it was never implemented.
+	},
+	# ----- 1.92.6 ---------------------------------------------------------
+	'1.92.6' => {
+		substitutions => sub {
+			s/\bdotmode:\s*yes\b/defaultdotmode: no/g;
+			s/\bdotmode:\s*no\b/defaultdotmode: yes/g;
+			s/\bwhitemode:\s*yes\b/defaultwhitemode: no/g;
+			s/\bwhitemode:\s*no\b/defaultwhitemode: yes/g;
+		},
+	},
+	# ----- 1.93.1 ---------------------------------------------------------
+	'1.93.1' => {
+		substitutions => sub {
+			s/\\([1-7epv])/=$1/g;
+			s/\\\\/==/g;
+		},
+		additions => [
+			"extension[*.dvi] : application/x-dvi\n",
+			"extension[*.jar] : application/zip\n",
+			"extension[*.man] : application/x-groff-man\n",
+			"extension[*.mm]  : application/x-groff-mm\n",
+			"extension[*.pdb] : chemical/x-pdb\n",
+			"magic[TeX DVI file] : application/x-dvi\n",
+			"\n",
+			"## the character that pfm recognizes as special abbreviation character\n",
+			"## (default =)\n",
+			"## previous versions used \\ (note that this leads to confusing results)\n",
+			"#escapechar:=\n",
+			"#escapechar:\\\n",
+			"\n",
+		],
+	},
+	# ----- 1.93.8 ---------------------------------------------------------
+	'1.93.8' => {
+		additions => [
+			"## use xterm alternate screen buffer (yes,no,xterm) (default: only in xterm)\n",
+			"altscreenmode:xterm\n",
+			"\n",
+			"## command used for starting a new pfm window for a directory. \n",
+			"## Only applicable under X. The default is to take gnome-terminal under \n",
+			"## Linux, xterm under other Unices. \n",
+			"## Be sure to include the option to start a program in the window. \n",
+			"#windowcmd:gnome-terminal -e \n",
+			"#windowcmd:xterm -e \n",
+			"\n",
+		],
+	},
+	# ----- 1.94.0 ---------------------------------------------------------
+	'1.94.0' => {
+		additions => [
+			"## command to perform automatically after every chdir()\n",
+			"#chdirautocmd:printf \"\\033]0;pfm - \$(basename \$(pwd))\\007\"\n",
+			"\n",
+		],
+	},
+	# ----- 1.94.2 ---------------------------------------------------------
+	'1.94.2' => {
+		additions => [
+			"## request rcs status automatically?\n",
+			"autorcs:yes\n",
+			"\n",
+			"## command to use for requesting the file status in your rcs system.\n",
+			"rcscmd:svn status\n",
+			"\n",
+		],
+	},
+	# ----- 1.94.8 ---------------------------------------------------------
+	'1.94.8' => {
+		additions => [
+			"extension[*.odp]  : application/x-openoffice\n",
+			"extension[*.ods]  : application/x-openoffice\n",
+			"extension[*.odt]  : application/x-openoffice\n",
+			"launch[application/x-openoffice]  : ooffice =2 &\n",
+			"\n",
+		],
+	},
+	# ----- 1.95.1 ---------------------------------------------------------
+	'1.95.1' => {
+		additions => [
+			"## is it always \"OK to remove marks?\" without confirmation?\n",
+			"remove_marks_ok:no\n",
+			"\n",
+		],
+	},
+	# ----- 1.95.2 ---------------------------------------------------------
+	'1.95.2' => {
+		# this option was deprecated later
+		additions => [
+			"## automatically check for updates on exit (default: no) \n",
+			"checkforupdates:no \n",
+			"\n",
+		],
+	},
+	# ----- 2.00.0 ---------------------------------------------------------
+	'2.00.0' => {
+		substitutions => sub {
+			s/(^|:)header=/${1}menu=/;
+			s/(^|:)title=/${1}headings=/;
+		},
+	},
+	# ----- 2.01.7 ---------------------------------------------------------
+	'2.01.7' => {
+		removals => [
+			qr/^#*\s*checkforupdates:/,
+			qr/^#+\s*automatically check for updates on exit/,
+		],
+	},
+	# ----- 2.03.7 ---------------------------------------------------------
+	'2.03.7' => {
+		removals => [
+			qr/^[ #]*waitlaunchexec:/,
+			qr/^[ #]*wait for launched executables to finish/,
+		],
+	},
+	# ----- 2.04.4 ---------------------------------------------------------
+	'2.04.4' => {
+		additions => [
+			"## commandline options to add to the cp(1) command, in the first place for\n",
+			"## changing the 'follow symlinks' behavior.\n",
+			"#copyoptions:-P\n",
+			"\n",
+		],
+	},
+	# ----- 2.05.3 ---------------------------------------------------------
+	'2.05.3' => {
+		additions => [
+			"extension[*.3pm]  : application/x-nroff-man\n",
+			"extension[*.js]   : application/javascript\n",
+			"extension[*.m3u]  : text/x-m3u-playlist\n",
+			"extension[*.sql]  : application/x-sql\n",
+			"\n",
+			"launch[application/javascript]    : =e =2\n",
+			"launch[application/x-sql]         : =e =2\n",
+			"launch[audio/mpeg]                : vlc =2 >/dev/null 2>&1\n",
+			"launch[text/x-m3u-playlist]       : vlc =2 >/dev/null 2>&1\n",
+			"\n",
+		],
+	},
+	# ----- 2.05.9 ---------------------------------------------------------
+	'2.05.9' => {
+		removals => [
+			qr/^#*\s*windowcmd:/,
+			qr/^#+\s*command used for starting a new pfm window for a directory/,
+			qr/^#+\s*Only applicable.*The default is to take gnome-terminal/,
+			qr/^#+\s*Linux, xterm under other Uni[xc]es/,
+			qr/^#+\s*Be sure to include the option to start a program/,
+		],
+		additions => [
+			"## Command used for starting a new directory window. Only useful under X.\n",
+			"##\n",
+			"## If 'windowtype' is 'standalone', then this command will be started\n",
+			"## and the current directory will be passed on the commandline.\n",
+			"## The command is responsible for opening its own window.\n",
+			"##\n",
+			"## If 'windowtype' is 'pfm', then 'windowcmd' should be a terminal\n",
+			"## command, which will be used to start pfm (the default is to use\n",
+			"## gnome-terminal for linux and xterm for other Unices).\n",
+			"## Be sure to include the option to start a program in the window\n",
+			"## (for xterm, this is -e).\n",
+			"##\n",
+			"#windowcmd:gnome-terminal -e\n",
+			"#windowcmd:xterm -e\n",
+			"#windowcmd:nautilus\n",
+			"\n",
+			"## What to open when a directory is middle-clicked with the mouse?\n",
+			"## 'pfm'       : open directories with pfm in a terminal window.\n",
+			"##               specify the terminal command with 'windowcmd'.\n",
+			"## 'standalone': open directories in a new window with the 'windowcmd'.\n",
+			"#windowtype:standalone\n",
+			"windowtype:pfm\n",
+			"\n",
+		],
+	},
+	# ----- 2.06.0 ---------------------------------------------------------
+	'2.06.0' => {
+		additions => [
+			"## write bookmarks to file automatically upon exit\n",
+			"autowritebookmarks:yes\n",
+			"\n",
+		],
+	},
+	# ----- 2.06.1 ---------------------------------------------------------
+	'2.06.1' => {
+		additions => [
+			"## sort modes to cycle through when clicking 'Sort' in the footer.\n",
+			"## default: nNeEdDaAsStu\n",
+			"#sortcycle:nNeEdDaAsStu\n",
+			"\n",
+		],
+	},
+	# ----- 2.06.2 ---------------------------------------------------------
+	'2.06.2' => {
+		additions => [
+			"## pfm does not support a terminal size of less than 80 columns or 24 rows.\n",
+			"## this option will make pfm try to resize the terminal to the minimum\n",
+			"## dimensions if it is resized too small.\n",
+			"## valid options: yes,no,xterm.\n",
+			"force_minimum_size:xterm\n",
+			"\n",
+		],
+	},
+	# ----- 2.06.3 ---------------------------------------------------------
+	'2.06.3' => {
+		additions => [
+			"## In case the regular editor automatically forks in the background, you\n",
+			"## may want to specify a foreground editor here. If defined, this editor\n",
+			"## will be used for editing the config file, so that pfm will be able to\n",
+			"## wait for the editor to finish before rereading the config file.\n",
+			"#fg_editor:vim\n",
+			"\n",
+		],
+	},
+	# ----- 2.06.4 ---------------------------------------------------------
+	'2.06.4' => {
+		additions => [
+			"## automatically sort the directory's contents again after a\n",
+			"## (T)ime or (U)ser command? (default: yes)\n",
+			"#autosort:yes\n",
+			"\n",
+		],
+	},
+	# ----- 2.06.9 ---------------------------------------------------------
+	'2.06.9' => {
+		removals => [
+			qr/^[# ]*ducmd:/,
+			qr/^[# ]*your system's du.+command.+needs.+for the current filename/,
+			qr/^[# ]*[sS]pecify so that the outcome is in bytes/,
+			qr/^[# ]*this is commented out because pfm makes a clever guess for your OS/,
+		],
+	},
+	# ----- 2.08.0 ---------------------------------------------------------
+	'2.08.0' => {
+		substitutions => sub {
+			s{## do=door nt=network special .not implemented. wh=whiteout}
+			 {## do=door nt=network special wh=whiteout ep=event pipe};
+			s{(^|:)(pi=[^:]*:so=[^:]*:)}
+			 {$1$2ep=black on yellow:};
+			s{^(dircolors[^:]*:no=[^:]*:fi=)reset:}
+			 {$1:};
+		},
+	},
+	# ----- 2.08.1 ---------------------------------------------------------
+	'2.08.1' => {
+		removals => [],
+		substitutions => sub {
+			s{## no=normal fi=file ex=executable lo=lost file ln=symlink or=orphan link}
+			 {## no=normal fi=file lo=lost file ln=symlink or=orphan link hl=hard link};
+			s{ln=([^:]*):or=([^:]*):}
+			 {ln=$1:or=$2:hl=white on blue:};
+		},
+		insertions => [{
+			before => qr/^([^#]*:|)wh=([^:]*):/,
+			batch => [
+				"su=white on red:sg=black on yellow:\\\n",
+				"ow=blue on green:st=white on blue:tw=black on green:\\\n",
+			],
+		}, {
+			before => qr/## ..<ext> defines extension colors/,
+			batch => [
+				"## ex=executable su=setuid sg=setgid ca=capability (not implemented)\n",
+				"## ow=other-writable dir (d???????w?) st=sticky dir (d????????t)\n",
+				"## tw=sticky and other-writable dir (d???????wt)\n",
+			],
+		}],
+		additions => [
+			"## overlay the highlight color onto the current filename? (default yes)\n",
+			"highlightname:yes\n",
+			"\n",
+			"## characteristics of the mouse wheel: the number of lines that the\n",
+			"## mouse wheel will scroll. This can be an integer or 'variable'.\n",
+			"#mousewheeljumpsize:5\n",
+			"mousewheeljumpsize:variable\n",
+			"\n",
+			"## if 'mousewheeljumpsize' is 'variable', the next two values are taken\n",
+			"## into account.\n",
+			"## 'mousewheeljumpratio' is used to calculate the number of lines that\n",
+			"## the cursor will jump, namely: the total number of enties in the\n",
+			"## directory divided by 'mousewheeljumpratio'.\n",
+			"## 'mousewheeljumpmax' sets an upper bound to the number of lines that\n",
+			"## the cursor is allowed to jump when using the mousewheel.\n",
+			"mousewheeljumpratio:4\n",
+			"mousewheeljumpmax:11\n",
+			"\n",
+		],
+	},
+	# ----- 2.08.2 ---------------------------------------------------------
+	'2.08.2' => {
+		removals => [
+			qr/^[# ]*rcscmd:/,
+			qr/^[# ]*command to use for requesting the file status in your rcs system/,
+		],
+		substitutions => sub {
+			s{'mousewheeljumpmax' sets an upper bound to the number of lines that}
+			 {'mousewheeljumpmin' and 'mousewheeljumpmax' set bounds to the number};
+			s{the cursor is allowed to jump when using the mousewheel.}
+			 {of lines that the cursor is allowed to jump when using the mousewheel.};
+			# these should have been done in an earlier version.
+			s{initial sort mode .nNmMeEfFsSzZiItTdDaA. }
+			 {initial sort mode (nNmMeEfFdDaAsSzZtTuUgGvViI*) };
+			s{F7 key swap path method is persistent...default no.}
+			 {F7 key swap path method is persistent? (default yes)};
+			s{title, title in swap mode}
+			 {headings, headings in swap mode};
+			s{colors for header, header in multiple mode}
+			 {colors for menu, menu in multiple mode};
+		},
+		insertions => [{
+			before => qr/^[ #]*mousewheeljumpmax:/,
+			batch => [
+				"mousewheeljumpmin:1\n",
+			],
+		}, {
+			# this should have been done in an earlier version.
+			before => qr/^clsonexit:/,
+			batch => [
+				"## Has no effect if altscreenmode is set.\n",
+			],
+		}, {
+			# this should have been done in an earlier version.
+			before => qr/^[ #]*fg_editor:/,
+			batch => [
+				"## It will also be used for editing ACLs.\n",
+			],
+		}],
+		additions => [
+			"## Must 'Hit any key to continue' also accept mouse clicks?\n",
+			"clickiskeypresstoo:yes\n",
+			"\n",
+		],
+	},
+	# ----- 2.08.4 ---------------------------------------------------------
+	'2.08.4' => {
+		removals => [
+			qr/Term::Screen needs these additions/,
+		],
+		substitutions => sub {
+			s/^## default:\s*nNeEdDaAsStu/## default: n,en,dn,Dn,sn,Sn,tn,un/;
+			s{(sortcycle:\s*)(\w+)$}
+			 {$1 . join ',', split(//, $2)}eo;
+		},
+	},
+};
+
 ##########################################################################
 # private subs
 
-=item _init( [ bool $amphibian ] )
+=item _init()
 
 Initializes new instances. Called from the constructor.
-The I<amphibian> parameter specifies if the F<.pfmrc> should be kept
-in a format that is suitable for both C<pfm> versions 1 and 2.
 
 =cut
 
 sub _init {
-	my ($self, $amphibian) = @_;
-	$self->{_amphibian} = $amphibian;
+	my ($self) = @_;
 }
 
 =item _by_pfmrc_rules()
@@ -165,6 +626,24 @@ sub _insertbefore {
 	}
 }
 
+=item _substitute(arrayref $text, coderef $substitutor)
+
+Executes the I<substitutor> code for all lines in the config text.
+
+=cut
+
+sub _substitute {
+	my ($self, $lines, $substitutor) = @_;
+	local $_;
+	if (!ref($substitutor)) { # TODO
+		cluck "substitutor is no ref"; # TODO
+	} # TODO
+
+	foreach (@$lines) {
+		$substitutor->();
+	}
+}
+
 =item _get_locale()
 
 Finds the locale that is currently in use for LC_TIME.
@@ -216,625 +695,9 @@ sub _get_pfmrc_timefieldformat {
 	return $timefieldformat;
 }
 
-############################################################################
-# private update subs
-
 =item I<_update_to_>versionZ<>()
 
-Updates the I<text> to the new version by adding and removing
-options, and updating definitions that have changed.
-
 =cut
-
-sub _update_to_184 {
-	my ($self, $lines) = @_;
-	# this updates (Y)our commands for version 1.84
-	print "Updating to 1.84...\n";
-	s/^(\s*)([[:upper:]])(\s*):(.*)$/$1your[\l$2]$3:$4/ foreach @$lines;
-	s/^(\s*)([[:lower:]])(\s*):(.*)$/$1your[\u$2]$3:$4/ foreach @$lines;
-}
-
-sub _update_to_188 {
-	my ($self, $lines) = @_;
-	# this replaces the pre-1.88 colors by 1.88-style colors.
-	print "Updating to 1.88...\n";
-	my %attributes = reverse ( 'black'      => 30,  'on_black'   => 40,
-		'reset'      => '00',  'red'        => 31,  'on_red'     => 41,
-		'bold'       => '01',  'green'      => 32,  'on_green'   => 42,
-		'underline'  => '04',  'yellow'     => 33,  'on_yellow'  => 43,
-		                       'blue'       => 34,  'on_blue'    => 44,
-		'blink'      => '05',  'magenta'    => 35,  'on_magenta' => 45,
-		'inverse'    => '07',  'cyan'       => 36,  'on_cyan'    => 46,
-		'concealed'  => '08',  'white'      => 37,  'on_white'   => 47,
-	);
-	foreach (@$lines) {
-		!/^#/ && /[=;]/ && s/\b([034]\d)\b/$attributes{$1}/g && tr/;/ /;
-	}
-}
-
-sub _update_to_189 {
-	my ($self, $lines) = @_;
-	# this updates quoting in commands for version 1.89
-	print "Updating to 1.89...\n";
-	my $warned = 0;
-	foreach (@$lines) {
-		s/(['"])(\\[1-6])\1/$2/g;
-		s/(printcmd:.*)/$1 \\2/g;
-		/cp.*date.*touch.*date/ && s/"(
-		[^"()]*
-		\$\(
-		[^")]*
-		(?:"[^"]*")*
-		\)
-		)"/$1/gx;
-		if (/\$\(.*\)/ and !$warned) {
-			print "\nWarning: Quoting \$(..) constructs can be tricky.\n";
-			print "Please double-check your .pfmrc. I'm imperfect.\n";
-			$warned++;
-		}
-	}
-	$self->_append($lines, <<'_end_update_to_189_');
-
-# convert $LS_COLORS into an additional colorset?
-importlscolors:yes
-	
-_end_update_to_189_
-}
-
-sub _update_to_1901 {
-	my ($self, $lines) = @_;
-	# added 'viewer' option
-	# added dir/framecolors[*] option
-	# added '\[epv]' escapes
-	foreach (@$lines) {
-		if (/^(your|launch)/) {
-			s/(\$PAGER|\bmore|\bless)\b/\\p/g;
-			s/\$VIEWER\b/\\v/g;
-			s/\$EDITOR\b/\\e/g;
-		}
-	}
-	$self->_append($lines, <<'_end_update_to_1901_');
-
-## preferred image editor/viewer (don't specify \2 here)
-#viewer:eog
-viewer:xv
-
-## The special set 'framecolors[*]' will be used for every 'dircolors[x]'
-## for which there is no corresponding 'framecolors[x]' (like ls_colors)
-framecolors[*]:\
-title=reverse:swap=reverse:footer=reverse:highlight=bold:
-
-## The special set 'dircolors[*]' will be used for every 'framecolors[x]'
-## for which there is no corresponding 'dircolors[x]'
-dircolors[*]:\
-di=bold:ln=underscore:
-
-_end_update_to_1901_
-}
-
-sub _update_to_1904 {
-	my ($self, $lines) = @_;
-	# changed config option 'viewbase' to 'defaultnumbase'
-	print "Updating to 1.90.4...\n";
-	foreach (@$lines) {
-		s/\bviewbase\b/defaultnumbase/g;
-	}
-}
-
-sub _update_to_1913 {
-	my ($self, $lines) = @_;
-	# this removes 'timeformat' for version 1.91.3
-	print "Updating to 1.91.3...\n";
-	$self->_remove(
-		$lines,
-		qr/^#*\s*(timeformat:|format for entering time:)/,
-		qr/^#*\s*touch MMDDhhmm\S* or pfm .*MMDDhhmm/,
-	);
-}
-
-sub _update_to_1914 {
-	my ($self, $lines) = @_;
-	# changed config option 'defaultnumbase' to 'defaultradix'
-	print "Updating to 1.91.4...\n";
-	foreach (@$lines) {
-		s/\bdefaultnumbase\b/defaultradix/g;
-	}
-}
-
-sub _update_to_1915 {
-	my ($self, $lines) = @_;
-	# added 'clockdateformat' and 'clocktimeformat' options
-	print "Updating to 1.91.5...\n";
-	$self->_append($lines, <<'_end_update_to_1915_');
-
-## clock date/time format; see strftime(3).
-## %x and %X provide properly localized time and date.
-## the defaults are "%Y %b %d" and "%H:%M:%S"
-## the diskinfo field (f) in the layouts below must be wide enough for this.
-clockdateformat:%Y %b %d
-#clocktimeformat:%H:%M:%S
-#clockdateformat:%x
-clocktimeformat:%X
-
-_end_update_to_1915_
-}
-
-sub _update_to_1917 {
-	my ($self, $lines) = @_;
-	# this adds a diskinfo column (f-column) to pre-1.91.7 config files
-	print "Updating to 1.91.7...\n";
-	foreach (@$lines) {
-		s/^([^#].*nnnn.*)(:\\?)$/$1 ffffffffffffff$2/;
-		s{ layouts must not be wider than this! }
-		 {-------------- file info -------------};
-	}
-}
-
-sub _update_to_1920 {
-	my ($self, $lines) = @_;
-	# changes important comments.
-	print "Updating to 1.92.0...\n";
-	my $i;
-	foreach (@$lines) {
-		s{magic\[Sun/NeXT audio data\](\s*:\s*)audio/basic}
-		 {magic\[Sun.NeXT audio data\]$1audio/basic};
-		s{(diskinfo field) is as yet only supported as the last column.}
-		 {$1 *must* be the _first_ or _last_ field on the line.};
-		s{## launch commands.*not implemented.*}
-		 {## launch commands};
-	}
-	$self->_insertbefore(
-		$lines,
-		qr/^## [iI]n other words:/,
-		<<'_end_update_to_1920_'
-## The option itself may not contain whitespace or colons,
-## except in a classifier enclosed in [] that immediately follows it.
-## In other words: /^\s*([^[:\s]+(?:\[[^]]+\])?)\s*:\s*(.*)$/
-_end_update_to_1920_
-	);
-}
-
-sub _update_to_1921 {
-	my ($self, $lines) = @_;
-	# changed option 'clobber' to 'defaultclobber'
-	print "Updating to 1.92.1...\n";
-	foreach (@$lines) {
-		s/^(#*\s*)\bclobber\b/$1defaultclobber/g;
-	}
-}
-
-sub _update_to_1923 {
-	my ($self, $lines) = @_;
-	# added 'waitlaunchexec', but this was deprecated later.
-	# no need to add it here because it was never implemented.
-}
-
-sub _update_to_1926 {
-	my ($self, $lines) = @_;
-	# inverted meaning of 'defaultdotmode' and 'defaultwhitemode'
-	print "Updating to 1.92.6...\n";
-	foreach (@$lines) {
-		s/\bdotmode:\s*yes\b/defaultdotmode: no/g;
-		s/\bdotmode:\s*no\b/defaultdotmode: yes/g;
-		s/\bwhitemode:\s*yes\b/defaultwhitemode: no/g;
-		s/\bwhitemode:\s*no\b/defaultwhitemode: yes/g;
-	}
-}
-
-sub _update_to_1931 {
-	my ($self, $lines) = @_;
-	# added 'escapechar'; changed default escape char.
-	print "Updating to 1.93.1...\n";
-	foreach (@$lines) {
-		s/\\([1-7epv])/=$1/g;
-		s/\\\\/==/g;
-	}
-	$self->_append($lines, <<'_end_update_to_1931_');
-
-extension[*.dvi] : application/x-dvi
-extension[*.jar] : application/zip
-extension[*.man] : application/x-groff-man
-extension[*.mm]  : application/x-groff-mm
-extension[*.pdb] : chemical/x-pdb
-magic[TeX DVI file] : application/x-dvi
-
-## the character that pfm recognizes as special abbreviation character
-## (default =)
-## previous versions used \ (note that this leads to confusing results)
-#escapechar:=
-#escapechar:\
-
-_end_update_to_1931_
-}
-
-sub _update_to_1938 {
-	my ($self, $lines) = @_;
-	# added 'altscreenmode'
-	print "Updating to 1.93.8...\n";
-	$self->_append($lines, <<'_end_update_to_1938_');
-
-## use xterm alternate screen buffer (yes,no,xterm) (default: only in xterm)
-altscreenmode:xterm
-
-## command used for starting a new pfm window for a directory. 
-## Only applicable under X. The default is to take gnome-terminal under 
-## Linux, xterm under other Unices. 
-## Be sure to include the option to start a program in the window. 
-#windowcmd:gnome-terminal -e 
-#windowcmd:xterm -e 
-
-_end_update_to_1938_
-}
-
-sub _update_to_1942 {
-	my ($self, $lines) = @_;
-	# subversion support; 'rcscmd', 'autorcs'
-	print "Updating to 1.94.2...\n";
-	$self->_append($lines, <<'_end_update_to_1942_');
-
-## request rcs status automatically?
-autorcs:yes
-
-## command to use for requesting the file status in your rcs system.
-rcscmd:svn status
-
-_end_update_to_1942_
-}
-
-sub _update_to_1948 {
-	my ($self, $lines) = @_;
-	# added openoffice document extensions to default .pfmrc
-	print "Updating to 1.94.8...\n";
-	$self->_append($lines, <<'_end_update_to_1948_');
-
-extension[*.odp]  : application/x-openoffice
-extension[*.ods]  : application/x-openoffice
-extension[*.odt]  : application/x-openoffice
-launch[application/x-openoffice]  : ooffice =2 &
-
-_end_update_to_1948_
-}
-
-sub _update_to_1951 {
-	my ($self, $lines) = @_;
-	# added 'remove_marks_ok' option
-	print "Updating to 1.95.1...\n";
-	$self->_append($lines, <<'_end_update_to_1951_');
-
-## is it always "OK to remove marks?" without confirmation?
-remove_marks_ok:no
-
-_end_update_to_1951_
-}
-
-sub _update_to_1952 {
-	my ($self, $lines) = @_;
-	# added 'checkforupdates' option (was deprecated later).
-	print "Updating to 1.95.2...\n";
-	$self->_append($lines, <<'_end_update_to_1952_');
-
-## automatically check for updates on exit (default: no) 
-checkforupdates:no 
-
-_end_update_to_1952_
-}
-
-sub _update_to_200 {
-	my ($self, $lines) = @_;
-	# this updates the framecolors for version 2.00
-	print "Updating to 2.00...\n";
-	if ($self->{_amphibian}) {
-		foreach (@$lines) {
-			s/(^|:)(header=)([^:]*)/$1$2$3:menu=$3/;
-			s/(^|:)(title=)([^:]*)/$1$2$3:headings=$3/;
-		}
-	} else {
-		foreach (@$lines) {
-			s/(^|:)header=/${1}menu=/;
-			s/(^|:)title=/${1}headings=/;
-		}
-	}
-}
-
-sub _update_to_2017 {
-	my ($self, $lines) = @_;
-	return if $self->{_amphibian};
-	# this removes 'checkforupdates' for version 2.01.7
-	print "Updating to 2.01.7...\n";
-	$self->_remove(
-		$lines,
-		qr/^#*\s*checkforupdates:/,
-		qr/^#+\s*automatically check for updates on exit/,
-	);
-}
-
-sub _update_to_2037 {
-	my ($self, $lines) = @_;
-	return if $self->{_amphibian};
-	# this removes 'waitlaunchexec' for version 2.03.7
-	print "Updating to 2.03.7...\n";
-	$self->_remove(
-		$lines,
-		qr/^[ #]*waitlaunchexec:/,
-		qr/^[ #]*wait for launched executables to finish/,
-	);
-}
-
-sub _update_to_2044 {
-	my ($self, $lines) = @_;
-	# added 'copyoptions'
-	print "Updating to 2.04.4...\n";
-	$self->_append($lines, <<'_end_update_to_2044_');
-
-## commandline options to add to the cp(1) command, in the first place for
-## changing the 'follow symlinks' behavior.
-#copyoptions:-P
-
-_end_update_to_2044_
-}
-
-sub _update_to_2053 {
-	my ($self, $lines) = @_;
-	# added extra MIME types
-	print "Updating to 2.05.3...\n";
-	$self->_append($lines, <<'_end_update_to_2053_');
-
-extension[*.3pm]  : application/x-nroff-man
-extension[*.js]   : application/javascript
-extension[*.m3u]  : text/x-m3u-playlist
-extension[*.sql]  : application/x-sql
-
-launch[application/javascript]    : =e =2
-launch[application/x-sql]         : =e =2
-launch[audio/mpeg]                : vlc =2 >/dev/null 2>&1
-launch[text/x-m3u-playlist]       : vlc =2 >/dev/null 2>&1
-
-_end_update_to_2053_
-}
-
-sub _update_to_2059 {
-	my ($self, $lines) = @_;
-	# added 'windowtype'
-	print "Updating to 2.05.9...\n";
-	my $i;
-	$self->_remove(
-		$lines,
-		qr/^#*\s*windowcmd:/,
-		qr/^#+\s*command used for starting a new pfm window for a directory/,
-		qr/^#+\s*Only applicable.*The default is to take gnome-terminal/,
-		qr/^#+\s*Linux, xterm under other Uni[xc]es/,
-		qr/^#+\s*Be sure to include the option to start a program/,
-	);
-	$self->_append($lines, <<'_end_update_to_2059_');
-
-## Command used for starting a new directory window. Only useful under X.
-##
-## If 'windowtype' is 'standalone', then this command will be started
-## and the current directory will be passed on the commandline.
-## The command is responsible for opening its own window.
-##
-## If 'windowtype' is 'pfm', then 'windowcmd' should be a terminal
-## command, which will be used to start pfm (the default is to use
-## gnome-terminal for linux and xterm for other Unices).
-## Be sure to include the option to start a program in the window
-## (for xterm, this is -e).
-##
-#windowcmd:gnome-terminal -e
-#windowcmd:xterm -e
-#windowcmd:nautilus
-
-## What to open when a directory is middle-clicked with the mouse?
-## 'pfm'       : open directories with pfm in a terminal window.
-##				 specify the terminal command with 'windowcmd'.
-## 'standalone': open directories in a new window with the 'windowcmd'.
-#windowtype:standalone
-windowtype:pfm
-
-_end_update_to_2059_
-}
-
-sub _update_to_2060 {
-	my ($self, $lines) = @_;
-	# added 'autowritebookmarks'
-	print "Updating to 2.06.0...\n";
-	$self->_append($lines, <<'_end_update_to_2060_');
-
-## write bookmarks to file automatically upon exit
-autowritebookmarks:yes
-
-_end_update_to_2060_
-}
-
-sub _update_to_2061 {
-	my ($self, $lines) = @_;
-	# added 'sortcycle'
-	print "Updating to 2.06.1...\n";
-	$self->_append($lines, <<'_end_update_to_2061_');
-
-## sort modes to cycle through when clicking 'Sort' in the footer.
-## default: nNeEdDaAsStu
-#sortcycle:nNeEdDaAsStu
-
-_end_update_to_2061_
-}
-
-sub _update_to_2062 {
-	my ($self, $lines) = @_;
-	# added 'force_minimum_size'
-	print "Updating to 2.06.2...\n";
-	$self->_append($lines, <<'_end_update_to_2062_');
-
-## pfm does not support a terminal size of less than 80 columns or 24 rows.
-## this option will make pfm try to resize the terminal to the minimum
-## dimensions if it is resized too small.
-## valid options: yes,no,xterm.
-force_minimum_size:xterm
-
-_end_update_to_2062_
-}
-
-sub _update_to_2063 {
-	my ($self, $lines) = @_;
-	# added 'fg_editor'
-	print "Updating to 2.06.3...\n";
-	$self->_append($lines, <<'_end_update_to_2063_');
-
-## In case the regular editor automatically forks in the background, you
-## may want to specify a foreground editor here. If defined, this editor
-## will be used for editing the config file, so that pfm will be able to
-## wait for the editor to finish before rereading the config file.
-#fg_editor:vim
-
-_end_update_to_2063_
-}
-
-sub _update_to_2064 {
-	my ($self, $lines) = @_;
-	# added 'autosort'
-	print "Updating to 2.06.4...\n";
-	$self->_append($lines, <<'_end_update_to_2064_');
-
-## automatically sort the directory's contents again after a
-## (T)ime or (U)ser command? (default: yes)
-#autosort:yes
-
-_end_update_to_2064_
-}
-
-sub _update_to_2069 {
-	my ($self, $lines) = @_;
-	return if $self->{_amphibian};
-	# deprecated 'ducmd'
-	print "Updating to 2.06.9...\n";
-	$self->_remove(
-		$lines,
-		qr/^[# ]*ducmd:/,
-		qr/^[# ]*your system's du.+command.+needs.+for the current filename/,
-		qr/^[# ]*specify so that the outcome is in bytes/,
-		qr/^[# ]*this is commented out because pfm makes a clever guess for your OS/,
-	);
-}
-
-sub _update_to_2080 {
-	my ($self, $lines) = @_;
-	# added color option for event pipes
-	print "Updating to 2.08.0...\n";
-	foreach (@$lines) {
-		s{## do=door nt=network special .not implemented. wh=whiteout}
-		 {## do=door nt=network special wh=whiteout ep=event pipe};
-		s{(^|:)(pi=[^:]*:so=[^:]*:)}
-		 {$1$2ep=black on yellow:};
-		s{^(dircolors[^:]*:no=[^:]*:fi=)reset:}
-		 {$1:};
-	}
-}
-
-sub _update_to_2081 {
-	my ($self, $lines) = @_;
-	# added 'mousewheeljump{size,max,ratio}' and 'highlightname'
-	print "Updating to 2.08.1...\n";
-	foreach (@$lines) {
-		s{## no=normal fi=file ex=executable lo=lost file ln=symlink or=orphan link}
-		 {## no=normal fi=file lo=lost file ln=symlink or=orphan link hl=hard link};
-		s{ln=([^:]*):or=([^:]*):}
-		 {ln=$1:or=$2:hl=white on blue:};
-	}
-	$self->_insertbefore(
-		$lines,
-		qr/^([^#]*:|)wh=([^:]*):/,
-		<<_end_update_1_to_2081_
-su=white on red:sg=black on yellow:\\
-ow=blue on green:st=white on blue:tw=black on green:\\
-_end_update_1_to_2081_
-	);
-	$self->_insertbefore(
-		$lines,
-		qr/## ..<ext> defines extension colors/,
-		<<_end_update_2_to_2081_
-## ex=executable su=setuid sg=setgid ca=capability (not implemented)
-## ow=other-writable dir (d???????w?) st=sticky dir (d????????t)
-## tw=sticky and other-writable dir (d???????wt)
-_end_update_2_to_2081_
-	);
-	$self->_append($lines, <<_end_update_3_to_2081_);
-
-## overlay the highlight color onto the current filename? (default yes)
-highlightname:yes
-
-## characteristics of the mouse wheel: the number of lines that the
-## mouse wheel will scroll. This can be an integer or 'variable'.
-#mousewheeljumpsize:5
-mousewheeljumpsize:variable
-
-## if 'mousewheeljumpsize' is 'variable', the next two values are taken
-## into account.
-## 'mousewheeljumpratio' is used to calculate the number of lines that
-## the cursor will jump, namely: the total number of enties in the
-## directory divided by 'mousewheeljumpratio'.
-## 'mousewheeljumpmax' sets an upper bound to the number of lines that
-## the cursor is allowed to jump when using the mousewheel.
-mousewheeljumpratio:4
-mousewheeljumpmax:11
-
-_end_update_3_to_2081_
-}
-
-sub _update_to_2082 {
-	my ($self, $lines) = @_;
-	# added 'mousewheeljumpmin'
-	print "Updating to 2.08.2...\n";
-	$self->_insertbefore(
-		$lines,
-		qr/^[ #]*mousewheeljumpmax:/,
-		<<'_end_update_1_to_2082_'
-mousewheeljumpmin:1
-_end_update_1_to_2082_
-	);
-	foreach (@$lines) {
-		s{'mousewheeljumpmax' sets an upper bound to the number of lines that}
-		 {'mousewheeljumpmin' and 'mousewheeljumpmax' set bounds to the number};
-		s{the cursor is allowed to jump when using the mousewheel.}
-		 {of lines that the cursor is allowed to jump when using the mousewheel.};
-		# these should have been done in an earlier version.
-		s{initial sort mode .nNmMeEfFsSzZiItTdDaA. }
-		 {initial sort mode (nNmMeEfFdDaAsSzZtTuUgGvViI*) };
-		s{F7 key swap path method is persistent...default no.}
-		 {F7 key swap path method is persistent? (default yes)};
-		s{title, title in swap mode}
-		 {headings, headings in swap mode};
-		s{colors for header, header in multiple mode}
-		 {colors for menu, menu in multiple mode};
-	}
-	# this should have been done in an earlier version.
-	$self->_insertbefore(
-		$lines,
-		qr/^clsonexit:/,
-		<<'_end_update_2_to_2082_'
-## Has no effect if altscreenmode is set.
-_end_update_2_to_2082_
-	);
-	# this should have been done in an earlier version.
-	$self->_insertbefore(
-		$lines,
-		qr/^[ #]*fg_editor:/,
-		<<'_end_update_3_to_2082_'
-## It will also be used for editing ACLs.
-_end_update_3_to_2082_
-	);
-	# this should have been done in an earlier version.
-	$self->_remove(
-		$lines,
-		qr/^[# ]*rcscmd:/,
-		qr/^[# ]*command to use for requesting the file status in your rcs system/,
-	);
-	# this should have been done in an earlier version.
-	$self->_append($lines, <<'_end_update_4_to_2082_');
-
-## Must 'Hit any key to continue' also accept mouse clicks?                                       
-clickiskeypresstoo:yes                                                                            
-
-_end_update_4_to_2082_
-}
 
 =item _update_version_identifier
 
@@ -845,54 +708,38 @@ Updates the 'Version:' line in I<text> to the new version.
 sub _update_version_identifier {
 	my ($self, $to, $lines) = @_;
 	# this updates the version field for any version
-	print "Updating version field to $to...\n";
-	foreach (@$lines) {
+	$self->_substitute($lines, sub {
 		s/^(#.*?Version\D+)[[:alnum:].]+/$1$to/;
-	}
+	});
 }
 
 =item _update_text(string $version_from, string $version_to, arrayref $text)
 
-Updates the array indicated by I<text>.
+Updates the array indicated by I<text> to the new version by adding
+any new config options, removing deprecated ones, and updating
+definitions that have changed.
 
 =cut
 
 sub _update_text {
 	my ($self, $from, $to, $lines) = (@_);
-	$self->_update_to_184 ($lines) if $self->_cross('1.84'  , $from, $to);
-	$self->_update_to_188 ($lines) if $self->_cross('1.88'  , $from, $to);
-	$self->_update_to_189 ($lines) if $self->_cross('1.89'  , $from, $to);
-	$self->_update_to_1901($lines) if $self->_cross('1.90.1', $from, $to);
-	$self->_update_to_1904($lines) if $self->_cross('1.90.4', $from, $to);
-	$self->_update_to_1913($lines) if $self->_cross('1.91.3', $from, $to);
-	$self->_update_to_1914($lines) if $self->_cross('1.91.4', $from, $to);
-	$self->_update_to_1915($lines) if $self->_cross('1.91.5', $from, $to);
-	$self->_update_to_1917($lines) if $self->_cross('1.91.7', $from, $to);
-	$self->_update_to_1920($lines) if $self->_cross('1.92.0', $from, $to);
-	$self->_update_to_1921($lines) if $self->_cross('1.92.1', $from, $to);
-	$self->_update_to_1923($lines) if $self->_cross('1.92.3', $from, $to);
-	$self->_update_to_1926($lines) if $self->_cross('1.92.6', $from, $to);
-	$self->_update_to_1931($lines) if $self->_cross('1.93.1', $from, $to);
-	$self->_update_to_1938($lines) if $self->_cross('1.93.8', $from, $to);
-	$self->_update_to_1942($lines) if $self->_cross('1.94.2', $from, $to);
-	$self->_update_to_1948($lines) if $self->_cross('1.94.8', $from, $to);
-	$self->_update_to_1951($lines) if $self->_cross('1.95.1', $from, $to);
-	$self->_update_to_1952($lines) if $self->_cross('1.95.2', $from, $to);
-	$self->_update_to_200 ($lines) if $self->_cross('2.00'  , $from, $to);
-	$self->_update_to_2017($lines) if $self->_cross('2.01.7', $from, $to);
-	$self->_update_to_2037($lines) if $self->_cross('2.03.7', $from, $to);
-	$self->_update_to_2044($lines) if $self->_cross('2.04.4', $from, $to);
-	$self->_update_to_2053($lines) if $self->_cross('2.05.3', $from, $to);
-	$self->_update_to_2059($lines) if $self->_cross('2.05.9', $from, $to);
-	$self->_update_to_2060($lines) if $self->_cross('2.06.0', $from, $to);
-	$self->_update_to_2061($lines) if $self->_cross('2.06.1', $from, $to);
-	$self->_update_to_2062($lines) if $self->_cross('2.06.2', $from, $to);
-	$self->_update_to_2063($lines) if $self->_cross('2.06.3', $from, $to);
-	$self->_update_to_2064($lines) if $self->_cross('2.06.4', $from, $to);
-	$self->_update_to_2069($lines) if $self->_cross('2.06.9', $from, $to);
-	$self->_update_to_2080($lines) if $self->_cross('2.08.0', $from, $to);
-	$self->_update_to_2081($lines) if $self->_cross('2.08.1', $from, $to);
-	$self->_update_to_2082($lines) if $self->_cross('2.08.2', $from, $to);
+	my %updates = %{UPDATES()};
+	my ($version, $change);
+	foreach $version (sort keys %updates) {
+		next unless $self->_cross($version, $from, $to);
+		foreach $change ($updates{$version}{removals}) {
+			$self->_remove($lines, @$change);
+		}
+		if (defined($change = $updates{$version}{substitutions})) {
+			$self->_substitute($lines, $change);
+		}
+		foreach $change (@{$updates{$version}{insertions}}) {
+			$self->_insertbefore($lines, $change->{before}, @{$change->{batch}});
+		}
+		foreach $change ($updates{$version}{additions}) {
+			$self->_append($lines, @$change);
+		}
+	}
 	$self->_update_version_identifier($to, $lines);
 }
 
@@ -932,8 +779,6 @@ Please verify that your file timestamps don't look truncated, otherwise
 please change the 'columnlayouts' or 'timestampformat' option manually.
 
 _LOCALE_WARNING_
-	} else {
-		print "Checking timestampformat vs. locale (ok)\n";
 	}
 }
 

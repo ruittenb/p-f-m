@@ -45,6 +45,7 @@ use App::PFM::Util qw(fitpath max);
 use POSIX qw(getcwd);
 
 use strict;
+use locale;
 
 use constant {
 	PATH_PHYSICAL	=> 1,

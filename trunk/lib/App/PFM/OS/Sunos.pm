@@ -37,6 +37,7 @@ package App::PFM::OS::Sunos;
 use base 'App::PFM::OS::Solaris';
 
 use strict;
+use locale;
 
 ##########################################################################
 # private subs

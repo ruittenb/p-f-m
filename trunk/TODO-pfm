@@ -21,6 +21,10 @@
 
 - in install.sh wordt ${pkgadd} niet geinterpoleerd
 
+- sort mode 'es': bug
+
+- Update: give error if starting version too low
+
 - call $pfm->checkupdates() in '@' (perlcommand) does not finish the job;
   call $pfm->checkupdates(); sleep 2; finishes it.
 
@@ -64,7 +68,7 @@
 - who determines which command was clicked in the menu?
   is that the CommandHandler::handlemousefooter* or Screen::Frame?
 
-- remove code duplication from Update
+- test Config::Update
 
 ################################################################################
 # functional enhancements

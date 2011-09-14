@@ -36,6 +36,7 @@ package App::PFM::OS::Linux;
 use base 'App::PFM::OS::Abstract';
 
 use strict;
+use locale;
 
 # read somewhere:
 #

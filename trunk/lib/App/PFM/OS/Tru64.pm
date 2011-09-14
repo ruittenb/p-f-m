@@ -36,6 +36,7 @@ package App::PFM::OS::Tru64;
 use base 'App::PFM::OS::Abstract';
 
 use strict;
+use locale;
 
 use constant MINORBITS => 2 ** 20;
 

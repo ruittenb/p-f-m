@@ -41,6 +41,7 @@ use IO::Pipe;
 use IO::Select;
 use Carp;
 use strict;
+use locale;
 
 ##########################################################################
 # private subs

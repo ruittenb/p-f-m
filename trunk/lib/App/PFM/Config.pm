@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 0.94
+# @(#) App::PFM::Config 0.95
 #
 # Name:			App::PFM::Config
-# Version:		0.94
+# Version:		0.95
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-03
+# Date:			2010-09-06
 #
 
 ##########################################################################
@@ -37,12 +37,13 @@ package App::PFM::Config;
 use base 'App::PFM::Abstract';
 
 use App::PFM::Config::Update;
-use App::PFM::Util qw(isyes isno isxterm ifnotdefined);
+use App::PFM::Util qw(isyes isno isxterm ifnotdefined max);
 use App::PFM::Event;
 
 use POSIX qw(strftime mktime);
 
 use strict;
+use locale;
 
 use constant {
 	READ_AGAIN		 => 0,
@@ -291,7 +292,7 @@ sub parse {
 	# copyright message
 	$self->fire(new App::PFM::Event({
 		name   => 'after_parse_usecolor',
-		origin => $self, # not used ATM
+		origin => $self,
 		type   => 'soft',
 	}));
 	# time/date format for clock and timestamps
@@ -332,7 +333,7 @@ sub parse {
 								  $diskinfo->IDENTMODES->{$pfmrc->{defaultident}} || 0);
 	$self->{escapechar} =
 	$self->{e}			= $e	= $pfmrc->{escapechar} || '=';
-	$self->{sortcycle}			= $pfmrc->{sortcycle} || 'nNeEdDaAsStu';
+	$self->{sortcycle}			= $pfmrc->{sortcycle} || 'n,en,dn,Dn,sn,Sn,tn,un';
 	$self->{force_minimum_size}	= $pfmrc->{force_minimum_size} || 'xterm';
 	$self->{force_minimum_size}	= ($self->{force_minimum_size} eq 'xterm' && isxterm($ENV{TERM}))
 								|| isyes($self->{force_minimum_size});
@@ -724,21 +725,17 @@ highlightname:yes
 importlscolors:yes
 
 ## additional key definitions for Term::Screen.
-## it seems that Term::Screen needs these additions *badly*.
-## if some (function) keys do not seem to work, add their escape sequences here.
+## if some (special) keys do not seem to work, add their escape sequences here.
 ## you may specify these by-terminal (make the option name 'keydef[$TERM]')
 ## or global ('keydef[*]')
 ## definitely look in the Term::Screen(3pm) manpage for details.
 ## also check 'kmous' from terminfo if your mouse is malfunctioning.
-#keydef[vt100]:home=\e[1~:end=\e[4~:
-keydef[*]:kmous=\e[M:home=\e[1~:end=\e[4~:end=\e[F:home=\eOH:end=\eOF:\
-kl=\eOD:kd=\eOB:ku=\eOA:kr=\eOC:k1=\eOP:k2=\eOQ:k3=\eOR:k4=\eOS:\
-pgdn=\e[62~:pgup=\e[63~:
-# for gnome-terminal that handles F1 itself, you can enable shift-F1 with:
+keydef[*]:kmous=\e[M:pgdn=\e[62~:pgup=\e[63~:
+# gnome-terminal handles F1  itself. enable shift-F1 by adding:
 #k1=\eO1;2P:
-# for gnome-terminal that handles F10 itself, you can enable shift-F10 with:
+# gnome-terminal handles F10 itself. enable shift-F10 by adding:
 #k10=\e[21;2~:
-# for gnome-terminal that handles F11 itself, you can enable shift-F11 with:
+# gnome-terminal handles F11 itself. enable shift-F11 by adding:
 #k11=\e[23;2~:
 
 ## the keymap to use in readline (vi,emacs). (default emacs)
@@ -785,8 +782,8 @@ mousewheeljumpmax:11
 showlock:sun
 
 ## sort modes to cycle through when clicking 'Sort' in the footer.
-## default: nNeEdDaAsStu
-#sortcycle:nNeEdDaAsStu
+## default: n,en,dn,Dn,sn,Sn,tn,un
+sortcycle:n,dn,Dn,sn,Sn,tn,un
 
 ## format for displaying timestamps: see strftime(3).
 ## take care that the time fields (a, c and m) in the layouts defined below
@@ -900,12 +897,14 @@ ca=black on red:\
 *.pm=cyan:*.pl=cyan:\
 *.htm=bold yellow:*.phtml=bold yellow:*.html=bold yellow:\
 *.php=yellow:\
+*.doc=bold cyan:*.docx=bold cyan:*.odt=bold cyan:\
+*.xls=cyan:*.xlsx=cyan:*.ods=cyan:\
 *.tar=bold red:*.tgz=bold red:*.arj=bold red:*.taz=bold red:*.lzh=bold red:\
 *.lzma=bold red:*.zip=bold red:*.rar=bold red:*.z=bold red:*.Z=bold red:\
 *.gz=bold red:*.bz2=bold red:*.dz=bold red:*.bz=bold red:*.tbz2=bold red:\
 *.tz=bold red:*.ace=bold red:*.zoo=bold red:*.7z=bold red:*.rz=bold red:\
 *.deb=red:*.rpm=red:*.cpio=red:*.jar=red:*.pkg=red:\
-*.jpg=bold magenta:*.jpeg=bold magenta::*.gif=bold magenta:\
+*.jpg=bold magenta:*.jpeg=bold magenta:*.gif=bold magenta:\
 *.bmp=bold magenta:*.xbm=bold magenta:*.xpm=bold magenta:\
 *.png=bold magenta:*.xcf=bold magenta:*.pbm=bold magenta:\
 *.pgm=bold magenta:*.ppm=bold magenta:*.tga=bold magenta:\
@@ -933,10 +932,15 @@ su=white on red:sg=black on yellow:\
 ow=blue on green:st=white on blue:tw=black on green:\
 ex=green:\
 ca=black on red:\
-*.cmd=bold green:*.exe=bold green:*.com=bold green:*.btm=bold green:\
-*.bat=bold green:*.pas=green:*.c=magenta:*.h=magenta:*.pm=on cyan:*.pl=on cyan:\
+*.cmd=bold green:*.exe=bold green:*.com=bold green:\
+*.btm=bold green:*.bat=bold green:\
+*.pas=green:\
+*.c=magenta:*.h=magenta:\
+*.pm=on cyan:*.pl=on cyan:\
 *.htm=black on yellow:*.phtml=black on yellow:*.html=black on yellow:\
-*.php=black on yellow:
+*.php=black on yellow:\
+*.doc=bold black on cyan:*.docx=bold black on cyan:*.odt=bold black on cyan:\
+*.xls=black on cyan:*.xlsx=black on cyan:*.ods=black on cyan:\
 *.tar=bold red:*.tgz=bold red:*.arj=bold red:*.taz=bold red:*.lzh=bold red:\
 *.zip=bold red:*.rar=bold red:\
 *.z=bold red:*.Z=bold red:*.gz=bold red:*.bz2=bold red:*.deb=red:*.rpm=red:\

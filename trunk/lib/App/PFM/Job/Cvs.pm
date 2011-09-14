@@ -38,6 +38,7 @@ use base 'App::PFM::Job::RCS';
 use App::PFM::Util qw(dirname basename);
 
 use strict;
+use locale;
 
 ##########################################################################
 # private subs

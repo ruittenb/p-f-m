@@ -38,6 +38,7 @@ use base 'App::PFM::Job::Abstract';
 use LWP::Simple;
 
 use strict;
+use locale;
 
 use constant PFM_URL => 'http://p-f-m.sourceforge.net/';
 

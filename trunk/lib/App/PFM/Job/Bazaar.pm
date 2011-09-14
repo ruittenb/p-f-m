@@ -36,6 +36,7 @@ package App::PFM::Job::Bazaar;
 use base 'App::PFM::Job::RCS';
 
 use strict;
+use locale;
 
 ##########################################################################
 # private subs

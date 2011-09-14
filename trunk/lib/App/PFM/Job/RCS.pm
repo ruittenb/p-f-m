@@ -36,6 +36,7 @@ package App::PFM::Job::RCS;
 use base 'App::PFM::Job::Abstract';
 
 use strict;
+use locale;
 
 ##########################################################################
 # private subs

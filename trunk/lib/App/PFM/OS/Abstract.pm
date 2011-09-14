@@ -40,6 +40,7 @@ use File::Temp;
 use File::Stat::Bits;
 
 use strict;
+use locale;
 
 use constant {
 	MINORBITS => 2 ** 8,

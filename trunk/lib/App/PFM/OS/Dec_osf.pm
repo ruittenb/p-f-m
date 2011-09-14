@@ -37,6 +37,7 @@ package App::PFM::OS::Dec_osf;
 use base 'App::PFM::OS::Tru64';
 
 use strict;
+use locale;
 
 ##########################################################################
 # private subs
