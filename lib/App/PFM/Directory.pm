@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Directory 0.95
+# @(#) App::PFM::Directory 0.96
 #
 # Name:			App::PFM::Directory
-# Version:		0.95
+# Version:		0.96
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-10-18
+# Date:			2010-11-16
 #
 
 ##########################################################################
@@ -125,6 +125,12 @@ sub _init {
 	$self->{_total_nr_of}	 = {};
 	$self->{_disk}			 = {};
 	$self->{_dirty}			 = 0;
+
+	$self->{_on_after_change_formatlines} = sub {
+		$self->reformat();
+	};
+	$screen->listing->register_listener(
+		'after_change_formatlines', $self->{_on_after_change_formatlines});
 }
 
 =item _clone(App::PFM::Directory $original [ , array @args ] )
@@ -142,6 +148,12 @@ sub _clone {
 	$self->{_marked_nr_of}   = { %{$original->{_marked_nr_of}	} };
 	$self->{_total_nr_of}	 = { %{$original->{_total_nr_of}	} };
 	$self->{_disk}			 = { %{$original->{_disk}			} };
+
+	$self->{_on_after_change_formatlines} = sub {
+		$self->reformat();
+	};
+	$self->{_screen}->listing->register_listener(
+		'after_change_formatlines', $self->{_on_after_change_formatlines});
 }
 
 =item _by_sort_mode()
@@ -399,6 +411,20 @@ sub _catch_quit {
 
 ##########################################################################
 # constructor, getters and setters
+
+=item destroy
+
+Unregisters our 'after_change_formatlines' event listener with the
+App::PFM::Screen::Listing object. This removes the reference that it
+has to us, readying the Directory object for garbage collection.
+
+=cut
+
+sub destroy {
+	my ($self) = @_;
+	$self->{_screen}->listing->unregister_listener(
+		'after_change_formatlines', $self->{_on_after_change_formatlines});
+}
 
 =item path( [ string $nextdir [, bool $swapping [, string $direction ] ] ] )
 
@@ -953,6 +979,22 @@ sub preparercscol {
 		$self->{_showncontents}[$_]{$layoutfields->{'v'}} = '-';
 	}
 	$self->{_screen}->set_deferred_refresh(R_LISTING);
+}
+
+=item reformat()
+
+Adjusts the visual representation of the directory contents according
+to the new layout.
+
+=cut
+
+sub reformat {
+	my ($self) = @_;
+	# the dircontents may not have been initialized yet
+	return unless @{$self->{_dircontents}};
+	foreach (@{$self->{_dircontents}}) {
+		$_->format();
+	}
 }
 
 =item dirlookup(string $filename, array @dircontents)

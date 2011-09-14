@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Event 0.15
+# @(#) App::PFM::Event 0.16
 #
 # Name:			App::PFM::Event
-# Version:		0.15
+# Version:		0.16
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-30
-# Date:			2010-09-23
+# Date:			2010-11-15
 #
 
 ##########################################################################
@@ -64,6 +64,7 @@ use constant KNOWN_EVENTS => {
 	after_create_entry				=> 1, # CommandHandler
 	after_parse_usecolor			=> 1, # Config
 	after_parse_config				=> 1, # Config
+	after_change_formatlines        => 1, # Listing
 	after_resize_window				=> 1, # Screen
 	after_set_color_mode			=> 1, # Screen
 	after_receive_user_input		=> 1, # Screen

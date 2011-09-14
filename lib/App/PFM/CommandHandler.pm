@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.43
+# @(#) App::PFM::CommandHandler 1.44
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.43
+# Version:		1.44
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-10-28
+# Date:			2010-11-17
 #
 
 ##########################################################################
@@ -1253,14 +1253,11 @@ sub handlemarkinverse {
 	my $file;
 	my $showncontents  = $_pfm->state->directory->showncontents;
 	foreach $file (@$showncontents) {
-		if ($file->{name} ne '.' and
-			$file->{name} ne '..')
-		{
-			if ($file->{mark} ne M_MARK) {
-				$_pfm->state->directory->include($file);
-			} else {
-				$_pfm->state->directory->exclude($file);
-			}
+		if ($file->{mark} eq M_MARK) {
+			$_pfm->state->directory->exclude($file);
+		} else {
+			next if $file->{name} eq '.' || $file->{name} eq '..';
+			$_pfm->state->directory->include($file);
 		}
 	}
 	$self->{_screen}->set_deferred_refresh(R_SCREEN);
@@ -1882,6 +1879,7 @@ sub handleinclude { # include/exclude flag (from keypress)
 	my $infocol      = $screen->diskinfo->infocol;
 	my $exin         = $event->{data};
 	my %inc_criteria = @{INC_CRITERIA()};
+	my $user         = getpwuid($>);
 	my ($criterion, $menulength, $key, $wildfilename, $entry, $i,
 		$boundarytime, $boundarysize);
 	$exin = lc $exin;
@@ -1908,24 +1906,22 @@ sub handleinclude { # include/exclude flag (from keypress)
 	} elsif ($key eq 'n') { # newmarks
 		$criterion = sub { my $file = shift; $file->{mark} eq M_NEWMARK };
 	} elsif ($key eq 'e') { # every
-		$criterion = sub { my $file = shift; $file->{name} !~ /^\.\.?$/o };
-	} elsif ($key eq 'u') { # user only
-		$criterion = sub { my $file = shift; $file->{user} eq $ENV{USER} };
+		$criterion = sub { 1 };
 	} elsif ($key eq '.') { # dotfiles
-		$criterion = sub { my $file = shift; $file->{name} =~ /^\./o };
+		$criterion = sub { my $file = shift; substr($file->{name}, 0, 1) eq '.' };
+	} elsif ($key eq 'u') { # user only
+		$criterion = sub { my $file = shift; $file->{user} eq $user };
 	} elsif ($key =~ /^[gs]$/) { # greater/smaller
 		if ($boundarysize = $self->_promptforboundarysize($key)) {
 			if ($key eq 'g') {
 				$criterion = sub {
 					my $file = shift;
-					$file->{size} >= $boundarysize and
-					$file->{name} !~ /^\.\.?$/o;
+					$file->{size} >= $boundarysize;
 				};
 			} else {
 				$criterion = sub {
 					my $file = shift;
-					$file->{size} <= $boundarysize and
-					$file->{name} !~ /^\.\.?$/o;
+					$file->{size} <= $boundarysize;
 				};
 			}
 		} # if $boundarysize
@@ -1965,11 +1961,13 @@ sub handleinclude { # include/exclude flag (from keypress)
 				if ($exin eq 'x') {
 					$directory->exclude($entry);
 				} else {
+					# never ever automatically include '.' or '..'
+					next if $entry->{name} eq '.' || $entry->{name} eq '..';
 					$directory->include($entry);
 				}
-				$screen->set_deferred_refresh(R_SCREEN);
 			}
 		}
+		$screen->set_deferred_refresh(R_SCREEN);
 	}
 }
 
@@ -3172,8 +3170,8 @@ sub handlemoreperlshell {
 	my $currentfile    = $event->{currentfile};
 
 	# debugging helper functions
-	sub println { print @_, "\n"; }
-	sub echo    { $_pfm->screen->cooked_echo(); }
+	sub say  { print @_, "\n"; }
+	sub echo { $_pfm->screen->cooked_echo(); }
 
 	my $currentpath = $directory->path eq '/' ? '' : $directory->path;
 	$screen->alternate_off()->clrscr()->at(0,0)->cooked_echo()

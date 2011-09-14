@@ -162,7 +162,6 @@ sub layout {
 	if (defined $value) {
 		$self->{_layout} = $self->_validate_layoutnum($value);
 		$self->makeformatlines();
-		$self->reformat();
 		$self->{_screen}->set_deferred_refresh($self->{_screen}->R_SCREEN);
 	}
 	return $self->{_layout};
@@ -576,6 +575,11 @@ sub makeformatlines {
 	}
 	$self->{_currentformatline} = $self->{_currentformatlinewithinfo};
 	substr($self->{_currentformatline}, $infocol, $infolength, '');
+	$self->fire(new App::PFM::Event({
+		name   => 'after_change_formatlines',
+		type   => 'soft',
+		origin => $self,
+	}));
 	return $self->{_currentformatline};
 }
 
@@ -591,23 +595,6 @@ sub markcurrentline {
 			$_pfm->browser->currentline + $self->{_screen}->BASELINE,
 			$self->{_cursorcol})
 		->puts($letter);
-}
-
-=item reformat()
-
-Adjusts the visual representation of the directory contents according
-to the new layout.
-
-=cut
-
-sub reformat {
-	my ($self)      = @_;
-	my $directory   = $_pfm->state->directory;
-	my $dircontents = $directory->dircontents;
-	return unless @$dircontents; # may not have been initialized yet
-	foreach (@$dircontents) {
-		$_->format();
-	}
 }
 
 ##########################################################################

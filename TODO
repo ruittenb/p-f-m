@@ -31,14 +31,10 @@
 - if =5 is requested but there is no swap state, what to do?
 - in general, if an escape is invalid, what to do?
 
-- bug: on resize window, all states need to be fitted, otherwise the overflow '+'
-  may appear without reason.
-
-- bug: (I)nclude/(A)fter etc. select the '.' and '..' entries as well.
-  '.' and '..' entries should never be selected.
-
 ################################################################################
 # structural enhancements
+
+- see if FindBin can help us with version management.
 
 - restructure chdir(), handleswap()/handlemoreshow()/handlemorego() etc.
 - check function of $swapping flag behavior
