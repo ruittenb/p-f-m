@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::OS::Aix 0.01
+# @(#) App::PFM::OS::Aix 0.02
 #
 # Name:			App::PFM::OS::Aix
-# Version:		0.01
+# Version:		0.02
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-20
-# Date:			2010-08-21
+# Date:			2010-08-26
 #
 
 ##########################################################################
@@ -64,10 +64,10 @@ sub df {
 	#
 	# we'd like:
 	# Linux$ df -k
-	# Filesystem      1K-blocks      Used  Available  Use%  Mounted on
-	# /dev/sda5       107890108  10446800   91962736   11%  /
-	# /dev/sda1        41286796   2862444   36327068    8%  /home
-	#    0                1           2          3      4    5
+	# Filesystem   1K-blocks      Used  Available  Use%  Mounted on
+	# /dev/sda5    107890108  10446800   91962736   11%  /
+	# /dev/sda1     41286796   2862444   36327068    8%  /home
+	#    0             1           2          3      4    5
 	#
 	my ($self, $file) = @_;
 	my (@fields, $used);
@@ -92,7 +92,6 @@ AIX-specific method for editing Access Control Lists.
 sub acledit {
 	# AIX$ getacl filename
 	# AIX$ ls -e
-	#
 	# AIX$ acledit filename
 	# 
 	# attributes: SUID
@@ -109,7 +108,7 @@ sub acledit {
 	#
 	my ($self, $path) = @_;
 	local $ENV{EDITOR} = $self->{_pfm}->config->{fg_editor};
-	$self->system('acledit', $path);
+	return $self->system('acledit', $path);
 }
 
 ##########################################################################

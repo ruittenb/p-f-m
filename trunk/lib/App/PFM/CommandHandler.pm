@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.13
+# @(#) App::PFM::CommandHandler 1.15
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.13
+# Version:		1.15
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-22
+# Date:			2010-08-27
 #
 
 ##########################################################################
@@ -37,7 +37,7 @@ use base 'App::PFM::Abstract';
 
 use App::PFM::Util			qw(:all);
 use App::PFM::History		qw(:constants); # imports the H_* constants
-use App::PFM::Directory 	qw(:constants); # imports the M_* constants
+use App::PFM::Directory 	qw(:constants); # imports the D_* and M_* constants
 use App::PFM::Screen		qw(:constants); # imports the R_* constants
 use App::PFM::Screen::Frame qw(:constants); # imports the MENU_*, HEADING_*
 											#         and FOOTER_* constants
@@ -137,7 +137,7 @@ sub _init {
 
 =item _credits()
 
-Prints elaborate info about pfm. Called from help().
+Prints elaborate information about pfm. Called from handlehelp().
 
 =cut
 
@@ -207,8 +207,8 @@ sub _helppage {
  ESC, BS         leave directory                  *    toggle radix for display 
 ---------------------------------------------     "    toggle pathmode          
  ?               help                             =    cycle idents             
- <               shift commands left              .    filter dotfiles          
- >               shift commands right             %    filter whiteouts         
+ <               shift commands menu left         .    filter dotfiles          
+ >               shift commands menu right        %    filter whiteouts         
 --------------------------------------------------------------------------------
         _endPage1_
 	} else {
@@ -220,21 +220,21 @@ sub _helppage {
  c      Copy                             x   eXclude                            
  d DEL  Delete                           y   Your command                       
  e      Edit                             z   siZe (grand total)                 
- f /    Find                            ----------------------------------------
- g      change symlink tarGet            ma  edit ACL                           
- i      Include                          mb  make Bookmark                      
- L      sym/hard Link                    mc  Configure pfm                      
- m      More commands --->               me  Edit any file                      
- n      show Name                        mf  make FIFO                          
- o      OS cOmmand                       mg  Go to bookmark                     
- p      Print                            mh  spawn sHell                        
- q      quit                             mm  Make new directory                 
- Q      quick quit                       mp  show Physical path                 
- r      Rename/move                      ms  Show directory (chdir)             
- s      Show                             mt  show alTernate screen              
- t      change Time                      mv  Version status all files           
- u      change User/group (chown)        mw  Write history                      
- v      Version status                                                          
+ f /    Find                             @   enter perl command (for debugging) 
+ g      change symlink tarGet           ----------------------------------------
+ i      Include                          ma  edit ACL                           
+ L      sym/hard Link                    mb  make Bookmark                      
+ m      More commands --->               mc  Configure pfm                      
+ n      show Name                        me  Edit any file                      
+ o      OS cOmmand                       mf  make FIFO                          
+ p      Print                            mg  Go to bookmark                     
+ q      quit                             mh  spawn sHell                        
+ Q      quick quit                       mm  Make new directory                 
+ r      Rename/move                      mp  show Physical path                 
+ s      Show                             ms  Show directory (chdir)             
+ t      change Time                      mt  show alTernate screen              
+ u      change User/group (chown)        mv  Version status all files           
+ v      Version status                   mw  Write history                      
 --------------------------------------------------------------------------------
         _endPage2_
 	}
@@ -784,6 +784,7 @@ sub handleswap {
 			$_screen->at($_screen->PATHLINE, 0)->clreol()
 				->set_deferred_refresh(R_CHDIR)
 				->display_error("$nextdir: $!");
+			$_pfm->state->directory->set_dirty(D_ALL);
 		}
 	} else {
 		# --------------------------------------------------
@@ -826,7 +827,8 @@ Handles the command to refresh the current directory.
 sub handlerefresh {
 #	my ($self) = @_;
 	if ($_screen->ok_to_remove_marks()) {
-		$_screen->set_deferred_refresh(R_DIRCONTENTS | R_DIRSORT | R_SCREEN);
+		$_screen->set_deferred_refresh(R_SCREEN);
+		$_pfm->state->directory->set_dirty(D_ALL);
 	}
 }
 
@@ -840,9 +842,13 @@ sub handlewhiteout {
 #	my ($self) = @_;
 	my $browser = $_pfm->browser;
 	toggle($_pfm->state->{white_mode});
-	$browser->position_at($browser->currentfile->{name});
+	# next line should not be necessary. the directory object
+	# schedules a position_at when $d->refresh() is called and
+	# the directory is dirty.
+#	$browser->position_at($browser->currentfile->{name});
 	$_screen->frame->update_headings();
 	$_screen->set_deferred_refresh(R_SCREEN);
+	$_pfm->state->directory->set_dirty(D_DIRFILTER);
 }
 
 =item handlemultiple()
@@ -855,7 +861,6 @@ sub handlemultiple {
 #	my ($self) = @_;
 	toggle($_pfm->state->{multiple_mode});
 	$_screen->set_deferred_refresh(R_MENU);
-
 }
 
 =item handledot()
@@ -868,9 +873,13 @@ sub handledot {
 #	my ($self) = @_;
 	my $browser = $_pfm->browser;
 	toggle($_pfm->state->{dot_mode});
-	$browser->position_at($browser->currentfile->{name});
+	# next line should not be necessary. the directory object
+	# schedules a position_at when $d->refresh() is called and
+	# the directory is dirty.
+#	$browser->position_at($browser->currentfile->{name});
 	$_screen->frame->update_headings();
 	$_screen->set_deferred_refresh(R_SCREEN);
+	$_pfm->state->directory->set_dirty(D_DIRFILTER);
 }
 
 =item handlecolor()
@@ -1018,8 +1027,8 @@ sub handleperlcommand {
 	# now do!
 	$_screen->listing->markcurrentline('@'); # disregard multiple_mode
 	$_screen->show_frame({
-			footer => FOOTER_NONE,
-			prompt => 'Enter Perl command:'
+		footer => FOOTER_NONE,
+		prompt => 'Enter Perl command:'
 	});
 	$_screen->at($_screen->PATHLINE,0)->clreol()->cooked_echo();
 	$perlcmd = $_pfm->history->input(H_PERLCMD);
@@ -1044,7 +1053,8 @@ sub handlehelp {
 		$_screen->clrscr()->cooked_echo();
 		print $self->_helppage($page);
 		$_screen->raw_noecho()->at(23, 0)->puts(
-			"F1 or ? for more elaborate help, any other key for next screen ");
+			"F1 or ? for more elaborate help, " .
+			"arrows or BACKSPACE/ENTER to browse ");
 		$key = $_screen->getch();
 		if ($key =~ /(pgup|kl|ku|\cH)/) {
 			$page-- if $page > 1;
@@ -1222,7 +1232,7 @@ sub handlelink {
 	my @lncmd = $self->{_clobber_mode} ? qw(ln -f) : qw(ln);
 	
 	if ($_pfm->state->{multiple_mode}) {
-		$_screen->set_deferred_refresh(R_FRAME | R_DIRLIST);
+		$_screen->set_deferred_refresh(R_FRAME | R_LISTING);
 	} else {
 		$_screen->set_deferred_refresh(R_FRAME);
 		$_screen->listing->markcurrentline('L');
@@ -1333,7 +1343,8 @@ sub handlesort {
 		$_pfm->browser->position_at(
 			$_pfm->browser->currentfile->{name}, { force => 0, exact => 1 });
 	}
-	$_screen->set_deferred_refresh(R_DIRSORT | R_SCREEN);
+	$_screen->set_deferred_refresh(R_SCREEN);
+	$_pfm->state->directory->set_dirty(D_DIRSORT | D_DIRFILTER);
 }
 
 =item handlecyclesort()
@@ -1352,7 +1363,8 @@ sub handlecyclesort {
 	$_pfm->state->{sort_mode} = $translations{$_pfm->state->{sort_mode}};
 	$_pfm->browser->position_at(
 		$_pfm->browser->currentfile->{name}, { force => 0, exact => 1 });
-	$_screen->set_deferred_refresh(R_DIRSORT | R_SCREEN);
+	$_screen->set_deferred_refresh(R_SCREEN);
+	$_pfm->state->directory->set_dirty(D_DIRSORT | D_DIRFILTER);
 }
 
 =item handlename()
@@ -1430,7 +1442,7 @@ sub handlefind {
 			last FINDENTRY;
 		}
 	}
-	$_screen->set_deferred_refresh(R_DIRLIST);
+	$_screen->set_deferred_refresh(R_LISTING);
 }
 
 sub handlefind_incremental {
@@ -1506,7 +1518,7 @@ sub handlechown {
 	my ($newuid, $do_this);
 	my $prompt = 'New [user][:group] ';
 	if ($_pfm->state->{multiple_mode}) {
-		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO | R_DIRLIST);
+		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO | R_LISTING);
 	} else {
 		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO);
 		$_screen->listing->markcurrentline('U');
@@ -1517,7 +1529,7 @@ sub handlechown {
 	return if ($newuid eq '');
 	$do_this = sub {
 		my $file = shift;
-		if (system ('chown', $newuid, $file->{name})) {
+		if (system('chown', $newuid, $file->{name})) {
 			$_screen->neat_error('Change owner failed');
 		}
 	};
@@ -1526,9 +1538,11 @@ sub handlechown {
 	if ($_pfm->state->{sort_mode} =~ /[ug]/i and
 		$_pfm->config->{autosort})
 	{
+		$_screen->set_deferred_refresh(R_LISTING);
 		# 2.06.4: sortcontents() doesn't sort @showncontents.
 		# therefore, apply the filter again as well.
-		$_screen->set_deferred_refresh(R_DIRSORT | R_DIRLIST | R_DIRFILTER);
+		$_pfm->state->directory->set_dirty(D_DIRSORT | D_DIRFILTER);
+		# TODO fire 'save_cursor_position'
 		$_pfm->browser->position_at($_pfm->browser->currentfile->{name});
 	}
 }
@@ -1544,7 +1558,7 @@ sub handlechmod {
 	my ($newmode, $do_this);
 	my $prompt = 'New mode [ugoa][-=+][rwxslt] or octal: ';
 	if ($_pfm->state->{multiple_mode}) {
-		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO | R_DIRLIST);
+		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO | R_LISTING);
 	} else {
 		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO);
 		$_screen->listing->markcurrentline('A');
@@ -1582,7 +1596,7 @@ sub handletime {
 	my ($newtime, $do_this, @cmdopts);
 	my $prompt = "Timestamp [[CC]YY-]MM-DD hh:mm[.ss]: ";
 	if ($_pfm->state->{multiple_mode}) {
-		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO | R_DIRLIST);
+		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO | R_LISTING);
 	} else {
 		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO);
 		$_screen->listing->markcurrentline('T');
@@ -1609,9 +1623,11 @@ sub handletime {
 	if ($_pfm->state->{sort_mode} =~ /[da]/i and
 		$_pfm->config->{autosort})
 	{
+		$_screen->set_deferred_refresh(R_LISTING);
 		# 2.06.4: sortcontents() doesn't sort @showncontents.
 		# therefore, apply the filter again as well.
-		$_screen->set_deferred_refresh(R_DIRSORT | R_DIRLIST | R_DIRFILTER);
+		$_pfm->state->directory->set_dirty(D_DIRSORT | D_DIRFILTER);
+		# TODO fire 'save_cursor_position'
 		$_pfm->browser->position_at($_pfm->browser->currentfile->{name});
 	}
 }
@@ -1652,7 +1668,7 @@ sub handleunwo {
 	my ($do_this);
 	my $nowhiteouterror = 'Current file is not a whiteout';
 	if ($_pfm->state->{multiple_mode}) {
-		$_screen->set_deferred_refresh(R_MENU | R_DIRLIST);
+		$_screen->set_deferred_refresh(R_MENU | R_LISTING);
 	} else {
 		$_screen->set_deferred_refresh(R_MENU);
 		$_screen->listing->markcurrentline('W');
@@ -1690,7 +1706,7 @@ sub handleversion {
 	if ($_pfm->state->{multiple_mode}) {
 		$_pfm->state->directory->apply(sub {});
 		$_pfm->state->directory->checkrcsapplicable();
-		$_screen->set_deferred_refresh(R_DIRLIST | R_MENU);
+		$_screen->set_deferred_refresh(R_LISTING | R_MENU);
 	} else {
 		$_pfm->state->directory->checkrcsapplicable(
 			$_pfm->browser->currentfile->{name});
@@ -1860,7 +1876,7 @@ sub handletarget {
 	my ($self) = @_;
 	my ($newtarget, $do_this);
 	if ($_pfm->state->{multiple_mode}) {
-		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO | R_DIRLIST);
+		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO | R_LISTING);
 	} else {
 		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO);
 		$_screen->listing->markcurrentline('G');
@@ -2032,7 +2048,6 @@ sub handleprint {
 	$do_this = sub {
 		my $file = shift;
 		my $do_command = $command;
-		# $self is the commandhandler (closure!)
 		$self->_expand_escapes($self->QUOTE_ON, $do_command, $file);
 		$_screen->puts("\n$do_command\n");
 		system $do_command
@@ -2071,6 +2086,7 @@ sub handledelete {
 	}
 	$_screen->at($_screen->PATHLINE, 0)
 		->set_deferred_refresh(R_SCREEN);
+	$_pfm->state->directory->set_dirty(D_ALL);
 	$do_this = sub {
 		my $file = shift;
 		my ($msg, $success);
@@ -2140,7 +2156,7 @@ sub handlecopyrename {
 	my $browser = $_pfm->browser;
 	my $state   = $_pfm->state;
 	if ($state->{multiple_mode}) {
-		$_screen->set_deferred_refresh(R_MENU | R_FOOTER | R_DIRLIST);
+		$_screen->set_deferred_refresh(R_MENU | R_FOOTER | R_LISTING);
 	} else {
 		$_screen->set_deferred_refresh(R_MENU | R_FOOTER);
 		$_screen->listing->markcurrentline($key);
@@ -2350,7 +2366,8 @@ sub handlemouseheadingsort {
 		$_pfm->browser->position_at(
 			$_pfm->browser->currentfile->{name}, { force => 0, exact => 1 });
 	}
-	$_screen->set_deferred_refresh(R_DIRSORT | R_SCREEN);
+	$_screen->set_deferred_refresh(R_SCREEN);
+	$_pfm->state->directory->set_dirty(D_DIRSORT | D_DIRFILTER);
 }
 
 =item handlemousemenucommand()
@@ -2544,7 +2561,7 @@ sub handlemoreconfig {
 			# there is no key to toggle dotdot mode, therefore
 			# it is allowed to switch dotdot mode here.
 			$_pfm->browser->position_at($_pfm->browser->currentfile->{name});
-			$_screen->set_deferred_refresh(R_DIRSORT);
+			$_pfm->state->directory->set_dirty(D_DIRSORT);
 		}
 	}
 }
@@ -2690,6 +2707,7 @@ sub handlemorego {
 			$_screen->at($_screen->PATHLINE, 0)->clreol()
 				->set_deferred_refresh(R_CHDIR)
 				->display_error("$dest: $!");
+			$_pfm->state->directory->set_dirty(D_ALL);
 		}
 	} else {
 		# the bookmark is an uninitialized directory path
@@ -2708,9 +2726,7 @@ sub handlemorego {
 			$_pfm->browser->position_at($destfile, { force => 1 });
 		}
 		# commented out because we don't want to store the state object
-#		$_pfm->state->prepare();
-#		$_pfm->screen->unset_deferred_refresh(
-#			R_DIRCONTENTS | R_DIRSORT | R_DIRFILTER);
+#		$_pfm->state->prepare(); # unsets _dirty flags
 		# store the prepared state
 #		$_pfm->state->{_position}  = $browser->currentfile->{name};
 #		$_pfm->state->{_baseindex} = $browser->baseindex;

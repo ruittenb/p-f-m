@@ -151,7 +151,7 @@ sub baseindex {
 	if (defined $value) {
 		$self->{_baseindex} = $value;
 		$self->validate_position();
-		$_screen->set_deferred_refresh($_screen->R_DIRLIST);
+		$_screen->set_deferred_refresh($_screen->R_LISTING);
 	}
 	return $self->{_baseindex};
 }
@@ -168,7 +168,7 @@ sub setview {
 	$self->{_currentline} = $line;
 	$self->{_baseindex}   = $index;
 	$self->validate_position();
-	$_screen->set_deferred_refresh($_screen->R_DIRLIST);
+	$_screen->set_deferred_refresh($_screen->R_LISTING);
 	return ($self->{_currentline}, $self->{_baseindex});
 }
 
@@ -281,7 +281,7 @@ sub validate_position {
 	# By limiting the number of listing-refreshes to when the baseindex
 	# is/might have been changed, browsing becomes snappier.
 	if ($oldbaseindex != $self->{_baseindex}) {
-		$_screen->set_deferred_refresh($_screen->R_DIRLIST);
+		$_screen->set_deferred_refresh($_screen->R_LISTING);
 	}
 }
 
@@ -311,7 +311,7 @@ sub position_cursor {
 	$self->{_position_at}    = '';
 	$self->{_position_exact} = 0;
 	$self->validate_position();
-	$_screen->set_deferred_refresh($_screen->R_DIRLIST);
+	$_screen->set_deferred_refresh($_screen->R_LISTING);
 }
 
 =item position_cursor_fuzzy( [ string $filename ] )
@@ -372,7 +372,7 @@ sub position_cursor_fuzzy {
 	$self->{_position_at}    = '';
 	$self->{_position_exact} = 0;
 	$self->validate_position();
-	$_screen->set_deferred_refresh($_screen->R_DIRLIST);
+	$_screen->set_deferred_refresh($_screen->R_LISTING);
 }
 
 =item find_best_find_match(string $seek, string $first, string $second )

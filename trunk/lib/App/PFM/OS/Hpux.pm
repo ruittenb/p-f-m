@@ -39,7 +39,7 @@ use strict;
 
 use constant {
 	MINORBITS => 2 ** 24,
-	IFMTCHARS => ' pc?d?b?-nl?sDw?', # whiteouts and network special
+	IFMTCHARS => ' pc?d?b?-nl?sDw?', # with whiteouts and network special
 };
 
 ##########################################################################
@@ -97,7 +97,7 @@ Sets a file's Access Control List from the data in a temporary file.
 
 sub aclput {
 	my ($self, $path, $aclfilename) = @_;
-	$self->system(qw{setacl -f}, $aclfilename, $path);
+	return $self->system(qw{setacl -f}, $aclfilename, $path);
 }
 
 ##########################################################################

@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen 0.33
+# @(#) App::PFM::Screen 0.34
 #
 # Name:			App::PFM::Screen
-# Version:		0.33
+# Version:		0.34
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-08-26
@@ -59,32 +59,40 @@ use constant {
 	R_PATHINFO		=> 4,	 # reprint the pathinfo
 	R_HEADINGS		=> 8,	 # reprint the headings
 	R_FOOTER		=> 16,	 # reprint the footer
-#	R_FRAME					 # R_FOOTER + R_HEADINGS + R_PATHINFO + R_MENU
+#	R_FRAME					 # R_MENU + R_PATHINFO + R_HEADINGS + R_FOOTER
 	R_DISKINFO		=> 32,	 # reprint the disk- and directory info column
-	R_DIRLIST		=> 64,	 # redisplay directory listing
-	R_DIRFILTER		=> 128,	 # decide what to display (init @showncontents)
-#	R_SCREEN				 # R_DIRFILTER + R_DIRLIST + R_DISKINFO + R_FRAME
+	R_LISTING		=> 64,	 # redisplay directory listing
+#	R_SCREEN				 # R_LISTING + R_DISKINFO + R_FRAME
 	R_CLEAR			=> 256,	 # clear the screen
-#	R_CLRSCR				 # R_CLEAR and R_SCREEN
+#	R_CLRSCR				 # R_CLEAR + R_SCREEN
 	R_ALTERNATE		=> 512,	 # switch screens according to 'altscreen_mode'
-	R_DIRSORT		=> 1024, # resort @dircontents
-	R_DIRCONTENTS	=> 2048, # reread directory contents
 	R_NEWDIR		=> 4096, # re-init directory-specific vars
-#	R_CHDIR					 # R_NEWDIR + R_DIRCONTENTS + R_DIRSORT + R_SCREEN
+#	R_CHDIR					 # R_NEWDIR + R_SCREEN + R_STRIDE
 };
 
 # needs new invocations because of the calculations
 use constant R_FRAME  => R_MENU | R_PATHINFO | R_HEADINGS | R_FOOTER;
-use constant R_SCREEN => R_DIRFILTER | R_DIRLIST | R_DISKINFO | R_FRAME;
+use constant R_SCREEN => R_LISTING | R_DISKINFO | R_FRAME;
 use constant R_CLRSCR => R_CLEAR | R_SCREEN;
-use constant R_CHDIR  =>
-					R_NEWDIR | R_DIRCONTENTS | R_DIRSORT | R_SCREEN | R_STRIDE;
+use constant R_CHDIR  => R_NEWDIR | R_SCREEN | R_STRIDE;
 
 our %EXPORT_TAGS = (
 	constants => [ qw(
-		R_NOP R_STRIDE R_MENU R_PATHINFO R_HEADINGS R_FOOTER R_FRAME
-		R_DISKINFO R_DIRLIST R_DIRFILTER R_SCREEN R_CLEAR R_CLRSCR
-		R_DIRSORT R_DIRCONTENTS R_CHDIR R_NEWDIR
+		R_NOP
+		R_STRIDE
+		R_MENU
+		R_PATHINFO
+		R_HEADINGS
+		R_FOOTER
+		R_FRAME
+		R_DISKINFO
+		R_LISTING
+		R_SCREEN
+		R_CLEAR
+		R_CLRSCR
+		R_ALTERNATE
+		R_NEWDIR
+		R_CHDIR
 	) ]
 );
 
@@ -346,7 +354,7 @@ sub fit {
 	}
 	$self->listing->makeformatlines();
 	$self->listing->reformat();
-	$self->set_deferred_refresh(R_CLRSCR);
+	$self->set_deferred_refresh(R_CLRSCR); # D_DIRFILTER necessary?
 	# be careful here because the Screen object is instantiated
 	# before the browser and history objects.
 	$_pfm->browser and $_pfm->browser->validate_position();
@@ -564,7 +572,8 @@ sub important_delay {
 
 =item set_deferred_refresh(int $flag_bits)
 
-Flags a screen element as 'needs to be redrawn'.
+Flags a screen element as 'needs to be redrawn'. The B<R_*> constants
+(see below) may be used to indicate what aspect should be redrawn.
 
 =cut
 
@@ -576,7 +585,8 @@ sub set_deferred_refresh {
 
 =item unset_deferred_refresh(int $flag_bits)
 
-Flags a screen element as 'does not need to be redrawn'.
+Flags a screen element as 'does not need to be redrawn'. The B<R_*>
+constants (see below) may be used here.
 
 =cut
 
@@ -610,10 +620,8 @@ Redisplays all screen elements that have been flagged as 'needs to be redrawn'.
 
 sub refresh {
 	my ($self)           = @_;
-	my $directory        = $_pfm->state->directory;
 	my $browser          = $_pfm->browser;
 	my $deferred_refresh = $self->{_deferred_refresh};
-	$self->{_deferred_refresh} = 0;
 	
 	if ($deferred_refresh & R_ALTERNATE) {
 		if ($_pfm->config->{altscreen_mode}) {
@@ -635,29 +643,17 @@ sub refresh {
 		# ('autoexitmultiple' is only for leaving it on between commands)
 		$_pfm->state->{multiple_mode} = 0;
 	}
-	if ($deferred_refresh & R_DIRCONTENTS or
-		$deferred_refresh & R_DIRSORT)
-	{
-		# first time round 'currentfile' is undefined
-		if (defined $browser->currentfile) {
-			$browser->position_at($browser->currentfile->{name});
-		}
-	}
-	if ($deferred_refresh & R_DIRCONTENTS) {
-		$directory->init_dircount();
-		$directory->readcontents();
-	}
-	if ($deferred_refresh & R_DIRSORT) {
-		$directory->sortcontents();
-	}
-	if ($deferred_refresh & R_DIRFILTER) {
-		$directory->filtercontents();
-	}
+
+	# refresh the directory, which may request more refreshing
+	$_pfm->state->directory->refresh();
+	$deferred_refresh = $self->{_deferred_refresh};
+
+	# refresh the filelisting
 	if ($deferred_refresh & R_STRIDE) {
 		$browser->position_cursor_fuzzy();
 		$browser->position_cursor('.') unless defined $browser->currentfile;
 	}
-	if ($deferred_refresh & R_DIRLIST) {
+	if ($deferred_refresh & R_LISTING) {
 		$self->{_listing}->show();
 	}
 	if ($deferred_refresh & R_DISKINFO) {
@@ -676,6 +672,7 @@ sub refresh {
 	if ($deferred_refresh & R_FOOTER) {
 		$self->{_frame}->show_footer();
 	}
+	$self->{_deferred_refresh} = 0;
 	return $self;
 }
 
@@ -728,8 +725,8 @@ sub pathline {
 
 =head1 CONSTANTS
 
-This package provides the B<R_*> constants which indicate which part of
-the terminal screen needs to be redrawn.
+This package provides the B<R_*> constants which indicate which
+part of the terminal screen needs to be redrawn.
 They can be imported with C<use App::PFM::Screen qw(:constants)>.
 
 =over
@@ -766,17 +763,13 @@ A combination of R_FOOTER, R_HEADINGS, R_PATHINFO and R_MENU.
 
 Redisplay the disk- and directory info column.
 
-=item R_DIRLIST
+=item R_LISTING
 
 Redisplay the directory listing.
 
-=item R_DIRFILTER
-
-Decide which entries to display and apply the filter.
-
 =item R_SCREEN
 
-A combination of R_DIRFILTER, R_DIRLIST, R_DISKINFO and R_FRAME.
+A combination of R_LISTING, R_DISKINFO and R_FRAME.
 
 =item R_CLEAR
 
@@ -786,28 +779,26 @@ Clear the screen.
 
 A combination of R_CLEAR and R_SCREEN.
 
-=item R_DIRSORT
-
-The internal array with directory contents needs to be sorted again.
-
-=item R_DIRCONTENTS
-
-The current directory contents need to be read from disk again.
-
 =item R_NEWDIR
 
 Reinitialize directory-specific variables.
 
 =item R_CHDIR
 
-A combination of R_NEWDIR, R_DIRCONTENTS, R_DIRSORT and R_SCREEN.
+A combination of R_NEWDIR, R_SCREEN and R_STRIDE.
 
 =back
 
-A refresh for a screen element may be requested by providing one or more of
-these constants to set_deferred_refresh(), I<e.g.>
+A refresh need for a screen element may be flagged by providing
+one or more of these constants to set_deferred_refresh(), I<e.g.>
 
-    $self->set_deferred_refresh(R_MENU | R_FOOTER);
+	$screen->set_deferred_refresh(R_MENU | R_FOOTER);
+
+The actual refresh will be performed on calling:
+
+	$screen->refresh();
+
+This will also reset the refresh flags.
 
 =head1 SEE ALSO
 
