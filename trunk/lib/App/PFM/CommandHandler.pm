@@ -146,7 +146,7 @@ sub _credits {
 	my $version_message = $_pfm->{NEWER_VERSION}
 		? "A new version $_pfm->{NEWER_VERSION} is available from"
 		: "  New versions will be published on";
-	print <<"_eoCredits_";
+	print <<"    _endCredits_";
 
 
           $name for Unix and Unix-like operating systems.  Version $_pfm->{VERSION}
@@ -170,8 +170,73 @@ sub _credits {
 
 
                                                          any key to exit to $name
-_eoCredits_
+    _endCredits_
 	$_screen->raw_noecho()->getch();
+}
+
+=item _helppage(int $pageno)
+
+Returns the text for a specific help page.
+
+=cut
+
+sub _helppage {
+	my ($self, $page) = @_;
+	my @lines;
+	if ($page == 1) {
+		@lines = <<'        _endPage1_';
+--------------------------------------------------------------------------------
+                          NAVIGATION AND DISPLAY KEYS                      [1/2]
+--------------------------------------------------------------------------------
+ k, up arrow     move one line up                 F1   help                     
+ j, down arrow   move one line down               F2   go to previous directory 
+ -, +            move ten lines                   F3   redraw screen            
+ CTRL-E          scroll listing one line up       F4   cycle colorsets          
+ CTRL-Y          scroll listing one line down     F5   reread directory         
+ CTRL-U          move half a page up              F6   sort directory           
+ CTRL-D          move half a page down            F7   toggle swap mode         
+ CTRL-B, PgUp    move a full page up              F8   mark file                
+ CTRL-F, PgDn    move a full page down            F9   cycle layouts            
+ HOME, END       move to top, bottom              F10  toggle multiple mode     
+ SPACE           mark file & advance              F11  restat file              
+ l, right arrow  enter directory                  F12  toggle mouse mode        
+ h, left arrow   leave directory                 -------------------------------
+ ENTER           enter directory; launch          !    toggle clobber mode      
+ ESC, BS         leave directory                  *    toggle radix for display 
+---------------------------------------------     "    toggle pathmode          
+ ?               help                             =    cycle idents             
+ <               shift commands left              .    filter dotfiles          
+ >               shift commands right             %    filter whiteouts         
+--------------------------------------------------------------------------------
+        _endPage1_
+	} else {
+		@lines = <<'        _endPage2_';
+--------------------------------------------------------------------------------
+                                  COMMAND KEYS                             [2/2]
+--------------------------------------------------------------------------------
+ a      Attribute (chmod)                w   remove Whiteout                    
+ c      Copy                             x   eXclude                            
+ d DEL  Delete                           y   Your command                       
+ e      Edit                             z   siZe (grand total)                 
+ f /    Find                            ----------------------------------------
+ g      change symlink tarGet            ma  edit ACL                           
+ i      Include                          mb  make Bookmark                      
+ L      sym/hard Link                    mc  Configure pfm                      
+ m      More commands --->               me  Edit any file                      
+ n      show Name                        mf  make FIFO                          
+ o      OS cOmmand                       mg  Go to bookmark                     
+ p      Print                            mh  spawn sHell                        
+ q      quit                             mm  Make new directory                 
+ Q      quick quit                       mp  show Physical path                 
+ r      Rename/move                      ms  Show directory (chdir)             
+ s      Show                             mt  show alTernate screen              
+ t      change Time                      mv  Version status all files           
+ u      change User/group (chown)        mw  Write history                      
+ v      Version status                                                          
+--------------------------------------------------------------------------------
+        _endPage2_
+	}
+	return @lines;
 }
 
 =item _markednames()
@@ -971,36 +1036,24 @@ Shows a help page with an overview of commands.
 
 sub handlehelp {
 	my ($self) = @_;
-	$_screen->clrscr()->cooked_echo();
-	print map { substr($_, 8)."\n" } split("\n", <<'    _eoHelp_');
-        --------------------------------------------------------------------------------
-        a     Attrib (mode)  ma  edit ACL          k, up arrow      move one line up    
-        c     Copy           mb  make Bookmark     j, down arrow    move one line down  
-        d DEL Delete         mc  Config pfm        -, +             move ten lines      
-        e     Edit           me  Edit any file     CTRL-E, CTRL-Y   scroll dir one line 
-        f /   Find           mf  make FIFO         CTRL-U, CTRL-D   move half a page    
-        g     tarGet         mg  Go bookmark       CTRL-B, CTRL-F   move a full page    
-        i     Include        mh  spawn sHell       PgUp, PgDn       move a full page    
-        L     sym/hard Link  mm  Make new dir      HOME, END        move to top, bottom 
-        n     Name           mp  Physical path     SPACE            mark file & advance 
-        o     cOmmand        ms  Show directory    l, right arrow   enter dir           
-        p     Print          mt  alTernate scrn    h, left arrow    leave dir           
-        q Q   (Quick) quit   mv  Versn stat all    ENTER            enter dir; launch   
-        r     Rename         mw  Write history     ESC, BS          leave dir           
-        s     Show          --------------------- --------------------------------------
-        t     Time           !   toggle clobber    F1  help           F7  swap mode     
-        u     User id        *   toggle radix      F2  prev dir       F8  mark file     
-        v     Version stat   "   toggle pathmode   F3  redraw screen  F9  cycle layouts 
-        w     unWhiteout     =   cycle idents      F4  cycle colors   F10 multiple mode 
-        x     eXclude        .   filter dotfiles   F5  reread dir     F11 restat file   
-        y     Your command   %   filter whiteouts  F6  sort dir       F12 toggle mouse  
-        z     siZe           ?   help              <   commands left  >   commands right
-        --------------------------------------------------------------------------------
-    _eoHelp_
-	$_screen->raw_noecho()->puts(
-		"F1 or ? for more elaborate help, any other key for next screen ");
-	if ($_screen->getch() =~ /(k1|\?)/) {
-		system qw(man pfm); # how unsubtle :-)
+	my $pages = 2;
+	my $page  = 1;
+	my $key;
+	while ($page <= $pages) {
+		$_screen->clrscr()->cooked_echo();
+		print $self->_helppage($page);
+		$_screen->raw_noecho()->at(23, 0)->puts(
+			"F1 or ? for more elaborate help, any other key for next screen ");
+		$key = $_screen->getch();
+		if ($key =~ /(pgup|kl|ku|\cH)/) {
+			$page-- if $page > 1;
+			redo;
+		} elsif ($key =~ /(k1|\?)/) {
+			system qw(man pfm); # how unsubtle :-)
+			last;
+		}
+	} continue {
+		$page++;
 	}
 	$self->_credits();
 	$_screen->set_deferred_refresh(R_CLRSCR);

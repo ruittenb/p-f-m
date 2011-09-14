@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Directory 0.80
+# @(#) App::PFM::Directory 0.81
 #
 # Name:			App::PFM::Directory
-# Version:		0.80
+# Version:		0.81
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-22
+# Date:			2010-08-25
 #
 
 ##########################################################################
@@ -671,7 +671,7 @@ sub checkrcsapplicable {
 	my $path   = $self->{_path};
 	my $screen = $_pfm->screen;
 	$entry = defined $entry ? $entry : $path;
-	my %on = (
+	my $on = {
 		after_start			=> sub {
 			# next line needs to provide a '1' argument because
 			# $self->{_rcsjob} has not yet been set
@@ -718,7 +718,7 @@ sub checkrcsapplicable {
 			$screen->set_deferred_refresh($screen->R_HEADINGS);
 			$screen->frame->rcsrunning(RCS_DONE);
 		},
-	);
+	};
 	# TODO when a directory is swapped out, the jobs should continue
 	# TODO when a directory is cloned, what to do?
 	foreach $class (@{$self->RCS}) {
@@ -730,7 +730,7 @@ sub checkrcsapplicable {
 				$_pfm->jobhandler->stop($self->{_rcsjob});
 				$entry = $path;
 			}
-			$self->{_rcsjob} = $_pfm->jobhandler->start($class, $entry, %on);
+			$self->{_rcsjob} = $_pfm->jobhandler->start($class, $entry, $on);
 			return;
 		}
 	}

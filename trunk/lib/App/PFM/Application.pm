@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.07.0
+# @(#) App::PFM::Application 2.07.2
 #
 # Name:			App::PFM::Application
-# Version:		2.07.0
+# Version:		2.07.2
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-23
+# Date:			2010-08-24
 #
 
 ##########################################################################
@@ -178,7 +178,7 @@ sub _copyright {
 		->at(2,0)->puts("This software comes with no warranty: " .
 						"see the file COPYING for details.")
 		->reset()->normal();
-	return $self->screen->key_pressed($delay);
+	return $self->screen->key_pressed($delay || 0);
 }
 
 =item _goodbye()
@@ -358,16 +358,15 @@ available for download.
 
 sub checkupdates {
 	my ($self) = @_;
-	my %on = (
-		after_receive_data	=> sub {
-			my ($job, $input) = @_;
-			if ($input gt $self->{VERSION}) {
-				$self->{NEWER_VERSION}	= $input;
-				$self->{PFM_URL}		= $job->PFM_URL;
-			}
-		},
-	);
-	$_jobhandler->start('CheckUpdates', %on);
+	my $compareversions = sub {
+		my ($job, $input) = @_;
+		if ($input gt $self->{VERSION}) {
+			$self->{NEWER_VERSION}	= $input;
+			$self->{PFM_URL}		= $job->PFM_URL;
+		}
+	};
+	my $on = { after_receive_data => $compareversions };
+	$_jobhandler->start('CheckUpdates', $on);
 }
 
 =item bootstrap( [ bool $silent ] )
@@ -410,14 +409,19 @@ sub bootstrap {
 	
 	$_screen->clrscr()->raw_noecho();
 	$_screen->calculate_dimensions();
+
 	$_config = new App::PFM::Config($self);
+	my $copyright_coderef = sub {
+		$self->_copyright($self->config->pfmrc->{copyrightdelay});
+	};
 	if (!$silent) {
-		$_config->register_listener('after_screen_config', \&_copyright);
+		$_config->register_listener('after_parse_usecolor', $copyright_coderef);
 	}
 	$_config->read($silent ? $_config->READ_AGAIN : $_config->READ_FIRST);
 	$_config->parse();
 	$_config->apply();
-	$_config->unregister_listener('after_screen_config', \&_copyright);
+	$_config->unregister_listener('after_parse_usecolor', $copyright_coderef);
+
 	%bookmarks = $_config->read_bookmarks();
 	@{$self->{_states}}{@{BOOKMARKKEYS()}} = ();
 	@{$self->{_states}}{keys %bookmarks} = values %bookmarks;

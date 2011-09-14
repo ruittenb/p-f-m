@@ -44,7 +44,7 @@ use constant PFM_URL => 'http://p-f-m.sourceforge.net/';
 ##########################################################################
 # private subs
 
-=item _init(string $event1 => coderef $handler1 [, ...] )
+=item _init(hashref { $event1 => coderef $handler1 [, ...] })
 
 Initializes new instances. Called from the constructor.
 

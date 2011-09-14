@@ -136,8 +136,8 @@ sub mode2str {
 	my $strmode;
 	my $octmode = sprintf("%lo", $nummode);
 	$octmode	=~ /(\d\d?)(\d)(\d)(\d)(\d)$/;
-	$strmode	= substr($IFMT2STR, oct($1) & 017, 1)
-				. $SYMBOLIC_MODES[$3] . $SYMBOLIC_MODES[$4] . $SYMBOLIC_MODES[$5];
+	$strmode	= $_pfm->os->ifmt2str($1)
+				. join '', @SYMBOLIC_MODES[$3, $4, $5];
 	#
 	if ($2 & 4) { substr($strmode,3,1) =~ tr/-x/Ss/ }
 	if ($2 & 2) {

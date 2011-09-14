@@ -77,7 +77,7 @@ sub new {
 #		croak("$type should not be instantiated");
 #	}
 	my $self = {
-		event_handlers => {},
+		_event_handlers => {},
 	};
 	bless($self, $type);
 	$self->_init(@_);
@@ -120,7 +120,7 @@ For an example, see below under fire().
 sub register_listener {
 	my ($self, $event, $listener) = @_;
 	return 0 unless (ref $listener eq "CODE");
-	my $handlers = $self->{event_handlers};
+	my $handlers = $self->{_event_handlers};
 	if (!exists $handlers->{$event}) {
 		$handlers->{$event} = [];
 	}
@@ -138,7 +138,7 @@ Unregisters the code reference provided as listener for the specified event.
 sub unregister_listener {
 	my ($self, $event, $listener) = @_;
 	return 0 unless (ref $listener eq "CODE");
-	my $handlers = $self->{event_handlers};
+	my $handlers = $self->{_event_handlers};
 	return 0 unless exists $handlers->{$event};
 	my $success = 0;
 	foreach my $i (reverse 0 .. $#{$handlers->{$event}}) {
@@ -181,9 +181,9 @@ Example usage:
 
 sub fire_event {
 	my ($self, $event, @args) = @_;
-	my $handlers = $self->{event_handlers}->{$event};
+	my $handlers = $self->{_event_handlers}->{$event};
 	my @res;
-	return unless $handlers;
+	return '0 but true' unless $handlers;
 	foreach (@$handlers) {
 		push @res, $_->(@args);
 	}
