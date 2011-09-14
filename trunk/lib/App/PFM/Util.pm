@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Util 0.45
+# @(#) App::PFM::Util 0.46
 #
 # Name:			App::PFM::Util
-# Version:		0.45
+# Version:		0.46
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-05-12
+# Date:			2010-06-20
 #
 
 ##########################################################################
@@ -44,7 +44,7 @@ our @EXPORT = qw(
 	min max inhibit toggle triggle isxterm isyes isno dirname basename
 	formatted time2str fit2limit canonicalize_path reducepaths reversepath
 	isorphan ifnotdefined clearugidcache find_uid find_gid condquotemeta
-	testdirempty);
+	testdirempty fitpath);
 
 my $XTERMS = qr/^(.*xterm.*|rxvt.*|gnome.*|kterm)$/;
 
@@ -353,6 +353,53 @@ sub testdirempty {
 	# instead of catching the exception here, we will simply wait for
 	# 'unlink' to return false
 	return !$third_entry;
+}
+
+=item fitpath()
+
+Fits a path string to a certain length by taking out directory components.
+
+=cut
+
+sub fitpath {
+	my ($path, $maxlength) = @_;
+	my ($restpathlen);
+	my $ELLIPSIS     = '..';
+	my $r_disppath   = '';
+	my $r_overflow   = 0;
+	my $r_ellipssize = 0;
+	FIT: {
+		# the next line is supposed to contain an assignment
+		unless (length($path) <= $maxlength and $r_disppath = $path) {
+			# no fit: try to replace (part of) the name with ..
+			# we will try to keep the first part e.g. /usr1/ because this often
+			# shows the filesystem we're on; and as much as possible of the end
+			unless ($path =~ /^(~?\/[^\/]+?\/)(.+)/) {
+				# impossible to replace; just truncate
+				# this is the case for e.g. /some_ridiculously_long_directory_name
+				$r_disppath = substr($path, 0, $maxlength);
+				$r_overflow = 1;
+				last FIT;
+			}
+			($r_disppath, $path) = ($1, $2);
+			# the one being subtracted is for the '/' char in the next match
+			$restpathlen = $maxlength -length($r_disppath) -length($ELLIPSIS) -1;
+			unless ($path =~ /(.*?)(\/.{1,$restpathlen})$/) {
+				# impossible to replace; just truncate
+				# this is the case for e.g. /usr/some_ridiculously_long_directory_name
+				$r_disppath = substr($r_disppath.$path, 0, $maxlength);
+				$r_overflow = 1;
+				last FIT;
+			}
+			# pathname component candidate for replacement found; name will fit
+			$r_disppath  .= $ELLIPSIS . $2;
+			$r_ellipssize = length($1) - length($ELLIPSIS);
+		}
+	}
+	return ($r_disppath,
+		' ' x max($maxlength -length($r_disppath), 0),
+		$r_overflow,
+		$r_ellipssize);
 }
 
 ##########################################################################

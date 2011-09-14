@@ -89,11 +89,8 @@ Split the status output in a filename- and a status-field.
 
 sub _preprocess {
 	my ($self, $data) = @_;
-	my $firstcolsize = 7;
-	return [
-		substr($data, 0, $firstcolsize),
-		substr($data, $firstcolsize)
-	];
+	$data =~ /^(.....)\s+(.*)/;
+	return [ $1, $2 ];
 }
 
 =item _svnmaxchar()

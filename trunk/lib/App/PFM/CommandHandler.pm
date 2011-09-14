@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.05
+# @(#) App::PFM::CommandHandler 1.06
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.05
+# Version:		1.06
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-06-12
+# Date:			2010-06-18
 #
 
 ##########################################################################
@@ -50,6 +50,7 @@ use constant {
 	TRUE		=> 1,
 	QUOTE_OFF	=> 0,
 	QUOTE_ON	=> 1,
+	SPAWNEDCHAR => '*',
 };
 
 my %NUMFORMATS = ( 'hex' => '%#04lx', 'oct' => '%03lo');
@@ -417,12 +418,13 @@ List the bookmarks from the %states hash.
 
 sub _listbookmarks {
 	my ($self) = @_;
-	my $printline     = $_screen->BASELINE;
-	my $filerecordcol = $_screen->listing->filerecordcol;
-	my @heading       = $_screen->frame->bookmark_headings;
-	my $spacing       =
+	my $printline       = $_screen->BASELINE;
+	my $filerecordcol   = $_screen->listing->filerecordcol;
+	my @heading         = $_screen->frame->bookmark_headings;
+	my $bookmarkpathlen = $heading[2];
+	my $spacing         =
 		' ' x ($_screen->screenwidth - $_screen->diskinfo->infolength);
-	my ($dest, $flag);
+	my ($dest, $spawned, $overflow);
 	# headings
 	$_screen
 		->set_deferred_refresh(R_SCREEN)
@@ -430,14 +432,18 @@ sub _listbookmarks {
 	# list bookmarks
 	foreach (@{$_pfm->BOOKMARKKEYS}) {
 		last if ($printline > $_screen->BASELINE + $_screen->screenheight);
-		$dest = $_pfm->state($_);
-		$flag = ' ';
+		$dest    = $_pfm->state($_);
+		$spawned = ' ';
 		if (ref $dest) {
-			$dest = $dest->directory->path;
-			$flag = '*';
+			$dest    = $dest->directory->path;
+			$spawned = SPAWNEDCHAR;
+		}
+		if (length($dest)) {
+			($dest, undef, $overflow) = fitpath($dest, $bookmarkpathlen);
+			$dest .= ($overflow ? $_screen->listing->NAMETOOLONGCHAR : ' ');
 		}
 		$_screen->at($printline++, $filerecordcol)
-			->puts(sprintf($heading[0], $_, $flag, $dest));
+			->puts(sprintf($heading[0], $_, $spawned, $dest));
 	}
 	foreach ($printline .. $_screen->BASELINE + $_screen->screenheight) {
 		$_screen->at($printline++, $filerecordcol)->puts($spacing);
@@ -1300,6 +1306,24 @@ sub handlesort {
 		$_pfm->state->{sort_mode} = $key;
 		$_pfm->browser->position_at($_pfm->browser->currentfile->{name});
 	}
+	$_screen->set_deferred_refresh(R_DIRSORT | R_SCREEN);
+}
+
+=item handlecyclesort()
+
+Cycles through sort modes.
+
+=cut
+
+sub handlecyclesort {
+	my ($self) = @_;
+	my @mode_to   = split(//, $_pfm->config->{sortcycle});
+	my @mode_from = ($mode_to[-1], @mode_to);
+	pop @mode_from;
+	my %translations;
+	@translations{@mode_from} = @mode_to;
+	$_pfm->state->{sort_mode} = $translations{$_pfm->state->{sort_mode}};
+	$_pfm->browser->position_at($_pfm->browser->currentfile->{name});
 	$_screen->set_deferred_refresh(R_DIRSORT | R_SCREEN);
 }
 
@@ -2342,6 +2366,7 @@ sub handlemousefootercommand {
 	($choice = $1)	=~ s/-$//;	# transform F12- to F12
 	$choice			=~ s/^F/k/;	# transform F12  to k12
 	#$_screen->at(1,0)->puts("L-$left :$choice: R-$right    ");
+	return $self->handlecyclesort() if ($choice eq 'k6');
 	return $self->handle($choice);
 }
 

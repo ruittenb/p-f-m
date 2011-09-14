@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 0.83
+# @(#) App::PFM::Config 0.84
 #
 # Name:			App::PFM::Config
-# Version:		0.83
+# Version:		0.84
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-06-14
+# Date:			2010-06-18
 #
 
 ##########################################################################
@@ -322,6 +322,7 @@ sub parse {
 	$self->{e}			= $e	= $pfmrc->{escapechar} || '=';
 	$self->{ducmd}				= $pfmrc->{ducmd} || $DUCMDS{$^O} || $DUCMDS{default};
 	$self->{ducmd}				=~ s/\$\{e\}/${e}/g;
+	$self->{sortcycle}			= $pfmrc->{sortcycle} || 'nNeEdDaAsStu';
 	$self->{mouse_mode}			= $_pfm->browser->mouse_mode || $pfmrc->{defaultmousemode} || 'xterm';
 	$self->{mouse_mode}			= ($self->{mouse_mode} eq 'xterm' && isxterm($ENV{TERM}))
 								|| isyes($self->{mouse_mode});
@@ -694,6 +695,10 @@ mouseturnoff:yes
 ## show whether mandatory locking is enabled (e.g. -rw-r-lr-- ) (yes,no,sun)
 ## 'sun' = show locking only on sunos/solaris
 showlock:sun
+
+## sort modes to cycle through when clicking 'Sort' in the footer.
+## default: nNeEdDaAsStu
+#sortcycle:nNeEdDaAsStu
 
 ## format for displaying timestamps: see strftime(3).
 ## take care that the time fields (a, c and m) in the layouts defined below

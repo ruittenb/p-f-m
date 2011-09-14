@@ -2,9 +2,9 @@
 ############################################################################
 #
 # Name:         pfmrcupdate
-# Version:      2.06.0
+# Version:      2.06.1
 # Author:       Rene Uittenbogaard
-# Date:         2010-06-11
+# Date:         2010-06-15
 # Usage:        pfmrcupdate
 # Description:  Update an existing .pfmrc so that it can be used with
 #               newer versions of pfm.
@@ -24,7 +24,7 @@ our $ROFFVERSION = <<'=cut';
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfmrcupdate 2.06.0
+.ds Vw @(#) pfmrcupdate 2.06.1
 .de Vp
 This manual pertains to \f(CWpfmrcupdate\fP version \\$3.
 ..
@@ -627,6 +627,19 @@ autowritebookmarks:no
 _end_update_to_2060_
 }
 
+sub update_to_2061 {
+	my ($lines) = @_;
+	# added 'sortcycle'
+	print "Updating to 2.06.1...\n";
+	push @$lines, <<_end_update_to_2061_;
+
+## sort modes to cycle through when clicking 'Sort' in the footer.
+## default: nNeEdDaAsStu
+#sortcycle:nNeEdDaAsStu
+
+_end_update_to_2061_
+}
+
 sub update_version {
 	my ($to, $lines) = @_;
 	# this updates the version field for any version
@@ -664,6 +677,7 @@ sub update_pfmrc {
 	update_to_2053($lines) if $from lt '2.05.3' and '2.05.3' le $to;
 	update_to_2059($lines) if $from lt '2.05.9' and '2.05.9' le $to;
 	update_to_2060($lines) if $from lt '2.06.0' and '2.06.0' le $to;
+	update_to_2061($lines) if $from lt '2.06.1' and '2.06.1' le $to;
 	update_version($to, $lines);
 }
 

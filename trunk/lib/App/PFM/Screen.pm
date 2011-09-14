@@ -656,47 +656,20 @@ filesystem.
 =cut
 
 sub pathline {
-	my ($self, $path, $dev, $displen, $ellipssize) = @_;
-	my $overflow	 = ' ';
-	my $ELLIPSIS	 = '..';
+	my ($self, $path, $dev, $p_displen, $p_ellipssize) = @_;
 	my $normaldevlen = 12;
 	my $actualdevlen = max($normaldevlen, length($dev));
 	# the three in the next exp is the length of the overflow char plus the '[]'
 	my $maxpathlen   = $_screenwidth - $actualdevlen -3;
-	my ($restpathlen, $disppath);
 	$dev = $dev . ' 'x max($actualdevlen -length($dev), 0);
-	FIT: {
-		# the next line is supposed to contain an assignment
-		unless (length($path) <= $maxpathlen and $disppath = $path) {
-			# no fit: try to replace (part of) the name with ..
-			# we will try to keep the first part e.g. /usr1/ because this often
-			# shows the filesystem we're on; and as much as possible of the end
-			unless ($path =~ /^(\/[^\/]+?\/)(.+)/) {
-				# impossible to replace; just truncate
-				# this is the case for e.g. /some_ridiculously_long_directory_name
-				$disppath = substr($path, 0, $maxpathlen);
-				$$displen = $maxpathlen;
-				$overflow = $_listing->NAMETOOLONGCHAR;
-				last FIT;
-			}
-			($disppath, $path) = ($1, $2);
-			$$displen = length($disppath);
-			# the one being subtracted is for the '/' char in the next match
-			$restpathlen = $maxpathlen -length($disppath) -length($ELLIPSIS) -1;
-			unless ($path =~ /(.*?)(\/.{1,$restpathlen})$/) {
-				# impossible to replace; just truncate
-				# this is the case for e.g. /usr/some_ridiculously_long_directory_name
-				$disppath = substr($disppath.$path, 0, $maxpathlen);
-				$overflow = $_listing->NAMETOOLONGCHAR;
-				last FIT;
-			}
-			# pathname component candidate for replacement found; name will fit
-			$disppath .= $ELLIPSIS . $2;
-			$$ellipssize = length($1) - length($ELLIPSIS);
-		}
-	}
-	return $disppath . ' 'x max($maxpathlen -length($disppath), 0)
-		 . $overflow . "[$dev]";
+	# fit the path
+	my ($disppath, $spacer, $overflow, $ellipssize) =
+		fitpath($path, $maxpathlen);
+	# process the results
+	$$p_displen    = length($disppath);
+	$$p_ellipssize = $ellipssize;
+	return $disppath . $spacer
+		. ($overflow ? $_listing->NAMETOOLONGCHAR : ' ') . "[$dev]";
 }
 
 ##########################################################################
