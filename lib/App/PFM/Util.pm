@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Util 0.56
+# @(#) App::PFM::Util 0.57
 #
 # Name:			App::PFM::Util
-# Version:		0.56
+# Version:		0.57
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-03-09
+# Date:			2011-03-13
 #
 
 ##########################################################################
@@ -50,7 +50,7 @@ our %EXPORT_TAGS = (
 		formatted time2str fit2limit canonicalize_path reducepaths
 		reversepath isorphan ifnotdefined setifnotdefined clearugidcache
 		find_uid find_gid condquotemeta touch2time testdirempty fitpath
-		alphabetically by_name
+		alphabetically letters_then_numbers by_name
 	) ]
 );
 
@@ -512,6 +512,25 @@ Sorting routine: sorts strings alphabetically, case-insensitive.
 
 sub alphabetically {
 	my ($a, $b) = @_;
+	return uc($a) cmp uc($b) || $a cmp $b;
+}
+
+=item letters_then_numbers()
+
+Sorting routine: sorts strings alphabetically, case-insensitive,
+but numbers last.
+
+=cut
+
+sub letters_then_numbers {
+	my ($a, $b) = @_;
+	my $anum = ($a ge '0' && $a le '9');
+	my $bnum = ($b ge '0' && $b le '9');
+	if ($anum != $bnum) {
+		# different type
+		return $b cmp $a;
+	}
+	# same type
 	return uc($a) cmp uc($b) || $a cmp $b;
 }
 

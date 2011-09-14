@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 1.16
+# @(#) App::PFM::Config 1.18
 #
 # Name:			App::PFM::Config
-# Version:		1.16
+# Version:		1.18
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-03-09
+# Date:			2011-03-13
 #
 
 ##########################################################################
@@ -60,6 +60,7 @@ use constant DEFAULTFORMAT =>
 use constant BOOKMARKKEYS => [qw(
 	a b c d e f g h i j k l m n o p q r s t u v w x y z
 	A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
+	0 1 2 3 4 5 6 7 8 9
 )];
 
 use constant FILETYPEFLAGS => {
@@ -223,7 +224,7 @@ Getter for the keys of the Your commands in the config file.
 sub your_commands {
 	my ($self) = @_;
 	my @your =  map { substr($_, 5, 1) }
-				grep /^your\[[[:alpha:]]\]$/, keys %{$self->{_pfmrc}};
+				grep /^your\[[[:alnum:]]\]$/, keys %{$self->{_pfmrc}};
 	return @your;
 }
 
@@ -412,8 +413,8 @@ sub parse {
 	$self->{mouse_mode}			 = $_pfm->browser->mouse_mode || $pfmrc->{defaultmousemode} || 'xterm';
 	$self->{mouse_mode}			 = ($self->{mouse_mode} eq 'xterm' && isxterm($ENV{TERM}))
 								 || isyes($self->{mouse_mode});
-	$self->{altscreen_mode}		 = $pfmrc->{altscreenmode} || 'xterm';
-	$self->{altscreen_mode}		 = ($self->{altscreen_mode}  eq 'xterm' && isxterm($ENV{TERM}))
+	$self->{altscreen_mode}		 = $ENV{PFMDEBUG} ? 'no' : $pfmrc->{altscreenmode} || 'xterm';
+	$self->{altscreen_mode}		 = ($self->{altscreen_mode} eq 'xterm' && isxterm($ENV{TERM}))
 								 || isyes($self->{altscreen_mode});
 	$self->{chdirautocmd}		 = $pfmrc->{chdirautocmd};
 	$self->{windowtype}			 = $pfmrc->{windowtype} eq 'standalone' ? 'standalone' : 'pfm';
@@ -482,7 +483,7 @@ sub write_default {
 		while (($_ = <DATA>) !~ /^__END__/) {
 			s/^(##? Version )x/$1$version/m;
 			if ($^O =~ /linux/i) {
-				s{^(\s*(?:your\[[[:alpha:]]\]|launch\[[^]]+\])\s*:\s*\w+.*?\s+)more(\s*)$}
+				s{^(\s*(?:your\[[[:alnum:]]\]|launch\[[^]]+\])\s*:\s*\w+.*?\s+)more(\s*)$}
 				 {$1less$2}mg;
 			}
 			# if we need more room for the timestampformat, create it

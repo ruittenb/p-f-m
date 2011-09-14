@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.11.3
+# @(#) App::PFM::Application 2.11.4
 #
 # Name:			App::PFM::Application
-# Version:		2.11.3
+# Version:		2.11.4
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-03-07
+# Date:			2011-03-12
 #
 
 ##########################################################################
@@ -54,7 +54,7 @@ use Cwd;
 use locale;
 use strict;
 
-our $VERSION  = '2.11.3';
+our $VERSION  = '2.11.4';
 our $LASTYEAR = 2011;
 
 ##########################################################################
@@ -321,7 +321,10 @@ sub _bootstrap_event_hub {
 	my $on_browser_idle = sub {
 		$self->{_jobhandler}->pollall();
 	};
-	$self->{_browser}->register_listener('browser_idle', $on_browser_idle);
+	$self->{_browser}       ->register_listener(
+		'browser_idle', $on_browser_idle);
+	$self->{_commandhandler}->register_listener(
+		'browser_idle', $on_browser_idle);
 
 	# browser passes control to the commandhandler
 	my $on_after_receive_non_motion_input = sub {
@@ -415,8 +418,8 @@ sub state {
 	$index ||= 'S_MAIN';
 	if (defined $value) {
 		if (defined $self->{_states}{$index}) {
+			$self->{_states}{$index} = $value;
 		}
-		$self->{_states}{$index} = $value;
 	}
 	return $self->{_states}{$index};
 }

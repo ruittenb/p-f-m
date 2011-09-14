@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.58
+# @(#) App::PFM::CommandHandler 1.59
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.58
+# Version:		1.59
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-03-09
+# Date:			2011-03-12
 #
 
 ##########################################################################
@@ -2159,19 +2159,23 @@ sub handlecommand { # Y or O
 	my $infolength = $screen->diskinfo->infolength;
 	my $e          = $self->{_config}{e};
 	my $key        = uc $event->{data};
-	my ($command, $do_this, $prompt, $newdir, $eightset, $selector);
+	my ($command, $do_this, $prompt, $newdir, $eightset, $chooser);
 	unless ($_pfm->state->{multiple_mode}) {
 		$screen->listing->markcurrentline($key);
 	}
 	$screen->diskinfo->clearcolumn();
 	if ($key eq 'Y') { # Your command
-		$selector = App::PFM::Browser::YourCommands->new(
+		$chooser = App::PFM::Browser::YourCommands->new(
 			$self->{_screen},
 			$self->{_config},
 			$_pfm->state('S_MAIN'));
-		$selector->mouse_mode($browser->mouse_mode);
-		$key = $selector->choose(
+		# register the chooser so that the screen object knows who
+		# it is working for.
+		$screen->chooser($chooser);
+		$chooser->mouse_mode($browser->mouse_mode);
+		$key = $chooser->choose(
 			'Enter one of the highlighted characters below: ');
+		$screen->chooser(0);
 		# next line contains an assignment on purpose
 		return unless $command = $self->{_config}->your($key);
 		$screen->cooked_echo();
@@ -2925,12 +2929,17 @@ Creates a bookmark to the current directory (B<M>ore - B<B>ookmark).
 
 sub handlemorebookmark {
 	my ($self, $event) = @_;
-	my ($dest, $key, $prompt, $selector);# , $destfile
+	my $screen = $self->{_screen};
+	my ($dest, $key, $prompt, $chooser);
 	# the footer has already been cleared by handlemore()
-	$selector = App::PFM::Browser::Bookmarks->new(
-		$self->{_screen}, $self->{_config}, $_pfm->states);
-	$selector->mouse_mode($_pfm->browser->mouse_mode);
-	$key = $selector->choose('Bookmark under which letter? ');
+	$chooser = App::PFM::Browser::Bookmarks->new(
+		$screen, $self->{_config}, $_pfm->states);
+	# register the chooser so that the screen object knows who
+	# it is working for.
+	$screen->chooser($chooser);
+	$chooser->mouse_mode($_pfm->browser->mouse_mode);
+	$key = $chooser->choose('Bookmark under which letter? ');
+	$screen->chooser(0);
 	return if $key eq "\r";
 	# process key
 	if ($key !~ /^[a-zA-Z]$/) {
@@ -2996,19 +3005,25 @@ sub handlemorego {
 	my $browser = $_pfm->browser;
 	my $screen  = $self->{_screen};
 	my ($dest, $key, $prompt, $destfile, $success,
-		$prevdir, $prevstate, $chdirautocmd, $selector);
+		$prevdir, $prevstate, $chdirautocmd, $chooser);
 	return if !$screen->ok_to_remove_marks();
 	# the footer has already been cleared by handlemore()
-	$selector = App::PFM::Browser::Bookmarks->new(
+	$chooser = App::PFM::Browser::Bookmarks->new(
 		$self->{_screen},
 		$self->{_config},
 		$_pfm->states);
-	$selector->mouse_mode($browser->mouse_mode);
-	$key = $selector->choose('Go to which bookmark? ');
+	# register the chooser so that the screen object knows who
+	# it is working for.
+	$screen->chooser($chooser);
+	$chooser->mouse_mode($browser->mouse_mode);
+	$key = $chooser->choose('Go to which bookmark? ');
+	$screen->chooser(0);
 	return if $key eq "\r";
 	# choice
 	$dest = $_pfm->state($key);
-	if ($dest eq '') {
+	if (!defined($dest)) {
+		return;
+	} elsif ($dest eq '') {
 		# the bookmark is undefined
 		$screen->at(0,0)->clreol()
 				->display_error('Bookmark not defined');

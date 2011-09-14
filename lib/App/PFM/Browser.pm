@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Browser 0.58
+# @(#) App::PFM::Browser 0.59
 #
 # Name:			App::PFM::Browser
-# Version:		0.58
+# Version:		0.59
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-03-09
+# Date:			2011-03-12
 #
 
 ##########################################################################
@@ -37,15 +37,18 @@ package App::PFM::Browser;
 
 use base 'App::PFM::Abstract';
 
-use App::PFM::Util qw(min max);
-use App::PFM::Screen qw(:constants);
+use App::PFM::Screen::Frame qw(:constants); # MENU_*, HEADING_*, and FOOTER_*
+use App::PFM::Screen        qw(:constants); # R_*
+use App::PFM::Util          qw(min max);
 
 use strict;
 use locale;
 
 use constant {
-	BROWSE_VOID_LINES => 10,
 	SHOW_CLOCK        => 1,
+	SCREENTYPE        => R_LISTING,
+	HEADERTYPE        => HEADING_DISKINFO,
+	BROWSE_VOID_LINES => 10,
 };
 
 use constant MOTION_COMMANDS_EXCEPT_SPACE =>
@@ -137,7 +140,7 @@ sub baseindex {
 	if (defined $value) {
 		$self->{_baseindex} = $value;
 		$self->validate_position();
-		$self->{_screen}->set_deferred_refresh($self->{_screen}->R_LISTING);
+#		$self->{_screen}->set_deferred_refresh($self->{_screen}->R_LISTING);
 	}
 	return $self->{_baseindex};
 }
@@ -145,6 +148,7 @@ sub baseindex {
 =item setview(int $lineno, int $index)
 
 Getter/setter for both the cursor line and screen window at once.
+Used by handlescroll().
 
 =cut
 
@@ -154,7 +158,7 @@ sub setview {
 	$self->{_currentline} = $line;
 	$self->{_baseindex}   = $index;
 	$self->validate_position();
-	$self->{_screen}->set_deferred_refresh($self->{_screen}->R_LISTING);
+	$self->{_screen}->set_deferred_refresh($self->SCREENTYPE);
 	return ($self->{_currentline}, $self->{_baseindex});
 }
 
@@ -225,7 +229,7 @@ sub validate_position {
 	my $screenheight = $self->{_screen}->screenheight;
 	my $oldbaseindex = $self->{_baseindex};
 	my @browselist   = @{$self->browselist};
-	my $browsemax    = $#browselist + BROWSE_VOID_LINES;
+	my $browsemax    = $#browselist + $self->BROWSE_VOID_LINES;
 	
 	# first make sure the currentline is not way beyond the end of the list,
 	# otherwise, we would end up with a large empty space
@@ -256,7 +260,7 @@ sub validate_position {
 	# By limiting the number of listing-refreshes to when the baseindex
 	# has been changed, browsing becomes snappier.
 	if ($oldbaseindex != $self->{_baseindex}) {
-		$self->{_screen}->set_deferred_refresh($self->{_screen}->R_LISTING);
+		$self->{_screen}->set_deferred_refresh($self->SCREENTYPE);
 	}
 	return;
 }

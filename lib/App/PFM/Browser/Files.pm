@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Browser::Files 0.10
+# @(#) App::PFM::Browser::Files 0.11
 #
 # Name:			App::PFM::Browser::Files
-# Version:		0.10
+# Version:		0.11
 # Author:		Rene Uittenbogaard
 # Created:		2010-11-29
-# Date:			2011-03-09
+# Date:			2011-03-12
 #
 
 ##########################################################################
