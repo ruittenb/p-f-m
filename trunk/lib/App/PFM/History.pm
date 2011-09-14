@@ -7,7 +7,7 @@
 # Version:		0.26
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-12
+# Date:			2010-09-13
 #
 
 ##########################################################################
@@ -100,6 +100,20 @@ sub _init {
 		H_TIME,		[],
 		H_PERLCMD,	[],
 	};
+
+	# event hub
+	my $on_after_resize_window = sub {
+		my ($event) = @_;
+		$self->handleresize();
+	};
+	$screen->register_listener('after_resize_window', $on_after_resize_window);
+
+	my $on_after_set_color_mode = sub {
+		my ($event) = @_;
+		$self->setornaments();
+	};
+	$screen->register_listener(
+		'after_set_color_mode', $on_after_set_color_mode);
 }
 
 =item _set_term_history(array @histlines)

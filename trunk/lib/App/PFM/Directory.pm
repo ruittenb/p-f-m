@@ -94,15 +94,19 @@ our ($_pfm);
 ##########################################################################
 # private subs
 
-=item _init(App::PFM::Application $pfm, string $path)
+=item _init(App::PFM::Application $pfm [, App::PFM::Screen $screen
+[, App::PFM::Config $config [, App::PFM::OS $os [, string $path ] ] ] ] )
 
 Initializes new instances. Called from the constructor.
 
 =cut
 
 sub _init {
-	my ($self, $pfm, $path)	 = @_;
+	my ($self, $pfm, $screen, $config, $os, $path) = @_;
 	$_pfm					 = $pfm;
+	$self->{_screen}         = $screen;
+	$self->{_config}         = $config;
+	$self->{_os}             = $os;
 	$self->{_path}			 = $path;
 	$self->{_rcsjob}		 = undef;
 	$self->{_wasquit}		 = undef;
@@ -248,7 +252,7 @@ Determines the current filesystem usage and stores it in an internal hash.
 sub _init_filesystem_info {
 	my ($self) = @_;
 	my @dflist;
-	chop (@dflist = $_pfm->os->df($self->{_path}));
+	chop (@dflist = $self->{_os}->df($self->{_path}));
 	shift @dflist; # skip header
 	@{$self->{_disk}}{qw/device total used avail/} = split (/\s+/, $dflist[0]);
 	$dflist[0] =~ /(\S*)$/;
@@ -298,7 +302,7 @@ sub _readcontents {
 	my ($entry, $file);
 	my @allentries    = ();
 	my @white_entries = ();
-	my $screen        = $_pfm->screen;
+	my $screen        = $self->{_screen};
 	# TODO stop jobs here
 	clearugidcache();
 	$self->_init_dircount();
@@ -310,7 +314,7 @@ sub _readcontents {
 	if (opendir CURRENT, $self->{_path}) {
 		@allentries = readdir CURRENT;
 		closedir CURRENT;
-		@white_entries = $_pfm->os->listwhite($self->{_path});
+		@white_entries = $self->{_os}->listwhite($self->{_path});
 	} else {
 		$screen->at(0,0)->clreol()->display_error("Cannot read . : $!");
 	}
@@ -336,7 +340,7 @@ sub _readcontents {
 			mark  => ' ');
 	}
 	$screen->set_deferred_refresh(R_MENU | R_HEADINGS);
-	$self->checkrcsapplicable() if $_pfm->config->{autorcs};
+	$self->checkrcsapplicable() if $self->{_config}{autorcs};
 	return $self->{_dircontents};
 }
 
@@ -491,7 +495,7 @@ sub path_mode {
 	if (defined $value) {
 		$self->{_path_mode} = $value;
 		$self->{_path} = getcwd() if $self->{_path_mode} eq 'phys';
-		$_pfm->screen->set_deferred_refresh(R_FOOTER | R_PATHINFO);
+		$self->{_screen}->set_deferred_refresh(R_FOOTER | R_PATHINFO);
 	}
 	return $self->{_path_mode};
 }
@@ -508,7 +512,7 @@ state should not be displayed on-screen right away.
 
 sub prepare {
 	my ($self, $path) = @_;
-	$self->path_mode($_pfm->config->{path_mode});
+	$self->path_mode($self->{_config}{path_mode});
 	if (defined $path) {
 		$self->{_path} = $path;
 	}
@@ -539,7 +543,7 @@ when making a jump).
 sub chdir {
 	my ($self, $nextdir, $swapping, $direction) = @_;
 	my ($success, $chdirautocmd, $nextpos);
-	my $screen = $_pfm->screen;
+	my $screen = $self->{_screen};
 	my $prevdir = $self->{_path};
 	if ($nextdir eq '') {
 		$nextdir = $ENV{HOME};
@@ -587,7 +591,7 @@ sub chdir {
 			$screen->set_deferred_refresh(R_CHDIR);
 			$self->set_dirty(D_ALL);
 		}
-		$chdirautocmd = $_pfm->config->{chdirautocmd};
+		$chdirautocmd = $self->{_config}{chdirautocmd};
 		system("$chdirautocmd") if length($chdirautocmd);
 	}
 	return $success;
@@ -618,7 +622,7 @@ sub addifabsent {
 		$self->register($file);
 		# flag screen refresh
 		if ($o{refresh}) {
-			$_pfm->screen->set_deferred_refresh(R_LISTING);
+			$self->{_screen}->set_deferred_refresh(R_LISTING);
 			$self->set_dirty(D_FILTER | D_SORT);
 		}
 	}
@@ -637,7 +641,7 @@ sub add {
 	push @{$self->{_dircontents}}, $file;
 	$self->register($file);
 	if ($o{refresh}) {
-		$_pfm->screen->set_deferred_refresh(R_LISTING);
+		$self->{_screen}->set_deferred_refresh(R_LISTING);
 		$self->set_dirty(D_FILTER | D_SORT);
 	}
 }
@@ -654,7 +658,7 @@ sub register {
 	if ($entry->{selected} eq M_MARK) {
 		$self->register_include($entry);
 	}
-	$_pfm->screen->set_deferred_refresh(R_DISKINFO);
+	$self->{_screen}->set_deferred_refresh(R_DISKINFO);
 }
 
 =item unregister(App::PFM::File $file)
@@ -670,7 +674,7 @@ sub unregister {
 	if ($entry->{selected} eq M_MARK) {
 		$prevmark = $self->register_exclude($entry);
 	}
-	$_pfm->screen->set_deferred_refresh(R_DISKINFO);
+	$self->{_screen}->set_deferred_refresh(R_DISKINFO);
 	return $prevmark;
 }
 
@@ -711,7 +715,7 @@ sub register_include {
 	my ($self, $entry) = @_;
 	$self->{_selected_nr_of}{$entry->{type}}++;
 	$entry->{type} =~ /-/ and $self->{_selected_nr_of}{bytes} += $entry->{size};
-	$_pfm->screen->set_deferred_refresh(R_DISKINFO);
+	$self->{_screen}->set_deferred_refresh(R_DISKINFO);
 }
 
 =item register_exclude(App::PFM::File $file)
@@ -724,7 +728,7 @@ sub register_exclude {
 	my ($self, $entry) = @_;
 	$self->{_selected_nr_of}{$entry->{type}}--;
 	$entry->{type} =~ /-/ and $self->{_selected_nr_of}{bytes} -= $entry->{size};
-	$_pfm->screen->set_deferred_refresh(R_DISKINFO);
+	$self->{_screen}->set_deferred_refresh(R_DISKINFO);
 }
 
 =item set_dirty(int $flag_bits)
@@ -772,7 +776,7 @@ sub refresh {
 		# next line works because $screen->refresh() will re-examine
 		# the _deferred_refresh flags after the $directory->refresh().
 		#
-		$_pfm->screen->set_deferred_refresh(R_LISTING);
+		$self->{_screen}->set_deferred_refresh(R_LISTING);
 	}
 	# now refresh individual elements
 	if ($dirty & D_FSINFO) {
@@ -800,7 +804,7 @@ sub checkrcsapplicable {
 	my ($self, $entry) = @_;
 	my ($class, $fullclass);
 	my $path   = $self->{_path};
-	my $screen = $_pfm->screen;
+	my $screen = $self->{_screen};
 	$entry = defined $entry ? $entry : $path;
 	my $on_after_job_start = sub {
 		# next line needs to provide a '1' argument because
@@ -879,7 +883,7 @@ Prepares the 'Version' field in the directory contents by clearing it.
 
 sub preparercscol {
 	my ($self, $file) = @_;
-	my $layoutfields = $_pfm->screen->listing->LAYOUTFIELDS;
+	my $layoutfields = $self->{_screen}->listing->LAYOUTFIELDS;
 	if (defined $file and $file->{name} ne '.') {
 		$file->{$layoutfields->{'v'}} = '-';
 		return;
@@ -906,29 +910,33 @@ sub dirlookup {
 	return $found;
 }
 
-=item apply(coderef $do_this, string $special_mode, array @args)
+=item apply(coderef $do_this, App::PFM::Event $event, array @args)
 
-In single file mode: applies the supplied function to the current file.
+In single file mode: applies the supplied function to the current file,
+as passed in I<$event-E<gt>{currentfile}>.
 In multiple file mode: applies the supplied function to all selected files
 in the current directory.
 
-If I<special_mode> equals 'delete', the directory is processed in
+Special flags can be passed in I<$event-E<gt>{lunchbox}{applyflags}>.
+
+If the apply flags contain 'delete', the directory is processed in
 reverse order. This is important when deleting files.
 
-If I<special_mode> does not equal 'nofeedback', the filename of the file
+If the apply flags do not contain 'nofeedback', the filename of the file
 being processed will be displayed on the second line of the screen.
 
 =cut
 
 sub apply {
-	my ($self, $do_this, $special_mode, @args) = @_;
+	my ($self, $do_this, $event, @args) = @_;
+	my $applyflags = $event->{lunchbox}{applyflags};
 	my ($i, $loopfile, $deleted_index, $count, %nameindexmap);
 	if ($_pfm->state->{multiple_mode}) {
 		#$self->{_wasquit} = 0;
 		#local $SIG{QUIT} = \&_catch_quit;
-		my $screen = $_pfm->screen;
+		my $screen = $self->{_screen};
 		my @range = 0 .. $#{$self->{_showncontents}};
-		if ($special_mode eq 'delete') {
+		if ($applyflags =~ /\bdelete\b/o) {
 			@range = reverse @range;
 			# build nameindexmap on dircontents, not showncontents.
 			# this is faster than doing a dirlookup() every iteration
@@ -940,16 +948,16 @@ sub apply {
 			$loopfile = $self->{_showncontents}[$i];
 			if ($loopfile->{selected} eq M_MARK) {
 				# don't give feedback in cOmmand or Your
-				if ($special_mode ne 'nofeedback') {
+				if ($applyflags !~ /\bnofeedback\b/o) {
 					$screen->at($screen->PATHLINE, 0)->clreol()
 						->puts($loopfile->{name})->at($screen->PATHLINE+1, 0);
 				}
-				$loopfile->apply($do_this, $special_mode, @args);
+				$loopfile->apply($do_this, $applyflags, @args);
 				# see if the file was lost, and we were deleting.
 				# we could also test if return value of File->apply eq 'deleted'
 				if (!$loopfile->{nlink} and
 					$loopfile->{type} ne 'w' and
-					$special_mode eq 'delete')
+					$applyflags =~ /\bdelete\b/o)
 				{
 					$self->unregister($loopfile);
 					$deleted_index = $nameindexmap{$loopfile->{name}};
@@ -967,19 +975,19 @@ sub apply {
 #			}
 			#last if $self->{_wasquit};
 		}
-		$_pfm->state->{multiple_mode} = 0 if $_pfm->config->{autoexitmultiple};
-		$self->checkrcsapplicable() if $_pfm->config->{autorcs};
+		$_pfm->state->{multiple_mode} = 0 if $self->{_config}{autoexitmultiple};
+		$self->checkrcsapplicable() if $self->{_config}{autorcs};
 		$screen->set_deferred_refresh(R_LISTING | R_PATHINFO | R_FRAME);
 	} else {
-		$loopfile = $_pfm->browser->currentfile;
-		$loopfile->apply($do_this, $special_mode, @args);
+		$loopfile = $event->{currentfile};
+		$loopfile->apply($do_this, $applyflags, @args);
 		$self->checkrcsapplicable($loopfile->{name})
-			if $_pfm->config->{autorcs};
+			if $self->{_config}{autorcs};
 		# see if the file was lost, and we were deleting.
 		# we could also test if return value of File->apply eq 'deleted'
 		if (!$loopfile->{nlink} and
 			$loopfile->{type} ne 'w' and
-			$special_mode eq 'delete')
+			$applyflags =~ /\bdelete\b/o)
 		{
 			$self->unregister($loopfile);
 			$deleted_index = $self->dirlookup(

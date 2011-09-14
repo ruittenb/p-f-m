@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.29
+# @(#) App::PFM::CommandHandler 1.30
 #   
 # Name:			App::PFM::CommandHandler
-# Version:		1.29
+# Version:		1.30
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-10
+# Date:			2010-09-13
 #
 
 ##########################################################################
@@ -36,11 +36,10 @@ package App::PFM::CommandHandler;
 use base 'App::PFM::Abstract';
 
 use App::PFM::Util			qw(:all);
-use App::PFM::History		qw(:constants); # imports the H_* constants
 use App::PFM::Directory 	qw(:constants); # imports the D_* and M_* constants
+use App::PFM::History		qw(:constants); # imports the H_* constants
 use App::PFM::Screen		qw(:constants); # imports the R_* constants
-use App::PFM::Screen::Frame qw(:constants); # imports the MENU_*, HEADING_*
-#											#         and FOOTER_* constants
+use App::PFM::Screen::Frame qw(:constants); # MENU_*, HEADING_*, and FOOTER_*
 
 use POSIX qw(strftime mktime);
 use Config;
@@ -108,22 +107,25 @@ use constant FIELDS_TO_SORTMODE => [
 	'*'=> '*', # mark
 ];
 
-our ($_pfm, $_screen);
+our ($_pfm);
 our ($command);
 
 ##########################################################################
 # private subs
 
-=item _init(App::PFM::Application $pfm)
+=item _init(App::PFM::Application $pfm [, App::PFM::Screen $screen
+[, App::PFM::Config $config [, App::PFM::OS $os ] ] ] )
 
 Initializes new instances. Called from the constructor.
 
 =cut
 
 sub _init {
-	my ($self, $pfm) = @_;
+	my ($self, $pfm, $screen, $config, $os) = @_;
 	$_pfm    = $pfm;
-	$_screen = $pfm->screen;
+	$self->{_screen} = $screen;
+	$self->{_config} = $config;
+	$self->{_os}     = $os;
 	$self->{_clobber_mode} = 0;
 }
 
@@ -191,7 +193,7 @@ sub _helppage {
         _endPage2_
 		$prompt = 'F1 or ? for manpage, arrows or BS/ENTER to browse ';
 	} else {
-		my $name = $_screen->colored('bold', 'pfm');
+		my $name = $self->{_screen}->colored('bold', 'pfm');
 		my $version_message = $_pfm->{NEWER_VERSION}
 			? "A new version $_pfm->{NEWER_VERSION} is available from"
 			: "  New versions will be published on";
@@ -340,11 +342,11 @@ sub _multi_to_single {
 	my ($self, $testname) = @_;
 	my $e  = $_pfm->config->{e};
 	my $qe = quotemeta $e;
-	$_screen->set_deferred_refresh(R_PATHINFO);
+	$self->{_screen}->set_deferred_refresh(R_PATHINFO);
 	if ($_pfm->state->{multiple_mode} and
 		$testname !~ /(?<!$qe)(?:$qe$qe)*${e}[127]/ and !-d $testname)
 	{
-		$_screen->at(0,0)->putmessage(
+		$self->{_screen}->at(0,0)->putmessage(
 			'Cannot do multifile operation when destination is single file.'
 		)->at(0,0)->pressanykey();
 		#path_info(); # necessary?
@@ -378,14 +380,14 @@ sub _promptforboundarytime {
 	my $prompt = ($key eq 'a' ? 'After' : 'Before')
 			   . " modification time CCYY-MM-DD hh:mm[.ss]: ";
 	my $boundarytime;
-	$_screen->at(0,0)->clreol()->cooked_echo();
+	$self->{_screen}->at(0,0)->clreol()->cooked_echo();
 	$boundarytime = $_pfm->history->input({
 		history       => H_TIME,
 		prompt        => $prompt,
 		default_input => strftime ("%Y-%m-%d %H:%M.%S", localtime time),
 	});
 	# show_menu is done in handleinclude
-	$_screen->raw_noecho();
+	$self->{_screen}->raw_noecho();
 	return mktime gmtime touch2time($boundarytime);
 }
 
@@ -401,10 +403,10 @@ sub _promptforboundarysize {
 	my $prompt = ($key eq 'g' ? 'Minimum' : 'Maximum')
 			   . " file size: ";
 	my $boundarysize;
-	$_screen->at(0,0)->clreol()->cooked_echo();
+	$self->{_screen}->at(0,0)->clreol()->cooked_echo();
 	$boundarysize = $_pfm->history->keyboard->readline($prompt);
 	# show_menu is done in handleinclude
-	$_screen->raw_noecho();
+	$self->{_screen}->raw_noecho();
 	$boundarysize =~ tr/0-9//dc;
 	return $boundarysize;
 }
@@ -420,16 +422,17 @@ sub _promptforwildfilename {
 	my ($self, $key) = @_;
 	my $prompt = 'Wild filename (regular expression): ';
 	my $wildfilename;
-	$_screen->at(0,0)->clreol()->cooked_echo();
+	$self->{_screen}->at(0,0)->clreol()->cooked_echo();
 	$wildfilename = $_pfm->history->input({
 		history => H_REGEX,
 		prompt  => $prompt,
 	});
 	# show_menu is done in handleinclude
-	$_screen->raw_noecho();
+	$self->{_screen}->raw_noecho();
 	eval "/$wildfilename/";
 	if ($@) {
-		$_screen->display_error($@)->key_pressed($_screen->IMPORTANTDELAY);
+		$self->{_screen}->display_error($@)
+			->key_pressed($self->{_screen}->IMPORTANTDELAY);
 		$wildfilename = '^$'; # clear illegal regexp
 	}
 	return $wildfilename;
@@ -443,15 +446,16 @@ List the bookmarks from the %states hash.
 
 sub _listbookmarks {
 	my ($self) = @_;
-	my $printline       = $_screen->BASELINE;
-	my $filerecordcol   = $_screen->listing->filerecordcol;
-	my @heading         = $_screen->frame->bookmark_headings;
+	my $screen = $self->{_screen};
+	my $printline       = $screen->BASELINE;
+	my $filerecordcol   = $screen->listing->filerecordcol;
+	my @heading         = $screen->frame->bookmark_headings;
 	my $bookmarkpathlen = $heading[2];
 	my $spacing         =
-		' ' x ($_screen->screenwidth - $_screen->diskinfo->infolength);
+		' ' x ($screen->screenwidth - $screen->diskinfo->infolength);
 	my ($dest, $spawned, $overflow);
 	# headings
-	$_screen
+	$screen
 		->set_deferred_refresh(R_SCREEN)
 		->show_frame({
 			headings => HEADING_BOOKMARKS,
@@ -459,7 +463,7 @@ sub _listbookmarks {
 		});
 	# list bookmarks
 	foreach (@{$_pfm->config->BOOKMARKKEYS}) {
-		last if ($printline > $_screen->BASELINE + $_screen->screenheight);
+		last if ($printline > $screen->BASELINE + $screen->screenheight);
 		$dest    = $_pfm->state($_);
 		$spawned = ' ';
 		if (ref $dest) {
@@ -470,13 +474,13 @@ sub _listbookmarks {
 		}
 		if (length($dest)) {
 			($dest, undef, $overflow) = fitpath($dest, $bookmarkpathlen);
-			$dest .= ($overflow ? $_screen->listing->NAMETOOLONGCHAR : ' ');
+			$dest .= ($overflow ? $screen->listing->NAMETOOLONGCHAR : ' ');
 		}
-		$_screen->at($printline++, $filerecordcol)
+		$screen->at($printline++, $filerecordcol)
 			->puts(sprintf($heading[0], $_, $spawned, $dest));
 	}
-	foreach ($printline .. $_screen->BASELINE + $_screen->screenheight) {
-		$_screen->at($printline++, $filerecordcol)->puts($spacing);
+	foreach ($printline .. $screen->BASELINE + $screen->screenheight) {
+		$screen->at($printline++, $filerecordcol)->puts($spacing);
 	}
 }
 
@@ -546,7 +550,7 @@ Handles unimplemented commands.
 
 sub not_implemented {
 	my ($self) = @_;
-	$_screen->at(0,0)->clreol()
+	$self->{_screen}->at(0,0)->clreol()
 		->set_deferred_refresh(R_MENU)
 		->display_error('Command not implemented');
 }
@@ -607,7 +611,7 @@ sub handle {
 		/^w$/io				and $self->handleunwo($event),				  last;
 		/^%$/o				and $self->handlewhiteout($event),			  last;
 		$handled = 0;
-		$_screen->flash();
+		$self->{_screen}->flash();
 	}
 	return $handled;
 }
@@ -621,7 +625,7 @@ This uses the B<MENU_> constants as defined in App::PFM::Screen::Frame.
 
 sub handlepan {
 	my ($self, $event, $mode) = @_;
-	$_screen->frame->pan($event->{data}, $mode);
+	$self->{_screen}->frame->pan($event->{data}, $mode);
 }
 
 =item handleprev(App::PFM::Event $event)
@@ -647,9 +651,9 @@ sub handleprev {
 		# autocommand
 		$chdirautocmd = $_pfm->config->{chdirautocmd};
 		system("$chdirautocmd") if length($chdirautocmd);
-		$_screen->set_deferred_refresh(R_SCREEN);
+		$self->{_screen}->set_deferred_refresh(R_SCREEN);
 	} else {
-		$_screen->set_deferred_refresh(R_MENU);
+		$self->{_screen}->set_deferred_refresh(R_MENU);
 	}
 }
 
@@ -661,6 +665,7 @@ Swaps to an alternative directory (B<F7>).
 
 sub handleswap {
 	my ($self, $event) = @_;
+	my $screen          = $self->{_screen};
 	my $browser         = $_pfm->browser;
 	my $swap_persistent = $_pfm->config->{swap_persistent};
 	my $prompt          = 'Directory Pathname: ';
@@ -683,8 +688,8 @@ sub handleswap {
 			# there is a non-persistent swap state
 			# --------------------------------------------------
 			# swap back if ok_to_remove_marks
-			if (!$_screen->ok_to_remove_marks()) {
-				$_screen->set_deferred_refresh(R_FRAME);
+			if (!$screen->ok_to_remove_marks()) {
+				$screen->set_deferred_refresh(R_FRAME);
 				return;
 			}
 			# perform the swap back
@@ -694,7 +699,7 @@ sub handleswap {
 			# continue below
 		}
 		# set refresh already (we may be swapping to '.')
-		$_screen->set_deferred_refresh(R_SCREEN);
+		$screen->set_deferred_refresh(R_SCREEN);
 		# --------------------------------------------------
 		# common code for returning to a state
 		# --------------------------------------------------
@@ -719,7 +724,7 @@ sub handleswap {
 		} elsif (!$success) {
 			# the state needs refreshing as we counted on being
 			# able to chdir()
-			$_screen->at($_screen->PATHLINE, 0)->clreol()
+			$screen->at($screen->PATHLINE, 0)->clreol()
 				->set_deferred_refresh(R_CHDIR)
 				->display_error("$nextdir: $!");
 			$_pfm->state->directory->set_dirty(D_ALL);
@@ -729,16 +734,16 @@ sub handleswap {
 		# there is no swap state yet
 		# --------------------------------------------------
 		# ask and swap forward
-		$_screen->at(0,0)->clreol()->cooked_echo();
+		$screen->at(0,0)->clreol()->cooked_echo();
 		$nextdir = $_pfm->history->input({
 			history => H_PATH,
 			prompt  => $prompt
 		});
-		$_screen->raw_noecho()
+		$screen->raw_noecho()
 			->set_deferred_refresh(R_FRAME);
 		return if $nextdir eq '';
 		# set refresh already (we may be swapping to '.')
-		$_screen->set_deferred_refresh(R_SCREEN);
+		$screen->set_deferred_refresh(R_SCREEN);
 		# store current cursor position
 		$_pfm->state->{_position}  = $event->{currentfile}{name};
 		$_pfm->state->{_baseindex} = $browser->baseindex;
@@ -754,7 +759,7 @@ sub handleswap {
 			$browser->baseindex(0);
 			$_pfm->state->{multiple_mode} = 0;
 			$_pfm->state->sort_mode($_pfm->config->{defaultsortmode} || 'n');
-			$_screen->set_deferred_refresh(R_CHDIR);
+			$screen->set_deferred_refresh(R_CHDIR);
 		}
 	}
 }
@@ -766,9 +771,9 @@ Handles the command to refresh the current directory (B<F5>).
 =cut
 
 sub handlerefresh {
-#	my ($self, $event) = @_;
-	if ($_screen->ok_to_remove_marks()) {
-		$_screen->set_deferred_refresh(R_SCREEN);
+	my ($self, $event) = @_;
+	if ($self->{_screen}->ok_to_remove_marks()) {
+		$self->{_screen}->set_deferred_refresh(R_SCREEN);
 		$_pfm->state->directory->set_dirty(D_FILELIST);
 	}
 }
@@ -780,12 +785,12 @@ Toggles the filtering of whiteout files (key B<%>).
 =cut
 
 sub handlewhiteout {
-#	my ($self, $event) = @_;
+	my ($self, $event) = @_;
 	toggle($_pfm->state->{white_mode});
 	# the directory object schedules a position_at when
 	# $d->refresh() is called and the directory is dirty.
-	$_screen->frame->update_headings();
-	$_screen->set_deferred_refresh(R_SCREEN);
+	$self->{_screen}->frame->update_headings();
+	$self->{_screen}->set_deferred_refresh(R_SCREEN);
 	$_pfm->state->directory->set_dirty(D_FILTER);
 }
 
@@ -796,9 +801,9 @@ Toggles multiple mode (B<F10>).
 =cut
 
 sub handlemultiple {
-#	my ($self, $event) = @_;
+	my ($self, $event) = @_;
 	toggle($_pfm->state->{multiple_mode});
-	$_screen->set_deferred_refresh(R_MENU);
+	$self->{_screen}->set_deferred_refresh(R_MENU);
 }
 
 =item handledot(App::PFM::Event $event)
@@ -808,12 +813,12 @@ Toggles the filtering of dotfiles (key B<.>).
 =cut
 
 sub handledot {
-#	my ($self, $event) = @_;
+	my ($self, $event) = @_;
 	toggle($_pfm->state->{dot_mode});
 	# the directory object schedules a position_at when
 	# $d->refresh() is called and the directory is dirty.
-	$_screen->frame->update_headings();
-	$_screen->set_deferred_refresh(R_SCREEN);
+	$self->{_screen}->frame->update_headings();
+	$self->{_screen}->set_deferred_refresh(R_SCREEN);
 	$_pfm->state->directory->set_dirty(D_FILTER);
 }
 
@@ -824,8 +829,8 @@ Cycles through color modes (B<F4>).
 =cut
 
 sub handlecolor {
-#	my ($self, $event) = @_;
-	$_screen->select_next_color();
+	my ($self, $event) = @_;
+	$self->{_screen}->select_next_color();
 }
 
 =item handlemousemode(App::PFM::Event $event)
@@ -835,7 +840,7 @@ Handles turning mouse mode on or off (B<F12>).
 =cut
 
 sub handlemousemode {
-#	my ($self, $event) = @_;
+	my ($self, $event) = @_;
 	my $browser = $_pfm->browser;
 	$browser->mouse_mode(!$browser->mouse_mode);
 }
@@ -847,8 +852,8 @@ Handles moving on to the next configured layout (B<F9>).
 =cut
 
 sub handlelayouts {
-#	my ($self, $event) = @_;
-	$_screen->listing->select_next_layout();
+	my ($self, $event) = @_;
+	$self->{_screen}->listing->select_next_layout();
 }
 
 =item handlefit(App::PFM::Event $event)
@@ -858,8 +863,8 @@ Recalculates the screen size and adjusts the layouts (B<F3>).
 =cut
 
 sub handlefit {
-#	my ($self, $event) = @_;
-	$_screen->fit();
+	my ($self, $event) = @_;
+	$self->{_screen}->fit();
 }
 
 =item handleident(App::PFM::Event $event)
@@ -870,8 +875,8 @@ the username, hostname or both (key B<=>).
 =cut
 
 sub handleident {
-#	my ($self, $event) = @_;
-	$_screen->diskinfo->select_next_ident();
+	my ($self, $event) = @_;
+	$self->{_screen}->diskinfo->select_next_ident();
 }
 
 =item handleclobber(App::PFM::Event $event)
@@ -884,7 +889,7 @@ before overwrite (key B<!>.
 sub handleclobber {
 	my ($self, $event) = @_;
 	$self->clobber_mode(!$self->{_clobber_mode});
-	$_screen->set_deferred_refresh(R_FOOTER);
+	$self->{_screen}->set_deferred_refresh(R_FOOTER);
 }
 
 =item handlepathmode(App::PFM::Event $event)
@@ -894,7 +899,7 @@ Toggles between logical and physical path mode (key B<">).
 =cut
 
 sub handlepathmode {
-#	my ($self, $event) = @_;
+	my ($self, $event) = @_;
 	my $directory = $_pfm->state->directory;
 	$directory->path_mode($directory->path_mode eq 'phys' ? 'log' : 'phys');
 }
@@ -907,10 +912,10 @@ showing nonprintable characters in the B<N>ame command.
 =cut
 
 sub handleradix {
-#	my ($self, $event) = @_;
+	my ($self, $event) = @_;
 	my $state = $_pfm->state;
 	$state->{radix_mode} = ($state->{radix_mode} eq 'hex' ? 'oct' : 'hex');
-	$_screen->set_deferred_refresh(R_FOOTER);
+	$self->{_screen}->set_deferred_refresh(R_FOOTER);
 }
 
 =item handlequit(App::PFM::Event $event)
@@ -921,18 +926,19 @@ Handles the B<q>uit and quick B<Q>uit commands.
 
 sub handlequit {
 	my ($self, $event) = @_;
+	my $screen      = $self->{_screen};
 	my $confirmquit = $_pfm->config->{confirmquit};
 	return 'quit' if isno($confirmquit);
 	return 'quit' if $event->{data} eq 'Q'; # quick quit
 	return 'quit' if
-		($confirmquit =~ /marked/i and !$_screen->diskinfo->mark_info);
-	$_screen->show_frame({
+		($confirmquit =~ /marked/i and !$screen->diskinfo->mark_info);
+	$screen->show_frame({
 			footer => FOOTER_NONE,
 			prompt => 'Are you sure you want to quit [Y/N]? '
 	});
-	my $sure = $_screen->getch();
+	my $sure = $screen->getch();
 	return 'quit' if ($sure =~ /y/i);
-	$_screen->set_deferred_refresh(R_MENU | R_FOOTER);
+	$screen->set_deferred_refresh(R_MENU | R_FOOTER);
 	return 0;
 }
 
@@ -948,11 +954,11 @@ sub handleperlcommand {
 	# for ease of use when debugging
 	my $pfm            = $_pfm;
 	my $config         = $_pfm->config;
-	my $os             = $_pfm->os;
+	my $os             = $self->{_os};
 	my $jobhandler     = $_pfm->jobhandler;
 	my $commandhandler = $_pfm->commandhandler;
 	my $history        = $_pfm->history;
-	my $screen         = $_screen;
+	my $screen         = $self->{_screen};
 	my $listing        = $screen->listing;
 	my $frame          = $screen->frame;
 	my $browser        = $_pfm->browser;
@@ -960,17 +966,17 @@ sub handleperlcommand {
 	my $state          = $_pfm->state;
 	my $directory      = $state->directory;
 	# now do!
-	$_screen->listing->markcurrentline('@'); # disregard multiple_mode
-	$_screen->show_frame({
+	$screen->listing->markcurrentline('@'); # disregard multiple_mode
+	$screen->show_frame({
 		footer => FOOTER_NONE,
 		prompt => 'Enter Perl command:'
 	});
-	$_screen->at($_screen->PATHLINE,0)->clreol()->cooked_echo();
+	$screen->at($screen->PATHLINE,0)->clreol()->cooked_echo();
 	$perlcmd = $_pfm->history->input({ history => H_PERLCMD });
-	$_screen->raw_noecho();
+	$screen->raw_noecho();
 	eval $perlcmd;
-	$_screen->display_error($@) if $@;
-	$_screen->set_deferred_refresh(R_SCREEN);
+	$screen->display_error($@) if $@;
+	$screen->set_deferred_refresh(R_SCREEN);
 }
 
 =item handlehelp(App::PFM::Event $event)
@@ -985,9 +991,9 @@ sub handlehelp {
 	my $page  = 1;
 	my ($key, $prompt);
 	while ($page <= $pages) {
-		$_screen->clrscr()->cooked_echo();
+		$self->{_screen}->clrscr()->cooked_echo();
 		$prompt = $self->_helppage($page);
-		$key = $_screen->raw_noecho()->puts($prompt)->getch();
+		$key = $self->{_screen}->raw_noecho()->puts($prompt)->getch();
 		if ($key =~ /(pgup|kl|ku|\cH|\c?|del)/o) {
 			$page-- if $page > 1;
 			redo;
@@ -998,7 +1004,7 @@ sub handlehelp {
 	} continue {
 		$page++;
 	}
-	$_screen->set_deferred_refresh(R_CLRSCR);
+	$self->{_screen}->set_deferred_refresh(R_CLRSCR);
 }
 
 =item handleentry(App::PFM::Event $event)
@@ -1022,11 +1028,11 @@ sub handleentry {
 	}
 	return if ($nextdir    eq '.');
 	return if ($currentdir eq '/' && $direction eq 'up');
-	return if !$_screen->ok_to_remove_marks();
+	return if !$self->{_screen}->ok_to_remove_marks();
 	$success = $_pfm->state->directory->chdir($nextdir, 0, $direction);
 	unless ($success) {
-		$_screen->at(0,0)->clreol()->display_error($!);
-		$_screen->set_deferred_refresh(R_MENU);
+		$self->{_screen}->at(0,0)->clreol()->display_error($!);
+		$self->{_screen}->set_deferred_refresh(R_MENU);
 	}
 	return $success;
 }
@@ -1049,7 +1055,7 @@ sub handlemark {
 	}
 	# redraw the line now, because we could be moving on
 	# to the next file now (space command)
-	$_screen->listing->highlight_off();
+	$self->{_screen}->listing->highlight_off();
 }
 
 =item handlemarkall()
@@ -1086,7 +1092,7 @@ sub handlemarkall {
 			}
 		}
 	}
-	$_screen->set_deferred_refresh(R_SCREEN);
+	$self->{_screen}->set_deferred_refresh(R_SCREEN);
 }
 
 =item handlemarkinverse()
@@ -1111,7 +1117,7 @@ sub handlemarkinverse {
 			}
 		}
 	}
-	$_screen->set_deferred_refresh(R_SCREEN);
+	$self->{_screen}->set_deferred_refresh(R_SCREEN);
 }
 
 =item handlekeyell(App::PFM::Event $event)
@@ -1139,7 +1145,7 @@ Re-executes a stat() on the current (or selected) files (B<F11>).
 
 sub handlerestat {
 	my ($self, $event) = @_;
-	$_pfm->state->directory->apply(sub {});
+	$_pfm->state->directory->apply(sub {}, $event);
 }
 
 =item handlelink(App::PFM::Event $event)
@@ -1155,21 +1161,21 @@ sub handlelink {
 	my @lncmd = $self->{_clobber_mode} ? qw(ln -f) : qw(ln);
 	
 	if ($_pfm->state->{multiple_mode}) {
-		$_screen->set_deferred_refresh(R_FRAME | R_LISTING);
+		$self->{_screen}->set_deferred_refresh(R_FRAME | R_LISTING);
 	} else {
-		$_screen->set_deferred_refresh(R_FRAME);
-		$_screen->listing->markcurrentline('L');
+		$self->{_screen}->set_deferred_refresh(R_FRAME);
+		$self->{_screen}->listing->markcurrentline('L');
 		$histpush = $event->{currentfile}{name};
 	}
 	
-	$headerlength = $_screen->show_frame({
+	$headerlength = $self->{_screen}->show_frame({
 		menu => MENU_LNKTYPE,
 	});
-	$absrel = lc $_screen->at(0, $headerlength+1)->getch();
+	$absrel = lc $self->{_screen}->at(0, $headerlength+1)->getch();
 	return unless $absrel =~ /^[arh]$/;
 	push @lncmd, '-s' unless $absrel eq 'h';
 	
-	$_screen->at(0,0)->clreol()->cooked_echo();
+	$self->{_screen}->at(0,0)->clreol()->cooked_echo();
 	my $prompt = 'Name of new '.
 		( $absrel eq 'r' ? 'relative symbolic'
 		: $absrel eq 'a' ? 'absolute symbolic' : 'hard') . ' link: ';
@@ -1179,7 +1185,7 @@ sub handlelink {
 		prompt        => $prompt,
 		history_input => $histpush,
 	}));
-	$_screen->raw_noecho();
+	$self->{_screen}->raw_noecho();
 	return if ($newname eq '');
 	$newname = canonicalize_path($newname);
 	# expand =[3456] at this point as a test, but not =[1278]
@@ -1224,7 +1230,7 @@ sub handlelink {
 			$targetstring = $currentdir.'/'.$file->{name};
 		}
 		if (system @lncmd, $targetstring, $newnameexpanded) {
-			$_screen->neat_error('Linking failed');
+			$self->{_screen}->neat_error('Linking failed');
 		} elsif ($orignewnameexpanded !~ m!/!) {
 			# let cursor follow around
 			$_pfm->browser->position_at($orignewnameexpanded)
@@ -1239,7 +1245,7 @@ sub handlelink {
 				refresh => TRUE);
 		}
 	};
-	$_pfm->state->directory->apply($do_this);
+	$_pfm->state->directory->apply($do_this, $event);
 }
 
 =item handlesinglesort(App::PFM::Event $event)
@@ -1264,9 +1270,10 @@ just a single one.
 
 sub handlesort {
 	my ($self, $event, $multilevel) = @_;
-	my $printline = $_screen->BASELINE;
-	my $infocol   = $_screen->diskinfo->infocol;
-	my $frame     = $_screen->frame;
+	my $screen    = $self->{_screen};
+	my $printline = $screen->BASELINE;
+	my $infocol   = $screen->diskinfo->infocol;
+	my $frame     = $screen->frame;
 	my %sortmodes = @{$_pfm->state->SORTMODES()};
 	my ($i, $newmode, $menulength);
 	$menulength = $frame->show({
@@ -1274,27 +1281,27 @@ sub handlesort {
 		footer   => FOOTER_NONE,
 		headings => HEADING_SORT,
 	});
-	$_screen->diskinfo->clearcolumn();
+	$screen->diskinfo->clearcolumn();
 	# we can't use foreach (keys %sortmodes) because we would lose ordering
 	foreach (grep { ($i += 1) %= 2 } @{$_pfm->state->SORTMODES()}) {
 		# keep keys, skip values
-		last if ($printline > $_screen->BASELINE + $_screen->screenheight);
+		last if ($printline > $screen->BASELINE + $screen->screenheight);
 		next if /[[:upper:]]/;
-		$_screen->at($printline++, $infocol)
+		$screen->at($printline++, $infocol)
 			->puts(sprintf('%1s %s', $_, $sortmodes{$_}));
 	}
 	if ($multilevel) {
-		$_screen->at(0,0)->clreol()->cooked_echo();
+		$screen->at(0,0)->clreol()->cooked_echo();
 		chomp($newmode = $_pfm->history->input({
 			history => H_MODE,
 			prompt  => 'Sort by which modes? (uppercase=reverse): ',
 		}));
-		$_screen->raw_noecho();
+		$screen->raw_noecho();
 	} else {
-		$newmode = $_screen->at(0, $menulength)->getch();
+		$newmode = $screen->at(0, $menulength)->getch();
 	}
-	$_screen->set_deferred_refresh(R_SCREEN);
-	$_screen->diskinfo->clearcolumn();
+	$screen->set_deferred_refresh(R_SCREEN);
+	$screen->diskinfo->clearcolumn();
 	return if $newmode eq '';
 	# find out if the resulting mode equals the newmode
 	if ($newmode eq $_pfm->state->sort_mode($newmode)) {
@@ -1325,7 +1332,7 @@ sub handlecyclesort {
 	$_pfm->state->sort_mode($newmode);
 	$_pfm->browser->position_at(
 		$event->{currentfile}{name}, { force => 0, exact => 1 });
-	$_screen->set_deferred_refresh(R_SCREEN);
+	$self->{_screen}->set_deferred_refresh(R_SCREEN);
 	$_pfm->state->directory->set_dirty(D_SORT | D_FILTER);
 }
 
@@ -1339,12 +1346,13 @@ sub handlename {
 	my ($self, $event) = @_;
 	my $numformat   = ${NUMFORMATS()}{$_pfm->state->{radix_mode}};
 	my $browser     = $_pfm->browser;
+	my $screen      = $self->{_screen};
 	my $workfile    = $event->{currentfile}->clone();
-	my $screenline  = $browser->currentline + $_screen->BASELINE;
-	my $filenamecol = $_screen->listing->filenamecol;
+	my $screenline  = $browser->currentline + $screen->BASELINE;
+	my $filenamecol = $screen->listing->filenamecol;
 	my $trspace     = $_pfm->config->{trspace};
 	my ($line, $linecolor);
-	$_screen->listing->markcurrentline('N'); # disregard multiple_mode
+	$screen->listing->markcurrentline('N'); # disregard multiple_mode
 	for ($workfile->{name}, $workfile->{target}) {
 		s/\\/\\\\/;
 		s{([${trspace}\177[:cntrl:]]|[^[:ascii:]])}
@@ -1353,24 +1361,24 @@ sub handlename {
 	$line = $workfile->{name} . $workfile->filetypeflag() .
 			(length($workfile->{target}) ? ' -> ' . $workfile->{target} : '');
 	$linecolor =
-		$_pfm->config->{framecolors}{$_screen->color_mode}{highlight};
+		$_pfm->config->{framecolors}{$screen->color_mode}{highlight};
 	
-	$_screen->at($screenline, $filenamecol)
+	$screen->at($screenline, $filenamecol)
 		->putcolored($linecolor, $line, " \cH");
-	$_screen->listing->applycolor(
-		$screenline, $_screen->listing->FILENAME_LONG, $workfile);
-	if ($_screen->noecho()->getch() eq '*') {
+	$screen->listing->applycolor(
+		$screenline, $screen->listing->FILENAME_LONG, $workfile);
+	if ($screen->noecho()->getch() eq '*') {
 		$self->handleradix();
-		$_screen->echo()->at($screenline, $filenamecol)
+		$screen->echo()->at($screenline, $filenamecol)
 			->puts(' ' x length $line)
 			->frame->show_footer(FOOTER_SINGLE);
 		goto &handlename;
 	}
-	if ($filenamecol < $_screen->diskinfo->infocol &&
-		$filenamecol + length($line) >= $_screen->diskinfo->infocol or
-		$filenamecol + length($line) >= $_screen->screenwidth)
+	if ($filenamecol < $screen->diskinfo->infocol &&
+		$filenamecol + length($line) >= $screen->diskinfo->infocol or
+		$filenamecol + length($line) >= $screen->screenwidth)
 	{
-		$_screen->set_deferred_refresh(R_CLRSCR);
+		$screen->set_deferred_refresh(R_CLRSCR);
 	}
 }
 
@@ -1394,13 +1402,13 @@ sub handlefind {
 		goto &handlefind_incremental;
 	}
 	my ($findme, $file);
-	$_screen->clear_footer()->at(0,0)->clreol()->cooked_echo();
+	$self->{_screen}->clear_footer()->at(0,0)->clreol()->cooked_echo();
 	($findme = $_pfm->history->input({
 		history => H_PATH,
 		prompt  => 'File to find: ',
 	})) =~ s/\/$//;
 	if ($findme =~ /\//) { $findme = basename($findme) };
-	$_screen->raw_noecho()->set_deferred_refresh(R_MENU);
+	$self->{_screen}->raw_noecho()->set_deferred_refresh(R_MENU);
 	return if $findme eq '';
 	FINDENTRY:
 	foreach $file (sort by_name @{$_pfm->state->directory->showncontents}) {
@@ -1409,32 +1417,33 @@ sub handlefind {
 			last FINDENTRY;
 		}
 	}
-	$_screen->set_deferred_refresh(R_LISTING);
+	$self->{_screen}->set_deferred_refresh(R_LISTING);
 }
 
 sub handlefind_incremental {
 	my ($self) = @_;
 	my ($findme, $key, $screenline);
+	my $screen = $self->{_screen};
 	my $prompt = 'File to find: ';
 	my $cursorjumptime = .5;
-	my $cursorcol = $_screen->listing->cursorcol;
-	$_screen->clear_footer();
+	my $cursorcol = $screen->listing->cursorcol;
+	$screen->clear_footer();
 	FINDINCENTRY:
 	while (1) {
-		$_screen
+		$screen
 			->listing->highlight_on()
 			->at(0,0)->clreol()->putmessage($prompt)
 			->puts($findme);
 		if ($cursorjumptime) {
-			$screenline = $_pfm->browser->currentline + $_screen->BASELINE;
-			while (!$_screen->key_pressed($cursorjumptime)) {
-				$_screen->at($screenline, $cursorcol);
-				last if ($_screen->key_pressed($cursorjumptime));
-				$_screen->at(0, length($prompt) + length $findme);
+			$screenline = $_pfm->browser->currentline + $screen->BASELINE;
+			while (!$screen->key_pressed($cursorjumptime)) {
+				$screen->at($screenline, $cursorcol);
+				last if ($screen->key_pressed($cursorjumptime));
+				$screen->at(0, length($prompt) + length $findme);
 			}
 		}
-		$key = $_screen->getch();
-		$_screen->listing->highlight_off();
+		$key = $screen->getch();
+		$screen->listing->highlight_off();
 		if ($key eq "\cM" or $key eq "\e") {
 			last FINDINCENTRY;
 		} elsif ($key eq "\cH" or $key eq 'del' or $key eq "\x7F") {
@@ -1449,9 +1458,9 @@ sub handlefind_incremental {
 			$findme .= $key;
 		}
 		$_pfm->browser->position_cursor_fuzzy($findme);
-		$_screen->listing->show();
+		$screen->listing->show();
 	}
-	$_screen->set_deferred_refresh(R_MENU);
+	$screen->set_deferred_refresh(R_MENU);
 }
 
 =item handleedit(App::PFM::Event $event)
@@ -1461,17 +1470,17 @@ Starts the editor for editing the current fileZ<>(s) (B<E>dit command).
 =cut
 
 sub handleedit {
-#	my ($self, $event) = @_;
+	my ($self, $event) = @_;
 	my $do_this;
-	$_screen->alternate_off()->clrscr()->at(0,0)->cooked_echo();
+	$self->{_screen}->alternate_off()->clrscr()->at(0,0)->cooked_echo();
 	$do_this = sub {
 		my $file = shift;
 		system $_pfm->config->{editor}." \Q$file->{name}\E"
-			and $_screen->display_error('Editor failed');
+			and $self->{_screen}->display_error('Editor failed');
 	};
-	$_pfm->state->directory->apply($do_this);
-	$_screen->alternate_on() if $_pfm->config->{altscreen_mode};
-	$_screen->raw_noecho()->set_deferred_refresh(R_CLRSCR);
+	$_pfm->state->directory->apply($do_this, $event);
+	$self->{_screen}->alternate_on() if $_pfm->config->{altscreen_mode};
+	$self->{_screen}->raw_noecho()->set_deferred_refresh(R_CLRSCR);
 }
 
 =item handlechown(App::PFM::Event $event)
@@ -1484,30 +1493,30 @@ sub handlechown {
 	my ($self, $event) = @_;
 	my ($newuid, $do_this);
 	if ($_pfm->state->{multiple_mode}) {
-		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO | R_LISTING);
+		$self->{_screen}->set_deferred_refresh(R_MENU | R_PATHINFO | R_LISTING);
 	} else {
-		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO);
-		$_screen->listing->markcurrentline('U');
+		$self->{_screen}->set_deferred_refresh(R_MENU | R_PATHINFO);
+		$self->{_screen}->listing->markcurrentline('U');
 	}
-	$_screen->clear_footer()->at(0,0)->clreol()->cooked_echo();
+	$self->{_screen}->clear_footer()->at(0,0)->clreol()->cooked_echo();
 	chomp($newuid = $_pfm->history->input({
 		history => H_MODE,
 		prompt  => 'New [user][:group] ',
 	}));
-	$_screen->raw_noecho();
+	$self->{_screen}->raw_noecho();
 	return if ($newuid eq '');
 	$do_this = sub {
 		my $file = shift;
 		if (system('chown', $newuid, $file->{name})) {
-			$_screen->neat_error('Change owner failed');
+			$self->{_screen}->neat_error('Change owner failed');
 		}
 	};
-	$_pfm->state->directory->apply($do_this);
+	$_pfm->state->directory->apply($do_this, $event);
 	# re-sort
 	if ($_pfm->state->sort_mode =~ /[ug]/i and
 		$_pfm->config->{autosort})
 	{
-		$_screen->set_deferred_refresh(R_LISTING);
+		$self->{_screen}->set_deferred_refresh(R_LISTING);
 		# 2.06.4: sortcontents() doesn't sort @showncontents.
 		# therefore, apply the filter again as well.
 		$_pfm->state->directory->set_dirty(D_SORT | D_FILTER);
@@ -1525,35 +1534,36 @@ Handles changing the mode (permission bits) of a file (B<A>ttribute command).
 sub handlechmod {
 	my ($self, $event) = @_;
 	my ($newmode, $do_this);
+	my $screen = $self->{_screen};
 	if ($_pfm->state->{multiple_mode}) {
-		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO | R_LISTING);
+		$screen->set_deferred_refresh(R_MENU | R_PATHINFO | R_LISTING);
 	} else {
-		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO);
-		$_screen->listing->markcurrentline('A');
+		$screen->set_deferred_refresh(R_MENU | R_PATHINFO);
+		$screen->listing->markcurrentline('A');
 	}
-	$_screen->clear_footer()->at(0,0)->clreol()->cooked_echo();
+	$screen->clear_footer()->at(0,0)->clreol()->cooked_echo();
 	chomp($newmode = $_pfm->history->input({
 		history => H_MODE,
 		prompt  => 'New mode [ugoa][-=+][rwxslt] or octal: ',
 	}));
-	$_screen->raw_noecho();
+	$screen->raw_noecho();
 	return if ($newmode eq '');
 	if ($newmode =~ s/^\s*(\d+)\s*$/oct($1)/e) {
 		$do_this = sub {
 			my $file = shift;
 			unless (chmod $newmode, $file->{name}) {
-				$_screen->neat_error($!);
+				$screen->neat_error($!);
 			}
 		};
 	} else {
 		$do_this = sub {
 			my $file = shift;
 			if (system 'chmod', $newmode, $file->{name}) {
-				$_screen->neat_error('Change mode failed');
+				$screen->neat_error('Change mode failed');
 			}
 		};
 	}
-	$_pfm->state->directory->apply($do_this);
+	$_pfm->state->directory->apply($do_this, $event);
 }
 
 =item handletime(App::PFM::Event $event)
@@ -1565,19 +1575,20 @@ Handles changing the timestamp of a file (B<T>ime command).
 sub handletime {
 	my ($self, $event) = @_;
 	my ($newtime, $do_this, @cmdopts);
+	my $screen = $self->{_screen};
 	if ($_pfm->state->{multiple_mode}) {
-		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO | R_LISTING);
+		$screen->set_deferred_refresh(R_MENU | R_PATHINFO | R_LISTING);
 	} else {
-		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO);
-		$_screen->listing->markcurrentline('T');
+		$screen->set_deferred_refresh(R_MENU | R_PATHINFO);
+		$screen->listing->markcurrentline('T');
 	}
-	$_screen->clear_footer()->at(0,0)->clreol()->cooked_echo();
+	$screen->clear_footer()->at(0,0)->clreol()->cooked_echo();
 	$newtime = $_pfm->history->input({
 		history       => H_TIME,
 		prompt        => 'Timestamp [[CC]YY-]MM-DD hh:mm[.ss]: ',
 		history_input => strftime ("%Y-%m-%d %H:%M.%S", localtime time),
 	});
-	$_screen->raw_noecho();
+	$screen->raw_noecho();
 	return if ($newtime eq '');
 	if ($newtime eq '.') {
 		$newtime = time;
@@ -1589,15 +1600,15 @@ sub handletime {
 	$do_this = sub {
 		my $file = shift;
 		if (!utime $newtime, $newtime, $file->{name}) {
-			$_screen->neat_error('Set timestamp failed');
+			$screen->neat_error('Set timestamp failed');
 		}
 	};
-	$_pfm->state->directory->apply($do_this);
+	$_pfm->state->directory->apply($do_this, $event);
 	# re-sort
 	if ($_pfm->state->sort_mode =~ /[da]/i and
 		$_pfm->config->{autosort})
 	{
-		$_screen->set_deferred_refresh(R_LISTING);
+		$screen->set_deferred_refresh(R_LISTING);
 		# 2.06.4: sortcontents() doesn't sort @showncontents.
 		# therefore, apply the filter again as well.
 		$_pfm->state->directory->set_dirty(D_SORT | D_FILTER);
@@ -1618,17 +1629,17 @@ sub handleshow {
 	if ($self->_followmode($event->{currentfile}) =~ /^d/) {
 		goto &handleentry;
 	}
-	$_screen->clrscr()->at(0,0)->cooked_echo();
+	$self->{_screen}->clrscr()->at(0,0)->cooked_echo();
 	$do_this = sub {
 		my $file = shift;
-		$_screen->puts($file->{name} . "\n")
+		$self->{_screen}->puts($file->{name} . "\n")
 			->alternate_off();
 		system $_pfm->config->{pager}." \Q$file->{name}\E"
-			and $_screen->display_error("Pager failed\n");
-		$_screen->alternate_on() if $_pfm->config->{altscreen_mode};
+			and $self->{_screen}->display_error("Pager failed\n");
+		$self->{_screen}->alternate_on() if $_pfm->config->{altscreen_mode};
 	};
-	$_pfm->state->directory->apply($do_this);
-	$_screen->raw_noecho()->set_deferred_refresh(R_CLRSCR);
+	$_pfm->state->directory->apply($do_this, $event);
+	$self->{_screen}->raw_noecho()->set_deferred_refresh(R_CLRSCR);
 }
 
 =item handleunwo(App::PFM::Event $event)
@@ -1640,31 +1651,32 @@ Handles removing a whiteout file (unB<W>hiteout command).
 sub handleunwo {
 	my ($self, $event) = @_;
 	my ($do_this);
+	my $screen = $self->{_screen};
 	my $nowhiteouterror = 'Current file is not a whiteout';
 	if ($_pfm->state->{multiple_mode}) {
-		$_screen->set_deferred_refresh(R_MENU | R_LISTING);
+		$screen->set_deferred_refresh(R_MENU | R_LISTING);
 	} else {
-		$_screen->set_deferred_refresh(R_MENU);
-		$_screen->listing->markcurrentline('W');
+		$screen->set_deferred_refresh(R_MENU);
+		$screen->listing->markcurrentline('W');
 	}
 	if (!$_pfm->state->{multiple_mode} and
 		$event->{currentfile}{type} ne 'w')
 	{
-		$_screen->at(0,0)->clreol()->display_error($nowhiteouterror);
+		$screen->at(0,0)->clreol()->display_error($nowhiteouterror);
 		return;
 	}
-	$_screen->at($_screen->PATHLINE,0);
+	$screen->at($screen->PATHLINE,0);
 	$do_this = sub {
 		my $file = shift;
 		if ($file->{type} eq 'w') {
-			if ($_pfm->os->unwo($file->{name})) {
-				$_screen->neat_error('Whiteout removal failed');
+			if ($self->{_os}->unwo($file->{name})) {
+				$screen->neat_error('Whiteout removal failed');
 			}
 		} else {
-			$_screen->neat_error($nowhiteouterror);
+			$screen->neat_error($nowhiteouterror);
 		}
 	};
-	$_pfm->state->directory->apply($do_this);
+	$_pfm->state->directory->apply($do_this, $event);
 }
 
 =item handleversion(App::PFM::Event $event)
@@ -1677,9 +1689,9 @@ and starts a job for the file if so (B<V>ersion command).
 sub handleversion {
 	my ($self, $event) = @_;
 	if ($_pfm->state->{multiple_mode}) {
-		$_pfm->state->directory->apply(sub {});
+		$_pfm->state->directory->apply(sub {}, $event);
 		$_pfm->state->directory->checkrcsapplicable();
-		$_screen->set_deferred_refresh(R_LISTING | R_MENU);
+		$self->{_screen}->set_deferred_refresh(R_LISTING | R_MENU);
 	} else {
 		$_pfm->state->directory->checkrcsapplicable(
 			$event->{currentfile}{name});
@@ -1695,30 +1707,31 @@ Handles including (marking) and excluding (unmarking) files
 
 sub handleinclude { # include/exclude flag (from keypress)
 	my ($self, $event) = @_;
+	my $screen       = $self->{_screen};
 	my $directory    = $_pfm->state->directory;
-	my $printline    = $_screen->BASELINE;
-	my $infocol      = $_screen->diskinfo->infocol;
+	my $printline    = $screen->BASELINE;
+	my $infocol      = $screen->diskinfo->infocol;
 	my $exin         = $event->{data};
 	my %inc_criteria = @{INC_CRITERIA()};
 	my ($criterion, $menulength, $key, $wildfilename, $entry, $i,
 		$boundarytime, $boundarysize);
 	$exin = lc $exin;
-	$_screen->diskinfo->clearcolumn();
+	$screen->diskinfo->clearcolumn();
 	# we can't use foreach (keys %mark_criteria) because we would lose ordering
 	foreach (grep { ($i += 1) %= 2 } @{INC_CRITERIA()}) { # keep keys, skip values
-		last if ($printline > $_screen->BASELINE + $_screen->screenheight);
-		$_screen->at($printline++, $infocol)
+		last if ($printline > $screen->BASELINE + $screen->screenheight);
+		$screen->at($printline++, $infocol)
 			->puts(sprintf('%1s %s', $_, $inc_criteria{$_}));
 	}
 	my $menu_mode = $exin eq 'x' ? MENU_EXCLUDE : MENU_INCLUDE;
-	$menulength = $_screen
+	$menulength = $screen
 		->set_deferred_refresh(R_FRAME | R_PATHINFO | R_DISKINFO)
 		->show_frame({
 			menu     => $menu_mode,
 			footer   => FOOTER_NONE,
 			headings => HEADING_CRITERIA
 		});
-	$key = lc $_screen->at(0, $menulength+1)->getch();
+	$key = lc $screen->at(0, $menulength+1)->getch();
 	if      ($key eq 'o') { # oldmarks
 		$criterion = sub { my $file = shift; $file->{selected} eq M_OLDMARK };
 	} elsif ($key eq 'n') { # newmarks
@@ -1783,7 +1796,7 @@ sub handleinclude { # include/exclude flag (from keypress)
 				} else {
 					$directory->include($entry);
 				}
-				$_screen->set_deferred_refresh(R_SCREEN);
+				$screen->set_deferred_refresh(R_SCREEN);
 			}
 		}
 	}
@@ -1799,48 +1812,50 @@ subdirectories (siB<Z>e command).
 sub handlesize {
 	my ($self, $event) = @_;
 	my ($do_this);
-	my $filerecordcol = $_screen->listing->filerecordcol;
+	my $screen        = $self->{_screen};
+	my $filerecordcol = $screen->listing->filerecordcol;
 	if ($_pfm->state->{multiple_mode}) {
-		$_screen->set_deferred_refresh(R_SCREEN);
+		$screen->set_deferred_refresh(R_SCREEN);
 	} else {
-		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO);
-		$_screen->listing->markcurrentline('Z');
+		$screen->set_deferred_refresh(R_MENU | R_PATHINFO);
+		$screen->listing->markcurrentline('Z');
 	}
 	$do_this = sub {
 		my $file = shift;
 		my ($recursivesize, $command, $tempfile, $res);
-		$recursivesize = $_pfm->os->du($file->{name});
+		$recursivesize = $self->{_os}->du($file->{name});
 		$recursivesize =~ s/^\D*(\d+).*/$1/;
 		chomp $recursivesize;
 		# if a CHLD signal handler is installed, $? is not always reliable.
 		if ($?) {
-			$_screen->at(0,0)->clreol()
+			$screen->at(0,0)->clreol()
 				->putmessage('Could not read all directories')
 				->set_deferred_refresh(R_SCREEN);
 			$recursivesize ||= 0;
 		}
 		@{$file}{qw(grand grand_num grand_power)} =
 			($recursivesize, fit2limit(
-				$recursivesize, $_screen->listing->maxgrandtotallength));
-		if (join('', @{$_screen->listing->layoutfields}) !~ /grand/ and
+				$recursivesize, $screen->listing->maxgrandtotallength));
+		if (join('', @{$screen->listing->layoutfields}) !~ /grand/ and
 			!$_pfm->state->{multiple_mode})
 		{
-			my $screenline = $_pfm->browser->currentline + $_screen->BASELINE;
+			my $screenline = $_pfm->browser->currentline + $screen->BASELINE;
 			# use filesize field of a cloned object.
 			$tempfile = $file->clone();
 			@{$tempfile}{qw(size size_num size_power)} =
 				($recursivesize, fit2limit(
-					$recursivesize, $_screen->listing->maxfilesizelength));
-			$_screen->at($screenline, $filerecordcol)
-				->puts($_screen->listing->fileline($tempfile))
+					$recursivesize, $screen->listing->maxfilesizelength));
+			$screen->at($screenline, $filerecordcol)
+				->puts($screen->listing->fileline($tempfile))
 				->listing->markcurrentline('Z')
 				->listing->applycolor($screenline,
-					$_screen->listing->FILENAME_SHORT, $tempfile);
-			$_screen->getch();
+					$screen->listing->FILENAME_SHORT, $tempfile);
+			$screen->getch();
 		}
 		return $file;
 	};
-	$_pfm->state->directory->apply($do_this, 'norestat');
+	$event->{lunchbox}{applyflags} = 'norestat';
+	$_pfm->state->directory->apply($do_this, $event);
 }
 
 =item handletarget(App::PFM::Event $event)
@@ -1852,32 +1867,33 @@ Changes the target of a symbolic link (tarB<G>et command).
 sub handletarget {
 	my ($self, $event) = @_;
 	my ($newtarget, $do_this);
+	my $screen = $self->{_screen};
 	if ($_pfm->state->{multiple_mode}) {
-		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO | R_LISTING);
+		$screen->set_deferred_refresh(R_MENU | R_PATHINFO | R_LISTING);
 	} else {
-		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO);
-		$_screen->listing->markcurrentline('G');
+		$screen->set_deferred_refresh(R_MENU | R_PATHINFO);
+		$screen->listing->markcurrentline('G');
 	}
 	my $nosymlinkerror = 'Current file is not a symbolic link';
 	if ($event->{currentfile}{type} ne 'l' and
 		!$_pfm->state->{multiple_mode})
 	{
-		$_screen->at(0,0)->clreol()->display_error($nosymlinkerror);
+		$screen->at(0,0)->clreol()->display_error($nosymlinkerror);
 		return;
 	}
-	$_screen->clear_footer()->at(0,0)->clreol()->cooked_echo();
+	$screen->clear_footer()->at(0,0)->clreol()->cooked_echo();
 	chomp($newtarget = $_pfm->history->input({
 		history       => H_PATH,
 		prompt        => 'New symlink target: ',
 		history_input => $event->{currentfile}{target},
 	}));
-	$_screen->raw_noecho();
+	$screen->raw_noecho();
 	return if ($newtarget eq '');
 	$do_this = sub {
 		my $file = shift;
 		my ($newtargetexpanded, $oldtargetok);
 		if ($file->{type} ne 'l') {
-			$_screen->at(0,0)->clreol()->display_error($nosymlinkerror);
+			$screen->at(0,0)->clreol()->display_error($nosymlinkerror);
 		} else {
 			# $self is the commandhandler (closure!)
 			$self->_expand_escapes(
@@ -1887,17 +1903,17 @@ sub handletarget {
 				# if it points to a dir, the symlink must be removed first
 				# next line is an intentional assignment
 				unless ($oldtargetok = unlink $file->{name}) {
-					$_screen->neat_error($!);
+					$screen->neat_error($!);
 				}
 			}
 			if ($oldtargetok and
 				system qw(ln -sf), $newtargetexpanded, $file->{name})
 			{
-				$_screen->neat_error('Replace symlink failed');
+				$screen->neat_error('Replace symlink failed');
 			}
 		}
 	};
-	$_pfm->state->directory->apply($do_this);
+	$_pfm->state->directory->apply($do_this, $event);
 }
 
 =item handlecommand(App::PFM::Event $event)
@@ -1908,98 +1924,100 @@ Executes a shell command (cB<O>mmand and B<Y>our-command).
 
 sub handlecommand { # Y or O
 	my ($self, $event) = @_;
-	my $printline  = $_screen->BASELINE;
-	my $infocol    = $_screen->diskinfo->infocol;
-	my $infolength = $_screen->diskinfo->infolength;
+	my $screen     = $self->{_screen};
+	my $printline  = $screen->BASELINE;
+	my $infocol    = $screen->diskinfo->infocol;
+	my $infolength = $screen->diskinfo->infolength;
 	my $e          = $_pfm->config->{e};
 	my $key        = uc $event->{data};
 	my ($command, $do_this, $prompt, $printstr, $newdir);
 	unless ($_pfm->state->{multiple_mode}) {
-		$_screen->listing->markcurrentline($key);
+		$screen->listing->markcurrentline($key);
 	}
-	$_screen->diskinfo->clearcolumn();
+	$screen->diskinfo->clearcolumn();
 	if ($key eq 'Y') { # Your command
 		$prompt = 'Enter one of the highlighted characters below: ';
 		foreach (sort alphabetically $_pfm->config->your_commands) {
-			last if ($printline > $_screen->BASELINE + $_screen->screenheight);
+			last if ($printline > $screen->BASELINE + $screen->screenheight);
 			$printstr = $_pfm->config->pfmrc()->{$_};
 			$printstr =~ s/\e/^[/g; # in case real escapes are used
-			$_screen->at($printline++, $infocol)
+			$screen->at($printline++, $infocol)
 				->puts(sprintf('%1s %s',
 						substr($_,5,1),
 						substr($printstr,0,$infolength-2)));
 		}
-		$_screen->show_frame({
+		$screen->show_frame({
 			headings => HEADING_YCOMMAND,
 			footer   => FOOTER_NONE,
 			prompt   => $prompt,
 		});
-		$key = $_screen->getch();
-		$_screen->diskinfo->clearcolumn()
+		$key = $screen->getch();
+		$screen->diskinfo->clearcolumn()
 			->set_deferred_refresh(R_DISKINFO | R_FRAME);
 		# next line contains an assignment on purpose
 		return unless $command = $_pfm->config->pfmrc()->{"your[$key]"};
-		$_screen->cooked_echo();
+		$screen->cooked_echo();
 	} else { # cOmmand
 		$prompt =
 			"Enter Unix command ($e"."[1-8] or $e"."[epv] escapes see below):";
 		foreach (sort escape_midway keys %{CMDESCAPES()}, $e) {
-			if ($printline <= $_screen->BASELINE + $_screen->screenheight) {
-				$_screen->at($printline++, $infocol)
+			if ($printline <= $screen->BASELINE + $screen->screenheight) {
+				$screen->at($printline++, $infocol)
 					->puts(sprintf(' %1s%1s %s', $e, $_,
 							${CMDESCAPES()}{$_} || "literal $e"));
 			}
 		}
-		$_screen->show_frame({
+		$screen->show_frame({
 			menu     => MENU_NONE,
 			footer   => FOOTER_NONE,
 			headings => HEADING_ESCAPE,
 		});
-		$_screen->set_deferred_refresh(R_DISKINFO);
-		$_screen->at(0,0)->clreol()->putmessage($prompt)
-			->at($_screen->PATHLINE,0)->clreol()
+		$screen->set_deferred_refresh(R_DISKINFO);
+		$screen->at(0,0)->clreol()->putmessage($prompt)
+			->at($screen->PATHLINE,0)->clreol()
 			->cooked_echo();
 		$command = $_pfm->history->input({
 			history => H_COMMAND,
 			prompt  => ''
 		});
-		$_screen->diskinfo->clearcolumn();
+		$screen->diskinfo->clearcolumn();
 	}
 	# chdir special case
 	if ($command =~ /^\s*cd\s(.*)$/) {
 		$newdir = $1;
 		$self->_expand_escapes(QUOTE_OFF, $newdir, $event->{currentfile});
-		$_screen->raw_noecho();
-		if (!$_screen->ok_to_remove_marks()) {
-			$_screen->set_deferred_refresh(R_MENU); # R_SCREEN?
+		$screen->raw_noecho();
+		if (!$screen->ok_to_remove_marks()) {
+			$screen->set_deferred_refresh(R_MENU); # R_SCREEN?
 			return;
 		} elsif (!$_pfm->state->directory->chdir($newdir)) {
-			$_screen->at(2,0)->display_error("$newdir: $!")
+			$screen->at(2,0)->display_error("$newdir: $!")
 				->set_deferred_refresh(R_SCREEN);
 			return;
 		}
-		$_screen->set_deferred_refresh(R_CHDIR);
+		$screen->set_deferred_refresh(R_CHDIR);
 		return;
 	}
 	# general case: command (either Y or O) is known here
 	if ($command !~ /\S/) {
-		$_screen->raw_noecho()->set_deferred_refresh(R_MENU | R_PATHINFO);
+		$screen->raw_noecho()->set_deferred_refresh(R_MENU | R_PATHINFO);
 		return
 	}
-	$_screen->alternate_off()->clrscr()->at(0,0);
+	$screen->alternate_off()->clrscr()->at(0,0);
 	$do_this = sub {
 		my $file = shift;
 		my $do_command = $command;
 		# $self is the commandhandler (closure!)
 		$self->_expand_escapes($self->QUOTE_ON, $do_command, $file);
-		$_screen->puts("\n$do_command\n");
+		$screen->puts("\n$do_command\n");
 		system $do_command
-			and $_screen->display_error("External command failed\n");
+			and $screen->display_error("External command failed\n");
 	};
-	$_pfm->state->directory->apply($do_this, 'nofeedback');
-	$_screen->pressanykey();
-	$_screen->alternate_on() if $_pfm->config->{altscreen_mode};
-	$_screen->raw_noecho()->set_deferred_refresh(R_CLRSCR);
+	$event->{lunchbox}{applyflags} = 'nofeedback';
+	$_pfm->state->directory->apply($do_this, $event);
+	$screen->pressanykey();
+	$screen->alternate_on() if $_pfm->config->{altscreen_mode};
+	$screen->raw_noecho()->set_deferred_refresh(R_CLRSCR);
 }
 
 =item handleprint(App::PFM::Event $event)
@@ -2011,15 +2029,16 @@ Executes a print command (B<P>print).
 sub handleprint {
 	my ($self, $event) = @_;
 	my ($do_this, $command);
+	my $screen   = $self->{_screen};
 	my $printcmd = $_pfm->config->{printcmd};
 	if (!$_pfm->state->{multiple_mode}) {
-		$_screen->listing->markcurrentline('P');
+		$screen->listing->markcurrentline('P');
 	}
-	$_screen->show_frame({
+	$screen->show_frame({
 		footer => FOOTER_NONE,
 		prompt => 'Enter print command: ',
 	});
-	$_screen->at($_screen->PATHLINE, 0)->clreol()
+	$screen->at($screen->PATHLINE, 0)->clreol()
 		->cooked_echo();
 	$command = $_pfm->history->input({
 		history       => H_COMMAND,
@@ -2027,25 +2046,25 @@ sub handleprint {
 		default_input => $printcmd,
 		pushfilter    => $printcmd,
 	});
-	$_screen->raw_noecho();
+	$screen->raw_noecho();
 	if ($command eq '') {
-		$_screen->set_deferred_refresh(R_FRAME | R_DISKINFO | R_PATHINFO);
+		$screen->set_deferred_refresh(R_FRAME | R_DISKINFO | R_PATHINFO);
 		return;
 	}
-	#$_screen->alternate_off()->clrscr()->at(0,0);
+	#$screen->alternate_off()->clrscr()->at(0,0);
 	$do_this = sub {
 		my $file = shift;
 		my $do_command = $command;
 		$self->_expand_escapes($self->QUOTE_ON, $do_command, $file);
-		$_screen->puts("\n$do_command\n");
+		$screen->puts("\n$do_command\n");
 		system $do_command
-			and $_screen->display_error("Print command failed\n");
+			and $screen->display_error("Print command failed\n");
 	};
 	# we could supply 'O' in the next line to treat it like a real cOmmand
-	$_pfm->state->directory->apply($do_this);
-	#$_screen->pressanykey();
-	#$_screen->alternate_on() if $_pfm->config->{altscreen_mode};
-	$_screen->set_deferred_refresh(R_SCREEN);
+	$_pfm->state->directory->apply($do_this, $event);
+	#$screen->pressanykey();
+	#$screen->alternate_on() if $_pfm->config->{altscreen_mode};
+	$screen->set_deferred_refresh(R_SCREEN);
 	return;
 }
 
@@ -2058,21 +2077,22 @@ Handles deleting files (B<D>elete command).
 sub handledelete {
 	my ($self, $event) = @_;
 	my ($do_this, $sure, $oldpos);
+	my $screen     = $self->{_screen};
 	my $browser    = $_pfm->browser;
 	my $directory  = $_pfm->state->directory;
 	unless ($_pfm->state->{multiple_mode}) {
-		$_screen->listing->markcurrentline('D');
+		$screen->listing->markcurrentline('D');
 	}
 	if ($_pfm->state->{multiple_mode} or $event->{currentfile}{nlink}) {
-		$_screen->set_deferred_refresh(R_MENU | R_FOOTER)
+		$screen->set_deferred_refresh(R_MENU | R_FOOTER)
 			->show_frame({
 				footer => FOOTER_NONE,
 				prompt => 'Are you sure you want to delete [Y/N]? ',
 			});
-		$sure = $_screen->getch();
+		$sure = $screen->getch();
 		return if $sure !~ /y/i;
 	}
-	$_screen->at($_screen->PATHLINE, 0)
+	$screen->at($screen->PATHLINE, 0)
 		->set_deferred_refresh(R_SCREEN);
 #	$_pfm->state->directory->set_dirty(D_FILELIST);
 	$_pfm->state->directory->set_dirty(D_SORT | D_FILTER);
@@ -2092,29 +2112,30 @@ sub handledelete {
 			if (testdirempty($file->{name})) {
 				$success = rmdir $file->{name};
 			} else {
-				$_screen->at(0,0)->clreol()->putmessage(
+				$screen->at(0,0)->clreol()->putmessage(
 					'Recursively delete a non-empty directory ',
 					'[Affirmative/Negative]? ');
-				$sure = lc $_screen->getch();
-				$_screen->at(0,0);
+				$sure = lc $screen->getch();
+				$screen->at(0,0);
 				if ($sure eq 'a') {
 					$success = !system('rm', '-rf', $file->{name});
 				} else {
 					$msg = 'Deletion cancelled. Directory not empty';
 					$success = 0;
 				}
-				$_screen->clreol();
+				$screen->clreol();
 			}
 		} else {
 			$success = unlink $file->{name};
 		}
 		if (!$success) {
-			$_screen->display_error($msg || $!);
+			$screen->display_error($msg || $!);
 		}
 		return $success ? 'deleted' : '';
 	};
 	$oldpos = $event->{currentfile}{name};
-	$directory->apply($do_this, 'delete');
+	$event->{lunchbox}{applyflags} = 'delete';
+	$directory->apply($do_this, $event);
 	if ($_pfm->state->{multiple_mode}) {
 		# %nameindexmap may be completely invalid at this point. use dirlookup()
 		if (dirlookup($oldpos, @{$directory->showncontents}) > 0) {
@@ -2134,7 +2155,8 @@ Handles copying and renaming files (B<C>opy and B<R>ename).
 
 sub handlecopyrename {
 	my ($self, $event) = @_;
-	my $key = uc $event->{data};
+	my $screen  = $self->{_screen};
+	my $key     = uc $event->{data};
 	my @command = (($key eq 'C' ? qw(cp -r) : 'mv'),
 					($self->{_clobber_mode} ? '-f' : '-i'));
 	if ($_pfm->config->{copyoptions}) {
@@ -2145,12 +2167,12 @@ sub handlecopyrename {
 	my $browser = $_pfm->browser;
 	my $state   = $_pfm->state;
 	if ($state->{multiple_mode}) {
-		$_screen->set_deferred_refresh(R_MENU | R_FOOTER | R_LISTING);
+		$screen->set_deferred_refresh(R_MENU | R_FOOTER | R_LISTING);
 	} else {
-		$_screen->set_deferred_refresh(R_MENU | R_FOOTER);
-		$_screen->listing->markcurrentline($key);
+		$screen->set_deferred_refresh(R_MENU | R_FOOTER);
+		$screen->listing->markcurrentline($key);
 	}
-	$_screen->clear_footer()->at(0,0)->clreol()->cooked_echo();
+	$screen->clear_footer()->at(0,0)->clreol()->cooked_echo();
 	my $history_input =
 		$state->{multiple_mode} ? undef : $event->{currentfile}{name};
 	$newname = $_pfm->history->input({
@@ -2158,12 +2180,12 @@ sub handlecopyrename {
 		prompt        => $prompt,
 		history_input => $history_input,
 	});
-	$_screen->raw_noecho();
+	$screen->raw_noecho();
 	return if ($newname eq '');
 	# expand =[3456] at this point as a test, but not =[1278]
 	$self->_expand_3456_escapes(QUOTE_OFF, ($testname = $newname));
 	return if $self->_multi_to_single($testname);
-	$_screen->at(1,0)->clreol() unless $self->{_clobber_mode};
+	$screen->at(1,0)->clreol() unless $self->{_clobber_mode};
 	$do_this = sub {
 		my $file = shift;
 		my $findindex;
@@ -2171,20 +2193,20 @@ sub handlecopyrename {
 #		if ($key eq 'C' and $file->{type} =~ /[ld]/ ) {
 #			# AIX: cp -r follows symlink
 #			# Linux: cp -r copies symlink
-#			$_screen->at(0,0)->clreol();
+#			$screen->at(0,0)->clreol();
 #				->putmessage('Copy symlinks to symlinks [Copy/Follow]? ');
-#			$sure = lc $_screen->getch();
-#			$_screen->at(0,0);
+#			$sure = lc $screen->getch();
+#			$screen->at(0,0);
 #			if ($sure eq 'c') {
 #			} else {
 #			}
-#			$_screen->clreol();
+#			$screen->clreol();
 #		} elsif
 		# $self is the commandhandler (closure!)
 		$self->_expand_escapes(
 			QUOTE_OFF, ($newnameexpanded = $newname), $file);
 		if (system @command, $file->{name}, $newnameexpanded) {
-			$_screen->neat_error($key eq 'C' ? 'Copy failed' : 'Rename failed');
+			$screen->neat_error($key eq 'C' ? 'Copy failed' : 'Rename failed');
 		} elsif ($newnameexpanded !~ m!/!) {
 			# let cursor follow around
 			$browser->position_at($newnameexpanded)
@@ -2199,12 +2221,12 @@ sub handlecopyrename {
 				refresh => TRUE);
 		}
 	};
-	$_screen->cooked_echo() unless $self->{_clobber_mode};
-	$state->directory->apply($do_this);
+	$screen->cooked_echo() unless $self->{_clobber_mode};
+	$state->directory->apply($do_this, $event);
 	# if ! $clobber_mode, we might have gotten an 'Overwrite?' question
 	unless ($self->{_clobber_mode}) {
-		$_screen->set_deferred_refresh(R_SCREEN);
-		$_screen->raw_noecho();
+		$screen->set_deferred_refresh(R_SCREEN);
+		$screen->raw_noecho();
 	}
 	return;
 }
@@ -2221,7 +2243,7 @@ sub handleopenwindow {
 	my $nodirerror = 'Current file is not a directory';
 	if ($file->{type} ne 'd')
 	{
-		$_screen->at(0,0)->clreol()->display_error($nodirerror);
+		$self->{_screen}->at(0,0)->clreol()->display_error($nodirerror);
 		return;
 	}
 	my $windowcmd = $_pfm->config->{windowcmd};
@@ -2249,8 +2271,9 @@ by the browser. This handles only the first three mouse buttons.
 sub handlemousedown {
 	my ($self, $event) = @_;
 	my ($on_name, $clicked_file);
+	my $screen   = $self->{_screen};
 	my $browser  = $_pfm->browser;
-	my $listing  = $_screen->listing;
+	my $listing  = $screen->listing;
 	my $mbutton  = $event->{mousebutton};
 	my $mousecol = $event->{mousecol};
 	my $mouserow = $event->{mouserow};
@@ -2265,7 +2288,7 @@ sub handlemousedown {
 	# 2     cOmmand  (pfm command) sort rev  Show      ENTER    new win
 	# 3     cOmmand  (pfm command) sort rev  Show      ENTER    new win
 	# -----------------------------------------------------------------
-	if ($mouserow == $_screen->PATHLINE) {
+	if ($mouserow == $screen->PATHLINE) {
 		# path line
 		if ($mbutton == BUTTON_LEFT) {
 			$self->handlemousepathjump($event);
@@ -2273,25 +2296,25 @@ sub handlemousedown {
 			$propagated_event->{data} = 'o';
 			$self->handlecommand($propagated_event);
 		}
-	} elsif ($mouserow == $_screen->HEADINGLINE) {
+	} elsif ($mouserow == $screen->HEADINGLINE) {
 		# headings
 		$self->handlemouseheadingsort($event);
 	} elsif ($mouserow == 0) {
 		# menu
 		# return the return value as this could be 'quit'
 		return $self->handlemousemenucommand($event);
-	} elsif ($mouserow > $_screen->screenheight + $_screen->BASELINE) {
+	} elsif ($mouserow > $screen->screenheight + $screen->BASELINE) {
 		# footer
 		$self->handlemousefootercommand($event);
 	} elsif (($mousecol < $listing->filerecordcol)
-		or	($mousecol >= $_screen->diskinfo->infocol
-		and	$_screen->diskinfo->infocol > $listing->filerecordcol))
+		or	($mousecol >= $screen->diskinfo->infocol
+		and	$screen->diskinfo->infocol > $listing->filerecordcol))
 	{
 		# diskinfo
 		$self->handleident($event)
-			if $mouserow == $_screen->diskinfo->LINE_USERINFO;
+			if $mouserow == $screen->diskinfo->LINE_USERINFO;
 	} elsif (defined ${$_pfm->state->directory->showncontents}[
-		$mouserow - $_screen->BASELINE + $browser->baseindex])
+		$mouserow - $screen->BASELINE + $browser->baseindex])
 	{
 		# clicked on an existing file
 		$clicked_file = $event->{mouseitem};
@@ -2332,9 +2355,10 @@ clicked (See App::PFM::Event).
 sub handlemousepathjump {
 	my ($self, $event) = @_;
 	my ($baselen, $skipsize, $selecteddir);
+	my $screen     = $self->{_screen};
 	my $mousecol   = $event->{mousecol};
 	my $currentdir = $_pfm->state->directory->path;
-	my $pathline   = $_screen->pathline(
+	my $pathline   = $screen->pathline(
 		$currentdir,
 		$_pfm->state->directory->disk->{'device'},
 		\$baselen,
@@ -2355,10 +2379,10 @@ sub handlemousepathjump {
 		$selecteddir eq $currentdir)
 	{
 		$self->handlemoreshow();
-	} elsif ($_screen->ok_to_remove_marks()) {
+	} elsif ($screen->ok_to_remove_marks()) {
 		if (!$_pfm->state->directory->chdir($selecteddir)) {
-			$_screen->display_error("$selecteddir: $!");
-			$_screen->set_deferred_refresh(R_SCREEN);
+			$screen->display_error("$selecteddir: $!");
+			$screen->set_deferred_refresh(R_SCREEN);
 		}
 	}
 }
@@ -2371,7 +2395,7 @@ Sorts the directory contents according to the heading clicked.
 
 sub handlemouseheadingsort {
 	my ($self, $event) = @_;
-	my $currentlayoutline = $_screen->listing->currentlayoutline;
+	my $currentlayoutline = $self->{_screen}->listing->currentlayoutline;
 	my %sortmodes = @{FIELDS_TO_SORTMODE()};
 	# get field character
 	my $key = substr($currentlayoutline, $event->{mousecol}, 1);
@@ -2388,7 +2412,7 @@ sub handlemouseheadingsort {
 		$_pfm->browser->position_at(
 			$_pfm->browser->currentfile->{name}, { force => 0, exact => 1 });
 	}
-	$_screen->set_deferred_refresh(R_SCREEN);
+	$self->{_screen}->set_deferred_refresh(R_SCREEN);
 	$_pfm->state->directory->set_dirty(D_SORT | D_FILTER);
 }
 
@@ -2400,15 +2424,15 @@ Starts the menu command that was clicked on.
 
 sub handlemousemenucommand {
 	my ($self, $event) = @_;
-	my $vscreenwidth = $_screen->screenwidth - 9* $_pfm->state->{multiple_mode};
+	my $vscreenwidth = $self->{_screen}->screenwidth - 9* $_pfm->state->{multiple_mode};
 	# hack: add 'Multiple' marker. We need a special character
 	# for multiple mode so that the regexp below can recognize it
 	my $M     = "0";
 	my $menu  = ($_pfm->state->{multiple_mode} ? "${M}ultiple " : '') .
-						$_screen->frame->_fitbanner(
-							$_screen->frame->_getmenu(), $vscreenwidth);
+						$self->{_screen}->frame->_fitbanner(
+							$self->{_screen}->frame->_getmenu(), $vscreenwidth);
 	my $left  = $event->{mousecol} - 1;
-	my $right = $_screen->screenwidth - $event->{mousecol} - 1;
+	my $right = $self->{_screen}->screenwidth - $event->{mousecol} - 1;
 	my $choice;
 	$menu =~ /^					# anchor
 		(?:.{0,$left}\s|)		# (empty string left  || chars then space)
@@ -2423,7 +2447,7 @@ sub handlemousemenucommand {
 	} elsif ($choice eq $M) {
 		$choice = 'k10';
 	}
-#	$_screen->at(1,0)->puts("L-$left :$choice: R-$right    ");
+#	$self->{_screen}->at(1,0)->puts("L-$left :$choice: R-$right    ");
 	my $propagated_event        = $event->clone();
 	$propagated_event->{type}   = 'key';
 	$propagated_event->{data}   = $choice;
@@ -2439,10 +2463,11 @@ Starts the footer command that was clicked on.
 
 sub handlemousefootercommand {
 	my ($self, $event) = @_;
-	my $menu  = $_screen->frame->_fitbanner(
-					$_screen->frame->_getfooter(), $_screen->screenwidth);
+	my $menu  = $self->{_screen}->frame->_fitbanner(
+					$self->{_screen}->frame->_getfooter(),
+					$self->{_screen}->screenwidth);
 	my $left  = $event->{mousecol} - 1;
-	my $right = $_screen->screenwidth - $event->{mousecol} - 1;
+	my $right = $self->{_screen}->screenwidth - $event->{mousecol} - 1;
 	my $choice;
 	$menu =~ /^					# anchor
 		(?:.{0,$left}\s|)		# (empty string left  || chars then space)
@@ -2456,7 +2481,7 @@ sub handlemousefootercommand {
 		(?:\s.{0,$right}|)		# (empty string right || space then chars)
 		$/x;					# anchor
 	($choice = $1) =~ s/^F/k/;	# transform F12 to k12
-#	$_screen->at(1,0)->puts("L-$left :$choice: R-$right    ");
+#	$self->{_screen}->at(1,0)->puts("L-$left :$choice: R-$right    ");
 	my $propagated_event        = $event->clone();
 	$propagated_event->{type}   = 'key';
 	$propagated_event->{data}   = $choice;
@@ -2473,19 +2498,19 @@ Shows the menu of B<M>ore commands, and handles the user's choice.
 
 sub handlemore {
 	my ($self, $event) = @_;
-	my $frame  = $_screen->frame;
+	my $frame  = $self->{_screen}->frame;
 	my $oldpan = $frame->currentpan();
 	$frame->currentpan(0);
 	my $key;
-#	$_screen->clear_footer()->noecho()
+#	$self->{_screen}->clear_footer()->noecho()
 #		->set_deferred_refresh(R_MENU);
-	my $headerlength = $_screen->noecho()->set_deferred_refresh(R_MENU)
+	my $headerlength = $self->{_screen}->noecho()->set_deferred_refresh(R_MENU)
 		->show_frame({
 			footer => FOOTER_MORE,
 			menu   => MENU_MORE,
 		});
 	MORE_PAN: {
-		$key = $_screen->at(0, $headerlength+1)->getch();
+		$key = $self->{_screen}->at(0, $headerlength+1)->getch();
 		for ($key) {
 			/^s$/io		and $self->handlemoreshow($event),		last MORE_PAN;
 			/^m$/io		and $self->handlemoremake($event),		last MORE_PAN;
@@ -2509,7 +2534,7 @@ sub handlemore {
 				redo MORE_PAN;
 			};
 			# invalid key
-			$_screen->flash();
+			$self->{_screen}->flash();
 		}
 	}
 	$frame->currentpan($oldpan);
@@ -2523,22 +2548,23 @@ Does a chdir() to any directory (B<M>ore - B<S>how).
 
 sub handlemoreshow {
 	my ($self, $event) = @_;
+	my $screen   = $self->{_screen};
 	my ($newname);
-	$_screen->set_deferred_refresh(R_MENU);
-	return if !$_screen->ok_to_remove_marks();
-	$_screen->show_frame({
+	$screen->set_deferred_refresh(R_MENU);
+	return if !$screen->ok_to_remove_marks();
+	$screen->show_frame({
 		footer => FOOTER_NONE,
 	});
-	$_screen->at(0,0)->clreol()->cooked_echo();
+	$screen->at(0,0)->clreol()->cooked_echo();
 	$newname = $_pfm->history->input({
 		history => H_PATH,
 		prompt  => 'Directory Pathname: ',
 	});
-	$_screen->raw_noecho();
+	$screen->raw_noecho();
 	return if $newname eq '';
 	$self->_expand_escapes(QUOTE_OFF, $newname, $event->{currentfile});
 	if (!$_pfm->state->directory->chdir($newname)) {
-		$_screen->set_deferred_refresh(R_PATHINFO)
+		$screen->set_deferred_refresh(R_PATHINFO)
 			->display_error("$newname: $!");
 	}
 }
@@ -2552,23 +2578,24 @@ Makes a new directory (B<M>ore - B<M>ake).
 sub handlemoremake {
 	my ($self, $event) = @_;
 	my ($newname);
-	$_screen->set_deferred_refresh(R_MENU);
-	$_screen->show_frame({
+	my $screen = $self->{_screen};
+	$screen->set_deferred_refresh(R_MENU);
+	$screen->show_frame({
 		footer => FOOTER_NONE,
 	});
-	$_screen->at(0,0)->clreol()->cooked_echo();
+	$screen->at(0,0)->clreol()->cooked_echo();
 	$newname = $_pfm->history->input({
 		history => H_PATH,
 		prompt  => 'New Directory Pathname: ',
 	});
 	$self->_expand_escapes(QUOTE_OFF, $newname, $event->{currentfile});
-	$_screen->raw_noecho();
+	$screen->raw_noecho();
 	return if $newname eq '';
 	# don't use perl's mkdir: we want to be able to use -p
 	if (system "mkdir -p \Q$newname\E") {
-		$_screen->set_deferred_refresh(R_SCREEN)
+		$screen->set_deferred_refresh(R_SCREEN)
 			->at(0,0)->clreol()->display_error('Make directory failed');
-	} elsif (!$_screen->ok_to_remove_marks()) {
+	} elsif (!$screen->ok_to_remove_marks()) {
 		if ($newname !~ m!/!) {
 			$_pfm->state->directory->addifabsent(
 				entry => $newname,
@@ -2578,7 +2605,7 @@ sub handlemoremake {
 			$_pfm->browser->position_at($newname);
 		}
 	} elsif (!$_pfm->state->directory->chdir($newname)) {
-		$_screen->at(0,0)->clreol()->display_error("$newname: $!");
+		$screen->at(0,0)->clreol()->display_error("$newname: $!");
 	}
 }
 
@@ -2594,10 +2621,10 @@ sub handlemoreconfig {
 	my $config         = $_pfm->config;
 	my $olddotdot      = $config->{dotdot_mode};
 	my $config_editor  = $config->{fg_editor} || $config->{editor};
-	$_screen->at(0,0)->clreol()
+	$self->{_screen}->at(0,0)->clreol()
 		->set_deferred_refresh(R_CLRSCR);
 	if (system $config_editor, $config->location()) {
-		$_screen->at(1,0)->display_error('Editor failed');
+		$self->{_screen}->at(1,0)->display_error('Editor failed');
 	} else {
 		$config->read($config->READ_AGAIN);
 		$config->parse();
@@ -2619,10 +2646,10 @@ Opens any file in the configured editor (B<M>ore - B<E>dit).
 sub handlemoreedit {
 	my ($self, $event) = @_;
 	my $newname;
-	$_screen->show_frame({
+	$self->{_screen}->show_frame({
 		footer => FOOTER_NONE,
 	});
-	$_screen->at(0,0)->clreol()->cooked_echo()
+	$self->{_screen}->at(0,0)->clreol()->cooked_echo()
 		->set_deferred_refresh(R_CLRSCR);
 	$newname = $_pfm->history->input({
 		history => H_PATH,
@@ -2630,9 +2657,9 @@ sub handlemoreedit {
 	});
 	$self->_expand_escapes(QUOTE_OFF, $newname, $event->{currentfile});
 	if (system $_pfm->config->{editor}." \Q$newname\E") {
-		$_screen->display_error('Editor failed');
+		$self->{_screen}->display_error('Editor failed');
 	}
-	$_screen->raw_noecho();
+	$self->{_screen}->raw_noecho();
 }
 
 =item handlemoreshell()
@@ -2644,12 +2671,12 @@ Starts the user's login shell (B<M>ore - sB<H>ell).
 sub handlemoreshell {
 	my ($self) = @_;
 	my $chdirautocmd = $_pfm->config->{chdirautocmd};
-	$_screen->alternate_off()->clrscr()->cooked_echo()
+	$self->{_screen}->alternate_off()->clrscr()->cooked_echo()
 		->set_deferred_refresh(R_CLRSCR);
 #	@ENV{qw(ROWS COLUMNS)} = ($screenheight + $BASELINE + 2, $screenwidth);
 	system ($ENV{SHELL} ? $ENV{SHELL} : 'sh'); # most portable
-	$_screen->pressanykey(); # will also put the screen back in raw mode
-	$_screen->alternate_on() if $_pfm->config->{altscreen_mode};
+	$self->{_screen}->pressanykey(); # will also put the screen back in raw mode
+	$self->{_screen}->alternate_on() if $_pfm->config->{altscreen_mode};
 	system("$chdirautocmd") if length($chdirautocmd);
 }
 
@@ -2661,18 +2688,19 @@ Allows the user to edit the file's Access Control List (B<M>ore - B<A>cl).
 
 sub handlemoreacl {
     my ($self, $event) = @_;
+	my $screen = $self->{_screen};
 	# we count on the OS-specific command to start an editor.
-	$_screen->alternate_off()->clrscr()->at(0,0)->cooked_echo();
+	$screen->alternate_off()->clrscr()->at(0,0)->cooked_echo();
 	my $do_this = sub {
 		my $file = shift;
-		unless ($_pfm->os->acledit($file->{name})) {
-			$_screen->neat_error($!);
+		unless ($self->{_os}->acledit($file->{name})) {
+			$screen->neat_error($!);
 		}
 	};
-	$_pfm->state->directory->apply($do_this);
-	$_screen->pressanykey();
-	$_screen->alternate_on() if $_pfm->config->{altscreen_mode};
-	$_screen->raw_noecho()->set_deferred_refresh(R_CLRSCR);
+	$_pfm->state->directory->apply($do_this, $event);
+	$screen->pressanykey();
+	$screen->alternate_on() if $_pfm->config->{altscreen_mode};
+	$screen->raw_noecho()->set_deferred_refresh(R_CLRSCR);
 }
 
 =item handlemorebookmark(App::PFM::Event $event)
@@ -2687,17 +2715,17 @@ sub handlemorebookmark {
 	# the footer has already been cleared by handlemore()
 	# choice
 	$self->_listbookmarks();
-	$_screen->show_frame({
+	$self->{_screen}->show_frame({
 		headings => HEADING_BOOKMARKS,
 		footer   => FOOTER_NONE,
 		prompt   => 'Bookmark under which letter? ',
 	});
-	$key = $_screen->getch();
+	$key = $self->{_screen}->getch();
 	return if $key eq "\r";
 	# process key
 	if ($key !~ /^[a-zA-Z]$/) {
 		# the bookmark is undefined
-		$_screen->at(0,0)->clreol()
+		$self->{_screen}->at(0,0)->clreol()
 				->display_error('Bookmark name not valid');
 		return;
 	}
@@ -2716,19 +2744,20 @@ jump to one of them (B<M>ore - B<G>o).
 sub handlemorego {
 	my ($self, $event) = @_;
 	my $browser = $_pfm->browser;
+	my $screen  = $self->{_screen};
 	my ($dest, $key, $prompt, $destfile, $success,
 		$prevdir, $prevstate, $chdirautocmd);
 	# the footer has already been cleared by handlemore()
 	$self->_listbookmarks();
 	# choice
 	$prompt = 'Go to which bookmark? ';
-	$key = $_screen->at(0,0)->clreol()
+	$key = $screen->at(0,0)->clreol()
 		->putmessage($prompt)->getch();
 	return if $key eq "\r";
 	$dest = $_pfm->state($key);
 	if ($dest eq '') {
 		# the bookmark is undefined
-		$_screen->at(0,0)->clreol()
+		$screen->at(0,0)->clreol()
 				->display_error('Bookmark not defined');
 		return;
 	} elsif (ref $dest) {
@@ -2749,11 +2778,11 @@ sub handlemorego {
 			# autocommand
 			$chdirautocmd = $_pfm->config->{chdirautocmd};
 			system("$chdirautocmd") if length($chdirautocmd);
-			$_screen->set_deferred_refresh(R_SCREEN);
+			$screen->set_deferred_refresh(R_SCREEN);
 		} elsif (!$success) {
 			# the state needs refreshing as we counted on being
 			# able to chdir()
-			$_screen->at($_screen->PATHLINE, 0)->clreol()
+			$screen->at($screen->PATHLINE, 0)->clreol()
 				->set_deferred_refresh(R_CHDIR)
 				->display_error("$dest: $!");
 			$_pfm->state->directory->set_dirty(D_ALL);
@@ -2765,7 +2794,7 @@ sub handlemorego {
 		$destfile = basename $dest;
 		$dest     = dirname  $dest;
 		if (!$_pfm->state->directory->chdir($dest)) {
-			$_screen->set_deferred_refresh(R_PATHINFO)
+			$screen->set_deferred_refresh(R_PATHINFO)
 				->display_error("$dest: $!");
 			return;
 		}
@@ -2792,10 +2821,11 @@ Handles creating a FIFO (named pipe) (B<M>ore - mkB<F>ifo).
 sub handlemorefifo {
 	my ($self, $event) = @_;
 	my ($newname, $findindex);
-	$_screen->show_frame({
+	my $screen = $self->{_screen};
+	$screen->show_frame({
 		footer => FOOTER_NONE,
 	});
-	$_screen->at(0,0)->clreol()
+	$screen->at(0,0)->clreol()
 		->set_deferred_refresh(R_MENU)
 		->cooked_echo();
 	$newname = $_pfm->history->input({
@@ -2803,11 +2833,11 @@ sub handlemorefifo {
 		prompt  => 'New FIFO name: ',
 	});
 	$self->_expand_escapes(QUOTE_OFF, $newname, $event->{currentfile});
-	$_screen->raw_noecho();
+	$screen->raw_noecho();
 	return if $newname eq '';
-	$_screen->set_deferred_refresh(R_SCREEN);
+	$screen->set_deferred_refresh(R_SCREEN);
 	if (system "mkfifo \Q$newname\E") {
-		$_screen->display_error('Make FIFO failed');
+		$screen->display_error('Make FIFO failed');
 		return;
 	}
 	# add newname to the current directory listing.
@@ -2827,7 +2857,7 @@ Writes the histories and the bookmarks to file (B<M>ore - B<W>rite-history).
 
 sub handlemorehistwrite {
 	my ($self) = @_;
-	$_screen->show_frame({
+	$self->{_screen}->show_frame({
 		footer => FOOTER_NONE,
 	});
 	$_pfm->history->write();
@@ -2845,7 +2875,7 @@ a previous command) (B<M>ore - alB<T>screen).
 sub handlemorealtscreen {
 	my ($self) = @_;
 	return unless $_pfm->config->{altscreen_mode};
-	$_screen->set_deferred_refresh(R_CLRSCR)
+	$self->{_screen}->set_deferred_refresh(R_CLRSCR)
 		->alternate_off()->pressanykey();
 }
 
@@ -2857,12 +2887,12 @@ Shows the canonical pathname of the current directory (B<M>ore - B<P>hysical).
 
 sub handlemorephyspath {
 	my ($self) = @_;
-	$_screen->show_frame({
+	$self->{_screen}->show_frame({
 		footer => FOOTER_NONE,
 	});
-	$_screen->at(0,0)->clreol()
+	$self->{_screen}->at(0,0)->clreol()
 		->putmessage('Current physical path:')
-		->path_info($_screen->PATH_PHYSICAL)
+		->path_info($self->{_screen}->PATH_PHYSICAL)
 		->set_deferred_refresh(R_PATHINFO | R_MENU)
 		->getch();
 }
@@ -2901,11 +2931,12 @@ sub handleenter {
 	my $currentfile    = $event->{currentfile};
 	my $directory      = $_pfm->state->directory;
 	my $pfmrc          = $_pfm->config->pfmrc;
+	my $screen         = $self->{_screen};
 	my $do_this;
 	if ($self->_followmode($currentfile) =~ /^d/) {
 		goto &handleentry;
 	}
-	$_screen->at(0,0)->clreol()->at(0,0)->cooked_echo()
+	$screen->at(0,0)->clreol()->at(0,0)->cooked_echo()
 		->alternate_off();
 	LAUNCH: foreach (split /,/, $_pfm->config->{launchby}) {
 		# these functions return either:
@@ -2920,23 +2951,23 @@ sub handleenter {
 	if (ref $do_this) {
 		# a code reference: possible way to launch
 		$currentfile->apply($do_this);
-		$_screen->set_deferred_refresh(R_CLRSCR)->pressanykey();
+		$screen->set_deferred_refresh(R_CLRSCR)->pressanykey();
 	} elsif (defined $do_this) {
 		# an error message: the file type was unknown.
 		# feed it to the pager instead.
-		$_screen->clrscr();
+		$screen->clrscr();
 		if (system $_pfm->config->{pager}." \Q$currentfile->{name}\E")
 		{
-			$_screen->display_error($!);
+			$screen->display_error($!);
 		}
-		$_screen->set_deferred_refresh(R_CLRSCR);
+		$screen->set_deferred_refresh(R_CLRSCR);
 	} else {
 		# 'launchby' contains no valid entries
-		$_screen->set_deferred_refresh(R_MENU)
+		$screen->set_deferred_refresh(R_MENU)
 			->display_error("No valid 'launchby' option in config file");
 	}
-	$_screen->raw_noecho();
-	$_screen->alternate_on() if $_pfm->config->{altscreen_mode};
+	$screen->raw_noecho();
+	$screen->alternate_on() if $_pfm->config->{altscreen_mode};
 }
 
 =item launchbyxbit(App::PFM::File $file)
@@ -2952,9 +2983,10 @@ sub launchbyxbit {
 	return '' if ($self->_followmode($currentfile) !~ /[xsS]/);
 	$do_this = sub {
 		my $file = shift;
-		$_screen->clrscr()->at(0,0)->puts("Launch executable $file->{name}\n");
+		$self->{_screen}->clrscr()->at(0,0)
+			->puts("Launch executable $file->{name}\n");
 		if (system "./\Q$file->{name}\E") {
-			$_screen->display_error('Launch failed');
+			$self->{_screen}->display_error('Launch failed');
 		}
 	};
 	return $do_this;
@@ -3014,15 +3046,17 @@ sub launchbymime {
 	my $pfmrc   = $_pfm->config->pfmrc;
 	my $do_this = '';
 	if (! exists $pfmrc->{"launch[$mime]"}) {
-		$_screen->display_error("No launch command defined for type $mime\n");
+		$self->{_screen}
+			->display_error("No launch command defined for type $mime\n");
 		return '';
 	}
 	$do_this = sub {
 		my $file = shift;
 		my $command = $pfmrc->{"launch[$mime]"};
 		$self->_expand_escapes(QUOTE_ON, $command, $file);
-		$_screen->clrscr()->at(0,0)->puts("Launch type $mime\n$command\n");
-		system $command and $_screen->display_error('Launch failed');
+		$self->{_screen}->clrscr()->at(0,0)
+			->puts("Launch type $mime\n$command\n");
+		system $command and $self->{_screen}->display_error('Launch failed');
 	};
 	return $do_this;
 }
