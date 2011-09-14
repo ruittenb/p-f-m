@@ -3,7 +3,7 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.09.3
+# Version:		2.09.4
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-09-23
@@ -24,7 +24,7 @@
 # version
 
 # for MakeMaker
-our $VERSION = '2.09.3';
+our $VERSION = '2.09.4';
 
 # macros for *roff
 our $ROFFVERSION = <<'=cut';
@@ -33,7 +33,7 @@ our $ROFFVERSION = <<'=cut';
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.09.3
+.ds Vw @(#) pfm.pl 2.09.4
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -56,8 +56,9 @@ my $pfm;
 
 END {
 	# in case of emergency: make sure that the alternate screen
-	# is off and that the terminal is in 'cooked' mode
-	print "\e[?47l";
+	# is off, mouse mode is off, bracketed paste mode is off
+	# and that the terminal is in 'cooked' mode
+	print "\e[?47l\e[?9l\e[?2004l";
 	system qw(stty -raw echo);
 }
 
@@ -605,7 +606,8 @@ the editor specified with the 'editor' option in the config file
 
 the 'foreground' editor, specified with the 'fg_editor' option in the
 config file. This is expected to be defined as an editor that does not
-fork into the background, so that C<pfm> can wait for its results.
+fork into the background. C<pfm> uses this editor in a few cases so
+that it can wait for its results.
 
 =item B<=p>
 

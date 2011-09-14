@@ -62,7 +62,6 @@ use constant {
 	MOUSE_MODIFIER_CONTROL => 16,
 	MOUSE_WHEEL_UP         => 64,
 	MOUSE_WHEEL_DOWN       => 65,
-	MAXBURSTSIZE    => 30,
 	PATH_PHYSICAL	=> 1,
 	ERRORDELAY		=> 1,	 # in seconds (fractions allowed)
 	IMPORTANTDELAY	=> 2,	 # extra time for important errors
@@ -94,17 +93,6 @@ use constant R_CHDIR  => R_NEWDIR | R_SCREEN | R_STRIDE;
 
 use constant MOUSE_MODIFIER_ANY =>
 		MOUSE_MODIFIER_SHIFT | MOUSE_MODIFIER_META | MOUSE_MODIFIER_CONTROL;
-
-our $FIONREAD = 0;
-#eval {
-#	# suppresses the warnings by changing line 3 in
-#	# /usr/lib/perl/5.8.8/features.ph from
-#	# no warnings 'redefine';
-#	# to
-#	# no warnings qw(redefine misc);
-#	require 'sys/ioctl.ph';
-#	$FIONREAD = FIONREAD();
-#};
 
 our %EXPORT_TAGS = (
 	constants => [ qw(
@@ -185,21 +173,6 @@ Catches window resize signals (WINCH).
 sub _catch_resize {
 	$_wasresized = 1;
 	$SIG{WINCH} = \&_catch_resize;
-}
-
-=item _burst_size()
-
-Checks how many characters are waiting for input. This could be used
-to filter out unwanted paste actions when commands are expected.
-
-=cut
-
-sub _burst_size {
-#	my ($self) = @_;
-	return 0 unless $FIONREAD;
-	my $size = pack("L", 0);
-	ioctl(STDIN, $FIONREAD, $size);
-	return unpack("L", $size);
 }
 
 ##########################################################################
@@ -327,13 +300,15 @@ Tells the terminal to start/stop receiving information about the mouse.
 
 sub mouse_enable {
 	my ($self) = @_;
-	print "\e[?1000h";
+#	print "\e[?1000h";
+	print "\e[?9h";
 	return $self;
 }
 
 sub mouse_disable {
 	my ($self) = @_;
-	print "\e[?1000l";
+#	print "\e[?1000l";
+	print "\e[?9l";
 	return $self;
 }
 
@@ -381,7 +356,7 @@ sub alternate_off {
 =item getch()
 
 Overrides the Term::ScreenColor version of getch().
-If a bracketed paste is received, it is discarded.
+If a bracketed paste is received, it is returned as one unit.
 
 =cut
 
@@ -499,12 +474,6 @@ sub pending_input {
 		# 'Interrupted system call'
 		$input_ready = $self->key_pressed(0.1);
 	}
-	# the next block is highly experimental - maybe this
-	# could be used to suppress paste actions in command mode
-	if ($input_ready and $self->_burst_size() > MAXBURSTSIZE) {
-		$self->flush_input()->flash();	# experimental
-		$input_ready = 0;				# experimental
-	}									# experimental
 	return $input_ready;
 }
 

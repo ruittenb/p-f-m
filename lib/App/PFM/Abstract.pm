@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Abstract 0.12
+# @(#) App::PFM::Abstract 0.13
 #
 # Name:			App::PFM::Abstract
-# Version:		0.12
+# Version:		0.13
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-18
+# Date:			2010-09-29
 #
 
 ##########################################################################
@@ -87,11 +87,11 @@ sub new {
 
 =item clone( [ array @args ] )
 
-Clone one object to create an independent one. By calling
-the _clone() method, each class can define which contained objects
+Clone one object to create an independent one. By providing
+a _clone() method, each class can define which contained objects
 must be recursively cloned.
 
-The I<args> are passed to the _init() methods of individual classes.
+The I<args> are passed to the _clone() methods of individual classes.
 
 =cut
 
@@ -181,7 +181,7 @@ Example usage:
 		$self->fire(new App::PFM::Event({
 			name => 'greetWorld', 
 			data => 'Fred'
-		});
+		}));
 	}
 
 =cut

@@ -30,9 +30,6 @@
 - upon entering a directory with 'refresh_always_smart', files in the new directory
   will inherit the marks of identically-named files in the previous directory
 
-- make bracketed paste configurable
-- figure out when bracketed paste must be turned on and off
-
 ################################################################################
 # structural enhancements
 
@@ -79,12 +76,14 @@
 
 - color filenames correctly (on black)
 
-- use mouse tracking mode for screen (and others?)
 
-- get rid of '# the mousewheel will be considered a key:' in Screen/Browser
-
-- don't: Config: $self->{ident} = $state->{ident} // $pfmrc->{ident};
-  do   : Config: $pfmrc->{ident}; State: $self->{ident} ||= $config->{ident};
+- [g]cc -l[n]curses
+  #include <stdlib.h>
+  #include <term.h>
+  int main(int argc, char *argv[]) {
+  setupterm(NULL, 0, NULL);
+    return 0;
+  }
 
 ################################################################################
 # functional enhancements
@@ -101,8 +100,6 @@
 
 ################################################################################
 # documentation enhancements
-
-- UML: Config->paste_protection
 
 - manpages: use I<...> in =items
 
