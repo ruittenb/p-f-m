@@ -44,6 +44,7 @@ use locale;
 
 use constant SYMBOLIC_MODES     => [ qw(--- --x -w- -wx r-- r-x rw- rwx) ];
 use constant MAJORMINORTEMPLATE => '%d,%d';
+use constant GAPFILLING         => ' ' x 80; # 80 is safe enough
 
 our ($_pfm);
 
@@ -205,6 +206,7 @@ sub stat_entry {
 		blocks		=> $blocks,
 		blksize		=> $blksize,
 		rcs			=> '-',
+		gap			=> GAPFILLING,
 	};
 	@{$self}{keys %$ptr} = values %$ptr;
 

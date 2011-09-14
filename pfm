@@ -3,7 +3,7 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.08.2
+# Version:		2.08.3
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-09-02
@@ -24,7 +24,7 @@
 # version
 
 # for MakeMaker
-our $VERSION = '2.08.2';
+our $VERSION = '2.08.3';
 
 # macros for *roff
 our $ROFFVERSION = <<'=cut';
@@ -33,7 +33,7 @@ our $ROFFVERSION = <<'=cut';
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.08.2
+.ds Vw @(#) pfm.pl 2.08.3
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -1554,9 +1554,10 @@ file(1), less(1), ln(1), locale(7), lpr(1), touch(1), vi(1).
 For developers: Term::Screen(3pm), Term::ScreenColor(3pm),
 Term::ReadLine(3pm), App::PFM::Abstract(3pm), App::PFM::Application(3pm),
 App::PFM::Browser(3pm), App::PFM::CommandHandler(3pm), App::PFM::Config(3pm),
-App::PFM::Directory(3pm), App::PFM::File(3pm), App::PFM::History(3pm),
-App::PFM::JobHandler(3pm), App::PFM::Job::Abstract(3pm),
-App::PFM::Screen(3pm), App::PFM::State(3pm) and App::PFM::Util(3pm).
+App::PFM::Directory(3pm), App::PFM::Event(3pm), App::PFM::File(3pm),
+App::PFM::History(3pm), App::PFM::JobHandler(3pm),
+App::PFM::Job::Abstract(3pm), App::PFM::OS(3pm), App::PFM::Screen(3pm),
+App::PFM::State(3pm) and App::PFM::Util(3pm).
 
 The pfm project page: http://sourceforge.net/projects/p-f-m/
 

@@ -16,7 +16,7 @@ Module::Build->new(
 		'LWP'			=> 5.827, # maybe less
 	},
 	create_makefile_pl	=> 'passthrough',
-	script_files		=> [ 'pfm', 'pfmrcupdate' ],
+	script_files		=> [ 'pfm' ],
 )->create_build_script();
 
 #WriteMakefile(
