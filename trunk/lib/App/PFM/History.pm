@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::History 0.23
+# @(#) App::PFM::History 0.24
 #
 # Name:			App::PFM::History
-# Version:		0.23
+# Version:		0.24
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-25
+# Date:			2010-08-26
 #
 
 ##########################################################################
@@ -41,18 +41,25 @@ use Term::ReadLine;
 use strict;
 
 use constant {
-	MAXHISTSIZE	=> 70,
-	H_COMMAND	=> 'history_command',
-	H_MODE		=> 'history_mode',
-	H_PATH		=> 'history_path',
-	H_REGEX		=> 'history_regex',
-	H_TIME		=> 'history_time',
-	H_PERLCMD	=> 'history_perlcmd',
+	MAXHISTSIZE  => 70,
+	FILENAME_CWD => 'cwd',
+	FILENAME_SWD => 'swd',
+	H_COMMAND    => 'history_command',
+	H_MODE       => 'history_mode',
+	H_PATH       => 'history_path',
+	H_REGEX      => 'history_regex',
+	H_TIME       => 'history_time',
+	H_PERLCMD    => 'history_perlcmd',
 };
 
 our %EXPORT_TAGS = (
 	constants => [ qw(
-		H_COMMAND H_MODE H_PATH H_REGEX H_TIME H_PERLCMD
+		H_COMMAND
+		H_MODE
+		H_PATH
+		H_REGEX
+		H_TIME
+		H_PERLCMD
 	) ]
 );
 
@@ -60,13 +67,10 @@ our @EXPORT_OK = @{$EXPORT_TAGS{constants}};
 
 our ($_pfm);
 
-my $CWDFILENAME	= 'cwd';
-my $SWDFILENAME	= 'swd';
-
 ##########################################################################
 # private subs
 
-=item _init()
+=item _init(App::PFM::Application $pfm)
 
 Initializes this instance by instantiating a Term::ReadLine object.
 Called from the constructor.
@@ -75,8 +79,7 @@ Called from the constructor.
 
 sub _init {
 	my ($self, $pfm) = @_;
-	my $escape;
-	$_pfm      = $pfm;
+	$_pfm = $pfm;
 	$self->{_keyboard} = new Term::ReadLine('pfm');
 	if (ref $self->{_keyboard}->Features) {
 		$self->{_features} = $self->{_keyboard}->Features;
@@ -95,7 +98,7 @@ sub _init {
 	};
 }
 
-=item _set_term_history()
+=item _set_term_history(array @histlines)
 
 Uses the history list to initialize keyboard history in Term::ReadLine.
 This fails silently if our current variant of Term::ReadLine doesn't
@@ -183,33 +186,36 @@ sub write_dirs {
 	my $configdirname = $_pfm->config->CONFIGDIRNAME;
 	my $swap_state	  = $_pfm->state('S_SWAP');
 	
-	if (open CWDFILE, ">$configdirname/$CWDFILENAME") {
+	if (open CWDFILE, ">$configdirname/".FILENAME_CWD) {
 		print CWDFILE $_pfm->state->directory->path, "\n";
 		close CWDFILE;
 	} else {
 		$_pfm->screen->putmessage(
-			"Unable to create $configdirname/$CWDFILENAME: $!\n"
+			"Unable to create $configdirname/".FILENAME_CWD.": $!\n"
 		);
 	}
 	if (defined($swap_state) && $_pfm->config->{swap_persistent} &&
-		open SWDFILE,">$configdirname/$SWDFILENAME")
+		open SWDFILE,">$configdirname/".FILENAME_SWD)
 	{
 		print SWDFILE $swap_state->directory->path, "\n";
 		close SWDFILE;
 	} else {
-		unlink "$configdirname/$SWDFILENAME";
+		unlink "$configdirname/".FILENAME_SWD;
 	}
 }
 
-=item input()
+=item input(string $history, string $prompt [, string $default_input
+[, string $history_input [, string $pushfilter ] ] ])
 
-Prompts for input from the keyboard; pushes this input onto
-the appropriate history.
+Displays I<prompt> and prompts for input from the keyboard. The
+string I<default_input> is offered, while the string I<history_input>
+is offered as the most-recent history item.  If the user's input is
+not equal to I<pushfilter>, the input is pushed onto the appropriate
+history.
 
 =cut
 
 sub input {
-	# $history, $prompt [, $default_input [, $history_input [, $filter ]]]
 	my ($self, $history, $prompt, $input, $histpush, $pushfilter) = @_;
 	$history = $self->{_histories}{$history};
 	$prompt ||= '';
@@ -233,7 +239,7 @@ sub input {
 	return $input;
 }
 
-=item setornaments()
+=item setornaments(string $colorstring)
 
 Determines from the config file settings which ornaments (bold, italic,
 underline) should be used for the command prompt, then instructs

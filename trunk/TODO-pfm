@@ -27,6 +27,7 @@
 
 - Config->apply: call separate class's import() routines and have them import
   the config options that are interesting for them.
+  Or use events.
 
 - restructure chdir(), handleswap() etc.
 
@@ -38,6 +39,8 @@
 - make our() variables member variables
 
 - add File::Temp to install procedure
+
+- have History->input() accept a hash instead of 6 arguments
 
 - have the browser use events to tell the application that the commandhandler
   should be called; keep the browser for browsing
@@ -55,6 +58,8 @@
   make a $frame->getheadings($headings_mode)
 
 - move CommandHandler::_listbookmarks() to Screen/Listing/Bookmarks::list()
+
+- Get Rid Of Slimy File::SYMBOLICMODES
 
 ################################################################################
 # functional enhancements
@@ -75,11 +80,11 @@
 
   DONE(ITALICS):
 
-  DONE(ARGS): Abstract Application Browser Config State Util
+  DONE(ARGS): Abstract Application Browser Config File History State Util
 	OS OS/Abstract OS/Linux OS/Aix OS/Hpux OS/Sco OS/Solaris
-	Screen/Frame Screen/Diskinfo Screen/Listing
-	JobHandler Job/Abstract Job/CheckUpdates
-	Job/Bazaar Job/Cvs Job/Git Job/RCS Job/Subversion
+	Screen Screen/Frame Screen/Diskinfo Screen/Listing
+	JobHandler Job/CheckUpdates
+	Job/Abstract Job/RCS Job/Bazaar Job/Cvs Job/Git Job/Subversion
 
-  TODO: CommandHandler Directory File History Screen
+  TODO: CommandHandler Directory
 

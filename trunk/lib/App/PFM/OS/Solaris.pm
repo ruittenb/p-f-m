@@ -39,7 +39,7 @@ use strict;
 
 use constant {
 	MINORBITS => 2 ** 18,
-	IFMTCHARS => ' pc?d?b?-nl?sDP?', # event ports instead of whiteouts
+	IFMTCHARS => ' pc?d?b?-Cl?sDP?', # event ports and contiguous files
 };
 
 ##########################################################################

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::OS::Hpux 0.02
+# @(#) App::PFM::OS::Hpux 0.03
 #
 # Name:			App::PFM::OS::Hpux
-# Version:		0.02
+# Version:		0.03
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-22
-# Date:			2010-08-25
+# Date:			2010-08-26
 #
 
 ##########################################################################
@@ -37,7 +37,10 @@ use base 'App::PFM::OS::Abstract';
 
 use strict;
 
-use constant MINORBITS => 2 ** 24;
+use constant {
+	MINORBITS => 2 ** 24,
+	IFMTCHARS => ' pc?d?b?-nl?sDw?', # whiteouts and network special
+};
 
 ##########################################################################
 # private subs

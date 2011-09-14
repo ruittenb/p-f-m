@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Directory 0.82
+# @(#) App::PFM::Directory 0.83
 #
 # Name:			App::PFM::Directory
-# Version:		0.82
+# Version:		0.83
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-25
+# Date:			2010-08-26
 #
 
 ##########################################################################

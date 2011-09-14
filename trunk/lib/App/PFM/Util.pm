@@ -41,6 +41,8 @@ use Carp;
 
 use strict;
 
+use constant ELLIPSIS => '..'; # path ellipsis string
+
 our %EXPORT_TAGS = (
 	all => [ qw(
 		min max inhibit toggle triggle isxterm isyes isno dirname basename
@@ -427,7 +429,6 @@ Fits a path string to a certain length by taking out directory components.
 sub fitpath ($$) {
 	my ($path, $maxlength) = @_;
 	my ($restpathlen);
-	my $ELLIPSIS     = '..';
 	my $r_disppath   = '';
 	my $r_baselen    = 0;
 	my $r_overflow   = 0;
@@ -449,7 +450,7 @@ sub fitpath ($$) {
 			($r_disppath, $path) = ($1, $2);
 			$r_baselen = length($r_disppath);
 			# the one being subtracted is for the '/' char in the next match
-			$restpathlen = $maxlength -length($r_disppath) -length($ELLIPSIS) -1;
+			$restpathlen = $maxlength -length($r_disppath) -length(ELLIPSIS) -1;
 			unless ($path =~ /(.*?)(\/.{1,$restpathlen})$/) {
 				# impossible to replace; just truncate
 				# this is the case for e.g. /usr/some_ridiculously_long_directory_name
@@ -458,8 +459,8 @@ sub fitpath ($$) {
 				last FIT;
 			}
 			# pathname component candidate for replacement found; name will fit
-			$r_disppath  .= $ELLIPSIS . $2;
-			$r_ellipssize = length($1) - length($ELLIPSIS);
+			$r_disppath  .= ELLIPSIS . $2;
+			$r_ellipssize = length($1) - length(ELLIPSIS);
 		}
 	}
 	return ($r_disppath,
