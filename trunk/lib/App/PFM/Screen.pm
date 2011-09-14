@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen 0.41
+# @(#) App::PFM::Screen 0.43
 #
 # Name:			App::PFM::Screen
-# Version:		0.41
+# Version:		0.43
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-10-03
+# Date:			2010-11-15
 # Requires:		Term::ScreenColor
 #
 
@@ -163,6 +163,8 @@ sub _init {
 	# special key bindings for bracketed paste
 	$self->def_key(BRACKETED_PASTE_START, "\e[200~");
 	$self->def_key(BRACKETED_PASTE_END,   "\e[201~");
+	# we cannot check the minimum size of the terminal yet, because the
+	# config option 'force_minimum_size' is not yet known.
 }
 
 =item _catch_resize()
@@ -190,6 +192,7 @@ sub new {
 	my ($type, @args) = @_;
 	$type = ref($type) || $type;
 	my $self = new Term::ScreenColor();
+	$self->{_event_handlers} = {};
 	bless($self, $type);
 	$self->_init(@args);
 	return $self;
@@ -886,6 +889,8 @@ sub on_after_parse_config {
 	$self->{_config} = $event->{origin};
 	# make cursor very visible
 	system ('tput', $pfmrc->{cursorveryvisible} ? 'cvvis' : 'cnorm');
+	# check minimum size
+	$self->check_minimum_size();
 	# set colorizable
 	$self->on_after_parse_usecolor($event);
 	# additional key definitions 'keydef'

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Abstract 0.14
+# @(#) App::PFM::Abstract 0.15
 #
 # Name:			App::PFM::Abstract
-# Version:		0.14
+# Version:		0.15
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-10-03
+# Date:			2010-11-15
 #
 
 ##########################################################################
@@ -72,16 +72,13 @@ The I<args> are passed to the _init() methods of individual classes.
 =cut
 
 sub new {
-	my $type = shift;
+	my ($type, @args) = @_;
 	$type = ref($type) || $type;
-#	if ($type =~ /::Abstract$/) {
-#		croak("$type should not be instantiated");
-#	}
 	my $self = {
 		_event_handlers => {},
 	};
 	bless($self, $type);
-	$self->_init(@_);
+	$self->_init(@args);
 	return $self;
 }
 

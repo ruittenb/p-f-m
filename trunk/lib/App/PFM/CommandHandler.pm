@@ -302,7 +302,8 @@ sub _expand_3456_escapes {
 	# replace tildes
 	$self->_expand_tildes($command);
 	# replace the escapes
-	$$command =~ s/$qe([^1278])/$self->_expand_replace($qif, $1)/ge;
+#	$$command =~ s/$qe([^1278])/$self->_expand_replace($qif, $1)/ge;
+	$$command =~ s/$qe([3456eEpv])/$self->_expand_replace($qif, $1)/ge;
 }
 
 =item _expand_8_escapes(stringref $command)
@@ -1381,6 +1382,8 @@ sub handlelink {
 			# let cursor follow around
 			$_pfm->browser->position_at($orignewnameexpanded)
 				unless $state->{multiple_mode};
+			$state->directory->checkrcsapplicable($orignewnameexpanded)
+				if $self->{_config}{autorcs};
 			# add newname to the current directory listing.
 			# TODO if newnameexpanded == swapdir, add there
 			$mark = ($state->{multiple_mode}) ? M_NEWMARK : " ";
@@ -2387,6 +2390,8 @@ sub handlecopyrename {
 			# let cursor follow around
 			$browser->position_at($newnameexpanded)
 				unless $state->{multiple_mode};
+			$state->directory->checkrcsapplicable($newnameexpanded)
+				if $self->{_config}{autorcs};
 			# add newname to the current directory listing.
 			# TODO if newnameexpanded == swapdir, add there
 			$mark = ($state->{multiple_mode}) ? M_NEWMARK : " ";
@@ -2954,7 +2959,7 @@ sub handlemorego {
 		}
 	} else {
 		# the bookmark is an uninitialized directory path
-		$self->_expand_3456_escapes(QUOTE_OFF, \$dest);
+		$self->_expand_tildes(\$dest);
 		$dest =~ s{/$}{/.};
 		$destfile = basename $dest;
 		$dest     = dirname  $dest;
