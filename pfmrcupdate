@@ -2,9 +2,9 @@
 ############################################################################
 #
 # Name:         pfmrcupdate
-# Version:      2.06.1
+# Version:      2.06.3
 # Author:       Rene Uittenbogaard
-# Date:         2010-06-15
+# Date:         2010-08-12
 # Usage:        pfmrcupdate
 # Description:  Update an existing .pfmrc so that it can be used with
 #               newer versions of pfm.
@@ -24,7 +24,7 @@ our $ROFFVERSION = <<'=cut';
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfmrcupdate 2.06.1
+.ds Vw @(#) pfmrcupdate 2.06.3
 .de Vp
 This manual pertains to \f(CWpfmrcupdate\fP version \\$3.
 ..
@@ -622,7 +622,7 @@ sub update_to_2060 {
 	push @$lines, <<_end_update_to_2060_;
 
 ## write bookmarks to file automatically upon exit
-autowritebookmarks:no
+autowritebookmarks:yes
 
 _end_update_to_2060_
 }
@@ -638,6 +638,36 @@ sub update_to_2061 {
 #sortcycle:nNeEdDaAsStu
 
 _end_update_to_2061_
+}
+
+sub update_to_2062 {
+	my ($lines) = @_;
+	# added 'force_minimum_size'
+	print "Updating to 2.06.2...\n";
+	push @$lines, <<_end_update_to_2062_;
+
+## pfm does not support a terminal size of less than 80 columns or 24 rows.
+## this option will make pfm try to resize the terminal to the minimum
+## dimensions if it is resized too small.
+## valid options: yes,no,xterm.
+force_minimum_size:xterm
+
+_end_update_to_2062_
+}
+
+sub update_to_2063 {
+	my ($lines) = @_;
+	# added 'fg_editor'
+	print "Updating to 2.06.3...\n";
+	push @$lines, <<_end_update_to_2063_;
+
+## In case the regular editor automatically forks in the background, you
+## may want to specify a foreground editor here. If defined, this editor
+## will be used for editing the config file, so that pfm will be able to
+## wait for the editor to finish before rereading the config file.
+#fg_editor:vim
+
+_end_update_to_2063_
 }
 
 sub update_version {
@@ -678,6 +708,8 @@ sub update_pfmrc {
 	update_to_2059($lines) if $from lt '2.05.9' and '2.05.9' le $to;
 	update_to_2060($lines) if $from lt '2.06.0' and '2.06.0' le $to;
 	update_to_2061($lines) if $from lt '2.06.1' and '2.06.1' le $to;
+	update_to_2062($lines) if $from lt '2.06.2' and '2.06.2' le $to;
+	update_to_2063($lines) if $from lt '2.06.3' and '2.06.3' le $to;
 	update_version($to, $lines);
 }
 

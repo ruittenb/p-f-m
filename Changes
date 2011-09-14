@@ -1,3 +1,14 @@
+2.06.3-alpha
+
+* added config option 'fg_editor' for editing the config file
+  in the foreground
+
+2.06.2-alpha
+
+* fixed a bug in refreshing the screen after jumping to a bookmark
+* added config option 'force_minimum_size' to prevent the terminal
+  from being resized to smaller than 80x24 characters
+
 2.06.1-alpha
 
 * fixed a bug parsing 'svn status' output

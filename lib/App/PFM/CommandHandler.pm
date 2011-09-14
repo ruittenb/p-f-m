@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.06
+# @(#) App::PFM::CommandHandler 1.07
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.06
+# Version:		1.07
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-06-18
+# Date:			2010-08-12
 #
 
 ##########################################################################
@@ -435,7 +435,9 @@ sub _listbookmarks {
 		$dest    = $_pfm->state($_);
 		$spawned = ' ';
 		if (ref $dest) {
-			$dest    = $dest->directory->path;
+			$dest    = $dest->directory->path . '/' . $dest->{_position};
+			$dest    =~ s{/\.$}{/};
+			$dest    =~ s{^//}{/};
 			$spawned = SPAWNEDCHAR;
 		}
 		if (length($dest)) {
@@ -2430,7 +2432,8 @@ sub handlemoreshow {
 	return if $newname eq '';
 	$self->_expand_escapes(QUOTE_OFF, $newname, $_pfm->browser->currentfile);
 	if (!$_pfm->state->directory->chdir($newname)) {
-		$_screen->display_error("$newname: $!");
+		$_screen->set_deferred_refresh(R_PATHINFO)
+			->display_error("$newname: $!");
 	}
 }
 
@@ -2476,11 +2479,12 @@ Opens the current config file (F<.pfmrc>) in the configured editor.
 
 sub handlemoreconfig {
 	my ($self) = @_;
-	my $config = $_pfm->config;
-	my $olddotdot = $config->{dotdot_mode};
+	my $config        = $_pfm->config;
+	my $olddotdot     = $config->{dotdot_mode};
+	my $config_editor = $config->{fg_editor} || $config->{editor};
 	$_screen->at(0,0)->clreol()
 		->set_deferred_refresh(R_CLRSCR);
-	if (system $config->{editor}, $config->give_location()) {
+	if (system $config_editor, $config->give_location()) {
 		$_screen->at(1,0)->display_error('Editor failed');
 	} else {
 		$config->read( $config->READ_AGAIN);
@@ -2621,18 +2625,20 @@ sub handlemorego {
 	} else {
 		# the bookmark is an uninitialized directory path
 		$self->_expand_3456_escapes(QUOTE_OFF, $dest);
-		if (!-d $dest) {
-			$destfile = basename $dest;
-			$dest     = dirname  $dest;
-		}
+		$dest =~ s{/$}{/.};
+		$destfile = basename $dest;
+		$dest     = dirname  $dest;
 		if (!$_pfm->state->directory->chdir($dest)) {
 			$_screen->set_deferred_refresh(R_PATHINFO)
 				->display_error("$dest: $!");
 			return;
 		}
-		# TODO next line does not seem to work correctly
-		$_pfm->browser->position_at($destfile) if defined $destfile;
-		# prepare the state object so that it can be stored
+		if (defined $destfile) {
+			# provide the second argument (force) as TRUE because
+			# the chdir() above may already have set the position_at
+			$_pfm->browser->position_at($destfile, 1);
+		}
+		# commented out because we don't want to store the state object
 #		$_pfm->state->prepare();
 #		$_pfm->screen->unset_deferred_refresh(
 #			R_DIRCONTENTS | R_DIRSORT | R_DIRFILTER);

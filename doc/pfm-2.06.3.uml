@@ -81,7 +81,7 @@
 <XPD:ATTR name="Left" type="integer">48</XPD:ATTR>
 <XPD:ATTR name="Top" type="integer">480</XPD:ATTR>
 <XPD:ATTR name="Width" type="integer">149</XPD:ATTR>
-<XPD:ATTR name="Height" type="integer">797</XPD:ATTR>
+<XPD:ATTR name="Height" type="integer">862</XPD:ATTR>
 <XPD:REF name="Model">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 <XPD:OBJ name="NameCompartment" type="UMLNameCompartmentView" guid="YZ4kogjpNkiQh35GmPKE/QAA">
 <XPD:OBJ name="NameLabel" type="LabelView" guid="EzINGbW0YkWt0DLqoYWO3gAA">
@@ -3358,7 +3358,7 @@
 <XPD:REF name="Associations[3]">yHRm3AjUG0utyBYEa+g2cQAA</XPD:REF>
 <XPD:REF name="Associations[4]">xQSGvLcCa0OfZulU7KXj9wAA</XPD:REF>
 <XPD:REF name="Associations[5]">oqkiZRwaRk6fOu2ZfyN2uQAA</XPD:REF>
-<XPD:ATTR name="#Attributes" type="integer">45</XPD:ATTR>
+<XPD:ATTR name="#Attributes" type="integer">50</XPD:ATTR>
 <XPD:OBJ name="Attributes[0]" type="UMLAttribute" guid="whyJzYJAWECAwdkR0V3eSgAA">
 <XPD:ATTR name="Name" type="string">_configfilename</XPD:ATTR>
 <XPD:ATTR name="Visibility" type="UMLVisibilityKind">vkPrivate</XPD:ATTR>
@@ -3382,169 +3382,189 @@
 <XPD:ATTR name="Name" type="string">autorcs</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[5]" type="UMLAttribute" guid="OB+VJiQSqECEYx4mE/LRZgAA">
+<XPD:OBJ name="Attributes[5]" type="UMLAttribute" guid="njUhiwad4UeupAHObVjpEQAA">
+<XPD:ATTR name="Name" type="string">autowritebookmarks</XPD:ATTR>
+<XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
+</XPD:OBJ>
+<XPD:OBJ name="Attributes[6]" type="UMLAttribute" guid="OB+VJiQSqECEYx4mE/LRZgAA">
 <XPD:ATTR name="Name" type="string">autowritehistory</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[6]" type="UMLAttribute" guid="7aDTocwmk0OawAJ82p7n/AAA">
+<XPD:OBJ name="Attributes[7]" type="UMLAttribute" guid="7aDTocwmk0OawAJ82p7n/AAA">
 <XPD:ATTR name="Name" type="string">chdirautocmd</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[7]" type="UMLAttribute" guid="WXJt61wjSE+vd7898PqtKQAA">
+<XPD:OBJ name="Attributes[8]" type="UMLAttribute" guid="WXJt61wjSE+vd7898PqtKQAA">
 <XPD:ATTR name="Name" type="string">clickiskeypresstoo</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[8]" type="UMLAttribute" guid="O+nUtK+COUiBG57MxZPMmQAA">
+<XPD:OBJ name="Attributes[9]" type="UMLAttribute" guid="O+nUtK+COUiBG57MxZPMmQAA">
 <XPD:ATTR name="Name" type="string">clobber_mode</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[9]" type="UMLAttribute" guid="E9It1tm4ikSgriZwANiHAAAA">
+<XPD:OBJ name="Attributes[10]" type="UMLAttribute" guid="E9It1tm4ikSgriZwANiHAAAA">
 <XPD:ATTR name="Name" type="string">clockdateformat</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[10]" type="UMLAttribute" guid="USB/Ct/hwE2vToIrjv62DgAA">
+<XPD:OBJ name="Attributes[11]" type="UMLAttribute" guid="USB/Ct/hwE2vToIrjv62DgAA">
 <XPD:ATTR name="Name" type="string">clocktimeformat</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[11]" type="UMLAttribute" guid="Kk9he8y7VU6g/lGPc1MjDwAA">
+<XPD:OBJ name="Attributes[12]" type="UMLAttribute" guid="Kk9he8y7VU6g/lGPc1MjDwAA">
 <XPD:ATTR name="Name" type="string">clsonexit</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[12]" type="UMLAttribute" guid="G7x5x42/8UyQBN1ApCTxSwAA">
+<XPD:OBJ name="Attributes[13]" type="UMLAttribute" guid="G7x5x42/8UyQBN1ApCTxSwAA">
 <XPD:ATTR name="Name" type="string">colorsetnames</XPD:ATTR>
 <XPD:ATTR name="TypeExpression" type="string">array</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[13]" type="UMLAttribute" guid="gohFVjxA8UeXHH494FaL3gAA">
+<XPD:OBJ name="Attributes[14]" type="UMLAttribute" guid="gohFVjxA8UeXHH494FaL3gAA">
 <XPD:ATTR name="Name" type="string">columnlayouts</XPD:ATTR>
 <XPD:ATTR name="TypeExpression" type="string">array</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[14]" type="UMLAttribute" guid="lk7eexoO40ein6OjKL20KgAA">
+<XPD:OBJ name="Attributes[15]" type="UMLAttribute" guid="lk7eexoO40ein6OjKL20KgAA">
 <XPD:ATTR name="Name" type="string">confirmquit</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[15]" type="UMLAttribute" guid="Jqyem408A0SREq6hfT7Q5wAA">
+<XPD:OBJ name="Attributes[16]" type="UMLAttribute" guid="Jqyem408A0SREq6hfT7Q5wAA">
 <XPD:ATTR name="Name" type="string">copyoptions</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[16]" type="UMLAttribute" guid="H7ZsSlAZ3EqtFyyxMUBWWAAA">
+<XPD:OBJ name="Attributes[17]" type="UMLAttribute" guid="H7ZsSlAZ3EqtFyyxMUBWWAAA">
 <XPD:ATTR name="Name" type="string">currentlayout</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[17]" type="UMLAttribute" guid="lDi8lwfISkq85srKYHv41QAA">
+<XPD:OBJ name="Attributes[18]" type="UMLAttribute" guid="lDi8lwfISkq85srKYHv41QAA">
 <XPD:ATTR name="Name" type="string">cursorveryvisible</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[18]" type="UMLAttribute" guid="IySZEuZiq0mXrb0hv4ROUgAA">
+<XPD:OBJ name="Attributes[19]" type="UMLAttribute" guid="IySZEuZiq0mXrb0hv4ROUgAA">
 <XPD:ATTR name="Name" type="string">dircolors</XPD:ATTR>
 <XPD:ATTR name="TypeExpression" type="string">hash</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[19]" type="UMLAttribute" guid="chTWbGrhh0mnbpv4bI3shgAA">
+<XPD:OBJ name="Attributes[20]" type="UMLAttribute" guid="chTWbGrhh0mnbpv4bI3shgAA">
 <XPD:ATTR name="Name" type="string">dot_mode</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[20]" type="UMLAttribute" guid="cWesJq3AD0G3IvB2vBbUVgAA">
+<XPD:OBJ name="Attributes[21]" type="UMLAttribute" guid="cWesJq3AD0G3IvB2vBbUVgAA">
 <XPD:ATTR name="Name" type="string">dotdot_mode</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[21]" type="UMLAttribute" guid="aYHRC1vZtEO7UmwKtMrBFQAA">
+<XPD:OBJ name="Attributes[22]" type="UMLAttribute" guid="aYHRC1vZtEO7UmwKtMrBFQAA">
 <XPD:ATTR name="Name" type="string">ducmd</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[22]" type="UMLAttribute" guid="HaoztFPkyEycMF21Xev9XgAA">
+<XPD:OBJ name="Attributes[23]" type="UMLAttribute" guid="HaoztFPkyEycMF21Xev9XgAA">
 <XPD:ATTR name="Name" type="string">e</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[23]" type="UMLAttribute" guid="lg2xb+uUWUaPybfYh7paXgAA">
+<XPD:OBJ name="Attributes[24]" type="UMLAttribute" guid="lg2xb+uUWUaPybfYh7paXgAA">
 <XPD:ATTR name="Name" type="string">editor</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[24]" type="UMLAttribute" guid="TWXAvmGlv0uWfmuMflm7gQAA">
+<XPD:OBJ name="Attributes[25]" type="UMLAttribute" guid="TWXAvmGlv0uWfmuMflm7gQAA">
 <XPD:ATTR name="Name" type="string">escapechar</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[25]" type="UMLAttribute" guid="aS+N/FuA1UOa79WM4iWPMAAA">
+<XPD:OBJ name="Attributes[26]" type="UMLAttribute" guid="aS+N/FuA1UOa79WM4iWPMAAA">
 <XPD:ATTR name="Name" type="string">filetypeflags</XPD:ATTR>
 <XPD:ATTR name="TypeExpression" type="string">hash</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[26]" type="UMLAttribute" guid="qKDJ5FBJm0OzxiSEJYswmQAA">
+<XPD:OBJ name="Attributes[27]" type="UMLAttribute" guid="7i7AHsNbxUeM8jd4X3AAjwAA">
+<XPD:ATTR name="Name" type="string">fg_editor</XPD:ATTR>
+<XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
+</XPD:OBJ>
+<XPD:OBJ name="Attributes[28]" type="UMLAttribute" guid="BcN2OXi+EE+aFfNqH1Z+jgAA">
+<XPD:ATTR name="Name" type="string">force_minimum_size</XPD:ATTR>
+<XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
+</XPD:OBJ>
+<XPD:OBJ name="Attributes[29]" type="UMLAttribute" guid="qKDJ5FBJm0OzxiSEJYswmQAA">
 <XPD:ATTR name="Name" type="string">framecolors</XPD:ATTR>
 <XPD:ATTR name="TypeExpression" type="string">hash</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[27]" type="UMLAttribute" guid="+vlqXHRO/U2rafNNfJVWqwAA">
+<XPD:OBJ name="Attributes[30]" type="UMLAttribute" guid="+vlqXHRO/U2rafNNfJVWqwAA">
 <XPD:ATTR name="Name" type="string">ident_mode</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[28]" type="UMLAttribute" guid="3o0UxmBLzkSYMlI9fxm/GwAA">
+<XPD:OBJ name="Attributes[31]" type="UMLAttribute" guid="3o0UxmBLzkSYMlI9fxm/GwAA">
 <XPD:ATTR name="Name" type="string">launchby</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[29]" type="UMLAttribute" guid="1n4i5+J4fk2qrwR6NHc58QAA">
+<XPD:OBJ name="Attributes[32]" type="UMLAttribute" guid="1n4i5+J4fk2qrwR6NHc58QAA">
 <XPD:ATTR name="Name" type="string">mouse_mode</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[30]" type="UMLAttribute" guid="nlTjHyeOcEeAldmvrW7dCAAA">
+<XPD:OBJ name="Attributes[33]" type="UMLAttribute" guid="nlTjHyeOcEeAldmvrW7dCAAA">
 <XPD:ATTR name="Name" type="string">mouseturnoff</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[31]" type="UMLAttribute" guid="2nzjWDSGdU+ZaM/4b9RCBQAA">
+<XPD:OBJ name="Attributes[34]" type="UMLAttribute" guid="2nzjWDSGdU+ZaM/4b9RCBQAA">
 <XPD:ATTR name="Name" type="string">pager</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[32]" type="UMLAttribute" guid="Ns2JjnYESk6SFen6TndvFAAA">
+<XPD:OBJ name="Attributes[35]" type="UMLAttribute" guid="Ns2JjnYESk6SFen6TndvFAAA">
 <XPD:ATTR name="Name" type="string">path_mode</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[33]" type="UMLAttribute" guid="u8xU2GxUIUSmz7T82e6fmQAA">
+<XPD:OBJ name="Attributes[36]" type="UMLAttribute" guid="u8xU2GxUIUSmz7T82e6fmQAA">
 <XPD:ATTR name="Name" type="string">printcmd</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[34]" type="UMLAttribute" guid="7roj6YZ7xEST+HmanH6tuAAA">
+<XPD:OBJ name="Attributes[37]" type="UMLAttribute" guid="7roj6YZ7xEST+HmanH6tuAAA">
 <XPD:ATTR name="Name" type="string">radix_mode</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[35]" type="UMLAttribute" guid="IyFH9bAaV0iCz/HdDZ89XgAA">
+<XPD:OBJ name="Attributes[38]" type="UMLAttribute" guid="IyFH9bAaV0iCz/HdDZ89XgAA">
 <XPD:ATTR name="Name" type="string">remove_marks_ok</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[36]" type="UMLAttribute" guid="xeAcUMlp9E6ra/C4uS3m7gAA">
+<XPD:OBJ name="Attributes[39]" type="UMLAttribute" guid="xeAcUMlp9E6ra/C4uS3m7gAA">
 <XPD:ATTR name="Name" type="string">showlockchar</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[37]" type="UMLAttribute" guid="B2PQMkefI0KiwVhLhVk8NgAA">
+<XPD:OBJ name="Attributes[40]" type="UMLAttribute" guid="B2PQMkefI0KiwVhLhVk8NgAA">
 <XPD:ATTR name="Name" type="string">sort_mode</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[38]" type="UMLAttribute" guid="tbC094D6bEeebp6tsJ4wLgAA">
+<XPD:OBJ name="Attributes[41]" type="UMLAttribute" guid="lkJCeZxqfECnWoSN4AziYQAA">
+<XPD:ATTR name="Name" type="string">sortcycle</XPD:ATTR>
+<XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
+</XPD:OBJ>
+<XPD:OBJ name="Attributes[42]" type="UMLAttribute" guid="tbC094D6bEeebp6tsJ4wLgAA">
 <XPD:ATTR name="Name" type="string">swap_persistent</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[39]" type="UMLAttribute" guid="FtiujofD5kieBtFdw3W5HQAA">
+<XPD:OBJ name="Attributes[43]" type="UMLAttribute" guid="FtiujofD5kieBtFdw3W5HQAA">
 <XPD:ATTR name="Name" type="string">timestampformat</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[40]" type="UMLAttribute" guid="37/mHrVSWU6a0jSm23Cj9QAA">
+<XPD:OBJ name="Attributes[44]" type="UMLAttribute" guid="37/mHrVSWU6a0jSm23Cj9QAA">
 <XPD:ATTR name="Name" type="string">trspace</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[41]" type="UMLAttribute" guid="7iUMXOvFUkij1s9//x8HRgAA">
+<XPD:OBJ name="Attributes[45]" type="UMLAttribute" guid="7iUMXOvFUkij1s9//x8HRgAA">
 <XPD:ATTR name="Name" type="string">viewer</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[42]" type="UMLAttribute" guid="KR2SDgJkFEyMVzg/AM6/zAAA">
+<XPD:OBJ name="Attributes[46]" type="UMLAttribute" guid="KR2SDgJkFEyMVzg/AM6/zAAA">
 <XPD:ATTR name="Name" type="string">waitlaunchexec</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[43]" type="UMLAttribute" guid="p+n2IBI2rkuvKhNPqOTCNAAA">
+<XPD:OBJ name="Attributes[47]" type="UMLAttribute" guid="p+n2IBI2rkuvKhNPqOTCNAAA">
 <XPD:ATTR name="Name" type="string">white_mode</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Attributes[44]" type="UMLAttribute" guid="sIObhPYfK0GdiotBvyMq6wAA">
+<XPD:OBJ name="Attributes[48]" type="UMLAttribute" guid="sIObhPYfK0GdiotBvyMq6wAA">
 <XPD:ATTR name="Name" type="string">windowcmd</XPD:ATTR>
+<XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
+</XPD:OBJ>
+<XPD:OBJ name="Attributes[49]" type="UMLAttribute" guid="mupbKk+5i0ibBa0fQb3hCgAA">
+<XPD:ATTR name="Name" type="string">windowtype</XPD:ATTR>
 <XPD:REF name="Owner">/Cj+DYtCLESL0yFIgBd5MQAA</XPD:REF>
 </XPD:OBJ>
 </XPD:OBJ>

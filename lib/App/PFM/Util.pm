@@ -146,9 +146,9 @@ containing the file (dirname) for the specified path.
 sub dirname ($) {
 	$_[0] =~ m{^(.*)/.+?};
 	return length($1) ? $1
-#					  : $_[0] =~ m!^/! ? '/'
-#									   : '.';
-					  : '.';
+					  : $_[0] =~ m!^/! ? '/'
+									   : '.';
+#					  : '.';
 }
 
 sub basename ($) {
@@ -366,6 +366,7 @@ sub fitpath {
 	my ($restpathlen);
 	my $ELLIPSIS     = '..';
 	my $r_disppath   = '';
+	my $r_baselen    = 0;
 	my $r_overflow   = 0;
 	my $r_ellipssize = 0;
 	FIT: {
@@ -378,10 +379,12 @@ sub fitpath {
 				# impossible to replace; just truncate
 				# this is the case for e.g. /some_ridiculously_long_directory_name
 				$r_disppath = substr($path, 0, $maxlength);
+				$r_baselen  = $maxlength;
 				$r_overflow = 1;
 				last FIT;
 			}
 			($r_disppath, $path) = ($1, $2);
+			$r_baselen = length($r_disppath);
 			# the one being subtracted is for the '/' char in the next match
 			$restpathlen = $maxlength -length($r_disppath) -length($ELLIPSIS) -1;
 			unless ($path =~ /(.*?)(\/.{1,$restpathlen})$/) {
@@ -399,6 +402,7 @@ sub fitpath {
 	return ($r_disppath,
 		' ' x max($maxlength -length($r_disppath), 0),
 		$r_overflow,
+		$r_baselen,
 		$r_ellipssize);
 }
 
