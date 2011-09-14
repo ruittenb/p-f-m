@@ -4,7 +4,7 @@ shopt -s extglob
 
 currentdir=$(basename $(pwd -P)) # pfm-2.07.2-alpha
 currentvrc=${currentdir##pfm-}
-currentver=${currentvrc%-@(alpha|beta|stable|dist)}
+currentver=${currentvrc%-@(broken|alpha|beta|stable|dist)}
 
 if [ -z "$currentver" ]; then
 	echo "Cannot determine current version, exiting"

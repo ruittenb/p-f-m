@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config::Update 2.08.8
+# @(#) App::PFM::Config::Update 2.08.9
 #
 # Name:			App::PFM::Config::Update
-# Version:		2.08.8
+# Version:		2.08.9
 # Author:		Rene Uittenbogaard
 # Created:		2010-05-28
 # Date:			2010-09-12

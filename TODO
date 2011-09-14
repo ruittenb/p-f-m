@@ -27,11 +27,6 @@
   $browser->currentfile instead of $event->{currentfile}.
   Possible solution: give highlightline_off($line, $file) arguments?
 
-- handlemousedown: if the current file is clicked for showing, it does not
-  show.
-  Cause: handleshow() calls Directory->apply(), which uses
-  $browser->currentfile instead of $event->{currentfile}.
-
 - call $pfm->checkupdates() in '@' (perlcommand) does not finish the job;
   call $pfm->checkupdates(); sleep 2; finishes it.
 
@@ -99,6 +94,8 @@
 - figure out and display if an ACL is applicable for a file
 
 - add (M)ore - (O)pen window?
+
+- make si(Z)e a job in the background just like (V)ersion
 
 ################################################################################
 # documentation enhancements

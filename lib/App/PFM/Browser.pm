@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Browser 0.48
+# @(#) App::PFM::Browser 0.49
 #
 # Name:			App::PFM::Browser
-# Version:		0.48
+# Version:		0.49
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-10
+# Date:			2010-09-13
 #
 
 ##########################################################################
@@ -69,6 +69,12 @@ sub _init {
 	$self->{_position_exact} = 0;
 	$self->{_mouse_mode}	 = undef;
 	$self->{_swap_mode}		 = 0;
+
+	my $on_after_resize_window = sub {
+#		my ($event) = @_;
+		$self->validate_position();
+	};
+	$screen->register_listener('after_resize_window', $on_after_resize_window);
 }
 
 =item _wait_loop()
@@ -489,9 +495,11 @@ sub handle {
 		}
 		# pass it to the commandhandler
 		$event->{name} = 'after_receive_non_motion_input';
-		$event->{currentfile}           = $self->currentfile;
-		$event->{lunchbox}{baseindex}   = $self->{_baseindex};
-		$event->{lunchbox}{currentline} = $self->{_currentline};
+		$event->{currentfile}             = $self->currentfile;
+		$event->{lunchbox}{baseindex}     = $self->{_baseindex};
+		$event->{lunchbox}{currentline}   = $self->{_currentline};
+		# TODO
+#		$event->{lunchbox}{showncontents} = $self->{_showncontents};
 		$handled = $self->fire($event);
 		# a space needs to be handled by both the CommandHandler
 		# and the Browser

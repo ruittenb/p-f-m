@@ -7,7 +7,7 @@
 # Version:		0.36
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-12
+# Date:			2010-09-13
 # Requires:		Term::ScreenColor
 #
 
@@ -388,10 +388,13 @@ sub fit {
 	$self->listing->makeformatlines();
 	$self->listing->reformat();
 	$self->set_deferred_refresh(R_CLRSCR); # D_FILTER necessary?
-	# be careful here because the Screen object is instantiated
-	# before the browser and history objects.
-	$_pfm->browser and $_pfm->browser->validate_position();
-	$_pfm->history and $_pfm->history->handleresize();
+	# History is interested (wants to set keyboard object's terminal width)
+	# Browser is interested (wants to validate cursor position)
+	$self->fire(new App::PFM::Event({
+		name   => 'after_resize_window',
+		type   => 'soft',
+		origin => $self,
+	}));
 }
 
 =item handleresize()
@@ -535,9 +538,13 @@ sub select_next_color {
 	if ($index-- <= 0) { $index = $#colorsetnames }
 	$self->{_color_mode} = $colorsetnames[$index];
 	$self->color_mode($self->{_color_mode});
-	$_pfm->history->setornaments();
 	$self->listing->reformat();
-
+	# History is interested (wants to set ornaments).
+	$self->fire(new App::PFM::Event({
+		name   => 'after_set_color_mode',
+		type   => 'soft',
+		origin => $self,
+	}));
 }
 
 =item putcentered(string $message)
