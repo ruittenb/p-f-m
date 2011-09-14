@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::JobHandler 0.11
+# @(#) App::PFM::JobHandler 0.12
 #
 # Name:			App::PFM::JobHandler
-# Version:		0.11
+# Version:		0.12
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-18
+# Date:			2010-09-29
 #
 
 ##########################################################################

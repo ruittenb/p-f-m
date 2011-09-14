@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::OS::Abstract 0.14
+# @(#) App::PFM::OS::Abstract 0.15
 #
 # Name:			App::PFM::OS::Abstract
-# Version:		0.14
+# Version:		0.15
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-20
-# Date:			2010-09-18
+# Date:			2010-10-03
 #
 
 ##########################################################################
@@ -46,6 +46,8 @@ use constant {
 	MINORBITS => 2 ** 8,
 	IFMTCHARS => ' pc?d?b?-Cl?sDw?', # with whiteouts and contiguous files
 };
+
+use constant SYMBOLIC_MODES => [ qw(--- --x -w- -wx r-- r-x rw- rwx) ];
 
 our ($AUTOLOAD);
 
@@ -208,6 +210,21 @@ Possible inode types are:
 sub ifmt2str {
 	my ($self, $mode) = @_;
 	return substr($self->IFMTCHARS, oct($mode) & 017, 1);
+}
+
+=item mode2str(char $sugid, char $user, char $group, char $others)
+
+Determines the symbolic representation of permission digits.
+
+=cut
+
+sub mode2str {
+	my ($self, $sugid, @digits) = @_;
+	my $strmode = join '', @{SYMBOLIC_MODES()}[@digits];
+	if ($sugid & 4) { substr($strmode,2,1) =~ tr/-x/Ss/ }
+	if ($sugid & 2) { substr($strmode,5,1) =~ tr/-x/Ss/ }
+	if ($sugid & 1) { substr($strmode,8,1) =~ tr/-x/Tt/ }
+	return $strmode;
 }
 
 =item aclget_to_file(string $path)

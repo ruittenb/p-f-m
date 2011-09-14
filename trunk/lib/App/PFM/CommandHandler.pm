@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.36
+# @(#) App::PFM::CommandHandler 1.38
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.36
+# Version:		1.38
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-23
+# Date:			2010-10-03
 #
 
 ##########################################################################
@@ -194,7 +194,7 @@ sub _helppage {
                                      CREDITS                               [3/3]
 --------------------------------------------------------------------------------
 
-          $name for Unix and Unix-like operating systems.  Version $_pfm->{VERSION}
+          $name for Unix and Unix-like operating systems. Version $_pfm->{VERSION}
          Original version (c) 1983-1993 Paul R. Culley and Henk de Heer
                  This version (c) 1999-$_pfm->{LASTYEAR} Rene Uittenbogaard
 
@@ -1017,6 +1017,8 @@ sub handlehelp {
 			redo;
 		} elsif ($key =~ /(k1|\?)/o) {
 			system qw(man pfm);
+			last;
+		} elsif (uc $key eq 'Q') {
 			last;
 		}
 	} continue {

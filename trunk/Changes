@@ -1,3 +1,14 @@
+2.09.5-beta
+
+* fixed small bugs in installer and test script
+* fixed overlaying highlight color with file color
+* fixed bug in smart refresh
+* fixed bug in (M)ore - (@) Perl shell
+* added: exit halfway through the help screens with 'q' key
+* deprecated 'showlock' config option
+* bundled with Term::ScreenColor-1.20
+* updated documentation
+
 2.09.4-beta
 
 * fixed bug: footer is now redrawn after (M)ore - (O)pen-window

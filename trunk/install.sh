@@ -2,9 +2,9 @@
 ############################################################################
 #
 # Name:         install.sh
-# Version:      0.41
+# Version:      0.42
 # Authors:      Rene Uittenbogaard
-# Date:         2010-09-16
+# Date:         2010-09-29
 # Usage:        sh install.sh
 # Description:  Un*x-like systems can be very diverse.
 #		This script is meant as an example how pfm dependencies
@@ -430,7 +430,7 @@ install_pfm() {
 		/usr/local/bin/pfmrcupdate \
 		/usr/local/man/man1/pfmrcupdate.1;
 	do
-		$sudo mv $oldfile $oldfile.old
+		test -f $oldfile && $sudo mv $oldfile $oldfile.old
 	done
 }
 

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Directory 0.92
+# @(#) App::PFM::Directory 0.93
 #
 # Name:			App::PFM::Directory
-# Version:		0.92
+# Version:		0.93
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-16
+# Date:			2010-10-03
 #
 
 ##########################################################################
@@ -57,8 +57,8 @@ use constant {
 	D_CONTENTS		=> 512,  # read directory contents from disk
 	D_SMART			=> 1024, # make D_CONTENTS smart (i.e. smart refresh)
 #	D_FILELIST				 # D_CONTENTS + D_SORT + D_FILTER
-	D_FSINFO		=> 2048, # filesystem usage data
-#	D_ALL					 # D_FSINFO + D_FILELIST
+	D_CHDIR			=> 2048, # filesystem usage data
+#	D_ALL					 # D_CHDIR + D_FILELIST
 	M_MARK			=> '*',
 	M_OLDMARK		=> '.',
 	M_NEWMARK		=> '~',
@@ -66,14 +66,14 @@ use constant {
 
 use constant D_FILELIST			=> D_SORT | D_FILTER | D_CONTENTS;
 use constant D_FILELIST_SMART	=> D_SORT | D_FILTER | D_CONTENTS | D_SMART;
-use constant D_ALL				=> D_FSINFO | D_FILELIST;
+use constant D_ALL				=> D_CHDIR | D_FILELIST;
 
-use constant RCS => [
-	'Subversion',
-	'Cvs',
-	'Bazaar',
-	'Git',
-];
+use constant RCS => [ qw(
+	Subversion
+	Cvs
+	Bazaar
+	Git
+) ];
 
 our %EXPORT_TAGS = (
 	constants => [ qw(
@@ -83,7 +83,7 @@ our %EXPORT_TAGS = (
 		D_SMART
 		D_FILELIST
 		D_FILELIST_SMART
-		D_FSINFO
+		D_CHDIR
 		D_ALL
 		M_MARK
 		M_OLDMARK
@@ -805,11 +805,15 @@ sub refresh {
 		$self->{_screen}->set_deferred_refresh(R_LISTING);
 	}
 	# now refresh individual elements
-	if ($dirty & D_FSINFO) {
+	if ($dirty & D_CHDIR) {
 		$self->_init_filesystem_info();
 	}
 	if ($dirty & D_CONTENTS) {
-		$smart = ($dirty & D_SMART or $self->{_config}{refresh_always_smart});
+		# the smart flag is only respected if the current directory has changed
+		$smart = (
+			!($dirty & D_CHDIR) and
+			($dirty & D_SMART || $self->{_config}{refresh_always_smart})
+		);
 		$self->_readcontents($smart);
 	}
 	if ($dirty & D_SORT) {
@@ -1053,9 +1057,10 @@ The directory contents should be updated from disk.
 
 Convenience alias for a combination of all of the above.
 
-=item D_FSINFO
+=item D_CHDIR
 
-The filesystem usage information should be updated from disk.
+The current directory was changed, therefore, filesystem usage
+information should be updated from disk.
 
 =item D_ALL
 
