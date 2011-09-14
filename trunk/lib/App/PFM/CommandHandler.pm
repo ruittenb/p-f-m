@@ -1348,7 +1348,7 @@ sub handlelink {
 	my $state      = $_pfm->state;
 	my $swap_state = $_pfm->state('S_SWAP');
 	my $currentdir = $state->directory->path;
-	my $swap_dir   = $swap_state->directory->path;
+	my $swap_dir   = $swap_state ? $swap_state->directory->path : undef;
 	
 	if ($_pfm->state->{multiple_mode}) {
 		$self->{_screen}->set_deferred_refresh(R_SCREEN);
@@ -2420,7 +2420,7 @@ sub handlecopyrename {
 	my $browser    = $_pfm->browser;
 	my $state      = $_pfm->state;
 	my $swap_state = $_pfm->state('S_SWAP');
-	my $swap_dir   = $swap_state->directory->path;
+	my $swap_dir   = $swap_state ? $swap_state->directory->path : undef;
 	if ($state->{multiple_mode}) {
 		$screen->set_deferred_refresh(R_SCREEN);
 	} else {

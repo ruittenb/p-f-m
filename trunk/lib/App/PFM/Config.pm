@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 1.10
+# @(#) App::PFM::Config 1.11
 #
 # Name:			App::PFM::Config
-# Version:		1.10
+# Version:		1.11
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-23
+# Date:			2010-11-28
 #
 
 ##########################################################################
@@ -536,7 +536,7 @@ sub read_bookmarks {
 	return %bookmarks;
 }
 
-=item write_bookmarks( [ bool $finishing ] )
+=item write_bookmarks( [ bool $finishing [, bool $silent ] ] )
 
 Writes the states to the bookmarks file.
 Reports an error if the bookmarks file cannot be written.
@@ -544,18 +544,20 @@ Reports an error if the bookmarks file cannot be written.
 The argument I<finishing> indicates that the final message
 should be shown without delay.
 
+The argument I<silent> suppresses output and may be used for testing.
+
 =cut
 
 sub write_bookmarks {
-	my ($self, $finishing) = @_;
+	my ($self, $finishing, $silent) = @_;
 	my ($state, $path, $BOOKMARKS);
 	my $screen = $self->{_screen};
-	unless ($finishing) {
+	if (!$finishing && !$silent) {
 		$screen->at(0,0)->clreol()
 			->set_deferred_refresh($screen->R_MENU);
 	}
 	unless (open $BOOKMARKS, '>', CONFIGDIRNAME . "/" . BOOKMARKFILENAME) {
-		$screen->display_error("Error writing bookmarks: $!");
+		$screen->display_error("Error writing bookmarks: $!") unless $silent;
 		return;
 	}
 	print $BOOKMARKS '#' x 74, "\n## bookmarks for pfm\n\n";
@@ -574,27 +576,32 @@ sub write_bookmarks {
 	}
 	print $BOOKMARKS "\n## vim: set filetype=xdefaults:\n";
 	unless (close $BOOKMARKS) {
-		$screen->display_error("Error writing bookmarks: $!");
+		$screen->display_error("Error writing bookmarks: $!") unless $silent;
 		return;
 	}
-	$screen->putmessage(
-		'Bookmarks written successfully' . ($finishing ? "\n" : ''));
+	unless ($silent) {
+		$screen->putmessage(
+			'Bookmarks written successfully' . ($finishing ? "\n" : ''));
+	}
 	unless ($finishing) {
 		$screen->error_delay();
 	}
 	return;
 }
 
-=item on_shutdown()
+=item on_shutdown( [ bool $silent ] )
 
 Called when the application is shutting down. Writes the bookmarks
 to file if so indicated by the config.
 
+The I<silent> argument suppresses output and may be used for testing
+if the application shuts down correctly.
+
 =cut
 
 sub on_shutdown {
-	my ($self) = @_;
-	$self->write_bookmarks(1) if $self->{autowritebookmarks};
+	my ($self, $silent) = @_;
+	$self->write_bookmarks(1, $silent) if $self->{autowritebookmarks};
 	return;
 }
 

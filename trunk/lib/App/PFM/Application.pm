@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.10.7
+# @(#) App::PFM::Application 2.10.8
 #
 # Name:			App::PFM::Application
-# Version:		2.10.7
+# Version:		2.10.8
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-22
+# Date:			2010-11-28
 #
 
 ##########################################################################
@@ -54,7 +54,7 @@ use Cwd;
 use locale;
 use strict;
 
-our $VERSION  = '2.10.7';
+our $VERSION  = '2.10.8';
 our $LASTYEAR = 2010;
 
 ##########################################################################
@@ -540,7 +540,7 @@ sub shutdown {
 	
 	$self->{_screen}->on_shutdown($state->{altscreen_mode}, $silent);
 	$self->{_history}->on_shutdown();
-	$self->{_config}->on_shutdown();
+	$self->{_config}->on_shutdown($silent);
 	$self->{_jobhandler}->stopall();
 	
 	if ($self->{NEWER_VERSION} and $self->{PFM_URL}) {
