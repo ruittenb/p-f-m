@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Frame 0.34
+# @(#) App::PFM::Screen::Frame 0.36
 #
 # Name:			App::PFM::Screen::Frame
-# Version:		0.34
+# Version:		0.36
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-31
+# Date:			2010-09-04
 #
 
 ##########################################################################
@@ -58,6 +58,7 @@ use constant {
 	HEADING_BOOKMARKS	=> 8,
 	FOOTER_SINGLE		=> 0,
 	FOOTER_MULTI		=> 1,
+	FOOTER_MORE			=> 2,
 	FOOTER_NONE			=> 65536,
 };
 
@@ -108,6 +109,7 @@ our %EXPORT_TAGS = (
 		HEADING_BOOKMARKS
 		FOOTER_SINGLE
 		FOOTER_MULTI
+		FOOTER_MORE
 		FOOTER_NONE
 	) ]
 );
@@ -192,8 +194,7 @@ sub _getmenu {
 	$mode ||= MENU_SINGLE;
 	# disregard multiple mode: show_menu will take care of it
 	if		($mode == MENU_SORT) {
-		return	'Sort by: Name, Extension, Size, Date, Type, Version '
-		.		'(or see below):';
+		return	'Sort by which mode? (uppercase=reverse): ';
 	} elsif ($mode == MENU_MORE) {
 		return	'Acl Bookmark Config Edit-any mkFifo Go sHell Mkdir '
 		.		'Phys-path Show-dir alTscreen Version Write-hist';
@@ -275,24 +276,26 @@ using the B<FOOTER_*> constants as defined in App::PFM::Screen::Frame.
 
 sub _getfooter {
 	my ($self, $footer_mode) = @_;
+	my $f = '';
 	my %state = %{$_pfm->state};
-	if ($footer_mode != FOOTER_SINGLE and $footer_mode != FOOTER_MULTI) {
-		return '';
+	if ($footer_mode == FOOTER_MORE) {
+		$f = "F6-Multilevel sort";
+	} elsif ($footer_mode == FOOTER_SINGLE or $footer_mode == FOOTER_MULTI) {
+		$f =	"F1-Help F2-Prev F3-Redraw"
+		.		" F4-Color[" . $_screen->color_mode . "] F5-Reread"
+		.		" F6-Sort[" . $_pfm->state->sort_mode . "]"
+		.		" F7-Swap[$ONOFF{$_pfm->browser->swap_mode}] F8-In/Exclude"
+		.		" F9-Layout[" . $_screen->listing->layout . "]" # $layoutname ?
+		.		" F10-Multiple[$ONOFF{$state{multiple_mode}}] F11-Restat"
+		.		" F12-Mouse[$ONOFF{$_pfm->browser->mouse_mode}]"
+		.		" !-Clobber[$ONOFF{$_pfm->commandhandler->clobber_mode}]"
+		.		" .-Dotfiles[$ONOFF{$state{dot_mode}}]"
+		.		" %-Whiteouts[$ONOFF{$state{white_mode}}]"
+		.		" \"-Pathnames[" . $_pfm->state->directory->path_mode . "]"
+		.		" *-Radix[$state{radix_mode}]"
+#		.		" =-Ident[$state{ident_mode}]"
+		;
 	}
-	my $f =	"F1-Help F2-Prev F3-Redraw"
-	.		" F4-Color[" . $_screen->color_mode . "] F5-Reread"
-	.		" F6-Sort[" . $_pfm->state->sort_mode . "]"
-	.		" F7-Swap[$ONOFF{$_pfm->browser->swap_mode}] F8-In/Exclude"
-	.		" F9-Layout[" . $_screen->listing->layout . "]" # $layoutname ?
-	.		" F10-Multiple[$ONOFF{$state{multiple_mode}}] F11-Restat"
-	.		" F12-Mouse[$ONOFF{$_pfm->browser->mouse_mode}]"
-	.		" !-Clobber[$ONOFF{$_pfm->commandhandler->clobber_mode}]"
-	.		" .-Dotfiles[$ONOFF{$state{dot_mode}}]"
-	.		" %-Whiteouts[$ONOFF{$state{white_mode}}]"
-	.		" \"-Pathnames[" . $_pfm->state->directory->path_mode . "]"
-	.		" *-Radix[$state{radix_mode}]"
-#	.		" =-Ident[$state{ident_mode}]"
-	;
 	return $f;
 }
 

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Directory 0.88
+# @(#) App::PFM::Directory 0.89
 #
 # Name:			App::PFM::Directory
-# Version:		0.88
+# Version:		0.89
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-01
+# Date:			2010-09-04
 #
 
 ##########################################################################
@@ -134,12 +134,12 @@ sub _clone {
 =item _by_sort_mode()
 
 Sorts two directory entries according to the selected sort mode.
+Dotdot mode is taken into account.
 
 =cut
 
 sub _by_sort_mode {
 	# note: called directly (not OO-like)
-	my ($exta, $extb);
 	if ($_pfm->config->{dotdot_mode}) {
 		# Oleg Bartunov requested to have . and .. unsorted (always at the top)
 		if    ($a->{name} eq '.' ) { return -1 }
@@ -147,7 +147,37 @@ sub _by_sort_mode {
 		elsif ($a->{name} eq '..') { return -1 }
 		elsif ($b->{name} eq '..') { return  1 }
 	}
-	for ($_pfm->state->sort_mode) {
+	return _sort_multilevel($_pfm->state->sort_mode, $a, $b);
+}
+
+=item _sort_multilevel(string $sort_mode, App::PFM::File $a, App::PFM::File $b)
+
+Recursively sorts two directory entries according to the selected
+sort mode string (multilevel).
+
+=cut
+
+sub _sort_multilevel {
+	# note: called directly (not OO-like)
+	my ($sort_mode, $a, $b) = @_;
+	return 0 unless length $sort_mode;
+	return
+		_sort_singlelevel(substr($sort_mode, 0, 1), $a, $b) ||
+		_sort_multilevel( substr($sort_mode, 1),    $a, $b);
+}
+
+=item _sort_singlelevel(char $sort_mode, App::PFM::File $a, App::PFM::File $b)
+
+Sorts two directory entries according to the selected sort mode
+character (one level).
+
+=cut
+
+sub _sort_singlelevel {
+	# note: called directly (not OO-like)
+	my ($sort_mode, $a, $b) = @_;
+	my ($exta, $extb);
+	for ($sort_mode) {
 		/n/  and return		$a->{name}		cmp		$b->{name};
 		/N/  and return		$b->{name}		cmp		$a->{name};
 		/m/  and return	 lc($a->{name})		cmp	 lc($b->{name});
@@ -160,12 +190,14 @@ sub _by_sort_mode {
 		/S/  and return		$b->{size}		<=>		$a->{size};
 		/z/  and return		$a->{grand}		<=>		$b->{grand};
 		/Z/  and return		$b->{grand}		<=>		$a->{grand};
-		/i/  and return		$a->{inode}		<=>		$b->{inode};
-		/I/  and return		$b->{inode}		<=>		$a->{inode};
 		/u/  and return		$a->{uid}		cmp		$b->{uid};
 		/U/  and return		$b->{uid}		cmp		$a->{uid};
 		/g/  and return		$a->{gid}		cmp		$b->{gid};
 		/G/  and return		$b->{gid}		cmp		$a->{gid};
+		/l/  and return		$a->{nlink}		<=>		$b->{nlink};
+		/L/  and return		$b->{nlink}		<=>		$a->{nlink};
+		/i/  and return		$a->{inode}		<=>		$b->{inode};
+		/I/  and return		$b->{inode}		<=>		$a->{inode};
 		/v/  and return		$a->{rcs}		cmp		$b->{rcs};
 		/V/  and return		$b->{rcs}		cmp		$a->{rcs};
 		/t/  and do {

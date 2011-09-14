@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.22
+# @(#) App::PFM::CommandHandler 1.23
 #   
 # Name:			App::PFM::CommandHandler
-# Version:		1.22
+# Version:		1.23
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-02
+# Date:			2010-09-04
 #
 
 ##########################################################################
@@ -96,6 +96,7 @@ use constant FIELDS_TO_SORTMODE => [
 	'z'=> 'z', # grand total (siZe)
 	 p => 't', # perm --> type
 	 i => 'i', # inode
+	 l => 'l', # link count
 	 v => 'v', # version(rcs)
 	 u => 'u', # user
 	 g => 'g', # group
@@ -583,7 +584,7 @@ sub handle {
 		/^t$/io				and $self->handletime(),					  last;
 		/^a$/io				and $self->handlechmod(),					  last;
 		/^q$/io				and $handled = $self->handlequit($_),		  last;
-		/^k6$/o				and $self->handlesort(),					  last;
+		/^k6$/o				and $self->handlesinglesort(),				  last;
 		/^(?:k1|\?)$/o		and $self->handlehelp(),					  last;
 		/^k2$/o				and $self->handleprev(),					  last;
 		/^\.$/o				and $self->handledot(),						  last;
@@ -1265,19 +1266,33 @@ sub handlelink {
 	$_pfm->state->directory->apply($do_this);
 }
 
-=item handlesort()
+=item handlesinglesort()
+
+Handles asking for user input and setting single-level sort mode.
+
+=cut
+
+sub handlesinglesort {
+	my ($self) = @_;
+	$self->handlesort(FALSE);
+}
+
+=item handlesort( [ bool $multilevel ] )
 
 Handles sorting the current directory (B<F6>).
+The I<multilevel> argument indicates if the user must be offered
+the possibility of entering a string of characters instead of
+just a single one.
 
 =cut
 
 sub handlesort {
-	my ($self) = @_;
+	my ($self, $multilevel) = @_;
 	my $printline = $_screen->BASELINE;
 	my $infocol   = $_screen->diskinfo->infocol;
 	my $frame     = $_screen->frame;
 	my %sortmodes = @{$_pfm->state->SORTMODES()};
-	my ($i, $key, $menulength);
+	my ($i, $newmode, $menulength);
 	$menulength = $frame->show({
 		menu     => MENU_SORT,
 		footer   => FOOTER_NONE,
@@ -1288,17 +1303,29 @@ sub handlesort {
 	foreach (grep { ($i += 1) %= 2 } @{$_pfm->state->SORTMODES()}) {
 		# keep keys, skip values
 		last if ($printline > $_screen->BASELINE + $_screen->screenheight);
+		next if /[[:upper:]]/;
 		$_screen->at($printline++, $infocol)
 			->puts(sprintf('%1s %s', $_, $sortmodes{$_}));
 	}
-	$key = $_screen->at(0, $menulength)->getch();
+	if ($multilevel) {
+		$_screen->at(0,0)->clreol()->cooked_echo();
+		chomp($newmode = $_pfm->history->input({
+			history => H_MODE,
+			prompt  => 'Sort by which modes? (uppercase=reverse): ',
+		}));
+		$_screen->raw_noecho();
+	} else {
+		$newmode = $_screen->at(0, $menulength)->getch();
+	}
+	$_screen->set_deferred_refresh(R_SCREEN);
 	$_screen->diskinfo->clearcolumn();
-	if ($sortmodes{$key}) {
-		$_pfm->state->sort_mode($key);
+	return if $newmode eq '';
+	# find out if the resulting mode equals the newmode
+	if ($newmode eq $_pfm->state->sort_mode($newmode)) {
+		# if it has been set
 		$_pfm->browser->position_at(
 			$_pfm->browser->currentfile->{name}, { force => 0, exact => 1 });
 	}
-	$_screen->set_deferred_refresh(R_SCREEN);
 	$_pfm->state->directory->set_dirty(D_SORT | D_FILTER);
 }
 
@@ -2065,7 +2092,8 @@ sub handledelete {
 	}
 	$_screen->at($_screen->PATHLINE, 0)
 		->set_deferred_refresh(R_SCREEN);
-	$_pfm->state->directory->set_dirty(D_FILELIST);
+#	$_pfm->state->directory->set_dirty(D_FILELIST);
+	$_pfm->state->directory->set_dirty(D_SORT | D_FILTER);
 	$do_this = sub {
 		my $file = shift;
 		my ($msg, $success);
@@ -2455,7 +2483,7 @@ sub handlemore {
 #		->set_deferred_refresh(R_MENU);
 	my $headerlength = $_screen->noecho()->set_deferred_refresh(R_MENU)
 		->show_frame({
-			footer => FOOTER_NONE,
+			footer => FOOTER_MORE,
 			menu   => MENU_MORE,
 		});
 	MORE_PAN: {
@@ -2466,14 +2494,15 @@ sub handlemore {
 			/^c$/io		and $self->handlemoreconfig(),		last MORE_PAN;
 			/^e$/io		and $self->handlemoreedit(),		last MORE_PAN;
 			/^h$/io		and $self->handlemoreshell(),		last MORE_PAN;
+			/^a$/io		and $self->handlemoreacl(),			last MORE_PAN;
 			/^b$/io		and $self->handlemorebookmark(),	last MORE_PAN;
 			/^g$/io		and $self->handlemorego(),			last MORE_PAN;
 			/^f$/io		and $self->handlemorefifo(),		last MORE_PAN;
-			/^v$/io		and $self->handlemoreversion(),		last MORE_PAN;
 			/^w$/io		and $self->handlemorehistwrite(),	last MORE_PAN;
 			/^t$/io		and $self->handlemorealtscreen(),	last MORE_PAN;
 			/^p$/io		and $self->handlemorephyspath(),	last MORE_PAN;
-			/^a$/io		and $self->handlemoreacl(),			last MORE_PAN;
+			/^v$/io		and $self->handlemoreversion(),		last MORE_PAN;
+			/^k6$/io	and $self->handlemoremultisort(),	last MORE_PAN;
 			/^[<>]$/io	and do {
 				$self->handlepan($_, MENU_MORE);
 				$headerlength = $frame->show_menu(MENU_MORE);
@@ -2832,6 +2861,17 @@ and starts a job for the current directory if so (B<M>ore - B<V>ersion).
 sub handlemoreversion {
 	my ($self) = @_;
 	$_pfm->state->directory->checkrcsapplicable();
+}
+
+=item handlemoremultisort()
+
+Handles asking for user input and setting multilevel sort mode.
+
+=cut
+
+sub handlemoremultisort {
+	my ($self) = @_;
+	$self->handlesort(TRUE);
 }
 
 =item handleenter()

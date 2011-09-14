@@ -3,7 +3,7 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.08.1
+# Version:		2.08.2
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-09-02
@@ -24,7 +24,7 @@
 # version
 
 # for MakeMaker
-our $VERSION = '2.08.1';
+our $VERSION = '2.08.2';
 
 # macros for *roff
 our $ROFFVERSION = <<'=cut';
@@ -33,7 +33,7 @@ our $ROFFVERSION = <<'=cut';
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.08.1
+.ds Vw @(#) pfm.pl 2.08.2
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -870,6 +870,12 @@ entered. The history is read from individual files in F<$HOME/.pfm/>
 every time C<pfm> starts. The history is written only when this command
 is given, or when C<pfm> exits and the 'autowritehistory' option is set
 in F<.pfmrc>.
+
+=item B<F6> Multilevel Sort
+
+Allows the user to enter a string of sort mode characters which will be
+applied sequentially. Example: a string of B<sN> will sort by size
+ascending followed by name descending.
 
 =back
 

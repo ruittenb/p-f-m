@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::Bazaar 0.31
+# @(#) App::PFM::Job::Bazaar 0.32
 #
 # Name:			App::PFM::Job::Bazaar
-# Version:		0.31
+# Version:		0.32
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-24
+# Date:			2010-09-03
 #
 
 ##########################################################################
@@ -126,7 +126,7 @@ in which case Bazaar commands would be applicable.
 
 sub isapplicable {
 	my ($self, $path) = @_;
-	while ($path) {
+	while ($path and $path =~ m!/!) {
 		if (-d "$path/.bzr") {
 			return $path;
 		}
