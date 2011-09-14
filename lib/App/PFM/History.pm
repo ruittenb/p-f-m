@@ -149,7 +149,8 @@ sub write {
 	my ($self) = @_;
 	my $failed;
 	my $screen = $_pfm->screen;
-	$screen->at(0,0)->clreol();
+	$screen->at(0,0)->clreol()
+		->set_deferred_refresh($screen->R_MENU);
 	foreach (keys %{$self->{_histories}}) {
 		if (open HISTFILE, '>'.$_pfm->config->CONFIGDIRNAME."/$_") {
 			print HISTFILE join "\n", @{$self->{_histories}{$_}}, '';
@@ -161,8 +162,6 @@ sub write {
 	}
 	$screen->putmessage('History written successfully') unless $failed;
 	$screen->error_delay();
-	$screen->important_delay() if $failed;
-	$screen->set_deferred_refresh($screen->R_MENU);
 }
 
 =item write_dirs()

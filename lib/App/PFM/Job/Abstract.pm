@@ -103,7 +103,8 @@ Cleans up finished child processes.
 
 sub _catch_child {
 	my ($self) = @_;
-	(wait() == -1) ? 0 : $?;
+	my $ret = (wait() == -1) ? 0 : $?;
+	$? = 0;
 }
 
 =item _start_child()

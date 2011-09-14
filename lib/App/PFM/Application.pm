@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.05.9
+# @(#) App::PFM::Application 2.06.0
 #
 # Name:			App::PFM::Application
-# Version:		2.05.9
+# Version:		2.06.0
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-06-01
@@ -177,7 +177,8 @@ sub _goodbye {
 		}
 	}
 	$_history->write_dirs();
-	$_history->write() if $_config->{autowritehistory};
+	$_history->write()          if $_config->{autowritehistory};
+	$_config->write_bookmarks() if $_config->{autowritebookmarks};
 	if ($state->{altscreen_mode} or !$_config->{clsonexit}) {
 		$_screen->at($_screen->screenheight + $_screen->BASELINE + 1, 0)
 				->clreol();
@@ -282,16 +283,17 @@ Opens a new terminal window running pfm.
 
 sub openwindow {
 	my ($self, $file) = @_;
-	if ($self->config->{windowtype} eq 'pfm') {
+	if ($_config->{windowtype} eq 'pfm') {
+		# windowtype = pfm
 		if (ref $self->{_states}{S_SWAP}) {
-			system($self->config->{windowcmd} . " 'pfm \Q$file->{name}\E -s " .
+			system($_config->{windowcmd} . " 'pfm \Q$file->{name}\E -s " .
 				quotemeta($self->{_states}{S_SWAP}->{path}) . "' &");
 		} else {
-			system($self->config->{windowcmd} . " 'pfm \Q$file->{name}\E' &");
+			system($_config->{windowcmd} . " 'pfm \Q$file->{name}\E' &");
 		}
 	} else {
-		# windowtype = external
-		system($self->config->{windowcmd} . " \Q$file->{name}\E' &");
+		# windowtype = standalone
+		system($_config->{windowcmd} . " \Q$file->{name}\E &");
 	}
 }
 
@@ -335,7 +337,7 @@ Instantiates the necessary objects.
 =cut
 
 sub bootstrap {
-	my $self = shift;
+	my ($self, $silent) = @_;
 	my ($startingdir, $swapstartdir, $startinglayout,
 		$currentdir, $opt_version, $opt_help,
 		%bookmarks, $invalid, $state);
@@ -366,11 +368,11 @@ sub bootstrap {
 	$_screen->clrscr()->raw_noecho();
 	$_screen->calculate_dimensions();
 	$_config = new App::PFM::Config($self);
-	$_config->read( $_config->READ_FIRST);
-	$_config->parse($_config->SHOW_COPYRIGHT);
+	$_config->read( $silent ? $_config->READ_AGAIN   :$_config->READ_FIRST);
+	$_config->parse($silent ? $_config->NO_COPYRIGHT :$_config->SHOW_COPYRIGHT);
 	$_config->apply();
 	%bookmarks = $_config->read_bookmarks();
-	@{$self->{_states}}{BOOKMARKKEYS} = ();
+	@{$self->{_states}}{@{BOOKMARKKEYS()}} = ();
 	@{$self->{_states}}{keys %bookmarks} = values %bookmarks;
 	$_screen->listing->layout($startinglayout);
 	$_history->read();
