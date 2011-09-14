@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Browser 0.51
+# @(#) App::PFM::Browser 0.52
 #
 # Name:			App::PFM::Browser
-# Version:		0.51
+# Version:		0.52
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-23
+# Date:			2010-10-10
 #
 
 ##########################################################################
@@ -46,13 +46,11 @@ use locale;
 use constant MOTION_COMMANDS_EXCEPT_SPACE =>
 	qr/^(?:[-+jk\cF\cB\cD\cU]|ku|kd|pgup|pgdn|home|end)$/io;
 
-our ($_pfm);
-
 ##########################################################################
 # private subs
 
-=item _init(App::PFM::Application $pfm, App::PFM::Screen $screen,
-App::PFM::Config $config)
+=item _init(App::PFM::Screen $screen, App::PFM::Config $config,
+App::PFM::State $state)
 
 Initializes new instances. Called from the constructor.
 Expects to be passed the application object as the first parameter.
@@ -60,10 +58,10 @@ Expects to be passed the application object as the first parameter.
 =cut
 
 sub _init {
-	my ($self, $pfm, $screen, $config) = @_;
-	$_pfm					 = $pfm;
+	my ($self, $screen, $config, $state) = @_;
 	$self->{_screen}		 = $screen;
 	$self->{_config}		 = $config;
+	$self->{_state}			 = $state;
 	$self->{_currentline}	 = 0;
 	$self->{_baseindex}		 = 0;
 	$self->{_position_at}	 = '';
@@ -116,7 +114,7 @@ Getter for the file at the cursor position.
 
 sub currentfile {
 	my ($self) = @_;
-	return $_pfm->state->directory->showncontents
+	return $self->{_state}->directory->showncontents
 		->[$self->{_currentline} + $self->{_baseindex}];
 }
 
@@ -235,6 +233,21 @@ sub swap_mode {
 	return $self->{_swap_mode};
 }
 
+=item main_state( [ App::PFM::State $state ] )
+
+Getter/setter for the I<_state> member variable, indicating which state
+this browser is operating on.
+
+=cut
+
+sub main_state {
+	my ($self, $value) = @_;
+	if (defined($value)) {
+		$self->{_state} = $value;
+	}
+	return $self->{_state};
+}
+
 ##########################################################################
 # public subs
 
@@ -252,7 +265,7 @@ sub validate_position {
 	# $showncontents[ $self->{_currentline} + $self->{_baseindex} ] is defined
 	my $screenheight  = $self->{_screen}->screenheight;
 	my $oldbaseindex  = $self->{_baseindex};
-	my @showncontents = @{$_pfm->state->directory->showncontents};
+	my @showncontents = @{$self->{_state}->directory->showncontents};
 	
 	if ($self->{_currentline} < 0) {
 		$self->{_baseindex}  += $self->{_currentline};
@@ -289,7 +302,7 @@ sub position_cursor {
 	my ($self, $target) = @_;
 	$self->{_position_at} = $target if (defined $target and $target ne '');
 	return if $self->{_position_at} eq '';
-	my @showncontents     = @{$_pfm->state->directory->showncontents};
+	my @showncontents     = @{$self->{_state}->directory->showncontents};
 	$self->{_currentline} = 0;
 	$self->{_baseindex}   = 0 if $self->{_position_at} eq '..'; # descending
 	POSITION_ENTRY: {
@@ -319,16 +332,16 @@ sub position_cursor_fuzzy {
 	$self->{_position_at} = $target if (defined $target and $target ne '');
 	return if $self->{_position_at} eq '';
 
-	my @showncontents = @{$_pfm->state->directory->showncontents};
+	my @showncontents = @{$self->{_state}->directory->showncontents};
 	my ($criterion, $i);
 
 	# don't position fuzzy if sort mode is not by name,
 	# or exact positioning was requested
-	if ($self->{_position_exact} or $_pfm->state->sort_mode !~ /^[nm]$/io) {
+	if ($self->{_position_exact} or $self->{_state}->sort_mode !~ /^[nm]$/io) {
 		goto &position_cursor;
 	}
 
-	for ($_pfm->state->sort_mode) {
+	for ($self->{_state}->sort_mode) {
 		$_ eq 'n' and do {
 			$criterion = sub {
 				return ($self->{_position_at} le
@@ -418,7 +431,7 @@ sub handlescroll {
 	my ($self, $key) = @_;
 	my $up = ($key =~ /^\cE$/o);
 	my $screenheight  = $self->{_screen}->screenheight;
-	my $showncontents = $_pfm->state->directory->showncontents;
+	my $showncontents = $self->{_state}->directory->showncontents;
 	return 0 if ( $up and
 				  $self->{_baseindex} == $#$showncontents and
 				  $self->{_currentline} == 0)
@@ -445,7 +458,7 @@ sub handlemove {
 	my $screenheight   = $self->{_screen}->screenheight;
 	my $baseindex      = $self->{_baseindex};
 	my $currentline    = $self->{_currentline};
-	my $showncontents  = $_pfm->state->directory->showncontents;
+	my $showncontents  = $self->{_state}->directory->showncontents;
 	my $wheeljumpsize  = $self->{_config}->{mousewheeljumpsize};
 	if ($wheeljumpsize eq 'variable') {
 		$wheeljumpsize = sprintf('%d',
@@ -519,9 +532,10 @@ sub handle {
 				$event->{mouserow} <= $BASELINE + $screenheight)
 			{
 				# potentially on a fileline (might be diskinfo column though)
-				$event->{mouseitem} = ${$_pfm->state->directory->showncontents}[
-					$self->{_baseindex} + $event->{mouserow} - $BASELINE
-				];
+				$event->{mouseitem} =
+					${$self->{_state}->directory->showncontents}[
+						$self->{_baseindex} + $event->{mouserow} - $BASELINE
+					];
 			}
 		}
 		# pass it to the commandhandler

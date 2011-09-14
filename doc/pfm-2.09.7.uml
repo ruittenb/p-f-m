@@ -143,7 +143,7 @@
 <XPD:ATTR name="Left" type="integer">735</XPD:ATTR>
 <XPD:ATTR name="Top" type="integer">960</XPD:ATTR>
 <XPD:ATTR name="Width" type="integer">154</XPD:ATTR>
-<XPD:ATTR name="Height" type="integer">342</XPD:ATTR>
+<XPD:ATTR name="Height" type="integer">355</XPD:ATTR>
 <XPD:REF name="Model">zJQgAqm5REKblL5Yv/Wi8AAA</XPD:REF>
 <XPD:OBJ name="NameCompartment" type="UMLNameCompartmentView" guid="BMjVb7KGlEGQuyu6ZUbewgAA">
 <XPD:OBJ name="NameLabel" type="LabelView" guid="fRSplPD66k+i5VvIPr+ZowAA">
@@ -233,7 +233,7 @@
 <XPD:OBJ name="OwnedViews[6]" type="UMLAssociationView" guid="bDQoJrCtrU+wXlNV8KuFIQAA">
 <XPD:ATTR name="LineColor" type="string">clMaroon</XPD:ATTR>
 <XPD:ATTR name="FillColor" type="string">$00B9FFFF</XPD:ATTR>
-<XPD:ATTR name="Points" type="Points">735,1074;536,928;431,744</XPD:ATTR>
+<XPD:ATTR name="Points" type="Points">735,1079;536,928;431,744</XPD:ATTR>
 <XPD:REF name="Model">klniQ7G8Fki3FsiGjJygnQAA</XPD:REF>
 <XPD:REF name="Head">dH0s56eNYUiIMxS6m9bBAQAA</XPD:REF>
 <XPD:REF name="Tail">Iiw8VYPYlEGfZsV0a8L3OwAA</XPD:REF>
@@ -4213,7 +4213,7 @@
 <XPD:ATTR name="LineColor" type="string">clMaroon</XPD:ATTR>
 <XPD:ATTR name="FillColor" type="string">$00B9FFFF</XPD:ATTR>
 <XPD:ATTR name="LineStyle" type="LineStyleKind">lsRectilinear</XPD:ATTR>
-<XPD:ATTR name="Points" type="Points">821,1301;821,1372</XPD:ATTR>
+<XPD:ATTR name="Points" type="Points">821,1314;821,1372</XPD:ATTR>
 <XPD:REF name="Model">8s10heUUiUuwGDzsW5GRngAA</XPD:REF>
 <XPD:REF name="Head">sSMEDbqbIkGZymViOrtVHwAA</XPD:REF>
 <XPD:REF name="Tail">Iiw8VYPYlEGfZsV0a8L3OwAA</XPD:REF>
@@ -5152,7 +5152,7 @@
 <XPD:REF name="Views[1]">oU8E108/Ekm47Ps8UVvE5QAA</XPD:REF>
 <XPD:REF name="Views[2]">YSEsdAwgCUel8UXuti166wAA</XPD:REF>
 <XPD:REF name="Views[3]">CY0rQhZYk0OgW89NGuHPlAAA</XPD:REF>
-<XPD:ATTR name="#Operations" type="integer">17</XPD:ATTR>
+<XPD:ATTR name="#Operations" type="integer">18</XPD:ATTR>
 <XPD:OBJ name="Operations[0]" type="UMLOperation" guid="3bth21nR/0a9kEc4/s/GRgAA">
 <XPD:ATTR name="Name" type="string">_init</XPD:ATTR>
 <XPD:ATTR name="Visibility" type="UMLVisibilityKind">vkPrivate</XPD:ATTR>
@@ -5191,35 +5191,39 @@
 <XPD:ATTR name="Name" type="string">swap_mode</XPD:ATTR>
 <XPD:REF name="Owner">zJQgAqm5REKblL5Yv/Wi8AAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Operations[9]" type="UMLOperation" guid="DZy/WkGxQkOlNzKIHY+DugAA">
+<XPD:OBJ name="Operations[9]" type="UMLOperation" guid="ar8JVqVLrUyFABVekPgV7gAA">
+<XPD:ATTR name="Name" type="string">main_state</XPD:ATTR>
+<XPD:REF name="Owner">zJQgAqm5REKblL5Yv/Wi8AAA</XPD:REF>
+</XPD:OBJ>
+<XPD:OBJ name="Operations[10]" type="UMLOperation" guid="DZy/WkGxQkOlNzKIHY+DugAA">
 <XPD:ATTR name="Name" type="string">validate_position</XPD:ATTR>
 <XPD:REF name="Owner">zJQgAqm5REKblL5Yv/Wi8AAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Operations[10]" type="UMLOperation" guid="p7eNljqZLEeFyR/Zv4JJHgAA">
+<XPD:OBJ name="Operations[11]" type="UMLOperation" guid="p7eNljqZLEeFyR/Zv4JJHgAA">
 <XPD:ATTR name="Name" type="string">position_cursor</XPD:ATTR>
 <XPD:REF name="Owner">zJQgAqm5REKblL5Yv/Wi8AAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Operations[11]" type="UMLOperation" guid="YtpY9rXdkUWjq2c+pNZjEAAA">
+<XPD:OBJ name="Operations[12]" type="UMLOperation" guid="YtpY9rXdkUWjq2c+pNZjEAAA">
 <XPD:ATTR name="Name" type="string">position_cursor_fuzzy</XPD:ATTR>
 <XPD:REF name="Owner">zJQgAqm5REKblL5Yv/Wi8AAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Operations[12]" type="UMLOperation" guid="0WLaen+ZPkSYw2kdtWKpeAAA">
+<XPD:OBJ name="Operations[13]" type="UMLOperation" guid="0WLaen+ZPkSYw2kdtWKpeAAA">
 <XPD:ATTR name="Name" type="string">find_best_find_match</XPD:ATTR>
 <XPD:REF name="Owner">zJQgAqm5REKblL5Yv/Wi8AAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Operations[13]" type="UMLOperation" guid="hXVjofTCf069WQ36qXJKvwAA">
+<XPD:OBJ name="Operations[14]" type="UMLOperation" guid="hXVjofTCf069WQ36qXJKvwAA">
 <XPD:ATTR name="Name" type="string">handlescroll</XPD:ATTR>
 <XPD:REF name="Owner">zJQgAqm5REKblL5Yv/Wi8AAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Operations[14]" type="UMLOperation" guid="SmZoR/uqekadw1Gaz+L30gAA">
+<XPD:OBJ name="Operations[15]" type="UMLOperation" guid="SmZoR/uqekadw1Gaz+L30gAA">
 <XPD:ATTR name="Name" type="string">handlemove</XPD:ATTR>
 <XPD:REF name="Owner">zJQgAqm5REKblL5Yv/Wi8AAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Operations[15]" type="UMLOperation" guid="qjPeYCyMm0GnIG+uXnVNCwAA">
+<XPD:OBJ name="Operations[16]" type="UMLOperation" guid="qjPeYCyMm0GnIG+uXnVNCwAA">
 <XPD:ATTR name="Name" type="string">handle</XPD:ATTR>
 <XPD:REF name="Owner">zJQgAqm5REKblL5Yv/Wi8AAA</XPD:REF>
 </XPD:OBJ>
-<XPD:OBJ name="Operations[16]" type="UMLOperation" guid="ZAjscsIg40yldCub2olddwAA">
+<XPD:OBJ name="Operations[17]" type="UMLOperation" guid="ZAjscsIg40yldCub2olddwAA">
 <XPD:ATTR name="Name" type="string">browse</XPD:ATTR>
 <XPD:REF name="Owner">zJQgAqm5REKblL5Yv/Wi8AAA</XPD:REF>
 </XPD:OBJ>
