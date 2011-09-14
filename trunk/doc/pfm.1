@@ -124,13 +124,13 @@
 .\" ========================================================================
 .\"
 .IX Title "PFM 1"
-.TH PFM 1 "2010-08-23" " " " "
+.TH PFM 1 "2010-09-05" " " " "
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
 .nh
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.06.9
+.ds Vw @(#) pfm.pl 2.08.3
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -139,7 +139,7 @@ This manual pertains to \f(CWpfm\fP version \\$3.
 \&\f(CW\*(C`pfm\*(C'\fR \- Personal File Manager for Linux/Unix
 .SH "SYNOPSIS"
 .IX Header "SYNOPSIS"
-\&\f(CW\*(C`pfm [ \-l, \-\-layout \*(C'\fR\fInumber\fR\f(CW\*(C` ]\*(C'\fR
+\&\f(CW\*(C`pfm [ \-l, \-\-layout \*(C'\fR\fInumber\fR\f(CW\*(C` ] [ \-o, \-\-sort \*(C'\fR\fImode\fR\f(CW\*(C` ]\*(C'\fR
 \&\f(CW\*(C` [ \*(C'\fR\fIdirectory\fR\f(CW\*(C` ] [ \-s, \-\-swap \*(C'\fR\fIdirectory\fR\f(CW\*(C` ]\*(C'\fR
 .PP
 \&\f(CW\*(C`pfm { \-v, \-\-version | \-h, \-\-help }\*(C'\fR
@@ -160,19 +160,18 @@ not just plain regular files. These will be referred to as \fIregular files\fR.
 .IX Header "OPTIONS"
 Most of \f(CW\*(C`pfm\*(C'\fR's configuration is read from a config file. The default
 location for this file is \fI\f(CI$HOME\fI/.pfm/.pfmrc\fR, but an alternative location
-may be specified using the environment variable \f(CW\*(C`PFMRC\*(C'\fR. If there is no
+may be specified using the environment variable \s-1PFMRC\s0. If there is no
 config file present at startup, one will be created. The file contains
 many comments on the available options, and is therefore supposed to be
-self-explanatory. \f(CW\*(C`pfm\*(C'\fR will issue a warning if the config file version
-is older than the version of \f(CW\*(C`pfm\*(C'\fR you are running. In this case, please
-let \f(CW\*(C`pfm\*(C'\fR create a new default config file and compare the changes with
-your own settings, so that you do not miss out on any new config options
-or format changes. You can also try running the \f(CW\*(C`pfmrcupdate\*(C'\fR script that
-is provided in the distribution. See also the \fBC\fRonfig command under
-\&\s-1MORE\s0 \s-1COMMANDS\s0 below, and \s-1DIAGNOSIS\s0.
+self-explanatory. \f(CW\*(C`pfm\*(C'\fR will issue a warning if the version number of an
+existing config file is less than the version of \f(CW\*(C`pfm\*(C'\fR you are running, and
+will offer to update it to its own version.  Alternatively, you could let
+\&\f(CW\*(C`pfm\*(C'\fR create a new default config file and compare the changes with your
+own settings, so that you can configure the new options right away.
+See also the \fBC\fRonfig command under \s-1MORE\s0 \s-1COMMANDS\s0 below, and \s-1DIAGNOSIS\s0.
 .PP
 There are two commandline options that specify starting directories.
-The \f(CW\*(C`CDPATH\*(C'\fR environment variable is taken into account when \f(CW\*(C`pfm\*(C'\fR
+The \s-1CDPATH\s0 environment variable is taken into account when \f(CW\*(C`pfm\*(C'\fR
 tries to find these directories.
 .IP "\fIdirectory\fR" 4
 .IX Item "directory"
@@ -184,6 +183,9 @@ Print usage information, then exit.
 .IP "\-l, \-\-layout \fInumber\fR" 4
 .IX Item "-l, --layout number"
 Start \f(CW\*(C`pfm\*(C'\fR using the specified column layout (as defined in the \fI.pfmrc\fR).
+.IP "\-o, \-\-sort \fImode\fR" 4
+.IX Item "-o, --sort mode"
+Start \f(CW\*(C`pfm\*(C'\fR using the specified sort mode (as shown by the \fBF6\fR command).
 .IP "\-s, \-\-swap \fIdirectory\fR" 4
 .IX Item "-s, --swap directory"
 The directory that \f(CW\*(C`pfm\*(C'\fR should initially use as swap directory. (See
@@ -290,7 +292,7 @@ in the \fI.pfmrc\fR file. Otherwise \fIvi\fR\|(1) is used.
 .IX Item "Find"
 If the current sort mode is by filename, you are prompted for a (partial)
 filename. While you type, the cursor is positioned on the best match.
-Type \s-1ENTER\s0 to end typing.
+Type \fB\s-1ENTER\s0\fR to end typing.
 .Sp
 If the current sort mode is not by filename, then you are prompted for a
 filename. The cursor is then positioned on that file.
@@ -475,8 +477,8 @@ the editor specified with the 'editor' option in the config file
 .IP "\fB=f\fR" 4
 .IX Item "=f"
 the 'foreground' editor, specified with the 'fg_editor' option in the
-config file (this is supposed to be an editor that does not fork
-into the background)
+config file. This is expected to be defined as an editor that does not
+fork into the background, so that \f(CW\*(C`pfm\*(C'\fR can wait for its results.
 .IP "\fB=p\fR" 4
 .IX Item "=p"
 the pager specified with the 'pager' option in the config file
@@ -520,7 +522,7 @@ See also below under \s-1QUOTING\s0 \s-1RULES\s0.
 .IP "\fBPrint\fR" 4
 .IX Item "Print"
 Will prompt for a print command (default \f(CW\*(C`lpr \-P$PRINTER =2\*(C'\fR, or \f(CW\*(C`lpr =2\*(C'\fR
-if \f(CW\*(C`PRINTER\*(C'\fR is unset) and will run it. No formatting is done. You may
+if \s-1PRINTER\s0 is unset) and will run it. No formatting is done. You may
 specify a print command with the 'printcmd' option in the \fI.pfmrc\fR file.
 .IP "\fBQuit\fR" 4
 .IX Item "Quit"
@@ -543,7 +545,7 @@ will not be overwritten unless the action is confirmed by the user.
 .IX Item "Show"
 Displays the contents of the current file or directory on screen.
 You can choose which pager to use for file viewing with the environment
-variable \f(CW\*(C`PAGER\*(C'\fR, or with the 'pager' option in the \fI.pfmrc\fR file.
+variable \s-1PAGER\s0, or with the 'pager' option in the \fI.pfmrc\fR file.
 .IP "\fBTime\fR" 4
 .IX Item "Time"
 Change mtime (modification date/time) of the file. The time may be entered
@@ -603,6 +605,15 @@ corrections that should be made.
 .SH "MORE COMMANDS"
 .IX Header "MORE COMMANDS"
 These commands are accessible through the main screen \fBM\fRore command.
+.IP "\fBAcl\fR" 4
+.IX Item "Acl"
+Edit the Access Control List for this file. Note:
+This feature has not yet been implemented for all Un*x variants.
+.Sp
+\&\s-1WARNING:\s0 This feature has not been well tested on all Unices.
+Use it at your own risk.
+.Sp
+Any help getting the commands right would be appreciated by the author.
 .IP "\fBBookmark\fR" 4
 .IX Item "Bookmark"
 Lists all the available bookmarks and asks the user in which slot the
@@ -667,6 +678,11 @@ entered. The history is read from individual files in \fI\f(CI$HOME\fI/.pfm/\fR
 every time \f(CW\*(C`pfm\*(C'\fR starts. The history is written only when this command
 is given, or when \f(CW\*(C`pfm\*(C'\fR exits and the 'autowritehistory' option is set
 in \fI.pfmrc\fR.
+.IP "\fBF6\fR Multilevel Sort" 4
+.IX Item "F6 Multilevel Sort"
+Allows the user to enter a string of sort mode characters which will be
+applied sequentially. Example: a string of \fBsN\fR will sort by size
+ascending followed by name descending.
 .SH "MISCELLANEOUS and FUNCTION KEYS"
 .IX Header "MISCELLANEOUS and FUNCTION KEYS"
 .IP "\fB\s-1ENTER\s0\fR" 4
@@ -1082,17 +1098,16 @@ No valid layout found in the \fI.pfmrc\fR file.
 .IX Header "DIAGNOSIS"
 If \f(CW\*(C`pfm\*(C'\fR reports that your config file might be outdated, you might be
 missing some of the newer configuration options (or default values for
-these). The best way to solve this is by running the following command
-and comparing the new config file with your original one:
+these). The best way to solve this is by having \f(CW\*(C`pfm\*(C'\fR generate a new
+config file, \fIe.g.\fR by running the following command and comparing the
+new config file with your original one:
 .PP
 .Vb 1
 \&    env PFMRC=~/.pfm/.pfmrc\-new pfm
 .Ve
 .PP
-Alternatively, you may try running the \f(CW\*(C`pfmrcupdate\*(C'\fR script that
-is provided in the distribution.
-.PP
-To prevent the warning from occurring again, update the '## Version' line.
+Alternatively, you may reply with \fBy\fR when \f(CW\*(C`pfm\*(C'\fR offers to update the
+config file for you.
 .SH "BUGS and WARNINGS"
 .IX Header "BUGS and WARNINGS"
 \&\f(CW\*(C`Term::ReadLine::Gnu\*(C'\fR does not allow a half-finished line to be aborted by
@@ -1104,7 +1119,10 @@ The author once almost pressed \fB\s-1ENTER\s0\fR when logged in as root and wit
 the cursor on the file \fI/sbin/reboot\fR. You have been warned.
 .PP
 The smallest terminal size supported is 80x24. The display will be messed
-up if you resize your terminal window to a smaller size.
+up if you resize your terminal window to a smaller size, unless you specify
+\&'force_minimum_size' in the config file and the terminal supports resizing;
+in that case \f(CW\*(C`pfm\*(C'\fR will resize the terminal to at least 80 columns and/or
+24 rows.
 .SH "VERSION"
 .IX Header "VERSION"
 .PP \" display the 'pertains to'-macro
@@ -1143,3 +1161,5 @@ For developers: \fITerm::Screen\fR\|(3pm), \fITerm::ScreenColor\fR\|(3pm),
 \&\fIApp::PFM::Screen\fR\|(3pm), \fIApp::PFM::State\fR\|(3pm) and \fIApp::PFM::Util\fR\|(3pm).
 .PP
 The pfm project page: http://sourceforge.net/projects/p\-f\-m/
+.PP
+The pfm homepage: http://p\-f\-m.sourceforge.net/

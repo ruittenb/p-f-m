@@ -2506,7 +2506,7 @@ sub handlemore {
 			/^[<>]$/io	and do {
 				$self->handlepan($_, MENU_MORE);
 				$headerlength = $frame->show_menu(MENU_MORE);
-#				$frame->show_footer();
+				$frame->show_footer(FOOTER_MORE);
 				redo MORE_PAN;
 			};
 		}

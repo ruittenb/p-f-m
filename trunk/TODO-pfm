@@ -2,9 +2,13 @@
 ################################################################################
 # issues
 
-- config columnlayouts: characters in the "gap" between filerecord and
-  infocolumn ("f") are not cleared when switching columnlayouts.
-  Solve this by inserting an artificial "gap" field? underscore?
+- from the manual of File::Spec:
+  File::Spec->canonpath($path) does *not* collapse x/../y sections into y.
+  This is by design. If /foo on your system is a symlink to /bar/baz, then
+  /foo/../quux is actually /bar/quux, not /quux as a naive ../-removal would
+  give you. If you want to do this kind of processing, you probably want Cwd's
+  realpath() function to actually traverse the filesystem cleaning up paths
+  like this.
 
 - handlecopyrename: if "overwrite?" is answered with "no", then the
   cursor is repositioned anyway
@@ -15,8 +19,7 @@
 
 - after (C)opy, the rcs status is not automatically added 
 
-- Term::ScreenColor does not pass some tests on Solaris 11
-- release 1.15 with fix for color2esc('')
+- in install.sh wordt ${pkgadd} niet geinterpoleerd
 
 - call $pfm->checkupdates() in '@' (perlcommand) does not finish the job;
   call $pfm->checkupdates(); sleep 2; finishes it.

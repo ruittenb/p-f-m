@@ -1,3 +1,10 @@
+2.08.3-alpha
+
+* fixed: the gap between the diskinfo column and file record is now
+  cleared with every redraw, this should cause fewer screen artifacts
+* fixes to install script
+* bundled with Term-ScreenColor-1.16
+
 2.08.2-alpha
 
 * fixed crash when -s was used with a non-existant swap directory

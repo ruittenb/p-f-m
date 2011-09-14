@@ -1,5 +1,5 @@
 
-Package: pfm-2.08.2
+Package: pfm-2.08.3
 
 
 * This package is available from http://sourceforge.net/projects/p-f-m/
@@ -17,8 +17,8 @@ Package: pfm-2.08.2
     Term-ReadLine-Gnu      1.09          1.20
   ncurses                  ?             5
     Term-Screen            1.03          1.03
-      Term-ScreenColor     1.13          1.14
-        pfm                2.08.2
+      Term-ScreenColor     1.13          1.16
+        pfm                2.08.3
 
 
 * Confusingly, the package File-Stat-Bits-1.01.tar.gz provides
@@ -27,11 +27,4 @@ Package: pfm-2.08.2
 * If you are not sure if you have all the dependencies, you can run
   the 'install.sh' shell script. Otherwise, you can go straight to the
   'perl Makefile.PL; make; make test; sudo make install' phase.
-
-* If you are upgrading from an older version, you need to update your
-  config file (~/.pfm/.pfmrc).
-  This can be done quickly by running the script 'pfmrcupdate'.
-  However, for a more thorough update, you are advised to rename your
-  .pfmrc and compare it to the default config file that pfm automatically
-  generates for you.
 

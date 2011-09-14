@@ -2,9 +2,9 @@
 ############################################################################
 #
 # Name:         install.sh
-# Version:      0.38
+# Version:      0.39
 # Authors:      Rene Uittenbogaard
-# Date:         2010-09-02
+# Date:         2010-09-05
 # Usage:        sh install.sh
 # Description:  Un*x-like systems can be very diverse.
 #		This script is meant as an example how pfm dependencies
@@ -53,21 +53,24 @@ init_package_commands() {
 		packagelistcmd=swlist
 		packageinstallcmd='swinstall -s \`pwd\`/${packagename}\*depot ${packagename}'
 		packageurls='http://hpux.connect.org.uk/'
-		packagesuggestion='http://hpux.connect.org.uk/hppd/hpux/Gnu/readline-6.0.004/'
+		ncursessuggestion='http://hpux.connect.org.uk/ftp/hpux/Sysadmin/ncurses-5.7/ncurses-5.7-hppa-11.23.depot.gz'
+		readlinesuggestion='http://hpux.connect.org.uk/hppd/hpux/Gnu/readline-6.0.004/'
 		break
 		;;
 	sunos|solaris)
 		packagelistcmd=pkginfo
 		packageinstallcmd='pkgadd -d ${packagename}\*pkg all'
 		packageurls='ftp://ftp.sunfreeware.com/'
-		packagesuggestion='ftp://ftp.sunfreeware.com/pub/freeware/sparc/10/readline-5.2-sol10-sparc-local.gz'
+		ncursessuggestion='ftp://ftp.sunfreeware.com/pub/freeware/sparc/10/ncurses-5.7-sol10-sparc-local.gz'
+		readlinesuggestion='ftp://ftp.sunfreeware.com/pub/freeware/sparc/10/readline-5.2-sol10-sparc-local.gz'
 		break
 		;;
 	aix)
 		packagelistcmd='lslpp -L'
 		packageinstallcmd='installp -d \`pwd\`/${packagename}\*bff all'
 		packageurls='http://www.bullfreeware.com/'
-		packagesuggestion='http://www.bullfreeware.com/download/aix43/gnu.readline-4.1.0.1.exe'
+		ncursessuggestion=
+		readlinesuggestion='http://www.bullfreeware.com/download/aix43/gnu.readline-4.1.0.1.exe'
 		break
 		;;
 	darwin)
@@ -195,6 +198,14 @@ enkadercmd() {
 	eval "$command" | enkader 4
 }
 
+make_minusC() {
+	# 'make -C' is not portable
+	cd "$1"
+	shift
+	make "$@"
+	cd ..
+}
+
 ############################################################################
 # main functions
 
@@ -235,14 +246,17 @@ download_and_install() {
 		for url in $(echo $packageurls | tr , " "); do
 			echo "- $url"
 		done
-		if [ "x$packagesuggestion" != x ]; then
-			echo "(maybe: $packagesuggestion)"
+		if [ "x$ncursessuggestion" != x -a $packagename = ncurses ]; then
+			echo "(maybe: $ncursessuggestion)"
+		fi
+		if [ "x$readlinesuggestion" != x -a $packagename = readline ]; then
+			echo "(maybe: $readlinesuggestion)"
 		fi
 	fi
 	echo $n "and install it"
 	if [ "x$packageinstallcmd" != x ]; then
 		echo " using a command like:"
-		eval "echo '$packageinstallcmd'"
+		eval "echo $packageinstallcmd"
 	fi
 	echo
 }
@@ -334,7 +348,7 @@ download_and_install_perl_module() {
 		$sudo perl -MCPAN -e"install $packagename"
 	else
 		target="$(echo $packagename | sed -es/::/-/g)"
-		SUDO=$sudo make -C modules $target
+		SUDO=$sudo make_minusC modules $target
 	fi
 }
 
@@ -388,7 +402,7 @@ download_and_install_perl_module_term_readline_gnu() {
 #		fi
 	else # bundled
 		target="$(echo $packagename | sed -es/::/-/g)"
-		SUDO=$sudo make -C modules $target
+		SUDO=$sudo make_minusC modules $target
 	fi
 }
 

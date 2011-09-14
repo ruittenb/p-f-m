@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Listing 1.05
+# @(#) App::PFM::Screen::Listing 1.06
 #
 # Name:			App::PFM::Screen::Listing
-# Version:		1.05
+# Version:		1.06
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-03
+# Date:			2010-09-04
 #
 
 ##########################################################################
@@ -67,6 +67,7 @@ use constant LAYOUTFIELDS => {
 	'd' => 'rdev',
 	'v' => 'rcs',
 	'f' => 'diskinfo',
+	'_' => 'gap',
 };
 
 use constant FILETYPEFLAGS => {
@@ -107,6 +108,8 @@ sub _init {
 	$self->{_maxfilenamelength}    = 0;
 	$self->{_maxfilesizelength}    = 0;
 	$self->{_maxgrandtotallength}  = 0;
+	$self->{_gaplength}            = 0;
+	$self->{_gapcol}               = 0;
 	$self->{_cursorcol}            = 0;
 	$self->{_filerecordcol}        = 0;
 	$self->{_filenamecol}          = 0;
@@ -495,18 +498,18 @@ sub makeformatlines {
 	$currentlayoutline =~ s/n(?!n)/N/io;
 	$currentlayoutline =~ s/s(?!s)/S/io;
 	$currentlayoutline =~ s/z(?!z)/Z/io;
-#	$currentlayoutline =~ s/(\s+)f/'F'x length($1) . 'f'/e;
-#	$currentlayoutline =~ s/f(\s+)/'f' . 'F'x length($1)/e;
-#	$gaplength = 
+	$currentlayoutline =~ s/(\s+)f/'_' x length($1) . 'f'/e;
+	$currentlayoutline =~ s/f(\s+)/'f' . '_' x length($1)/e;
+	$self->{_gaplength} = ($currentlayoutline =~ tr/_//);
 	($temp = $currentlayoutline) =~ s/[^f].*//;
 	$self->filerecordcol(length $temp);
 	$self->cursorcol(index($currentlayoutline, '*'));
 	$self->filenamecol(index($currentlayoutline, 'n'));
 	$_screen->diskinfo->infocol($infocol = index($currentlayoutline, 'f'));
-#	$gapcol			= index($currentlayoutline, 'F');
+	$self->{_gapcol}	= index($currentlayoutline, '_');
 	# determine the layout field set (no spaces)
 	($squeezedlayoutline = $currentlayoutline) =~
-		tr/*nNsSzZugpacmdilvf /*nNsSzZugpacmdilvf/ds;
+		tr/*nNsSzZugpacmdilvf_ /*nNsSzZugpacmdilvf_/ds;
 	($self->{_layoutname} = $squeezedlayoutline) =~ s/[*SNZ]//g;
 	$self->{_layoutfields}         = [
 		map { LAYOUTFIELDS->{$_} } grep { !/f/ } (split //,$squeezedlayoutline)
@@ -524,8 +527,8 @@ sub makeformatlines {
 		} elsif ($prev ne $letter) {
 			$self->{_currentformatlinewithinfo} .= '@';
 		} else {
-			($trans = $letter) =~ tr{*nNsSzZugpacmdilvf}
-									{<<<><><<<<<<<<>><<};
+			($trans = $letter) =~ tr{*nNsSzZugpacmdilvf_}
+									{<<<><><<<<<<<<>><<<};
 			$self->{_currentformatlinewithinfo} .= $trans;
 		}
 		$prev = $letter;
