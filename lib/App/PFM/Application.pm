@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.07.9
+# @(#) App::PFM::Application 2.08.0
 #
 # Name:			App::PFM::Application
-# Version:		2.07.9
+# Version:		2.08.0
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-08-31
@@ -134,7 +134,7 @@ sub _usage {
 	$screen->colorizable(1);
 	my $directory  = $screen->colored('underline', 'directory');
 	my $number     = $screen->colored('underline', 'number');
-	my $configname = App::PFM::Config::give_location();
+	my $configname = App::PFM::Config::location();
 	print "Usage: pfm [ -l, --layout $number ] ",
 		  "[ $directory ] [ -s, --swap $directory ]\n",
 		  "       pfm { -h, --help | -v, --version }\n\n",

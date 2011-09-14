@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::File 0.37
+# @(#) App::PFM::File 0.38
 #
 # Name:			App::PFM::File
-# Version:		0.37
+# Version:		0.38
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-26
+# Date:			2010-09-02
 #
 
 ##########################################################################
@@ -42,7 +42,7 @@ use POSIX qw(strftime);
 use strict;
 use locale;
 
-use constant SYMBOLIC_MODES => [ qw(--- --x -w- -wx r-- r-x rw- rwx) ];
+use constant SYMBOLIC_MODES     => [ qw(--- --x -w- -wx r-- r-x rw- rwx) ];
 use constant MAJORMINORTEMPLATE => '%d,%d';
 
 our ($_pfm);
@@ -89,8 +89,11 @@ sub _decidecolor {
 	$self->{type}  eq 's'			and return $dircolors{so};
 	$self->{type}  eq 'D'			and return $dircolors{'do'};
 	$self->{type}  eq 'n'			and return $dircolors{nt};
+	$self->{type}  eq 'P'			and return $dircolors{ep};
 	$self->{mode}  =~ /[xst]/		and return $dircolors{ex};
-	$self->{name}  =~ /(\.\w+)$/	and return $dircolors{$1};
+	$self->{name}  =~ /(\.\w+)$/	&&
+		defined ($dircolors{$1})	and return $dircolors{$1};
+	$self->{type}  eq '-'			and return $dircolors{fi};
 }
 
 ##########################################################################

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::Abstract 0.93
+# @(#) App::PFM::Job::Abstract 0.94
 #
 # Name:			App::PFM::Job::Abstract
-# Version:		0.93
+# Version:		0.94
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-30
+# Date:			2010-09-01
 #
 
 ##########################################################################

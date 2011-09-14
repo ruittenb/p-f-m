@@ -1,5 +1,5 @@
 
-Package: pfm-2.07.9
+Package: pfm-2.08.0
 
 
 * This package is available from http://sourceforge.net/projects/p-f-m/
@@ -18,7 +18,7 @@ Package: pfm-2.07.9
   ncurses                  ?             5
     Term-Screen            1.03          1.03
       Term-ScreenColor     1.13          1.14
-        pfm                2.07.9
+        pfm                2.08.0
 
 
 * Confusingly, the package File-Stat-Bits-1.01.tar.gz provides

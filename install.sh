@@ -2,9 +2,9 @@
 ############################################################################
 #
 # Name:         install.sh
-# Version:      0.37
+# Version:      0.38
 # Authors:      Rene Uittenbogaard
-# Date:         2010-08-26
+# Date:         2010-09-02
 # Usage:        sh install.sh
 # Description:  Un*x-like systems can be very diverse.
 #		This script is meant as an example how pfm dependencies
@@ -412,19 +412,7 @@ install_pfm() {
 	make		 && \
 	make test	 && \
 	$sudo make install
-}
-
-check_pfmrc() {
-	echo
-	echo "Do you want me to back up your config file"
-	echo "(located at '$pfmrc')"
-	echo $n "and try to update it? (Yes/No) "
-	read answer
-	answer=$(echo $answer | cut -c1 | tr A-Z a-z)
-	if [ "x$answer" != xy ]; then
-		return
-	fi
-	pfmrcupdate
+	$sudo rm /usr/local/bin/pfmrcupdate /usr/local/man/man1/pfmrcupdate.1
 }
 
 check_listwhite() {
@@ -468,9 +456,6 @@ check_download_and_install_perl_module_term_readline_gnu 1.09
 
 # install the application
 install_pfm
-
-# check if we are upgrading
-check_pfmrc
 
 # check the need for tools
 check_listwhite

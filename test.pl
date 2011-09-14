@@ -3,9 +3,9 @@
 ############################################################################
 #
 # Name:         test.pl
-# Version:      0.10
+# Version:      0.11
 # Author:       Rene Uittenbogaard
-# Date:         2010-08-22
+# Date:         2010-09-02
 # Usage:        test.pl
 # Description:  Test the pfm script and the associated libraries for
 #		syntax errors (using perl -cw).
@@ -28,9 +28,10 @@ sub produce_output {
 	my $libdir = POSIX::getcwd() . '/lib';
 
 	foreach (<lib/App/PFM/*.pm>,
-		<lib/App/PFM/Screen/*.pm>,
+		<lib/App/PFM/Config/*.pm>,
 		<lib/App/PFM/Job/*.pm>,
-		<lib/App/PFM/OS/*.pm>)
+		<lib/App/PFM/OS/*.pm>,
+		<lib/App/PFM/Screen/*.pm>)
 	{
 		system "perl -I $libdir -cw $_";
 	}

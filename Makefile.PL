@@ -37,11 +37,10 @@ WriteMakefile(
 		'HTML::Parser'		=> 3.59,  # LWP needs it. maybe less, but 3.36 is too low
 		'LWP'			=> 5.827, # maybe less
 	},
-	EXE_FILES		=> ['pfm', 'pfmrcupdate'],
+	EXE_FILES		=> ['pfm'],
 #	DIR			=> ['listwhite'],
 	MAN1PODS		=> {
 		'pfm'			=> 'blib/man1/pfm.1',
-		'pfmrcupdate'		=> 'blib/man1/pfmrcupdate.1',
 #		'listwhite/listwhite.c'	=> 'blib/man1/listwhite.1',
 	},
 #	INSTALLSITESCRIPT
