@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config::Update 2.08.5
+# @(#) App::PFM::Config::Update 2.08.6
 #
 # Name:			App::PFM::Config::Update
-# Version:		2.08.5
+# Version:		2.08.6
 # Author:		Rene Uittenbogaard
 # Created:		2010-05-28
-# Date:			2010-09-08
+# Date:			2010-09-10
 #
 
 ##########################################################################
@@ -180,12 +180,17 @@ use constant UPDATES => {
 	},
 	# ----- 1.92.3 ---------------------------------------------------------
 	'1.92.3' => {
+		substitutions => sub {
+			s/^(#*\s*)\bmousemode\b/$1defaultmousemode/g;
+		}
 		# added 'waitlaunchexec', but this was deprecated later.
 		# no need to add it here because it was never implemented.
 	},
 	# ----- 1.92.6 ---------------------------------------------------------
 	'1.92.6' => {
 		substitutions => sub {
+			s{hide dot files initially.*show them otherwise}
+			 {show dot files initially? (hide them otherwise}g;
 			s/\bdotmode:\s*yes\b/defaultdotmode: no/g;
 			s/\bdotmode:\s*no\b/defaultdotmode: yes/g;
 			s/\bwhitemode:\s*yes\b/defaultwhitemode: no/g;
@@ -195,7 +200,9 @@ use constant UPDATES => {
 	# ----- 1.93.1 ---------------------------------------------------------
 	'1.93.1' => {
 		substitutions => sub {
-			s/\\([1-7epv])/=$1/g;
+			s/\\([1-7pv])/=$1/g;
+			# watch out for keydefs with \e[M, \eOF etc.
+			s/\\e(?!\[|O[ABCDPQRSFH1])/=e/g;
 			s/\\\\/==/g;
 		},
 		additions => [
@@ -479,7 +486,7 @@ use constant UPDATES => {
 			s{the cursor is allowed to jump when using the mousewheel.}
 			 {of lines that the cursor is allowed to jump when using the mousewheel.};
 			# these should have been done in an earlier version.
-			s{initial sort mode .nNmMeEfFsSzZiItTdDaA. }
+			s{initial sort mode .nNmMeEfFsS(?:zZ)?iItTdDaA. }
 			 {initial sort mode (nNmMeEfFdDaAsSzZtTuUgGvViI*) };
 			s{F7 key swap path method is persistent...default no.}
 			 {F7 key swap path method is persistent? (default yes)};
@@ -525,12 +532,21 @@ use constant UPDATES => {
 	},
 	# ----- 2.08.5 ---------------------------------------------------------
 	'2.08.5' => {
+		removals => [
+			# this should have been done in an earlier version.
+			qr'in other words: /^\\s\*\(\[^:\\s\]\+\)\\s\*:\\s\*\(\.\*\)\$/',
+		],
 		substitutions => sub {
 			s{## .*<ext> defines extension colors}
 			 {## *.ext      defines colors for files with a specific extension};
+			# this should have been done in an earlier version.
+			s/^(#*\s*)\bmousemode\b/$1defaultmousemode/g;
+			# this should have been done in an earlier version.
+			s{hide dot files initially.*show them otherwise}
+			 {show dot files initially? (hide them otherwise}g;
 		},
 		insertions => [{
-			before => qr/(<ext> defines extension colors|
+			before => qr/(?:<ext> defines extension colors|
 						defines colors for files with a specific extension)/x,
 			batch  => [
 				"## 'filename' defines colors for complete specific filenames\n",

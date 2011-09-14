@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.08.5
+# @(#) App::PFM::Application 2.08.6
 #
 # Name:			App::PFM::Application
-# Version:		2.08.5
+# Version:		2.08.6
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-09-09
@@ -273,15 +273,15 @@ sub _bootstrap_members {
 
 	# hand over the application object to the other classes
 	# for easy access.
-	$self->{_states}{S_MAIN} = new App::PFM::State($self);
-	$self->{_commandhandler} = new App::PFM::CommandHandler($self);
-	$self->{_history}		 = new App::PFM::History($self);
-	$self->{_browser}		 = new App::PFM::Browser($self);
-	$self->{_jobhandler}	 = new App::PFM::JobHandler($self);
-	$self->{_os}			 = new App::PFM::OS($self);
 	$self->{_config}		 = new App::PFM::Config($self);
 	$config					 = $self->{_config};
 	$screen					 = $self->{_screen};
+	$self->{_states}{S_MAIN} = new App::PFM::State($self);
+	$self->{_commandhandler} = new App::PFM::CommandHandler($self);
+	$self->{_history}		 = new App::PFM::History($self);
+	$self->{_browser}		 = new App::PFM::Browser($self, $screen, $config);
+	$self->{_jobhandler}	 = new App::PFM::JobHandler($self);
+	$self->{_os}			 = new App::PFM::OS($self);
 	
 	# init screen
 	$screen->clrscr()->raw_noecho();

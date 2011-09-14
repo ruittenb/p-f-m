@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.27
+# @(#) App::PFM::CommandHandler 1.29
 #   
 # Name:			App::PFM::CommandHandler
-# Version:		1.27
+# Version:		1.29
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-09
+# Date:			2010-09-10
 #
 
 ##########################################################################
@@ -74,6 +74,7 @@ use constant INC_CRITERIA => [
 	's' => 'Smaller',
 	'u' => 'User',
 	'f' => 'Files only',
+	'.' => 'Dotfiles',
 	'i' => 'Invert',
 ];
 
@@ -1723,22 +1724,24 @@ sub handleinclude { # include/exclude flag (from keypress)
 	} elsif ($key eq 'n') { # newmarks
 		$criterion = sub { my $file = shift; $file->{selected} eq M_NEWMARK };
 	} elsif ($key eq 'e') { # every
-		$criterion = sub { my $file = shift; $file->{name} !~ /^\.\.?$/ };
+		$criterion = sub { my $file = shift; $file->{name} !~ /^\.\.?$/o };
 	} elsif ($key eq 'u') { # user only
 		$criterion = sub { my $file = shift; $file->{uid} eq $ENV{USER} };
+	} elsif ($key eq '.') { # dotfiles
+		$criterion = sub { my $file = shift; $file->{name} =~ /^\./o };
 	} elsif ($key =~ /^[gs]$/) { # greater/smaller
 		if ($boundarysize = $self->_promptforboundarysize($key)) {
 			if ($key eq 'g') {
 				$criterion = sub {
 					my $file = shift;
 					$file->{size} >= $boundarysize and
-					$file->{name} !~ /^\.\.?$/;
+					$file->{name} !~ /^\.\.?$/o;
 				};
 			} else {
 				$criterion = sub {
 					my $file = shift;
 					$file->{size} <= $boundarysize and
-					$file->{name} !~ /^\.\.?$/;
+					$file->{name} !~ /^\.\.?$/o;
 				};
 			}
 		} # if $boundarysize
@@ -2291,10 +2294,6 @@ sub handlemousedown {
 		$mouserow - $_screen->BASELINE + $browser->baseindex])
 	{
 		# clicked on an existing file
-#TODO		# save currentline
-#TODO		$prevcurrentline   = $browser->currentline;
-#TODO		# put cursor temporarily on another file
-#TODO		$browser->currentline($mouserow - $_screen->BASELINE);
 		$clicked_file = $event->{mouseitem};
 		$propagated_event->{currentfile} = $clicked_file;
 		$on_name = (
@@ -2318,9 +2317,6 @@ sub handlemousedown {
 			$propagated_event->{data} = 's';
 			$self->handleshow($propagated_event);
 		}
-#TODO		# restore currentline
-#TODO		# note that if we changed directory, there will be a position_at anyway
-#TODO		$browser->currentline($prevcurrentline);
 	}
 	return 1; # must return true to fill $valid in sub handle()
 }
@@ -2451,17 +2447,16 @@ sub handlemousefootercommand {
 	$menu =~ /^					# anchor
 		(?:.{0,$left}\s|)		# (empty string left  || chars then space)
 		(?:						#
-			(\W-				# non-alphabetic
-			|F\d+-				# or F<digits>
+			(\W(?=-)			# non-alphabetic, before a dash (mode toggles)
+			|F\d+(?=-)			# or F<digits>, before a dash
 			|[<>]				# or pan character
 			)					#
 			\S*					# any nr. of non-space chars
 		)						#
 		(?:\s.{0,$right}|)		# (empty string right || space then chars)
 		$/x;					# anchor
-	($choice = $1)	=~ s/-$//;	# transform F12- to F12
-	$choice			=~ s/^F/k/;	# transform F12  to k12
-	#$_screen->at(1,0)->puts("L-$left :$choice: R-$right    ");
+	($choice = $1) =~ s/^F/k/;	# transform F12 to k12
+#	$_screen->at(1,0)->puts("L-$left :$choice: R-$right    ");
 	my $propagated_event        = $event->clone();
 	$propagated_event->{type}   = 'key';
 	$propagated_event->{data}   = $choice;

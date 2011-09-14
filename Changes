@@ -1,7 +1,15 @@
+2.08.6-alpha
+
+* fixed bug: clicking mouse on directory no longer gives an error
+* fixed bug in multilevel sorting
+* fixed bugs in automatic config file updating
+* added: In-/Exclude - dotfiles
+
 2.08.5-alpha
 
 * added: config option 'dircolors' now accepts coloring for specific
   filenames by using the syntax :'Makefile'=<colorspec>:
+* restructured source code
 
 2.08.4-alpha
 
