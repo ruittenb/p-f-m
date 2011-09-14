@@ -23,4 +23,5 @@
 
 - F7 to same directory: no refresh is done, so the marks stay in place.
 
-- $pfm->bootstrap() already displays screen: ok?
+- rename R_DIRCONTENTS, R_DIRSORT, R_DIRFILTER to D_ constants (directory/dirty)
+  set_dirty_flag() etc.

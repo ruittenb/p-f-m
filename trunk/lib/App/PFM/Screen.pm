@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen 0.24
+# @(#) App::PFM::Screen 0.27
 #
 # Name:			App::PFM::Screen
-# Version:		0.24
+# Version:		0.27
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-30
+# Date:			2010-06-12
 # Requires:		Term::ScreenColor
 #
 
@@ -64,9 +64,10 @@ use constant {
 #	R_SCREEN				 # R_DIRFILTER + R_DIRLIST + R_DISKINFO + R_FRAME
 	R_CLEAR			=> 256,	 # clear the screen
 #	R_CLRSCR				 # R_CLEAR and R_SCREEN
-	R_DIRSORT		=> 512,	 # resort @dircontents
-	R_DIRCONTENTS	=> 1024, # reread directory contents
-	R_NEWDIR		=> 2048, # re-init directory-specific vars
+	R_ALTERNATE		=> 512,	 # switch screens according to 'altscreen_mode'
+	R_DIRSORT		=> 1024, # resort @dircontents
+	R_DIRCONTENTS	=> 2048, # reread directory contents
+	R_NEWDIR		=> 4096, # re-init directory-specific vars
 #	R_CHDIR					 # R_NEWDIR + R_DIRCONTENTS + R_DIRSORT + R_SCREEN
 };
 
@@ -567,6 +568,13 @@ sub refresh {
 	my $directory = $_pfm->state->directory;
 	my $browser   = $_pfm->browser;
 	
+	if ($_deferred_refresh & R_ALTERNATE) {
+		if ($_pfm->config->{altscreen_mode}) {
+			$self->alternate_on()->at(0,0);
+		} else {
+			$self->alternate_off()->at(0,0);
+		}
+	}
 	# show frame as soon as possible: this looks better on slow terminals
 	if ($_deferred_refresh & R_CLEAR) {
 		$self->clrscr();

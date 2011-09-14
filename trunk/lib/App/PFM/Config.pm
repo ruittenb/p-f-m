@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 0.81
+# @(#) App::PFM::Config 0.83
 #
 # Name:			App::PFM::Config
-# Version:		0.81
+# Version:		0.83
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-06-01
+# Date:			2010-06-14
 #
 
 ##########################################################################
@@ -300,6 +300,7 @@ sub parse {
 	$self->{clsonexit}			= isyes($pfmrc->{clsonexit});
 	$self->{confirmquit}		= isyes($pfmrc->{confirmquit});
 	$self->{autowritehistory}	= isyes($pfmrc->{autowritehistory});
+	$self->{autowritebookmarks}	= isyes($pfmrc->{autowritebookmarks});
 	$self->{autoexitmultiple}	= isyes($pfmrc->{autoexitmultiple});
 	$self->{mouseturnoff}		= isyes($pfmrc->{mouseturnoff});
 	$self->{swap_persistent}	= isyes($pfmrc->{persistentswap} || 'yes');
@@ -401,7 +402,7 @@ sub apply {
 	$_pfm->browser->mouse_mode($self->{mouse_mode});
 	$screen->diskinfo->ident_mode($self->{ident_mode});
 	$screen->listing->layout($self->{currentlayout});
-	$screen->alternate_on()->at(0,0) if $self->{altscreen_mode};
+	$screen->set_deferred_refresh($screen->R_ALTERNATE);
 	# hand variables over to the state
 	$state->{dot_mode}         = $self->{dot_mode};
 	$state->{radix_mode}       = $self->{radix_mode};
@@ -453,6 +454,7 @@ sub write_default {
 =item read_bookmarks()
 
 Reads the bookmarks file.
+Fails silently if the bookmarks file cannot be read.
 
 =cut
 
@@ -468,8 +470,45 @@ sub read_bookmarks {
 			}
 		}
 		close BOOKMARKS;
-	}
+	} # fail silently
 	return %bookmarks;
+}
+
+=item write_bookmarks()
+
+Writes the states to the bookmarks file.
+Reports an error if the bookmarks file cannot be written.
+
+=cut
+
+sub write_bookmarks {
+	my ($self) = @_;
+	my ($state, $path);
+	my $screen = $_pfm->screen;
+	$screen->at(0,0)->clreol()
+		->set_deferred_refresh($screen->R_MENU);
+	if (open BOOKMARKS, ">" . CONFIGDIRNAME . "/" . BOOKMARKFILENAME) {
+		print BOOKMARKS '#' x 74, "\n## bookmarks for pfm\n\n";
+		foreach (@{$_pfm->BOOKMARKKEYS}) {
+			next if /../;
+			$state = $_pfm->state($_);
+			if (ref $state) {
+				$path = $state->directory->path;
+				if ($state->{_position}) {
+					$path .= '/' . $state->{_position};
+				}
+			} else {
+				$path = $state;
+			}
+			print BOOKMARKS "bookmark[$_]:$path\n";
+		}
+		print BOOKMARKS "\n## vim: set filetype=xdefaults:\n";
+		close BOOKMARKS;
+		$screen->putmessage('Bookmarks written successfully')
+			->error_delay();
+	} else {
+		$screen->display_error("Error writing bookmarks: $!");
+	}
 }
 
 ##########################################################################
@@ -506,6 +545,9 @@ autoexitmultiple:yes
 
 ## request rcs status automatically?
 autorcs:yes
+
+## write bookmarks to file automatically upon exit
+autowritebookmarks:no
 
 ## write history files automatically upon exit
 autowritehistory:no

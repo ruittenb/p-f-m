@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.04
+# @(#) App::PFM::CommandHandler 1.05
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.04
+# Version:		1.05
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-06-11
+# Date:			2010-06-12
 #
 
 ##########################################################################
@@ -407,6 +407,41 @@ sub _promptforwildfilename {
 		$wildfilename = '^$'; # clear illegal regexp
 	}
 	return $wildfilename;
+}
+
+=item _listbookmarks()
+
+List the bookmarks from the %states hash.
+
+=cut
+
+sub _listbookmarks {
+	my ($self) = @_;
+	my $printline     = $_screen->BASELINE;
+	my $filerecordcol = $_screen->listing->filerecordcol;
+	my @heading       = $_screen->frame->bookmark_headings;
+	my $spacing       =
+		' ' x ($_screen->screenwidth - $_screen->diskinfo->infolength);
+	my ($dest, $flag);
+	# headings
+	$_screen
+		->set_deferred_refresh(R_SCREEN)
+		->frame->show_bookmark_headings($_pfm->browser->swap_mode);
+	# list bookmarks
+	foreach (@{$_pfm->BOOKMARKKEYS}) {
+		last if ($printline > $_screen->BASELINE + $_screen->screenheight);
+		$dest = $_pfm->state($_);
+		$flag = ' ';
+		if (ref $dest) {
+			$dest = $dest->directory->path;
+			$flag = '*';
+		}
+		$_screen->at($printline++, $filerecordcol)
+			->puts(sprintf($heading[0], $_, $flag, $dest));
+	}
+	foreach ($printline .. $_screen->BASELINE + $_screen->screenheight) {
+		$_screen->at($printline++, $filerecordcol)->puts($spacing);
+	}
 }
 
 ##########################################################################
@@ -2333,11 +2368,11 @@ sub handlemore {
 			/^c$/io		and $self->handlemoreconfig(),		last MORE_PAN;
 			/^e$/io		and $self->handlemoreedit(),		last MORE_PAN;
 			/^h$/io		and $self->handlemoreshell(),		last MORE_PAN;
-#			/^b$/io		and $self->handlemorebookmark(),	last MORE_PAN;
+			/^b$/io		and $self->handlemorebookmark(),	last MORE_PAN;
 			/^g$/io		and $self->handlemorego(),			last MORE_PAN;
 			/^f$/io		and $self->handlemorefifo(),		last MORE_PAN;
 			/^v$/io		and $self->handlemoreversion(),		last MORE_PAN;
-			/^w$/io		and $_pfm->history->write(),		last MORE_PAN;
+			/^w$/io		and $self->handlemorehistwrite(),	last MORE_PAN;
 			/^t$/io		and $self->handlemorealtscreen(),	last MORE_PAN;
 			/^p$/io		and $self->handlemorephyspath(),	last MORE_PAN;
 #			/^a$/io		and $self->handlemoreacl(),			last MORE_PAN;
@@ -2473,36 +2508,36 @@ sub handlemoreshell {
 	system("$chdirautocmd") if length($chdirautocmd);
 }
 
-=item handlemoreacl()
-
-Allows the user to edit the file's Access Control List. (Not implemented)
-
-=cut
-
-sub handlemoreacl {
-	my ($self) = @_;
-	# TODO
-	$self->not_implemented();
-}
-
 =item handlemorebookmark()
 
-Creates a bookmark to the current directory. (Not implemented)
+Creates a bookmark to the current directory.
 
 =cut
 
 sub handlemorebookmark {
 	my ($self) = @_;
-	# TODO
-	$self->not_implemented();
-#	if ($path_history[-1] ne $currentdir) {
-#		push @path_history, $currentdir;
-#		shift (@path_history) if ($#path_history > $MAXHISTSIZE);
-#	}
-#	$_screen->at(0,0)->clreol()
-#		->putmessage('Current directory bookmarked')
-#		->set_deferred_refresh(R_MENU)
-#		->key_pressed($_screen->ERRORDELAY);
+	my $browser   = $_pfm->browser;
+	my $messcolor =
+		$_pfm->config->{framecolors}{$_screen->color_mode}{message};
+	my ($dest, $key, $prompt);# , $destfile
+	# the footer has already been cleared by handlemore()
+	# choice
+	$self->_listbookmarks();
+	$prompt = 'Bookmark under which letter? ';
+	$key = $_screen->clear_footer()
+		->at(0,0)->clreol()
+		->putcolored($messcolor, $prompt)->getch();
+	return if $key eq "\r";
+	# process key
+	if ($key !~ /^[a-zA-Z]$/) {
+		# the bookmark is undefined
+		$_screen->at(0,0)->clreol()
+				->display_error('Bookmark name not valid');
+		return;
+	}
+	$_pfm->state->{_position}  = $browser->currentfile->{name};
+	$_pfm->state->{_baseindex} = $browser->baseindex;
+	$_pfm->state($key, $_pfm->state->clone());
 }
 
 =item handlemorego()
@@ -2514,34 +2549,13 @@ jump to one of them.
 
 sub handlemorego {
 	my ($self) = @_;
-	my $browser       = $_pfm->browser;
-	my $printline     = $_screen->BASELINE;
-	my $filerecordcol = $_screen->listing->filerecordcol;
-	my @heading       = $_screen->frame->bookmark_headings;
-	my $messcolor     =
+	my $browser   = $_pfm->browser;
+	my $messcolor =
 		$_pfm->config->{framecolors}{$_screen->color_mode}{message};
-	my $spacing       =
-		' ' x ($_screen->screenwidth - $_screen->diskinfo->infolength);
-	my ($dest, $flag, $key, $prompt, $destfile, $success,
+	my ($dest, $key, $prompt, $destfile, $success,
 		$prevdir, $prevstate, $chdirautocmd);
-	$_screen->clear_footer()
-		->set_deferred_refresh(R_SCREEN)
-		->frame->show_bookmark_headings($_pfm->browser->swap_mode);
-	# list bookmarks
-	foreach (@{$_pfm->BOOKMARKKEYS}) {
-		last if ($printline > $_screen->BASELINE + $_screen->screenheight);
-		$dest = $_pfm->state($_);
-		$flag = ' ';
-		if (ref $dest) {
-			$dest = $dest->directory->path;
-			$flag = '*';
-		}
-		$_screen->at($printline++, $filerecordcol)
-			->puts(sprintf($heading[0], $_, $flag, $dest));
-	}
-	foreach ($printline .. $_screen->BASELINE + $_screen->screenheight) {
-		$_screen->at($printline++, $filerecordcol)->puts($spacing);
-	}
+	# the footer has already been cleared by handlemore()
+	$self->_listbookmarks();
 	# choice
 	$prompt = 'Go to which bookmark? ';
 	$key = $_screen->at(0,0)->clreol()
@@ -2591,11 +2605,16 @@ sub handlemorego {
 				->display_error("$dest: $!");
 			return;
 		}
+		# TODO next line does not seem to work correctly
 		$_pfm->browser->position_at($destfile) if defined $destfile;
-		# TODO disable the next lines?
-		$_pfm->state->{_position}  = $browser->currentfile->{name};
-		$_pfm->state->{_baseindex} = $browser->baseindex;
-		$_pfm->state($key, $_pfm->state->clone());
+		# prepare the state object so that it can be stored
+#		$_pfm->state->prepare();
+#		$_pfm->screen->unset_deferred_refresh(
+#			R_DIRCONTENTS | R_DIRSORT | R_DIRFILTER);
+		# store the prepared state
+#		$_pfm->state->{_position}  = $browser->currentfile->{name};
+#		$_pfm->state->{_baseindex} = $browser->baseindex;
+#		$_pfm->state($key, $_pfm->state->clone());
 	}
 }
 
@@ -2629,6 +2648,19 @@ sub handlemorefifo {
 		refresh => TRUE);
 	$_pfm->browser->position_at($newname);
 }
+
+=item handlemorehistwrite()
+
+Writes the histories and the bookmarks to file.
+
+=cut
+
+sub handlemorehistwrite {
+	my ($self) = @_;
+	$_pfm->history->write();
+	$_pfm->config->write_bookmarks();
+}
+
 
 =item handlemorealtscreen()
 

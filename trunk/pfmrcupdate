@@ -2,7 +2,7 @@
 ############################################################################
 #
 # Name:         pfmrcupdate
-# Version:      2.05.9
+# Version:      2.06.0
 # Author:       Rene Uittenbogaard
 # Date:         2010-06-11
 # Usage:        pfmrcupdate
@@ -24,7 +24,7 @@ our $ROFFVERSION = <<'=cut';
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfmrcupdate 2.05.9
+.ds Vw @(#) pfmrcupdate 2.06.0
 .de Vp
 This manual pertains to \f(CWpfmrcupdate\fP version \\$3.
 ..
@@ -615,6 +615,17 @@ windowtype:pfm
 _end_update_to_2059_
 }
 
+sub update_to_2060 {
+	my ($lines) = @_;
+	# added 'autowritebookmarks'
+	print "Updating to 2.06.0...\n";
+	push @$lines, <<_end_update_to_2060_;
+
+## write bookmarks to file automatically upon exit
+autowritebookmarks:no
+
+_end_update_to_2060_
+}
 
 sub update_version {
 	my ($to, $lines) = @_;
@@ -652,6 +663,7 @@ sub update_pfmrc {
 	update_to_2044($lines) if $from lt '2.04.4' and '2.04.4' le $to;
 	update_to_2053($lines) if $from lt '2.05.3' and '2.05.3' le $to;
 	update_to_2059($lines) if $from lt '2.05.9' and '2.05.9' le $to;
+	update_to_2060($lines) if $from lt '2.06.0' and '2.06.0' le $to;
 	update_version($to, $lines);
 }
 

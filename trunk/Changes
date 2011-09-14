@@ -1,8 +1,13 @@
+2.06.0-alpha
+
+* added (M)ore - (B)ookmark
+* added 'autowritebookmarks' option
+
 2.05.9-alpha
 
-* added 'windowtype'
+* added 'windowtype' option
 * added reading bookmarks from file
-* added (M)ore - (G)o
+* added (M)ore - (G)o bookmark
 * code cleanup
 
 2.05.8-alpha
