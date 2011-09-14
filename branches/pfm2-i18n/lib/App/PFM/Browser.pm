@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Browser 0.63
+# @(#) App::PFM::Browser 0.64
 #
 # Name:			App::PFM::Browser
-# Version:		0.63
+# Version:		0.64
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-03-28
+# Date:			2011-09-05
 #
 
 ##########################################################################
@@ -79,6 +79,7 @@ sub _init {
 	my $on_after_resize_window = sub {
 #		my ($event) = @_;
 		$self->validate_position();
+		return;
 	};
 	$screen->register_listener('after_resize_window', $on_after_resize_window);
 	return;

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Directory 1.04
+# @(#) App::PFM::Directory 1.06
 #
 # Name:			App::PFM::Directory
-# Version:		1.04
+# Version:		1.06
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-05-31
+# Date:			2011-09-05
 #
 
 ##########################################################################
@@ -148,6 +148,11 @@ sub _clone {
 	$self->{_marked_nr_of}   = { %{$original->{_marked_nr_of}	} };
 	$self->{_total_nr_of}	 = { %{$original->{_total_nr_of}	} };
 	$self->{_disk}			 = { %{$original->{_disk}			} };
+
+	# Any running rcs job has got event handlers pointing to the original
+	# Directory object (i.e., not to our event handlers). Remove the job
+	# number from the clone.
+	$self->{_rcsjob}         = undef;
 
 	$self->_install_event_handlers();
 	return;
@@ -468,22 +473,20 @@ sub destroy {
 				$self->{_on_after_change_formatlines});
 		}
 	}
+#	$self->stop_any_rcsjob();
 	return;
 }
 
-=item path( [ string $nextdir [, bool $swapping [, string $direction ] ] ] )
+=item path()
 
-Getter/setter for the current directory path.
-Setting the current directory in this way is identical to calling
-App::PFM::Directory::chdir(), and will return the success status.
+Getter for the current directory path. Setting the current
+directory should be done through App::PFM::Directory::chdir() or
+App::PFM::Directory::prepare().
 
 =cut
 
 sub path {
-	my ($self, @cdopts) = @_;
-	if (@cdopts) {
-		return $self->chdir(@cdopts);
-	}
+	my ($self) = @_;
 	return $self->{_path};
 }
 
@@ -679,8 +682,12 @@ sub chdir {
 		$_pfm->state->{_position}  = $_pfm->browser->currentfile->{name};
 		$_pfm->state->{_baseindex} = $_pfm->browser->baseindex;
 		unless ($swapping) {
+			# Note that the clone does not inherit the rcs job number.
 			$_pfm->state('S_PREV', $_pfm->state->clone());
 		}
+		# Stop the rcs job. We don't need it any more.
+		$self->stop_any_rcsjob();
+		# In 'phys' mode: find the physical name of the directory.
 		if ($self->{_path_mode} eq 'phys') {
 			$self->{_path} = getcwd();
 		} else {
@@ -946,7 +953,7 @@ and starts them.
 
 sub checkrcsapplicable {
 	my ($self, $entry) = @_;
-	my ($fullclass);
+	my $fullclass;
 	my $path   = $self->{_path};
 	my $screen = $self->{_screen};
 	$entry = defined $entry ? $entry : $path;
@@ -955,6 +962,7 @@ sub checkrcsapplicable {
 		# $self->{_rcsjob} has not yet been set
 		$screen->set_deferred_refresh(R_HEADINGS);
 		$screen->frame->rcsrunning(RCS_RUNNING);
+		return;
 	};
 	my $on_after_job_receive_data = sub {
 		my $event = shift;
@@ -994,20 +1002,22 @@ sub checkrcsapplicable {
 		# TODO only show if this directory is on-screen (is_main).
 		$screen->listing->show();
 		$screen->listing->highlight_on();
+		return;
 	};
 	my $on_after_job_finish = sub {
 		$self->{_rcsjob} = undef;
 		$screen->set_deferred_refresh(R_HEADINGS);
 		$screen->frame->rcsrunning(RCS_DONE);
+		return;
 	};
 	# TODO when a directory is swapped out, the jobs should continue
+	# Note that this supports only one revision control system per directory.
 	foreach my $class (@{$self->RCS}) {
 		$fullclass = "App::PFM::Job::$class";
 		if ($fullclass->isapplicable($path, $entry)) {
-			if (defined $self->{_rcsjob}) {
-				# The previous job did not yet finish.
-				# Kill it and run the command for the entire directory.
-				$self->{_jobhandler}->stop($self->{_rcsjob});
+			# If the previous job did not yet finish,
+			# kill it and run the command for the entire directory.
+			if ($self->stop_any_rcsjob()) {
 				$entry = $path;
 			}
 			$self->{_rcsjob} = $self->{_jobhandler}->start($class, {
@@ -1022,6 +1032,23 @@ sub checkrcsapplicable {
 		}
 	}
 	return;
+}
+
+=item stop_any_rcsjob()
+
+Stop an rcsjob, if it is running.
+Returns a boolean indicating if one was running.
+
+=cut
+
+sub stop_any_rcsjob {
+	my ($self) = @_;
+	if (defined $self->{_rcsjob}) {
+		# The after_job_finish handler will reset $self->{_rcsjob}.
+		$self->{_jobhandler}->stop($self->{_rcsjob});
+		return 1;
+	}
+	return 0;
 }
 
 =item preparercscol( [ App::PFM::File $file ] )

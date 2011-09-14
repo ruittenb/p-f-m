@@ -124,13 +124,13 @@
 .\" ========================================================================
 .\"
 .IX Title "PFM 1"
-.TH PFM 1 "2011-06-16" " " " "
+.TH PFM 1 "2011-09-06" " " " "
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
 .nh
 .ds Yr 2011
-.ds Vw @(#) pfm.pl 2.11.7
+.ds Vw @(#) pfm.pl 2.11.8
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -330,6 +330,9 @@ all files, including dotfiles (but not the \fI.\fR and \fI..\fR entries)
 .IX Item "Files only"
 regular files of which the filenames match a specified regular expression
 (not a glob pattern!)
+.IP "\fBD\fRirectories only" 4
+.IX Item "Directories only"
+all directories (but not the \fI.\fR and \fI..\fR entries)
 .IP "\fBG\fRreater / \fBS\fRmaller" 4
 .IX Item "Greater / Smaller"
 files that are bigger or smaller than the provided size in bytes.
@@ -714,6 +717,21 @@ If 'windowtype' is \*(L"standalone\*(R" and 'windowcmd' is something like
 .IP "\fBPhysical path\fR" 4
 .IX Item "Physical path"
 Shows the physical pathname of the current directory until a key is pressed.
+.IP "\fBRead history/bookmarks\fR" 4
+.IX Item "Read history/bookmarks"
+Offers the user the choice to read the input history and/or bookmarks
+from disk.
+.Sp
+The input history is the history of Unix commands, pathnames, regular
+expressions, modification times, and file modes that the user enters.
+\&\f(CW\*(C`pfm\*(C'\fR uses the readline library to manage these.
+.Sp
+The input history is also read in when \f(CW\*(C`pfm\*(C'\fR starts, from individual files in
+\&\fI\f(CI$HOME\fI/.pfm/\fR.
+.Sp
+The bookmarks are also read in when \f(CW\*(C`pfm\*(C'\fR starts, from \fI\f(CI$HOME\fI/.pfm/bookmarks\fR.
+.Sp
+See also \fBM\fRore\-\fBW\fRrite history/bookmarks.
 .IP "\fBShow directory\fR" 4
 .IX Item "Show directory"
 You will be asked for the directory you want to view. Note that this
@@ -734,14 +752,18 @@ Subversion, \s-1CVS\s0, Bazaar and Git.
 .Sp
 If you set the 'autorcs' option in your \fI.pfmrc\fR, this will automatically
 be done every time \f(CW\*(C`pfm\*(C'\fR shows directory contents.
-.IP "\fBWrite history\fR" 4
-.IX Item "Write history"
-\&\f(CW\*(C`pfm\*(C'\fR uses the readline library for keeping track of the Unix commands,
-pathnames, regular expressions, modification times, and file modes
-entered. The history is read from individual files in \fI\f(CI$HOME\fI/.pfm/\fR
-every time \f(CW\*(C`pfm\*(C'\fR starts. The history is written only when this command
-is given, or when \f(CW\*(C`pfm\*(C'\fR exits and the 'autowritehistory' option is set
-in \fI.pfmrc\fR.
+.IP "\fBWrite history/bookmarks\fR" 4
+.IX Item "Write history/bookmarks"
+Offers the user the choice to write the input history and/or bookmarks
+to disk.
+.Sp
+The input history is also written when \f(CW\*(C`pfm\*(C'\fR exits and the
+\&'autowritehistory' option is set in \fI.pfmrc\fR.
+.Sp
+The bookmarks are also written when \f(CW\*(C`pfm\*(C'\fR exits and the
+\&'autowritebookmarks' option is set in \fI.pfmrc\fR.
+.Sp
+See also \fBM\fRore\-\fBR\fRead history/bookmarks.
 .IP "\fBF5\fR Smart refresh" 4
 .IX Item "F5 Smart refresh"
 Refreshes the directory like \fBF5\fR (remove lost files from the listing,
@@ -851,7 +873,8 @@ the si\fBZ\fRe command is issued, not when reading the directory contents.
 Switch between single-file and multiple-file mode.
 .IP "\fBF11\fR" 4
 .IX Item "F11"
-Refresh (using \fIlstat\fR\|(2)) the displayed file data for the current file.
+Refresh (using \fIlstat\fR\|(2)) the displayed file data for the current file (or
+files, in multiple mode).
 .IP "\fBF12\fR" 4
 .IX Item "F12"
 Toggle mouse use. See below under \*(L"\s-1MOUSE\s0 \s-1COMMANDS\s0\*(R".
@@ -1348,6 +1371,7 @@ The documentation on \s-1PFM\s0.COM. The manual pages for \fIchmod\fR\|(1), \fIc
 .ad l \" right-justification off
 .PP
 For developers:
+.PP
 \&\fITerm::Screen\fR\|(3pm),
 \&\fITerm::ScreenColor\fR\|(3pm),
 \&\fITerm::ReadLine\fR\|(3pm),

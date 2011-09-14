@@ -1,0 +1,23 @@
+AC_INIT(hasacl.c)
+
+VERSION="0.07"
+AC_SUBST(VERSION)
+
+AC_PREREQ
+
+AC_PROG_CC
+AC_LANG_C
+AC_TYPE_MODE_T
+
+AC_PROG_INSTALL
+AC_PROG_MAKE_SET
+
+AC_HEADER_STDC dnl stdlib.h, stdarg.h, string.h and float.h
+AC_CHECK_HEADER(unistd.h,,   AC_MSG_ERROR(Error: unistd.h not found))
+AC_CHECK_HEADER(stdio.h,,    AC_MSG_ERROR(Error: stdio.h not found))
+AC_CHECK_HEADER(errno.h,,    AC_MSG_ERROR(Error: errno.h not found))
+AC_CHECK_HEADER(sys/types.h,,AC_MSG_ERROR(Error: sys/types.h not found))
+AC_CHECK_HEADERS([sys/acl.h])
+
+AC_OUTPUT(Makefile)
+
