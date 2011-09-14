@@ -3,10 +3,10 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.08.4
+# Version:		2.08.5
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-05
+# Date:			2010-09-08
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				    [ -l, --layout <number> ] [ -o, --sort <mode> ]
 #				pfm { -v, --version | -h, --help }
@@ -24,7 +24,7 @@
 # version
 
 # for MakeMaker
-our $VERSION = '2.08.4';
+our $VERSION = '2.08.5';
 
 # macros for *roff
 our $ROFFVERSION = <<'=cut';
@@ -33,7 +33,7 @@ our $ROFFVERSION = <<'=cut';
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.08.4
+.ds Vw @(#) pfm.pl 2.08.5
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -1269,7 +1269,7 @@ the B<F12> key) will give mouse access to the following commands:
 <tr>
 	<td>1</td>
 	<td><i>chdir()</i></td>
-	<td><i>command</i></td>
+	<td><i>pfm command</i></td>
 	<td>sort</td>
 	<td>F8</td>
 	<td><b>S</b>how</td>
@@ -1278,7 +1278,7 @@ the B<F12> key) will give mouse access to the following commands:
 <tr>
 	<td>2</td>
 	<td>c<b>O</b>mmand</td>
-	<td><i>command</i></td>
+	<td><i>pfm command</i></td>
 	<td>sort rev</td>
 	<td><b>S</b>how</td>
 	<td>ENTER</td>
@@ -1287,7 +1287,7 @@ the B<F12> key) will give mouse access to the following commands:
 <tr>
 	<td>3</td>
 	<td>c<b>O</b>mmand</td>
-	<td><i>command</i></td>
+	<td><i>pfm command</i></td>
 	<td>sort rev</td>
 	<td><b>S</b>how</td>
 	<td>ENTER</td>
@@ -1326,9 +1326,9 @@ menu/
 footer
 T}	heading	fileline	filename	dirname
 _
-1	\fIchdir()\fR	\fIcommand\fP	sort	F8	\fBS\fPhow	\fBS\fPhow
-2	c\fBO\fPmmand	\fIcommand\fP	sort rev	\fBS\fPhow	ENTER	\fInew win\fP\0
-3	c\fBO\fPmmand	\fIcommand\fP	sort rev	\fBS\fPhow	ENTER	\fInew win\fP
+1	\fIchdir()\fR	\fIpfm command\fP	sort	F8	\fBS\fPhow	\fBS\fPhow
+2	c\fBO\fPmmand	\fIpfm command\fP	sort rev	\fBS\fPhow	ENTER	\fInew win\fP\0
+3	c\fBO\fPmmand	\fIpfm command\fP	sort rev	\fBS\fPhow	ENTER	\fInew win\fP
 _
 up	\fIfive lines up\fP
 down	\fIfive lines down\fP
@@ -1551,7 +1551,10 @@ This program was based on PFMS<.>COM version 2.32, originally written for
 MS-DOS by Paul R. Culley and Henk de Heer. The name 'pfm' was adopted
 with kind permission of the original authors.
 
-Special thanks to Maurice Makaay for help with debugging.
+Special thanks to Ewoud Verburg for useful suggestions and testing.
+
+Special thanks to Maurice Makaay for useful suggestions and assistance
+with debugging.
 
 =head1 SEE ALSO
 

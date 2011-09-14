@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Event 0.08
+# @(#) App::PFM::Event 0.09
 #
 # Name:			App::PFM::Event
-# Version:		0.08
+# Version:		0.09
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-30
-# Date:			2010-09-07
+# Date:			2010-09-09
 #
 
 ##########################################################################
@@ -43,9 +43,10 @@ use constant KNOWN_PROPERTIES => {
 	origin		=> 1, # object
 	type		=> 1, # 'key', 'mouse', 'job', 'soft', 'resize'
 	data		=> 1, # received data (for 'key' and 'job')
-	mousebutton	=> 1, # mouse button  (for 'mouse')
-	mouserow	=> 1, # mouse row     (for 'mouse')
-	mousecol	=> 1, # mouse column  (for 'mouse')
+	mousebutton	=> 1, # mouse button       (for 'mouse')
+	mouserow	=> 1, # mouse row          (for 'mouse')
+	mousecol	=> 1, # mouse column       (for 'mouse')
+	mouseitem	=> 1, # mouse clicked item (for 'mouse')
 	currentfile	=> 1, # current file, if fired by the Browser
 	lunchbox	=> 1, # misc data (always added by constructor)
 };
@@ -57,6 +58,7 @@ use constant KNOWN_EVENTS => {
 	after_job_start					=> 1, # Job
 	after_job_receive_data			=> 1, # Job
 	after_job_finish				=> 1, # Job
+	after_create_entry				=> 1, # CommandHandler
 	after_parse_usecolor			=> 1, # Config
 	after_receive_user_input		=> 1, # Screen
 	after_receive_non_motion_input	=> 1, # Browser
@@ -97,6 +99,25 @@ sub new {
 
 ##########################################################################
 # public subs
+
+=item clone()
+
+Clone the Event object. References inside the event are conserved, I<i.e.>
+objects contained inside the event are not cloned.
+
+=cut
+
+sub clone {
+	my $original = shift;
+	my $type     = ref $original;
+	unless ($type) {
+		croak("clone() cannot be called statically " .
+			"(it needs an object to clone)");
+	}
+	my $clone = { %$original };
+	bless($clone, $type);
+	return $clone;
+}
 
 ##########################################################################
 

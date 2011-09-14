@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.08.4
+# @(#) App::PFM::Application 2.08.5
 #
 # Name:			App::PFM::Application
-# Version:		2.08.4
+# Version:		2.08.5
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-07
+# Date:			2010-09-09
 #
 
 ##########################################################################
@@ -72,6 +72,7 @@ sub _init {
 	($self->{VERSION}, $self->{LASTYEAR}) = $self->_findversion();
 	$self->{NEWER_VERSION} = '';
 	$self->{_bootstrapped} = 0;
+	$self->{_options}      = {};
 	$self->{_states}       = {};
 }
 
@@ -221,6 +222,152 @@ sub _goodbye {
 	}
 }
 
+=item _bootstrap_commandline()
+
+Phase 1 of the bootstrap process: parse commandline arguments.
+
+=cut
+
+sub _bootstrap_commandline {
+	my ($self) = @_;
+	my ($screen, $invalid, $opt_version, $opt_help,
+		$startingswapdir, $startingsort, $startinglayout);
+	# hand over the application object to the other classes
+	# for easy access.
+	$self->{_screen}		 = new App::PFM::Screen($self);
+	$screen					 = $self->{_screen};
+	$screen->at($screen->rows(), 0)->cooked_echo();
+	
+	Getopt::Long::Configure(qw'bundling permute');
+	GetOptions ('s|swap=s'   => \$startingswapdir,
+				'o|sort=s'   => \$startingsort,
+				'l|layout=i' => \$startinglayout,
+				'h|help'     => \$opt_help,
+				'v|version'  => \$opt_version) or $invalid = 1;
+	$self->_usage()			if $opt_help || $invalid;
+	$self->_printversion()	if $opt_version;
+	die "Invalid option\n"	if $invalid;
+	die "\n"				if $opt_help || $opt_version;
+
+	$self->{_options}{'directory'} = shift @ARGV;
+	$self->{_options}{'swap'}      = $startingswapdir;
+	$self->{_options}{'sort'}      = $startingsort;
+	$self->{_options}{'layout'}    = $startinglayout;
+	$self->{_options}{'help'}      = $opt_help;
+	$self->{_options}{'version'}   = $opt_version;
+}
+
+=item _bootstrap_members( [ bool $silent ] )
+
+Phase 2 of the bootstrap process: instantiate member objects
+and parse config file.
+
+The I<silent> argument suppresses output and may be used for testing
+if the application bootstraps correctly.
+
+=cut
+
+sub _bootstrap_members {
+	my ($self, $silent) = @_;
+	my ($screen, $config, %bookmarks);
+
+	# hand over the application object to the other classes
+	# for easy access.
+	$self->{_states}{S_MAIN} = new App::PFM::State($self);
+	$self->{_commandhandler} = new App::PFM::CommandHandler($self);
+	$self->{_history}		 = new App::PFM::History($self);
+	$self->{_browser}		 = new App::PFM::Browser($self);
+	$self->{_jobhandler}	 = new App::PFM::JobHandler($self);
+	$self->{_os}			 = new App::PFM::OS($self);
+	$self->{_config}		 = new App::PFM::Config($self);
+	$config					 = $self->{_config};
+	$screen					 = $self->{_screen};
+	
+	# init screen
+	$screen->clrscr()->raw_noecho();
+	$screen->calculate_dimensions();
+	
+	# event handler for copyright message
+	my $on_after_parse_usecolor = sub {
+		$self->_copyright($config->pfmrc->{copyrightdelay});
+	};
+
+	# read and parse config file
+	unless ($silent) {
+		$config->register_listener(
+			'after_parse_usecolor', $on_after_parse_usecolor);
+	}
+	$config->read($silent ? $config->READ_AGAIN : $config->READ_FIRST);
+	$config->parse();
+	$config->apply();
+	$config->unregister_listener(
+			'after_parse_usecolor', $on_after_parse_usecolor);
+	
+	%bookmarks = $config->read_bookmarks();
+	@{$self->{_states}}{@{BOOKMARKKEYS()}} = ();
+	@{$self->{_states}}{keys %bookmarks} = values %bookmarks;
+	$screen->listing->layout($self->{_options}{'layout'});
+	$self->{_history}->read();
+	$self->checkupdates();
+}
+
+=item _bootstrap_states()
+
+Phase 3 of the bootstrap process: initialize the state objects.
+
+=cut
+
+sub _bootstrap_states {
+	my ($self) = @_;
+	my $startingsort = $self->{_options}{'sort'};
+	# current directory - MAIN for the time being
+	my $currentdir = getcwd();
+	$self->{_states}{S_MAIN}->prepare($currentdir, $startingsort);
+	# do we have a starting directory?
+	my $startingdir = $self->{_options}{directory};
+	if ($startingdir ne '') {
+		# if so, make it MAIN; currentdir becomes PREV
+		unless ($self->{_states}{S_MAIN}->directory->path($startingdir)) {
+			$self->{_screen}->at(0,0)->clreol()
+				->display_error("$startingdir: $! - using .");
+			$self->{_screen}->important_delay();
+		}
+	} else {
+		# if not, clone MAIN to PREV
+		$self->{_states}{S_PREV} = $self->{_states}{S_MAIN}->clone($self);
+	}
+	# swap directory
+	my $startingswapdir = $self->{_options}{swap};
+	if (defined $startingswapdir) {
+		$self->{_states}{S_SWAP} = new App::PFM::State($self, $startingswapdir);
+		$self->{_states}{S_SWAP}->prepare(undef, $startingsort);
+	}
+}
+
+=item _bootstrap_event_hub()
+
+Phase 4 of the bootstrap process: register event listeners.
+
+=cut
+
+sub _bootstrap_event_hub {
+	my ($self) = @_;
+
+	# browser is idle: poll jobs
+	my $on_browser_idle = sub {
+		$self->{_jobhandler}->pollall();
+	};
+	$self->{_browser}->register_listener('browser_idle', $on_browser_idle);
+
+	# browser passes control to the commandhandler
+	my $on_after_receive_non_motion_input = sub {
+		my $event = shift;
+		$self->{_commandhandler}->handle($event);
+	};
+	$self->{_browser}->register_listener(
+		'after_receive_non_motion_input', $on_after_receive_non_motion_input);
+}
+
 ##########################################################################
 # constructor, getters and setters
 
@@ -367,99 +514,10 @@ if the application bootstraps correctly.
 
 sub bootstrap {
 	my ($self, $silent) = @_;
-	my ($startingdir, $startingswapdir, $startinglayout, $startingsort,
-		$currentdir, $opt_version, $opt_help,
-		%bookmarks, $invalid, $state, $config, $screen,
-		$on_after_parse_usecolor, $on_after_receive_non_motion_input);
-	
-	#------------------------------------------------------------
-	# phase 1: parse commandline arguments
-	#------------------------------------------------------------
-	# hand over the application object to the other classes
-	# for easy access.
-	$self->{_states}{S_MAIN} = new App::PFM::State($self);
-	$self->{_screen}		 = new App::PFM::Screen($self);
-	$screen					 = $self->{_screen};
-	$screen->at($screen->rows(), 0)->cooked_echo();
-	
-	Getopt::Long::Configure(qw'bundling permute');
-	GetOptions ('s|swap=s'   => \$startingswapdir,
-				'o|sort=s'   => \$startingsort,
-				'l|layout=i' => \$startinglayout,
-				'h|help'     => \$opt_help,
-				'v|version'  => \$opt_version) or $invalid = 1;
-	$self->_usage()			if $opt_help || $invalid;
-	$self->_printversion()	if $opt_version;
-	die "Invalid option\n"	if $invalid;
-	die "\n"				if $opt_help || $opt_version;
-	
-	#------------------------------------------------------------
-	# phase 2: instantiate member objects and parse config file
-	#------------------------------------------------------------
-	# hand over the application object to the other classes
-	# for easy access.
-	$self->{_commandhandler} = new App::PFM::CommandHandler($self);
-	$self->{_history}		 = new App::PFM::History($self);
-	$self->{_browser}		 = new App::PFM::Browser($self);
-	$self->{_jobhandler}	 = new App::PFM::JobHandler($self);
-	$self->{_os}			 = new App::PFM::OS($self);
-	$self->{_config}		 = new App::PFM::Config($self);
-	$config					 = $self->{_config};
-	
-	$screen->clrscr()->raw_noecho();
-	$screen->calculate_dimensions();
-	
-	$on_after_parse_usecolor = sub {
-		$self->_copyright($config->pfmrc->{copyrightdelay});
-	};
-	if (!$silent) {
-		$config->register_listener(
-			'after_parse_usecolor', $on_after_parse_usecolor);
-	}
-	$config->read($silent ? $config->READ_AGAIN : $config->READ_FIRST);
-	$config->parse();
-	$config->apply();
-	$config->unregister_listener(
-			'after_parse_usecolor', $on_after_parse_usecolor);
-	
-	%bookmarks = $config->read_bookmarks();
-	@{$self->{_states}}{@{BOOKMARKKEYS()}} = ();
-	@{$self->{_states}}{keys %bookmarks} = values %bookmarks;
-	$screen->listing->layout($startinglayout);
-	$self->{_history}->read();
-	$self->checkupdates();
-	$on_after_receive_non_motion_input = sub {
-		my $event = shift;
-		$self->{_commandhandler}->handle($event);
-	};
-	$self->{_browser}->register_listener(
-		'after_receive_non_motion_input', $on_after_receive_non_motion_input);
-	
-	#------------------------------------------------------------
-	# phase 3: prepare the state objects
-	#------------------------------------------------------------
-	# current directory - MAIN for the time being
-	$currentdir = getcwd();
-	$self->{_states}{S_MAIN}->prepare($currentdir, $startingsort);
-	# do we have a starting directory?
-	$startingdir = shift @ARGV;
-	if ($startingdir ne '') {
-		# if so, make it MAIN; currentdir becomes PREV
-		unless ($self->{_states}{S_MAIN}->directory->path($startingdir)) {
-			$screen->at(0,0)->clreol();
-			$screen->display_error("$startingdir: $! - using .");
-			$screen->important_delay();
-		}
-	} else {
-		# if not, clone MAIN to PREV
-		$self->{_states}{S_PREV} = $self->{_states}{S_MAIN}->clone($self);
-	}
-	# swap directory
-	if (defined $startingswapdir) {
-		$self->{_states}{S_SWAP} = new App::PFM::State($self, $startingswapdir);
-		$self->{_states}{S_SWAP}->prepare(undef, $startingsort);
-	}
-	# done
+	$self->_bootstrap_commandline();
+	$self->_bootstrap_members($silent);
+	$self->_bootstrap_states();
+	$self->_bootstrap_event_hub();
 	$self->{_bootstrapped} = 1;
 }
 
@@ -472,12 +530,7 @@ been done yet.
 
 sub run {
 	my ($self) = @_;
-	my $on_browser_idle = sub {
-		$self->{_jobhandler}->pollall();
-	};
-
-	$self->bootstrap() if !$self->{_bootstrapped};
-	$self->{_browser}->register_listener('browser_idle', $on_browser_idle);
+	$self->bootstrap() unless $self->{_bootstrapped};
 	$self->{_browser}->browse();
 	$self->_goodbye();
 }

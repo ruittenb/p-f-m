@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Browser 0.44
+# @(#) App::PFM::Browser 0.46
 #
 # Name:			App::PFM::Browser
-# Version:		0.44
+# Version:		0.46
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-04
+# Date:			2010-09-09
 #
 
 ##########################################################################
@@ -41,6 +41,9 @@ use App::PFM::Util qw(min max);
 
 use strict;
 use locale;
+
+use constant MOTION_COMMANDS =>
+	qr/^(?:[-+jk\cF\cB\cD\cU]|ku|kd|pgup|pgdn|home|end|m(shift)?(up|down))$/io;
 
 our ($_pfm, $_screen);
 
@@ -376,7 +379,33 @@ sub find_best_find_match {
 	return 1;
 }
 
-=item handlemove()
+=item handlescroll(char $key)
+
+Handles B<CTRL-E> and B<CTRL-Y>, which scroll the current view of
+the directory.
+
+=cut
+
+sub handlescroll {
+	my ($self, $key) = @_;
+	my $up = ($key =~ /^\cE$/o);
+	my $screenheight  = $_screen->screenheight;
+	my $showncontents = $_pfm->state->directory->showncontents;
+	return 0 if ( $up and
+				  $self->{_baseindex} == $#$showncontents and
+				  $self->{_currentline} == 0)
+			 or (!$up and $self->{_baseindex} == 0);
+	my $displacement = $up - ! $up;
+	$self->{_baseindex} += $displacement;
+	my $newcurrentline = $self->{_currentline} -= $displacement;
+	if ($newcurrentline >= 0 and $newcurrentline <= $screenheight) {
+		$self->{_currentline} = $newcurrentline;
+	}
+	$self->setview($self->{_currentline}, $self->{_baseindex});
+	return 1;
+}
+
+=item handlemove(char $key)
 
 Handles the keys which move around in the current directory.
 
@@ -429,13 +458,15 @@ If unsuccessful, we return false.
 
 sub handle {
 	my ($self, $event) = @_;
-	my $MOTION = qr/^(?:[-+jk\cF\cB\cD\cU]|ku|kd|
-		pgup|pgdn|home|end|m(shift)?(up|down))$/iox;
 	my $handled = 0;
 	if ($event->{type} eq 'key' and
-		$event->{data} =~ $MOTION)
+		$event->{data} =~ MOTION_COMMANDS)
 	{
 		$handled = $self->handlemove($event->{data});
+	} elsif ($event->{type} eq 'key' and
+			 $event->{data} =~ /^[\cE\cY]$/o)
+	{
+		$handled = $self->handlescroll($event->{data});
 	} else {
 		# pass it to the commandhandler
 		$event->{name} = 'after_receive_non_motion_input';

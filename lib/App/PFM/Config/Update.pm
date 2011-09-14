@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config::Update 2.08.4
+# @(#) App::PFM::Config::Update 2.08.5
 #
 # Name:			App::PFM::Config::Update
-# Version:		2.08.4
+# Version:		2.08.5
 # Author:		Rene Uittenbogaard
 # Created:		2010-05-28
-# Date:			2010-09-06
+# Date:			2010-09-08
 #
 
 ##########################################################################
@@ -522,6 +522,27 @@ use constant UPDATES => {
 			s{(sortcycle:\s*)(\w+)$}
 			 {$1 . join ',', split(//, $2)}eo;
 		},
+	},
+	# ----- 2.08.5 ---------------------------------------------------------
+	'2.08.5' => {
+		substitutions => sub {
+			s{## .*<ext> defines extension colors}
+			 {## *.ext      defines colors for files with a specific extension};
+		},
+		insertions => [{
+			before => qr/(<ext> defines extension colors|
+						defines colors for files with a specific extension)/x,
+			batch  => [
+				"## 'filename' defines colors for complete specific filenames\n",
+				"\n",
+			],
+		}, {
+			before => qr/cmd=[^:]*:..exe=[^:]*:..com=[^:]*/,
+			batch  => [
+				"'Makefile'=underline:'Makefile.PL'=underline:\\\n",
+				"\n",
+			],
+		}],
 	},
 };
 
