@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.07
+# @(#) App::PFM::CommandHandler 1.09
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.07
+# Version:		1.09
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-12
+# Date:			2010-08-16
 #
 
 ##########################################################################
@@ -735,6 +735,8 @@ sub handleswap {
 			$_pfm->state('S_SWAP', 0);
 			# continue below
 		}
+		# set refresh already (we may be swapping to '.')
+		$_screen->set_deferred_refresh(R_SCREEN);
 		# --------------------------------------------------
 		# common code for returning to a state
 		# --------------------------------------------------
@@ -743,16 +745,19 @@ sub handleswap {
 		# destination
 		$nextdir = $_pfm->state->directory->path;
 		# go there using bare chdir() - the state is already up to date
-		if ($success = chdir $nextdir and $nextdir ne $prevdir) {
-			# store the previous main state into S_PREV
-			$_pfm->state('S_PREV', $prevstate);
+		if ($success = chdir $nextdir) {
+			if ($nextdir ne $prevdir) {
+				# store the previous main state into S_PREV
+				$_pfm->state('S_PREV', $prevstate);
+			}
 			# restore the cursor position
 			$browser->baseindex(  $_pfm->state->{_baseindex});
 			$browser->position_at($_pfm->state->{_position});
-			# autocommand
-			$chdirautocmd = $_pfm->config->{chdirautocmd};
-			system("$chdirautocmd") if length($chdirautocmd);
-			$_screen->set_deferred_refresh(R_SCREEN);
+			if ($nextdir ne $prevdir) {
+				# autocommand
+				$chdirautocmd = $_pfm->config->{chdirautocmd};
+				system("$chdirautocmd") if length($chdirautocmd);
+			}
 		} elsif (!$success) {
 			# the state needs refreshing as we counted on being
 			# able to chdir()
@@ -770,6 +775,8 @@ sub handleswap {
 		$_screen->raw_noecho()
 			->set_deferred_refresh(R_FRAME);
 		return if $nextdir eq '';
+		# set refresh already (we may be swapping to '.')
+		$_screen->set_deferred_refresh(R_SCREEN);
 		# store current cursor position
 		$_pfm->state->{_position}  = $browser->currentfile->{name};
 		$_pfm->state->{_baseindex} = $browser->baseindex;
@@ -1233,7 +1240,7 @@ sub handlelink {
 		my $state           = $_pfm->state;
 		my $currentdir      = $state->directory->path;
 		my ($simpletarget, $simplename, $targetstring, $mark);
-		# $self is the commandhandler (due to closure)
+		# $self is the commandhandler (closure!)
 		$self->_expand_escapes($self->QUOTE_OFF, $newnameexpanded, $file);
 		if (-d $newnameexpanded) {
 			# make sure $newname is a file (not a directory)
@@ -1498,6 +1505,15 @@ sub handlechown {
 		}
 	};
 	$_pfm->state->directory->apply($do_this);
+	# re-sort
+	if ($_pfm->state->{sort_mode} =~ /[ug]/i and
+		$_pfm->config->{autosort})
+	{
+		# 2.06.4: sortcontents() doesn't sort @showncontents.
+		# therefore, apply the filter again as well.
+		$_screen->set_deferred_refresh(R_DIRSORT | R_DIRLIST | R_DIRFILTER);
+		$_pfm->browser->position_at($_pfm->browser->currentfile->{name});
+	}
 }
 
 =item handlechmod()
@@ -1568,6 +1584,15 @@ sub handletime {
 		}
 	};
 	$_pfm->state->directory->apply($do_this);
+	# re-sort
+	if ($_pfm->state->{sort_mode} =~ /[da]/i and
+		$_pfm->config->{autosort})
+	{
+		# 2.06.4: sortcontents() doesn't sort @showncontents.
+		# therefore, apply the filter again as well.
+		$_screen->set_deferred_refresh(R_DIRSORT | R_DIRLIST | R_DIRFILTER);
+		$_pfm->browser->position_at($_pfm->browser->currentfile->{name});
+	}
 }
 
 =item handleshow()
@@ -1769,7 +1794,7 @@ sub handlesize {
 	$do_this = sub {
 		my $file = shift;
 		my ($recursivesize, $command, $tempfile, $res);
-		# $self is the commandhandler (due to closure)
+		# $self is the commandhandler (closure!)
 		$self->_expand_escapes(
 			QUOTE_ON, ($command = $_pfm->config->{ducmd}), $file);
 		($recursivesize = `$command 2>/dev/null`) =~ s/^\D*(\d+).*/$1/;
@@ -1840,7 +1865,7 @@ sub handletarget {
 		if ($file->{type} ne 'l') {
 			$_screen->at(0,0)->clreol()->display_error($nosymlinkerror);
 		} else {
-			# $self is the commandhandler (due to closure)
+			# $self is the commandhandler (closure!)
 			$self->_expand_escapes(
 				$self->QUOTE_OFF, ($newtargetexpanded = $newtarget), $file);
 			$oldtargetok = 1;
@@ -1943,7 +1968,7 @@ sub handlecommand { # Y or O
 	$do_this = sub {
 		my $file = shift;
 		my $do_command = $command;
-		# $self is the commandhandler (due to closure)
+		# $self is the commandhandler (closure!)
 		$self->_expand_escapes($self->QUOTE_ON, $do_command, $file);
 		$_screen->puts("\n$do_command\n");
 		system $do_command
@@ -1987,7 +2012,7 @@ sub handleprint {
 	$do_this = sub {
 		my $file = shift;
 		my $do_command = $command;
-		# $self is the commandhandler (due to closure)
+		# $self is the commandhandler (closure!)
 		$self->_expand_escapes($self->QUOTE_ON, $do_command, $file);
 		$_screen->puts("\n$do_command\n");
 		system $do_command
@@ -2125,7 +2150,7 @@ sub handlecopyrename {
 #			}
 #			$_screen->clreol();
 #		} elsif
-		# $self is the commandhandler (due to closure)
+		# $self is the commandhandler (closure!)
 		$self->_expand_escapes(
 			QUOTE_OFF, ($newnameexpanded = $newname), $file);
 		if (system @command, $file->{name}, $newnameexpanded) {

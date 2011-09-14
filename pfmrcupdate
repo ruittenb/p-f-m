@@ -2,9 +2,9 @@
 ############################################################################
 #
 # Name:         pfmrcupdate
-# Version:      2.06.3
+# Version:      2.06.4
 # Author:       Rene Uittenbogaard
-# Date:         2010-08-12
+# Date:         2010-08-15
 # Usage:        pfmrcupdate
 # Description:  Update an existing .pfmrc so that it can be used with
 #               newer versions of pfm.
@@ -24,7 +24,7 @@ our $ROFFVERSION = <<'=cut';
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfmrcupdate 2.06.3
+.ds Vw @(#) pfmrcupdate 2.06.4
 .de Vp
 This manual pertains to \f(CWpfmrcupdate\fP version \\$3.
 ..
@@ -67,6 +67,19 @@ sub write_pfmrc {
 	print FILE @pfmrc;
 	close FILE;
 	print "Successfully wrote $pfmrc\n";
+}
+
+sub sort_pfmrc {
+	my $pfmrc = shift;
+	print "Sorting...\n";
+	@$pfmrc = sort by_pfmrc_rules @$pfmrc;
+}
+
+sub by_pfmrc_rules {
+	my $modeline = qr/\bvim:\s+set\s.*\bfiletype=xdefaults\b/o;
+	if ($a =~ /$modeline/) { return  1 }
+	if ($b =~ /$modeline/) { return -1 }
+	return 0;
 }
 
 sub findfile {
@@ -670,6 +683,19 @@ sub update_to_2063 {
 _end_update_to_2063_
 }
 
+sub update_to_2064 {
+	my ($lines) = @_;
+	# added 'autosort'
+	print "Updating to 2.06.4...\n";
+	push @$lines, <<_end_update_to_2064_;
+
+## automatically sort the directory's contents again after a
+## (T)ime or (U)ser command? (default: yes)
+#autosort:yes
+
+_end_update_to_2064_
+}
+
 sub update_version {
 	my ($to, $lines) = @_;
 	# this updates the version field for any version
@@ -710,6 +736,7 @@ sub update_pfmrc {
 	update_to_2061($lines) if $from lt '2.06.1' and '2.06.1' le $to;
 	update_to_2062($lines) if $from lt '2.06.2' and '2.06.2' le $to;
 	update_to_2063($lines) if $from lt '2.06.3' and '2.06.3' le $to;
+	update_to_2064($lines) if $from lt '2.06.4' and '2.06.4' le $to;
 	update_version($to, $lines);
 }
 
@@ -733,6 +760,7 @@ sub main {
 	print "(needs updating)\n\n";
 	backup_pfmrc($rcfile);
 	update_pfmrc($version_pfmrc, $version_pfm, \@pfmrc);
+	sort_pfmrc(\@pfmrc);
 	write_pfmrc($rcfile, @pfmrc);
 	print "Successfully updated to version $version_pfm\n";
 }
