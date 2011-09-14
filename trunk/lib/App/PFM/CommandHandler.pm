@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.35
-#   
+# @(#) App::PFM::CommandHandler 1.36
+#
 # Name:			App::PFM::CommandHandler
-# Version:		1.35
+# Version:		1.36
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-09-23
@@ -914,7 +914,7 @@ sub handlepathmode {
 
 =item handleradix(App::PFM::Event $event)
 
-Toggles between octal and hexadecimal radix (key B<*>), which is used for
+Toggles between octal and hexadecimal radix (key B<N>), which is used for
 showing nonprintable characters in the B<N>ame command.
 
 =cut
@@ -923,7 +923,7 @@ sub handleradix {
 	my ($self, $event) = @_;
 	my $state = $_pfm->state;
 	my $i;
-	if ($event->{data} eq '*') {
+	if ($event->{data} eq 'N') {
 		my @mode_from = keys %{$state->NUMFORMATS};
 		my @mode_to   = @mode_from[1 .. $#mode_from, 0];
 		my %translations;
@@ -1392,9 +1392,8 @@ sub handlename {
 		->putcolored($linecolor, $line, " \cH");
 	$screen->listing->applycolor(
 		$screenline, $screen->listing->FILENAME_LONG, $workfile);
-	$key = $screen->noecho()->getch();
-	$key = '*' if uc($key) eq 'N';
-	if ($key eq '*' or $key eq ' ') {
+	$key = uc $screen->noecho()->getch();
+	if ($key eq 'N' or $key eq ' ') {
 		$self->handleradix(new App::PFM::Event({
 			name   => 'after_receive_non_motion_input',
 			type   => 'soft',
@@ -1772,7 +1771,9 @@ sub handleinclude { # include/exclude flag (from keypress)
 			footer   => FOOTER_NONE,
 			headings => HEADING_CRITERIA
 		});
+	$screen->bracketed_paste_on() if $self->{_config}{paste_protection};
 	$key = lc $screen->at(0, $menulength+1)->getch();
+	$screen->bracketed_paste_off();
 	if      ($key eq 'o') { # oldmarks
 		$criterion = sub { my $file = shift; $file->{mark} eq M_OLDMARK };
 	} elsif ($key eq 'n') { # newmarks
@@ -2445,7 +2446,8 @@ Starts the menu command that was clicked on.
 
 sub handlemousemenucommand {
 	my ($self, $event) = @_;
-	my $vscreenwidth = $self->{_screen}->screenwidth - 9* $_pfm->state->{multiple_mode};
+	my $vscreenwidth = $self->{_screen}->screenwidth -
+						9 * $_pfm->state->{multiple_mode};
 	# hack: add 'Multiple' marker. We need a special character
 	# for multiple mode so that the regexp below can recognize it
 	my $M     = "0";
@@ -2533,6 +2535,7 @@ sub handlemore {
 	$self->{_screen}->bracketed_paste_on() if $self->{_config}{paste_protection};
 	MORE_PAN: {
 		$key = $self->{_screen}->at(0, $headerlength+1)->getch();
+		$self->{_screen}->bracketed_paste_off();
 		for ($key) {
 			/^s$/io		and $self->handlemoreshow($event),		  last MORE_PAN;
 			/^g$/io		and $self->handlemorego($event),		  last MORE_PAN;
@@ -2562,7 +2565,6 @@ sub handlemore {
 			$self->{_screen}->flash() unless $_ eq "\cM" or $_ eq ' ';
 		}
 	}
-	$self->{_screen}->bracketed_paste_off();
 	$frame->currentpan($oldpan);
 }
 
@@ -2746,7 +2748,9 @@ sub handlemorebookmark {
 		footer   => FOOTER_NONE,
 		prompt   => 'Bookmark under which letter? ',
 	});
+	$self->{_screen}->bracketed_paste_on() if $self->{_config}{paste_protection};
 	$key = $self->{_screen}->getch();
+	$self->{_screen}->bracketed_paste_off();
 	return if $key eq "\r";
 	# process key
 	if ($key !~ /^[a-zA-Z]$/) {
@@ -2776,9 +2780,11 @@ sub handlemorego {
 	# the footer has already been cleared by handlemore()
 	$self->_listbookmarks();
 	# choice
+	$self->{_screen}->bracketed_paste_on() if $self->{_config}{paste_protection};
 	$prompt = 'Go to which bookmark? ';
 	$key = $screen->at(0,0)->clreol()
 		->putmessage($prompt)->getch();
+	$self->{_screen}->bracketed_paste_off();
 	return if $key eq "\r";
 	$dest = $_pfm->state($key);
 	if ($dest eq '') {
@@ -2946,9 +2952,10 @@ sub handlemoreopenwindow {
 #	my $file       = $event->{currentfile};
 	my $windowcmd  = $self->{_config}{windowcmd};
 	my $nodirerror = 'Current file is not a directory';
-	$self->{_screen}->show_frame({
-		footer => FOOTER_NONE,
-	});
+	$self->{_screen}->set_deferred_refresh(R_FRAME)
+		->show_frame({
+			footer => FOOTER_NONE,
+		});
 	unless ($ENV{DISPLAY}) {
 		$self->{_screen}->at(0,0)->clreol()
 			->display_error('DISPLAY has not been set');

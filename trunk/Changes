@@ -1,3 +1,9 @@
+2.09.4-beta
+
+* fixed bug: footer is now redrawn after (M)ore - (O)pen-window
+* fixed bug: bracketed paste mode is now turned on in (I)n-/e(X)clude
+  and off in (M)ore - (E)dit
+
 2.09.3-beta
 
 * fixed applying the 'columnlayouts' again after (M)ore - (C)onfig
