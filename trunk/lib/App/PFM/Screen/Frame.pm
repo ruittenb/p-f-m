@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Frame 0.33
+# @(#) App::PFM::Screen::Frame 0.34
 #
 # Name:			App::PFM::Screen::Frame
-# Version:		0.33
+# Version:		0.34
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-25
+# Date:			2010-08-31
 #
 
 ##########################################################################
@@ -183,7 +183,7 @@ sub _fitbanner {
 =item _getmenu( [ int $menu_mode ] )
 
 Returns the menu for the given menu mode.
-This uses the B<MENU_> constants as defined in App::PFM::Screen::Frame.
+This uses the B<MENU_*> constants as defined in App::PFM::Screen::Frame.
 
 =cut
 
@@ -214,11 +214,62 @@ sub _getmenu {
 	}
 }
 
+=item _getheadings( [ int $heading_mode ] )
+
+Returns the headings line for the current application state.
+The I<heading_mode> parameter indicates the type of headings line that is
+shown, using the B<HEADING_*> constants as defined in App::PFM::Screen::Frame.
+
+=cut
+
+sub _getheadings {
+	my ($self, $heading_mode) = @_;
+	my ($heading, $fillin);
+	if ($heading_mode == HEADING_BOOKMARKS) {
+		# bookmarks heading
+		my @headline  = $self->bookmark_headings;
+		$heading = ' ' x $_screen->screenwidth;
+		$fillin  = sprintf($headline[0], ' ', ' ', 'path');
+		substr($heading,
+			$_screen->listing->filerecordcol,
+			length($fillin),
+			$fillin);
+		$fillin  = sprintf($headline[1], 'disk info');
+		substr($heading,
+			$_screen->diskinfo->infocol,
+			length($fillin),
+			$fillin);
+	} else {
+		# filelist heading
+		my ($diskinfo, $padding);
+		my @fields = @{$_screen->listing->layoutfieldswithinfo};
+		my $state  = $_pfm->state;
+		$padding = ' ' x ($_screen->diskinfo->infolength - 14);
+		for ($heading_mode) {
+			$_ == HEADING_DISKINFO	and $diskinfo = "$padding     disk info";
+			$_ == HEADING_SORT		and $diskinfo = "sort mode     $padding";
+			$_ == HEADING_YCOMMAND	and $diskinfo = "your commands $padding";
+			$_ == HEADING_ESCAPE	and $diskinfo = "esc legend    $padding";
+			$_ == HEADING_CRITERIA	and $diskinfo = "criteria      $padding";
+		}
+		$_fieldheadings{diskinfo} = $diskinfo;
+		$self->update_headings();
+		$heading = formatted(
+			$_screen->listing->currentformatlinewithinfo,
+			@_fieldheadings{@fields});
+		# the rightmost field may be left-aligned, i.e. too short
+		if (length $heading < $_screen->screenwidth) {
+			$heading .= ' ' x ($_screen->screenwidth - length $heading);
+		}
+	}
+	return $heading;
+}
+
 =item _getfooter( [ int $footer_mode ] )
 
 Returns the footer for the current application state.
 The I<footer_mode> parameter indicates the type of footer that is shown,
-using the B<FOOTER_> constants as defined in App::PFM::Screen::Frame.
+using the B<FOOTER_*> constants as defined in App::PFM::Screen::Frame.
 
 =cut
 
@@ -398,6 +449,7 @@ defined in App::PFM::Screen::Frame.
 
 sub show_headings {
 	my ($self, $swapmode, $heading_mode) = @_;
+	my $heading   = $self->_getheadings($heading_mode);
 	my $linecolor = $swapmode
 		? $_pfm->config->{framecolors}->{$_screen->color_mode}{swap}
 		: $_pfm->config->{framecolors}->{$_screen->color_mode}{headings};
@@ -408,34 +460,9 @@ sub show_headings {
 #	$_screen->term()->Tputs('us', 1, *STDOUT)
 #							if ($linecolor =~ /under(line|score)/);
 
-	if ($heading_mode == HEADING_BOOKMARKS) {
-		my @headline  = $self->bookmark_headings;
-		$_screen->at($_screen->HEADINGLINE, $_screen->listing->filerecordcol)
-			->putcolored($linecolor, sprintf($headline[0], ' ', ' ', 'path'));
-		$_screen->at($_screen->HEADINGLINE, $_screen->diskinfo->infocol)
-			->putcolored($linecolor, sprintf($headline[1], 'disk info'))
-			->reset()->normal();
-	} else {
-		my ($diskinfo, $padding);
-		my @fields = @{$_screen->listing->layoutfieldswithinfo};
-		my $state  = $_pfm->state;
-		$padding = ' ' x ($_screen->diskinfo->infolength - 14);
-		for ($heading_mode) {
-			$_ == HEADING_DISKINFO	and $diskinfo = "$padding     disk info";
-			$_ == HEADING_SORT		and $diskinfo = "sort mode     $padding";
-			$_ == HEADING_YCOMMAND	and $diskinfo = "your commands $padding";
-			$_ == HEADING_ESCAPE	and $diskinfo = "esc legend    $padding";
-			$_ == HEADING_CRITERIA	and $diskinfo = "criteria      $padding";
-		}
-		$_fieldheadings{diskinfo} = $diskinfo;
-		$self->update_headings();
-		my $heading = formatted(
-			$_screen->listing->currentformatlinewithinfo,
-			@_fieldheadings{@fields});
-		$_screen->at($_screen->HEADINGLINE, 0)
-			->putcolored($linecolor, $heading)
-			->reset()->normal();
-	}
+	$_screen->at($_screen->HEADINGLINE, 0)
+		->putcolored($linecolor, $heading)
+		->reset()->normal();
 }
 
 =item show_footer( [ int $footer_mode ] )
@@ -459,7 +486,8 @@ sub show_footer {
 #	$_screen->term()->Tputs('us', 1, *STDOUT)
 #							if ($linecolor =~ /under(line|score)/);
 	$_screen->at($_screen->BASELINE + $_screen->screenheight + 1, 0)
-		->putcolored($linecolor, $footer, $padding)->reset()->normal();
+		->putcolored($linecolor, $footer, $padding)
+		->reset()->normal();
 }
 
 =item update_headings()

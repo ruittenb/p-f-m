@@ -15,6 +15,8 @@
 
 - after (C)opy, the rcs status is not automatically added 
 
+- layout which is too short leaves gap: do something about it
+
 - Term::ScreenColor does not pass some tests on Solaris 11
 
 - call $pfm->checkupdates() in '@' (perlcommand) does not finish the job;
@@ -22,8 +24,6 @@
 
 ################################################################################
 # structural enhancements
-
-- Event: fix doc
 
 - Config->apply: call separate class's import() routines and have them import
   the config options that are interesting for them.
@@ -52,9 +52,6 @@
 - have objects fire an event to indicate that the screen is to be updated?
   ('request_deferred_refresh' -> set_deferred_refresh())
 
-- have the browser use events ('handle_command') to tell the application
-  that the commandhandler should be called; keep the browser for browsing
-
 - extract abstract code so that browser may be reused for bookmarks and your
   commands; ideally:
   - Screen/Listing/Files
@@ -63,9 +60,6 @@
   - Browser/Files
   - Browser/Bookmarks
   - Browser/YourCommands
-
-- cast a critical eye on show_headings;
-  make a $frame->getheadings($headings_mode)
 
 - move CommandHandler::_listbookmarks() to Screen/Listing/Bookmarks::list()
 
@@ -85,17 +79,18 @@
 ################################################################################
 # documentation enhancements
 
+- add constants MENU_* HEADING_* etc. to uml
+
 - provide information about arguments.
-  use I<...> in =items.
 
-  DONE(ITALICS):
+  DONE (use I<...> in =items)
+  DONE (add cB<O>mmand etc. to commandhandler)
 
-  DONE(ARGS): Abstract Application Browser Config Directory File History
-  	State Util
+  TODO: Abstract Application Browser CommandHandler Config Directory
+  	Event File History State Util
 	OS OS/Abstract OS/Linux OS/Aix OS/Hpux OS/Sco OS/Solaris
 	Screen Screen/Frame Screen/Diskinfo Screen/Listing
 	JobHandler Job/CheckUpdates
 	Job/Abstract Job/RCS Job/Bazaar Job/Cvs Job/Git Job/Subversion
 
-  TODO: CommandHandler
 

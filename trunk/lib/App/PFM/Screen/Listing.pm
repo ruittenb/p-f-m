@@ -422,22 +422,29 @@ Parses the configured layouts.
 sub makeformatlines {
 	my ($self) = @_;
 	my ($squeezedlayoutline, $currentlayoutline, $firstwronglayout, $prev,
-		$letter, $trans, $temp, $infocol, $infolength, $miss);
+		$letter, $trans, $temp, $infocol, $infolength, $miss, $error);
 	LAYOUT: {
 		$currentlayoutline = $self->currentlayoutline;
+		$error = '';
 		$miss =
 			$currentlayoutline !~ /n/o
 			? 'n'
-			: $currentlayoutline !~ /(^f|f$)/o
+			: $currentlayoutline !~ /f/o
 			  ? 'f'
 			  : $currentlayoutline !~ /\*/o
 			    ? '*'
 				: '';
 		if ($miss) {
+			$error = 'is missing';
+		} elsif ($currentlayoutline !~ /(^f|f$)/o) {
+			$miss = 'f';
+			$error = 'should be the first or last field';
+		}
+		if ($error) {
 			$firstwronglayout ||= $self->{_layout} || '0 but true';
 			$_screen->at(0,0)->clreol()->display_error(
 				"Bad layout #" . $self->{_layout} .
-				": mandatory field '$miss' is missing");
+				": mandatory field '$miss' $error");
 			$_screen->important_delay();
 			$self->{_layout} = $self->_validate_layoutnum($self->{_layout}+1);
 			if ($self->{_layout} != $firstwronglayout) {
