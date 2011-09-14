@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 1.13
+# @(#) App::PFM::Config 1.14
 #
 # Name:			App::PFM::Config
-# Version:		1.13
+# Version:		1.14
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-12-03
+# Date:			2010-12-05
 #
 
 ##########################################################################
@@ -116,8 +116,9 @@ sub _parse_colorsets {
 		$pfmrc->{'dircolors[ls_colors]'} =  $ENV{LS_COLORS} || $ENV{LS_COLOURS};
 	}
 	$pfmrc->{'dircolors[off]'}   = '';
-	$pfmrc->{'framecolors[off]'} = 'menukeys=underscore:' .
-		'headings=reverse:swap=reverse:footer=reverse:highlight=bold:';
+	$pfmrc->{'framecolors[off]'} =
+		'menu=normal:menukeys=underscore:footer=reverse:footerkeys=:' .
+		'headings=reverse:swap=reverse:highlight=bold:';
 	# this %{{ }} construct keeps values unique
 	$self->{colorsetnames} = [
 		keys %{{
@@ -128,10 +129,10 @@ sub _parse_colorsets {
 	# keep the default outside of @colorsetnames
 	defined($pfmrc->{'dircolors[*]'})   or $pfmrc->{'dircolors[*]'}   = '';
 	defined($pfmrc->{'framecolors[*]'}) or $pfmrc->{'framecolors[*]'} =
-		'menu=white on blue:menukeys=bold white on blue:'
+		'menu=white on blue:menukeys=bold cyan on blue:'
 	.	'multi=bold reverse cyan on white:'
 	.	'headings=bold reverse cyan on white:swap=reverse black on cyan:'
-	.	'footer=bold reverse blue on white:'
+	.	'footer=bold reverse blue on white:footerkeys=bold cyan on blue:'
 	.	'rootuser=reverse red:message=bold cyan:highlight=bold:';
 	foreach (@{$self->{colorsetnames}}) {
 		# should there be no dircolors[thisname], use the default
@@ -370,7 +371,6 @@ sub parse {
 	$self->{autowritebookmarks}	 = isyes($pfmrc->{autowritebookmarks});
 	$self->{autoexitmultiple}	 = isyes($pfmrc->{autoexitmultiple});
 	$self->{refresh_always_smart}= isyes($pfmrc->{refresh_always_smart});
-	$self->{mouseturnoff}		 = isyes($pfmrc->{mouseturnoff});
 	$self->{highlightname}		 = isyes($pfmrc->{highlightname} || 'yes');
 	$self->{swap_persistent}	 = isyes($pfmrc->{persistentswap} || 'yes');
 	$self->{autosort}			 = isyes($pfmrc->{autosort} || 'yes');
@@ -791,11 +791,6 @@ keydef[*]:kmous=\e[M:pgdn=\e[62~:pgup=\e[63~:
 ## emacs is the default.
 #keymap:vi-insert
 
-## turn off mouse support during execution of commands?
-## caution: if you set this to 'no', your (external) commands (like $pager
-## and $editor) will receive escape codes on mousedown events
-mouseturnoff:yes
-
 ## characteristics of the mouse wheel: the number of lines that the
 ## mouse wheel will scroll. This can be an integer or 'variable'.
 #mousewheeljumpsize:5
@@ -899,23 +894,23 @@ windowtype:pfm
 ## of 'headings'.
 
 framecolors[light]:\
-rootuser=reverse red:\
 menu=white on blue:menukeys=bold cyan on blue:multi=reverse cyan on black:\
 headings=reverse cyan on black:swap=reverse black on cyan:\
-footer=reverse blue on white:message=blue:highlight=bold:
+footer=reverse blue on white:footerkeys=bold cyan on blue:\
+rootuser=reverse red:message=blue:highlight=bold:
 
 framecolors[dark]:\
-rootuser=reverse red:\
 menu=white on blue:menukeys=bold cyan on blue:multi=bold reverse cyan on white:\
 headings=bold reverse cyan on white:swap=black on cyan:\
-footer=bold reverse blue on white:message=bold cyan:highlight=bold:
+footer=bold reverse blue on white:footerkeys=bold cyan on blue:\
+rootuser=reverse red:message=bold cyan:highlight=bold:
 
 ## these are a suggestion
 #framecolors[dark]:\
-#rootuser=reverse red:\
-#menu=white on blue:menukeys=bold white on blue:multi=reverse cyan on black:\
+#menu=white on blue:menukeys=bold yellow on blue:multi=reverse cyan on black:\
 #headings=reverse cyan on black:swap=reverse yellow on black:\
-#footer=bold reverse blue on white:message=bold cyan:highlight=bold:
+#footer=bold reverse blue on white:footerkeys=bold yellow on blue:\
+#rootuser=reverse red:message=bold cyan:highlight=bold:
 
 ## 'dircolors' defines the colors that will be used for your files.
 ## for the files to become colored, 'usecolor' must be set to 'yes' or 'force'.
@@ -1025,8 +1020,8 @@ ca=black on red:\
 ## for which there is no corresponding 'framecolors[x]' (like ls_colors)
 
 framecolors[*]:\
-rootuser=reverse red:\
-headings=reverse:swap=reverse:footer=reverse:highlight=bold:
+headings=reverse:swap=reverse:footer=reverse:footerkeys=reverse:\
+rootuser=reverse red:highlight=bold:
 
 ## The special set 'dircolors[*]' will be used for every 'framecolors[x]'
 ## for which there is no corresponding 'dircolors[x]'

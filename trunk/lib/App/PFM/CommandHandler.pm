@@ -2930,6 +2930,7 @@ sub handlemorebookmark {
 	# the footer has already been cleared by handlemore()
 	$selector = App::PFM::Browser::Bookmarks->new(
 		$self->{_screen}, $self->{_config}, $_pfm->states);
+	$selector->mouse_mode($self->{_browser}->mouse_mode);
 	$key = $selector->choose('Bookmark under which letter? ');
 	return if $key eq "\r";
 	# process key
@@ -2962,6 +2963,7 @@ sub handlemorego {
 	# the footer has already been cleared by handlemore()
 	$selector = App::PFM::Browser::Bookmarks->new(
 		$self->{_screen}, $self->{_config}, $_pfm->states);
+	$selector->mouse_mode($browser->mouse_mode);
 	$key = $selector->choose('Go to which bookmark? ');
 	return if $key eq "\r";
 	# choice

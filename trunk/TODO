@@ -31,6 +31,17 @@
   Command failed  [delay]
   *** Hit any key to continue ***
 
+- extract abstract code so that browser may be reused for bookmarks and your
+  commands; ideally:
+  - Screen/Listing/Files
+  - Screen/Listing/Bookmarks
+  - Screen/Listing/YourCommands
+  - Browser/Files
+  - Browser/Bookmarks
+  - Browser/YourCommands
+
+- move CommandHandler::_listbookmarks() to Screen/Listing/Bookmarks::list()
+
 ################################################################################
 # structural enhancements
 
@@ -45,9 +56,6 @@
 
 - add an 'is_main' flag to directories so that they know if a job event may
   trigger a screen update
-
-- move History->write_dirs() to state objects;
-  provide a state->on_shutdown to write the info
 
 - change Config->{_text} to slurp reading: my $code = do { local $/; <$in> };
 - change Config::Update to /\A...\z/mso
@@ -65,17 +73,6 @@
   $_pfm->state->{_position}  = $event->{currentfile}{name};
   $_pfm->state->{_baseindex} = $event->{lunchbox}{baseindex};
   => 'before_state_handling'?
-
-- extract abstract code so that browser may be reused for bookmarks and your
-  commands; ideally:
-  - Screen/Listing/Files
-  - Screen/Listing/Bookmarks
-  - Screen/Listing/YourCommands
-  - Browser/Files
-  - Browser/Bookmarks
-  - Browser/YourCommands
-
-- move CommandHandler::_listbookmarks() to Screen/Listing/Bookmarks::list()
 
 - who determines which command was clicked in the menu?
   is that the CommandHandler::handlemousefooter* or Screen::Frame?

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Browser::Bookmarks 0.02
+# @(#) App::PFM::Browser::Bookmarks 0.04
 #
 # Name:			App::PFM::Browser::Bookmarks
-# Version:		0.02
+# Version:		0.04
 # Author:		Rene Uittenbogaard
 # Created:		2010-12-01
-# Date:			2010-12-03
+# Date:			2010-12-05
 #
 
 ##########################################################################
@@ -197,7 +197,6 @@ sub handle_non_motion_input {
 	my $BASELINE     = $self->{_screen}->BASELINE;
 	my $res          = {};
 	if ($event->{type} eq 'mouse') {
-		die "handle_non_motion_input(): TODO mouse"; # TODO
 		if ($event->{mouserow} >= $BASELINE and
 			$event->{mouserow} <= $BASELINE + $screenheight)
 		{
@@ -236,8 +235,7 @@ sub choose {
 #TODO		$listing->highlight_on();
 		# don't send mouse escapes to the terminal if not necessary
 		$screen->bracketed_paste_on() if $self->{_config}{paste_protection};
-		$screen->mouse_enable()
-			if $self->{_mouse_mode} && $self->{_config}{mouseturnoff};
+		$screen->mouse_enable()       if $self->{_mouse_mode};
 		# enter main wait loop, which is exited on a resize event
 		# or on keyboard/mouse input.
 		$self->_wait_loop();
@@ -250,7 +248,7 @@ sub choose {
 			# must be keyboard/mouse input here
 #TODO			$listing->highlight_off();
 			$screen->bracketed_paste_off();
-			$screen->mouse_disable() if $self->{_config}->{mouseturnoff};
+			$screen->mouse_disable();
 			$choice = $self->handle($event);
 			if ($choice->{handled}) {
 				# if the received input was valid, then the current
