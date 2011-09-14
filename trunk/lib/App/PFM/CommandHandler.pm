@@ -1258,10 +1258,12 @@ sub handlelink {
 				# and reverse it
 				$targetstring = reversepath(
 					$currentdir.'/'.$file->{name}, "$simpletarget/$simplename");
+#	system("echo 'currentfile:".$file->{name}.":simpletarget:$simpletarget:simplename:$simplename:targetstring:$targetstring:' > /dev/pts/8"); # TODO
 			} else {
 				# relative: reverse path
 				$targetstring = reversepath(
 					$currentdir.'/'.$file->{name}, $newnameexpanded);
+#	system("echo 'currentfile:".$file->{name}.":newnameexpanded:$newnameexpanded:targetstring:$targetstring:' > /dev/pts/8"); # TODO
 			}
 		} else { # $absrel eq 'a' or 'h'
 			# hand over an absolute path
@@ -1313,7 +1315,8 @@ sub handlesort {
 	$_screen->diskinfo->clearcolumn();
 	if ($sortmodes{$key}) {
 		$_pfm->state->{sort_mode} = $key;
-		$_pfm->browser->position_at($_pfm->browser->currentfile->{name});
+		$_pfm->browser->position_at(
+			$_pfm->browser->currentfile->{name}, { force => 0, exact => 1 });
 	}
 	$_screen->set_deferred_refresh(R_DIRSORT | R_SCREEN);
 }
@@ -1332,7 +1335,8 @@ sub handlecyclesort {
 	my %translations;
 	@translations{@mode_from} = @mode_to;
 	$_pfm->state->{sort_mode} = $translations{$_pfm->state->{sort_mode}};
-	$_pfm->browser->position_at($_pfm->browser->currentfile->{name});
+	$_pfm->browser->position_at(
+		$_pfm->browser->currentfile->{name}, { force => 0, exact => 1 });
 	$_screen->set_deferred_refresh(R_DIRSORT | R_SCREEN);
 }
 
@@ -2327,7 +2331,8 @@ sub handlemouseheadingsort {
 		# we don't need locale-awareness here
 		$key =~ tr/A-Za-z/a-zA-Z/ if ($_pfm->state->{sort_mode} eq $key);
 		$_pfm->state->{sort_mode} = $key;
-		$_pfm->browser->position_at($_pfm->browser->currentfile->{name});
+		$_pfm->browser->position_at(
+			$_pfm->browser->currentfile->{name}, { force => 0, exact => 1 });
 	}
 	$_screen->set_deferred_refresh(R_DIRSORT | R_SCREEN);
 }
@@ -2659,9 +2664,9 @@ sub handlemorego {
 			return;
 		}
 		if (defined $destfile) {
-			# provide the second argument (force) as TRUE because
-			# the chdir() above may already have set the position_at
-			$_pfm->browser->position_at($destfile, 1);
+			# provide the force option because the chdir()
+			# above may already have set the position_at
+			$_pfm->browser->position_at($destfile, { force => 1 });
 		}
 		# commented out because we don't want to store the state object
 #		$_pfm->state->prepare();

@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Browser 0.37
+# @(#) App::PFM::Browser 0.38
 #
 # Name:			App::PFM::Browser
-# Version:		0.37
+# Version:		0.38
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-08-16
@@ -52,26 +52,26 @@ our $FIONREAD = 0;
 
 our ($_pfm, $_screen);
 
-my ($_currentline, $_baseindex, $_position_at);
-
 ##########################################################################
 # private subs
 
-=item _init()
+=item _init(App::PFM::Application $pfm)
 
 Initializes new instances. Called from the constructor.
+Expects to be passed the application object as the first parameter.
 
 =cut
 
 sub _init {
 	my ($self, $pfm) = @_;
-	$_pfm		  = $pfm;
-	$_screen	  = $pfm->screen;
-	$_currentline = 0;
-	$_baseindex	  = 0;
-	$_position_at = '';
-	$self->{_mouse_mode} = undef;
-	$self->{_swap_mode}  = 0;
+	$_pfm					 = $pfm;
+	$_screen				 = $pfm->screen;
+	$self->{_currentline}	 = 0;
+	$self->{_baseindex}		 = 0;
+	$self->{_position_at}	 = '';
+	$self->{_position_exact} = 0;
+	$self->{_mouse_mode}	 = undef;
+	$self->{_swap_mode}		 = 0;
 }
 
 =item _wait_loop()
@@ -82,8 +82,8 @@ the on-screen clock.
 =cut
 
 sub _wait_loop {
-#	my ($self) = @_;
-	my $screenline = $_currentline + $_screen->BASELINE;
+	my ($self) = @_;
+	my $screenline = $self->{_currentline} + $_screen->BASELINE;
 	my $cursorcol  = $_screen->listing->cursorcol;
 	until ($_screen->pending_input(0.4)) {
 		$_pfm->jobhandler->pollall();
@@ -122,10 +122,10 @@ Getter for the file at the cursor position.
 sub currentfile {
 	my ($self) = @_;
 	return $_pfm->state->directory->showncontents
-		->[$_currentline + $_baseindex];
+		->[$self->{_currentline} + $self->{_baseindex}];
 }
 
-=item currentline()
+=item currentline( [ int $lineno ] )
 
 Getter/setter for the current line number of the cursor.
 
@@ -134,13 +134,13 @@ Getter/setter for the current line number of the cursor.
 sub currentline {
 	my ($self, $value) = @_;
 	if (defined $value) {
-		$_currentline = $value;
+		$self->{_currentline} = $value;
 		$self->validate_position();
 	}
-	return $_currentline;
+	return $self->{_currentline};
 }
 
-=item baseindex()
+=item baseindex( [ int $index ] )
 
 Getter/setter for the start of the screen window in the current directory.
 
@@ -149,43 +149,64 @@ Getter/setter for the start of the screen window in the current directory.
 sub baseindex {
 	my ($self, $value) = @_;
 	if (defined $value) {
-		$_baseindex = $value;
-		$self->validate_position(1);
+		$self->{_baseindex} = $value;
+		$self->validate_position();
+		$_screen->set_deferred_refresh($_screen->R_DIRLIST);
 	}
-	return $_baseindex;
+	return $self->{_baseindex};
 }
 
-=item setview()
+=item setview(int $lineno, int $index)
 
-Setter for both the cursor line and screen window at once.
+Getter/setter for both the cursor line and screen window at once.
 
 =cut
 
 sub setview {
 	my ($self, $line, $index) = @_;
 	return 0 unless (defined($line) && defined($index));
-	$_currentline = $line;
-	$_baseindex   = $index;
-	$self->validate_position(1);
+	$self->{_currentline} = $line;
+	$self->{_baseindex}   = $index;
+	$self->validate_position();
 	$_screen->set_deferred_refresh($_screen->R_DIRLIST);
+	return ($self->{_currentline}, $self->{_baseindex});
 }
 
-=item position_at()
+=item position_at(string $filename [, hashref $options ] )
 
-Getter/setter for the position_at variable, which controls to which file
-the cursor should go as soon as the main browse loop is resumed.
+Getter/setter for the I<position_at> variable, which controls to which
+file the cursor should go as soon as the main browse loop is resumed.
+
+=over
+
+=item bool $options->{force}
+
+Overwrite old value of I<position_at>. If false, any old value of
+I<position_at> will be retained.
+
+=item bool $options->{exact}
+
+Use exact placement instead of fuzzy placement.
+
+=back
 
 =cut
 
 sub position_at {
-	my ($self, $value, $force) = @_;
-	if (defined($value) and ($force or $_position_at eq '')) {
-		$_position_at = $value;
+	my ($self, $value, $options) = @_;
+	$options ||= {};
+	if (defined($value) and
+		($options->{force} or $self->{_position_at} eq ''))
+	{
+		$self->{_position_at}    = $value;
+		$self->{_position_exact} = $options->{exact};
 	}
-	return $_position_at;
+	return wantarray
+		? ($self->{_position_at}, $self->{_position_exact})
+		: $self->{_position_at};
 }
 
-=item mouse_mode()
+=item mouse_mode( [ bool $mouse_mode ] )
 
 Getter/setter for the mouse_mode variable, which indicates if mouse clicks
 are to be intercepted by the application.
@@ -205,7 +226,7 @@ sub mouse_mode {
 	return $self->{_mouse_mode};
 }
 
-=item swap_mode()
+=item swap_mode( [ bool $swap_mode ] )
 
 Getter/setter for the swap_mode variable, which indicates if the browser
 considers its current directory as 'swap' directory.
@@ -233,64 +254,67 @@ cursor is on-screen.
 =cut
 
 sub validate_position {
-	my ($self, $force_list) = @_;
-	# requirement: $showncontents[$_currentline+$_baseindex] is defined
-	my $screen        = $_pfm->screen;
-	my $screenheight  = $screen->screenheight;
-	my $oldbaseindex  = $_baseindex;
+	my ($self) = @_;
+	# requirement:
+	# $showncontents[ $self->{_currentline} + $self->{_baseindex} ] is defined
+	my $screenheight  = $_screen->screenheight;
+	my $oldbaseindex  = $self->{_baseindex};
 	my @showncontents = @{$_pfm->state->directory->showncontents};
 	
-	if ($_currentline < 0) {
-		$_baseindex  += $_currentline;
-		$_baseindex   < 0 and $_baseindex = 0;
-		$_currentline = 0;
+	if ($self->{_currentline} < 0) {
+		$self->{_baseindex}  += $self->{_currentline};
+		$self->{_baseindex}   < 0 and $self->{_baseindex} = 0;
+		$self->{_currentline} = 0;
 	}
-	if ($_currentline > $screenheight) {
-		$_baseindex  += $_currentline - $screenheight;
-		$_currentline = $screenheight;
+	if ($self->{_currentline} > $screenheight) {
+		$self->{_baseindex}  += $self->{_currentline} - $screenheight;
+		$self->{_currentline} = $screenheight;
 	}
-	if ($_baseindex > $#showncontents) {
-		$_currentline += $_baseindex - $#showncontents;
-		$_baseindex    = $#showncontents;
+	if ($self->{_baseindex} > $#showncontents) {
+		$self->{_currentline} += $self->{_baseindex} - $#showncontents;
+		$self->{_baseindex}    = $#showncontents;
 	}
-	if ($_currentline + $_baseindex > $#showncontents) {
-		$_currentline = $#showncontents - $_baseindex;
+	if ($self->{_currentline} + $self->{_baseindex} > $#showncontents) {
+		$self->{_currentline} = $#showncontents - $self->{_baseindex};
 	}
 	# See if we need to refresh the listing.
 	# By limiting the number of listing-refreshes to when the baseindex
 	# is/might have been changed, browsing becomes snappier.
-	if ($force_list or $oldbaseindex != $_baseindex) {
-		$screen->set_deferred_refresh($screen->R_DIRLIST);
+	if ($oldbaseindex != $self->{_baseindex}) {
+		$_screen->set_deferred_refresh($_screen->R_DIRLIST);
 	}
 }
 
-=item position_cursor()
+=item position_cursor( [ string $filename ] )
 
-Positions the cursor at a specific file.
+Positions the cursor at a specific file. Specifying a filename here
+overrules the I<position_at> variable.
 
 =cut
 
 sub position_cursor {
 	my ($self, $target) = @_;
-	$_position_at = $target if (defined $target and $target ne '');
-	return if $_position_at eq '';
-	my @showncontents = @{$_pfm->state->directory->showncontents};
-	$_currentline     = 0;
-	$_baseindex       = 0 if $_position_at eq '..'; # descending into this dir
+	$self->{_position_at} = $target if (defined $target and $target ne '');
+	return if $self->{_position_at} eq '';
+	my @showncontents     = @{$_pfm->state->directory->showncontents};
+	$self->{_currentline} = 0;
+	$self->{_baseindex}   = 0 if $self->{_position_at} eq '..'; # descending
 	POSITION_ENTRY: {
 		for (0..$#showncontents) {
-			if ($_position_at eq $showncontents[$_]{name}) {
-				$_currentline = $_ - $_baseindex;
+			if ($self->{_position_at} eq $showncontents[$_]{name}) {
+				$self->{_currentline} = $_ - $self->{_baseindex};
 				last POSITION_ENTRY;
 			}
 		}
-		$_baseindex = 0;
+		$self->{_baseindex} = 0;
 	}
-	$_position_at = '';
-	$self->validate_position(1);
+	$self->{_position_at}    = '';
+	$self->{_position_exact} = 0;
+	$self->validate_position();
+	$_screen->set_deferred_refresh($_screen->R_DIRLIST);
 }
 
-=item position_cursor_fuzzy()
+=item position_cursor_fuzzy( [ string $filename ] )
 
 Positions the cursor at the file with the closest matching name.
 Used by incremental find.
@@ -299,51 +323,65 @@ Used by incremental find.
 
 sub position_cursor_fuzzy {
 	my ($self, $target) = @_;
-	$_position_at = $target if (defined $target and $target ne '');
-	return if $_position_at eq '';
+	$self->{_position_at} = $target if (defined $target and $target ne '');
+	return if $self->{_position_at} eq '';
 
 	my @showncontents = @{$_pfm->state->directory->showncontents};
 	my ($criterion, $i);
 
-	if ($_pfm->state->{sort_mode} eq 'n') {
-		$criterion = sub {
-			return ($_position_at le substr($_[0], 0, length($_position_at)));
-		};
-	} elsif ($_pfm->state->{sort_mode} eq 'N') {
-		$criterion = sub {
-			return ($_position_at ge substr($_[0], 0, length($_position_at)));
-		};
-	} else {
+	# don't position fuzzy if sort mode is not by name,
+	# or exact positioning was requested
+	if ($self->{_position_exact} or uc($_pfm->state->{sort_mode}) ne 'N') {
 		goto &position_cursor;
 	}
 
-	$_currentline = 0;
+	if ($_pfm->state->{sort_mode} eq 'n') {
+		$criterion = sub {
+			return (
+				$self->{_position_at} le
+					substr($_[0], 0, length($self->{_position_at}))
+			);
+		};
+	} else { # $_pfm->state->{sort_mode} eq 'N'
+		$criterion = sub {
+			return (
+				$self->{_position_at} ge
+					substr($_[0], 0, length($self->{_position_at}))
+			);
+		};
+	}
+
+	$self->{_currentline} = 0;
 	if ($#showncontents > 1) {
 		POSITION_ENTRY_FUZZY: {
 			for $i (1..$#showncontents) {
 				if ($criterion->($showncontents[$i]{name})) {
-					$_currentline =
+					$self->{_currentline} =
 						$self->find_best_find_match(
-							$_position_at,
+							$self->{_position_at},
 							$showncontents[$i-1]{name},
 							$showncontents[$i  ]{name}
 						)
-						+ $i - 1 - $_baseindex;
+						+ $i - 1 - $self->{_baseindex};
 					last POSITION_ENTRY_FUZZY;
 				}
 			}
-			$_currentline = $#showncontents - $_baseindex;
+			$self->{_currentline} = $#showncontents - $self->{_baseindex};
 		}
 	}
-	$_position_at = '';
-	$self->validate_position(1);
+	$self->{_position_at}    = '';
+	$self->{_position_exact} = 0;
+	$self->validate_position();
+	$_screen->set_deferred_refresh($_screen->R_DIRLIST);
 }
 
-=item find_best_find_match()
+=item find_best_find_match(string $seek, string $first, string $second )
 
 Decides which file out of two is the best match, I<e.g.> if there are
 two files C<Contractor.php> and C<Dealer.php>, and 'Coz' is given,
 this method decides that C<Contractor.php> is the better match.
+
+Returns 0 (first match is better) or 1 (second is better).
 
 =cut
 
@@ -395,10 +433,10 @@ sub browse {
 		} else {
 			# the next block is highly experimental - maybe this
 			# could be used to suppress paste actions in command mode
-			if ($self->_burst_size > 30) {		  # experimental
-				$_screen->flush_input()->flash(); # experimental
-				redo;							  # experimental
-			}								      # experimental
+			if ($self->_burst_size > 30) {			# experimental
+				$_screen->flush_input()->flash();	# experimental
+				redo;								# experimental
+			}										# experimental
 			# must be keyboard/mouse input here
 			$event = $_screen->getch();
 			$listing->highlight_off();
