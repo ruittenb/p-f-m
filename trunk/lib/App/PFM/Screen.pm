@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen 0.48
+# @(#) App::PFM::Screen 0.50
 #
 # Name:			App::PFM::Screen
-# Version:		0.48
+# Version:		0.50
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-12-08
+# Date:			2011-03-09
 # Requires:		Term::ScreenColor
 #
 
@@ -729,29 +729,29 @@ sub important_delay {
 	return $_[0]->key_pressed(IMPORTANTDELAY);
 }
 
-=item set_deferred_refresh(int $flag_bits)
+=item set_deferred_refresh(int $elements)
 
-Flags a screen element as 'needs to be redrawn'. The B<R_*> constants
-(see below) may be used to indicate what aspect should be redrawn.
+Flags screen elements as 'need to be redrawn'. The B<R_*> constants
+(see below) may be used to indicate which elements should be redrawn.
 
 =cut
 
 sub set_deferred_refresh {
-	my ($self, $bits) = @_;
-	$self->{_deferred_refresh} |= $bits;
+	my ($self, $elements) = @_;
+	$self->{_deferred_refresh} |= $elements;
 	return $self;
 }
 
-=item unset_deferred_refresh(int $flag_bits)
+=item unset_deferred_refresh(int $elements)
 
-Flags a screen element as 'does not need to be redrawn'. The B<R_*>
+Flags screen elements as 'do not need to be redrawn'. The B<R_*>
 constants (see below) may be used here.
 
 =cut
 
 sub unset_deferred_refresh {
-	my ($self, $bits) = @_;
-	$self->{_deferred_refresh} &= ~$bits;
+	my ($self, $elements) = @_;
+	$self->{_deferred_refresh} &= ~$elements;
 	return $self;
 }
 
@@ -773,7 +773,7 @@ sub refresh_headings {
 
 =item refresh()
 
-Redisplays all screen elements that have been flagged as 'needs to be redrawn'.
+Redisplays all screen elements that have been flagged as 'need to be redrawn'.
 
 =cut
 

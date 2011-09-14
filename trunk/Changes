@@ -1,3 +1,9 @@
+2.11.3
+
+* first version with Your command browser
+* fixed bug in bookmark browser: ^E and ^Y work again
+* added icons
+
 2.11.2
 
 * added: support for Mercurial versioning system

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Browser 0.57
+# @(#) App::PFM::Browser 0.58
 #
 # Name:			App::PFM::Browser
-# Version:		0.57
+# Version:		0.58
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-12-05
+# Date:			2011-03-09
 #
 
 ##########################################################################
@@ -43,10 +43,13 @@ use App::PFM::Screen qw(:constants);
 use strict;
 use locale;
 
+use constant {
+	BROWSE_VOID_LINES => 10,
+	SHOW_CLOCK        => 1,
+};
+
 use constant MOTION_COMMANDS_EXCEPT_SPACE =>
 	qr/^(?:[-+jk\cF\cB\cD\cU]|ku|kd|pgup|pgdn|home|end)$/io;
-
-use constant BROWSE_VOID_LINES => 10;
 
 ##########################################################################
 # private subs
@@ -86,7 +89,7 @@ sub _wait_loop {
 	my ($self) = @_;
 	my $screen     = $self->{_screen};
 	my $screenline = $self->{_currentline} + $screen->BASELINE;
-	my $cursorcol  = $screen->listing->cursorcol;
+	my $cursorcol  = $self->cursorcol;
 	my $event_idle = App::PFM::Event->new({
 		name   => 'browser_idle',
 		origin => $self,
@@ -97,8 +100,10 @@ sub _wait_loop {
 		$screen->refresh_headings()
 			->at($screenline, $cursorcol);
 		return if $screen->pending_input(0.6);
-		$screen->diskinfo->clock_info()
-			->at($screenline, $cursorcol);
+		if ($self->SHOW_CLOCK) {
+			$screen->diskinfo->clock_info();
+		}
+		$screen->at($screenline, $cursorcol);
 	}
 	return;
 }
@@ -384,7 +389,7 @@ following structure:
 
 sub browse {
 	my ($self) = @_;
-	my ($event, $command_result);
+	my ($choice, $event);
 	# prefetch objects
 	my $screen  = $self->{_screen};
 	my $listing = $screen->listing;
@@ -407,15 +412,15 @@ sub browse {
 			$listing->highlight_off();
 			$screen->bracketed_paste_off();
 			$screen->mouse_disable();
-			$command_result = $self->handle($event);
-			if ($command_result->{handled}) {
+			$choice = $self->handle($event);
+			if ($choice->{handled}) {
 				# if the received input was valid, then the current
 				# cursor position must be validated again
 				$screen->set_deferred_refresh($screen->R_STRIDE);
 			}
 		}
-	} until ($command_result->{data} eq 'quit');
-	return;
+	} until ($choice->{data} eq 'quit');
+	return $choice->{data};
 }
 
 ##########################################################################
