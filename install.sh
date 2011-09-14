@@ -2,9 +2,9 @@
 ############################################################################
 #
 # Name:         install.sh
-# Version:      0.33
+# Version:      0.35
 # Authors:      Rene Uittenbogaard
-# Date:         2010-06-11
+# Date:         2010-08-23
 # Usage:        sh install.sh
 # Description:  Un*x-like systems can be very diverse.
 #		This script is meant as an example how pfm dependencies
@@ -21,7 +21,8 @@ install_prepare() {
 	echo "installing pfm together with its dependencies."
 	echo
 	VERSION=$(cat pfm | perl -ne '
-		/^[^@]*\@\(#\)\D+(?:\d{4}-\d{2}-\d{2}\s*)?v?([[:alnum:].]+).*$/ and print $1;
+		/^[^@]*\@\(#\)\D+(?:\d{4}-\d{2}-\d{2}\s*)?v?([[:alnum:].]+).*$/
+			and print $1;
 	')
 	if [ "$PFMRC" -a -e "$PFMRC" ]; then
 		pfmrc="$PFMRC"
@@ -320,8 +321,8 @@ download_and_install_perl_module() {
 	if [ "$cpan_available" ]; then
 		install_opt=
 		while [ "x$install_opt" != xb -a "x$install_opt" != xc ]; do
-			echo "Do you want to install the bundled version, or "
-			echo $n "download the latest version from CPAN? (Bundled/Cpan) "
+			echo "Do you want to install the bundled version (B), or "
+			echo $n "download the latest version from CPAN (C)? "
 			read install_opt
 			install_opt=$(echo $install_opt | cut -c1 | tr A-Z a-z)
 		done
@@ -361,10 +362,13 @@ download_and_install_perl_module_term_readline_gnu() {
 	while [ "x$install_opt" != xb -a "x$install_opt" != xc \
 	-a	"x$install_opt" != xm -a "x$install_opt" != xf ]
 	do
-		echo "Do you want to install the bundled version (B),"
-#		test "$cpan_available" && echo "download the latest version from CPAN (C),"
-#		echo $n "or download the version from Macports (M)${finkalternative}? "
-		test "$cpan_available" && echo "or download the latest version from CPAN (C)?"
+		echo $n "Do you want to install the bundled version (B)"
+#		echo $n ", download the version from Macports (M)${finkalternative}"
+		if [ "$cpan_available" ]; then
+			echo ","
+			echo $n "or download the latest version from CPAN (C)"
+		fi
+		echo "?"
 		read install_opt
 		install_opt=$(echo $install_opt | cut -c1 | tr A-Z a-z)
 	done
@@ -382,10 +386,23 @@ download_and_install_perl_module_term_readline_gnu() {
 #		elif [ $perlver = 5.008006 ]; then
 #			$sudo apt-get install term-readline-gnu-pm586
 #		fi
-	else
+	else # bundled
 		target="$(echo $packagename | sed -es/::/-/g)"
 		make -C modules $target
 	fi
+}
+
+check_download_and_install_perl_module() {
+	# the module version may not be identical to the filename version.
+	# e.g. File-Stat-Bits-1.01 provides File::Stat::Bits 0.19
+	#
+	check_perl_module "$@" || \
+	download_and_install_perl_module "$1"
+}
+
+check_download_and_install_perl_module_term_readline_gnu() {
+	check_perl_module_term_readline_gnu "$1" || \
+	download_and_install_perl_module_term_readline_gnu
 }
 
 install_pfm() {
@@ -440,11 +457,12 @@ check_package readline
 
 # check, download and install the Perl modules
 check_cpan
-check_perl_module HTML::Parser      3.59  || download_and_install_perl_module HTML::Parser
-check_perl_module LWP               5.827 || download_and_install_perl_module LWP
-check_perl_module Term::Screen      1.03  || download_and_install_perl_module Term::Screen
-check_perl_module Term::ScreenColor 1.13  || download_and_install_perl_module Term::ScreenColor
-check_perl_module_term_readline_gnu 1.09  || download_and_install_perl_module_term_readline_gnu
+check_download_and_install_perl_module File::Stat::Bits  0.19
+check_download_and_install_perl_module HTML::Parser      3.59
+check_download_and_install_perl_module LWP               5.827
+check_download_and_install_perl_module Term::Screen      1.03
+check_download_and_install_perl_module Term::ScreenColor 1.13
+check_download_and_install_perl_module_term_readline_gnu 1.09
 
 # install the application
 install_pfm

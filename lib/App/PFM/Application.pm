@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.06.8
+# @(#) App::PFM::Application 2.07.0
 #
 # Name:			App::PFM::Application
-# Version:		2.06.8
+# Version:		2.07.0
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-21
+# Date:			2010-08-23
 #
 
 ##########################################################################
@@ -157,6 +157,28 @@ Prints version information.
 sub _printversion {
 	my ($self) = @_;
 	print "pfm ", $self->{VERSION}, "\r\n";
+}
+
+=item _copyright(float $delay)
+
+Prints a short copyright message. Called at startup.
+
+=cut
+
+sub _copyright {
+	my ($self, $delay) = @_;
+	# lookalike to DOS version :)
+	# note that configured colors are not yet known
+	my $lastyear = $self->{LASTYEAR};
+	my $vers     = $self->{VERSION};
+	$self->screen
+		->at(0,0)->clreol()->cyan()
+				 ->puts("PFM $vers for Unix and Unix-like operating systems.")
+		->at(1,0)->puts("Copyright (c) 1999-$lastyear Rene Uittenbogaard")
+		->at(2,0)->puts("This software comes with no warranty: " .
+						"see the file COPYING for details.")
+		->reset()->normal();
+	return $self->screen->key_pressed($delay);
 }
 
 =item _goodbye()
@@ -389,11 +411,13 @@ sub bootstrap {
 	$_screen->clrscr()->raw_noecho();
 	$_screen->calculate_dimensions();
 	$_config = new App::PFM::Config($self);
-	$_config->register_listener('after_screen_config', \&{$_config->_copyright});
-	$_config->read( $silent ? $_config->READ_AGAIN   :$_config->READ_FIRST);
-	$_config->parse($silent ? $_config->NO_COPYRIGHT :$_config->SHOW_COPYRIGHT);
+	if (!$silent) {
+		$_config->register_listener('after_screen_config', \&_copyright);
+	}
+	$_config->read($silent ? $_config->READ_AGAIN : $_config->READ_FIRST);
+	$_config->parse();
 	$_config->apply();
-	$_config->unregister_listener('after_screen_config', \&{$_config->_copyright});
+	$_config->unregister_listener('after_screen_config', \&_copyright);
 	%bookmarks = $_config->read_bookmarks();
 	@{$self->{_states}}{@{BOOKMARKKEYS()}} = ();
 	@{$self->{_states}}{keys %bookmarks} = values %bookmarks;

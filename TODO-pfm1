@@ -1,29 +1,7 @@
-TOTEST:
-
-test major/minor numbers on DU 4.0E, Tru64, Sun (cannot test: no system available)
 
 TODO:
 
 
 bug: 'f' field in layout: characters in the 'gap' between filerecord & infocolumn
 	are not cleared when switching columnformats -> insert an artificial "gap" field?
-
-
-fix timetouchformat. see shar(1) archives
-if touch -am -t 200112312359.59 $$.touch >/dev/null 2>&1 && test ! -f 200112312359.59 -a -f $$.touch; then
-shar_touch='touch -am -t $1$2$3$4$5$6.$7 "$8"'
-elif touch -am 123123592001.59 $$.touch >/dev/null 2>&1 && test ! -f 123123592001.59 -a ! -f 123123592001.5 -a -f $$.touch; then
-shar_touch='touch -am $3$4$5$6$1$2.$7 "$8"'
-elif touch -am 1231235901 $$.touch >/dev/null 2>&1 && test ! -f 1231235901 -a -f $$.touch; then
-shar_touch='touch -am $3$4$5$6$2 "$8"'
-else
-shar_touch=:
-echo
-$echo 'WARNING: not restoring timestamps.  Consider getting and'
-$echo "installing GNU \`touch', distributed in GNU File Utilities..."
-echo
-fi
-rm -f 200112312359.59 123123592001.59 123123592001.5 1231235901 $$.touch
-
-
 

@@ -36,6 +36,8 @@ package App::PFM::OS::Abstract;
 
 use base 'App::PFM::Abstract';
 
+use File::Stat::Bits;
+
 use strict;
 
 use constant MINORBITS => 2 ** 8;
@@ -151,8 +153,15 @@ Returns an array of two values: the major and minor number.
 
 sub rdev_to_major_minor {
 	my ($self, $rdev) = @_;
-	return sprintf("%d", $rdev / $self->MINORBITS),
-			($rdev % $self->MINORBITS);
+	my ($maj, $min) = dev_split($rdev);
+	# if not lucky, we'll try it ourselves
+	if (!defined $maj) {
+		$maj = sprintf("%d", $rdev / $self->MINORBITS);
+	}
+	if (!defined $min) {
+		$min = $rdev % $self->MINORBITS;
+	}
+	return ($maj, $min);
 }
 
 ##########################################################################

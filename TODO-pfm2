@@ -9,6 +9,8 @@
 
 - after (C)opy, the rcs status is not automatically added 
 
+- Term::ScreenColor does not pass some tests on some platforms
+
 ################################################################################
 # structural enhancements
 
@@ -45,13 +47,17 @@
 - decide if File::Stat::Bits is the answer to major/minor trouble
 
 - move all OS-specific commands to OS-class:
-  old: $dfcmd = $DFCMDS{$^O}; $result = `$dfcmd \Q$path\E`;
-  new: $result = $_pfm->os->df($path);
+  touch()
+  aclget()
+  acledit()
+  aclput()
 
 - cast a critical eye on show_headings;
   make a $frame->getheadings($headings_mode)
 
 - move CommandHandler::_listbookmarks() to Screen/Listing/Bookmarks::list()
+
+- use utime(2) instead of touch(1).
 
 ################################################################################
 # functional enhancements
