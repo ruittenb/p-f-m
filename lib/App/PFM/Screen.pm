@@ -329,6 +329,7 @@ Tells the terminal to start/stop receiving information about the mouse.
 
 sub mouse_enable {
 	my ($self) = @_;
+	binmode(STDIN, ":bytes");
 #	print "\e[?1002h"; # cell motion tracking: mouse-down, mouse-up and motion
 #	print "\e[?1000h"; # normal tracking     : mouse-down, mouse-up
 	print "\e[?9h";    # X10 compatibility   : mouse-down only
@@ -337,6 +338,7 @@ sub mouse_enable {
 
 sub mouse_disable {
 	my ($self) = @_;
+	binmode(STDIN, ":encoding(console_in)");
 #	print "\e[?1002l";
 #	print "\e[?1000l";
 	print "\e[?9l";

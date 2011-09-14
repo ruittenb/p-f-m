@@ -37,6 +37,8 @@ use base 'App::PFM::Abstract';
 
 use App::PFM::Util qw(:all);
 use POSIX          qw(getcwd);
+use Encode         qw(:all is_utf8);
+use Encode::Locale;
 
 use strict;
 use locale;
@@ -218,7 +220,13 @@ sub stat_entry {
 			$mode = oct(160000);
 		}
 	}
-	$name  = $entry;
+	if (is_utf8($entry)) {
+		# TODO This is a guess. 'locale' could be some non-utf8-based encoding.
+		$name  = $entry;
+		$entry = encode('locale', $entry);
+	} else {
+		$name  = decode('locale', $entry);
+	}
 	$ptr  = {
 		name		=> $name,
 		bytename	=> $entry,
@@ -249,7 +257,8 @@ sub stat_entry {
 	$self->{type} = substr($self->{mode}, 0, 1);
 	$self->{display} = $name . $self->filetypeflag();
 	if ($self->{type} eq 'l') {
-		$self->{target}  = readlink("$self->{_parent}/$entry");
+		$self->{target}  =
+			decode('locale', readlink("$self->{_parent}/$entry"));
 		$self->{display} =
 			$name . $filetypeflags{'l'} . ' -> ' . $self->{target};
 	} elsif ($self->{type} =~ /^[bc]/o) {

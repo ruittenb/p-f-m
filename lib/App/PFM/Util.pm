@@ -41,6 +41,8 @@ use locale;
 
 use POSIX qw(mktime strftime);
 use Carp;
+use Encode;
+use Encode::Locale;
 
 use constant ELLIPSIS => '..'; # path ellipsis string
 
@@ -50,7 +52,7 @@ our %EXPORT_TAGS = (
 		formatted time2str fit2limit canonicalize_path reducepaths
 		reversepath isorphan ifnotdefined setifnotdefined clearugidcache
 		find_uid find_gid condquotemeta touch2time testdirempty fitpath
-		alphabetically letters_then_numbers by_name lstrftime
+		alphabetically letters_then_numbers by_name initlocale lstrftime
 		maxdatetimelen
 	) ]
 );
@@ -548,15 +550,31 @@ sub by_name {
 	return $a->{name} cmp $b->{name};
 }
 
+=item initlocale()
+
+Sets STDIN, STDOUT and STDERR to the text processing mode that
+corresponds to the current locale.
+
+=cut
+
+sub initlocale {
+	binmode(STDIN,  ":encoding(console_in)");
+	binmode(STDOUT, ":encoding(console_out)");
+	binmode(STDERR, ":encoding(console_out)");
+	return;
+}
+
 =item lstrftime(string $format, array @datetime)
 
-Formats a date/time string and decodes it to the current locale encoding.
+Formats a date/time string and marks the string for the current
+locale encoding.
 
 =cut
 
 sub lstrftime {
 	my ($format, @datetime) = @_;
 	my $result = strftime($format, @datetime);
+	$result    = decode('locale', $result);
 	return $result;
 }
 
