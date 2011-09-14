@@ -2,9 +2,9 @@
 ############################################################################
 #
 # Name:         install.sh
-# Version:      0.44
+# Version:      0.45
 # Authors:      Rene Uittenbogaard
-# Date:         2010-10-23
+# Date:         2010-10-29
 # Usage:        sh install.sh
 # Description:  Un*x-like systems can be very diverse.
 #		This script is meant as an example how pfm dependencies
@@ -37,7 +37,7 @@ install_prepare() {
 	fi
 	sudo=
 	if [ `whoami` != root ]; then
-		echo $n "Do you want to use sudo? (Yes/No) "
+		echo $n "Do you want to use sudo during this installation? (Yes/No) "
 		read answer
 		answer=$(echo $answer | cut -c1 | tr A-Z a-z)
 		if [ "x$answer" = xy ]; then

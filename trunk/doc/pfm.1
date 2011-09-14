@@ -124,13 +124,13 @@
 .\" ========================================================================
 .\"
 .IX Title "PFM 1"
-.TH PFM 1 "2010-10-23" " " " "
+.TH PFM 1 "2010-10-29" " " " "
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
 .nh
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.10.0
+.ds Vw @(#) pfm.pl 2.10.1
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -273,7 +273,7 @@ under c\fBO\fRmmand).
 If clobber mode is off (see below under the \fB!\fR command), existing files
 will not be overwritten unless the action is confirmed by the user.
 .Sp
-Whether \fBCopy\fR follows symlinks or copies them is OS-specific; you can
+Whether \fBC\fRopy follows symlinks or copies them is OS-specific; you can
 change the default behavior by setting the 'copyoptions' option in your
 \&\fI.pfmrc\fR. See \fIcp\fR\|(1).
 .IP "\fBDelete\fR" 4
@@ -1214,13 +1214,14 @@ and the current working directory on exit are saved to this directory.
 The default location for the config file is \fI\f(CI$HOME\fI/.pfm/.pfmrc\fR.
 .SH "EXIT STATUS"
 .IX Header "EXIT STATUS"
-.IP "0" 4
+.IP "\ 0" 4
+.IX Item "0"
 Success (could also be a user requested exit, \fIe.g.\fR after
 \&\fB\-\-help\fR or \fB\-\-version\fR).
-.IP "1" 4
+.IP "\ 1" 4
 .IX Item "1"
 Invalid commandline option.
-.IP "2" 4
+.IP "\ 2" 4
 .IX Item "2"
 No valid layout found in the \fI.pfmrc\fR file.
 .SH "DIAGNOSIS"
