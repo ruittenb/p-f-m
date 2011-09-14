@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+TRASH=/tmp
+
 if pwd -P | grep -qs dist; then
 	:
 else
@@ -7,10 +9,8 @@ else
 	exit 1
 fi
 
-(
-	cd lib/App/PFM/
-	rm critic.log criticise.sh debug.sh pfm
-)
-rm TODO Build.PL lib-App-PFM updateversion.sh distribute.sh
+mv TODO Build.PL lib-App-PFM updateversion.sh distribute.sh $TRASH
+cd lib/App/PFM/
+mv critic.log criticise.sh debug.sh pfm $TRASH
 
 

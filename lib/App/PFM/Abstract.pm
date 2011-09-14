@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Abstract 0.17
+# @(#) App::PFM::Abstract 0.18
 #
 # Name:			App::PFM::Abstract
-# Version:		0.17
+# Version:		0.18
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-03-29
+# Date:			2011-09-05
 #
 
 ##########################################################################
@@ -179,7 +179,7 @@ Example usage:
 	sub do_something()
 	{
 		my $self = shift;
-		$self->fire(new App::PFM::Event({
+		$self->fire(App::PFM::Event->new({
 			name => 'greetWorld', 
 			data => 'Fred'
 		}));

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.11.7E
+# @(#) App::PFM::Application 2.11.8E
 #
 # Name:			App::PFM::Application
-# Version:		2.11.7E
+# Version:		2.11.8E
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-04-15
+# Date:			2011-09-05
 #
 
 ##########################################################################
@@ -56,7 +56,7 @@ use Cwd;
 use locale;
 use strict;
 
-our $VERSION  = '2.11.7E';
+our $VERSION  = '2.11.8E';
 our $LASTYEAR = 2011;
 
 ##########################################################################
@@ -77,7 +77,7 @@ sub _init {
 	$self->{_bootstrapped}  = 0;
 	$self->{_options}       = {};
 	$self->{_states}        = {};
-	$self->{_argvnull}      = $argvnull;
+	$self->{_argvnull}      = $argvnull || 'pfm';
 	$self->{_argv}          = $argv || [];
 	return;
 }
@@ -249,7 +249,7 @@ sub _bootstrap_members {
 								@{$self}{qw(_screen _config)},
 								$state);
 	
-	$self->_bootstrap_event_hub();
+	$self->_bootstrap_event_hub(); # phase 3
 
 	# init screen
 	$screen->clrscr()->raw_noecho();
@@ -260,6 +260,7 @@ sub _bootstrap_members {
 		my $event = shift;
 		$screen->on_after_parse_usecolor($event);
 		$self->_copyright($config->pfmrc->{copyrightdelay});
+		return;
 	};
 
 	# read and parse config file
@@ -272,20 +273,68 @@ sub _bootstrap_members {
 	$config->unregister_listener(
 			'after_parse_usecolor', $on_after_parse_usecolor);
 	
-	# initialize bookmark states
-	%bookmarks = $config->read_bookmarks();
-	@{$self->{_states}}{@{$config->BOOKMARKKEYS}} = ();
-	@{$self->{_states}}{keys %bookmarks} = values %bookmarks;
-	
+	# misc
 	$screen->listing->layout($self->{_options}{'layout'});
 	$self->{_history}->read();
 	$self->checkupdates() if $config->{checkforupdates};
+}
+
+=item I<_bootstrap_event_hub()>
+
+Phase 3 of the bootstrap process: register event listeners.
+
+=cut
+
+sub _bootstrap_event_hub {
+	my ($self) = @_;
+
+	# config file has been parsed
+	my $on_after_parse_config = sub {
+		my ($event) = @_;
+		$event->{lunchbox}{colorset} = $self->{_options}{colorset};
+		$self->{_screen}        ->on_after_parse_config($event);
+		$self->{_history}       ->on_after_parse_config($event);
+		$self->{_commandhandler}->on_after_parse_config($event);
+		$self->{_browser}       ->mouse_mode(  $event->{origin}{mouse_mode});
+		$self->{_states}{S_MAIN}->on_after_parse_config($event);
+		return;
+	};
+	$self->{_config}->register_listener(
+		'after_parse_config', $on_after_parse_config);
+
+	# browser is idle: poll jobs
+	my $on_browser_idle = sub {
+		$self->{_jobhandler}->pollall();
+		return;
+	};
+	$self->{_browser}       ->register_listener(
+		'browser_idle', $on_browser_idle);
+	$self->{_commandhandler}->register_listener(
+		'browser_idle', $on_browser_idle);
+
+	# browser passes control to the commandhandler
+	my $on_after_receive_non_motion_input = sub {
+		my ($event) = @_;
+		my $handled = $self->{_commandhandler}->handle($event);
+		return $handled;
+	};
+	$self->{_browser}->register_listener(
+		'after_receive_non_motion_input', $on_after_receive_non_motion_input);
+
+	# commandhandler requests reinitializing the bookmarks
+	my $on_reload_bookmarks = sub {
+		$self->_bootstrap_bookmarks();
+		return;
+	};
+	$self->{_commandhandler}->register_listener(
+		'reload_bookmarks', $on_reload_bookmarks);
+
 	return;
 }
 
 =item I<_bootstrap_states()>
 
-Phase 3 of the bootstrap process: initialize the B<S_*> state objects.
+Phase 4 of the bootstrap process: initialize the B<S_*> state objects.
 
 =cut
 
@@ -299,7 +348,7 @@ sub _bootstrap_states {
 	my $startingdir = $self->{_options}{directory} || '';
 	if ($startingdir ne '') {
 		# if so, make it MAIN; currentdir becomes PREV
-		unless ($self->{_states}{S_MAIN}->directory->path($startingdir)) {
+		unless ($self->{_states}{S_MAIN}->directory->chdir($startingdir)) {
 			$self->{_screen}->at(0,0)->clreol()
 				->display_error("$startingdir: $! - using .");
 			$self->{_screen}->important_delay();
@@ -322,44 +371,19 @@ sub _bootstrap_states {
 	return;
 }
 
-=item I<_bootstrap_event_hub()>
+=item I<_bootstrap_bookmarks()>
 
-Phase 4 of the bootstrap process: register event listeners.
+Phase 5 of the bootstrap process: reinitialize the bookmarks from
+the bookmarks file.
 
 =cut
 
-sub _bootstrap_event_hub {
+sub _bootstrap_bookmarks() {
 	my ($self) = @_;
-
-	# config file has been parsed
-	my $on_after_parse_config = sub {
-		my ($event) = @_;
-		$event->{lunchbox}{colorset} = $self->{_options}{colorset};
-		$self->{_screen}        ->on_after_parse_config($event);
-		$self->{_history}       ->on_after_parse_config($event);
-		$self->{_commandhandler}->on_after_parse_config($event);
-		$self->{_browser}       ->mouse_mode(  $event->{origin}{mouse_mode});
-		$self->{_states}{S_MAIN}->on_after_parse_config($event);
-	};
-	$self->{_config}->register_listener(
-		'after_parse_config', $on_after_parse_config);
-
-	# browser is idle: poll jobs
-	my $on_browser_idle = sub {
-		$self->{_jobhandler}->pollall();
-	};
-	$self->{_browser}       ->register_listener(
-		'browser_idle', $on_browser_idle);
-	$self->{_commandhandler}->register_listener(
-		'browser_idle', $on_browser_idle);
-
-	# browser passes control to the commandhandler
-	my $on_after_receive_non_motion_input = sub {
-		my ($event) = @_;
-		$self->{_commandhandler}->handle($event);
-	};
-	$self->{_browser}->register_listener(
-		'after_receive_non_motion_input', $on_after_receive_non_motion_input);
+	my $config = $self->{_config};
+	my %bookmarks = $config->read_bookmarks();
+	@{$self->{_states}}{@{$config->BOOKMARKKEYS}} = ();
+	@{$self->{_states}}{keys %bookmarks} = values %bookmarks;
 	return;
 }
 
@@ -442,7 +466,7 @@ sub screen {
 
 sub state {
 	my ($self, $index, $value) = @_;
-	$index ||= 'S_MAIN';
+	$index = defined($index) ? $index : 'S_MAIN';
 	if (defined $value) {
 		# do not explicitly check if the index is defined:
 		# S_SWAP is not present in the bookmarkkeys array
@@ -534,6 +558,7 @@ sub checkupdates {
 		if (ref $jobdata eq 'ARRAY') {
 			$self->{LATEST_VERSION}	= $jobdata->[0];
 		}
+		return;
 	};
 	$self->{_jobhandler}->start('CheckUpdates', {
 		after_job_receive_data => $on_after_job_receive_data,
@@ -553,9 +578,10 @@ if the application bootstraps correctly.
 sub bootstrap {
 	my ($self, $silent) = @_;
 	initlocale();
-	$self->_bootstrap_commandline();
-	$self->_bootstrap_members($silent);
-	$self->_bootstrap_states();
+	$self->_bootstrap_commandline();    # phase 1
+	$self->_bootstrap_members($silent); # phase 2 + 3
+	$self->_bootstrap_states();         # phase 4
+	$self->_bootstrap_bookmarks();      # phase 5
 	$self->{_bootstrapped} = 1;
 	return;
 }

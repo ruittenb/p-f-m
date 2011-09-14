@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::History 0.36
+# @(#) App::PFM::History 0.37
 #
 # Name:			App::PFM::History
-# Version:		0.36
+# Version:		0.37
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-28
+# Date:			2011-09-05
 #
 
 ##########################################################################
@@ -149,12 +149,14 @@ sub _init {
 	my $on_after_resize_window = sub {
 		my ($event) = @_;
 		$self->handleresize();
+		return;
 	};
 	$screen->register_listener('after_resize_window', $on_after_resize_window);
 
 	my $on_after_set_color_mode = sub {
 		my ($event) = @_;
 		$self->setornaments();
+		return;
 	};
 	$screen->register_listener(
 		'after_set_color_mode', $on_after_set_color_mode);

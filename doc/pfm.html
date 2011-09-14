@@ -1,13 +1,11 @@
-<?xml version="1.0" ?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
-<title>C&lt;pfm&gt; - Personal File Manager for Linux/Unix</title>
+<title>pfm - Personal File Manager for Linux/Unix</title>
 <meta http-equiv="content-type" content="text/html; charset=utf-8" />
-<link rev="made" href="mailto:root@localhost" />
 </head>
 
-<body style="background-color: white">
+<body>
 
 
 <!-- INDEX BEGIN -->
@@ -53,8 +51,9 @@
 <hr />
 <h1><a name="synopsis">SYNOPSIS</a></h1>
 <p><code>pfm [</code>&nbsp;<em>directory</em>&nbsp;<code>] [</code>&nbsp;<code>-s, --swap </code><em>directory</em>&nbsp;<code>]</code>
-<code> [</code>&nbsp;<code>-l, --layout </code><em>number</em>&nbsp;<code>] [</code>&nbsp;<code>-o, --sort </code><em>mode</em>&nbsp;<code>]</code>
-<code> [</code>&nbsp;<code>-c, --colorset </code><em>string</em>&nbsp;<code>]</code></p>
+<code> [</code>&nbsp;<code>-c, --colorset </code><em>string</em>&nbsp;<code>]</code>
+<code> [</code>&nbsp;<code>-l, --layout </code><em>number</em>&nbsp;<code>] [</code>&nbsp;<a href="#login"><code>--login</code></a>&nbsp;<code>]</code>
+<code> [</code>&nbsp;<code>-o, --sort </code><em>mode</em>&nbsp;<code>]</code></p>
 <p><code>pfm { --help | --usage | --version }</code></p>
 <p>
 </p>
@@ -70,6 +69,7 @@ a selection of files.</p>
 <p>Note that throughout this manual page, <em>file</em> can mean any type of file,
 not just plain regular files. These will be referred to as <em>regular files</em>.</p>
 <p>
+This manual pertains to version 2.11.8.
 </p>
 <hr />
 <h1><a name="options">OPTIONS</a></h1>
@@ -109,6 +109,12 @@ unspecified, the current directory is used.</p>
 <dd>
 <p>Start <code>pfm</code> using the specified column layout (as defined in the <em class="file">.pfmrc</em>).</p>
 </dd>
+<dt><strong><a name="login" class="item">--login</a></strong></dt>
+
+<dd>
+<p>Start <code>pfm</code> as a login shell. <code>pfm</code> will change its name to <code>-pfm</code>
+and start a new session using <code>setsid()</code>.</p>
+</dd>
 <dt><strong><a name="o_sort_mode" class="item">-o, --sort <em>mode</em></a></strong></dt>
 
 <dd>
@@ -118,7 +124,7 @@ unspecified, the current directory is used.</p>
 
 <dd>
 <p>The directory that <code>pfm</code> should initially use as swap directory. (See
-also the <strong>F7</strong> command below).</p>
+also below, under the <strong>F7</strong> command).</p>
 <p>There would be no point in setting the swap directory and subsequently
 returning to the main directory if 'persistentswap' is turned off in your
 config file. Therefore, <code>pfm</code> will swap back to the main directory <em>only</em>
@@ -293,6 +299,11 @@ have permission to remove the current symbolic link.</p>
 <dd>
 <p>regular files of which the filenames match a specified regular expression
 (not a glob pattern!)</p>
+</dd>
+<dt><strong><a name="directories_only" class="item"><strong>D</strong>irectories only</a></strong></dt>
+
+<dd>
+<p>all directories (but not the <em class="file">.</em> and <em class="file">..</em> entries)</p>
 </dd>
 <dt><strong><a name="greater_smaller" class="item"><strong>G</strong>reater / <strong>S</strong>maller</a></strong></dt>
 
@@ -608,17 +619,18 @@ variable PAGER, or with the 'pager' option in the <em class="file">.pfmrc</em> f
 <dt><strong><a name="time" class="item"><strong>Time</strong></a></strong></dt>
 
 <dd>
-<p>Change mtime (modification date/time) of the file. The time may be entered
-either with or without clarifying interpunction (e.g. 2008-12-04 08:42.12).
-Enter <strong>.</strong> to set the mtime to the current date and time.  If the current
-file does not exist in the directory (lost file or whiteout), it is
-touch(1)ed first.</p>
+<p>Changes mtime (modification date/time) of the file. The time may be
+entered either with or without clarifying interpunction (<em>e.g.</em>
+2008-12-04 08:42.12).  Enter <strong>.</strong> to set the mtime to the current
+date and time.  If the current file does not exist in the directory
+(lost file or whiteout), it is touch(1)ed first.</p>
 </dd>
 <dt><strong><a name="user2" class="item"><strong>User</strong></a></strong></dt>
 
 <dd>
-<p>Change ownership of a file. Note that many Unix variants do not allow normal
-(non-<code>root</code>) users to change ownership. Symbolic links will be followed.</p>
+<p>Changes ownership of a file. Note that many Unix variants do not allow
+normal (non-<code>root</code>) users to change ownership. Symbolic links will be
+followed.</p>
 </dd>
 <dt><strong><a name="version" class="item"><strong>Version</strong></a></strong></dt>
 
@@ -644,14 +656,20 @@ criterion. See <strong>I</strong>nclude for details.</p>
 <dt><strong><a name="your_command" class="item"><strong>Your command</strong></a></strong></dt>
 
 <dd>
-<p>Like c<strong>O</strong>mmand (see above), except that it uses one-letter commands
-(case-sensitive) that have been preconfigured in the <em class="file">.pfmrc</em> file.
-<strong>Y</strong>our commands may use <strong>=1</strong> up to <strong>=9</strong> and <strong>=e</strong>, <strong>=E</strong>, <strong>=p</strong>
-and <strong>=v</strong> escapes just as in c<strong>O</strong>mmand, e.g.</p>
+<p>Like c<strong>O</strong>mmand (see above), except that it uses preconfigured commands
+from the <em class="file">.pfmrc</em> file.  These commands are identified by a single
+letter (case-sensitive) or digit.</p>
+<p><strong>Y</strong>our command definitions may use <strong>=1</strong> up to <strong>=9</strong> and <strong>=e</strong>,
+<strong>=E</strong>, <strong>=p</strong> and <strong>=v</strong> escapes just as in c<strong>O</strong>mmand, <em>e.g.</em>:</p>
 <pre>
+    your[A]:svn add =8
     your[c]:tar cvf - =2 | gzip &gt; =2.tar.gz
     your[t]:tar tvf =2 | =p
-    your[o]:svn commit =8</pre>
+    your[1]:vimdiff =2*</pre>
+<p>Navigation through the available commands works in the same way as
+for directories (see above under <a href="#navigation">NAVIGATION</a>), except that <strong>ENTER</strong>
+selects the highlighted command, and <strong>j</strong> and <strong>k</strong> select their own
+command (as do the other letters and digits).</p>
 </dd>
 <dt><strong><a name="size" class="item"><strong>siZe</strong></a></strong></dt>
 
@@ -693,6 +711,10 @@ Use it at your own risk.</p>
 <p>Lists all the available bookmarks and asks the user in which slot the
 current directory should be bookmarked.  If the input is valid, a new
 bookmark is created in the bookmark list.</p>
+<p>Navigation through the bookmark list works in the same way as for
+directories (see above under <a href="#navigation">NAVIGATION</a>), except that <strong>ENTER</strong>
+selects the highlighted slot, and <strong>j</strong> and <strong>k</strong> select their own
+slot (as do the other letters and digits).</p>
 </dd>
 <dt><strong><a name="config_pfm" class="item"><strong>Config pfm</strong></a></strong></dt>
 
@@ -722,6 +744,7 @@ name. See also <code>fifo(4)</code> and <code>mkfifo(1)</code>.</p>
 <p>Lists all the available bookmarks and asks the user which bookmark should
 be loaded to the current directory (and file).  If the input is valid,
 the bookmark is loaded and a <code>chdir()</code> is done to the directory.</p>
+<p>Navigation through the bookmark list works as noted above, under <strong>Bookmark</strong>.</p>
 </dd>
 <dt><strong><a name="shell" class="item"><strong>sHell</strong></a></strong></dt>
 
@@ -756,6 +779,19 @@ then a new terminal window running <code>pfm</code> will be opened.</p>
 <dd>
 <p>Shows the physical pathname of the current directory until a key is pressed.</p>
 </dd>
+<dt><strong><a name="read_history_bookmarks" class="item"><strong>Read history/bookmarks</strong></a></strong></dt>
+
+<dd>
+<p>Offers the user the choice to read the input history and/or bookmarks
+from disk.</p>
+<p>The input history is the history of Unix commands, pathnames, regular
+expressions, modification times, and file modes that the user enters.
+<code>pfm</code> uses the readline library to manage these.</p>
+<p>The input history is also read in when <code>pfm</code> starts, from individual files in
+<em class="file">$HOME/.pfm/</em>.</p>
+<p>The bookmarks are also read in when <code>pfm</code> starts, from <em class="file">$HOME/.pfm/bookmarks</em>.</p>
+<p>See also <strong>M</strong>ore-<strong>W</strong>rite history/bookmarks.</p>
+</dd>
 <dt><strong><a name="show_directory" class="item"><strong>Show directory</strong></a></strong></dt>
 
 <dd>
@@ -781,15 +817,16 @@ Subversion, CVS, Bazaar and Git.</p>
 <p>If you set the 'autorcs' option in your <em class="file">.pfmrc</em>, this will automatically
 be done every time <code>pfm</code> shows directory contents.</p>
 </dd>
-<dt><strong><a name="write_history" class="item"><strong>Write history</strong></a></strong></dt>
+<dt><strong><a name="write_history_bookmarks" class="item"><strong>Write history/bookmarks</strong></a></strong></dt>
 
 <dd>
-<p><code>pfm</code> uses the readline library for keeping track of the Unix commands,
-pathnames, regular expressions, modification times, and file modes
-entered. The history is read from individual files in <em class="file">$HOME/.pfm/</em>
-every time <code>pfm</code> starts. The history is written only when this command
-is given, or when <code>pfm</code> exits and the 'autowritehistory' option is set
-in <em class="file">.pfmrc</em>.</p>
+<p>Offers the user the choice to write the input history and/or bookmarks
+to disk.</p>
+<p>The input history is also written when <code>pfm</code> exits and the
+'autowritehistory' option is set in <em class="file">.pfmrc</em>.</p>
+<p>The bookmarks are also written when <code>pfm</code> exits and the
+'autowritebookmarks' option is set in <em class="file">.pfmrc</em>.</p>
+<p>See also <strong>M</strong>ore-<strong>R</strong>ead history/bookmarks.</p>
 </dd>
 <dt><strong><a name="f5_smart_refresh" class="item"><strong>F5</strong> Smart refresh</a></strong></dt>
 
@@ -821,7 +858,7 @@ directories before files, each sorted alphabetically.</p>
 <dd>
 <p>If the current file is a directory, <code>pfm</code> will <code>chdir()</code> to that directory.
 Otherwise, <code>pfm</code> will attempt to <em>launch</em> the file. See
-<a href="#launching_files">LAUNCHING FILES</a> below.</p>
+below under <a href="#launching_files">LAUNCHING FILES</a>.</p>
 </dd>
 <dt><strong><a name="del" class="item"><strong>DEL</strong></a></strong></dt>
 
@@ -956,7 +993,8 @@ the si<strong>Z</strong>e command is issued, not when reading the directory cont
 <dt><strong><a name="f11" class="item"><strong>F11</strong></a></strong></dt>
 
 <dd>
-<p>Refresh (using lstat(2)) the displayed file data for the current file.</p>
+<p>Refresh (using lstat(2)) the displayed file data for the current file (or
+files, in multiple mode).</p>
 </dd>
 <dt><strong><a name="f12" class="item"><strong>F12</strong></a></strong></dt>
 
@@ -1329,10 +1367,13 @@ the <strong>F12</strong> key) will give mouse access to the following commands:<
 	<td colspan="6" align="center"><i>five lines down</i></td>
 </tr>
 <tr><td colspan="7"><hr /></td></tr>
-</table><p>The cursor will <em>only</em> moved to another file when a directory is clicked
-or the mouse wheel is used.  The mouse wheel moves the cursor five lines
-per notch by default, or one line if shift is pressed. The actual number
-of lines can be configured in your <em class="file">.pfmrc</em> using 'mousewheeljumpsize'.</p>
+</table><p>If the config option 'mouse_moves_cursor' has been set to 'yes', a mouse
+click on a non-directory will move the cursor to that file. Otherwise,
+the cursor will <em>only</em> move when a directory is clicked or the mouse
+wheel is used.</p>
+<p>The mouse wheel moves the cursor five lines per notch by default,
+or one line if shift is pressed. The actual number of lines can be
+configured in your <em class="file">.pfmrc</em> using 'mousewheeljumpsize'.</p>
 <p>Clicking button 1 on the current directory path will <code>chdir()</code> up to the
 clicked ancestor directory. If the current directory was clicked, or the
 device name, it will act like a <strong>M</strong>ore - <strong>S</strong>how command.</p>
@@ -1531,6 +1572,7 @@ the cursor on the file <em class="file">/sbin/reboot</em>. You have been warned.
 <hr />
 <h1><a name="version">VERSION</a></h1>
 <p>
+This manual pertains to version 2.11.8.
 </p>
 <hr />
 <h1><a name="author_and_copyright">AUTHOR and COPYRIGHT</a></h1>
@@ -1549,8 +1591,8 @@ with debugging.</p>
 <h1><a name="see_also">SEE ALSO</a></h1>
 <p>The documentation on PFM.COM. The manual pages for <code>chmod(1)</code>, <code>cp(1)</code>,
 <code>file(1)</code>, <code>less(1)</code>, <code>ln(1)</code>, <code>locale(7)</code>, <code>lpr(1)</code>, <code>touch(1)</code>, <code>vi(1)</code>.</p>
-<p>For developers:
-Term::Screen(3pm),
+<p>For developers:</p>
+<p>Term::Screen(3pm),
 Term::ScreenColor(3pm),
 Term::ReadLine(3pm),
 App::PFM::Abstract(3pm),

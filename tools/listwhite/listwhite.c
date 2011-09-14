@@ -6,7 +6,7 @@
  * Author:       Rene Uittenbogaard
  * Date:         2003-05-15
  * Last change:  2010-05-30
- * Usage:        listwhite [directories..]
+ * Usage:        listwhite [ <directories> .. ]
  * Description:  List the names of all whiteout entries in the specified
  *               directories
  *
