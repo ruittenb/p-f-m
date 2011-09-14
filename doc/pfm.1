@@ -124,13 +124,13 @@
 .\" ========================================================================
 .\"
 .IX Title "PFM 1"
-.TH PFM 1 "2010-09-14" " " " "
+.TH PFM 1 "2010-09-15" " " " "
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
 .nh
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.09.0
+.ds Vw @(#) pfm.pl 2.09.1
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -139,8 +139,8 @@ This manual pertains to \f(CWpfm\fP version \\$3.
 \&\f(CW\*(C`pfm\*(C'\fR \- Personal File Manager for Linux/Unix
 .SH "SYNOPSIS"
 .IX Header "SYNOPSIS"
-\&\f(CW\*(C`pfm [ \-l, \-\-layout \*(C'\fR\fInumber\fR\f(CW\*(C` ] [ \-o, \-\-sort \*(C'\fR\fImode\fR\f(CW\*(C` ]\*(C'\fR
-\&\f(CW\*(C` [ \*(C'\fR\fIdirectory\fR\f(CW\*(C` ] [ \-s, \-\-swap \*(C'\fR\fIdirectory\fR\f(CW\*(C` ]\*(C'\fR
+\&\f(CW\*(C`pfm [\*(C'\fR\ \fIdirectory\fR\ \f(CW\*(C`] [\*(C'\fR\ \f(CW\*(C`\-s, \-\-swap \*(C'\fR\fIdirectory\fR\ \f(CW\*(C`]\*(C'\fR
+\&\f(CW\*(C` [\*(C'\fR\ \f(CW\*(C`\-l, \-\-layout \*(C'\fR\fInumber\fR\ \f(CW\*(C`] [\*(C'\fR\ \f(CW\*(C`\-o, \-\-sort \*(C'\fR\fImode\fR\ \f(CW\*(C`]\*(C'\fR
 .PP
 \&\f(CW\*(C`pfm { \-v, \-\-version | \-h, \-\-help }\*(C'\fR
 .SH "DESCRIPTION"
@@ -411,9 +411,11 @@ will also show the target of the symbolic link. This is useful in case
 the terminal is not wide enough to display the entire name, or if the
 name contains non-printable characters. Non-ASCII characters and control
 characters will be displayed as their octal or hexadecimal equivalents like
-the examples in the following table. Spaces will be converted as well, if
-the 'translatespace' option is turned on in the \fI.pfmrc\fR file.  When the
-name is shown in its converted form, pressing \fB*\fR will change the radix.
+the examples in the following table. Spaces will be converted if
+the 'translatespace' option is turned on in the \fI.pfmrc\fR file.
+.Sp
+When the name is shown in its converted form, pressing \fB*\fR will change
+the radix, and pressing \fB\s-1SPACE\s0\fR will toggle the translation of spaces.
 The 'defaultradix' option specifies the initial radix that will be used.
 .Sp
 Examples:
@@ -555,9 +557,10 @@ variable \s-1PAGER\s0, or with the 'pager' option in the \fI.pfmrc\fR file.
 .IP "\fBTime\fR" 4
 .IX Item "Time"
 Change mtime (modification date/time) of the file. The time may be entered
-either with or without clarifying interpunction (e.g. 2008\-12\-04 08:42.12)
-as the interpunction will be removed to obtain a format which \fItouch\fR\|(1)
-can use. Enter \fB.\fR to set the mtime to the current date and time.
+either with or without clarifying interpunction (e.g. 2008\-12\-04 08:42.12).
+Enter \fB.\fR to set the mtime to the current date and time.  If the current
+file does not exist in the directory (lost file or whiteout), it is
+\&\fItouch\fR\|(1)ed first.
 .IP "\fBUser\fR" 4
 .IX Item "User"
 Change ownership of a file. Note that many Unix variants do not allow normal
@@ -656,7 +659,7 @@ the newly created directory.
 .IP "\fBOpen window\fR" 4
 .IX Item "Open window"
 Opens a new (file manager) window on the current directory, as configured
-with 'windowcmd' and 'windowtype' in the \fI.pfmrc\fR.
+with 'windowtype' and 'windowcmd' in the \fI.pfmrc\fR. Some examples:
 .Sp
 If 'windowtype' is \*(L"pfm\*(R" and 'windowcmd' is something like \*(L"xterm\ \-e\*(R",
 then a new terminal window running \f(CW\*(C`pfm\*(C'\fR will be opened.
@@ -734,13 +737,13 @@ Toggle show/hide dot files.
 Identical to \fBF\fRind (see above).
 .IP "\fB<\fR" 4
 .IX Item "<"
-Scroll the menu and footer, in order to view all available commands.
+Pan the menu and footer, in order to view all available commands.
 .IP "\fB=\fR" 4
 .IX Item "="
 Cycle through displaying the username, the hostname, or username@hostname.
 .IP "\fB>\fR" 4
 .IX Item ">"
-Scroll the menu and footer, in order to view all available commands.
+Pan the menu and footer, in order to view all available commands.
 .IP "\fB?\fR" 4
 .IX Item "?"
 Display help. Identical to \fBF1\fR.
@@ -891,10 +894,10 @@ The input is taken literally.
 .IX Item "a filename (e.g. in Copy or tarGet)."
 First of all, tilde expansion is performed.
 .Sp
-Next, any \f(CW\*(C`=[1\-8evp]\*(C'\fR character sequence is expanded to the corresponding
+Next, any \f(CW\*(C`=[1\-8efpv]\*(C'\fR character sequence is expanded to the corresponding
 value.
 .Sp
-At the same time, any \f(CW\*(C`=[^1\-8evp]\*(C'\fR character sequence is just replaced
+At the same time, any \f(CW\*(C`=[^1\-8efpv]\*(C'\fR character sequence is just replaced
 with the character itself.
 .Sp
 Finally, if the filename is to be processed by \f(CW\*(C`pfm\*(C'\fR, it is taken literally;
@@ -904,10 +907,10 @@ if it is to be handed over to a shell, all metacharacters are replaced
 .IX Item "a shell command (e.g. in cOmmand or Print)"
 First of all, tilde expansion is performed.
 .Sp
-Next, any \f(CW\*(C`=[1\-8evp]\*(C'\fR character sequence is expanded to the corresponding
+Next, any \f(CW\*(C`=[1\-8efpv]\*(C'\fR character sequence is expanded to the corresponding
 value, \fIwith shell metacharacters escaped\fR.
 .Sp
-At the same time, any \f(CW\*(C`=[^1\-8evp]\*(C'\fR character sequence is just replaced
+At the same time, any \f(CW\*(C`=[^1\-8efpv]\*(C'\fR character sequence is just replaced
 with the character itself.
 .PP
 In short:

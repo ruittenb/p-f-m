@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.30
+# @(#) App::PFM::CommandHandler 1.31
 #   
 # Name:			App::PFM::CommandHandler
-# Version:		1.30
+# Version:		1.31
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-13
+# Date:			2010-09-14
 #
 
 ##########################################################################
@@ -1358,7 +1358,7 @@ sub handlename {
 	my $screenline  = $browser->currentline + $screen->BASELINE;
 	my $filenamecol = $screen->listing->filenamecol;
 	my $trspace     = $self->{_config}{trspace};
-	my ($line, $linecolor);
+	my ($line, $linecolor, $key);
 	$screen->listing->markcurrentline('N'); # disregard multiple_mode
 	for ($workfile->{name}, $workfile->{target}) {
 		s/\\/\\\\/;
@@ -1374,8 +1374,15 @@ sub handlename {
 		->putcolored($linecolor, $line, " \cH");
 	$screen->listing->applycolor(
 		$screenline, $screen->listing->FILENAME_LONG, $workfile);
-	if ($screen->noecho()->getch() eq '*') {
-		$self->handleradix();
+	$key = $screen->noecho()->getch();
+	if ($key eq '*' or $key eq ' ') {
+		if ($key eq '*') {
+			$self->handleradix();
+		} else {
+			# key eq space
+			$self->{_config}{trspace} =
+				$self->{_config}{trspace} eq ' ' ? '' : ' ';
+		}
 		$screen->echo()->at($screenline, $filenamecol)
 			->puts(' ' x length $line)
 			->frame->show_footer(FOOTER_SINGLE);
@@ -1608,6 +1615,13 @@ sub handletime {
 	}
 	$do_this = sub {
 		my $file = shift;
+		if ($file->{nlink} == 0) {
+			# lost file or whiteout: touch it first
+			if (system 'touch', $file->{name}) {
+				$screen->neat_error('Touch failed');
+				return;
+			}
+		}
 		if (!utime $newtime, $newtime, $file->{name}) {
 			$screen->neat_error('Set timestamp failed');
 		}
@@ -1678,7 +1692,7 @@ sub handleunwo {
 	$do_this = sub {
 		my $file = shift;
 		if ($file->{type} eq 'w') {
-			if ($self->{_os}->unwo($file->{name})) {
+			unless ($self->{_os}->unwo($file->{name})) {
 				$screen->neat_error('Whiteout removal failed');
 			}
 		} else {

@@ -1,3 +1,13 @@
+2.09.1-beta
+
+* fixed bug: un(W)hiteout now correctly determines failure
+* fixed bug: names of whiteouts are now correctly registered
+* added: pressing SPACE in (N)ame now toggles 'translatespace'
+* changed: (T)ime now touches nonexistant files first before
+  setting the time
+* restructured source code
+* updated documentation
+
 2.09.0-alpha
 
 * fixed bug: selecting a file by clicking it with the mouse now
@@ -31,7 +41,7 @@
 2.08.5-alpha
 
 * added: config option 'dircolors' now accepts coloring for specific
-  filenames by using the syntax: 'Makefile'=<colorspec>
+  filenames by using quotes around a filename, e.g.: 'Makefile'=underline
 * restructured source code
 
 2.08.4-alpha
@@ -126,7 +136,7 @@
 
 2.07.2-alpha
 
-* changed: help information covers two pages
+* changed: help information now covers two pages
 * changed implementation of Job event system: now uses generic
   PFM::Abstract event system.
 * moved some OS-specific code to App::PFM::OS::*
@@ -135,8 +145,8 @@
 
 * fixed bugs in pfmrcupdate
 * fixed bugs in install script
-* changed implementation of (T)ime: does not use touch(1) any
-  more, but uses perl's utime(3) instead
+* changed implementation of (T)ime: increased portability by not
+  using touch(1) any more, but perl's utime(3)
 * changed Util.pm: don't export all subs by default
 
 2.07.0-alpha

@@ -197,7 +197,7 @@ sub _getmenu {
 		return	'Sort by which mode? (uppercase=reverse): ';
 	} elsif ($mode == MENU_MORE) {
 		return	'Acl Bookmark Config Edit-any mkFifo Go sHell Mkdir '
-		.		'Open-window Phys-path Show-dir alTscreen Version Write-hist';
+		.		'Open-window Physical-path Show-dir alTscreen Version Write-hist';
 	} elsif ($mode == MENU_EXCLUDE) {
 		return	"Exclude? Every, Old-/Newmarks, After/Before, "
 		.		"Greater/Smaller, User, Files only:";
