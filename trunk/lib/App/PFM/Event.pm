@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Event 0.04
+# @(#) App::PFM::Event 0.06
 #
 # Name:			App::PFM::Event
-# Version:		0.04
+# Version:		0.06
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-30
-# Date:			2010-08-30
+# Date:			2010-09-02
 #
 
 ##########################################################################
@@ -33,7 +33,7 @@ This class defines events that can occur and be handled in pfm.
 
 package App::PFM::Event;
 
-use constant KNOWN_FIELDS => {
+use constant KNOWN_PROPERTIES => {
 	name		=> 1, # event name (mandatory)
 	origin		=> 1, # object
 	type		=> 1, # 'key', 'mouse', 'job', 'soft', 'resize'
@@ -41,6 +41,7 @@ use constant KNOWN_FIELDS => {
 	mousebutton	=> 1, # mouse button  (for 'mouse')
 	mouserow	=> 1, # mouse row     (for 'mouse')
 	mousecol	=> 1, # mouse column  (for 'mouse')
+	lunchbox	=> 1, # misc data
 };
 
 use constant KNOWN_EVENTS => {
@@ -66,20 +67,22 @@ use strict;
 =item new(hashref $args)
 
 Initializes new instances. Called from the constructor.
-Copies known class fields from the options to the new object.
+Copies known object properties from the options to the new object.
 
 =cut
 
 sub new {
 	my ($type, $args) = @_;
 	$type = ref($type) || $type;
-	my $self = {};
+	my $self = {
+		lunchbox => {},
+	};
 	my @keys = grep {
-		${KNOWN_FIELDS()}{$_}
+		${KNOWN_PROPERTIES()}{$_}
 	} keys %$args;
 	@{$self}{@keys} = @{$args}{@keys};
 	unless ($self->{name}) {
-		croak('Event is missing mandatory field "name"');
+		croak('Event is missing mandatory property "name"');
 	}
 	unless (${KNOWN_EVENTS()}{$self->{name}}) {
 		croak(sprintf('"%s" is not a known event name', $self->{name}));
@@ -95,16 +98,16 @@ sub new {
 
 =back
 
-=head1 EVENT FIELDS
+=head1 EVENT PROPERTIES
 
-Event objects have got the following fields:
+Event objects have got the following properties:
 
 =over
 
 =item name
 
 The name of the event, also to be used by (un)register_listener().
-This is a mandatory field.
+This is a mandatory property.
 
 =item origin
 

@@ -479,6 +479,19 @@ sub browse {
 
 =back
 
+=head1 EVENTS
+
+This package implements the following events:
+
+=over 2
+
+=item after_receive_non_motion_input
+
+Called when the input event is not a browsing event. Probably
+the CommandHandler knows how to handle it.
+
+=back
+
 =head1 SEE ALSO
 
 pfm(1).

@@ -1,3 +1,13 @@
+2.08.0-alpha
+
+* fixed (L)ink: let the cursor follow around to a local directory
+* fixed applying colors to regular files
+* fixed applying the highlight color to the filename column
+* added color option for event pipes
+* restructured code: pfmrcupdate script to its own class; pfm will now
+  propose to update an out-of-date config file.
+* updated install script
+
 2.07.9-beta
 
 * fixed bug: don't crash on clicking the mouse in the diskinfo column

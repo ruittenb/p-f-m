@@ -16,12 +16,10 @@
 - after (C)opy, the rcs status is not automatically added 
 
 - Term::ScreenColor does not pass some tests on Solaris 11
+- release 1.15 with fix for color2esc('')
 
 - call $pfm->checkupdates() in '@' (perlcommand) does not finish the job;
   call $pfm->checkupdates(); sleep 2; finishes it.
-
-- Link - Rel should move the pointer to the destination directory if it is in
-  the currentdir
 
 ################################################################################
 # structural enhancements
@@ -49,9 +47,6 @@
 - have objects (Directory) fire an event to indicate that the current position
   is to be saved ('save_cursor_position' -> position_at())
 
-- have objects fire an event to indicate that the screen is to be updated?
-  ('request_deferred_refresh' -> set_deferred_refresh())
-
 - extract abstract code so that browser may be reused for bookmarks and your
   commands; ideally:
   - Screen/Listing/Files
@@ -63,6 +58,9 @@
 
 - move CommandHandler::_listbookmarks() to Screen/Listing/Bookmarks::list()
 
+- who determines which command was clicked in the menu?
+  is that the CommandHandler::handlemousefooter* or Screen::Frame?
+
 ################################################################################
 # functional enhancements
 
@@ -70,18 +68,24 @@
 
 - keep marks when F5 refreshing
 
+- if a file is copied/moved/linked to =5, add it to the swap state
+
 - introduce SIGQUIT for interrupt multi?
 
 - add -o commandline option for starting with a certain sort mode
 
-- have applycolor() find out if the current line is reverse/italic/bold
+- add colors like dircolors(1) for sticky, setuid etc. and extensions
+
+- figure out and display if an ACL is applicable for a file
 
 ################################################################################
 # documentation enhancements
 
 - add constants MENU_* HEADING_* etc. to uml
 
-- provide information about arguments.
+- rename "format" to "layout" everywhere
+
+- manpages: update formatting of arguments.
 
   DONE (use I<...> in =items)
 

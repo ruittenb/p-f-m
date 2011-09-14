@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Directory 0.87
+# @(#) App::PFM::Directory 0.88
 #
 # Name:			App::PFM::Directory
-# Version:		0.87
+# Version:		0.88
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-30
+# Date:			2010-09-01
 #
 
 ##########################################################################
@@ -884,7 +884,7 @@ In single file mode: applies the supplied function to the current file.
 In multiple file mode: applies the supplied function to all selected files
 in the current directory.
 
-If I<special_mode> equals 'reverse', the directory is processed in
+If I<special_mode> equals 'delete', the directory is processed in
 reverse order. This is important when deleting files.
 
 If I<special_mode> does not equal 'nofeedback', the filename of the file
@@ -897,10 +897,10 @@ sub apply {
 	my ($i, $loopfile, $deleted_index, $count, %nameindexmap);
 	if ($_pfm->state->{multiple_mode}) {
 		#$self->{_wasquit} = 0;
-		#$SIG{QUIT} = \&_catch_quit;
+		#local $SIG{QUIT} = \&_catch_quit;
 		my $screen = $_pfm->screen;
 		my @range = 0 .. $#{$self->{_showncontents}};
-		if ($special_mode eq 'reverse') {
+		if ($special_mode eq 'delete') {
 			@range = reverse @range;
 			# build nameindexmap on dircontents, not showncontents.
 			# this is faster than doing a dirlookup() every iteration
@@ -921,7 +921,7 @@ sub apply {
 				# we could also test if return value of File->apply eq 'deleted'
 				if (!$loopfile->{nlink} and
 					$loopfile->{type} ne 'w' and
-					$special_mode eq 'reverse')
+					$special_mode eq 'delete')
 				{
 					$self->unregister($loopfile);
 					$deleted_index = $nameindexmap{$loopfile->{name}};
@@ -939,7 +939,6 @@ sub apply {
 #			}
 			#last if $self->{_wasquit};
 		}
-		#$SIG{QUIT} = 'DEFAULT';
 		$_pfm->state->{multiple_mode} = 0 if $_pfm->config->{autoexitmultiple};
 		$self->checkrcsapplicable() if $_pfm->config->{autorcs};
 		$screen->set_deferred_refresh(R_LISTING | R_PATHINFO | R_FRAME);
@@ -952,7 +951,7 @@ sub apply {
 		# we could also test if return value of File->apply eq 'deleted'
 		if (!$loopfile->{nlink} and
 			$loopfile->{type} ne 'w' and
-			$special_mode eq 'reverse')
+			$special_mode eq 'delete')
 		{
 			$self->unregister($loopfile);
 			$deleted_index = $self->dirlookup(

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Listing 1.03
+# @(#) App::PFM::Screen::Listing 1.04
 #
 # Name:			App::PFM::Screen::Listing
-# Version:		1.03
+# Version:		1.04
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-24
+# Date:			2010-09-02
 #
 
 ##########################################################################
@@ -134,12 +134,12 @@ Turns highlight on/off on the line with the cursor.
 =cut
 
 sub _highlightline {
-	my ($self, $on) = @_;
+	my ($self, $onoff) = @_;
 	my $screenline  = $_pfm->browser->currentline + $_screen->BASELINE;
 	my $currentfile = $_pfm->browser->currentfile;
 	my $linecolor;
 	$_screen->at($screenline, $self->{_filerecordcol});
-	if ($on) {
+	if ($onoff) {
 		$linecolor =
 			$_pfm->config->{framecolors}{$_screen->color_mode}{highlight};
 		# in case colorizable() is off:
@@ -150,7 +150,7 @@ sub _highlightline {
 							if ($linecolor =~ /under(line|score)/);
 	}
 	$_screen->putcolored($linecolor, $self->fileline($currentfile));
-	$self->applycolor($screenline, FILENAME_SHORT, $currentfile, TRUE);
+	$self->applycolor($screenline, FILENAME_SHORT, $currentfile, $onoff);
 	$_screen->reset()->normal()->at($screenline, $self->{_cursorcol});
 }
 
@@ -381,35 +381,34 @@ sub show {
 	return $_screen;
 }
 
-=item applycolor(int $line, bool $usemax, App::PFM::File $file)
+=item applycolor(int $line, bool $usemax, App::PFM::File $file
+[, bool $highlight ] )
 
 Applies color to the provided file at the provided screenline.
 The I<usemax> parameter indicates if the name should be shown
 entirely (true) or just the width of the filename field (false).
+The I<highlight> parameter indicates if the line is currently
+highlighted.
 
 =cut
-
-# [, bool $highlight ] )
-# The I<highlight> parameter indicates if the line is currently
-# highlighted.
 
 sub applycolor {
 	my ($self, $line, $usemax, $file, $highlight) = @_;
 	my $linecolor;
 	my $maxlength = $usemax ? 255 : $self->{_maxfilenamelength} - 1;
-	# commented out because it requires the highlight to be removed as well
-#	if ($highlight) {
-#		$linecolor =
-#			$_pfm->config->{framecolors}{$_screen->color_mode}{highlight};
-#		$_screen->bold()		if ($linecolor =~ /bold/);
-#		$_screen->reverse()		if ($linecolor =~ /reverse/);
-##		$_screen->underline()	if ($linecolor =~ /under(line|score)/);
-#		$_screen->term()->Tputs('us', 1, *STDOUT)
-#							if ($linecolor =~ /under(line|score)/);
-#	}
+	if ($highlight) {
+		# only bold, reverse and underscore are copied
+		$linecolor =
+			$_pfm->config->{framecolors}{$_screen->color_mode}{highlight};
+		$_screen->bold()		if ($linecolor =~ /bold/);
+		$_screen->reverse()		if ($linecolor =~ /reverse/);
+#		$_screen->underline()	if ($linecolor =~ /under(line|score)/);
+		$_screen->term()->Tputs('us', 1, *STDOUT)
+							if ($linecolor =~ /under(line|score)/);
+	}
 	$_screen->at($line, $self->{_filenamecol})
 		->putcolored(
-			$file->{color},
+			$file->{color} || $linecolor,
 			substr($file->{name}, 0, $maxlength));
 }
 
@@ -470,7 +469,7 @@ sub makeformatlines {
 					->cooked_echo()
 					->mouse_disable();
 				die "No valid layout defined in " .
-					$_pfm->config->give_location() . "\n";
+					$_pfm->config->location() . "\n";
 			}
 		}
 	}

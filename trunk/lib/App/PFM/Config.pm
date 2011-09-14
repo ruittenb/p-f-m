@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 0.90
+# @(#) App::PFM::Config 0.91
 #
 # Name:			App::PFM::Config
-# Version:		0.90
+# Version:		0.92
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-30
+# Date:			2010-09-02
 #
 
 ##########################################################################
@@ -36,6 +36,7 @@ package App::PFM::Config;
 
 use base 'App::PFM::Abstract';
 
+use App::PFM::Config::Update;
 use App::PFM::Util qw(isyes isno isxterm ifnotdefined);
 use App::PFM::Event;
 
@@ -69,7 +70,8 @@ sub _init {
 	my ($self, $pfm) = @_;
 	$_pfm = $pfm;
 	$self->{_pfmrc} = {};
-	$self->{_configfilename} = $self->give_location();
+	$self->{_text}  = [];
+	$self->{_configfilename} = $self->location();
 }
 
 =item _parse_colorsets()
@@ -145,6 +147,19 @@ sub pfmrc {
 	return $self->{_pfmrc};
 }
 
+=item text( [ arrayref $lines ] )
+
+Getter/setter for the member variable holding the unparsed text
+of the config file.
+
+=cut
+
+sub text {
+	my ($self, $value) = @_;
+	$self->{_text} = $value if defined $value;
+	return $self->{_text};
+}
+
 =item your_commands()
 
 Getter for the keys of the Your commands in the config file.
@@ -157,17 +172,18 @@ sub your_commands {
 				grep /^your\[[[:alpha:]]\]$/, keys %{$self->{_pfmrc}};
 	return @your;
 }
+
 ##########################################################################
 # public subs
 
-=item give_location()
+=item location()
 
 Returns a message string for the user indicating which F<.pfmrc>
 is currently being used.
 
 =cut
 
-sub give_location {
+sub location {
 #	my ($self) = @_;
 	return ($ENV{PFMRC} ? $ENV{PFMRC} : CONFIGDIRNAME . "/" . CONFIGFILENAME);
 }
@@ -182,36 +198,67 @@ be outdated" is given only once.
 
 sub read {
 	my ($self, $read_first) = @_;
-	$self->{_pfmrc} = {};
-	unless (-r $self->{_configfilename}) {
-		unless ($ENV{PFMRC} || -d CONFIGDIRNAME) {
-			# create the directory only if $ENV{PFMRC} is not set
-			mkdir CONFIGDIRNAME, CONFIGDIRMODE;
+	my ($pfmrc_version, $updater);
+	my $screen = $_pfm->screen;
+	READ_ATTEMPT: {
+		$self->{_pfmrc} = {};
+		$self->{_text}  = [];
+		unless (-r $self->{_configfilename}) {
+			unless ($ENV{PFMRC} || -d CONFIGDIRNAME) {
+				# create the directory only if $ENV{PFMRC} is not set
+				mkdir CONFIGDIRNAME, CONFIGDIRMODE;
+			}
+			$self->write_default();
 		}
-		$self->write_default();
-	}
-	if (open PFMRC, $self->{_configfilename}) {
-		while (<PFMRC>) {
-			if (/# Version ([[:alnum:].]+)$/ and
-				$1 lt $_pfm->{VERSION} and $read_first)
-			{
+		if (open PFMRC, $self->{_configfilename}) {
+			$self->{_text} = [ <PFMRC> ];
+			seek(PFMRC, 0, 0); # rewind
+			while (<PFMRC>) {
+				if (/#\s*Version\D+([[:alnum:].]+)$/) {
+					$pfmrc_version = $1;
+					next;
+				}
+				s/#.*//;
+				if (s/\\\n?$//) { $_ .= <PFMRC>; redo; }
+#				if (/^\s*([^:[\s]+(?:\[[^]]+\])?)\s*:\s*(.*)$/o) {
+				if (/^[ \t]*([^: \t[]+(?:\[[^]]+\])?)[ \t]*:[ \t]*(.*)$/o) {
+#					print STDERR "-$1";
+					$self->{_pfmrc}{$1} = $2;
+				}
+			}
+			close PFMRC;
+			if (!defined $pfmrc_version) {
 				# will not be in message color: usecolor not yet parsed
-				$_pfm->screen->neat_error(
-					"Warning: your $self->{_configfilename} version $1 may "
-				.	"be outdated.\r\nPlease see pfm(1), under DIAGNOSIS."
+				$screen->neat_error(
+					"Warning: the version of your $self->{_configfilename}\r\n"
+				.	"could not be determined. Please see pfm(1), under DIAGNOSIS."
 				);
-				$_pfm->screen->important_delay();
-			}
-			s/#.*//;
-			if (s/\\\n?$//) { $_ .= <PFMRC>; redo; }
-#			if (/^\s*([^:[\s]+(?:\[[^]]+\])?)\s*:\s*(.*)$/o) {
-			if (/^[ \t]*([^: \t[]+(?:\[[^]]+\])?)[ \t]*:[ \t]*(.*)$/o) {
-#				print STDERR "-$1";
-				$self->{_pfmrc}{$1} = $2;
-			}
-		}
-		close PFMRC;
-	}
+				$screen->important_delay();
+			} elsif ($pfmrc_version lt $_pfm->{VERSION} and $read_first) {
+				# will not be in message color: usecolor not yet parsed
+				$screen->neat_error(
+					"Warning: your $self->{_configfilename} version $pfmrc_version"
+				.	"\r\nmay be too old for this version of pfm ($_pfm->{VERSION})."
+				.	"\r\nDo you want me to backup this config file and update it "
+				.	"now (y/n)? ");
+				return if (lc $screen->getch() ne 'y');
+				$screen->puts("\r\n");
+				if (!$self->backup()) {
+					$screen->puts(
+						"Could not backup your config file, aborting update");
+					$screen->important_delay();
+					return;
+				}
+				$screen->cooked_echo();
+				$updater = new App::PFM::Config::Update($_pfm);
+				$updater->update(
+					$pfmrc_version, $_pfm->{VERSION}, $self->{_text});
+				$self->write_text();
+				$screen->raw_noecho();
+				redo READ_ATTEMPT;
+			} # if !defined($version) or $version lt $pfm_version
+		} # if open()
+	} # READ_ATTEMPT
 }
 
 =item parse()
@@ -414,6 +461,35 @@ sub write_default {
 		close DATA;
 		close MKPFMRC;
 	} # no success? well, that's just too bad
+}
+
+=item backup()
+
+Creates a backup of the current config file, I<e.g.>
+F<.pfmrc.20100901T231201>.
+
+=cut
+
+sub backup {
+	my ($self) = @_;
+	my $now    = strftime('%Y%m%dT%H%M%S', localtime);
+	# quotemeta($now) as well: it may be tainted (determined by locale).
+	my $result = system("cp \Q$self->{_configfilename}\E \Q$self->{_configfilename}.$now\E");
+	return !$result;
+}
+
+=item write_text()
+
+Creates a new config file by writing the raw text to it.
+
+=cut
+
+sub write_text {
+	my ($self) = @_;
+	open MKPFMRC, ">$self->{_configfilename}" or return 0;
+	print MKPFMRC @{$self->{_text}};
+	close MKPFMRC or return 0;
+	return 1;
 }
 
 =item read_bookmarks()
@@ -765,12 +841,13 @@ footer=bold reverse blue on white:message=bold cyan:highlight=bold:
 ## no=normal fi=file ex=executable lo=lost file ln=symlink or=orphan link
 ## di=directory bd=block special cd=character special pi=fifo so=socket
 ## do=door nt=network special (not implemented) wh=whiteout
+## do=door nt=network special wh=whiteout ep=event pipe
 ## *.<ext> defines extension colors
 
-dircolors[dark]:no=reset:fi=reset:ex=green:lo=bold black:di=bold blue:\
+dircolors[dark]:no=reset:fi=:ex=green:lo=bold black:di=bold blue:\
 ln=bold cyan:or=white on red:\
 bd=bold yellow on black:cd=bold yellow on black:\
-pi=yellow on black:so=bold magenta:\
+pi=yellow on black:so=bold magenta:ep=black on yellow:\
 do=bold magenta:nt=bold magenta:wh=bold black on white:\
 *.cmd=bold green:*.exe=bold green:*.com=bold green:*.btm=bold green:\
 *.bat=bold green:*.pas=green:*.c=magenta:*.h=magenta:*.pm=cyan:*.pl=cyan:\
@@ -782,10 +859,10 @@ do=bold magenta:nt=bold magenta:wh=bold black on white:\
 *.xbm=bold magenta:*.xpm=bold magenta:*.png=bold magenta:\
 *.mpg=bold white:*.avi=bold white:*.gl=bold white:*.dl=bold white:
 
-dircolors[light]:no=reset:fi=reset:ex=reset green:lo=bold black:di=bold blue:\
+dircolors[light]:no=reset:fi=:ex=reset green:lo=bold black:di=bold blue:\
 ln=underscore blue:or=white on red:\
 bd=bold yellow on black:cd=bold yellow on black:\
-pi=reset yellow on black:so=bold magenta:\
+pi=reset yellow on black:so=bold magenta:ep=black on yellow:\
 do=bold magenta:nt=bold magenta:wh=bold white on black:\
 *.cmd=bold green:*.exe=bold green:*.com=bold green:*.btm=bold green:\
 *.bat=bold green:*.pas=green:*.c=magenta:*.h=magenta:*.pm=on cyan:*.pl=on cyan:\

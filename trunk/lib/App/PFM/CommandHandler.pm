@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.20
+# @(#) App::PFM::CommandHandler 1.21
 #   
 # Name:			App::PFM::CommandHandler
-# Version:		1.20
+# Version:		1.21
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-09-01
@@ -1205,9 +1205,9 @@ sub handlelink {
 	$headerlength = $_screen->show_frame({
 		menu => MENU_LNKTYPE,
 	});
-	$absrel = $_screen->at(0, $headerlength+1)->getch();
+	$absrel = lc $_screen->at(0, $headerlength+1)->getch();
 	return unless $absrel =~ /^[arh]$/;
-	push @lncmd, '-s' if $absrel !~ /h/;
+	push @lncmd, '-s' unless $absrel eq 'h';
 	
 	$_screen->at(0,0)->clreol()->cooked_echo();
 	my $prompt = 'Name of new '.
@@ -1222,7 +1222,7 @@ sub handlelink {
 	$_screen->raw_noecho();
 	return if ($newname eq '');
 	$newname = canonicalize_path($newname);
-	# expand \[3456] at this point as a test, but not \[1278]
+	# expand =[3456] at this point as a test, but not =[1278]
 	$self->_expand_3456_escapes(QUOTE_OFF, ($testname = $newname));
 	return if $self->_multi_to_single($testname);
 	
@@ -1234,8 +1234,12 @@ sub handlelink {
 		my ($simpletarget, $simplename, $targetstring, $mark);
 		# $self is the commandhandler (closure!)
 		$self->_expand_escapes($self->QUOTE_OFF, $newnameexpanded, $file);
+		# keep this expanded version of the filename:
+		# it will be used to determine if the newname is a subdirectory
+		# of the current directory, and to make the cursor follow around.
+		my $orignewnameexpanded = $newnameexpanded;
+		# make sure $newname is a file (not a directory)
 		if (-d $newnameexpanded) {
-			# make sure $newname is a file (not a directory)
 			$newnameexpanded .= '/'.$file->{name};
 		}
 		if ($absrel eq 'r') {
@@ -1261,15 +1265,15 @@ sub handlelink {
 		}
 		if (system @lncmd, $targetstring, $newnameexpanded) {
 			$_screen->neat_error('Linking failed');
-		} elsif ($newnameexpanded !~ m!/!) {
+		} elsif ($orignewnameexpanded !~ m!/!) {
 			# let cursor follow around
-			$_pfm->browser->position_at($newnameexpanded)
+			$_pfm->browser->position_at($orignewnameexpanded)
 				unless $state->{multiple_mode};
 			# add newname to the current directory listing.
 			# TODO if newnameexpanded == swapdir, add there
 			$mark = ($state->{multiple_mode}) ? M_NEWMARK : " ";
 			$state->directory->addifabsent(
-				entry   => $newnameexpanded,
+				entry   => $orignewnameexpanded,
 				white   => '',
 				mark    => $mark,
 				refresh => TRUE);
@@ -2115,7 +2119,7 @@ sub handledelete {
 		return $success ? 'deleted' : '';
 	};
 	$oldpos = $browser->currentfile->{name};
-	$directory->apply($do_this, 'reverse');
+	$directory->apply($do_this, 'delete');
 	if ($_pfm->state->{multiple_mode}) {
 		# %nameindexmap may be completely invalid at this point. use dirlookup()
 		if (dirlookup($oldpos, @{$directory->showncontents}) > 0) {
@@ -2161,7 +2165,7 @@ sub handlecopyrename {
 	});
 	$_screen->raw_noecho();
 	return if ($newname eq '');
-	# expand \[3456] at this point as a test, but not \[1278]
+	# expand =[3456] at this point as a test, but not =[1278]
 	$self->_expand_3456_escapes(QUOTE_OFF, ($testname = $newname));
 	return if $self->_multi_to_single($testname);
 	$_screen->at(1,0)->clreol() unless $self->{_clobber_mode};
@@ -2571,7 +2575,7 @@ sub handlemoreconfig {
 	my $config_editor = $config->{fg_editor} || $config->{editor};
 	$_screen->at(0,0)->clreol()
 		->set_deferred_refresh(R_CLRSCR);
-	if (system $config_editor, $config->give_location()) {
+	if (system $config_editor, $config->location()) {
 		$_screen->at(1,0)->display_error('Editor failed');
 	} else {
 		$config->read( $config->READ_AGAIN);

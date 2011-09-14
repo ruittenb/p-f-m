@@ -72,20 +72,28 @@ sub new {
 ##########################################################################
 # public subs
 
-=item min(float $first, float $second)
+=item min(float $first, float $second [, float $third ...] )
 
-=item max(float $first, float $second)
+=item max(float $first, float $second [, float $third ...] )
 
-Determine the minimum or maximum numeric value out of two.
+Determine the minimum or maximum numeric value out of several.
 
 =cut
 
-sub min ($$) {
-	return +($_[1] < $_[0]) ? $_[1] : $_[0];
+sub min (@) {
+	my $min = shift;
+	foreach (@_) {
+		$min = $_ if $_ < $min;
+	}
+	return $min;
 }
 
-sub max ($$) {
-	return +($_[1] > $_[0]) ? $_[1] : $_[0];
+sub max (@) {
+	my $max = shift;
+	foreach (@_) {
+		$max = $_ if $_ > $max;
+	}
+	return $max;
 }
 
 =item inhibit(bool $first, bool $second)
