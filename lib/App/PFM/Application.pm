@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.10.9
+# @(#) App::PFM::Application 2.11.0
 #
 # Name:			App::PFM::Application
-# Version:		2.10.9
+# Version:		2.11.0
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-12-03
+# Date:			2010-12-04
 #
 
 ##########################################################################
@@ -36,7 +36,7 @@ History, Config, OS and the State array.
 package App::PFM::Application;
 
 require 5.008;
-# among other things, for: open my $fh, '-|', 'command';
+# among other things, for the syntax: open my $fh, '-|', 'command';
 
 use base 'App::PFM::Abstract';
 
@@ -54,7 +54,7 @@ use Cwd;
 use locale;
 use strict;
 
-our $VERSION  = '2.10.9';
+our $VERSION  = '2.11.0';
 our $LASTYEAR = 2010;
 
 ##########################################################################

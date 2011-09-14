@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config::Update 2.10.9
+# @(#) App::PFM::Config::Update 2.11.0
 #
 # Name:			App::PFM::Config::Update
-# Version:		2.10.9
+# Version:		2.11.0
 # Author:		Rene Uittenbogaard
 # Created:		2010-05-28
-# Date:			2010-11-23
+# Date:			2010-12-05
 #
 
 ##########################################################################
@@ -966,6 +966,19 @@ use constant UPDATES => {
 			s{(menu=)([\w_ ]*):}
 			 {$1$2:menukeys=bold $2:};
 		},
+	},
+	# ----- 2.11.0 ---------------------------------------------------------
+	'2.11.0' => {
+		substitutions => sub {
+			s{(footer=)([\w_ ]*):}
+			 {$1$2:footerkeys=bold $2:};
+		},
+		removals => [
+			qr/^(#+\s*)turn off mouse support during execution of commands/,
+			qr/^(#+\s*)caution: if you set this to 'no', your .external. commands/,
+			qr/^(#+\s*).*? will receive escape codes on mousedown events/,
+			qr/^(#*\s*)mouseturnoff:/,
+		],
 	},
 };
 

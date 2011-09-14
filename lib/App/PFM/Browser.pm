@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Browser 0.56
+# @(#) App::PFM::Browser 0.57
 #
 # Name:			App::PFM::Browser
-# Version:		0.56
+# Version:		0.57
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-12-03
+# Date:			2010-12-05
 #
 
 ##########################################################################
@@ -45,6 +45,8 @@ use locale;
 
 use constant MOTION_COMMANDS_EXCEPT_SPACE =>
 	qr/^(?:[-+jk\cF\cB\cD\cU]|ku|kd|pgup|pgdn|home|end)$/io;
+
+use constant BROWSE_VOID_LINES => 10;
 
 ##########################################################################
 # private subs
@@ -215,12 +217,18 @@ cursor is on-screen.
 
 sub validate_position {
 	my ($self) = @_;
-	# requirement:
-	# $browselist[ $self->{_currentline} + $self->{_baseindex} ] is defined
 	my $screenheight = $self->{_screen}->screenheight;
 	my $oldbaseindex = $self->{_baseindex};
 	my @browselist   = @{$self->browselist};
+	my $browsemax    = $#browselist + BROWSE_VOID_LINES;
 	
+	# first make sure the currentline is not way beyond the end of the list,
+	# otherwise, we would end up with a large empty space
+	if ($self->{_currentline} + $self->{_baseindex} > $browsemax) {
+		$self->{_currentline} = $browsemax - $self->{_baseindex};
+	}
+	# if the currentline has moved off the screen, scroll so that
+	# it becomes visible again
 	if ($self->{_currentline} < 0) {
 		$self->{_baseindex}  += $self->{_currentline};
 		$self->{_baseindex}   < 0 and $self->{_baseindex} = 0;
@@ -230,16 +238,18 @@ sub validate_position {
 		$self->{_baseindex}  += $self->{_currentline} - $screenheight;
 		$self->{_currentline} = $screenheight;
 	}
+	# make sure the browse window is not beyond the end of the list
 	if ($self->{_baseindex} > $#browselist) {
 		$self->{_currentline} += $self->{_baseindex} - $#browselist;
 		$self->{_baseindex}    = $#browselist;
 	}
+	# make sure the currentline is not beyond the end of the list
 	if ($self->{_currentline} + $self->{_baseindex} > $#browselist) {
 		$self->{_currentline} = $#browselist - $self->{_baseindex};
 	}
 	# See if we need to refresh the listing.
 	# By limiting the number of listing-refreshes to when the baseindex
-	# is/might have been changed, browsing becomes snappier.
+	# has been changed, browsing becomes snappier.
 	if ($oldbaseindex != $self->{_baseindex}) {
 		$self->{_screen}->set_deferred_refresh($self->{_screen}->R_LISTING);
 	}
@@ -263,6 +273,7 @@ sub handlescroll {
 				  $self->{_currentline} == 0)
 			 or (!$up and $self->{_baseindex} == 0);
 	my $displacement = $up - ! $up;
+	$self->{_baseindex} += $displacement;
 	my $newcurrentline = $self->{_currentline} -= $displacement;
 	if ($newcurrentline >= 0 and $newcurrentline <= $screenheight) {
 		$self->{_currentline} = $newcurrentline;
@@ -382,8 +393,7 @@ sub browse {
 		$listing->highlight_on();
 		# don't send mouse escapes to the terminal if not necessary
 		$screen->bracketed_paste_on() if $self->{_config}{paste_protection};
-		$screen->mouse_enable()
-			if $self->{_mouse_mode} && $self->{_config}{mouseturnoff};
+		$screen->mouse_enable()       if $self->{_mouse_mode};
 		# enter main wait loop, which is exited on a resize event
 		# or on keyboard/mouse input.
 		$self->_wait_loop();
@@ -396,7 +406,7 @@ sub browse {
 			# must be keyboard/mouse input here
 			$listing->highlight_off();
 			$screen->bracketed_paste_off();
-			$screen->mouse_disable() if $self->{_config}->{mouseturnoff};
+			$screen->mouse_disable();
 			$command_result = $self->handle($event);
 			if ($command_result->{handled}) {
 				# if the received input was valid, then the current

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Frame 0.42
+# @(#) App::PFM::Screen::Frame 0.43
 #
 # Name:			App::PFM::Screen::Frame
-# Version:		0.42
+# Version:		0.43
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-12-03
+# Date:			2010-12-05
 #
 
 ##########################################################################
@@ -393,10 +393,6 @@ sub show {
 	$self->show_headings($self->{_pfm}->browser->swap_mode, $heading_mode);
 	$self->show_footer($footer_mode);
 	if ($prompt) {
-#		my $color_mode = $self->{_screen}->color_mode;
-#		$self->{_screen}->at(0,0)->clreol()->putcolored(
-#			$self->{_pfm}->config->{framecolors}{$color_mode}{message},
-#			$prompt);
 		$self->{_screen}->at(0,0)->clreol()->putmessage($prompt);
 		$menulength = length $prompt;
 	} else {
@@ -415,11 +411,15 @@ using the B<MENU_> constants as defined in App::PFM::Screen::Frame.
 
 sub show_menu {
 	my ($self, $menu_mode) = @_;
-	my ($pos, $menu, $menulength, $vscreenwidth, $color, $do_multi);
+	my ($pos, $menu, $menulength, $vscreenwidth, $do_multi);
 	my $screen      = $self->{_screen};
 	my $framecolors = $self->{_pfm}->config->{framecolors};
-	$menu_mode ||= ($self->{_pfm}->state->{multiple_mode} * MENU_MULTI);
-	$do_multi = $menu_mode & MENU_MULTI;
+	my $menucolor   = $screen->color2esc('normal ' .
+						$framecolors->{$screen->color_mode}{menu});
+	my $keycolor    = $screen->color2esc('normal ' .
+						$framecolors->{$screen->color_mode}{menukeys});
+	$menu_mode  ||= ($self->{_pfm}->state->{multiple_mode} * MENU_MULTI);
+	$do_multi     = $menu_mode & MENU_MULTI;
 	$vscreenwidth = $screen->screenwidth - 9 * $do_multi;
 	$menu         = $self->_fitbanner(
 		$self->_getmenu($menu_mode), $vscreenwidth);
@@ -429,18 +429,14 @@ sub show_menu {
 	}
 	$screen->at(0,0);
 	if ($do_multi) {
-		$color = $framecolors->{$screen->color_mode}{multi};
-		$screen->putcolored($color, 'Multiple');
+		$screen->putcolored(
+			$framecolors->{$screen->color_mode}{multi},
+			'Multiple'
+		);
 	}
-	$color = $framecolors->{$screen->color_mode}{menu};
-	$screen->putcolor($color)->puts(' ' x $do_multi)->puts($menu);
-	$color = $framecolors->{$screen->color_mode}{menukeys};
-	$screen->putcolor($color);
-	while ($menu =~ /[[:upper:]<>](?![xn]clude\?)/go) {
-		$pos = pos($menu) -1;
-		$screen->at(0, $pos + 9*$do_multi)->puts(substr($menu, $pos, 1));
-	}
-	$screen->reset()->normal();
+	$menu =~ s{([[:upper:]<>])(?![xn]clude\?)}{$keycolor$1$menucolor$2}g;
+	$screen->puts($menucolor)->puts(' ' x $do_multi)->puts($menu)
+		->reset()->normal();
 	return $menulength;
 }
 
@@ -475,15 +471,19 @@ Displays the footer, i.e. the last line on screen with the status info.
 
 sub show_footer {
 	my ($self, $footer_mode) = @_;
-	$footer_mode ||= ($self->{_pfm}->state->{multiple_mode} * FOOTER_MULTI);
-	my $screen     = $self->{_screen};
-	my $width      = $screen->screenwidth;
-	my $footer     = $self->_fitbanner($self->_getfooter($footer_mode), $width);
-	my $padding    = ' ' x ($width - length $footer);
-	my $linecolor  =
-		$self->{_pfm}->config->{framecolors}{$screen->color_mode}{footer};
+	$footer_mode  ||= ($self->{_pfm}->state->{multiple_mode} * FOOTER_MULTI);
+	my $screen      = $self->{_screen};
+	my $width       = $screen->screenwidth;
+	my $footer      = $self->_fitbanner($self->_getfooter($footer_mode),$width);
+	my $padding     = ' ' x ($width - length $footer);
+	my $framecolors = $self->{_pfm}->config->{framecolors};
+	my $footercolor = $screen->color2esc('normal ' .
+						$framecolors->{$screen->color_mode}{footer});
+	my $keycolor    = $screen->color2esc('normal ' .
+						$framecolors->{$screen->color_mode}{footerkeys});
+	$footer =~ s{(F\d+(?=-)|[!\.%";=@](?=-)|[<>])}{$keycolor$1$footercolor}g;
 	$screen->at($screen->BASELINE + $screen->screenheight + 1, 0)
-		->putcolored($linecolor, $footer, $padding)
+		->puts($footercolor . $footer . $padding)
 		->reset()->normal();
 	return $screen;
 }
