@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Browser::Chooser 0.09
+# @(#) App::PFM::Browser::Chooser 0.10
 #
 # Name:			App::PFM::Browser::Chooser
-# Version:		0.09
+# Version:		0.10
 # Author:		Rene Uittenbogaard
 # Created:		2011-03-11
-# Date:			2011-03-18
+# Date:			2011-03-20
 #
 
 ##########################################################################
@@ -148,9 +148,10 @@ sub handle_non_motion_input {
 	my $res          = {};
 	if ($event->{type} eq 'mouse') {
 		if ($event->{mouserow} >= $BASELINE and
-			$event->{mouserow} <= $BASELINE + $screenheight)
-		{
-			# potentially on an item, regardless of column
+			$event->{mouserow} <= $BASELINE + $screenheight and
+			$event->{mousecol} >= $self->{_itemcol} and
+			$event->{mousecol} <  $self->{_itemcol} + $self->{_itemlen}
+		) {
 			$res->{data} = $browselist->[
 				$self->{_baseindex} + $event->{mouserow} - $BASELINE
 			];

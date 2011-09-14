@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.59
+# @(#) App::PFM::CommandHandler 1.63
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.59
+# Version:		1.63
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-03-12
+# Date:			2011-03-28
 #
 
 ##########################################################################
@@ -43,7 +43,7 @@ use App::PFM::Screen::Frame qw(:constants); # MENU_*, HEADING_*, and FOOTER_*
 use App::PFM::Browser::Bookmarks;
 use App::PFM::Browser::YourCommands;
 
-use POSIX qw(strftime mktime getcwd);
+use POSIX qw(mktime getcwd);
 use Config;
 
 use strict;
@@ -483,6 +483,64 @@ sub _followmode {
 		   : $file->mode2str((stat $file->{name})[2]);
 }
 
+=item _comparefiles(mixed $file1, mixed $file2)
+
+Shows the most important information for two files. Called just before
+a Unix command is about to ask C<mv: overwrite 'destfile'?>
+
+Either of the I<file1> and I<file2> arguments can be: a string
+containing a path to the file, or an App::PFM::File object.
+
+=cut
+
+sub _comparefiles {
+	my ($self, $file1, $file2) = @_;
+	my $screen = $self->{_screen};
+	my ($printline, $name1, $name2, $size1, $size2, $dir1, $dir2,
+		$mtime1, $mtime2, $owner1, $owner2);
+	if (!ref $file1) {
+		$file1 = App::PFM::File->makefile($file1);
+	}
+	if (!ref $file2) {
+		$file2 = App::PFM::File->makefile($file2);
+	}
+	$name1  = $file1->{name};
+	$name2  = $file2->{name};
+	$size1  = $file1->{size};
+	$size2  = $file2->{size};
+#	$dir1   = reducepaths($currentdir, $file1->parent) || '.';
+#	$dir2   = reducepaths($currentdir, $file2->parent) || '.';
+	$owner1  = $file1->{user} . ':' . $file1->{group};
+	$owner2  = $file2->{user} . ':' . $file2->{group};
+	$mtime1 = $file1->{mtimestring};
+	$mtime2 = $file2->{mtimestring};
+	if ($size1 > $size2) {
+		$size1 .= ' (bigger)';
+	} elsif ($size2 > $size1) {
+		$size2 .= ' (bigger)';
+	}
+	if ($file1->{mtime} > $file2->{mtime}) {
+		$mtime1 .= ' (newer)';
+	} elsif ($file2->{mtime} > $file1->{mtime}) {
+		$mtime2 .= ' (newer)';
+	}
+	$printline = 1;
+	$screen->at($printline++, 0)->putmessage(sprintf(
+		'  Source: %-30.30s    Destination: %-30.30s', ' ', ' '))->clreol();
+	$screen->at($printline++, 0)->puts(sprintf(
+		'  name  : %-30.30s    name  : %-30.30s', $name1, $name2))->clreol();
+#	$screen->at($printline++, 0)->puts(sprintf(
+#		'  dir   : %-30.30s    dir   : %-30.30s', $dir1, $dir1))->clreol();
+	$screen->at($printline++, 0)->puts(sprintf(
+		'  size  : %-30.30s    size  : %-30.30s', $size1, $size2))->clreol();
+	$screen->at($printline++, 0)->puts(sprintf(
+		'  owner : %-30.30s    owner : %-30.30s', $owner1, $owner2))->clreol();
+	$screen->at($printline++, 0)->puts(sprintf(
+		'  mtime : %-30.30s    mtime : %-30.30s', $mtime1, $mtime2))->clreol();
+	$screen->at($printline++, 0)->clreol()
+		->set_deferred_refresh(R_SCREEN);
+}
+
 =item _chase_processed_file(string $oldfilename, string $newfilename,
 boolean $to_dir)
 
@@ -522,11 +580,12 @@ sub _chase_processed_file {
 			if $self->{_config}{autorcs};
 		# add newnameexpanded to the current directory listing.
 		$mark = ($state->{multiple_mode}) ? M_NEWMARK : " ";
-		$state->directory->addifabsent(
+		$state->directory->addifabsent({
 			entry   => $newnameexpanded,
-			white   => '',
 			mark    => $mark,
-			refresh => TRUE);
+			white   => '',
+			refresh => TRUE,
+		});
 	}
 	# see if we need to add newnameexpanded to the directory listings
 	# of other states.
@@ -545,11 +604,12 @@ sub _chase_processed_file {
 			my $destination = $1 ? $1 : $oldfilename;
 			# add newnameexpanded to the other directory listing.
 			$mark = ($state->{multiple_mode}) ? M_NEWMARK : " ";
-			$state->directory->addifabsent(
+			$state->directory->addifabsent({
 				entry   => $destination,
-				white   => '',
 				mark    => $mark,
-				refresh => TRUE);
+				white   => '',
+				refresh => TRUE,
+			});
 		}
 	}
 }
@@ -570,7 +630,7 @@ sub _promptforboundarytime {
 	$boundarytime = $self->{_history}->input({
 		history       => H_TIME,
 		prompt        => $prompt,
-		default_input => strftime ("%Y-%m-%d %H:%M.%S", localtime time),
+		default_input => lstrftime ("%Y-%m-%d %H:%M.%S", localtime time),
 	});
 	# show_menu is done in handleinclude
 	$self->{_screen}->raw_noecho();
@@ -798,6 +858,8 @@ sub handleprev {
 =item handleswap(App::PFM::Event $event)
 
 Swaps to an alternative directory (B<F7>).
+Note that the change of main state is directly propagated to the browser
+by App::PFM::Application::swap_states() or App::PFM::Application::state().
 
 =cut
 
@@ -900,7 +962,7 @@ sub handleswap {
 			$screen->set_deferred_refresh(R_CHDIR);
 		}
 	}
-	$browser->main_state($_pfm->state('S_MAIN'));
+#	$browser->main_state($_pfm->state('S_MAIN'));
 	return;
 }
 
@@ -1361,10 +1423,10 @@ sub handlelink {
 		$histpush = $event->{currentfile}{name};
 	}
 	
-#	$headerlength = $self->{_screen}->show_frame({
+#	$menulength = $self->{_screen}->show_frame({
 #		menu => MENU_LNKTYPE,
 #	});
-#	$absrel = lc $self->{_screen}->at(0, $headerlength+1)->getch();
+#	$absrel = lc $self->{_screen}->at(0, $menulength+1)->getch();
 
 	$self->{_screen}->at(0,0)->clreol()->putmessage(
 		'Absolute, Relative symlink or Hard link? ');
@@ -1796,7 +1858,7 @@ sub handletime {
 	$newtime = $self->{_history}->input({
 		history       => H_TIME,
 		prompt        => 'Timestamp [[CC]YY-]MM-DD hh:mm[.ss]: ',
-		history_input => strftime ("%Y-%m-%d %H:%M.%S", localtime time),
+		history_input => lstrftime ("%Y-%m-%d %H:%M.%S", localtime time),
 	});
 	$screen->raw_noecho();
 	return if ($newtime eq '');
@@ -2400,7 +2462,8 @@ sub handlecopyrename {
 		push @command, $self->{_config}{copyoptions};
 	}
 	my $prompt = $key eq 'C' ? 'Destination: ' : 'New name: ';
-	my ($testname, $newname, $newnameexpanded, $do_this, $sure, $to_dir);
+	my ($testname, $newname, $newnameexpanded, $do_this, $sure,
+		$to_dir, $absnewname);
 	my $browser    = $_pfm->browser;
 	my $state      = $_pfm->state;
 	if ($state->{multiple_mode}) {
@@ -2442,6 +2505,15 @@ sub handlecopyrename {
 		$newnameexpanded = $newname;
 		$self->_expand_escapes(QUOTE_OFF, \$newnameexpanded, $file);
 		$to_dir = -d $newnameexpanded;
+		if (-f $newnameexpanded and !$self->{_clobber_mode} and
+			$self->{_config}{clobber_compare}
+		) {
+			$absnewname = $newnameexpanded;
+			if ($to_dir) {
+				$absnewname = $newnameexpanded . '/'.$file->{name};
+			}
+			$self->_comparefiles($file, $absnewname);
+		}
 		if (system @command, $file->{name}, $newnameexpanded) {
 			$screen->neat_error($key eq 'C' ? 'Copy failed' : 'Rename failed');
 		} else {
@@ -2709,38 +2781,39 @@ sub handlemore {
 	my $key;
 #	$self->{_screen}->clear_footer()->noecho()
 #		->set_deferred_refresh(R_MENU);
-	my $headerlength = $self->{_screen}->noecho()->set_deferred_refresh(R_MENU)
+	my $menulength = $self->{_screen}->noecho()->set_deferred_refresh(R_MENU)
 		->show_frame({
 			footer => FOOTER_MORE,
 			menu   => MENU_MORE,
 		});
-	$self->{_screen}->bracketed_paste_on() if $self->{_config}{paste_protection};
+	$self->{_screen}->bracketed_paste_on()
+		if $self->{_config}{paste_protection};
 	MORE_PAN: {
-		$key = $self->{_screen}->at(0, $headerlength+1)->getch();
+		$key = $self->{_screen}->at(0, $menulength + 1)->getch();
 		$self->{_screen}->bracketed_paste_off();
 		for ($key) {
-			/^s$/io		and $self->handlemoreshow($event),		  last MORE_PAN;
-			/^g$/io		and $self->handlemorego($event),		  last MORE_PAN;
-			/^e$/io		and $self->handlemoreedit($event, $key),  last MORE_PAN;
-			/^h$/io		and $self->handlemoreshell(),			  last MORE_PAN;
-			/^k5$/o		and $self->handlemoresmartrefresh($event),last MORE_PAN;
-			/^m$/io		and $self->handlemoremake($event),		  last MORE_PAN;
-			/^c$/io		and $self->handlemoreconfig($event),	  last MORE_PAN;
-			/^a$/io		and $self->handlemoreacl($event),		  last MORE_PAN;
-			/^b$/io		and $self->handlemorebookmark($event),	  last MORE_PAN;
-			/^l$/io		and $self->handlemorefollow($event),	  last MORE_PAN;
-			/^f$/io		and $self->handlemorefifo($event),		  last MORE_PAN;
-			/^w$/io		and $self->handlemorehistwrite(),		  last MORE_PAN;
-			/^t$/io		and $self->handlemorealtscreen(),		  last MORE_PAN;
-			/^p$/io		and $self->handlemorephyspath(),		  last MORE_PAN;
-			/^v$/io		and $self->handlemoreversion(),			  last MORE_PAN;
-			/^o$/io		and $self->handlemoreopenwindow($event),  last MORE_PAN;
-			/^k6$/o		and $self->handlemoremultisort($event),	  last MORE_PAN;
-			/^\@$/o		and $self->handlemoreperlshell($event),	  last MORE_PAN;
-			/^[<>]$/io	and do {
+			/^s$/io    and $self->handlemoreshow($event),		 last MORE_PAN;
+			/^g$/io    and $self->handlemorego($event),			 last MORE_PAN;
+			/^e$/io    and $self->handlemoreedit($event, $key),  last MORE_PAN;
+			/^h$/io    and $self->handlemoreshell(),			 last MORE_PAN;
+			/^k5$/o    and $self->handlemoresmartrefresh($event),last MORE_PAN;
+			/^m$/io    and $self->handlemoremake($event),		 last MORE_PAN;
+			/^c$/io    and $self->handlemoreconfig($event),		 last MORE_PAN;
+			/^a$/io    and $self->handlemoreacl($event),		 last MORE_PAN;
+			/^b$/io    and $self->handlemorebookmark($event),	 last MORE_PAN;
+			/^l$/io    and $self->handlemorefollow($event),		 last MORE_PAN;
+			/^f$/io    and $self->handlemorefifo($event),		 last MORE_PAN;
+			/^w$/io    and $self->handlemorehistwrite(),		 last MORE_PAN;
+			/^t$/io    and $self->handlemorealtscreen(),		 last MORE_PAN;
+			/^p$/io    and $self->handlemorephyspath(),			 last MORE_PAN;
+			/^v$/io    and $self->handlemoreversion(),			 last MORE_PAN;
+			/^o$/io    and $self->handlemoreopenwindow($event),  last MORE_PAN;
+			/^k6$/o    and $self->handlemoremultisort($event),	 last MORE_PAN;
+			/^\@$/o    and $self->handlemoreperlshell($event),	 last MORE_PAN;
+			/^[<>]$/io and do {
 				$event->{data} = $key;
 				$self->handlepan($event, MENU_MORE);
-				$headerlength = $frame->show_menu(MENU_MORE);
+				$menulength = $frame->show_menu(MENU_MORE);
 				$frame->show_footer(FOOTER_MORE);
 				redo MORE_PAN;
 			};
@@ -2810,11 +2883,12 @@ sub handlemoremake {
 			->at(0,0)->clreol()->display_error('Make directory failed');
 	} elsif (!$screen->ok_to_remove_marks()) {
 		if ($newname !~ m!/!) {
-			$_pfm->state->directory->addifabsent(
-				entry => $newname,
-				mark => ' ',
-				white => '',
-				refresh => TRUE);
+			$_pfm->state->directory->addifabsent({
+				entry   => $newname,
+				mark    => ' ',
+				white   => '',
+				refresh => TRUE,
+			});
 			$_pfm->browser->position_at($newname);
 		}
 	} elsif (!$_pfm->state->directory->chdir($newname)) {
@@ -2837,7 +2911,7 @@ sub handlemoreconfig {
 	my $config_editor  = $config->{fg_editor} || $config->{editor};
 	$self->{_screen}->at(0,0)->clreol()
 		->set_deferred_refresh(R_CLRSCR);
-	if (system $config_editor, $config->location()) {
+	if (system "$config_editor " . $config->location()) {
 		$self->{_screen}->at(1,0)->display_error('Editor failed');
 	} else {
 		$config->read($config->READ_AGAIN);
@@ -2948,7 +3022,7 @@ sub handlemorebookmark {
 	$screen->chooser(0);
 	return if $key eq "\r";
 	# process key
-	@allowed_keys{$self->{_config}->BOOKMARKKEYS()} = ();
+	@allowed_keys{@{$self->{_config}->BOOKMARKKEYS()}} = ();
 	if (!exists($allowed_keys{$key})) {
 #	if (!defined($key !~ /^[a-zA-Z]$/)) {
 		# the bookmark is undefined
@@ -3119,11 +3193,12 @@ sub handlemorefifo {
 		return;
 	}
 	# add newname to the current directory listing.
-	$_pfm->state->directory->addifabsent(
-		entry => $newname,
-		mark => ' ',
-		white => '',
-		refresh => TRUE);
+	$_pfm->state->directory->addifabsent({
+		entry   => $newname,
+		mark    => ' ',
+		white   => '',
+		refresh => TRUE,
+	});
 	$_pfm->browser->position_at($newname);
 	return;
 }

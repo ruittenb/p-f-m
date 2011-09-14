@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Directory 1.02
+# @(#) App::PFM::Directory 1.03
 #
 # Name:			App::PFM::Directory
-# Version:		1.02
+# Version:		1.03
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-03-09
+# Date:			2011-03-25
 #
 
 ##########################################################################
@@ -381,17 +381,19 @@ sub _readcontents {
 	}
 	foreach my $entry (@allentries) {
 		# have the mark cleared on first stat with ' '
-		$self->add(
+		$self->add({
 			entry => $entry,
 			white => '',
-			mark  => $smart ? $namemarkmap{$entry} : ' ');
+			mark  => $smart ? $namemarkmap{$entry} : ' '
+		});
 	}
 	foreach my $entry (@white_entries) {
 		chop $entry;
-		$self->add(
+		$self->add({
 			entry => $entry,
 			white => 'w',
-			mark  => $smart ? $namemarkmap{$entry} : ' ');
+			mark  => $smart ? $namemarkmap{$entry} : ' '
+		});
 	}
 	$screen->set_deferred_refresh(R_MENU | R_HEADINGS);
 	$self->checkrcsapplicable() if $self->{_config}{autorcs};
@@ -706,24 +708,27 @@ Checks if the file is not yet in the directory. If not, add()s it.
 =cut
 
 sub addifabsent {
-	my ($self, %o) = @_; # ($entry, $white, $mark, $refresh);
+	my ($self, $options) = @_;
 	my $findindex = 0;
 	my $dircount  = $#{$self->{_dircontents}};
 	my $file;
-	$findindex++ while ($findindex <= $dircount and
-					   $o{entry} ne ${$self->{_dircontents}}[$findindex]{name});
+	while ($findindex <= $dircount and
+		$options->{entry} ne ${$self->{_dircontents}}[$findindex]{name})
+	{
+		$findindex++;
+	}
 	if ($findindex > $dircount) {
-		$self->add(%o);
+		$self->add($options);
 	} else {
 		$file = ${$self->{_dircontents}}[$findindex];
 		$self->unregister($file);
 		# copy $white from caller, it may be a whiteout.
 		# copy $mark  from file (preserve).
-		$file->stat_entry($file->{name}, $o{white}, $file->{mark});
+		$file->stat_entry($file->{name}, $options->{white}, $file->{mark});
 		$self->register($file);
 		$self->set_dirty(D_FILTER | D_SORT);
 		# flag screen refresh
-		if ($o{refresh}) {
+		if ($options->{refresh}) {
 			$self->{_screen}->set_deferred_refresh(R_LISTING);
 		}
 	}
@@ -738,12 +743,13 @@ Adds the entry as file to the directory. Also calls register().
 =cut
 
 sub add {
-	my ($self, %o) = @_; # ($entry, $white, $mark, $refresh);
-	my $file = App::PFM::File->new(%o, parent => $self->{_path});
+	my ($self, $options) = @_;
+	$options->{parent}   = $self->{_path};
+	my $file             = App::PFM::File->new($options);
 	push @{$self->{_dircontents}}, $file;
 	$self->register($file);
 	$self->set_dirty(D_FILTER | D_SORT);
-	if ($o{refresh}) {
+	if ($options->{refresh}) {
 		$self->{_screen}->set_deferred_refresh(R_LISTING);
 	}
 	return;

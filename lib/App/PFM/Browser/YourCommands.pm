@@ -47,7 +47,7 @@ use constant {
 	SHOW_MARKCURRENT => 'Y',
 	SHOW_CLOCK       => 0,
 	SCREENTYPE       => R_DISKINFO,
-	HEADERTYPE       => HEADING_YCOMMAND,
+	HEADINGTYPE      => HEADING_YCOMMAND,
 	FOOTERTYPE       => FOOTER_NONE,
 };
 
@@ -139,7 +139,7 @@ sub list_items {
 	$screen
 		->set_deferred_refresh(R_DISKINFO | R_FRAME)
 		->show_frame({
-			headings => $self->HEADERTYPE,
+			headings => $self->HEADINGTYPE,
 			footer   => $self->FOOTERTYPE,
 			prompt   => $self->{_prompt},
 		});

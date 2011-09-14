@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Diskinfo 0.17
+# @(#) App::PFM::Screen::Diskinfo 0.19
 #
 # Name:			App::PFM::Screen::Diskinfo
-# Version:		0.17
+# Version:		0.19
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-22
+# Date:			2011-03-21
 #
 
 ##########################################################################
@@ -36,10 +36,10 @@ package App::PFM::Screen::Diskinfo;
 
 use base qw(App::PFM::Abstract Exporter);
 
-use App::PFM::Util qw(formatted fit2limit max);
+use App::PFM::Util qw(formatted fit2limit max lstrftime);
 
 use Sys::Hostname;
-use POSIX qw(strftime ttyname);
+use POSIX qw(ttyname);
 
 use locale;
 use strict;
@@ -444,12 +444,15 @@ Displays the clock in the diskinfo column.
 =cut
 
 sub clock_info {
-	my ($self) = @_;
-	my $screen = $self->{_screen};
-	my $now    = time; # fetch once to prevent overflow anomalies
-	my $line   = $self->line_dateinfo();
-	my $date   = strftime($_pfm->config->{clockdateformat}, localtime $now),
-	my $time   = strftime($_pfm->config->{clocktimeformat}, localtime $now);
+	my ($self)     = @_;
+	my $screen     = $self->{_screen};
+	my $config     = $self->{_config};
+	my $now        = time; # fetch once to prevent overflow anomalies
+	my $line       = $self->line_dateinfo();
+	my $dateformat = $config->{"clockdateformat"};
+	my $timeformat = $config->{"clocktimeformat"};
+	my $date       = lstrftime($dateformat, localtime $now),
+	my $time       = lstrftime($timeformat, localtime $now);
 	$date = $self->_str_informatted($date);
 	$time = $self->_str_informatted($time);
 	if ($self->extended_dateinfo()) {

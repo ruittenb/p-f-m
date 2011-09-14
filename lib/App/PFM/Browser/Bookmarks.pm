@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Browser::Bookmarks 0.09
+# @(#) App::PFM::Browser::Bookmarks 0.10
 #
 # Name:			App::PFM::Browser::Bookmarks
-# Version:		0.09
+# Version:		0.10
 # Author:		Rene Uittenbogaard
 # Created:		2010-12-01
-# Date:			2011-03-18
+# Date:			2011-03-20
 #
 
 ##########################################################################
@@ -47,7 +47,7 @@ use constant {
 	SHOW_MARKCURRENT => '',
 	SHOW_CLOCK       => 1,
 	SCREENTYPE       => R_LISTING,
-	HEADERTYPE       => HEADING_BOOKMARKS,
+	HEADINGTYPE      => HEADING_BOOKMARKS,
 	FOOTERTYPE       => FOOTER_NONE,
 	SPAWNEDCHAR      => '*',
 };
@@ -137,7 +137,7 @@ sub list_items {
 	$screen
 		->set_deferred_refresh(R_SCREEN)
 		->show_frame({
-			headings => $self->HEADERTYPE,
+			headings => $self->HEADINGTYPE,
 			footer   => $self->FOOTERTYPE,
 			prompt   => $self->{_prompt},
 		});

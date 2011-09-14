@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Frame 0.47
+# @(#) App::PFM::Screen::Frame 0.48
 #
 # Name:			App::PFM::Screen::Frame
-# Version:		0.47
+# Version:		0.48
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-03-13
+# Date:			2011-03-20
 #
 
 ##########################################################################
@@ -554,7 +554,7 @@ sub pan {
 
 =head1 CONSTANTS
 
-This package provides the several constants identifying menus, headers
+This package provides the several constants identifying menus, headings
 and footer.
 They can be imported with C<use App::PFM::Screen::Frame qw(:constants)>.
 

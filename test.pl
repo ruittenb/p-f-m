@@ -16,7 +16,7 @@
 # declarations
 
 # for development
-use lib '/usr/local/share/perl/devel/lib';
+#use lib '/usr/local/share/perl/devel/lib';
 
 use App::PFM::Application;
 use Module::Load;

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::File 0.42
+# @(#) App::PFM::File 0.45
 #
 # Name:			App::PFM::File
-# Version:		0.42
+# Version:		0.45
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-23
+# Date:			2011-03-25
 #
 
 ##########################################################################
@@ -35,9 +35,8 @@ package App::PFM::File;
 
 use base 'App::PFM::Abstract';
 
-use App::PFM::Util qw(find_uid find_gid isorphan fit2limit);
-
-use POSIX qw(strftime);
+use App::PFM::Util qw(:all);
+use POSIX          qw(getcwd);
 
 use strict;
 use locale;
@@ -59,12 +58,12 @@ If I<entry> is defined, the method stat_entry() is called automatically.
 =cut
 
 sub _init {
-	my ($self, %o) = @_; # ($entry, $parent, $white, $mark)
-	if (defined $o{parent}) {
-		$self->{_parent} = $o{parent};
+	my ($self, $opt) = @_;
+	if (defined $opt->{parent}) {
+		$self->{_parent} = $opt->{parent};
 	}
-	if (defined $o{entry}) {
-		$self->stat_entry($o{entry}, $o{white}, $o{mark});
+	if (defined $opt->{entry}) {
+		$self->stat_entry($opt->{entry}, $opt->{white}, $opt->{mark});
 	}
 	return;
 }
@@ -119,8 +118,43 @@ sub _decidecolor {
 ##########################################################################
 # constructor, getters and setters
 
+=item parent
+
+Getter for the path of the containing directory according to
+the bookkeeping of this file.
+
+=cut
+
+sub parent {
+	my ($self) = @_;
+	return $self->{_parent};
+}
+
 ##########################################################################
 # public subs
+
+=item makefile(string $path)
+
+Creates a App::PFM::File object for the given path.
+
+This is a factory method; it should be called as follows:
+
+    $file = App::PFM::File->makefile('/home/ruittenb/.profile');
+
+=cut
+
+sub makefile {
+	my ($self, $path) = @_;
+	my $file;
+	if ($path !~ m!^/!) {
+		$path = getcwd() . '/' . $path;
+	}
+	$file = $self->new({
+		entry  => basename($path),
+		parent => dirname($path),
+	});
+	return $file;
+}
 
 =item mode2str(int $st_mode)
 
@@ -151,7 +185,7 @@ Formats a timestamp for printing.
 sub stamp2str {
 	my ($self, $time) = @_;
 	$time ||= 0;
-	return strftime($_pfm->config->{timestampformat}, localtime $time);
+	return lstrftime($_pfm->config->{timestampformat}, localtime $time);
 }
 
 =item stat_entry(string $entry, char $iswhite, char $marked_flag)
@@ -169,7 +203,7 @@ a new directory) or kept intact (when re-statting).
 
 sub stat_entry {
 	my ($self, $entry, $iswhite, $marked_flag) = @_;
-	my ($ptr, $name_too_long, $target, @white_entries);
+	my ($ptr, $name, $name_too_long, $target, @white_entries);
 	my %filetypeflags = %{$_pfm->config->{filetypeflags}};
 	my ($device, $inode, $mode, $nlink, $uid, $gid, $rdev, $size,
 		$atime, $mtime, $ctime, $blksize, $blocks) =
@@ -184,8 +218,10 @@ sub stat_entry {
 			$mode = oct(160000);
 		}
 	}
-	$ptr = {
-		name		=> $entry,
+	$name  = $entry;
+	$ptr  = {
+		name		=> $name,
+		bytename	=> $entry,
 		uid			=> $uid,
 		gid			=> $gid,
 		user		=> find_uid($uid),
@@ -211,17 +247,14 @@ sub stat_entry {
 	@{$self}{keys %$ptr} = values %$ptr;
 
 	$self->{type} = substr($self->{mode}, 0, 1);
-	$self->{display} = $entry . $self->filetypeflag();
+	$self->{display} = $name . $self->filetypeflag();
 	if ($self->{type} eq 'l') {
 		$self->{target}  = readlink("$self->{_parent}/$entry");
-		$self->{display} = $entry . $filetypeflags{'l'}
-						. ' -> ' . $self->{target};
+		$self->{display} =
+			$name . $filetypeflags{'l'} . ' -> ' . $self->{target};
 	} elsif ($self->{type} =~ /^[bc]/o) {
 		$self->{size_num} =
 			sprintf(MAJORMINORTEMPLATE, $_pfm->os->rdev_to_major_minor($rdev));
-#	} elsif ($self->{type} eq ' ' and $self->{nlink} == 0) {
-#		# or do this using filetypeflags?
-#		$self->{display} .= LOSTMSG;
 	}
 	$self->format();
 	return $self;

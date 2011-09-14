@@ -3,10 +3,10 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.11.5
+# Version:		2.11.6
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-03-11
+# Date:			2011-03-19
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				    [ -l, --layout <number> ] [ -o, --sort <mode> ]
 #					[ -c, --colorset <mode> ]
@@ -28,13 +28,13 @@
 # version
 
 # for MakeMaker only
-our $VERSION  = '2.11.5';
+our $VERSION  = '2.11.6';
 
 =pod
 
 =for roff
 .ds Yr 2011
-.ds Vw @(#) pfm.pl 2.11.5
+.ds Vw @(#) pfm.pl 2.11.6
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -151,7 +151,7 @@ Start C<pfm> using the specified sort mode (as shown by the B<F6> command).
 =item -s, --swap I<directory>
 
 The directory that C<pfm> should initially use as swap directory. (See
-also the B<F7> command below).
+also below, under the B<F7> command).
 
 There would be no point in setting the swap directory and subsequently
 returning to the main directory if 'persistentswap' is turned off in your
@@ -745,16 +745,17 @@ variable PAGER, or with the 'pager' option in the F<.pfmrc> file.
 
 =item B<Time>
 
-Change mtime (modification date/time) of the file. The time may be entered
-either with or without clarifying interpunction (e.g. 2008-12-04 08:42.12).
-Enter B<.> to set the mtime to the current date and time.  If the current
-file does not exist in the directory (lost file or whiteout), it is
-touch(1)ed first.
+Changes mtime (modification date/time) of the file. The time may be
+entered either with or without clarifying interpunction (I<e.g.>
+2008-12-04 08:42.12).  Enter B<.> to set the mtime to the current
+date and time.  If the current file does not exist in the directory
+(lost file or whiteout), it is touch(1)ed first.
 
 =item B<User>
 
-Change ownership of a file. Note that many Unix variants do not allow normal
-(non-C<root>) users to change ownership. Symbolic links will be followed.
+Changes ownership of a file. Note that many Unix variants do not allow
+normal (non-C<root>) users to change ownership. Symbolic links will be
+followed.
 
 =item B<Version>
 
@@ -776,14 +777,22 @@ criterion. See B<I>nclude for details.
 
 =item B<Your command>
 
-Like cB<O>mmand (see above), except that it uses one-letter commands
-(case-sensitive) that have been preconfigured in the F<.pfmrc> file.
-B<Y>our commands may use B<=1> up to B<=9> and B<=e>, B<=E>, B<=p>
-and B<=v> escapes just as in cB<O>mmand, e.g.
+Like cB<O>mmand (see above), except that it uses preconfigured commands
+from the F<.pfmrc> file.  These commands are identified by a single
+letter (case-sensitive) or digit.
 
+B<Y>our command definitions may use B<=1> up to B<=9> and B<=e>,
+B<=E>, B<=p> and B<=v> escapes just as in cB<O>mmand, I<e.g.>:
+
+    your[A]:svn add =8
     your[c]:tar cvf - =2 | gzip > =2.tar.gz
     your[t]:tar tvf =2 | =p
-    your[o]:svn commit =8
+    your[1]:vimdiff =2*
+
+Navigation through the available commands works in the same way as
+for directories (see above under L</NAVIGATION>), except that B<ENTER>
+selects the highlighted command, and B<j> and B<k> select their own
+command (as do the other letters and digits).
 
 =item B<siZe>
 
@@ -829,6 +838,11 @@ Lists all the available bookmarks and asks the user in which slot the
 current directory should be bookmarked.  If the input is valid, a new
 bookmark is created in the bookmark list.
 
+Navigation through the bookmark list works in the same way as for
+directories (see above under L</NAVIGATION>), except that B<ENTER>
+selects the highlighted slot, and B<j> and B<k> select their own
+slot (as do the other letters and digits).
+
 =item B<Config pfm>
 
 This command will open the F<.pfmrc> config file with the configured
@@ -854,6 +868,8 @@ name. See also fifo(4) and mkfifo(1).
 Lists all the available bookmarks and asks the user which bookmark should
 be loaded to the current directory (and file).  If the input is valid,
 the bookmark is loaded and a chdir() is done to the directory.
+
+Navigation through the bookmark list works as noted above, under B<Bookmark>.
 
 =item B<sHell>
 
@@ -943,7 +959,7 @@ Starts a perl shell in the context of C<pfm>. Primarily used for debugging.
 
 If the current file is a directory, C<pfm> will chdir() to that directory.
 Otherwise, C<pfm> will attempt to I<launch> the file. See
-L</LAUNCHING FILES> below.
+below under L</LAUNCHING FILES>.
 
 =item B<DEL>
 

@@ -11,7 +11,7 @@
   like this.
 
 - handlecopyrename: if "overwrite?" is answered with "no", then the
-  cursor is repositioned anyway
+  cursor is repositioned anyway.
 
 - (M)ore (S)how same dir: doesn't remove marks
   -> is this due to the fact that Directory::_clone() does not clone the files?
@@ -34,28 +34,25 @@
 - maybe allow for file sizes to be displayed with thousands separator,
   e.g. 51_130_240.
 
-- locale fr_FR.utf8 makes the screen a mess, out-of-the-box
-
 - do something about "svn: write error: broken pipe" (errno 141: 128 + 13).
   keep the process running?
 
-- Browser: integrate the different choose() and browse() methods.
-- get rid of Chooser class?
 - find out if chooser objects check the 'handled' member correctly in choose()
 - find out if the browser::baseline() can miss the set_deferred_refresh that
   has been commented out.
-- move initialization of Y-command/Bookmark browser more to Chooser.
-
-- Y-chooser: don't select a Y-command if the user clicks outside the diskinfo column.
 
 - add MIME types
 
+- fix 'mouse_moves_cursor' in combination with clicks in diskinfo column.
+  Browser::Files seems to need _infocol and _infolen
+
+- add 'esc_timeout'?
+
+- BUG: on return to an instantiated bookmark, the cursor is not positioned correctly.
+- rename 'truncate' to negative formule
+
 ################################################################################
 # structural enhancements
-
-- replace max() with Scalar::Util (Util::Scalar?)
-
-- make more consistent function_call({boo => 3, foo => 4});
 
 - restructure chdir(), handleswap()/handlemoreshow()/handlemorego() etc.
 - check function of $swapping flag behavior
@@ -89,6 +86,9 @@
 
 - have a look at IPC::Run
 
+- Browser: integrate the different choose() and browse() methods.
+- get rid of Chooser class?
+
 ################################################################################
 # functional enhancements
 
@@ -106,6 +106,12 @@
 # mime types
 
 extension[*.tcl]  : application/x-tcl
+extension[*.sty]  : text/x-tex-style
+
+   .latex  -  text/x-latex
+     .tex  -  text/x-tex
+    .texi  -  text/x-texinfo
+  .texinfo -  text/x-texinfo
 
 extension[*.csh]  : application/x-csh
 extension[*.sh]   : application/x-sh
