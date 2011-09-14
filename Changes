@@ -1,3 +1,7 @@
+2.06.8-alpha
+
+* restructured frame updates
+
 2.06.7-beta
 
 * fixed bug: panning the menu in the (M)ore command now works

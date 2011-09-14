@@ -5,7 +5,8 @@
 - si(Z)e does not work correctly because a restat() is done afterwards.
   The restat() is done in File::apply().
 
-- handlecopyrename: after overwrite? -> no, then cursor is moved anyway
+- handlecopyrename: if "overwrite?" is answered with "no", then the
+  cursor is repositioned anyway
 
 - (M)ore (S)how same dir: doesn't remove marks
 
@@ -41,6 +42,16 @@
   - Browser/Bookmarks
   - Browser/YourCommands
 
+- move all OS-specific commands to OS-class:
+  old: $dfcmd = $DFCMDS{$^O}; $result = `$dfcmd \Q$path\E`;
+  new: $result = $_pfm->os->df($path);
+- move CommandHandler::_init_white_commands() to OS::_init_white_commands()
+
+- cast a critical eye on show_headings;
+  make a $frame->getheadings($headings_mode)
+
+- move CommandHandler::_listbookmarks() to Screen/Listing/Bookmarks::list()
+
 ################################################################################
 # functional enhancements
 
@@ -50,12 +61,17 @@
 
 - introduce SIGQUIT for interrupt multi?
 
+- add -s commandline option for starting with a certain sort mode
+
 ################################################################################
 # documentation enhancements
 
 - provide information about arguments.
+  use I<...> in =items.
 
-  DONE: Abstract Application Browser JobHandler State Util
+  DONE(ITALICS):
+
+  DONE(ARGS): Abstract Application Browser JobHandler State Util
 	Screen/Frame 
 
   TODO: CommandHandler Config Directory File History Screen

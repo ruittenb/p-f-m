@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.09
+# @(#) App::PFM::CommandHandler 1.11
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.09
+# Version:		1.11
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-16
+# Date:			2010-08-20
 #
 
 ##########################################################################
@@ -180,7 +180,7 @@ sub _credits {
 	my $name = $_screen->colored('bold', 'pfm');
 	my $version_message = $_pfm->{NEWER_VERSION}
 		? "A new version $_pfm->{NEWER_VERSION} is available from"
-		: "  New versions may be obtained from";
+		: "  New versions will be published on";
 	print <<"_eoCredits_";
 
 
@@ -428,7 +428,10 @@ sub _listbookmarks {
 	# headings
 	$_screen
 		->set_deferred_refresh(R_SCREEN)
-		->frame->show_bookmark_headings($_pfm->browser->swap_mode);
+		->show_frame({
+			headings => $_screen->frame->HEADING_BOOKMARKS,
+			footer => $_screen->frame->FOOTER_NONE,
+		});
 	# list bookmarks
 	foreach (@{$_pfm->BOOKMARKKEYS}) {
 		last if ($printline > $_screen->BASELINE + $_screen->screenheight);
@@ -502,13 +505,13 @@ sub alphabetically {
 }
 
 
-=item escape_middle()
+=item escape_midway()
 
 Sorting routine: sorts digits E<lt> escape character E<lt> letters.
 
 =cut
 
-sub escape_middle {
+sub escape_midway {
 	# the sorting of the backslash appears to be locale-dependant
 	my $e = $_pfm->config->{e};
 	if ($a eq "$e$e" && $b =~ /\d/) {
@@ -962,12 +965,13 @@ sub handlequit {
 	return 'quit' if $key eq 'Q'; # quick quit
 	return 'quit' if
 		($confirmquit =~ /marked/i and !$_screen->diskinfo->mark_info);
-	$_screen->clear_footer()
-		->at(0,0)->clreol()
-		->putmessage('Are you sure you want to quit [Y/N]? ');
+	$_screen->show_frame({
+			footer => $_screen->frame->FOOTER_NONE,
+			prompt => 'Are you sure you want to quit [Y/N]? '
+	});
 	my $sure = $_screen->getch();
 	return 'quit' if ($sure =~ /y/i);
-	$_screen->set_deferred_refresh(R_MENU);
+	$_screen->set_deferred_refresh(R_MENU | R_FOOTER);
 	return 0;
 }
 
@@ -983,6 +987,7 @@ sub handleperlcommand {
 	# for ease of use when debugging
 	my $screen         = $_screen;
 	my $listing        = $screen->listing;
+	my $frame          = $screen->frame;
 	my $config         = $_pfm->config;
 	my $browser        = $_pfm->browser;
 	my $currentfile    = $browser->currentfile;
@@ -993,9 +998,11 @@ sub handleperlcommand {
 	my $history        = $_pfm->history;
 	# now do!
 	$_screen->listing->markcurrentline('@'); # disregard multiple_mode
-	$_screen->clear_footer()
-		->at(0,0)->clreol()->putmessage('Enter Perl command:')
-		->at($_screen->PATHLINE,0)->clreol()->cooked_echo();
+	$_screen->show_frame({
+			footer => $_screen->frame->FOOTER_NONE,
+			prompt => 'Enter Perl command:'
+	});
+	$_screen->at($_screen->PATHLINE,0)->clreol()->cooked_echo();
 	$perlcmd = $_pfm->history->input(H_PERLCMD);
 	$_screen->raw_noecho();
 	eval $perlcmd;
@@ -1208,16 +1215,17 @@ sub handlelink {
 	my @lncmd = $self->{_clobber_mode} ? qw(ln -f) : qw(ln);
 	
 	if ($_pfm->state->{multiple_mode}) {
-		$_screen->set_deferred_refresh(R_MENU | R_DIRLIST);
+		$_screen->set_deferred_refresh(R_FRAME | R_DIRLIST);
 	} else {
-		$_screen->set_deferred_refresh(R_MENU);
+		$_screen->set_deferred_refresh(R_FRAME);
 		$_screen->listing->markcurrentline('L');
 		$histpush = $_pfm->browser->currentfile->{name};
 	}
 	
-	$_screen->clear_footer();
-	$headerlength = $_screen->frame->show_menu($_screen->frame->MENU_LNKTYPE);
-	$absrel = lc $_screen->at(0, $headerlength+1)->getch();
+	$headerlength = $_screen->show_frame({
+		menu => $_screen->frame->MENU_LNKTYPE,
+	});
+	$absrel = $_screen->at(0, $headerlength+1)->getch();
 	return unless $absrel =~ /^[arh]$/;
 	push @lncmd, '-s' if $absrel !~ /h/;
 	
@@ -1299,9 +1307,11 @@ sub handlesort {
 	my $frame     = $_screen->frame;
 	my %sortmodes = @SORTMODES;
 	my ($i, $key, $menulength);
-	$menulength = $frame->show_menu($frame->MENU_SORT);
-	$frame->show_headings($_pfm->browser->swap_mode, $frame->HEADING_SORT);
-	$_screen->frame->clear_footer();
+	$menulength = $frame->show({
+		menu     => $frame->MENU_SORT,
+		footer   => $frame->FOOTER_NONE,
+		headings => $frame->HEADING_SORT,
+	});
 	$_screen->diskinfo->clearcolumn();
 	# we can't use foreach (keys %sortmodes) because we would lose ordering
 	foreach (grep { ($i += 1) %= 2 } @SORTMODES) { # keep keys, skip values
@@ -1354,7 +1364,6 @@ sub handlename {
 	my $trspace     = $_pfm->config->{trspace};
 	my ($line, $linecolor);
 	$_screen->listing->markcurrentline('N'); # disregard multiple_mode
-#	$_screen->clear_footer();
 	for ($workfile->{name}, $workfile->{target}) {
 		s/\\/\\\\/;
 		s{([${trspace}\177[:cntrl:]]|[^[:ascii:]])}
@@ -1371,7 +1380,6 @@ sub handlename {
 		$screenline, $_screen->listing->FILENAME_LONG, $workfile);
 	if ($_screen->noecho()->getch() eq '*') {
 		$self->handleradix();
-		$_screen->frame->show_footer();
 		$_screen->echo()->at($screenline, $filenamecol)
 			->puts(' ' x length $line);
 		goto &handlename;
@@ -1693,21 +1701,23 @@ sub handleinclude { # include/exclude flag (from keypress)
 	my ($criterion, $menulength, $key, $wildfilename, $entry, $i,
 		$boundarytime, $boundarysize);
 	$exin = lc $exin;
-	$_screen->clear_footer()
-		->set_deferred_refresh(R_MENU | R_PATHINFO | R_DISKINFO)
-		->diskinfo->clearcolumn();
-	$_screen->frame->show_headings(
-		$_pfm->browser->swap_mode, $_screen->frame->HEADING_CRITERIA);
+	$_screen->diskinfo->clearcolumn();
 	# we can't use foreach (keys %mark_criteria) because we would lose ordering
 	foreach (grep { ($i += 1) %= 2 } @INC_CRITERIA) { # keep keys, skip values
 		last if ($printline > $_screen->BASELINE + $_screen->screenheight);
 		$_screen->at($printline++, $infocol)
 			->puts(sprintf('%1s %s', $_, $inc_criteria{$_}));
 	}
-	$menulength = $_screen->frame->show_menu(
-		$exin eq 'x'
+	my $menu_mode = $exin eq 'x'
 		? $_screen->frame->MENU_EXCLUDE
-		: $_screen->frame->MENU_INCLUDE);
+		: $_screen->frame->MENU_INCLUDE;
+	$menulength = $_screen
+		->set_deferred_refresh(R_FRAME | R_PATHINFO | R_DISKINFO)
+		->show_frame({
+			menu => $menu_mode,
+			footer => $_screen->frame->FOOTER_NONE,
+			headings => $_screen->frame->HEADING_CRITERIA
+		});
 	$key = lc $_screen->at(0, $menulength+1)->getch();
 	if      ($key eq 'o') { # oldmarks
 		$criterion = sub { my $file = shift; $file->{selected} eq M_OLDMARK };
@@ -1901,14 +1911,12 @@ sub handlecommand { # Y or O
 	my $infolength = $_screen->diskinfo->infolength;
 	my $e          = $_pfm->config->{e};
 	my ($command, $do_this, $prompt, $printstr, $newdir);
-	my $messcolor = $_pfm->config->{framecolors}{$_screen->color_mode}{message};
 	unless ($_pfm->state->{multiple_mode}) {
 		$_screen->listing->markcurrentline(uc $key);
 	}
-	$_screen->clear_footer()->diskinfo->clearcolumn();
+	$_screen->diskinfo->clearcolumn();
 	if (uc($key) eq 'Y') { # Your command
-		$_screen->frame->show_headings(
-			$_pfm->browser->swap_mode, $_screen->frame->HEADING_YCOMMAND);
+		$prompt = 'Enter one of the highlighted characters below: ';
 		foreach (sort alphabetically $_pfm->config->your_commands) {
 			last if ($printline > $_screen->BASELINE + $_screen->screenheight);
 			$printstr = $_pfm->config->pfmrc()->{$_};
@@ -1918,28 +1926,34 @@ sub handlecommand { # Y or O
 						substr($_,5,1),
 						substr($printstr,0,$infolength-2)));
 		}
-		$prompt = 'Enter one of the highlighted characters below: ';
-		$key = $_screen->at(0,0)->clreol()
-			->putcolored($messcolor, $prompt)->getch();
+		$_screen->show_frame({
+			headings => $_screen->frame->HEADING_YCOMMAND,
+			footer => $_screen->frame->FOOTER_NONE,
+			prompt => $prompt,
+		});
+		$key = $_screen->getch();
 		$_screen->diskinfo->clearcolumn()
 			->set_deferred_refresh(R_DISKINFO | R_FRAME);
 		# next line contains an assignment on purpose
 		return unless $command = $_pfm->config->pfmrc()->{"your[$key]"};
 		$_screen->cooked_echo();
 	} else { # cOmmand
-		$_screen->frame->show_headings(
-			$_pfm->browser->swap_mode, $_screen->frame->HEADING_ESCAPE)
-			->set_deferred_refresh(R_DISKINFO);
-		foreach (sort escape_middle keys %CMDESCAPES, $e) {
+		$prompt =
+			"Enter Unix command ($e"."[1-8] or $e"."[epv] escapes see below):";
+		foreach (sort escape_midway keys %CMDESCAPES, $e) {
 			if ($printline <= $_screen->BASELINE + $_screen->screenheight) {
 				$_screen->at($printline++, $infocol)
 					->puts(sprintf(' %1s%1s %s', $e, $_,
 							$CMDESCAPES{$_} || "literal $e"));
 			}
 		}
-		$prompt =
-			"Enter Unix command ($e"."[1-8] or $e"."[epv] escapes see below):";
-		$_screen->at(0,0)->clreol()->putcolored($messcolor, $prompt)
+		$_screen->show_frame({
+			menu => $_screen->frame->MENU_NONE,
+			footer => $_screen->frame->FOOTER_NONE,
+			headings => $_screen->frame->HEADING_ESCAPE,
+		});
+		$_screen->set_deferred_refresh(R_DISKINFO);
+		$_screen->at(0,0)->clreol()->putmessage($prompt)
 			->at($_screen->PATHLINE,0)->clreol()
 			->cooked_echo();
 		$command = $_pfm->history->input(H_COMMAND, '');
@@ -1993,21 +2007,19 @@ sub handleprint {
 	my ($do_this, $command);
 	my $prompt = 'Enter print command: ';
 	my $printcmd = $_pfm->config->{printcmd};
-	my $messcolor = $_pfm->config->{framecolors}{$_screen->color_mode}{message};
-	if ($_pfm->state->{multiple_mode}) {
-		#$_screen->set_deferred_refresh(R_MENU | R_PATHINFO | R_DIRLIST);
-	} else {
-		#$_screen->set_deferred_refresh(R_MENU | R_PATHINFO);
+	if (!$_pfm->state->{multiple_mode}) {
 		$_screen->listing->markcurrentline('P');
 	}
-	$_screen->clear_footer()->at(0,0)->clreol()
-		->putcolored($messcolor, $prompt)
-		->at($_screen->PATHLINE, 0)->clreol()
+	$_screen->show_frame({
+		footer => $_screen->frame->FOOTER_NONE,
+		prompt => $prompt,
+	});
+	$_screen->at($_screen->PATHLINE, 0)->clreol()
 		->cooked_echo();
 	$command = $_pfm->history->input(H_COMMAND,'', $printcmd, undef, $printcmd);
 	$_screen->raw_noecho();
 	if ($command eq '') {
-		$_screen->set_deferred_refresh(R_FRAME | R_DISKINFO);
+		$_screen->set_deferred_refresh(R_FRAME | R_DISKINFO | R_PATHINFO);
 		return;
 	}
 	#$_screen->alternate_off()->clrscr()->at(0,0);
@@ -2043,9 +2055,11 @@ sub handledelete {
 		$_screen->listing->markcurrentline('D');
 	}
 	if ($_pfm->state->{multiple_mode} or $browser->currentfile->{nlink}) {
-		$_screen->clear_footer()->at(0,0)->clreol()
-			->set_deferred_refresh(R_MENU | R_FOOTER)
-			->putmessage('Are you sure you want to delete [Y/N]? ');
+		$_screen->set_deferred_refresh(R_MENU | R_FOOTER)
+			->show_frame({
+				footer => $_screen->frame->FOOTER_NONE,
+				prompt => 'Are you sure you want to delete [Y/N]? ',
+			});
 		$sure = $_screen->getch();
 		return if $sure !~ /y/i;
 	}
@@ -2411,10 +2425,14 @@ sub handlemore {
 	my $frame  = $_screen->frame;
 	my $oldpan = $frame->currentpan();
 	$frame->currentpan(0);
-	my $headerlength = $frame->show_menu($frame->MENU_MORE);
 	my $key;
-	$_screen->clear_footer()->noecho()
-		->set_deferred_refresh(R_MENU);
+#	$_screen->clear_footer()->noecho()
+#		->set_deferred_refresh(R_MENU);
+	my $headerlength = $_screen->noecho()->set_deferred_refresh(R_MENU)
+		->show_frame({
+			footer => $frame->FOOTER_NONE,
+			menu   => $frame->MENU_MORE,
+		});
 	MORE_PAN: {
 		$key = $_screen->at(0, $headerlength+1)->getch();
 		for ($key) {
@@ -2574,16 +2592,15 @@ Creates a bookmark to the current directory.
 sub handlemorebookmark {
 	my ($self) = @_;
 	my $browser   = $_pfm->browser;
-	my $messcolor =
-		$_pfm->config->{framecolors}{$_screen->color_mode}{message};
 	my ($dest, $key, $prompt);# , $destfile
 	# the footer has already been cleared by handlemore()
 	# choice
 	$self->_listbookmarks();
-	$prompt = 'Bookmark under which letter? ';
-	$key = $_screen->clear_footer()
-		->at(0,0)->clreol()
-		->putcolored($messcolor, $prompt)->getch();
+	$_screen->show_frame({
+		footer => $_screen->frame->FOOTER_NONE,
+		prompt => 'Bookmark under which letter? ',
+	});
+	$key = $_screen->getch();
 	return if $key eq "\r";
 	# process key
 	if ($key !~ /^[a-zA-Z]$/) {
@@ -2607,8 +2624,6 @@ jump to one of them.
 sub handlemorego {
 	my ($self) = @_;
 	my $browser   = $_pfm->browser;
-	my $messcolor =
-		$_pfm->config->{framecolors}{$_screen->color_mode}{message};
 	my ($dest, $key, $prompt, $destfile, $success,
 		$prevdir, $prevstate, $chdirautocmd);
 	# the footer has already been cleared by handlemore()
@@ -2616,7 +2631,7 @@ sub handlemorego {
 	# choice
 	$prompt = 'Go to which bookmark? ';
 	$key = $_screen->at(0,0)->clreol()
-		->putcolored($messcolor, $prompt)->getch();
+		->putmessage($prompt)->getch();
 	return if $key eq "\r";
 	$dest = $_pfm->state($key);
 	if ($dest eq '') {

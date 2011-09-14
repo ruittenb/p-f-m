@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.06.7
+# @(#) App::PFM::Application 2.06.8
 #
 # Name:			App::PFM::Application
-# Version:		2.06.7
+# Version:		2.06.8
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-08-21
@@ -37,13 +37,14 @@ require 5.008;
 
 use base 'App::PFM::Abstract';
 
-use App::PFM::State;
-use App::PFM::Config;
-use App::PFM::Screen;
 use App::PFM::Browser;
 use App::PFM::CommandHandler;
+use App::PFM::Config;
 use App::PFM::History;
 use App::PFM::JobHandler;
+#use App::PFM::OS;
+use App::PFM::Screen;
+use App::PFM::State;
 use Getopt::Long;
 use Cwd;
 
@@ -55,7 +56,8 @@ use constant BOOKMARKKEYS => [qw(
 	A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
 )];
 
-our ($_browser, $_screen, $_commandhandler, $_config, $_history, $_jobhandler);
+our ($_os, $_config, $_browser, $_screen, $_commandhandler, $_history,
+	$_jobhandler);
 
 ##########################################################################
 # private subs
@@ -72,6 +74,7 @@ sub _init {
 	$self->{NEWER_VERSION} = '';
 	$self->{_bootstrapped} = 0;
 	$self->{_states}       = {};
+#	$_os                   = new App::PFM::OS();
 }
 
 =item _findversionfromfile()
@@ -218,6 +221,10 @@ Getter for the App::PFM::History object.
 
 Getter for the App::PFM::JobHandler object.
 
+=item os()
+
+Getter for the App::PFM::OS object.
+
 =item screen()
 
 Getter for the App::PFM::Screen object.
@@ -251,6 +258,10 @@ sub history {
 
 sub jobhandler {
 	return $_jobhandler;
+}
+
+sub os {
+	return $_os;
 }
 
 sub screen {
