@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Directory 0.90
+# @(#) App::PFM::Directory 0.91
 #
 # Name:			App::PFM::Directory
-# Version:		0.90
+# Version:		0.91
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-07
+# Date:			2010-09-13
 #
 
 ##########################################################################
@@ -94,19 +94,21 @@ our ($_pfm);
 ##########################################################################
 # private subs
 
-=item _init(App::PFM::Application $pfm [, App::PFM::Screen $screen
-[, App::PFM::Config $config [, App::PFM::OS $os [, string $path ] ] ] ] )
+=item _init(App::PFM::Application $pfm, App::PFM::Screen $screen,
+App::PFM::Config $config, App::PFM::OS $os, App::PFM::JobHandler $jobhandler,
+string $path)
 
 Initializes new instances. Called from the constructor.
 
 =cut
 
 sub _init {
-	my ($self, $pfm, $screen, $config, $os, $path) = @_;
+	my ($self, $pfm, $screen, $config, $os, $jobhandler, $path) = @_;
 	$_pfm					 = $pfm;
 	$self->{_screen}         = $screen;
 	$self->{_config}         = $config;
 	$self->{_os}             = $os;
+	$self->{_jobhandler}     = $jobhandler;
 	$self->{_path}			 = $path;
 	$self->{_rcsjob}		 = undef;
 	$self->{_wasquit}		 = undef;
@@ -144,18 +146,18 @@ Dotdot mode is taken into account.
 =cut
 
 sub _by_sort_mode {
-	# note: called directly (not OO-like)
-	if ($_pfm->config->{dotdot_mode}) {
+	my ($self) = @_;
+	if ($self->{_config}->{dotdot_mode}) {
 		# Oleg Bartunov requested to have . and .. unsorted (always at the top)
 		if    ($a->{name} eq '.' ) { return -1 }
 		elsif ($b->{name} eq '.' ) { return  1 }
 		elsif ($a->{name} eq '..') { return -1 }
 		elsif ($b->{name} eq '..') { return  1 }
 	}
-	return _sort_multilevel($_pfm->state->sort_mode, $a, $b);
+	return $self->_sort_multilevel($_pfm->state->sort_mode);
 }
 
-=item _sort_multilevel(string $sort_mode, App::PFM::File $a, App::PFM::File $b)
+=item _sort_multilevel(string $sort_mode)
 
 Recursively sorts two directory entries according to the selected
 sort mode string (multilevel).
@@ -163,15 +165,14 @@ sort mode string (multilevel).
 =cut
 
 sub _sort_multilevel {
-	# note: called directly (not OO-like)
-	my ($sort_mode, $a, $b) = @_;
+	my ($self, $sort_mode) = @_;
 	return 0 unless length $sort_mode;
 	return
-		_sort_singlelevel(substr($sort_mode, 0, 1), $a, $b) ||
-		_sort_multilevel( substr($sort_mode, 1),    $a, $b);
+		$self->_sort_singlelevel(substr($sort_mode, 0, 1)) ||
+		$self->_sort_multilevel( substr($sort_mode, 1));
 }
 
-=item _sort_singlelevel(char $sort_mode, App::PFM::File $a, App::PFM::File $b)
+=item _sort_singlelevel(char $sort_mode)
 
 Sorts two directory entries according to the selected sort mode
 character (one level).
@@ -179,8 +180,7 @@ character (one level).
 =cut
 
 sub _sort_singlelevel {
-	# note: called directly (not OO-like)
-	my ($sort_mode, $a, $b) = @_;
+	my ($self, $sort_mode) = @_;
 	my ($exta, $extb);
 	for ($sort_mode) {
 		/n/  and return		$a->{name}		cmp		$b->{name};
@@ -352,7 +352,8 @@ Sorts the directory's contents according to the selected sort mode.
 
 sub _sortcontents {
 	my ($self) = @_;
-	@{$self->{_dircontents}} = sort _by_sort_mode @{$self->{_dircontents}};
+	@{$self->{_dircontents}} =
+		sort { $self->_by_sort_mode } @{$self->{_dircontents}};
 }
 
 =item _filtercontents()
@@ -862,10 +863,10 @@ sub checkrcsapplicable {
 			if (defined $self->{_rcsjob}) {
 				# The previous job did not yet finish.
 				# Kill it and run the command for the entire directory.
-				$_pfm->jobhandler->stop($self->{_rcsjob});
+				$self->{_jobhandler}->stop($self->{_rcsjob});
 				$entry = $path;
 			}
-			$self->{_rcsjob} = $_pfm->jobhandler->start($class, $entry, {
+			$self->{_rcsjob} = $self->{_jobhandler}->start($class, $entry, {
 				after_job_start			=> $on_after_job_start,
 				after_job_receive_data	=> $on_after_job_receive_data,
 				after_job_finish		=> $on_after_job_finish,

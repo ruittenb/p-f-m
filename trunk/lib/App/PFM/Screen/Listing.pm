@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Listing 1.06
+# @(#) App::PFM::Screen::Listing 1.07
 #
 # Name:			App::PFM::Screen::Listing
-# Version:		1.06
+# Version:		1.07
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-04
+# Date:			2010-09-13
 #
 
 ##########################################################################
@@ -130,16 +130,18 @@ sub _validate_layoutnum {
 	return $num;
 }
 
-=item _highlightline(bool $onoff)
+=item _highlightline(bool $onoff [, int $currentline,
+App::PFM::File $currentfile ] )
 
 Turns highlight on/off on the line with the cursor.
 
 =cut
 
 sub _highlightline {
-	my ($self, $onoff) = @_;
-	my $screenline  = $_pfm->browser->currentline + $_screen->BASELINE;
-	my $currentfile = $_pfm->browser->currentfile;
+	my ($self, $onoff, $currentline, $currentfile) = @_;
+	$currentfile  ||= $_pfm->browser->currentfile;
+	my $screenline  = $currentline || $_pfm->browser->currentline;
+	$screenline    += $_screen->BASELINE;
 	my $linecolor;
 	$_screen->at($screenline, $self->{_filerecordcol});
 	if ($onoff) {
@@ -325,20 +327,22 @@ sub maxgrandtotallength {
 ##########################################################################
 # public subs
 
-=item highlight_off()
+=item highlight_off( [ int $currentline, App::PFM::File $currentfile ] )
 
-=item highlight_on()
+=item highlight_on( [ int $currentline, App::PFM::File $currentfile ] )
 
 Turns highlight on/off on the line with the cursor.
 
 =cut
 
 sub highlight_off {
-	$_[0]->_highlightline(FALSE);
+	my ($self, @args) = @_;
+	$self->_highlightline(FALSE, @args);
 }
 
 sub highlight_on {
-	$_[0]->_highlightline(TRUE);
+	my ($self, @args) = @_;
+	$self->_highlightline(TRUE, @args);
 }
 
 =item select_next_layout()
@@ -349,7 +353,7 @@ Switch the directory listing to the next configured layout.
 
 sub select_next_layout {
 	my ($self) = @_;
-	return $_[0]->layout($self->{_layout} + 1);
+	return $self->layout($self->{_layout} + 1);
 }
 
 =item show()

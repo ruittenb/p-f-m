@@ -61,8 +61,9 @@ use constant SORTMODES => [
 ##########################################################################
 # private subs
 
-=item _init(App::PFM::Application $pfm [, App::PFM::Screen $screen
-[, App::PFM::Config $config [, App::PFM::OS $os [, string $path ] ] ] ] )
+=item _init(App::PFM::Application $pfm, App::PFM::Screen $screen,
+App::PFM::Config $config, App::PFM::OS $os, App::PFM::JobHandler $jobhandler,
+string $path)
 
 Initializes new instances. Called from the constructor.
 Instantiates a App::PFM::Directory object.
@@ -70,12 +71,12 @@ Instantiates a App::PFM::Directory object.
 =cut
 
 sub _init {
-	my ($self, $pfm, $screen, $config, $os, $path) = @_;
+	my ($self, $pfm, $screen, $config, $os, $jobhandler, $path) = @_;
 	$self->{_screen}        = $screen;
 	$self->{_config}        = $config;
 	$self->{_os}            = $os;
 	$self->{_directory}		= new App::PFM::Directory(
-		$pfm, $screen, $config, $os, $path);
+		$pfm, $screen, $config, $os, $jobhandler, $path);
 	# We might not have useful values for these yet since the config file
 	# might not have been read yet.
 	$self->{_position}		= undef;
