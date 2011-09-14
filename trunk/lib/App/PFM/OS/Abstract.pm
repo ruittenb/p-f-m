@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::OS::Abstract 0.19
+# @(#) App::PFM::OS::Abstract 0.20
 #
 # Name:			App::PFM::OS::Abstract
-# Version:		0.19
+# Version:		0.20
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-20
-# Date:			2010-11-23
+# Date:			2011-03-19
 #
 
 ##########################################################################
@@ -80,7 +80,7 @@ Called from _init().
 sub _init_white_commands {
 	my ($self) = @_;
 	my $listwhite_cmd = '';
-	my @unwo_cmd  = ();
+	my @unwo_cmd      = ();
 	foreach (split /:/, $ENV{PATH}) {
 		if (!$listwhite_cmd) {
 			if (-f "$_/listwhite") {
@@ -101,7 +101,7 @@ sub _init_white_commands {
 		@unwo_cmd = qw(rm -W);
 	}
 	$self->{_listwhite_cmd} = $listwhite_cmd;
-	$self->{_unwo_cmd}  = [ @unwo_cmd ];
+	$self->{_unwo_cmd}      = [ @unwo_cmd ];
 	return;
 }
 

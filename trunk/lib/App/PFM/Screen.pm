@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen 0.52
+# @(#) App::PFM::Screen 0.54
 #
 # Name:			App::PFM::Screen
-# Version:		0.52
+# Version:		0.54
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-03-13
+# Date:			2011-03-28
 # Requires:		Term::ScreenColor
 #
 
@@ -39,7 +39,7 @@ use base qw(App::PFM::Abstract Term::ScreenColor Exporter);
 
 use App::PFM::Screen::Listing;
 use App::PFM::Screen::Diskinfo qw(:constants);  # imports the LINE_* constants
-use App::PFM::Screen::Frame    qw(:constants);  # imports the MENU_*, HEADER_*
+use App::PFM::Screen::Frame    qw(:constants);  # imports the MENU_*, HEADING_*
 												#         and FOOTER_* constants
 use App::PFM::Util qw(fitpath max);
 use App::PFM::Event;
@@ -71,7 +71,7 @@ use constant {
 	BASELINE		=> 3,
 	R_NOP			=> 0,	 # no action was required, wait for new key
 	R_STRIDE		=> 1,	 # validate cursor position (always done)
-	R_MENU			=> 2,	 # reprint the menu (header)
+	R_MENU			=> 2,	 # reprint the menu
 	R_PATHINFO		=> 4,	 # reprint the pathinfo
 	R_HEADINGS		=> 8,	 # reprint the headings
 	R_FOOTER		=> 16,	 # reprint the footer
@@ -783,13 +783,13 @@ Redisplays the headings if they have been flagged as 'needs to be redrawn'.
 
 sub refresh_headings {
 	my ($self) = @_;
-	my $headertype = HEADING_DISKINFO;
+	my $headingtype = HEADING_DISKINFO;
 	if ($self->{_deferred_refresh} & R_HEADINGS) {
 		if ($self->{_chooser}) {
-			$headertype = $self->{_chooser}->HEADERTYPE;
+			$headingtype = $self->{_chooser}->HEADINGTYPE;
 		}
 		$self->{_frame}->show_headings(
-			$_pfm->browser->swap_mode, $headertype);
+			$_pfm->browser->swap_mode, $headingtype);
 		$self->{_deferred_refresh} &= ~R_HEADINGS;
 	}
 	return $self;
@@ -806,7 +806,7 @@ sub refresh {
 	my $browser          = $_pfm->browser;
 	my $chooser          = $self->{_chooser};
 	my $deferred_refresh = $self->{_deferred_refresh};
-	my $headertype       = HEADING_DISKINFO;
+	my $headingtype      = HEADING_DISKINFO;
 	my $footertype       = undef;
 	my $prompt           = $chooser ? $chooser->prompt : undef;
 	
@@ -870,10 +870,10 @@ sub refresh {
 	}
 	if ($deferred_refresh & R_HEADINGS) {
 		if ($chooser) {
-			$headertype = $chooser->HEADERTYPE;
+			$headingtype = $chooser->HEADINGTYPE;
 		}
 		$self->{_frame}->show_headings(
-			$_pfm->browser->swap_mode, $headertype);
+			$_pfm->browser->swap_mode, $headingtype);
 	}
 	if ($deferred_refresh & R_FOOTER) {
 		if ($chooser) {
@@ -965,6 +965,9 @@ sub on_after_parse_config {
 		$keydefs .= ':' . $pfmrc->{"keydef[$ENV{TERM}]"};
 	}
 	$keydefs =~ s/(\\e|\^\[)/\e/gi;
+	#if defined ($self->{_config}{esc_timeout}) {
+	#	$this->timeout($self->{_config}{esc_timeout});
+	#}
 	# there can be no colons (:) in escape sequences
 	foreach (split /:/, $keydefs) {
 		/^(\w+)=(.*)/ and $self->def_key($1, $2);

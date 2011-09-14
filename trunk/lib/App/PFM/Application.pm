@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.11.5
+# @(#) App::PFM::Application 2.11.6
 #
 # Name:			App::PFM::Application
-# Version:		2.11.5
+# Version:		2.11.6
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-03-17
+# Date:			2011-03-25
 #
 
 ##########################################################################
@@ -54,7 +54,7 @@ use Cwd;
 use locale;
 use strict;
 
-our $VERSION  = '2.11.5';
+our $VERSION  = '2.11.6';
 our $LASTYEAR = 2011;
 
 ##########################################################################
@@ -418,8 +418,12 @@ sub state {
 	$index ||= 'S_MAIN';
 	if (defined $value) {
 		# do not explicitly check if the index is defined:
-		# S_SWAP is not present in the states array
+		# S_SWAP is not present in the bookmarkkeys array
 		$self->{_states}{$index} = $value;
+		# propagate the change to the browser as soon as possible
+		if ($index eq 'S_MAIN') {
+			$self->{_browser}->main_state($value);
+		}
 	}
 	return $self->{_states}{$index};
 }
@@ -480,6 +484,10 @@ Swaps two state objects in the hash %_states.
 sub swap_states {
 	my ($self, $first, $second) = @_;
 	@{$self->{_states}}{$first, $second} = @{$self->{_states}}{$second, $first};
+	# propagate the change to the browser as soon as possible
+	if ($first eq 'S_MAIN' or $second eq 'S_MAIN') {
+		$self->{_browser}->main_state($self->{_states}{S_MAIN});
+	}
 	return;
 }
 

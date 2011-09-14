@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Browser::Files 0.11
+# @(#) App::PFM::Browser::Files 0.12
 #
 # Name:			App::PFM::Browser::Files
-# Version:		0.11
+# Version:		0.12
 # Author:		Rene Uittenbogaard
 # Created:		2010-11-29
-# Date:			2011-03-12
+# Date:			2011-03-28
 #
 
 ##########################################################################
@@ -295,8 +295,11 @@ sub handle_non_motion_input {
 	my $res          = {};
 	if ($event->{type} eq 'mouse') {
 		if ($event->{mouserow} >= $BASELINE and
-			$event->{mouserow} <= $BASELINE + $screenheight)
-		{
+			$event->{mouserow} <= $BASELINE + $screenheight
+#			and
+#			$event->{mousecol} >= $self->{_itemcol} and
+#			$event->{mousecol} <  $self->{_itemcol} + $self->{_itemlen}
+		) {
 			# potentially on a fileline (might be diskinfo column though)
 			$event->{mouseitem} = ${$self->browselist}[
 				$self->{_baseindex} + $event->{mouserow} - $BASELINE
@@ -316,6 +319,12 @@ sub handle_non_motion_input {
 		$event->{data} eq ' ')
 	{
 		$res->{handled} = $self->handlemove($event->{data});
+	}
+	if ($event->{type} eq 'mouse' and
+		defined($event->{mouseitem}) and
+		$self->{_config}{mouse_moves_cursor})
+	{
+		$self->{_currentline} = $event->{mouserow} - $BASELINE;
 	}
 	return $res;
 }

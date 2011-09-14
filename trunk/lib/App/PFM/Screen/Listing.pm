@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Listing 1.12
+# @(#) App::PFM::Screen::Listing 1.13
 #
 # Name:			App::PFM::Screen::Listing
-# Version:		1.12
+# Version:		1.13
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-12-11
+# Date:			2011-03-20
 #
 
 ##########################################################################
@@ -20,7 +20,7 @@ App::PFM::Screen::Listing
 
 =head1 DESCRIPTION
 
-PFM class for displaying a App::PFM::Directory object on the screen.
+PFM class for displaying an App::PFM::Directory object on the screen.
 
 =head1 METHODS
 
@@ -35,7 +35,7 @@ package App::PFM::Screen::Listing;
 
 use base 'App::PFM::Abstract';
 
-use App::PFM::Util qw(formatted);
+use App::PFM::Util qw(formatted maxdatetimelen);
 
 use locale;
 use strict;
@@ -135,7 +135,8 @@ sub _highlightline {
 	my ($self, $onoff, $currentline, $currentfile) = @_;
 	my $screen = $self->{_screen};
 	$currentfile  ||= $_pfm->browser->currentfile;
-	my $screenline  = $currentline || $_pfm->browser->currentline;
+	my $screenline  = defined($currentline)
+		? $currentline : $_pfm->browser->currentline;
 	$screenline    += $screen->BASELINE;
 	my $linecolor;
 	$screen->at($screenline, $self->{_filerecordcol});
@@ -540,11 +541,31 @@ formatline which can be used with the formline() function.
 
 sub makeformatlines {
 	my ($self) = @_;
-	my ($squeezedlayoutline, $prev, $trans, $temp,
-		$infocol, $infolength);
+	my ($squeezedlayoutline, $prev, $trans, $temp, $infocol, $infolength,
+		$maxdatetimelen, %timestampcharcount, $lendiff);
 	my $currentlayoutline = $self->get_first_valid_layout();
-	# the filename field has been adjusted in currentlayoutline()
-	# find out the length of the filename, filesize, grand total and info fields
+	# determine the correct width of the timestamp fields if we cannot
+	# truncate them.
+	if (!$self->{_config}{timestamptruncate}) {
+		# calculate needed width (maximum needed by locale)
+		$maxdatetimelen = maxdatetimelen($self->{_config}{timestampformat});
+		# available field widths
+		$timestampcharcount{'a'} = $currentlayoutline =~ tr/a//;
+		$timestampcharcount{'c'} = $currentlayoutline =~ tr/c//;
+		$timestampcharcount{'m'} = $currentlayoutline =~ tr/m//;
+		for my $field (qw(a c m)) {
+			# if field is present, but is too short, make adjustments
+			if ($timestampcharcount{$field} and
+				$maxdatetimelen > $timestampcharcount{$field}
+			) {
+				$lendiff = $maxdatetimelen - $timestampcharcount{$field} + 1;
+				$currentlayoutline =~ s/n{$lendiff}/n/; # remove 'n'
+				$currentlayoutline =~ s/$field/$field x $lendiff/e;
+			}
+		}
+	}
+	# The filename field has been adjusted in currentlayoutline(). Find out
+	# the length of the filename, filesize, grand total and info fields.
 	$self->{_screen}
 		->diskinfo->infolength($infolength = $currentlayoutline =~ tr/f//);
 	$self->{_maxfilenamelength}   = ($currentlayoutline =~ tr/n//);

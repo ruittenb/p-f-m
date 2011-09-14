@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Util 0.57
+# @(#) App::PFM::Util 0.58
 #
 # Name:			App::PFM::Util
-# Version:		0.57
+# Version:		0.58
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-03-13
+# Date:			2011-03-20
 #
 
 ##########################################################################
@@ -36,11 +36,11 @@ package App::PFM::Util;
 
 use base 'Exporter';
 
-use POSIX qw(mktime);
-use Carp;
-
 use strict;
 use locale;
+
+use POSIX qw(mktime strftime);
+use Carp;
 
 use constant ELLIPSIS => '..'; # path ellipsis string
 
@@ -50,7 +50,8 @@ our %EXPORT_TAGS = (
 		formatted time2str fit2limit canonicalize_path reducepaths
 		reversepath isorphan ifnotdefined setifnotdefined clearugidcache
 		find_uid find_gid condquotemeta touch2time testdirempty fitpath
-		alphabetically letters_then_numbers by_name
+		alphabetically letters_then_numbers by_name lstrftime
+		maxdatetimelen
 	) ]
 );
 
@@ -187,7 +188,9 @@ Returns a line that has been formatted using Perl formatting algorithm.
 =cut
 
 sub formatted {
+#	local *STDOUT;
 	local $^A = '';
+#	binmode(STDOUT, ':utf8'); # experimental
 	formline(shift, @_);
 	return $^A;
 }
@@ -286,7 +289,7 @@ sub reducepaths {
 	my ($symlink_target_abs, $symlink_name_abs) = @_;
 	my $subpath;
 	while (($subpath) = ($symlink_target_abs =~ m!^(/[^/]+)(?:/|$)!)
-	and index($symlink_name_abs, $subpath) == 0)
+		and index($symlink_name_abs, $subpath) == 0)
 	{
 		$symlink_target_abs =~ s!^/[^/]+!!;
 		$symlink_name_abs   =~ s!^/[^/]+!!;
@@ -543,6 +546,35 @@ Sorting routine: sorts files by name.
 sub by_name {
 	my ($a, $b) = @_;
 	return $a->{name} cmp $b->{name};
+}
+
+=item lstrftime(string $format, array @datetime)
+
+Formats a date/time string and decodes it to the current locale encoding.
+
+=cut
+
+sub lstrftime {
+	my ($format, @datetime) = @_;
+	my $result = strftime($format, @datetime);
+	return $result;
+}
+
+=item maxdatetimelen(string $format)
+
+=cut
+
+sub maxdatetimelen {
+	my ($format) = @_;
+	my $maxdatetimelen = 0;
+	$format ||= '%b';
+	foreach (0 .. 11) {
+		# (sec, min, hour, mday, mon, year, wday = 0, yday = 0, isdst = -1)
+		$maxdatetimelen = max(
+			$maxdatetimelen,
+			length lstrftime($format, (0, 30, 10, 12, $_, 95)));
+	}
+	return $maxdatetimelen;
 }
 
 ##########################################################################

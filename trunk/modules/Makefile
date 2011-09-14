@@ -1,20 +1,20 @@
 
-TERM_SCREEN_VER    = 1.03
-TERM_SCREEN        = Term-Screen-$(TERM_SCREEN_VER)
-TERM_SCRCOL_VER    = 1.20
-TERM_SCRCOL        = Term-ScreenColor-$(TERM_SCRCOL_VER)
-TERM_RL_GNU_VER    = 1.20
-TERM_RL_GNU        = Term-ReadLine-Gnu-$(TERM_RL_GNU_VER)
+LWP_VER            = 6.01
+LWP                = libwww-perl-$(LWP_VER)
+HTML_PARSER_VER    = 3.68
+HTML_PARSER        = HTML-Parser-$(HTML_PARSER_VER)
 FILE_TEMP_VER      = 0.22
 FILE_TEMP          = File-Temp-$(FILE_TEMP_VER)
 FILE_STAT_BITS_VER = 0.19
 FILE_STAT_BITS     = File-Stat-Bits-1.01
 MODULE_LOAD_VER    = 0.18
 MODULE_LOAD        = Module-Load-$(MODULE_LOAD_VER)
-HTML_PARSER_VER    = 3.68
-HTML_PARSER        = HTML-Parser-$(HTML_PARSER_VER)
-LWP_VER            = 5.837
-LWP                = libwww-perl-$(LWP_VER)
+TERM_SCREEN_VER    = 1.03
+TERM_SCREEN        = Term-Screen-$(TERM_SCREEN_VER)
+TERM_SCRCOL_VER    = 1.20
+TERM_SCRCOL        = Term-ScreenColor-$(TERM_SCRCOL_VER)
+TERM_RL_GNU_VER    = 1.20
+TERM_RL_GNU        = Term-ReadLine-Gnu-$(TERM_RL_GNU_VER)
 
 DARWINOPTS = --includedir=/opt/local/include --libdir=/opt/local/lib
 

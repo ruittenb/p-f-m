@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 1.20
+# @(#) App::PFM::Config 1.23
 #
 # Name:			App::PFM::Config
-# Version:		1.20
+# Version:		1.23
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-03-18
+# Date:			2011-03-28
 #
 
 ##########################################################################
@@ -37,10 +37,10 @@ package App::PFM::Config;
 use base 'App::PFM::Abstract';
 
 use App::PFM::Config::Update;
-use App::PFM::Util qw(isyes isno isxterm ifnotdefined max);
+use App::PFM::Util qw(isyes isno isxterm ifnotdefined max lstrftime maxdatetimelen);
 use App::PFM::Event;
 
-use POSIX qw(strftime mktime);
+use POSIX qw(mktime);
 
 use strict;
 use locale;
@@ -343,7 +343,7 @@ remain accessable in the hash member C<$config-E<gt>{_pfmrc}>.
 
 sub parse {
 	my ($self) = @_;
-	my $pfmrc      = $self->{_pfmrc};
+	my $pfmrc  = $self->{_pfmrc};
 	my $e;
 	local $_;
 	$self->{dircolors}     = {};
@@ -386,6 +386,7 @@ sub parse {
 	$self->{refresh_always_smart}= isyes($pfmrc->{refresh_always_smart});
 	$self->{highlightname}		 = isyes($pfmrc->{highlightname} || 'yes');
 	$self->{swap_persistent}	 = isyes($pfmrc->{persistentswap} || 'yes');
+	$self->{mouse_moves_cursor}	 = isyes($pfmrc->{mouse_moves_cursor});
 	$self->{autosort}			 = isyes($pfmrc->{autosort} || 'yes');
 	$self->{trspace}			 = isyes($pfmrc->{defaulttranslatespace}) ? ' ' : '';
 	$self->{dotdot_mode}		 = isyes($pfmrc->{dotdotmode});
@@ -393,6 +394,8 @@ sub parse {
 	$self->{remove_marks_ok}	 = isyes($pfmrc->{remove_marks_ok});
 	$self->{clickiskeypresstoo}	 = isyes($pfmrc->{clickiskeypresstoo} || 'yes');
 	$self->{clobber_mode}		 = isyes($pfmrc->{defaultclobber});
+	$self->{clobber_compare}	 = isyes($pfmrc->{clobber_compare} || 'yes');
+	$self->{timestamptruncate}	 = isyes($pfmrc->{timestamptruncate});
 	$self->{currentlayout}		 = $pfmrc->{defaultlayout} || 0;
 	$self->{white_mode}			 = isyes($pfmrc->{defaultwhitemode});
 	$self->{dot_mode}			 = isyes($pfmrc->{defaultdotmode});
@@ -462,35 +465,18 @@ Writes a default config file. Creates the default containing directory
 sub write_default {
 	my ($self) = @_;
 	my @resourcefile;
-	my $secs_per_32_days = 60 * 60 * 24 * 32;
-	my $maxdatelen = 0;
 	my $version    = $self->{_pfm_version};
 	local $_;
 	# if necessary, create the directory, but only if $ENV{PFMRC} is not set
 	unless ($ENV{PFMRC} || -d CONFIGDIRNAME) {
 		mkdir CONFIGDIRNAME, CONFIGDIRMODE;
 	}
-	# The default layouts assume that the default timestamp format
-	# is 15 chars wide.
-	# Find out if this is enough, taking the current locale into account.
-	foreach (0 .. 11) {
-		$maxdatelen = max($maxdatelen,
-			length strftime("%b", gmtime($secs_per_32_days * $_)));
-	}
-	$maxdatelen -= 3;
 	if (open my $MKPFMRC, '>', $self->{_configfilename}) { # ignore failure
 		# both __DATA__ and __END__ markers are used at the same time
 		while (($_ = <DATA>) !~ /^__END__/) {
 			s/^(##? Version )x/$1$version/m;
-			if ($^O =~ /linux/i) {
-				s{^(\s*(?:your\[[[:alnum:]]\]|launch\[[^]]+\])\s*:\s*\w+.*?\s+)more(\s*)$}
-				 {$1less$2}mg;
-			}
-			# if we need more room for the timestampformat, create it
-			if (/nnnnn/ and $maxdatelen) {
-				s/([cma])/$1 x ($maxdatelen+1)/e &&
-				s/nnnnn{$maxdatelen}/nnnn/;
-			}
+			# we don't need to calculate the length of the date field any more,
+			# since it can be adjusted according to the locale's needs.
 			print $MKPFMRC $_;
 		}
 		close DATA;
@@ -508,7 +494,7 @@ F<.pfmrc.20100901T231201>.
 
 sub backup {
 	my ($self) = @_;
-	my $now    = strftime('%Y%m%dT%H%M%S', localtime);
+	my $now    = lstrftime('%Y%m%dT%H%M%S', localtime);
 	# quotemeta($now) as well: it may be tainted (determined by locale).
 	my $result = system(
 		"cp \Q$self->{_configfilename}\E \Q$self->{_configfilename}.$now\E");
@@ -675,6 +661,9 @@ autowritehistory:no
 ## Must 'Hit any key to continue' also accept mouse clicks?
 #clickiskeypresstoo:yes
 
+## display file comparison information before asking to clobber (default: yes)
+#clobber_compare:no
+
 ## clock date/time format; see strftime(3).
 ## %x and %X provide properly localized time and date.
 ## the defaults are "%Y %b %d" and "%H:%M:%S"
@@ -807,6 +796,9 @@ keydef[*]:kmous=\e[M:pgdn=\e[62~:pgup=\e[63~:
 ## emacs is the default.
 #keymap:vi-insert
 
+## should a mouse click move the cursor to the clicked line? (default no)
+#mouse_moves_cursor:yes
+
 ## characteristics of the mouse wheel: the number of lines that the
 ## mouse wheel will scroll. This can be an integer or 'variable'.
 #mousewheeljumpsize:5
@@ -857,6 +849,10 @@ timestampformat:%y %b %d %H:%M
 #timestampformat:%b %d %H:%M
 #timestampformat:%c
 #timestampformat:%Y %V %a
+
+## should the timestamps be truncated to the field length? (otherwise,
+## the timestamp field is adjusted if necessary). (default: no)
+#timestamptruncate:yes
 
 ## use color (yes,no,force) (may be overridden by ANSI_COLORS_DISABLED)
 ## 'no'    = use no color at all
@@ -1139,6 +1135,8 @@ your[x]:gunzip < =2 | tar xvf -
 your[y]:lynx =2
 your[Z]:bzip2 =2
 your[z]:gzip =2
+your[1]:vimdiff =2*
+your[2]:meld =2* &
 
 ##########################################################################
 ## launch commands

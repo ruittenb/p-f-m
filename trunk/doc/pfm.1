@@ -124,13 +124,13 @@
 .\" ========================================================================
 .\"
 .IX Title "PFM 1"
-.TH PFM 1 "2011-03-18" " " " "
+.TH PFM 1 "2011-03-21" " " " "
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
 .nh
 .ds Yr 2011
-.ds Vw @(#) pfm.pl 2.11.5
+.ds Vw @(#) pfm.pl 2.11.6
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -195,7 +195,7 @@ Start \f(CW\*(C`pfm\*(C'\fR using the specified sort mode (as shown by the \fBF6
 .IP "\-s, \-\-swap \fIdirectory\fR" 4
 .IX Item "-s, --swap directory"
 The directory that \f(CW\*(C`pfm\*(C'\fR should initially use as swap directory. (See
-also the \fBF7\fR command below).
+also below, under the \fBF7\fR command).
 .Sp
 There would be no point in setting the swap directory and subsequently
 returning to the main directory if 'persistentswap' is turned off in your
@@ -574,15 +574,16 @@ You can choose which pager to use for file viewing with the environment
 variable \s-1PAGER\s0, or with the 'pager' option in the \fI.pfmrc\fR file.
 .IP "\fBTime\fR" 4
 .IX Item "Time"
-Change mtime (modification date/time) of the file. The time may be entered
-either with or without clarifying interpunction (e.g. 2008\-12\-04 08:42.12).
-Enter \fB.\fR to set the mtime to the current date and time.  If the current
-file does not exist in the directory (lost file or whiteout), it is
-\&\fItouch\fR\|(1)ed first.
+Changes mtime (modification date/time) of the file. The time may be
+entered either with or without clarifying interpunction (\fIe.g.\fR
+2008\-12\-04 08:42.12).  Enter \fB.\fR to set the mtime to the current
+date and time.  If the current file does not exist in the directory
+(lost file or whiteout), it is \fItouch\fR\|(1)ed first.
 .IP "\fBUser\fR" 4
 .IX Item "User"
-Change ownership of a file. Note that many Unix variants do not allow normal
-(non\-\f(CW\*(C`root\*(C'\fR) users to change ownership. Symbolic links will be followed.
+Changes ownership of a file. Note that many Unix variants do not allow
+normal (non\-\f(CW\*(C`root\*(C'\fR) users to change ownership. Symbolic links will be
+followed.
 .IP "\fBVersion\fR" 4
 .IX Item "Version"
 Updates the current file with status information of the applicable
@@ -600,16 +601,24 @@ Allows you to erase marks on a group of files which meet a certain
 criterion. See \fBI\fRnclude for details.
 .IP "\fBYour command\fR" 4
 .IX Item "Your command"
-Like c\fBO\fRmmand (see above), except that it uses one-letter commands
-(case-sensitive) that have been preconfigured in the \fI.pfmrc\fR file.
-\&\fBY\fRour commands may use \fB=1\fR up to \fB=9\fR and \fB=e\fR, \fB=E\fR, \fB=p\fR
-and \fB=v\fR escapes just as in c\fBO\fRmmand, e.g.
+Like c\fBO\fRmmand (see above), except that it uses preconfigured commands
+from the \fI.pfmrc\fR file.  These commands are identified by a single
+letter (case-sensitive) or digit.
 .Sp
-.Vb 3
+\&\fBY\fRour command definitions may use \fB=1\fR up to \fB=9\fR and \fB=e\fR,
+\&\fB=E\fR, \fB=p\fR and \fB=v\fR escapes just as in c\fBO\fRmmand, \fIe.g.\fR:
+.Sp
+.Vb 4
+\&    your[A]:svn add =8
 \&    your[c]:tar cvf \- =2 | gzip > =2.tar.gz
 \&    your[t]:tar tvf =2 | =p
-\&    your[o]:svn commit =8
+\&    your[1]:vimdiff =2*
 .Ve
+.Sp
+Navigation through the available commands works in the same way as
+for directories (see above under \*(L"\s-1NAVIGATION\s0\*(R"), except that \fB\s-1ENTER\s0\fR
+selects the highlighted command, and \fBj\fR and \fBk\fR select their own
+command (as do the other letters and digits).
 .IP "\fBsiZe\fR" 4
 .IX Item "siZe"
 For directories, reports the grand total (in bytes) of the directory
@@ -646,6 +655,11 @@ Any help getting the commands right would be appreciated by the author.
 Lists all the available bookmarks and asks the user in which slot the
 current directory should be bookmarked.  If the input is valid, a new
 bookmark is created in the bookmark list.
+.Sp
+Navigation through the bookmark list works in the same way as for
+directories (see above under \*(L"\s-1NAVIGATION\s0\*(R"), except that \fB\s-1ENTER\s0\fR
+selects the highlighted slot, and \fBj\fR and \fBk\fR select their own
+slot (as do the other letters and digits).
 .IP "\fBConfig pfm\fR" 4
 .IX Item "Config pfm"
 This command will open the \fI.pfmrc\fR config file with the configured
@@ -668,6 +682,8 @@ name. See also \fIfifo\fR\|(4) and \fImkfifo\fR\|(1).
 Lists all the available bookmarks and asks the user which bookmark should
 be loaded to the current directory (and file).  If the input is valid,
 the bookmark is loaded and a \fIchdir()\fR is done to the directory.
+.Sp
+Navigation through the bookmark list works as noted above, under \fBBookmark\fR.
 .IP "\fBsHell\fR" 4
 .IX Item "sHell"
 Spawns your default login shell. When you exit from it, \f(CW\*(C`pfm\*(C'\fR will resume.
@@ -740,7 +756,7 @@ Starts a perl shell in the context of \f(CW\*(C`pfm\*(C'\fR. Primarily used for 
 .IX Item "ENTER"
 If the current file is a directory, \f(CW\*(C`pfm\*(C'\fR will \fIchdir()\fR to that directory.
 Otherwise, \f(CW\*(C`pfm\*(C'\fR will attempt to \fIlaunch\fR the file. See
-\&\*(L"\s-1LAUNCHING\s0 \s-1FILES\s0\*(R" below.
+below under \*(L"\s-1LAUNCHING\s0 \s-1FILES\s0\*(R".
 .IP "\fB\s-1DEL\s0\fR" 4
 .IX Item "DEL"
 Identical to the \fBD\fRelete command (see above).

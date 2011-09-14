@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config::Update 2.11.5
+# @(#) App::PFM::Config::Update 2.11.6
 #
 # Name:			App::PFM::Config::Update
-# Version:		2.11.5
+# Version:		2.11.6
 # Author:		Rene Uittenbogaard
 # Created:		2010-05-28
-# Date:			2011-03-18
+# Date:			2011-03-28
 #
 
 ##########################################################################
@@ -41,7 +41,7 @@ package App::PFM::Config::Update;
 
 use base 'App::PFM::Abstract';
 
-use App::PFM::Util qw(min max);
+use App::PFM::Util qw(min max maxdatetimelen);
 
 use POSIX qw(strftime);
 use Carp qw(cluck);
@@ -1149,6 +1149,35 @@ use constant UPDATES => {
 			],
 		}],
 	},
+	# ----- 2.11.6 ---------------------------------------------------------
+	'2.11.6' => {
+		additions => [{
+			ifnotpresent => qr/timestamptruncate:/,
+			before => qr/## use color .yes,no,force. .may be overridden by/,
+			batch => [
+				"## should the timestamps be truncated to the field length? (otherwise,\n",
+				"## the timestamp field is adjusted if necessary). (default: no)\n",
+				"#timestamptruncate:yes\n",
+				"\n",
+			],
+		}, {
+			ifnotpresent => qr/mouse_moves_cursor:/,
+			before => qr/## characteristics of the mouse wheel: the number of lines/,
+			batch => [
+				"## should a mouse click move the cursor to the clicked line? (default no)\n",
+				"#mouse_moves_cursor:yes\n",
+				"\n",
+			],
+		}, {
+			ifnotpresent => qr/clobber_compare:/,
+			before => qr{## clock date/time format; see strftime},
+			batch => [
+				"## display file comparison information before asking to clobber (default: yes)\n",
+				"#clobber_compare:no\n",
+				"\n",
+			],
+		}],
+	},
 };
 
 
@@ -1422,22 +1451,17 @@ or LC_TIME).
 
 sub check_date_locale {
 	my ($self, $text) = @_;
+	my $locale          = $self->_get_locale();
 	my $timefieldlen    = $self->_get_pfmrc_timefieldlen($text);
 	my $timefieldformat = $self->_get_pfmrc_timefieldformat($text);
-	my $locale          = $self->_get_locale();
+	my $maxdatetimelen  = maxdatetimelen($timefieldformat);
 	#
-	my ($timestr, $maxtimelength);
-	foreach my $mon (0..11) {
-		# (sec, min, hour, mday, mon, year, wday = 0, yday = 0, isdst = -1)
-		$timestr = strftime($timefieldformat, (0, 30, 10, 12, $mon, 95));
-		$maxtimelength = max(length($timestr), $maxtimelength);
-	}
-	if ($maxtimelength > $timefieldlen) {
+	if ($maxdatetimelen > $timefieldlen) {
 		print <<_LOCALE_WARNING_
 
-Warning: Your date/time locale is set to $locale. In this locale,
-the configured timestampformat of '$timefieldformat' in your .pfmrc may
-require up to $maxtimelength characters.
+Warning: Your date/time locale (LC_TIME) is set to $locale. In this
+locale, the configured timestampformat of '$timefieldformat' in your
+.pfmrc may require up to $maxdatetimelen characters.
 
 Some of the layouts in your .pfmrc only allow for $timefieldlen characters.
 

@@ -1,3 +1,25 @@
+2.11.6
+
+* fixed: selecting the top file on the screen now correctly shows the
+  mark on the file.
+* fixed: the bookmark browser and Y-command browser don't accept clicks
+  anywhere on the line any more, just on the item itself.
+* fixed: a 'foreground editor' with spaces in the command definition will
+  no longer give an error when editing the config file.
+* fixed: swapping with <F7> now correctly restores the browser's view on
+  the directory.
+* fixed: creating a bookmark no longer gives an erroneous
+  'Bookmark name not valid' message.
+* added 'timestamptruncate' option to config file, which controls if the
+  timestamp field will be adjusted to accommodate the complete timestamp
+  string.
+* added 'mouse_moves_cursor' option to config file, which controls if the
+  mouse displaces the current file.
+* added a file comparison information block which is displayed when the
+  user is about to clobber a file.
+* added 'clobber_compare' option to control whether to display the file
+  comparison information.
+
 2.11.5
 
 * added: the bookmark browser and Y-command browser now apply highlighting

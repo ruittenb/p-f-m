@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Browser 0.61
+# @(#) App::PFM::Browser 0.62
 #
 # Name:			App::PFM::Browser
-# Version:		0.61
+# Version:		0.62
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-03-18
+# Date:			2011-03-20
 #
 
 ##########################################################################
@@ -48,7 +48,7 @@ use constant {
 	SHOW_MARKCURRENT  => '',
 	SHOW_CLOCK        => 1,
 	SCREENTYPE        => R_LISTING,
-	HEADERTYPE        => HEADING_DISKINFO,
+	HEADINGTYPE       => HEADING_DISKINFO,
 	BROWSE_VOID_LINES => 10,
 };
 
