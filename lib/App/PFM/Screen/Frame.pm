@@ -248,7 +248,8 @@ sub bookmark_headings {
 	my $infolength = $_screen->diskinfo->infolength;
 	my @headings =
 		(" %1s%1s %-" . ($_screen->screenwidth - 5 - $infolength) . 's',
-		 "%${infolength}s");
+		 "%${infolength}s",
+		$_screen->screenwidth - 5 - $infolength);
 #		(' @@ @' . '<' x ($_screen->screenwidth - 6 - $infolength),
 #		 '@'    . '>' x ($infolength - 1));
 #	if ($_screen->diskinfo->infocol < $_screen->listing->filerecordcol) {

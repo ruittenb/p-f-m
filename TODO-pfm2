@@ -25,3 +25,6 @@
 
 - rename R_DIRCONTENTS, R_DIRSORT, R_DIRFILTER to D_ constants (directory/dirty)
   set_dirty_flag() etc.
+
+- Config->apply: call separate class's import() routines and have them import the
+  config options that are interesting for them.

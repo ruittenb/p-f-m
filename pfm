@@ -3,10 +3,10 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.06.0
+# Version:		2.06.1
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-06-01
+# Date:			2010-06-15
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				    [ -l, --layout <number> ]
 #				pfm { -v, --version | -h, --help }
@@ -24,7 +24,7 @@
 # version
 
 # for MakeMaker
-our $VERSION = '2.06.0';
+our $VERSION = '2.06.1';
 
 # macros for *roff
 our $ROFFVERSION = <<'=cut';
@@ -33,7 +33,7 @@ our $ROFFVERSION = <<'=cut';
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.06.0
+.ds Vw @(#) pfm.pl 2.06.1
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -781,7 +781,9 @@ Not yet implemented.
 
 =item B<Bookmark>
 
-Not yet implemented.
+Lists all the available bookmarks and asks the user in which slot the
+current directory should be bookmarked.  If the input is valid, a new
+bookmark is created in the bookmark list.
 
 =item B<Config pfm>
 
@@ -803,7 +805,9 @@ name. See also fifo(4) and mkfifo(1).
 
 =item B<Go to bookmark>
 
-Not yet implemented.
+Lists all the available bookmarks and asks the user which bookmark should
+be loaded to the current directory (and file).  If the input is valid,
+the bookmark is loaded and a chdir() is done to the directory.
 
 =item B<sHell>
 

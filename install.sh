@@ -442,6 +442,7 @@ check_package readline
 check_cpan
 check_perl_module HTML::Parser      3.59  || download_and_install_perl_module HTML::Parser
 check_perl_module LWP               5.827 || download_and_install_perl_module LWP
+check_perl_module Term::Screen      1.03  || download_and_install_perl_module Term::Screen
 check_perl_module Term::ScreenColor 1.13  || download_and_install_perl_module Term::ScreenColor
 check_perl_module_term_readline_gnu 1.09  || download_and_install_perl_module_term_readline_gnu
 
@@ -453,6 +454,10 @@ check_pfmrc
 
 # check the need for tools
 check_listwhite
+
+echo
+echo "Installation done."
+echo
 
 # vim: set tabstop=8 shiftwidth=8 noexpandtab:
 
