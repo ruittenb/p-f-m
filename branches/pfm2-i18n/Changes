@@ -1,0 +1,1098 @@
+2.11.6
+
+* fixed: selecting the top file on the screen now correctly shows the
+  mark on the file.
+* fixed: the bookmark browser and Y-command browser don't accept clicks
+  anywhere on the line any more, just on the item itself.
+* fixed: a 'foreground editor' with spaces in the command definition will
+  no longer give an error when editing the config file.
+* fixed: swapping with <F7> now correctly restores the browser's view on
+  the directory.
+* fixed: creating a bookmark no longer gives an erroneous
+  'Bookmark name not valid' message.
+* added 'timestamptruncate' option to config file, which controls if the
+  timestamp field will be adjusted to accommodate the complete timestamp
+  string.
+* added 'mouse_moves_cursor' option to config file, which controls if the
+  mouse displaces the current file.
+* added a file comparison information block which is displayed when the
+  user is about to clobber a file.
+* added 'clobber_compare' option to control whether to display the file
+  comparison information.
+
+2.11.5
+
+* added: the bookmark browser and Y-command browser now apply highlighting
+  to the current line
+* fixed: refreshing the screen listing with RCS info now works again
+  in the Your command browser
+* fixed: The 'Y' character on the currentfile line is no longer missing
+  in the Your command browser
+* added several MIME types to the config file
+
+2.11.4
+
+* added support for numeric Your commands, e.g. (Y)our - (1)
+* added support for numeric bookmarks, e.g. (M)ore - (G)o - (3)
+* fixed bugs in screen resize and refresh in bookmark/Your command browser
+* change in (M)ore - (G)o: only valid bookmarkkeys may report 'Bookmark not
+  defined'. Keys that are not valid bookmarkkeys abort the action silently.
+
+2.11.3
+
+* first version with Your command browser
+* fixed bug in bookmark browser: ^E and ^Y work again
+* added icons to distribution
+
+2.11.2
+
+* added: support for Mercurial versioning system
+* added: (M)ore - fo(L)low
+
+2.11.1
+
+* fixed quoting of '=p' escape and friends
+* fixed crash when the 'defaultcolorset' was not defined as a colorset
+* fixed bug positioning the cursor in the bookmark browser
+* fixed bug positioning the cursor after (C)opy/(R)ename/(L)ink
+* added commandline option '-c' (initial colorset)
+* added =9 escape (previous path)
+* added: if a file is (C)opied/(R)enamed/(L)inked to the previous directory
+  (=9), it is added to its directory listing.
+* reinstated 'checkforupdates' option. Call me indecisive.
+
+2.11.0
+
+* fixed bug with scrolling in bookmark browser
+* fixed bug in handling mouse input in bookmark browser
+* added 'footerkeys' to 'colorset' option
+* deprecated 'mouseturnoff' option
+
+2.10.9
+
+* first version with bookmark browser
+* fixed: suppress unnecessary svn error when statting '.svn'
+* added 'menukeys' to 'colorset' option
+* added 'cursorjumptime' option
+* updated documentation
+
+2.10.8
+
+* fixed: no more crash in (C)opy/(R)ename/(L)ink when there is no swap state
+* added: silent bookmark writing while testing
+
+2.10.7
+
+* fixed some small bugs
+* added: if a file is (C)opied/(R)enamed/(L)inked to the swap directory (=5)
+  under a new name, it is added to the swap directory listing.
+
+2.10.6
+
+* fixed keymap selection through config option
+* fixed bug preventing entries to be pushed onto the history when it is empty
+* added better error reporting for 'magic[]' config options
+* added 'usergroup' history and readline completion
+* fixed: readline completion now recognizes '=5' escapes
+* updated install script; bundled with Module::Load
+* code cleanup (using Perl::Critic)
+
+2.10.5
+
+* fixed: on changing the colorset, the applied colors are correctly updated
+  for the swap state, previous state, and bookmarked states.
+* added: readline completion for unix commands, perl commands and ~username
+  constructs in pathnames.
+
+2.10.4
+
+* fixed: pressing 'l' on a symbolic link pointing to a directory will now
+  correctly enter the directory.
+* fixed: incremental find in case-insensitive sort mode now correctly finds
+  the best match.
+* added: 'launchname' option to define launch commands for specific filenames
+* added: if a file is (C)opied/(R)enamed/(L)inked to the swap directory (=5),
+  it is added to the swap directory listing.
+
+2.10.3
+
+* fixed: semantics of (I)nclude and e(X)clude: '.' and '..' entries are
+  never automatically selected.
+* fixed: on window resize, the overflow characters are correctly updated
+  for the swap state, previous state, and bookmarked states.
+
+2.10.2
+
+* fixed bug in install.sh
+* fixed bug: on resize, the cursor position is now correctly validated
+* fixed: on some platforms c(O)mmand incorrectly reported "External
+  command failed"
+* fixed: on starting pfm, check the minimum size of the terminal window
+  and adjust the window size if so configured.
+* fixed: applying modifiers to filenames in (C)opy, (R)ename or (L)ink
+* fixed: after (C)opy, (R)ename or (L)ink to the current directory,
+  the rcs status is directly shown.
+
+2.10.1
+
+* fixed: when an escape modifier is used, pfm no longer incorrectly
+  reports 'Cannot do multifile operation when destination is a single file'
+* fixed: after 'Cannot do multifile operation when destination is a
+  single file', the diskinfo column is no longer blanked out.
+
+2.10.0
+
+* added: escape modifiers like in bash(1): ={2%%pattern} etc.
+* updated documentation
+
+2.09.9-beta
+
+* fixed: sometimes (M)ore - (V)ersion didn't update statuses correctly
+* fixed: updating the count of marked files is now correctly updated when
+  using an =8 escape.
+* added: 'ignore' mode to show the status on svn-ignored files
+* added: ';' command to toggle 'ignore' mode
+* added: layout fields 'w' and 'h' (numeric user and group id)
+* added: sort modes 'w' and 'h' (numeric user and group id)
+* updated documentation
+
+2.09.8-beta
+
+* fixed: using the '=8' escape multiple times in one command is now possible
+* added: support for Haiku and BeOS
+* added: on Linux: if the mounted filesystem is 'none', then indicate its type
+* changed: performance gain when displaying rcs status data
+
+2.09.7-alpha
+
+* restructured code
+
+2.09.6-alpha
+
+* added: default launch command for Makefiles is 'make'
+* added: key 'e' starts editor, 'E' foreground editor
+* changed: foreground editor escape '=f' has been replaced by '=E'
+
+2.09.5-beta
+
+* fixed small bugs in installer and test script
+* fixed overlaying highlight color with file color
+* fixed bug in smart refresh
+* fixed bug in (M)ore - (@) Perl shell
+* added: exit halfway through the help screens with 'q' key
+* deprecated 'showlock' config option
+* bundled with Term::ScreenColor-1.20
+* updated documentation
+
+2.09.4-beta
+
+* fixed bug: footer is now redrawn after (M)ore - (O)pen-window
+* fixed bug: bracketed paste mode is now turned on in (I)n-/e(X)clude
+  and off in (M)ore - (E)dit
+
+2.09.3-beta
+
+* fixed applying the 'columnlayouts' again after (M)ore - (C)onfig
+* fixed memory-consuming way of handling the gap between the
+  diskinfo column and file record
+* fixed intercepting paste events when the menu is active, configurable
+  with 'paste_protection'
+* added radix 'dec' for (N)ame command
+* deprecated '*' key. 'N' key toggles radix while in (N)ame command.
+* added support for incremental find when sortmode is m or M (name ignorecase)
+* changed option 'translatespace' to 'defaulttranslatespace'
+* restructured code
+
+2.09.2-beta
+
+* fixed bugs in checking for pfm updates on the website
+* fixed scrolling the directory listing in incremental find
+* added: (M)ore - <F5>: smart refresh: refresh directory contents
+  but keep the marks.
+* added: (M)ore - (@): perl shell
+* added config option: 'refresh_always_smart'
+* added config option to color the root username on-screen
+* changed ident modes: combinations of 'host','user','tty'
+
+2.09.1-beta
+
+* fixed bug: un(W)hiteout now correctly determines failure
+* fixed bug: names of whiteouts are now correctly registered
+* added: pressing SPACE in (N)ame now toggles 'translatespace'
+* changed: (T)ime now touches nonexistant files first before
+  setting the time
+* restructured source code
+* updated documentation
+
+2.09.0-alpha
+
+* fixed bug: selecting a file by clicking it with the mouse now
+  shows the mark on the file (broken since 2.08.4)
+* fixed bug: showing a file by clicking it with the mouse now
+  shows the correct file (broken since 2.08.4)
+* added: (M)ore - (O)pen window
+* restructured source code
+* updated documentation
+
+2.08.9-alpha
+
+* restructured source code
+
+2.08.8-alpha
+
+* restructured source code
+
+2.08.7-alpha
+
+* fixes to Config::Update
+* restructured source code
+
+2.08.6-alpha
+
+* fixed bug: clicking mouse on directory no longer gives an error
+* fixed bug in multilevel sorting
+* fixed bugs in automatic config file updating
+* added: In-/Exclude - dotfiles
+
+2.08.5-alpha
+
+* added: config option 'dircolors' now accepts coloring for specific
+  filenames by using quotes around a filename, e.g.: 'Makefile'=underline
+* restructured source code
+
+2.08.4-alpha
+
+* fixed: respect locale settings throughout pfm
+* fixed: sort mode 'tsn' now sorts correctly
+* added: going through the sortcycle (clicking "Sort" in the footer)
+  now is multilevel-aware
+* restructured Config::Update
+
+2.08.3-alpha
+
+* fixed: the gap between the diskinfo column and file record is now
+  cleared with every redraw, this removes some screen artifacts
+* fixes to install script
+* bundled with Term-ScreenColor-1.16
+
+2.08.2-alpha
+
+* fixed crash when -s was used with a non-existant swap directory
+* fixed problems with updating config file
+* fixed: (D)elete no longer removes all lost files from the listing
+* added: sort by link count
+* added: multilevel sort: (M)ore - <F6>
+* updated documentation
+
+2.08.1-alpha
+
+* fixed bug in cyclic sort (config option 'sortcycle')
+* added config option 'highlightname'
+* added config option 'mousewheeljumpsize', 'mousewheeljumpmax' and
+  'mousewheeljumpratio' to make the mouse wheel speed configurable
+* added commandline option '-o' (initial sort mode)
+* added filetypes to dircolors in default .pfmrc
+* added configurable colors like dircolors(1): hardlinked files (hl),
+  setuid files (su), setgid files (sg), sticky directories (st),
+  other-writable directories (ow), sticky and other-writable (tw).
+* updated documentation
+
+2.08.0-alpha
+
+* fixed (L)ink: let the cursor follow around to a local directory
+* fixed applying colors to regular files
+* fixed applying the highlight color to the filename column
+* added configurable colors for event pipes
+* restructured code: moved pfmrcupdate script to a pfm class (Update);
+  pfm will now propose to update an out-of-date config file.
+* updated install script
+
+2.07.9-beta
+
+* fixed bug: don't crash on clicking the mouse in the diskinfo column
+* reorganized code
+
+2.07.8-alpha
+
+* fixed bug: handling time zones in (T)ime and
+  (I)nclude/e(X)clude - (A)fter/(B)efore
+* fixed unclear error message when column layout was invalid
+* fixed bug displaying headings in (M)ore - (B)ookmark
+* fixed bug displaying headings with rightmost field left-aligned
+* fixed bug in detecting resize_window event
+* fixed bug in processing data from CheckUpdates job under new
+  event system
+* code cleanup
+* updated documentation
+
+2.07.7-alpha
+
+* restructured code: events are now used to transfer control
+  from the browser to the commandhandler.
+
+2.07.6-alpha
+
+* code cleanup
+* updated documentation
+
+2.07.5-alpha
+
+* fixed bugs in (M)ore - (A)cl
+* code cleanup
+
+2.07.4-alpha
+
+* code cleanup
+* updated documentation
+
+2.07.3-alpha
+
+* added editing ACLs with the (M)ore - (A)cl command
+* code cleanup
+
+2.07.2-alpha
+
+* changed: help information now covers two pages
+* changed implementation of Job event system: now uses generic
+  PFM::Abstract event system.
+* moved some OS-specific code to App::PFM::OS::*
+
+2.07.1-alpha
+
+* fixed bugs in pfmrcupdate
+* fixed bugs in install script
+* changed implementation of (T)ime: increased portability by not
+  using touch(1) any more, but perl's utime(3)
+* changed Util.pm: don't export all subs by default
+
+2.07.0-alpha
+
+* fixed bugs in install script
+* use File::Stat::Bits to split rdev into major/minor
+  numbers (more portable)
+
+2.06.9-alpha
+
+* fixed bug: si(Z)e correctly fills the 'total' column now.
+* fixed bug in processing df(1) output on AIX
+* fixed bugs in test script
+* added (non-prominent) '=f' escape
+* restructured source using OS-specific classes
+* deprecated 'ducmd' option
+
+2.06.8-alpha
+
+* restructured frame updates
+
+2.06.7-beta
+
+* stable version: beta release
+* fixed bug: panning the menu in the (M)ore command now works
+  correctly
+
+2.06.6-alpha
+
+* fixed bug: (L)ink (R)el on '.' or '..' now creates correct
+  symbolic links
+
+2.06.5-alpha
+
+* fixed bug in cursor positioning after changing sort mode
+* small structural optimizations
+
+2.06.4-alpha
+
+* fixed: swap (F7) to current directory now updates the listing,
+  marks and cursor position correctly
+* fixed: deleting all the files on-screen now positions the
+  cursor on the correct line.
+* added 'autosort' config option controlling sorting the directory's
+  contents again after a (T)ime or (U)ser command
+* added support for firing and listening to events
+
+2.06.3-alpha
+
+* added config option 'fg_editor' for editing the config file
+  in the foreground
+
+2.06.2-alpha
+
+* fixed refreshing the screen after jumping to a bookmark
+* added config option 'force_minimum_size' to prevent the terminal
+  from being resized to smaller than 80x24 characters
+
+2.06.1-alpha
+
+* fixed parsing 'svn status' output
+* fixed: display bookmark paths in correct length
+* added cycling through sort modes by clicking 'sort' in the footer
+* added 'sortcycle' config option
+
+2.06.0-alpha
+
+* added (M)ore - (B)ookmark
+* added 'autowritebookmarks' option
+
+2.05.9-alpha
+
+* added 'windowtype' option
+* added reading bookmarks from file
+* added (M)ore - (G)o bookmark
+* code cleanup
+
+2.05.8-alpha
+
+* converted state array to hash as preparation for bookmarks
+* fixed bug: state switching with F2 and F7 now works correctly
+
+2.05.7-alpha
+
+* fixes to install script
+* have autoconf generate a makefile for listwhite
+
+2.05.6-alpha
+
+* fixes to Makefile
+* added install script
+* added manual for pfmrcupdate
+
+2.05.5-alpha
+
+* fixed bug (crash) in (M)ore -(M)ake dir
+* added directory update and cursor positioning in (M)ore - (M)ake dir
+* fixed bug (command key shows up at unexpected position after
+  update_headings)
+
+2.05.3-alpha
+
+* fixed bug (inappropriate error) in si(Z)e
+
+2.05.2-WIP
+
+* added a few MIME types to default config file
+* code cleanup
+
+2.05.1-WIP
+
+* added (I)nclude (I)nverse
+
+2.05.0-WIP
+
+* fixed bug in launching files
+* added (I)nclude/e(X)clude (G)reater/(S)maller: by size limit
+
+2.04.8-WIP
+
+* almost finished job system
+
+2.04.5-WIP
+
+* fixed bug where a dying child process would interrupt the
+  select() on stdin
+
+2.04.4-WIP
+
+* added 'copyoptions' config option
+
+2.04.3-WIP
+
+* fixed several small bugs
+
+2.04.2-WIP
+
+* deprecated $LOSTMSG
+
+2.04.1-WIP
+
+* added event handling to Job::Abstract
+
+2.03.9-WIP
+
+* added support for clicks in the headings (they sort the listing)
+* added support for clicks in menu and footer (they perform the command)
+
+2.03.8-WIP
+
+* started work on making cursor follow new files around in single file mode
+
+2.03.7-WIP
+
+* deprecated 'waitlaunchexec' option
+
+2.03.6-WIP
+
+* deprecated (M)ore - (K)ill command
+
+2.03.5-WIP
+
+* added newmarks
+
+2.03.0-WIP
+
+* fixed bug: when swapping back with swap_persistent == no,
+  answering 'OK to remove marks?' with 'no' caused the current
+  directory to change inadvertently.
+* changed the default for 'persistentswap' (now 'yes')
+
+2.02.7-WIP
+
+* fixed bug with bookkeeping marked files
+
+2.02.6-WIP
+
+* changed F2 (previous) so that it remembers the window position
+  in the current directory too
+
+2.02.3-WIP
+
+* added clearing the footer when waiting for command input
+
+2.02.2-WIP
+
+* moved filter info to heading of 'filename' column.
+
+2.02.1-WIP
+
+* changed F2 (previous) to swap between states instead of just
+  remembering the previous directory name
+
+2.01.7-WIP
+
+* removed 'checkforupdates' configuration option; pfm will start
+  the check in the background upon startup.
+* fixed bug where major/minor numbers of device files were lost
+  after a window resize
+
+2.01.6-WIP
+
+* removed the 'rcscmd' config option. PFM will figure it out by itself.
+
+2.01.2-WIP
+
+* added 'clickiskeypresstoo' configuration option
+
+2.00.0-WIP
+
+* start restructuring in object-oriented form
+
+1.95.5
+
+* added experimental Newmarks
+
+1.95.4
+
+* fix for (M)ore - mk(F)ifo: return on failure
+* fix: if a command deletes a file, a whiteout file may appear in its place.
+
+1.95.3
+
+* c(O)mmand handles 'cd' as special case
+
+1.95.2
+
+* added configuration option to check for updates when pfm exits
+* (M)ore - (P)hysical path
+* (M)ore - al(T)screen
+
+1.95.1
+
+* added configuration option 'remove_marks_ok' to suppress the
+  'OK to remove marks?' message
+
+1.95.0
+
+* updated documentation with =8 escape and 'rcscmd' option
+
+1.94.9
+
+* fix for (M)ore - mk(F)ifo: bail out on entering empty string
+* fixed installation script
+
+1.94.8
+
+* added openoffice document extensions to default .pfmrc
+* fixes to whiteout handling
+
+1.94.7
+
+* added =8 escape (list of selected filenames)
+
+1.94.6
+
+* updated and fixed installation script
+* updated help (F1)
+
+1.94.5
+
+* added '!' symbol to SVN column heading when a status command is running
+* minor fixes
+
+1.94.4
+
+* added single-file subversion command (V)
+* updated documentation
+
+1.94.3
+
+* fixes to Subversion support
+* updated documentation
+
+1.94.2
+
+* added Subversion support
+
+1.94.1
+
+* added incremental (F)ind
+
+1.94.0
+
+* added chdir() autocommand
+* added (M)ore - (B)ookmark command
+* fixed minor screen formatting issues
+
+1.93.9
+
+* added: clicking the mouse in the directory path will chdir()
+  to the clicked parent directory
+
+1.93.8
+
+* added: 'windowcmd' option to open directories in a new window
+* added: 'altscreenmode' option for switching to alternate screen buffer
+* code cleanup (a.o.: converted spaces to tabs)
+
+1.93.7
+
+* added mouse wheel support for scrolling
+* added support for switching to alternate screen buffer (xterm)
+* added option to open a directory in a new x window
+
+1.93.6
+
+* fix major/minor numbers of device files on different *nixes
+* code cleanup
+
+1.93.5
+
+* minor fixes
+* code cleanup
+
+1.93.4
+
+* fixed distribution tarball
+
+1.93.3
+
+* fixed setting keyboard history in case readline does not allow it
+
+1.93.2
+
+* added CTRL-L and CTRL-R as "redraw screen" commands
+* changed "Hit any key to continue" to handle resize event
+
+1.93.1
+
+* added short help
+* added 'swd' file functionality
+* changed escape character default
+* changed escape character processing: now configurable
+* minor code cleanup
+* updated documentation
+
+1.93.0
+
+* changed "Hit any key to continue" to accept mouseclick
+* minor code cleanup
+
+1.92.9
+
+* added logical/physical mode (")
+* updated documentation
+
+1.92.8
+
+* fixed logical path processing
+
+1.92.7
+
+* changed user- and groupname caching
+* fixed perl version require()d: 5.006 (for our())
+* fixed error reporting
+* fixed bug that prevented replacing 'more' with 'less' when writing
+  a default config file on Linux
+
+1.92.6
+
+* inverted meaning of 'dotmode' and 'whitemode'
+* fixed detection of 'unwo' command
+* made F7 (swap) abortable
+
+1.92.5
+
+* fixed whiteout support: listing, deleting (W), toggle mode (%)
+* added helper app: listwhite(1)
+
+1.92.4
+
+* fixed bug in (L)ink concerning making multiple absolute links
+* fixed stat() of currentfile after launch
+* changed (D)elete to delete files without confirmation if nlink == 0
+* changed meaning of \7 (include dot)
+* added (M)ore - (F)ifo command
+* added check on validity of layout (presence of mandatory fields)
+
+1.92.3
+
+* fixed bug in (M)ore - (C)onfig: mousemode setting no longer lost
+* implemented recursive delete directories
+* started work on 'waitlaunchexec'
+* added delete key
+* added \7 escape
+
+1.92.2
+
+* updated documentation
+
+1.92.1
+
+* fixed bug concerning error reporting in launch
+* implemented clobber mode (switch with '!' command)
+* changed option 'clobber' to 'defaultclobber'
+* updated documentation
+
+1.92.0
+
+* fixed bug in si(Z)e command in multiple mode (marked file info is now updated)
+* finished launch functionality
+
+1.91.9
+
+* finished work on f-column (diskinfo)
+
+1.91.8
+
+* fixed bug in cursor positioning ('0' as filename no longer ignored)
+* fixed bug in (M)ore - (K)ill for invalid input
+* added option to sort by grand total (z-column)
+* continued work on f-column (diskinfo)
+
+1.91.7 (Term::ScreenColor)
+
+* start supporting f-column (diskinfo)
+* start implementing launch functionality
+
+1.91.6 (Term::ScreenColor)
+
+* ported back to Term::ScreenColor (call me indecisive)
+
+1.91.5 (Term::ANSIScreen)
+
+* fixed bug in editing config file when PFMRC is set
+* fixed bugs concerning locale support (a.o. Japanese)
+* added 'clockdateformat' and 'clocktimeformat' options
+
+1.91.4 (Term::ANSIScreen)
+
+* updated documentation (use *roff tables)
+
+1.87.2 (Term::ScreenColor) (backport of functionality from 1.91.3)
+
+* fixed small bug concerning default sortmode after (F7)
+* fixed bug in (L)ink (multifile operations when destination is a single file)
+* fixed bug in read_pfmrc that delayed execution unnecessarily
+* added 'viewer' option
+* added '\[epv]' escapes
+* added dir/framecolors[*] option, not included in colorset cycle
+* added support for Term::ReadLine::Perl in addition to Term::ReadLine::Gnu
+* added option to create hard links in (L)ink
+* added intelligent symlink creator to (L)ink
+* added listing of escapes in c(O)mmand
+* added '=' command to display user and host
+* added '*' command to change numbase; display in footer
+* changed config option 'viewbase' to 'defaultnumbase'
+* changed (V)iew to (N)ame, this is less confusing with \v and (S)how
+* changed (N)ame to display filetypeflags
+* changed (N)ame to allow direct numbase switching
+* changed (M)ore - (M)ake dir: mkdir -p
+* changed readline ornaments to be configurable using the colorsets
+* changed parsing of config file options: more consistent now
+* obsoleted 'timeformat' option
+* updated and corrected documentation
+
+1.91.3 (Term::ANSIScreen)
+
+* obsoleted 'timeformat' option
+* changed (N)ame to display filetypeflags
+* changed (N)ame to allow direct numbase switching
+* updated documentation
+
+1.91.2 (Term::ANSIScreen)
+
+* finished (L)ink command
+
+1.91.1 (Term::ANSIScreen)
+
+* work-in-progress on (L)ink command
+* corrected documentation
+
+1.91 (Term::ANSIScreen)
+
+* added option to create hard links in (L)ink
+* fixed bug in read_pfmrc that delayed execution unnecessarily
+* updated documentation
+
+1.90.5 (Term::ANSIScreen)
+
+* finished fixing quoting problems
+* fixed bug in (L)ink concerning relative paths
+* fixed bug in (L)ink (multifile operations when destination is a single file)
+* changed footer to display numbase ('*' command)
+* updated documentation with quoting rules
+
+1.90.4 (Term::ANSIScreen)
+
+* continued fixing quoting problems
+* changed (M)ore - (M)ake dir: mkdir -p
+* changed (V)iew to (N)ame, this is less confusing with \v and (S)how
+* changed config option 'viewbase' to 'defaultnumbase'
+* added '*' command to change numbase
+* updated documentation
+
+1.90.3 (Term::ANSIScreen)
+
+* continued fixing quoting problems
+* fixed small bug concerning default sortmode after (F7)
+* added '=' command to display user and host
+* changed parsing of config file options: more consistent now
+
+1.90.2 (Term::ANSIScreen)
+
+* continued fixing quoting problems
+* fixed bug: don't include dir/framecolors[*] in colorset cycle
+* changed readline ornaments to be configurable using the colorsets
+
+1.87.1 (Term::ScreenColor) (backport of bugfixes from 1.90.1)
+
+* fixed bug in displaying major/minor numbers on device special files
+* fixed bug in displaying current date
+* fixed bug in (M)ore - (W)rite history
+* fixed bug in (F)ind command concerning illegal regexps
+
+1.90.1 (Term::ANSIScreen)
+
+* continued fixing quoting problems
+* fixed bug in displaying major/minor numbers on device special files
+* fixed bug in displaying current date
+* fixed bug in (M)ore - (W)rite history
+* added support for Term::ReadLine::Perl in addition to Term::ReadLine::Gnu
+* added listing of escapes in c(O)mmand
+* added dir/framecolors[*] option
+* added 'viewer' option
+* added '\[epv]' escapes
+
+1.89 (Term::ANSIScreen)
+
+* started fixing quoting problems
+* fixed bug in (F)ind command concerning illegal regexps
+* added 'importlscolors' option
+* updated documentation
+
+1.88 (Term::ANSIScreen)
+
+* ported to Term::ANSIScreen
+
+1.87
+
+* fixed bug in header coloring in e(X)clude
+* optimized (I)n-/e(X)clude routine
+* implemented (I)n-/e(X)clude (A)fter/(B)efore
+* updated documentation
+
+1.86
+
+* fixed bug that made wrong updates in si(Z)e command in multiple mode
+* added \6 escape for basename cwd
+* added --help and --version options
+* updated manual
+
+1.85 
+
+* fixed bug that displayed grand total wrong in si(Z)e
+
+1.84
+
+* fixed bug that didn't refresh the dirlisting after (L)ink
+* fixed bug that messed up header line in Multiple - (I)nclude
+* added -s (--swap) commandline option
+* changes to config file layout - see (Y)our commands
+* updated manual
+
+1.83
+
+* added locale support
+* added colorset support
+* added a colorset for black-on-white terminals
+* added lowercase (Y)our commands
+* added filetype markers
+* changes to config file layout
+
+1.82
+
+* added 'keydef' config option
+* added grand total column to column layouts
+* several small changes and bugfixes
+
+1.81
+
+* fixed several bugs concerning new browse()
+
+1.80
+
+* fixed several bugs concerning new browse()
+* changed header/footer scroll mechanism
+
+1.79
+
+* major code change (concerning browse() routine)
+* fixed bug that rendered 'autoexitmultiple' useless
+* added 'mouseturnoff' config option
+* updated documentation
+
+1.78
+
+* split footer in left/right part, added to < and > commands
+* implemented user-formatted timestamp strings ('timestampformat')
+
+1.77
+
+* added mouse support!
+* fixed severe bug (pfm hangs) for column formats that have no 'size' column
+* updated documentation
+
+1.76
+
+* code cleanup
+
+1.75
+
+* changed (C)opy and (R)ename behavior: add any new entries to the current dir
+* changed (D)elete behavior: will delete files with nlink == 0
+
+1.74
+
+* added < and > commands to give a better overview of available commands
+
+1.73
+
+* fixed multiple small problems with column layouts
+* fixed bug in (M)ore -> (K)ill command
+* updated documentation 
+
+1.72
+
+* implemented user-customizable column layouts!
+* implemented environment $PFMRC for indicating other config file
+
+1.71
+
+* code optimization
+
+1.70
+
+* small updates to default config file
+* guess correct du(1) command based on OS
+* implemented 'dotdot' mode where . and .. entries are not sorted
+* supported whiteout filetype
+
+1.69
+
+* fixed bug in executing (with ENTER) filenames containing spaces
+* fixed (L)ink command for making symlink in another directory
+* added support for coloring missing (e.g. renamed) files
+* updated documentation
+
+1.67
+
+* added (L)ink command (make symlink)
+
+1.66
+
+* added tar(G)et command (change target of symlink)
+* more robust handling of file names containing quotes or spaces
+* fixed behavior of (R)ename command
+* preserve column view across Swap(F7)
+
+1.65
+
+* added support for coloring orphan symbolic links
+* small fixes and updates to documentation
+* small fixes to default config file
+
+1.64
+
+* fixed bug in default config file regarding si(Z)e
+
+1.63
+
+* code optimization in handleentry()
+* fixed nasty cursor positioning bug in F6(Sort)
+
+1.62
+
+* small fixes to documentation
+
+1.61
+
+* code optimization in handleinclude()
+* implemented si(Z)e command
+* fixed some small bugs
+
+1.60
+
+* code cleanup and optimization
+* added (?) and <BS> commands
+* preserve dotmode across F7(Swap)
+* updated documentation
+
+1.59
+
+* implemented toggle show/hide dotfiles
+* small fixes and updates to documentation
+
+1.57
+
+* support for CDPATH
+
+1.56
+
+* c(O)mmand may be aborted more user-friendly and consistent
+* unix shell now invoked through (M)ore->s(H)ell
+
+1.54
+
+* implemented 'clobber: no' option
+
+1.53
+
+* fixed fatal error when chdir()ing into a non-existent directory
+* fixed fatal error when deleting '.' entry
+* implemented ~username notation
+
+1.51
+
+* updated documentation
+
+1.50
+
+* restructured (M)ore commands
+* expanded (M)ore - (K)ill to provide a selection of signals
+* updated documentation
+
+1.49
+
+* fixes to expanding escapes in filenames and c(O)mmands
+* added 'translatespace'
+* added / as synonym for (F)ind
+* start using ReadLine's prompt
+

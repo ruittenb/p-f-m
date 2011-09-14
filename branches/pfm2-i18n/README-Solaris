@@ -1,0 +1,5 @@
+
+If you are on OpenSolaris 11, you will need at least version 1.16
+of Term::ScreenColor.  It contains a workaround for the faulty
+"infocmp -C" command on that platform.
+

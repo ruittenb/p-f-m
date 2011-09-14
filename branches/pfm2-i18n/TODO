@@ -1,0 +1,147 @@
+
+################################################################################
+# issues
+
+- from the manual of File::Spec:
+  File::Spec->canonpath($path) does *not* collapse x/../y sections into y.
+  This is by design. If /foo on your system is a symlink to /bar/baz, then
+  /foo/../quux is actually /bar/quux, not /quux as a naive ../-removal would
+  give you. If you want to do this kind of processing, you probably want Cwd's
+  realpath() function to actually traverse the filesystem cleaning up paths
+  like this.
+
+- handlecopyrename: if "overwrite?" is answered with "no", then the
+  cursor is repositioned anyway.
+
+- (M)ore (S)how same dir: doesn't remove marks
+  -> is this due to the fact that Directory::_clone() does not clone the files?
+  -> handleswap() has different conditions for executing its blocks
+
+- bug: a file can be (R)enamed to '=e'
+- if =5 is requested but there is no swap state, what to do?
+- in general, if an escape is invalid, what to do?
+
+- fix the unnecessary delay after:
+  ^Cmake: *** [data] Interrupt
+  Command failed  [delay]
+  *** Hit any key to continue ***
+
+- cursor on /. (L)ink (R)elative /tmp/b/rootdir creates
+  /tmp/b/rootdir -> ../../..
+- test if all move/copy/rename/link(h,a,r) and (M)ore - fo(L)low are well with
+  the new version of Util::basename().
+
+- maybe allow for file sizes to be displayed with thousands separator,
+  e.g. 51_130_240.
+
+- do something about "svn: write error: broken pipe" (errno 141: 128 + 13).
+  keep the process running?
+
+- find out if chooser objects check the 'handled' member correctly in choose()
+- find out if the browser::baseline() can miss the set_deferred_refresh that
+  has been commented out.
+
+- add MIME types
+
+- fix 'mouse_moves_cursor' in combination with clicks in diskinfo column.
+  Browser::Files seems to need _infocol and _infolen
+
+- add 'esc_timeout'?
+
+- BUG: on return to an instantiated bookmark, the cursor is not positioned correctly.
+- rename 'truncate' to negative formule
+
+################################################################################
+# structural enhancements
+
+- restructure chdir(), handleswap()/handlemoreshow()/handlemorego() etc.
+- check function of $swapping flag behavior
+- "Setting the current directory with App::PFM::Directory::path is identical to
+  calling App::PFM::Directory::chdir()" -> maybe uncouple these two?
+
+- add an 'is_main' flag to directories so that they know if a job event may
+  trigger a screen update
+
+- change Config->{_text} to slurp reading: my $code = do { local $/; <$in> };
+- change Config::Update to /\A...\z/mso
+
+- make our() variables member variables (Get Rid of Slimy applicaSion object)
+
+- have File notify the directory through events
+
+- handlefind_incremental needs reviewing if we want to eliminate ->browser-> calls.
+
+- have objects (Directory) fire an event to indicate that the current position
+  is to be saved ('save_cursor_position' -> position_at())
+  'before_smudge_cursor_position' ?
+- like CommandHandler's handlemorebookmark():
+  $_pfm->state->{_position}  = $event->{currentfile}{name};
+  $_pfm->state->{_baseindex} = $event->{lunchbox}{baseindex};
+  => 'before_state_handling'?
+
+- who determines which command was clicked in the menu?
+  is that the CommandHandler::handlemousefooter* or Screen::Frame?
+
+- implement 'after_create_entry'
+
+- have a look at IPC::Run
+
+- Browser: integrate the different choose() and browse() methods.
+- get rid of Chooser class?
+
+################################################################################
+# functional enhancements
+
+- introduce SIGQUIT for interrupt multi?
+
+- figure out and display if an ACL is applicable for a file
+
+- accept mouse clicks on menu in (M)ore
+
+- make si(Z)e a job in the background just like (V)ersion
+
+- nice to have: implement an 'after_job_receive_no_data' event
+
+################################################################################
+# mime types
+
+extension[*.tcl]  : application/x-tcl
+extension[*.sty]  : text/x-tex-style
+
+   .latex  -  text/x-latex
+     .tex  -  text/x-tex
+    .texi  -  text/x-texinfo
+  .texinfo -  text/x-texinfo
+
+extension[*.csh]  : application/x-csh
+extension[*.sh]   : application/x-sh
+extension[*.shar] : application/x-shar
+
+extension[*.h]    : text/plain
+extension[*.hh]   : text/plain
+extension[*.lsp]  : application/x-lisp
+extension[*.movie]: video/x-sgi-movie
+extension[*.rtx]  : text/richtext
+extension[*.spl]  : application/x-futuresplash
+extension[*.viv]  : video/vnd.vivo
+extension[*.vivo] : video/vnd.vivo
+extension[*.vrml] : model/vrml
+extension[*.wrl]  : model/vrml
+
+################################################################################
+# documentation enhancements
+
+- manpages: use I<...> in =items
+
+  DONE: Application Abstract
+
+  TODO: Browser CommandHandler Config Directory
+	Browser/Chooser Browser/Files Browser/YourCommands Browser/Bookmarks
+	Event File History State Util
+	OS OS/Abstract OS/Linux OS/Aix OS/Hpux OS/Sco OS/Solaris
+	Screen Screen/Frame Screen/Diskinfo Screen/Listing
+	JobHandler Job/CheckUpdates Job/Mercurial
+	Job/Abstract Job/RCS Job/Bazaar Job/Cvs Job/Git Job/Subversion
+
+
+

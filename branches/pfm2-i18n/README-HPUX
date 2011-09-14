@@ -1,0 +1,6 @@
+
+If you are on HP-UX 11.00 or later, you will need at least version 1.16
+of Term::ScreenColor. It works around defects in /etc/termcap on that
+platform (namely: on 11.00, the 'me' entry is missing for 'xterm';
+on 11.31, the 'xterm' definition is missing completely).
+

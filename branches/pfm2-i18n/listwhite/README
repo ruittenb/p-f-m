@@ -1,0 +1,10 @@
+
+listwhite is an optional tool for listing the names of whiteout files.
+
+This tool is *only* useful on filesystems that support this feature,
+like unionfs, tfs (translucent filesystem), ovlfs (overlay filesystem)
+or ifs (inheriting filesystem).
+
+If you don't use any of these filesystems, you can skip the
+installation of listwhite.
+

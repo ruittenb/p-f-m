@@ -1,0 +1,49 @@
+------------------------------------------------------------------------
+
+On MacOSX, /usr/lib/libreadline.dylib may actually be (a symlink to)
+libedit. Term::ReadLine::Gnu will not compile against libedit.
+
+You will need to install the real readline using either (2010-05-29):
+
+* macports:
+  $ sudo port install readline-5 # for readline 5
+  $ sudo port install readline   # for readline 6
+
+* fink:
+  $ sudo apt-get install readline5
+
+* gcc:
+  $ VERSION=6.1
+  $ curl -O ftp://ftp.gnu.org/pub/gnu/readline/readline-$VERSION.tar.gz
+  $ tar zxvf readline-$VERSION.tar.gz
+  $ cd readline-$VERSION
+  $ perl -i.bak -p -e "s{SHLIB_LIBS=.*}
+      {SHLIB_LIBS='-lSystem -lncurses -lcc_dynamic'}g" support/shobj-conf
+  $ ./configure
+  $ make
+  $ sudo make install
+  
+------------------------------------------------------------------------
+
+To install Term::ReadLine::Gnu, you could use either:
+
+* macports:
+  $ sudo port install p5-term-readline-gnu
+
+* fink (depending on your perl version):
+  $ sudo apt-get install term-readline-gnu-pm586
+  $ sudo apt-get install term-readline-gnu-pm588
+  $ sudo apt-get install term-readline-gnu-pm5100
+
+* CPAN:
+  $ sudo perl -MCPAN -e'install Term::ReadLine::Gnu'
+
+* the bundled version:
+  $ cd modules
+  $ tar xvfz Term-Readline-Gnu-2.20.tar.gz
+  $ cd Term-Readline-Gnu-1.20
+  $ perl Makefile.PL --includedir=/opt/local/include --libdir=/opt/local/lib
+  $ make; sudo make install
+
+------------------------------------------------------------------------
+

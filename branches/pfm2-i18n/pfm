@@ -1,0 +1,1846 @@
+#!/usr/bin/env perl
+#
+##########################################################################
+#
+# Name:			pfm
+# Version:		2.11.6
+# Author:		Rene Uittenbogaard
+# Created:		1999-03-14
+# Date:			2011-03-19
+# Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
+#				    [ -l, --layout <number> ] [ -o, --sort <mode> ]
+#					[ -c, --colorset <mode> ]
+#				pfm { --help | --usage | --version }
+# Requires:		PFM::Application
+#				Term::ReadLine (preferably Term::ReadLine::Gnu)
+#				Term::Screen
+#				Term::ScreenColor
+#				Getopt::Long
+#				Module::Load
+#				LWP::UserAgent
+#				File::Temp
+#				File::Stat::Bits
+# Description:	Personal File Manager for Unix/Linux
+#				Based on PFM.COM for DOS.
+#
+
+##########################################################################
+# version
+
+# for MakeMaker only
+our $VERSION  = '2.11.6';
+
+=pod
+
+=for roff
+.ds Yr 2011
+.ds Vw @(#) pfm.pl 2.11.6
+.de Vp
+This manual pertains to \f(CWpfm\fP version \\$3.
+..
+.hy 0 \" hyphenation off
+
+=cut
+
+##########################################################################
+# declarations
+
+# for development
+use lib '/usr/local/share/perl/devel/lib';
+
+use App::PFM::Application;
+
+use strict;
+use locale;
+
+my $pfm;
+
+END {
+	# in case of emergency: make sure that the alternate screen
+	# is off, mouse mode is off, bracketed paste mode is off
+	# and that the terminal is in 'cooked' mode
+	print "\e[?47l\e[?9l\e[?2004l";
+	system qw(stty -raw echo);
+}
+
+##########################################################################
+# main
+
+$pfm = App::PFM::Application->new();
+$pfm->run();
+$pfm->shutdown();
+
+__END__
+
+##########################################################################
+# pod documentation
+
+=pod
+
+=head1 NAME
+
+C<pfm> - Personal File Manager for Linux/Unix
+
+=head1 SYNOPSIS
+
+C<pfm [>S< >I<directory>S< >C<] [>S< >C<-s, --swap >I<directory>S< >C<]>
+C< [>S< >C<-l, --layout >I<number>S< >C<] [>S< >C<-o, --sort >I<mode>S< >C<]>
+C< [>S< >C<-c, --colorset >I<string>S< >C<]>
+
+C<pfm { --help | --usage | --version }>
+
+=head1 DESCRIPTION
+
+C<pfm> is a terminal-based file manager, based on PFMS<.>COM for MS-DOS.
+
+All C<pfm> commands are accessible through one or two keystrokes, and a few
+are accessible with the mouse. Most command keys are case-insensitive. C<pfm>
+can operate in single-file mode or multiple-file mode. In single-file mode,
+the command corresponding to the keystroke will be performed on the current
+(highlighted) file only. In multiple-file mode, the command will apply to
+a selection of files.
+
+Note that throughout this manual page, I<file> can mean any type of file,
+not just plain regular files. These will be referred to as I<regular files>.
+
+=for roff
+.PP \" display the 'pertains to'-macro
+.Vp \*(Vw
+
+=head1 OPTIONS
+
+Most of C<pfm>'s configuration is read from a config file. The default
+location for this file is F<$HOME/.pfm/.pfmrc>, but an alternative location
+may be specified using the environment variable PFMRC. If there is no
+config file present at startup, one will be created. The file contains
+many comments on the available options, and is therefore supposed to be
+self-explanatory. C<pfm> will issue a warning if the version number of an
+existing config file is less than the version of C<pfm> you are running, and
+will offer to update it to its own version.  Alternatively, you could let
+C<pfm> create a new default config file and compare the changes with your
+own settings, so that you can configure the new options right away. See
+also the B<C>onfig command under L</MORE COMMANDS> below, and L</DIAGNOSIS>.
+
+There are two commandline options that specify starting directories.
+The CDPATH environment variable is taken into account when C<pfm>
+tries to find these directories.
+
+=over
+
+=item I<directory>
+
+The directory that C<pfm> should initially use as its main directory. If
+unspecified, the current directory is used.
+
+=item --help
+
+Print extended usage information, then exit.
+
+=item -c, --colorset I<string>
+
+Start C<pfm> using the specified colorset (as defined in the F<.pfmrc>).
+
+=item -l, --layout I<number>
+
+Start C<pfm> using the specified column layout (as defined in the F<.pfmrc>).
+
+=item -o, --sort I<mode>
+
+Start C<pfm> using the specified sort mode (as shown by the B<F6> command).
+
+=item -s, --swap I<directory>
+
+The directory that C<pfm> should initially use as swap directory. (See
+also below, under the B<F7> command).
+
+There would be no point in setting the swap directory and subsequently
+returning to the main directory if 'persistentswap' is turned off in your
+config file. Therefore, C<pfm> will swap back to the main directory I<only>
+if 'persistentswap' is turned on.
+
+=item --usage
+
+Print concise usage information, then exit.
+
+=item --version
+
+Print current version, then exit.
+
+=back
+
+=head1 NAVIGATION
+
+Navigation through directories is essentially done using the arrow keys
+and the vi(1) cursor keys (B<hjkl>). The following additional navigation
+keys are available:
+
+Movement inside a directory:
+
+=begin html
+
+<table border="0" cellspacing="4" align="center" width="80%">
+<tr><td colspan="2"><hr /></td></tr>
+<tr>
+	<td width="30%"><i>up arrow</i>, <i>down arrow</i></td>
+	<td>move the cursor by one line</td>
+</tr>
+<tr>
+	<td><b>k</b>, <b>j</b></td>
+	<td>move the cursor by one line</td>
+</tr>
+<tr>
+	<td><b>-</b>, <b>+</b></td>
+	<td>move the cursor by ten lines</td>
+</tr>
+<tr>
+	<td><b>CTRL-E</b>, <b>CTRL-Y</b></td>
+	<td>scroll the screen by one line</td>
+</tr>
+<tr>
+	<td><b>CTRL-U</b>, <b>CTRL-D</b></td>
+	<td>move the cursor by half a page</td>
+</tr>
+<tr>
+	<td><b>CTRL-B</b>, <b>CTRL-F</b></td>
+	<td>move the cursor by a full page</td>
+</tr>
+<tr>
+	<td><b>PgUp</b>, <b>PgDn</b></td>
+	<td>move the cursor by a full page</td>
+</tr>
+<tr>
+	<td><b>HOME</b>, <b>END</b></td>
+	<td>move the cursor to the top or bottom line</td>
+</tr>
+<tr>
+	<td><b>SPACE</b></td>
+	<td>mark the current file, then move the cursor one line down</td>
+</tr>
+</tr>
+<tr><td colspan="2"><hr /></td></tr>
+</table>
+
+=end html
+
+=begin roff
+
+.in +4n
+.TS
+lw(20n) | lw(41n).
+_
+\fIup arrow\fP, \fIdown arrow\fP	move the cursor by one line
+\fBk\fP, \fBj\fP	move the cursor by one line
+\fB-\fP, \fB+\fP	move the cursor by ten lines
+\fBCTRL-E\fP, \fBCTRL-Y\fP	scroll the screen by one line
+\fBCTRL-U\fP, \fBCTRL-D\fP	move the cursor by half a page
+\fBCTRL-B\fP, \fBCTRL-F\fP	move the cursor by a full page
+\fBPgUp\fP, \fBPgDn\fP	move the cursor by a full page
+\fBHOME\fP, \fBEND\fP	move the cursor to the top or bottom line
+.\"_	_
+\fBSPACE\fP	T{
+mark the current file,
+then move the cursor one line down
+T}
+_
+.TE
+.in
+
+=end roff
+
+Movement between directories:
+
+=begin html
+
+<table border="0" cellspacing="4" align="center" width="80%">
+<tr><td colspan="2"><hr /></td></tr>
+<tr>
+	<td width="30%"><b>l</b>, <i>right arrow</i></td>
+	<td><i>chdir()</i> to a subdirectory</td>
+</tr>
+<tr>
+	<td><b>h</b>, <i>left arrow</i></td>
+	<td><i>chdir()</i> to the parent directory</td>
+</tr>
+<tr>
+	<td><b>ENTER</b></td>
+	<td><i>chdir()</i> to a subdirectory</td>
+</tr>
+<tr>
+	<td><b>ESC</b>, <b>BS</b></td>
+	<td><i>chdir()</i> to the parent directory</td>
+</tr>
+<tr><td colspan="2"><hr /></td></tr>
+</table>
+
+=end html
+
+=begin roff
+
+.in +4n
+.TS
+lw(20n) | lw(41n).
+_
+\fBl\fP, \fIright arrow\fP	\fIchdir()\fP to a subdirectory
+\fBh\fP, \fIleft arrow\fP	\fIchdir()\fP to the parent directory
+\fBENTER\fP	\fIchdir()\fP to a subdirectory
+\fBESC\fP, \fBBS\fP	\fIchdir()\fP to the parent directory
+_
+.TE
+.in
+
+=end roff
+
+If the option 'chdirautocmd' has been specified in the F<.pfmrc> file,
+pfm will execute that command after every chdir(). This can be used
+I<e.g.> to set the title of an xterm window.
+
+Note: the B<l> and B<ENTER> keys function differently when the cursor
+is on a non-directory file (see below under B<L>ink and
+L</LAUNCHING FILES> respectively).
+
+=head1 COMMANDS
+
+=over
+
+=item B<Attribute>
+
+Changes the mode of the file if you are the owner. The mode may be specified
+either symbolically or numerically, see chmod(1) for more details.
+
+Note 1: the mode on a symbolic link cannot be set. See chmod(1) for more
+details.
+
+Note 2: the name B<Attribute> for this command is a reminiscence of the DOS
+version.
+
+=item B<Copy>
+
+Copy current file. You will be prompted for the destination filename.
+Directories will be copied recursively with all underlying files.
+
+In multiple-file mode, it is not allowed to specify a single non-directory
+filename as a destination. Instead, the destination name must be a
+directory or a name containing a B<=1>, B<=2> or B<=7> escape (see below
+under cB<O>mmand).
+
+If clobber mode is off (see below under the B<!> command), existing files
+will not be overwritten unless the action is confirmed by the user.
+
+Whether B<C>opy follows symlinks or copies them is OS-specific; you can
+change the default behavior by setting the 'copyoptions' option in your
+F<.pfmrc>. See cp(1).
+
+=item B<Delete>
+
+Delete a file or directory. You must confirm this command with B<Y>
+to actually delete the file. If the current file is a directory which
+contains files, and you want to delete it recursively, you must respond with
+B<A>ffirmative to the additional prompt. Lost files (files on the screen
+but not actually present on disk) can be deleted from the screen listing
+without confirmation. Whiteouts cannot be deleted; use unB<W>hiteout for
+this purpose.
+
+=item B<Edit>
+
+Edit a file with your external editor. You can specify an editor with the
+environment variable VISUAL or EDITOR or with the 'editor' option
+in the F<.pfmrc> file. Otherwise vi(1) is used.
+
+If a capital B<E> is pressed, the foreground editor is used ('fg_editor').
+
+=item B<Find>
+
+If the current sort mode is by filename, you are prompted for a (partial)
+filename. While you type, the cursor is positioned on the best match.
+Type B<ENTER> to end typing.
+
+If the current sort mode is not by filename, then you are prompted for a
+filename. The cursor is then positioned on that file.
+
+=item B<tarGet>
+
+Allows you to change the target that a symbolic link points to. You must
+have permission to remove the current symbolic link.
+
+=item B<Include>
+
+Allows you to mark a group of files which meet a certain criterion:
+
+=over
+
+=item B<A>fter / B<B>efore
+
+files newer/older than a specified date and time
+
+=item B<E>very file
+
+all files, including dotfiles (but not the F<.> and F<..> entries)
+
+=item B<F>iles only
+
+regular files of which the filenames match a specified regular expression
+(not a glob pattern!)
+
+=item B<G>reater / B<S>maller
+
+files that are bigger or smaller than the provided size in bytes.
+
+=item B<N>ewmarks
+
+files which were created during a previous multiple command and are now
+denoted with a I<newmark> (B<~>)
+
+=item B<O>ldmarks
+
+files which were marked (B<*>) before a previous multiple command and are
+now denoted with an I<oldmark> (B<.>)
+
+=item B<U>ser
+
+files owned by the current user
+
+=item B<.>
+
+all dotfiles (but not the F<.> and F<..> entries).
+
+=back
+
+Oldmarks and newmarks may be used to perform more than one command on the
+same group of files.
+
+Note that the F<.> and F<..> entries will never automatically become marked.
+
+There is also the option:
+
+=over
+
+=item B<I>nvert
+
+Inverts the selection, except for the F<.> and F<..> entries, which become
+unmarked.
+
+=back
+
+=item B<Link>
+
+Prompts to create either:
+
+=over
+
+=item an B<A>bsolute symlink
+
+This will create a symlink containing an absolute path to the target,
+irrespective of whether you enter a relative or an absolute symlink name.
+
+Example: when the cursor is on the file F</home/rene/incoming/.plan>,
+and you request an absolute symlink to be made with either the name
+F<../.plan> or F</home/rene/.plan>, the actual symlink will become:
+
+    /home/rene/.plan -> /home/rene/incoming/.plan
+
+=item a B<H>ard link
+
+This will create an additional hard link to the current file with the
+specified name, which must be on the same filesystem (see ln(1)).
+
+=item a B<R>elative symlink
+
+This will create a symlink containing a relative path to the target,
+irrespective of whether you enter a relative or an absolute symlink name.
+
+Example: when the cursor is on the file F</home/rene/incoming/.plan>,
+and you request a relative symlink to be made with either the name
+F<../.plan> or F</home/rene/.plan>, the actual symlink will become:
+
+    /home/rene/.plan -> incoming/.plan
+
+=back
+
+If a directory is specified, C<pfm> will follow the behavior of ln(1),
+which is to create the new link inside that directory.
+
+In multiple-file mode, it is not allowed to specify a single non-directory
+filename as a new name. Instead, the new name must be a directory or a
+name containing a B<=1>, B<=2> or B<=7> escape (see below under cB<O>mmand).
+
+If clobber mode is off (see below under the B<!> command), existing files
+will not be overwritten.
+
+Note that if the current file is a directory, the B<l> key, being one of
+the vi(1) cursor keys, will chdir() you into the directory. The capital B<L>
+command will I<always> try to make a link.
+
+=item B<More>
+
+Presents you with a choice of operations not related to the current
+file. Use this I<e.g.> to configure C<pfm>, edit a new file, make a
+new directory, show a different directory, or write the history files to
+disk. See below under L</MORE COMMANDS>. Pressing B<ESC> or B<ENTER> will
+take you back to the main menu.
+
+=item B<Name>
+
+Shows the complete long filename. For a symbolic link, this command
+will also show the complete target of the symbolic link. This is useful
+in case the terminal is not wide enough to display the entire name, or
+if the name contains non-printable characters. Non-ASCII characters and
+control characters will be displayed as their octal, decimal (html
+entity-like) or hexadecimal equivalents like the examples in the following
+table.
+
+The 'defaultradix' config file option specifies the radix that will
+initially be used.  The 'defaulttranslatespace' config file option
+controls whether spaces will initially be converted as well.
+
+When the name is shown in its converted form, pressing B<N> will change
+the radix, and pressing B<SPACE> will toggle the translation of spaces.
+Any other key will exit the B<N> command.
+
+Examples:
+
+=begin html
+
+<table border="0" cellspacing="4" align="center" width="50%">
+<tr><td colspan="4"><hr /></td></tr>
+<tr>
+	<td rowspan="3">character</td>
+	<td colspan="3">representation in radix</td>
+</tr>
+<tr>
+	<td colspan="3"><hr /></td>
+</tr>
+<tr>
+	<td>octal</td>
+	<td>hexadecimal</td>
+	<td>decimal</td>
+</tr>
+<tr><td colspan="4"><hr /></td></tr>
+<tr>
+	<td>CTRL-A</td>
+	<td>\001</td>
+	<td>\0x01</td>
+	<td>&amp;#1;</td>
+</tr>
+<tr>
+	<td>space</td>
+	<td>\040</td>
+	<td>\0x20</td>
+	<td>&amp;#32;</td>
+</tr>
+<tr>
+	<td>c cedilla (<b>&ccedil;</b>)</td>
+	<td>\347</td>
+	<td>\0xe7</td>
+	<td>&amp;#231;</td>
+</tr>
+<tr>
+	<td>backslash (<b>\</b>)</td>
+	<td>\\</td>
+	<td>\\</td>
+	<td>\\</td>
+</tr>
+<tr><td colspan="4"><hr /></td></tr>
+</table>
+
+=end html
+
+=begin roff
+
+.in +4n
+.TS
+l  | c  s s
+l6 | l8 l l.
+_
+character	representation in radix
+_
+\^	octal	hexadecimal	decimal\0
+_
+CTRL-A	\\001	\\0x01	&#1;
+space	\\040	\\0x20	&#32;
+c cedilla (\fB\(,c\fP)	\\347	\\0xe7	&#231;
+backslash (\fB\\\fP)	\\\\	\\\\	\\\\\0
+_
+.TE
+.in
+
+=end roff
+
+=item B<cOmmand>
+
+Allows execution of a shell command. After the command completes, C<pfm>
+will resume. If the command is C<cd>, C<pfm> itself will change to
+that directory.
+
+On the commandline, you may use several special abbreviations, which
+C<pfm> will replace with the current filename, directoryname etc. (see
+below). These abbreviations start with an escape character. This escape
+character is defined with the option 'escapechar' in your F<.pfmrc>
+file. By default it is B<=>. (Previous versions of C<pfm> used B<\>, but
+this was deemed too confusing because backslashes are parsed by the shell
+as well. This manual page (and the default config file) will assume you
+are using B<=> as 'escapechar').
+
+The following abbreviations are available:
+
+=over
+
+=item B<=1>
+
+the current filename without extension (see below)
+
+=item B<=2>
+
+the current filename, complete
+
+=item B<=3>
+
+the full current directory path
+
+=item B<=4>
+
+the mountpoint of the current filesystem
+
+=item B<=5>
+
+the full swap directory path (see B<F7> command)
+
+=item B<=6>
+
+the basename of the current directory
+
+=item B<=7>
+
+the extension of the current filename (see below)
+
+=item B<=8>
+
+a space-separated list of all marked filenames
+
+=item B<=9>
+
+the full previous directory path (see B<F2> command)
+
+=item B<==>
+
+a single literal B<=>
+
+=item B<=e>
+
+the editor specified with the 'editor' option in the config file
+
+=item B<=E>
+
+the 'foreground' editor, specified with the 'fg_editor' option in the
+config file. This is expected to be defined as an editor that does not
+fork into the background. C<pfm> uses this editor in a few cases so
+that it can wait for its results.
+
+=item B<=p>
+
+the pager specified with the 'pager' option in the config file
+
+=item B<=v>
+
+the image viewer specified with the 'viewer' option in the config file
+
+=back
+
+The I<extension> of the filename is defined as follows:
+
+If the filename does not contain a period at all, then the file has no
+extension (B<=7> is empty) and its whole name is regarded as B<=1>.
+
+If the filename does contain a period, the extension B<=7> is defined
+as the final part of the filename, starting at the last period in the
+name. The filename B<=1> is the part before the period.
+
+In all cases, the concatenation of B<=1> and B<=7> is equal to B<=2>.
+
+Examples:
+
+=begin html
+
+<table border="0" cellspacing="4" align="center" width="50%">
+<tr><td colspan="3"><hr /></td></tr>
+<tr>
+	<td><b>=2</b></td>		<td><b>=1</b></td>		<td><b>=7</b></td>
+</tr>
+<tr><td	colspan="3"><hr	/></td></tr>
+<tr>
+	<td>track01.wav</td>	<td>track01</td>		<td>.wav</td>
+</tr>
+<tr>
+	<td>garden.jpg</td>		<td>garden</td>			<td>.jpg</td>
+</tr>
+<tr>
+	<td>end.</td>			<td>end</td>			<td>.</td>
+</tr>
+<tr>
+	<td>somename</td>		<td>somename</td>		<td><i>empty</i></td>
+</tr>
+<tr>
+	<td>.profile</td>		<td><i>empty</i></td>	<td>.profile</td>
+</tr>
+<tr>
+	<td>.profile.old</td>	<td>.profile</td>		<td>.old</td>
+</tr>
+<tr><td colspan="3"><hr /></td></tr>
+</table>
+
+=end html
+
+=begin roff
+
+.in +4n
+.TS
+lb | lb lb
+l  | l  l  .
+_
+=2	=1	=7
+_
+track01.wav	track01	.wav
+garden.jpg	garden	.jpg
+end.	end	.
+somename	somename	\fIempty\fP
+\.profile	\fIempty\fP	.profile
+\.profile.old	.profile	.old
+_
+.TE
+.in -4n
+
+=end roff
+
+See also below under L</ESCAPE MODIFIERS> and L</QUOTING RULES>.
+
+=item B<Print>
+
+Will prompt for a print command (default C<lpr -P$PRINTER =2>, or C<lpr =2>
+if PRINTER is unset) and will run it. No formatting is done. You may
+specify a print command with the 'printcmd' option in the F<.pfmrc> file.
+
+=item B<Quit>
+
+Exit C<pfm>. The option 'confirmquit' in the F<.pfmrc> file specifies
+whether C<pfm> should ask for confirmation. Note that by pressing a capital
+B<Q> (quick quit), you will I<never> be asked for confirmation.
+
+=item B<Rename>
+
+Change the name of the file and/or move it into another directory. You will
+be prompted for the new filename. Depending on your Unix implementation,
+a pathname on another filesystem may or may not be allowed.
+
+In multiple-file mode, it is not allowed to specify a single non-directory
+filename as a new name. Instead, the new name must be a directory or a
+name containing a B<=1> or B<=2> escape (see above under cB<O>mmand).
+
+If clobber mode is off (see below under the B<!> command), existing files
+will not be overwritten unless the action is confirmed by the user.
+
+=item B<Show>
+
+Displays the contents of the current file or directory on screen.
+You can choose which pager to use for file viewing with the environment
+variable PAGER, or with the 'pager' option in the F<.pfmrc> file.
+
+=item B<Time>
+
+Changes mtime (modification date/time) of the file. The time may be
+entered either with or without clarifying interpunction (I<e.g.>
+2008-12-04 08:42.12).  Enter B<.> to set the mtime to the current
+date and time.  If the current file does not exist in the directory
+(lost file or whiteout), it is touch(1)ed first.
+
+=item B<User>
+
+Changes ownership of a file. Note that many Unix variants do not allow
+normal (non-C<root>) users to change ownership. Symbolic links will be
+followed.
+
+=item B<Version>
+
+Updates the current file with status information of the applicable
+versioning system. C<pfm> will examine the current directory to figure
+out which versioning system is used. Supported versioning systems are:
+Subversion, CVS, Bazaar and Git.  See also B<M>ore - reB<V>ision.
+
+=item B<unWhiteout>
+
+(Only on platforms that support whiteout files). Provides the option to
+remove the whiteout entry in the top layer of a stacked/overlay filesystem,
+thereby restoring access to the corresponding file in the lower layer.
+
+=item B<eXclude>
+
+Allows you to erase marks on a group of files which meet a certain
+criterion. See B<I>nclude for details.
+
+=item B<Your command>
+
+Like cB<O>mmand (see above), except that it uses preconfigured commands
+from the F<.pfmrc> file.  These commands are identified by a single
+letter (case-sensitive) or digit.
+
+B<Y>our command definitions may use B<=1> up to B<=9> and B<=e>,
+B<=E>, B<=p> and B<=v> escapes just as in cB<O>mmand, I<e.g.>:
+
+    your[A]:svn add =8
+    your[c]:tar cvf - =2 | gzip > =2.tar.gz
+    your[t]:tar tvf =2 | =p
+    your[1]:vimdiff =2*
+
+Navigation through the available commands works in the same way as
+for directories (see above under L</NAVIGATION>), except that B<ENTER>
+selects the highlighted command, and B<j> and B<k> select their own
+command (as do the other letters and digits).
+
+=item B<siZe>
+
+For directories, reports the grand total (in bytes) of the directory
+and its contents.
+
+For other file types, reports the total number of bytes in allocated
+data blocks. For regular files, this is often more than the reported
+file size. For special files and I<fast symbolic links>, the number is
+zero, as no data blocks are allocated for these file types.
+
+If the screen layout (selected with B<F9>) does not contain the
+'grand total' column, then the 'filesize' column will temporarily be
+used instead. A 'grand total' column in the layout will never be
+filled in when entering the directory.
+
+Note: since du(1) commands are not portable, C<pfm> guesses how it can
+calculate the size according to the Unix variant that it runs on. If
+C<pfm> makes an incorrect guess, please notify the author of any
+corrections that should be made.
+
+=back
+
+=head1 MORE COMMANDS
+
+These commands are accessible through the main screen B<M>ore command.
+
+=over
+
+=item B<Acl>
+
+Edit the Access Control List for this file. Note:
+This feature has not yet been implemented for all Un*x variants.
+
+WARNING: This feature has not been well tested on all Unices.
+Use it at your own risk.
+
+Any help getting the commands right would be appreciated by the author.
+
+=item B<Bookmark>
+
+Lists all the available bookmarks and asks the user in which slot the
+current directory should be bookmarked.  If the input is valid, a new
+bookmark is created in the bookmark list.
+
+Navigation through the bookmark list works in the same way as for
+directories (see above under L</NAVIGATION>), except that B<ENTER>
+selects the highlighted slot, and B<j> and B<k> select their own
+slot (as do the other letters and digits).
+
+=item B<Config pfm>
+
+This command will open the F<.pfmrc> config file with the configured
+editor. The file will be re-read by C<pfm> after you exit your editor.
+Options that are only modifiable through the config file (like
+'columnlayouts') will be reinitialized immediately, options that affect
+settings modifiable by key commands (like 'defaultsortmode') will not.
+
+=item B<Edit any file>
+
+You will be prompted for a filename, then your editor will
+be spawned.
+
+If a capital B<E> is pressed, the foreground editor is used ('fg_editor').
+
+=item B<make Fifo>
+
+Prompts for a name, then creates a FIFO file (named pipe) with that
+name. See also fifo(4) and mkfifo(1).
+
+=item B<Go to bookmark>
+
+Lists all the available bookmarks and asks the user which bookmark should
+be loaded to the current directory (and file).  If the input is valid,
+the bookmark is loaded and a chdir() is done to the directory.
+
+Navigation through the bookmark list works as noted above, under B<Bookmark>.
+
+=item B<sHell>
+
+Spawns your default login shell. When you exit from it, C<pfm> will resume.
+
+=item B<foLlow>
+
+If the current file is a symlink, it is followed and the cursor positioned
+at the target file.
+
+=item B<Make new directory>
+
+Specify a new directory name and C<pfm> will create it for you. Furthermore,
+if you don't have any files marked, your current directory will be set to
+the newly created directory.
+
+=item B<Open window>
+
+Opens a new (file manager) window on the current directory, as configured
+with 'windowtype' and 'windowcmd' in the F<.pfmrc>. Some examples:
+
+If 'windowtype' is "pfm" and 'windowcmd' is something like "S<xterm -e>",
+then a new terminal window running C<pfm> will be opened.
+
+If 'windowtype' is "standalone" and 'windowcmd' is something like
+"nautilus", then a new C<nautilus> window will be opened.
+
+=item B<Physical path>
+
+Shows the physical pathname of the current directory until a key is pressed.
+
+=item B<Show directory>
+
+You will be asked for the directory you want to view. Note that this
+command is different from B<F7> because this will not change your current
+swap directory status.
+
+=item B<alTernate screen>
+
+If the terminal has an alternate screen (like B<xterm>), and C<pfm> has been
+configured to use it (through the 'altscreenmode' option in the F<.pfmrc>),
+then this command shows the alternate screen until a key is pressed.
+This is useful for reading error messages of shell commands and so on.
+
+=item B<Version>
+
+Updates the current directory with status information of the applicable
+versioning system. C<pfm> will examine the current directory to figure
+out which versioning system is used. Supported versioning systems are:
+Subversion, CVS, Bazaar and Git.
+
+If you set the 'autorcs' option in your F<.pfmrc>, this will automatically
+be done every time C<pfm> shows directory contents.
+
+=item B<Write history>
+
+C<pfm> uses the readline library for keeping track of the Unix commands,
+pathnames, regular expressions, modification times, and file modes
+entered. The history is read from individual files in F<$HOME/.pfm/>
+every time C<pfm> starts. The history is written only when this command
+is given, or when C<pfm> exits and the 'autowritehistory' option is set
+in F<.pfmrc>.
+
+=item B<F5> Smart refresh
+
+Refreshes the directory like B<F5> (remove lost files from the listing,
+read the current directory again I<etc.>) but keeps the marks.
+
+=item B<F6> Multilevel Sort
+
+Allows the user to enter a string of sort mode characters which will be
+applied sequentially. Example: a string of B<sN> will sort by size
+ascending followed by name descending; the string B<tn> will sort
+directories before files, each sorted alphabetically.
+
+=item B<@>
+
+Starts a perl shell in the context of C<pfm>. Primarily used for debugging.
+
+=back
+
+=head1 MISCELLANEOUS and FUNCTION KEYS
+
+=over
+
+=item B<ENTER>
+
+If the current file is a directory, C<pfm> will chdir() to that directory.
+Otherwise, C<pfm> will attempt to I<launch> the file. See
+below under L</LAUNCHING FILES>.
+
+=item B<DEL>
+
+Identical to the B<D>elete command (see above).
+
+=item B<!>
+
+Toggle clobber mode. This controls whether a file should be overwritten when
+its name is reused in B<C>opy, B<L>ink or B<R>ename.
+
+=item B<">
+
+Toggle pathname handling. In B<physical> mode, the current directory path
+will always be transformed to its canonical form (the simplest form, with
+symbolic names resolved). In B<logical> mode, all symbolic link components
+in the current directory path will be preserved.
+
+=item B<%>
+
+Toggle show/hide whiteout files.
+
+=item B<.>
+
+Toggle show/hide dot files.
+
+=item B</>
+
+Identical to B<F>ind (see above).
+
+=item B<;>
+
+Toggle show/hide svn ignored files.
+
+=item B<E<lt>>
+
+Pan the menu and footer, in order to view all available commands.
+
+=item B<=>
+
+Cycle through displaying identity information: username, hostname,
+and/or ttyname.
+
+=item B<E<gt>>
+
+Pan the menu and footer, in order to view all available commands.
+
+=item B<?>
+
+Display help. Identical to B<F1>.
+
+=item B<@>
+
+Allows the user to enter a perl command to be executed in the context
+of C<pfm>. Primarily used for debugging.
+
+=item B<F1>
+
+Display help, version number and license information.
+
+=item B<F2>
+
+chdir() back to the previous directory. In shell commands,
+the previous directory path may be referred to as B<=9>.
+
+=item B<F3>
+
+Fit the file list into the current window and refresh the display.
+
+=item B<F4>
+
+Change the current colorset. Multiple colorsets may be defined,
+see the F<.pfmrc> file itself for details.
+
+=item B<F5>
+
+Current directory will be reread. Use this when the contents of the
+directory have changed. This command will erase all marks.
+
+=item B<F6>
+
+Allows you to re-sort the directory listing. You will be presented
+a number of sort modes.
+
+=item B<F7>
+
+Alternates the display between two directories. When switching for the first
+time, you are prompted for a directory path to show. When you switch back by
+pressing B<F7> again, the contents of the alternate directory are displayed
+unchanged. Menu text changes color when in swap screen. In shell commands,
+the directory path from the alternate screen may be referred to as B<=5>.
+If the 'persistentswap' option has been set in the config file, then
+leaving the swap mode will store the main directory path as swap path again.
+
+=item B<F8>
+
+Toggles the mark (include flag) on an individual file.
+
+=item B<F9>
+
+Toggle the column layout. Layouts are defined in your F<.pfmrc>,
+in the 'defaultlayout' and 'columnlayouts' options. See the config
+file itself for information on changing the column layout.
+
+Note that a 'grand total' column in the layout will only be filled when
+the siB<Z>e command is issued, not when reading the directory contents.
+
+=item B<F10>
+
+Switch between single-file and multiple-file mode.
+
+=item B<F11>
+
+Refresh (using lstat(2)) the displayed file data for the current file.
+
+=item B<F12>
+
+Toggle mouse use. See below under L</MOUSE COMMANDS>.
+
+=back
+
+=head1 ESCAPE MODIFIERS
+
+The above mentioned escapes B<=1> to B<=9> and B<=e>, B<=E>, B<=p>
+and B<=v> can make use of the following modifiers:
+
+=over 4
+
+=item B<={escape#prefix}>
+
+=item B<={escape##prefix}>
+
+I<prefix> is a word which may use B<*> characters as a wildcard.
+If the I<prefix> matches the beginning of the value of the escape,
+then the result of the expansion is the expanded value of
+I<escape> with the shortest (B<#>) or longest (B<##>) matching
+string deleted.
+
+=item B<={escape%suffix}>
+
+=item B<={escape%%suffix}>
+
+I<suffix> is a word which may use B<*> characters as a wildcard.
+If the I<suffix> matches a trailing portion of the value of the
+escape, then the result of the expansion is the expanded
+value of I<escape> with the shortest (B<%>) or longest (B<%%>)
+matching string deleted.
+
+=item B<={escape^letters}>
+
+=item B<={escape^^letters}>
+
+=item B<={escape,letters}>
+
+=item B<={escape,,letters}>
+
+This expansion modifies the case of alphabetic characters in I<escape>.
+The B<^> operator converts letters in I<letters> to uppercase;
+the B<,> operator converts letters in I<letters> to lowercase.
+The B<^^> and B<,,> expansions convert each matched character in the expanded
+value; the B<^> and B<,> expansions match and convert only the first
+character in the expanded value. If I<letters> is omitted, it is treated like
+a B<?>, which matches every letter.
+
+=back
+
+If a modification is done on B<=8>, it is done on each of the expanded values.
+
+Examples:
+
+=begin html
+
+<table border="0" cellspacing="4" align="center" width="50%">
+<tr><td colspan="2"><hr /></td></tr>
+<tr>
+	<td><b>escape</b></td>	<td><b>result</b></td>
+</tr>
+<tr><td colspan="2"><hr /></td></tr>
+<tr>
+	<td>=2</td>				<td>ActivateDebtor.php</td>
+</tr>
+<tr>
+	<td>={2}</td>			<td>ActivateDebtor.php</td>
+</tr>
+<tr>
+	<td>={2#Activate}</td>	<td>Debtor.php</td>
+</tr>
+<tr>
+	<td>={2#t}</td>			<td>ActivateDebtor.php</td>
+</tr>
+<tr>
+	<td>={2#*t}</td>		<td>ivateDebtor.php</td>
+</tr>
+<tr>
+	<td>={2##*t}</td>		<td>or.php</td>
+</tr>
+<tr>
+	<td>={2%hp}</td>		<td>ActivateDebtor.p</td>
+</tr>
+<tr>
+	<td>={2%t}</td>			<td>ActivateDebtor.php</td>
+</tr>
+<tr>
+	<td>={2%t*}</td>		<td>ActivateDeb</td>
+</tr>
+<tr>
+	<td>={2%%t*}</td>		<td>Ac</td>
+</tr>
+<tr>
+	<td>={2,d}</td>			<td>Activatedebtor.php</td>
+</tr>
+<tr>
+	<td>={2^ph}</td>		<td>ActivateDebtor.Php</td>
+</tr>
+<tr>
+	<td>={2,,t}</td>		<td>ActivateDebtor.php</td>
+</tr>
+<tr>
+	<td>={2^^t}</td>		<td>AcTivaTeDebTor.php</td>
+</tr>
+<tr>
+	<td>={2,,}</td>			<td>activatedebtor.php</td>
+</tr>
+<tr>
+	<td>={2^^}</td>			<td>ACTIVATEDEBTOR.PHP</td>
+</tr>
+<tr>
+	<td>=8</td>				<td>UserName.php UserId.php</td>
+</tr>
+<tr>
+	<td>={8,}</td>			<td>userName.php userId.php</td>
+</tr>
+<tr>
+	<td>={8#User}</td>		<td>Name.php Id.php</td>
+</tr>
+<tr><td colspan="2"><hr /></td></tr>
+</table>
+
+=end html
+
+=begin roff
+
+.in +4n
+.TS
+lb lb
+l  l  .
+_
+escape	result
+_
+=2	ActivateDebtor.php
+={2}	ActivateDebtor.php
+={2#Activate}	Debtor.php
+={2#t}	ActivateDebtor.php
+={2#*t}	ivateDebtor.php
+={2##*t}	or.php
+={2%hp}	ActivateDebtor.p
+={2%t}	ActivateDebtor.php
+={2%t*}	ActivateDeb
+={2%%t*}	Ac
+={2,d}	Activatedebtor.php
+={2^ph}	ActivateDebtor.Php
+={2,,t}	ActivateDebtor.php
+={2^^t}	AcTivaTeDebTor.php
+={2,,}	activatedebtor.php
+={2^^}	ACTIVATEDEBTOR.PHP
+=8	UserName.php UserId.php
+={8,}	userName.php userId.php
+={8#User}	Name.php Id.php
+_
+.TE
+.in -4n
+
+=end roff
+
+=head1 LAUNCHING FILES
+
+The B<ENTER> key, when used on a non-directory file, will make C<pfm>
+attempt to launch the file.
+
+C<pfm> can be configured to use any combination of four methods for
+determining the appropriate command. These methods are:
+
+=over
+
+=item B<extension>
+
+The filename extension will be translated to a file type (preferably a
+MIME type) using the 'extension[*.I<extension>]' options in the config
+file.
+
+Example:
+
+    extension[*.gif]: image/gif
+    extension[*.pdf]: application/pdf
+
+Launch commands for every file type may be defined using the
+'launch[I<filetype>]' options.
+
+Example:
+
+    launch[image/gif]      : =v =2 &
+    launch[application/pdf]: acroread =2 &
+
+=item B<magic>
+
+The file(1) command will be run on the current file. Its output will
+be translated to a file type using the 'magic[I<regular expression>]'
+options in the config file.
+
+Example:
+
+    magic[GIF image data]: image/gif
+    magic[PDF document]  : application/pdf
+
+The file type will then be used to look up a launch command as described
+above.
+
+=item B<xbit>
+
+The executable bits in the file permissions will be checked (after
+symbolic links have been followed). If the current file is executable,
+C<pfm> will attempt to start the file as an executable command.
+
+=item B<name>
+
+Some filenames have their own unique way of launching them. These can be
+configured using the 'launchname' config option:
+
+    launchname[Makefile]   : make
+    launchname[Imakefile]  : xmkmf
+    launchname[Makefile.PL]: perl =2
+
+=back
+
+To select which method or methods (I<extension>, I<magic>, I<xbit>, and/or
+I<name>) should be used for determining the file type, you should specify
+these using the 'launchby' option (separated by commas if there is more
+than one).
+
+Example:
+
+    launchby:name,xbit,extension
+
+C<pfm> will try these methods in succession until one succeeds, or all
+fail.
+
+If the file type cannot be determined, the current file will be displayed
+using your pager.
+
+The B<ENTER> key will always behave as if C<pfm> runs in single-file mode.
+It will I<not> launch multiple files. Use B<Y>our or cB<O>mmand to launch
+multiple files.
+
+=head1 QUOTING RULES
+
+C<pfm> adds an extra layer of parsing to filenames and shell commands. It
+is therefore important to take notice of the rules that C<pfm> uses.
+
+In versions prior to 1.93.1, the default escape character was B<\>. Since
+this causes confusing results, this is no longer the default, and you are
+discouraged from using it.
+
+The following six types of input can be distinguished:
+
+=over
+
+=item B<a regular expression> (only the B<I>nclude and eB<X>clude commands)
+
+The input is parsed as a regular expression.
+
+=item B<a time> (e.g. the B<T>ime or B<I>nclude - B<B>efore commands)
+
+Characters not in the set C<[0-9.]> are removed from the input.
+
+=item B<a literal pattern> (only the B<F>ind command)
+
+The input is taken literally.
+
+=item B<not a filename or shell command> (e.g. in B<A>ttribute or B<U>ser)
+
+The input is taken literally.
+
+=item B<a filename> (e.g. in B<C>opy or tarB<G>et).
+
+First of all, tilde expansion is performed.
+
+Next, any C<=[1-9eEpv]> character sequence is expanded to the corresponding
+value.
+
+At the same time, any C<=[^1-9eEpv]> character sequence is just replaced
+with the character itself.
+
+Finally, if the filename is to be processed by C<pfm>, it is taken literally;
+if it is to be handed over to a shell, all metacharacters are replaced
+I<escaped>.
+
+=item B<a shell command> (e.g. in cB<O>mmand or B<P>rint)
+
+First of all, tilde expansion is performed.
+
+Next, any C<=[1-9eEpv]> character sequence is expanded to the corresponding
+value, I<with shell metacharacters escaped>.
+
+At the same time, any C<=[^1-9eEpv]> character sequence is just replaced
+with the character itself.
+
+=back
+
+In short:
+
+=over
+
+=item
+
+C<pfm> always escapes shell metacharacters in expanded B<=2>
+I<etc.> constructs.
+
+=item
+
+In filenames entered, shell metacharacters are taken literally.
+
+=item
+
+In shell commands entered, metacharacters that you want to be taken
+literally must be escaped one extra time.
+
+=back
+
+Examples:
+
+=begin html
+
+<table border="0" cellspacing="4" align="center">
+<tr><td colspan="3"><hr /><td></tr>
+<tr>
+	<td>char(s) wanted in filename&nbsp;&nbsp;&nbsp;</td>
+	<td>char(s) to type in filename&nbsp;&nbsp;&nbsp;</td>
+	<td>char(s) to type in shell command&nbsp;&nbsp;&nbsp;</td>
+</tr>
+<tr><td colspan="3"><hr /><td></tr>
+<tr>
+	<td><i>any non-metachar</i></td>
+	<td><i>that char</i></td>
+	<td><i>that char</i></td>
+</tr>
+<tr>
+	<td>\</td>
+	<td>\</td>
+	<td>\\ or '\'</td>
+</tr>
+<tr>
+	<td>&quot;</td>
+	<td>&quot;</td>
+	<td>\&quot; <b>or</b> '&quot;'</td>
+</tr>
+<tr>
+	<td>=</td>
+	<td>==</td>
+	<td>==</td>
+</tr>
+<tr>
+	<td><i>space</i></td>
+	<td><i>space</i></td>
+	<td>\\<i>space</i>  <b>or</b> '<i>space</i>'</td>
+</tr>
+<tr>
+	<td><i>filename</i></td>
+	<td>=2</td>
+	<td>=2</td>
+</tr>
+<tr>
+	<td>\2</td>
+	<td>\2</td>
+	<td>\\2 <b>or</b> '\2'</td>
+</tr>
+<tr>
+	<td>=2</td>
+	<td>==2</td>
+	<td>==2</td>
+</tr>
+<tr><td colspan="3"><hr /><td></tr>
+</table>
+
+=end html
+
+=begin roff
+
+.in
+.TS
+l | l l.
+_
+T{
+char(s) wanted in filename
+T}	T{
+char(s) to type in filename
+T}	T{
+char(s) to type in shell command
+T}
+_
+.\" great. *roff wants even more backslashes. so much for clarity.
+\fIany non-metachar\fP	\fIthat char\fP	\fIthat char\fP
+\\	\\	\\\\ \fBor\fR '\\'
+"	"	\\" \fBor\fR '"'
+\&=	==	==
+\fIspace\fP	\fIspace\fP	\\\fIspace\fP \fBor\fR '\fIspace\fP'
+\fIfilename\fP	=2	=2
+\\2	\\2	\\\\2 \fBor\fR '\\2'
+=2	==2	==2
+_
+.TE
+.in
+
+=end roff
+
+=head1 MOUSE COMMANDS
+
+When C<pfm> is run in an xterm or other terminal (or emulator) that supports
+the use of a mouse, turning on mouse mode (either initially with the
+'defaultmousemode' option in the F<.pfmrc> file, or while running using
+the B<F12> key) will give mouse access to the following commands:
+
+=begin html
+
+<table border="0" cellspacing="4" align="center" width="70%">
+<tr><td colspan="7"><hr /></td></tr>
+<tr>
+	<th rowspan="3">button</th>
+	<th colspan="6">location clicked</th>
+</tr>
+<tr><td colspan="7"><hr /></td></tr>
+<tr>
+	<td>pathline</td>
+	<td>menu/footer</td>
+	<td>heading</td>
+	<td>fileline</td>
+	<td>filename</td>
+	<td>dirname</td>
+</tr>
+<tr><td colspan="7"><hr /></td></tr>
+<tr>
+	<td>1</td>
+	<td><i>chdir()</i></td>
+	<td><i>pfm command</i></td>
+	<td>sort</td>
+	<td>F8</td>
+	<td><b>S</b>how</td>
+	<td><b>S</b>how</td>
+</tr>
+<tr>
+	<td>2</td>
+	<td>c<b>O</b>mmand</td>
+	<td><i>pfm command</i></td>
+	<td>sort rev</td>
+	<td><b>S</b>how</td>
+	<td>ENTER</td>
+	<td><b>M</b>ore - <b>O</b>pen window</i></td>
+</tr>
+<tr>
+	<td>3</td>
+	<td>c<b>O</b>mmand</td>
+	<td><i>pfm command</i></td>
+	<td>sort rev</td>
+	<td><b>S</b>how</td>
+	<td>ENTER</td>
+	<td><b>M</b>ore - <b>O</b>pen window</i></td>
+</tr>
+<tr><td colspan="7"><hr /><td></tr>
+<tr>
+	<td>wheel up</td>
+	<td colspan="6" align="center"><i>five lines up</i></td>
+</tr>
+<tr>
+	<td>wheel down</td>
+	<td colspan="6" align="center"><i>five lines down</i></td>
+</tr>
+<tr><td colspan="7"><hr /></td></tr>
+</table>
+
+=end html
+
+=begin roff
+
+.TS
+c | c s s s s s
+^ | l l l l l l
+c | l l l l l l
+c | l l l l l l
+c | l l l l l l
+c | c s s s s s
+c | c s s s s s.
+_
+\0btn	location clicked
+_
+\^	pathline	T{
+menu/
+.br
+footer
+T}	heading	T{
+file-
+.br
+line
+T}	T{
+file-
+.br
+name
+T}	dirname
+_
+1	\fIchdir()\fR	\fIpfm-cmd\fP	sort	F8	\fBS\fPhow	\fBS\fPhow
+2	c\fBO\fPmmand	\fIpfm-cmd\fP	sort rev	\fBS\fPhow	ENTER	\fBM\fPore - \fBO\fPpen win\0
+3	c\fBO\fPmmand	\fIpfm-cmd\fP	sort rev	\fBS\fPhow	ENTER	\fBM\fPore - \fBO\fPpen win
+_
+up	\fIfive lines up\fP
+down	\fIfive lines down\fP
+_
+.TE
+
+=end roff
+
+The cursor will I<only> moved to another file when a directory is clicked
+or the mouse wheel is used.  The mouse wheel moves the cursor five lines
+per notch by default, or one line if shift is pressed. The actual number
+of lines can be configured in your F<.pfmrc> using 'mousewheeljumpsize'.
+
+Clicking button 1 on the current directory path will chdir() up to the
+clicked ancestor directory. If the current directory was clicked, or the
+device name, it will act like a B<M>ore - B<S>how command.
+
+Clicking button 2 on a directory name will open a new window like B<M>ore
+- B<O>pen window.
+
+Clicking on the column headings will sort the directory contents by that
+heading. Clicking again will sort the directory in reverse order.
+
+Clicking on "Sort" in the footer will cycle through a number of
+preconfigured sort modes as defined in the config option 'sortcycle'.
+
+Clicking on the menu or footer will execute the command that was clicked.
+
+Clicking on one of the identity lines in the info column will toggle the
+display like the B<=> command does.
+
+Mouse use will be turned off during the execution of commands.
+
+=head1 WORKING DIRECTORY INHERITANCE
+
+Upon exit, C<pfm> will save its current working directory in the file
+F<$HOME/.pfm/cwd>, and its swap directory, if any, in F<$HOME/.pfm/swd>.
+This enables the user to have the calling process (shell) "inherit"
+C<pfm>'s current working directory, and to reinstate the swap directory
+upon the next invocation.  To achieve this, you may call C<pfm> using a
+function or alias like the following:
+
+Example for ksh(1), bash(1) and zsh(1):
+
+    pfm() {
+        if [ -s ~/.pfm/swd ]; then
+            swd=-s"`cat ~/.pfm/swd`"
+        fi
+        # providing $swd is optional
+        env pfm $swd "$@"
+        if [ -s ~/.pfm/cwd ]; then
+            cd "`cat ~/.pfm/cwd`"
+            rm -f ~/.pfm/cwd
+        fi
+    }
+
+Example for csh(1) and tcsh(1):
+
+    alias pfm ':                             \
+    if (-s ~/.pfm/swd) then                  \
+        set swd=-s"`cat ~/.pfm/swd`"         \
+    endif                                    \
+    : providing $swd is optional             \
+    env pfm $swd \!*                         \
+    if (-s ~/.pfm/cwd) then                  \
+        cd "`cat ~/.pfm/cwd`"                \
+        rm -f ~/.pfm/cwd                     \
+    endif'
+
+=head1 ENVIRONMENT
+
+=over
+
+=item B<ANSI_COLORS_DISABLED>
+
+Detected as an indication that ANSI coloring escape sequences should not
+be used.
+
+=item B<CDPATH>
+
+A colon-separated list of directories specifying the search path when
+changing directories. There is always an implicit B<.> entry at the start
+of this search path.
+
+=item B<DISPLAY>
+
+The X display on which the 'windowcmd' will be opened.
+
+=item B<EDITOR>
+
+The editor to be used for the B<E>dit command. Overridden by VISUAL.
+
+=item B<LC_ALL>
+
+=item B<LC_COLLATE>
+
+=item B<LC_CTYPE>
+
+=item B<LC_MESSAGES>
+
+=item B<LC_NUMERIC>
+
+=item B<LC_TIME>
+
+=item B<LANG>
+
+Determine locale settings, most notably for collation sequence, messages
+and date/time format. See locale(7).
+
+=item B<PAGER>
+
+Identifies the pager with which to view text files. Defaults to less(1)
+for Linux systems or more(1) for Unix systems.
+
+=item B<PERL_RL>
+
+Indicate whether and how the readline prompts should be highlighted.
+See Term::ReadLine(3pm). If unset, a good guess is made based on your
+config file 'framecolors[]' setting.
+
+=item B<PFMRC>
+
+Specify a location of an alternate F<.pfmrc> file. If unset, the default
+location F<$HOME/.pfm/.pfmrc> is used. The cwd- and history-files cannot
+be displaced in this manner, and will always be located in the directory
+F<$HOME/.pfm/>.
+
+=item B<PRINTER>
+
+May be used to specify a printer to print to using the B<P>rint command.
+
+=item B<SHELL>
+
+Your default login shell, spawned by B<M>ore - sB<H>ell.
+
+=item B<VISUAL>
+
+The editor to be used for the B<E>dit command. Overrides EDITOR.
+
+=back
+
+=head1 FILES
+
+The directory F<$HOME/.pfm/> and files therein. A number of input histories
+and the current working directory on exit are saved to this directory.
+
+The default location for the config file is F<$HOME/.pfm/.pfmrc>.
+
+=head1 EXIT STATUS
+
+=over
+
+=item S< >0
+
+Success (could also be a user requested exit, I<e.g.> after
+B<--help> or B<--version>).
+
+=item S< >1
+
+Invalid commandline option.
+
+=item S< >2
+
+No valid layout found in the F<.pfmrc> file.
+
+=back
+
+=head1 DIAGNOSIS
+
+If C<pfm> reports that your config file might be outdated, you might be
+missing some of the newer configuration options (or default values for
+these). The best way to solve this is by having C<pfm> generate a new
+config file, I<e.g.> by running the following command and comparing the
+new config file with your original one:
+
+    env PFMRC=~/.pfm/.pfmrc-new pfm
+
+Alternatively, you may reply with B<y> when C<pfm> offers to update the
+config file for you.
+
+If a function key like B<F1> or B<F10> is intercepted by your windowing
+system or OS, and it is not feasible to change that mapping, then you can
+define an alternative key mapping (like Shift-B<F1>, Shift-B<F10>) in
+your F<.pfmrc>, I<e.g.>:
+
+    keydef[*]:k1=\eO1;2P:k10=\e[21;2~:
+
+Or for a specific value of B<TERM>:
+
+    keydef[xterm]:k1=\eO1;2P:k10=\e[21;2~:
+
+=head1 BUGS and WARNINGS
+
+The smallest terminal size supported is 80x24. The display will be messed
+up if you resize your terminal window to a smaller size, unless you specify
+'force_minimum_size' in the config file and the terminal supports resizing;
+in that case C<pfm> will resize the terminal to at least 80 columns and/or
+24 rows.
+
+The author once almost pressed B<ENTER> when logged in as root and with
+the cursor on the file F</sbin/reboot>. You have been warned.
+
+=head1 VERSION
+
+=for roff
+.PP \" display the 'pertains to'-macro
+.Vp \*(Vw
+
+=head1 AUTHOR and COPYRIGHT
+
+=for roff
+.PP \" display the authors
+.\" the \(co character only exists in groff
+.ie \n(.g .ds co \(co
+.el       .ds co (c)
+.ie \n(.g .ds e' \('e
+.el       .ds e' e\*'
+..
+Copyright \*(co 1999-\*(Yr, Ren\*(e' Uittenbogaard
+(ruittenb@users.sourceforge.net).
+.PP
+
+=for html
+Copyright &copy; Ren&eacute; Uittenbogaard
+(ruittenb&#64;users.sourceforge.net).
+
+This program is free software; you can redistribute it and/or modify it
+under the terms described by the GNU General Public License version 3.
+
+This program was based on PFMS<.>COM version 2.32, originally written for
+MS-DOS by Paul R. Culley and Henk de Heer. The name 'pfm' was adopted
+with kind permission of the original authors.
+
+Special thanks to Ewoud Kappers for useful suggestions and testing.
+
+Special thanks to Maurice Makaay for useful suggestions and assistance
+with debugging.
+
+=head1 SEE ALSO
+
+The documentation on PFMS<.>COM. The manual pages for chmod(1), cp(1),
+file(1), less(1), ln(1), locale(7), lpr(1), touch(1), vi(1).
+
+=for roff
+.ad l \" right-justification off
+
+For developers:
+Term::Screen(3pm),
+Term::ScreenColor(3pm),
+Term::ReadLine(3pm),
+App::PFM::Abstract(3pm),
+App::PFM::Application(3pm),
+App::PFM::Browser(3pm),
+App::PFM::Browser::Files(3pm),
+App::PFM::Browser::Bookmarks(3pm),
+App::PFM::CommandHandler(3pm),
+App::PFM::Config(3pm),
+App::PFM::Directory(3pm),
+App::PFM::Event(3pm),
+App::PFM::File(3pm),
+App::PFM::History(3pm),
+App::PFM::JobHandler(3pm),
+App::PFM::Job::Abstract(3pm),
+App::PFM::OS(3pm),
+App::PFM::Screen(3pm),
+App::PFM::State(3pm) and
+App::PFM::Util(3pm).
+
+The pfm project page: L<http://sourceforge.net/projects/p-f-m/>
+
+The pfm homepage: L<http://p-f-m.sourceforge.net/>
+
+=cut
+
+# vim: set tabstop=4 shiftwidth=4:
