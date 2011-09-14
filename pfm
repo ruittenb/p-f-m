@@ -3,10 +3,10 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.08.3
+# Version:		2.08.4
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-02
+# Date:			2010-09-05
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				    [ -l, --layout <number> ] [ -o, --sort <mode> ]
 #				pfm { -v, --version | -h, --help }
@@ -24,7 +24,7 @@
 # version
 
 # for MakeMaker
-our $VERSION = '2.08.3';
+our $VERSION = '2.08.4';
 
 # macros for *roff
 our $ROFFVERSION = <<'=cut';
@@ -33,7 +33,7 @@ our $ROFFVERSION = <<'=cut';
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.08.3
+.ds Vw @(#) pfm.pl 2.08.4
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -47,9 +47,11 @@ This manual pertains to \f(CWpfm\fP version \\$3.
 if ($ENV{PFM_DEVEL}) {
 	use lib '/home/ruitten/Desktop/projects/pfm/z_working/pfm2/lib';
 }
-use strict;
 
 use App::PFM::Application;
+
+use strict;
+use locale;
 
 my $pfm;
 
@@ -97,6 +99,10 @@ a selection of files.
 
 Note that throughout this manual page, I<file> can mean any type of file,
 not just plain regular files. These will be referred to as I<regular files>.
+
+=for roff
+.PP \" display the 'pertains to'-macro
+.Vp \*(Vw
 
 =head1 OPTIONS
 
@@ -875,7 +881,8 @@ in F<.pfmrc>.
 
 Allows the user to enter a string of sort mode characters which will be
 applied sequentially. Example: a string of B<sN> will sort by size
-ascending followed by name descending.
+ascending followed by name descending; the string B<tn> will sort
+directories before files, each sorted alphabetically.
 
 =back
 

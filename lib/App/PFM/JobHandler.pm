@@ -45,6 +45,7 @@ use App::PFM::Job::Git;
 use POSIX ':sys_wait_h';
 
 use strict;
+use locale;
 
 our ($_pfm);
 

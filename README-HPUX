@@ -1,5 +1,5 @@
 
-On HP-UX 11.00, the file /etc/termcap does not seem to contain an 'me'
-entry. You need to add it in order to make Term::Screen function
-correctly, for example :me=\E[0m:
+If you are on HP-UX 11.00, you will need at least version 1.16
+of Term::ScreenColor. It contains a workaround for the defective
+/etc/termcap on that platform.
 

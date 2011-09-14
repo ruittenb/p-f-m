@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.24
+# @(#) App::PFM::CommandHandler 1.25
 #   
 # Name:			App::PFM::CommandHandler
-# Version:		1.24
+# Version:		1.25
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-09-07
@@ -559,23 +559,23 @@ sub handle {
 	for ($event->{data}) {
 		# order is determined by (supposed) frequency of use
 		/^(?:kr|kl|[h\e\cH])$/io
-							and $self->handleentry($_),					  last;
+							and $self->handleentry($event),				  last;
 		/^[\cE\cY]$/o		and $self->handlescroll($_),				  last;
-		/^l$/o				and $self->handlekeyell($_),				  last;
+		/^l$/o				and $self->handlekeyell($event),			  last;
 		/^k5$/o				and $self->handlerefresh(),					  last;
 		/^[cr]$/io			and $self->handlecopyrename($_),			  last;
 		/^[yo]$/io			and $self->handlecommand($_),				  last;
 		/^e$/io				and $self->handleedit(),					  last;
 		/^(?:d|del)$/io		and $self->handledelete(),					  last;
 		/^[ix]$/io			and $self->handleinclude($_),				  last;
-		/^\r$/io			and $self->handleenter(),					  last;
-		/^s$/io				and $self->handleshow(),					  last;
-		/^kmous$/o			and $handled = $self->handlemousedown($event),last;
+		/^\r$/io			and $self->handleenter($event),				  last;
+		/^s$/io				and $self->handleshow($event),				  last;
+		/^kmous$/o			and $handled = $self->handlemousedown($event),last; # TODO show and enter
 		/^k7$/o				and $self->handleswap(),					  last;
 		/^k10$/o			and $self->handlemultiple(),				  last;
 		/^m$/io				and $self->handlemore(),					  last;
 		/^p$/io				and $self->handleprint(),					  last;
-		/^L$/o				and $self->handlelink(),					  last;
+		/^L$/o				and $self->handlelink($event),				  last;
 		/^n$/io				and $self->handlename(),					  last;
 		/^(k8| )$/o			and $self->handlemark(),					  last;
 		/^k11$/o			and $self->handlerestat(),					  last;
@@ -1026,7 +1026,7 @@ sub handlehelp {
 	$_screen->set_deferred_refresh(R_CLRSCR);
 }
 
-=item handleentry(char $key)
+=item handleentry(App::PFM::Event $event)
 
 Handles entering or leaving a directory (left arrow, right arrow,
 B<ESC>, B<BS>, B<h>, B<l> (if on a directory), B<ENTER> (if on a
@@ -1035,14 +1035,14 @@ directory)).
 =cut
 
 sub handleentry {
-	my ($self, $key) = @_;
+	my ($self, $event) = @_;
 	my ($tempptr, $nextdir, $success, $direction);
 	my $currentdir = $_pfm->state->directory->path;
-	if ( $key =~ /^(?:kl|h|\e|\cH)$/io ) {
+	if ($event->{data} =~ /^(?:kl|h|\e|\cH)$/io) {
 		$nextdir   = '..';
 		$direction = 'up';
 	} else {
-		$nextdir   = $_pfm->browser->currentfile->{name};
+		$nextdir   = $event->{currentfile}{name};
 		$direction = $nextdir eq '..' ? 'up' : 'down';
 	}
 	return if ($nextdir    eq '.');
@@ -1139,16 +1139,16 @@ sub handlemarkinverse {
 	$_screen->set_deferred_refresh(R_SCREEN);
 }
 
-=item handlekeyell()
+=item handlekeyell(App::PFM::Event $event)
 
 Handles the lowercase B<l> key: enter the directory or create a link.
 
 =cut
 
 sub handlekeyell {
-	my ($self) = @_;
+	my ($self, $event) = @_;
 	# small l only
-	if ($_pfm->browser->currentfile->{type} eq 'd') {
+	if ($event->{currentfile}{type} eq 'd') {
 		# this automagically passes the args to handleentry()
 		goto &handleentry;
 	} else {
@@ -1167,7 +1167,7 @@ sub handlerestat {
 	$_pfm->state->directory->apply(sub {});
 }
 
-=item handlelink()
+=item handlelink(App::PFM::Event $event)
 
 Creates a hard or symbolic link (B<L>ink as uppercase B<L>, or
 lowercase B<l> if on a non-directory).
@@ -1175,7 +1175,7 @@ lowercase B<l> if on a non-directory).
 =cut
 
 sub handlelink {
-	my ($self) = @_;
+	my ($self, $event) = @_;
 	my ($newname, $do_this, $testname, $headerlength, $absrel, $histpush);
 	my @lncmd = $self->{_clobber_mode} ? qw(ln -f) : qw(ln);
 	
@@ -1184,7 +1184,7 @@ sub handlelink {
 	} else {
 		$_screen->set_deferred_refresh(R_FRAME);
 		$_screen->listing->markcurrentline('L');
-		$histpush = $_pfm->browser->currentfile->{name};
+		$histpush = $event->{currentfile}{name};
 	}
 	
 	$headerlength = $_screen->show_frame({
@@ -1631,16 +1631,16 @@ sub handletime {
 	}
 }
 
-=item handleshow()
+=item handleshow(App::PFM::Event $event)
 
 Handles displaying the contents of a file (B<S>how command).
 
 =cut
 
 sub handleshow {
-	my ($self) = @_;
+	my ($self, $event) = @_;
 	my ($do_this);
-	if ($self->_followmode($_pfm->browser->currentfile) =~ /^d/) {
+	if ($self->_followmode($event->{currentfile}) =~ /^d/) {
 		goto &handleentry;
 	}
 	$_screen->clrscr()->at(0,0)->cooked_echo();
@@ -2277,6 +2277,7 @@ sub handlemousedown {
 	if ($mouserow == $_screen->PATHLINE) {
 		# path line
 		if ($mbutton) {
+			# TODO event
 			$self->handlecommand('o');
 		} else {
 			$self->handlemousepathjump($mousecol);
@@ -2308,16 +2309,25 @@ sub handlemousedown {
 			$mousecol >= $listing->filenamecol and
 			$mousecol <= $listing->filenamecol + $listing->maxfilenamelength);
 		if ($on_name and $mbutton) {
-			$currentfile = $_pfm->browser->currentfile;
+			$currentfile = $event->{currentfile};
 			if ($currentfile->{type} eq 'd') {
 				$self->handleopenwindow($currentfile);
 			} else {
-				$self->handleenter();
+				$event->{type}   = 'key';
+				$event->{data}   = "\r";
+				$event->{origin} = $self;
+				$self->handleenter($event);
 			}
 		} elsif (!$on_name and !$mbutton) {
-			$self->handlemark();
+			$event->{type}   = 'key';
+			$event->{data}   = 'k8';
+			$event->{origin} = $self;
+			$self->handlemark($event);
 		} else {
-			$self->handleshow();
+			$event->{type}   = 'key';
+			$event->{data}   = 's';
+			$event->{origin} = $self;
+			$self->handleshow($event);
 		}
 		# restore currentline
 		# note that if we changed directory, there will be a position_at anyway
@@ -2894,17 +2904,17 @@ sub handlemoremultisort {
 	$self->handlesort(TRUE);
 }
 
-=item handleenter()
+=item handleenter(App::PFM::Event $event)
 
 Enter a directory or launch a file (B<ENTER>).
 
 =cut
 
 sub handleenter {
-	my ($self) = @_;
-	my $directory   = $_pfm->state->directory;
-	my $currentfile = $_pfm->browser->currentfile;
-	my $pfmrc       = $_pfm->config->pfmrc;
+	my ($self, $event) = @_;
+	my $currentfile    = $event->{currentfile};
+	my $directory      = $_pfm->state->directory;
+	my $pfmrc          = $_pfm->config->pfmrc;
 	my $do_this;
 	if ($self->_followmode($currentfile) =~ /^d/) {
 		goto &handleentry;
@@ -2915,9 +2925,9 @@ sub handleenter {
 		# these functions return either:
 		# - a code reference to be used in Directory->apply()
 		# - a falsy value if no applicable launch command can be found
-		/magic/     and $do_this = $self->launchbymagic();
-		/extension/ and $do_this = $self->launchbyextension();
-		/xbit/      and $do_this = $self->launchbyxbit();
+		/magic/     and $do_this = $self->launchbymagic(    $currentfile);
+		/extension/ and $do_this = $self->launchbyextension($currentfile);
+		/xbit/      and $do_this = $self->launchbyxbit(     $currentfile);
 		# continue trying until one of the modes finds a launch command
 		last LAUNCH if $do_this;
 	}
@@ -2943,7 +2953,7 @@ sub handleenter {
 	$_screen->alternate_on() if $_pfm->config->{altscreen_mode};
 }
 
-=item launchbyxbit()
+=item launchbyxbit(App::PFM::File $file)
 
 Returns an anonymous subroutine for executing the file if it is executable;
 otherwise, returns undef.
@@ -2951,8 +2961,7 @@ otherwise, returns undef.
 =cut
 
 sub launchbyxbit {
-	my ($self) = @_;
-	my $currentfile = $_pfm->browser->currentfile;
+	my ($self, $currentfile) = @_;
 	my $do_this = '';
 	return '' if ($self->_followmode($currentfile) !~ /[xsS]/);
 	$do_this = sub {
@@ -2965,18 +2974,17 @@ sub launchbyxbit {
 	return $do_this;
 }
 
-=item launchbymagic()
+=item launchbymagic(App::PFM::File $file)
 
 Determines the MIME type of a file, using its magic (see file(1)).
 
 =cut
 
 sub launchbymagic {
-	my ($self) = @_;
-	my $currentfile = $_pfm->browser->currentfile;
-	my $pfmrc       = $_pfm->config->pfmrc;
-	my $magic       = `file \Q$currentfile->{name}\E`;
-	my $do_this     = '';
+	my ($self, $currentfile) = @_;
+	my $pfmrc   = $_pfm->config->pfmrc;
+	my $magic   = `file \Q$currentfile->{name}\E`;
+	my $do_this = '';
 	my $re;
 	MAGIC: foreach (grep /^magic\[/, keys %{$pfmrc}) {
 		($re) = (/magic\[([^]]+)\]/);
@@ -2989,18 +2997,17 @@ sub launchbymagic {
 	return $do_this;
 }
 
-=item launchbyextension()
+=item launchbyextension(App::PFM::File $file)
 
 Determines the MIME type of a file by looking at its extension.
 
 =cut
 
 sub launchbyextension {
-	my ($self) = @_;
-	my $currentfile = $_pfm->browser->currentfile;
-	my $pfmrc       = $_pfm->config->pfmrc;
-	my ($ext)       = ( $currentfile->{name} =~ /(\.[^\.]+?)$/ );
-	my $do_this     = '';
+	my ($self, $currentfile) = @_;
+	my $pfmrc   = $_pfm->config->pfmrc;
+	my ($ext)   = ( $currentfile->{name} =~ /(\.[^\.]+?)$/ );
+	my $do_this = '';
 	if (exists $pfmrc->{"extension[*$ext]"}) {
 		$do_this = $self->launchbymime($pfmrc->{"extension[*$ext]"});
 	}

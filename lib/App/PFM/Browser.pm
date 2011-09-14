@@ -40,6 +40,7 @@ use base 'App::PFM::Abstract';
 use App::PFM::Util qw(min max);
 
 use strict;
+use locale;
 
 our ($_pfm, $_screen);
 
@@ -76,8 +77,13 @@ sub _wait_loop {
 	my ($self) = @_;
 	my $screenline = $self->{_currentline} + $_screen->BASELINE;
 	my $cursorcol  = $_screen->listing->cursorcol;
+	my $event_idle = new App::PFM::Event({
+		name   => 'browser_idle',
+		origin => $self,
+		type   => 'soft',
+	});
 	until ($_screen->pending_input(0.4)) {
-		$_pfm->jobhandler->pollall();
+		$self->fire($event_idle);
 		$_screen->refresh_headings()
 			->at($screenline, $cursorcol);
 		return if $_screen->pending_input(0.6);
@@ -433,10 +439,12 @@ sub handle {
 	} else {
 		# pass it to the commandhandler
 		$event->{name} = 'after_receive_non_motion_input';
-		$event->{lunchbox}{currentfile} = $self->currentfile;
+		$event->{currentfile}           = $self->currentfile;
 		$event->{lunchbox}{baseindex}   = $self->{_baseindex};
 		$event->{lunchbox}{currentline} = $self->{_currentline};
 		$handled = $self->fire($event);
+		# a space needs to be handled by both the CommandHandler
+		# and the Browser
 		if ($event->{type} eq 'key' and
 			$event->{data} eq ' ')
 		{

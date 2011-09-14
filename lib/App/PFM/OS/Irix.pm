@@ -36,6 +36,7 @@ package App::PFM::OS::Irix;
 use base 'App::PFM::OS::Abstract';
 
 use strict;
+use locale;
 
 use constant MINORBITS => 2 ** 18;
 

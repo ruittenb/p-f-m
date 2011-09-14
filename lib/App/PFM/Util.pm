@@ -40,6 +40,7 @@ use POSIX qw(mktime);
 use Carp;
 
 use strict;
+use locale;
 
 use constant ELLIPSIS => '..'; # path ellipsis string
 

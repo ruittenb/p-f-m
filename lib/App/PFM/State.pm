@@ -38,6 +38,7 @@ use base 'App::PFM::Abstract';
 use App::PFM::Directory;
 
 use strict;
+use locale;
 
 use constant SORTMODES => [
 	 n =>'Name',		N =>' reverse',

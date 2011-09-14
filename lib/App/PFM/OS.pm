@@ -51,6 +51,7 @@ use App::PFM::OS::Tru64;
 
 use Carp;
 use strict;
+use locale;
 
 our ($AUTOLOAD);
 

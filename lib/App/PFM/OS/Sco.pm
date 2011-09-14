@@ -36,6 +36,7 @@ package App::PFM::OS::Sco;
 use base 'App::PFM::OS::Abstract';
 
 use strict;
+use locale;
 
 ##########################################################################
 # private subs

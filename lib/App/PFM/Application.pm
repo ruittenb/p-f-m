@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.08.3
+# @(#) App::PFM::Application 2.08.4
 #
 # Name:			App::PFM::Application
-# Version:		2.08.3
+# Version:		2.08.4
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-03
+# Date:			2010-09-07
 #
 
 ##########################################################################
@@ -170,7 +170,7 @@ sub _copyright {
 	# note that configured colors are not yet known
 	my $lastyear = $self->{LASTYEAR};
 	my $vers     = $self->{VERSION};
-	$self->{_screen}
+	$self->{_screen}->clrscr()
 		->at(0,0)->clreol()->cyan()
 				 ->puts("PFM $vers for Unix and Unix-like operating systems.")
 		->at(1,0)->puts("Copyright (c) 1999-$lastyear Rene Uittenbogaard")
@@ -472,7 +472,12 @@ been done yet.
 
 sub run {
 	my ($self) = @_;
+	my $on_browser_idle = sub {
+		$self->{_jobhandler}->pollall();
+	};
+
 	$self->bootstrap() if !$self->{_bootstrapped};
+	$self->{_browser}->register_listener('browser_idle', $on_browser_idle);
 	$self->{_browser}->browse();
 	$self->_goodbye();
 }

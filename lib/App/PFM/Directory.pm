@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Directory 0.89
+# @(#) App::PFM::Directory 0.90
 #
 # Name:			App::PFM::Directory
-# Version:		0.89
+# Version:		0.90
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-04
+# Date:			2010-09-07
 #
 
 ##########################################################################
@@ -46,6 +46,7 @@ use App::PFM::Util qw(clearugidcache canonicalize_path basename dirname);
 use POSIX qw(getcwd);
 
 use strict;
+use locale;
 
 use constant {
 	RCS_DONE		=> 0,
@@ -201,44 +202,32 @@ sub _sort_singlelevel {
 		/v/  and return		$a->{rcs}		cmp		$b->{rcs};
 		/V/  and return		$b->{rcs}		cmp		$a->{rcs};
 		/t/  and do {
-				if ($a->{type} eq $b->{type}) {
-					return $a->{name} cmp $b->{name};
-				}
-				elsif ($a->{type} eq 'd') { return -1 }
-				elsif ($b->{type} eq 'd') { return  1 }
-				return $a->{type} cmp $b->{type};
+				return  0 if ($a->{type} eq $b->{type});
+				return -1 if ($a->{type} eq 'd');
+				return  1 if ($b->{type} eq 'd');
+				return        $a->{type} cmp $b->{type};
 		};
 		/T/  and do {
-				if ($a->{type} eq $b->{type}) {
-					return $b->{name} cmp $a->{name};
-				}
-				elsif ($b->{type} eq 'd') { return -1 }
-				elsif ($a->{type} eq 'd') { return  1 }
-				return $b->{type} cmp $a->{type};
+				return  0 if ($a->{type} eq $b->{type});
+				return -1 if ($b->{type} eq 'd');
+				return  1 if ($a->{type} eq 'd');
+				return        $b->{type} cmp $a->{type};
 		};
 		/\*/ and do {
-				if ($a->{selected} eq $b->{selected}) {
-					return $a->{name} cmp $b->{name};
-				}
-				elsif ($a->{selected} eq M_MARK   ) { return -1 }
-				elsif ($b->{selected} eq M_MARK   ) { return  1 }
-				elsif ($a->{selected} eq M_NEWMARK) { return -1 }
-				elsif ($b->{selected} eq M_NEWMARK) { return  1 }
-				elsif ($a->{selected} eq M_OLDMARK) { return -1 }
-				elsif ($b->{selected} eq M_OLDMARK) { return  1 }
-				return $a->{selected} cmp $b->{selected};
+				return  0 if ($a->{selected} eq $b->{selected});
+				return -1 if ($a->{selected} eq M_MARK   );
+				return  1 if ($b->{selected} eq M_MARK   );
+				return -1 if ($a->{selected} eq M_NEWMARK);
+				return  1 if ($b->{selected} eq M_NEWMARK);
+				return -1 if ($a->{selected} eq M_OLDMARK);
+				return  1 if ($b->{selected} eq M_OLDMARK);
+				return        $a->{selected} cmp $b->{selected};
 		};
 		/[ef]/i and do {
-			 if ($a->{name} =~ /^(.*)(\.[^\.]+)$/) {
-				 $exta = $2."\0377".$1;
-			 } else {
-				 $exta = "\0377".$a->{name};
-			 }
-			 if ($b->{name} =~ /^(.*)(\.[^\.]+)$/) {
-				 $extb = $2."\0377".$1;
-			 } else {
-				 $extb = "\0377".$b->{name};
-			 }
+			 $a->{name} =~ /^.*(\.[^\.]+)$/;
+			 $exta = $1;
+			 $b->{name} =~ /^.*(\.[^\.]+)$/;
+			 $extb = $1;
 			 /e/ and return    $exta  cmp    $extb;
 			 /E/ and return    $extb  cmp    $exta;
 			 /f/ and return lc($exta) cmp lc($extb);

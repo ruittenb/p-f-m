@@ -37,6 +37,7 @@ package App::PFM::OS::Darwin;
 use base 'App::PFM::OS::Macosx';
 
 use strict;
+use locale;
 
 #use constant MINORBITS => 2 ** n;
 

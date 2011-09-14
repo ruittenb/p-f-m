@@ -1,7 +1,15 @@
+2.08.4-alpha
+
+* fixed: respect locale settings throughout pfm
+* fixed: sort mode 'tsn' now sorts correctly
+* added: going through the sortcycle (clicking "Sort" in the footer)
+  now is multilevel-aware
+* restructured Config::Update
+
 2.08.3-alpha
 
 * fixed: the gap between the diskinfo column and file record is now
-  cleared with every redraw, this should cause fewer screen artifacts
+  cleared with every redraw, this removes some screen artifacts
 * fixes to install script
 * bundled with Term-ScreenColor-1.16
 
