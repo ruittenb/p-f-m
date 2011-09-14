@@ -1258,12 +1258,10 @@ sub handlelink {
 				# and reverse it
 				$targetstring = reversepath(
 					$currentdir.'/'.$file->{name}, "$simpletarget/$simplename");
-#	system("echo 'currentfile:".$file->{name}.":simpletarget:$simpletarget:simplename:$simplename:targetstring:$targetstring:' > /dev/pts/8"); # TODO
 			} else {
 				# relative: reverse path
 				$targetstring = reversepath(
 					$currentdir.'/'.$file->{name}, $newnameexpanded);
-#	system("echo 'currentfile:".$file->{name}.":newnameexpanded:$newnameexpanded:targetstring:$targetstring:' > /dev/pts/8"); # TODO
 			}
 		} else { # $absrel eq 'a' or 'h'
 			# hand over an absolute path
