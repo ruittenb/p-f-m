@@ -11,9 +11,6 @@
 
 - after (C)opy, the rcs status is not automatically added 
 
-- when in (M)ore, the < key messes up the screen if the menu bar is
-  scrolled to the extreme left
-
 ################################################################################
 # structural enhancements
 
@@ -59,10 +56,10 @@
 - provide information about arguments.
 
   DONE: Abstract Application Browser JobHandler State Util
+	Screen/Frame 
 
-  TODO: CommandHandler Config Directory File History
-        Screen
+  TODO: CommandHandler Config Directory File History Screen
 	Job/Abstract Job/Bazaar Job/CheckUpdates Job/Cvs Job/Git Job/RCS
 	Job/Subversion
-	Screen/Diskinfo Screen/Frame Screen/Listing
+	Screen/Diskinfo Screen/Listing
 
