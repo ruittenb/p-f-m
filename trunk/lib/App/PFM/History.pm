@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::History 0.35
+# @(#) App::PFM::History 0.36
 #
 # Name:			App::PFM::History
-# Version:		0.35
+# Version:		0.36
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-11-28
@@ -347,8 +347,8 @@ username. The flag I<tilde> indicates if we are doing path expansion
 sub _user_completion {
 	my ($self, $text, $rlstate, $tilde) = @_;
 	my $attribs = $self->{_terminal}->Attribs;
-	my $tilde = $tilde ? '~' : '';
 	my $partial_user;
+	$tilde = $tilde ? '~' : '';
 	($partial_user = $text) =~ s/^~//; # remove initial ~
 	if ($rlstate == 0) {
 		$self->{_user_possibilities} = [

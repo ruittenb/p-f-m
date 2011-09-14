@@ -1,3 +1,9 @@
+2.10.7
+
+* fixed some small bugs
+* added: if a file is (C)opied/(R)enamed/(L)inked to the swap directory (=5)
+  under a new name, it is added to the swap directory listing.
+
 2.10.6
 
 * fixed keymap selection through config option

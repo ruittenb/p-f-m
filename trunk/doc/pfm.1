@@ -124,13 +124,13 @@
 .\" ========================================================================
 .\"
 .IX Title "PFM 1"
-.TH PFM 1 "2010-10-29" " " " "
+.TH PFM 1 "2010-11-28" " " " "
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
 .nh
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.10.1
+.ds Vw @(#) pfm.pl 2.10.7
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -142,7 +142,7 @@ This manual pertains to \f(CWpfm\fP version \\$3.
 \&\f(CW\*(C`pfm [\*(C'\fR\ \fIdirectory\fR\ \f(CW\*(C`] [\*(C'\fR\ \f(CW\*(C`\-s, \-\-swap \*(C'\fR\fIdirectory\fR\ \f(CW\*(C`]\*(C'\fR
 \&\f(CW\*(C` [\*(C'\fR\ \f(CW\*(C`\-l, \-\-layout \*(C'\fR\fInumber\fR\ \f(CW\*(C`] [\*(C'\fR\ \f(CW\*(C`\-o, \-\-sort \*(C'\fR\fImode\fR\ \f(CW\*(C`]\*(C'\fR
 .PP
-\&\f(CW\*(C`pfm { \-v, \-\-version | \-h, \-\-help }\*(C'\fR
+\&\f(CW\*(C`pfm { \-\-help | \-\-usage | \-\-version }\*(C'\fR
 .SH "DESCRIPTION"
 .IX Header "DESCRIPTION"
 \&\f(CW\*(C`pfm\*(C'\fR is a terminal-based file manager, based on \s-1PFM\s0.COM for MS-DOS.
@@ -179,9 +179,9 @@ tries to find these directories.
 .IX Item "directory"
 The directory that \f(CW\*(C`pfm\*(C'\fR should initially use as its main directory. If
 unspecified, the current directory is used.
-.IP "\-h, \-\-help" 4
-.IX Item "-h, --help"
-Print usage information, then exit.
+.IP "\-\-help" 4
+.IX Item "--help"
+Print extended usage information, then exit.
 .IP "\-l, \-\-layout \fInumber\fR" 4
 .IX Item "-l, --layout number"
 Start \f(CW\*(C`pfm\*(C'\fR using the specified column layout (as defined in the \fI.pfmrc\fR).
@@ -197,8 +197,11 @@ There would be no point in setting the swap directory and subsequently
 returning to the main directory if 'persistentswap' is turned off in your
 config file. Therefore, \f(CW\*(C`pfm\*(C'\fR will swap back to the main directory \fIonly\fR
 if 'persistentswap' is turned on.
-.IP "\-v, \-\-version" 4
-.IX Item "-v, --version"
+.IP "\-\-usage" 4
+.IX Item "--usage"
+Print concise usage information, then exit.
+.IP "\-\-version" 4
+.IX Item "--version"
 Print current version, then exit.
 .SH "NAVIGATION"
 .IX Header "NAVIGATION"
@@ -313,7 +316,7 @@ Allows you to mark a group of files which meet a certain criterion:
 files newer/older than a specified date and time
 .IP "\fBE\fRvery file" 4
 .IX Item "Every file"
-all files, including dotfiles, except for the \fI.\fR and \fI..\fR entries
+all files, including dotfiles (but not the \fI.\fR and \fI..\fR entries)
 .IP "\fBF\fRiles only" 4
 .IX Item "Files only"
 regular files of which the filenames match a specified regular expression
@@ -334,19 +337,20 @@ now denoted with an \fIoldmark\fR (\fB.\fR)
 files owned by the current user
 .IP "\fB.\fR" 4
 .IX Item "."
-all filenames that start with a \fB.\fR (dot), including the \fI.\fR and \fI..\fR
-entries.
+all dotfiles (but not the \fI.\fR and \fI..\fR entries).
 .RE
 .RS 4
 .Sp
 Oldmarks and newmarks may be used to perform more than one command on the
 same group of files.
 .Sp
+Note that the \fI.\fR and \fI..\fR entries will never automatically become marked.
+.Sp
 There is also the option:
 .IP "\fBI\fRnvert" 4
 .IX Item "Invert"
-Inverts the selection, except for the \fI.\fR and \fI..\fR entries, which remain
-untouched.
+Inverts the selection, except for the \fI.\fR and \fI..\fR entries, which become
+unmarked.
 .RE
 .RS 4
 .RE
@@ -1238,21 +1242,31 @@ new config file with your original one:
 .PP
 Alternatively, you may reply with \fBy\fR when \f(CW\*(C`pfm\*(C'\fR offers to update the
 config file for you.
+.PP
+If a function key like \fBF1\fR or \fBF10\fR is intercepted by your windowing
+system or \s-1OS\s0, and it is not feasible to change that mapping, then you can
+define an alternative key mapping (like Shift\-\fBF1\fR, Shift\-\fBF10\fR) in
+your \fI.pfmrc\fR, \fIe.g.\fR:
+.PP
+.Vb 1
+\&    keydef[*]:k1=\eeO1;2P:k10=\ee[21;2~:
+.Ve
+.PP
+Or for a specific value of \fB\s-1TERM\s0\fR:
+.PP
+.Vb 1
+\&    keydef[xterm]:k1=\eeO1;2P:k10=\ee[21;2~:
+.Ve
 .SH "BUGS and WARNINGS"
 .IX Header "BUGS and WARNINGS"
-\&\f(CW\*(C`Term::ReadLine::Gnu\*(C'\fR does not allow a half-finished line to be aborted by
-pressing \fB\s-1ESC\s0\fR. For most commands, you will need to clear the half-finished
-line. You may use the terminal kill character (usually \fBCTRL-U\fR) for this
-purpose (see \fIstty\fR\|(1)).
-.PP
-The author once almost pressed \fB\s-1ENTER\s0\fR when logged in as root and with
-the cursor on the file \fI/sbin/reboot\fR. You have been warned.
-.PP
 The smallest terminal size supported is 80x24. The display will be messed
 up if you resize your terminal window to a smaller size, unless you specify
 \&'force_minimum_size' in the config file and the terminal supports resizing;
 in that case \f(CW\*(C`pfm\*(C'\fR will resize the terminal to at least 80 columns and/or
 24 rows.
+.PP
+The author once almost pressed \fB\s-1ENTER\s0\fR when logged in as root and with
+the cursor on the file \fI/sbin/reboot\fR. You have been warned.
 .SH "VERSION"
 .IX Header "VERSION"
 .PP \" display the 'pertains to'-macro
@@ -1277,7 +1291,7 @@ This program was based on \s-1PFM\s0.COM version 2.32, originally written for
 MS-DOS by Paul R. Culley and Henk de Heer. The name 'pfm' was adopted
 with kind permission of the original authors.
 .PP
-Special thanks to Ewoud Verburg for useful suggestions and testing.
+Special thanks to Ewoud Kappers for useful suggestions and testing.
 .PP
 Special thanks to Maurice Makaay for useful suggestions and assistance
 with debugging.
