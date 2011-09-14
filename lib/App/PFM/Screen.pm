@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen 0.35
+# @(#) App::PFM::Screen 0.36
 #
 # Name:			App::PFM::Screen
-# Version:		0.35
+# Version:		0.36
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-30
+# Date:			2010-09-12
 # Requires:		Term::ScreenColor
 #
 
@@ -114,26 +114,30 @@ our @EXPORT_OK = @{$EXPORT_TAGS{constants}};
 
 # _wasresized needs to be a package global because it is accessed by a
 # signal handler.
-# This is no problem as this class is supposed to be singleton anyway.
+# This is no problem as this class is supposed to be a singleton anyway.
 our ($_pfm, $_wasresized);
 
 ##########################################################################
 # private subs
 
-=item _init(App::PFM::Application $pfm)
+=item _init(App::PFM::Application $pfm [, App::PFM::Config $config ] )
 
 Called from the constructor. Initializes new instances. Stores the
 application object for later use and instantiates a App::PFM::Screen::Frame
 and App::PFM::Screen::Listing object.
 
+Note that at the time of instantiation, the config file has probably
+not yet been read.
+
 =cut
 
 sub _init {
-	my ($self, $pfm) = @_;
+	my ($self, $pfm, $config) = @_;
 	$_pfm = $pfm;
-	$self->{_frame}    = new App::PFM::Screen::Frame(   $pfm, $self);
-	$self->{_listing}  = new App::PFM::Screen::Listing( $pfm, $self);
-	$self->{_diskinfo} = new App::PFM::Screen::Diskinfo($pfm, $self);
+	$self->{_config}           = $config;
+	$self->{_frame}            = new App::PFM::Screen::Frame(   $pfm, $self);
+	$self->{_listing}          = new App::PFM::Screen::Listing( $pfm, $self);
+	$self->{_diskinfo}         = new App::PFM::Screen::Diskinfo($pfm, $self);
 	$self->{_winheight}        = 0;
 	$self->{_winwidth}         = 0;
 	$self->{_screenheight}     = 0;
@@ -357,7 +361,7 @@ sub check_minimum_size {
 	my ($self) = @_;
 	my ($newwidth, $newheight);
 	return if ($self->{_winwidth} >= 80 and $self->{_winheight} >= 24);
-	if ($_pfm->config->{force_minimum_size}) {
+	if ($self->{_config}->{force_minimum_size}) {
 		$newwidth  = $self->{_winwidth}  < 80 ? 80 : $self->{_winwidth};
 		$newheight = $self->{_winheight} < 24 ? 24 : $self->{_winheight};
 		$self->puts("\e[8;$newheight;${newwidth}t");
@@ -523,7 +527,7 @@ Finds the next colorset to use.
 
 sub select_next_color {
 	my ($self) = @_;
-	my @colorsetnames = @{$_pfm->config->{colorsetnames}};
+	my @colorsetnames = @{$self->{_config}->{colorsetnames}};
 	my $index = $#colorsetnames;
 	while ($self->{_color_mode} ne $colorsetnames[$index] and $index > 0) {
 		$index--;
@@ -556,7 +560,7 @@ Accepts an array with message fragments.
 
 sub putmessage {
 	my ($self, @message) = @_;
-	my $framecolors = $_pfm->config->{framecolors};
+	my $framecolors = $self->{_config}->{framecolors};
 	if ($framecolors) {
 		$self->putcolored(
 			$framecolors->{$self->{_color_mode}}{message},
@@ -576,7 +580,7 @@ sub pressanykey {
 	my ($self) = @_;
 	$self->putmessage("\r\n*** Hit any key to continue ***");
 	$self->raw_noecho();
-	if ($_pfm->browser->mouse_mode && $_pfm->config->{clickiskeypresstoo}) {
+	if ($_pfm->browser->mouse_mode && $self->{_config}->{clickiskeypresstoo}) {
 		$self->mouse_enable();
 	} else {
 		$self->mouse_disable();
@@ -590,7 +594,7 @@ sub pressanykey {
 	# does this work correctly in TERM_RAW mode?
 	$self->puts("\n");
 	$self->mouse_enable() if $_pfm->browser->{mouse_mode};
-	$self->alternate_on() if $_pfm->config->{altscreen_mode};
+	$self->alternate_on() if $self->{_config}->{altscreen_mode};
 	$self->handleresize() if $_wasresized;
 }
 
@@ -604,7 +608,7 @@ their marks in the current directory.
 sub ok_to_remove_marks {
 	my ($self) = @_;
 	my $sure;
-	if ($_pfm->config->{remove_marks_ok} or
+	if ($self->{_config}->{remove_marks_ok} or
 		$self->{_diskinfo}->mark_info() <= 0)
 	{
 		return 1;
@@ -720,7 +724,7 @@ sub refresh {
 	my $deferred_refresh = $self->{_deferred_refresh};
 	
 	if ($deferred_refresh & R_ALTERNATE) {
-		if ($_pfm->config->{altscreen_mode}) {
+		if ($self->{_config}->{altscreen_mode}) {
 			$self->alternate_on()->at(0,0);
 		} else {
 			$self->alternate_off()->at(0,0);
@@ -753,7 +757,7 @@ sub refresh {
 		$self->{_listing}->show();
 	}
 	if ($deferred_refresh & R_DISKINFO) {
-		$_pfm->screen->diskinfo->show();
+		$self->{_diskinfo}->show();
 	}
 	if ($deferred_refresh & R_MENU) {
 		$self->{_frame}->show_menu();
@@ -813,6 +817,76 @@ sub pathline {
 	$$p_ellipssize = $ellipssize;
 	return $disppath . $spacer
 		. ($overflow ? $self->{_listing}->NAMETOOLONGCHAR : ' ') . "[$dev]";
+}
+
+=item on_after_parse_config(App::PFM::Event $event)
+
+Applies the config settings when the config file has been read and parsed.
+
+=cut
+
+sub on_after_parse_config {
+	my ($self, $event) = @_;
+	my ($keydefs, $newcolormode);
+	# store config
+	my $pfmrc        = $event->{data};
+	$self->{_config} = $event->{origin};
+	# make cursor very visible
+	system ('tput', $pfmrc->{cursorveryvisible} ? 'cvvis' : 'cnorm');
+	# additional key definitions 'keydef'
+	if ($keydefs = $pfmrc->{'keydef[*]'} .':'. $pfmrc->{"keydef[$ENV{TERM}]"}) {
+		$keydefs =~ s/(\\e|\^\[)/\e/gi;
+		# this does not allow colons (:) to appear in escape sequences!
+		foreach (split /:/, $keydefs) {
+			/^(\w+)=(.*)/ and $self->def_key($1, $2);
+		}
+	}
+	# determine color_mode if unset
+	$newcolormode =
+		(length($self->{_color_mode})
+			? $self->{_color_mode}
+			: (defined($ENV{ANSI_COLORS_DISABLED})
+				? 'off'
+				: length($pfmrc->{defaultcolorset})
+					? $pfmrc->{defaultcolorset}
+					: (defined $self->{_config}{dircolors}{ls_colors}
+						? 'ls_colors'
+						: $self->{_config}{colorsetnames}[0])));
+	# init colorsets
+	$self->color_mode($newcolormode);
+	$self->set_deferred_refresh(R_ALTERNATE);
+	$self->diskinfo->ident_mode($self->{_config}{ident_mode});
+	$self->listing->layout($self->{_config}{currentlayout});
+}
+
+=item on_shutdown(bool $altscreen_mode)
+
+Called when the application is shutting down. I<altscreen_mode>
+indicates if the State has used the alternate screen buffer.
+
+=cut
+
+sub on_shutdown {
+	my ($self, $altscreen_mode) = @_;
+	my $message = 'Goodbye from your Personal File Manager!';
+	$self->cooked_echo()
+		->mouse_disable()
+		->alternate_off();
+	system qw(tput cnorm) if $self->{_config}{cursorveryvisible};
+	if ($altscreen_mode) {
+		print "\n";
+	} else {
+		if ($self->{_config}{clsonexit}) {
+			$self->clrscr();
+		} else {
+			$self->at(0,0)->putcentered($message)->clreol()
+					->at(PATHLINE, 0);
+		}
+	}
+	if ($altscreen_mode or !$self->{_config}{clsonexit}) {
+		$self->at($self->screenheight + BASELINE + 1, 0)
+				->clreol();
+	}
 }
 
 ##########################################################################

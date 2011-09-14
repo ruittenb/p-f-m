@@ -38,10 +38,6 @@
 ################################################################################
 # structural enhancements
 
-- Config->apply: call separate class's import() routines and have them import
-  the config options that are interesting for them.
-  Or use events 'apply_config'.
-
 - restructure chdir(), handleswap()/handlemoreshow()/handlemorego() etc.
 - check function of $swapping flag behavior
 - "Setting the current directory with App::PFM::Directory::path is identical to
@@ -52,6 +48,9 @@
   or use an event: 'determine_main_status'???
 
 - have directories keep track of their own background jobs
+
+- move History->write_dirs() to state objects;
+  provide a state->on_shutdown to write the info
 
 - make our() variables member variables
 - store $browser->{_screen, _config, _main_state}; remove _pfm
@@ -66,6 +65,7 @@
 
 - have objects (Directory) fire an event to indicate that the current position
   is to be saved ('save_cursor_position' -> position_at())
+  'before_smudge_cursor_position'?
 
 - extract abstract code so that browser may be reused for bookmarks and your
   commands; ideally:
@@ -81,9 +81,9 @@
 - who determines which command was clicked in the menu?
   is that the CommandHandler::handlemousefooter* or Screen::Frame?
 
-- test Config::Update
-
 - implement 'after_create_entry'
+
+- implement jobhandler->stopall()
 
 ################################################################################
 # functional enhancements

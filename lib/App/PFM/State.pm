@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::State 0.18
+# @(#) App::PFM::State 0.19
 #
 # Name:			App::PFM::State
-# Version:		0.18
+# Version:		0.19
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-04
+# Date:			2010-09-12
 #
 
 ##########################################################################
@@ -58,12 +58,11 @@ use constant SORTMODES => [
 	'*'=>'mark',
 ];
 
-our ($_pfm);
-
 ##########################################################################
 # private subs
 
-=item _init(App::PFM::Application $pfm [, string $path ] )
+=item _init(App::PFM::Application $pfm [, App::PFM::Config $config
+[, string $path ] ] )
 
 Initializes new instances. Called from the constructor.
 Instantiates a App::PFM::Directory object.
@@ -71,8 +70,8 @@ Instantiates a App::PFM::Directory object.
 =cut
 
 sub _init {
-	my ($self, $pfm, $path) = @_;
-	$_pfm					||= $pfm;
+	my ($self, $pfm, $config, $path) = @_;
+	$self->{_config}        = $config;
 	$self->{_directory}		= new App::PFM::Directory($pfm, $path);
 	# We might not have useful values for these yet since the config file
 	# might not have been read yet.
@@ -160,13 +159,31 @@ object. I<sort_mode> specifies the initial sort mode.
 
 sub prepare {
 	my ($self, $path, $sort_mode) = @_;
-	$self->sort_mode($sort_mode || $_pfm->config->{sort_mode});
-	$self->{dot_mode}	= $_pfm->config->{dot_mode};
-	$self->{radix_mode}	= $_pfm->config->{radix_mode};
-	$self->{white_mode}	= $_pfm->config->{white_mode};
-	$self->{_position}	= '.';
-	$self->{_baseindex}	= 0;
+	$self->sort_mode($sort_mode || $self->{_config}{sort_mode});
+	$self->{dot_mode}   = $self->{_config}{dot_mode};
+	$self->{radix_mode} = $self->{_config}{radix_mode};
+	$self->{white_mode} = $self->{_config}{white_mode};
+	$self->{_position}  = '.';
+	$self->{_baseindex} = 0;
 	$self->{_directory}->prepare($path);
+}
+
+=item on_after_parse_config(App::PFM::Event $event)
+
+Applies the config settings when the config file has been read and parsed.
+
+=cut
+
+sub on_after_parse_config {
+	my ($self, $event) = @_;
+	# store config
+	my $pfmrc        = $event->{data};
+	$self->{_config} = $event->{origin};
+	$self->sort_mode(           $self->{_config}{sort_mode});
+	$self->{dot_mode}         = $self->{_config}{dot_mode};
+	$self->{radix_mode}       = $self->{_config}{radix_mode};
+	$self->{white_mode}       = $self->{_config}{white_mode};
+	$self->directory->path_mode($self->{_config}{path_mode});
 }
 
 ##########################################################################

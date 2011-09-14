@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.08.7
+# @(#) App::PFM::Application 2.08.8
 #
 # Name:			App::PFM::Application
-# Version:		2.08.7
+# Version:		2.08.8
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-09-11
@@ -178,47 +178,6 @@ sub _copyright {
 	return $self->{_screen}->key_pressed($delay || 0);
 }
 
-=item _goodbye()
-
-Called when pfm exits.
-Prints a goodbye message and restores the screen to a usable state.
-
-=cut
-
-sub _goodbye {
-	my ($self) = @_;
-	my $bye    = 'Goodbye from your Personal File Manager!';
-	my $state  = $self->{_states}{S_MAIN};
-	my $config = $self->{_config};
-	my $screen = $self->{_screen};
-	$screen->cooked_echo()
-		->mouse_disable()
-		->alternate_off();
-	system qw(tput cnorm) if $config->{cursorveryvisible};
-	if ($state->{altscreen_mode}) {
-		print "\n";
-	} else {
-		if ($config->{clsonexit}) {
-			$screen->clrscr();
-		} else {
-			$screen->at(0,0)->putcentered($bye)->clreol()
-					->at($screen->PATHLINE, 0);
-		}
-	}
-	if ($state->{altscreen_mode} or !$config->{clsonexit}) {
-		$screen->at($screen->screenheight + $screen->BASELINE + 1, 0)
-				->clreol();
-	}
-	$self->{_history}->write_dirs();
-	$self->{_history}->write(1) if $config->{autowritehistory};
-	$config->write_bookmarks(1) if $config->{autowritebookmarks};
-	if ($self->{NEWER_VERSION} and $self->{PFM_URL}) {
-		$screen->putmessage(
-			"There is a newer version ($self->{NEWER_VERSION}) ",
-			"available at $self->{PFM_URL}\n");
-	}
-}
-
 =item _bootstrap_commandline()
 
 Phase 1 of the bootstrap process: parse commandline arguments.
@@ -270,16 +229,18 @@ sub _bootstrap_members {
 
 	# hand over the application object to the other classes
 	# for easy access.
-	$self->{_config}		 = new App::PFM::Config($self);
-	$config					 = $self->{_config};
 	$screen					 = $self->{_screen};
-	$self->{_states}{S_MAIN} = new App::PFM::State($self);
+	$self->{_config}		 = new App::PFM::Config($self, $screen, $self->{VERSION});
+	$config					 = $self->{_config};
+	$self->{_states}{S_MAIN} = new App::PFM::State($self, $config);
 	$self->{_commandhandler} = new App::PFM::CommandHandler($self);
-	$self->{_history}		 = new App::PFM::History($self);
+	$self->{_history}		 = new App::PFM::History($self, $screen, $config);
 	$self->{_browser}		 = new App::PFM::Browser($self, $screen, $config);
 	$self->{_jobhandler}	 = new App::PFM::JobHandler($self);
 	$self->{_os}			 = new App::PFM::OS($self);
 	
+	$self->_bootstrap_event_hub();
+
 	# init screen
 	$screen->clrscr()->raw_noecho();
 	$screen->calculate_dimensions();
@@ -296,13 +257,14 @@ sub _bootstrap_members {
 	}
 	$config->read($silent ? $config->READ_AGAIN : $config->READ_FIRST);
 	$config->parse();
-	$config->apply();
 	$config->unregister_listener(
 			'after_parse_usecolor', $on_after_parse_usecolor);
 	
+	# initialize bookmark states
 	%bookmarks = $config->read_bookmarks();
 	@{$self->{_states}}{@{$config->BOOKMARKKEYS}} = ();
 	@{$self->{_states}}{keys %bookmarks} = values %bookmarks;
+	
 	$screen->listing->layout($self->{_options}{'layout'});
 	$self->{_history}->read();
 	$self->checkupdates();
@@ -310,7 +272,7 @@ sub _bootstrap_members {
 
 =item _bootstrap_states()
 
-Phase 3 of the bootstrap process: initialize the state objects.
+Phase 3 of the bootstrap process: initialize the B<S_*> state objects.
 
 =cut
 
@@ -336,7 +298,8 @@ sub _bootstrap_states {
 	# swap directory
 	my $startingswapdir = $self->{_options}{swap};
 	if (defined $startingswapdir) {
-		$self->{_states}{S_SWAP} = new App::PFM::State($self, $startingswapdir);
+		$self->{_states}{S_SWAP} =
+			new App::PFM::State($self, $self->{_config}, $startingswapdir);
 		$self->{_states}{S_SWAP}->prepare(undef, $startingsort);
 	}
 }
@@ -350,6 +313,18 @@ Phase 4 of the bootstrap process: register event listeners.
 sub _bootstrap_event_hub {
 	my ($self) = @_;
 
+	# config file has been parsed
+	my $on_after_parse_config = sub {
+		my ($event) = @_;
+		$self->{_screen} ->on_after_parse_config($event);
+		$self->{_history}->on_after_parse_config($event);
+		$self->{_commandhandler}->clobber_mode($event->{origin}{clobber_mode});
+		$self->{_browser}       ->mouse_mode(  $event->{origin}{mouse_mode});
+		$self->{_states}{S_MAIN}->on_after_parse_config($event);
+	};
+	$self->{_config}->register_listener(
+		'after_parse_config', $on_after_parse_config);
+
 	# browser is idle: poll jobs
 	my $on_browser_idle = sub {
 		$self->{_jobhandler}->pollall();
@@ -358,7 +333,7 @@ sub _bootstrap_event_hub {
 
 	# browser passes control to the commandhandler
 	my $on_after_receive_non_motion_input = sub {
-		my $event = shift;
+		my ($event) = @_;
 		$self->{_commandhandler}->handle($event);
 	};
 	$self->{_browser}->register_listener(
@@ -502,7 +477,7 @@ sub checkupdates {
 
 =item bootstrap( [ bool $silent ] )
 
-Initializes the application and instantiates the necessary objects.
+Initializes the application and instantiates the necessary member objects.
 
 The I<silent> argument suppresses output and may be used for testing
 if the application bootstraps correctly.
@@ -514,11 +489,10 @@ sub bootstrap {
 	$self->_bootstrap_commandline();
 	$self->_bootstrap_members($silent);
 	$self->_bootstrap_states();
-	$self->_bootstrap_event_hub();
 	$self->{_bootstrapped} = 1;
 }
 
-=item run()
+=item run(bool $autoshutdown)
 
 Runs the application. Calls bootstrap() first, if that has not
 been done yet.
@@ -526,10 +500,46 @@ been done yet.
 =cut
 
 sub run {
-	my ($self) = @_;
+	my ($self, $autoshutdown) = @_;
 	$self->bootstrap() unless $self->{_bootstrapped};
 	$self->{_browser}->browse();
-	$self->_goodbye();
+	if ($autoshutdown) {
+		$self->shutdown();
+	}
+}
+
+=item shutdown()
+
+Called when pfm exits.
+Prints a goodbye message and restores the screen to a usable state.
+Writes bookmarks and history if so configured. Destroys member objects.
+
+=cut
+
+sub shutdown {
+	my ($self) = @_;
+	my $state   = $self->{_states}{S_MAIN};
+	return unless $self->{_bootstrapped};
+	
+	$self->{_screen}->on_shutdown($state->{altscreen_mode});
+	$self->{_history}->on_shutdown();
+	$self->{_config}->on_shutdown();
+	
+	if ($self->{NEWER_VERSION} and $self->{PFM_URL}) {
+		$self->{_screen}->putmessage(
+			"There is a newer version ($self->{NEWER_VERSION}) ",
+			"available at $self->{PFM_URL}\n");
+	}
+	$self->{_bootstrapped}   = 0;
+	$self->{_browser}        = undef;
+	$self->{_commandhandler} = undef;
+	$self->{_config}         = undef;
+	$self->{_history}        = undef;
+	# TODO implement a jobhandler->stopall() first
+#	$self->{_jobhandler}     = undef;
+	$self->{_os}             = undef;
+	$self->{_screen}         = undef;
+	$self->{_states}         = {};
 }
 
 ##########################################################################

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Event 0.10
+# @(#) App::PFM::Event 0.11
 #
 # Name:			App::PFM::Event
-# Version:		0.10
+# Version:		0.11
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-30
-# Date:			2010-09-10
+# Date:			2010-09-12
 #
 
 ##########################################################################
@@ -42,13 +42,15 @@ use constant KNOWN_PROPERTIES => {
 	name		=> 1, # event name (mandatory)
 	origin		=> 1, # object
 	type		=> 1, # 'key', 'mouse', 'job', 'soft', 'resize'
-	data		=> 1, # received data (for 'key' and 'job')
+	data		=> 1, # received key (for 'key');
+					  # received job command data (for 'job');
+					  # parsed $pfmrc (for 'after_parse_config')
 	mousebutton	=> 1, # mouse button       (for 'mouse')
 	mouserow	=> 1, # mouse row          (for 'mouse')
 	mousecol	=> 1, # mouse column       (for 'mouse')
 	mouseitem	=> 1, # mouse clicked item (for 'mouse')
 	currentfile	=> 1, # current file, if fired by the Browser
-	lunchbox	=> 1, # misc data (always added by constructor)
+	lunchbox	=> 1, # misc data (property added by constructor)
 };
 
 use constant KNOWN_EVENTS => {
@@ -61,6 +63,7 @@ use constant KNOWN_EVENTS => {
 	after_job_finish				=> 1, # Job
 	after_create_entry				=> 1, # CommandHandler
 	after_parse_usecolor			=> 1, # Config
+	after_parse_config				=> 1, # Config
 	after_receive_user_input		=> 1, # Screen
 	after_receive_non_motion_input	=> 1, # Browser
 };

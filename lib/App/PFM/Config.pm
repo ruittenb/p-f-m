@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 0.98
+# @(#) App::PFM::Config 0.99
 #
 # Name:			App::PFM::Config
-# Version:		0.98
+# Version:		0.99
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-11
+# Date:			2010-09-12
 #
 
 ##########################################################################
@@ -64,18 +64,20 @@ our ($_pfm);
 ##########################################################################
 # private subs
 
-=item _init(App:PFM::Application $pfm)
+=item _init(App:PFM::Application $pfm, App::PFM::Screen $screen,
+string $pfm_version)
 
 Initializes new instances. Called from the constructor.
 
 =cut
 
 sub _init {
-	my ($self, $pfm) = @_;
+	my ($self, $pfm, $screen, $pfm_version) = @_;
 	$_pfm = $pfm;
-	$self->{_screen} = $_pfm->screen;
-	$self->{_pfmrc}  = {};
-	$self->{_text}   = [];
+	$self->{_screen}         = $screen;
+	$self->{_pfm_version}    = $pfm_version;
+	$self->{_pfmrc}          = {};
+	$self->{_text}           = [];
 	$self->{_configfilename} = $self->location();
 }
 
@@ -226,7 +228,7 @@ to update it (see App::PFM::Config::Update).
 sub read {
 	my ($self, $read_first) = @_;
 	my ($pfmrc_version, $updater, $wanna);
-	my $screen = $_pfm->screen;
+	my $screen = $self->{_screen};
 	READ_ATTEMPT: {
 		$self->{_pfmrc} = {};
 		$self->{_text}  = [];
@@ -263,12 +265,12 @@ sub read {
 				.	"DIAGNOSIS."
 				);
 				$screen->important_delay();
-			} elsif ($pfmrc_version lt $_pfm->{VERSION}) {
+			} elsif ($pfmrc_version lt $self->{_pfm_version}) {
 				# pfmrc version outdated
 				$updater = new App::PFM::Config::Update();
 				$wanna = "Warning: your $self->{_configfilename} version "
 					.	"$pfmrc_version\r\nmay be too old for this version "
-					.	"of pfm ($_pfm->{VERSION}).\r\nDo you want me to "
+					.	"of pfm ($self->{_pfm_version}).\r\nDo you want me to "
 					.	"backup this config file\r\nand";
 				if ($pfmrc_version ge $updater->get_minimum_version()) {
 					# outdated but can be updated
@@ -276,7 +278,7 @@ sub read {
 						"$wanna update it now");
 					$screen->cooked_echo();
 					$updater->update(
-						$pfmrc_version, $_pfm->{VERSION}, $self->{_text});
+						$pfmrc_version, $self->{_pfm_version}, $self->{_text});
 					$self->write_text();
 					$screen->raw_noecho();
 					redo READ_ATTEMPT;
@@ -303,7 +305,7 @@ remain accessable in the hash member C<$config-E<gt>{_pfmrc}>.
 sub parse {
 	my ($self) = @_;
 	my $state          = $_pfm->state;
-	my $screen         = $_pfm->screen;
+	my $screen         = $self->{_screen};
 	my $diskinfo       = $screen->diskinfo;
 	my $commandhandler = $_pfm->commandhandler;
 	my $pfmrc          = $self->{_pfmrc};
@@ -395,67 +397,19 @@ sub parse {
 	} else {
 		$self->{filetypeflags} = {};
 	}
-	# split 'columnlayouts'
+	# split 'columnlayouts', provide one default
 	$self->{columnlayouts} = [
 		$pfmrc->{columnlayouts}
 			? split(/:/, $pfmrc->{columnlayouts})
-			:('* nnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss mmmmmmmmmmmmmmmm pppppppppp ffffffffffffff'
-			, '* nnnnnnnnnnnnnnnnnnnnnnnnnnssssssss uuuuuuuu gggggggg pppppppppp ffffffffffffff')
+			:'* nnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss mmmmmmmmmmmmmmmm pppppppppp ffffffffffffff'
 	];
 	$self->_parse_colorsets();
-}
-
-=item apply()
-
-Propagates the settings from the F<.pfmrc> file to the application
-and other classes.
-
-=cut
-
-sub apply {
-	my ($self) = @_;
-	my ($termkeys, $newcolormode);
-	my $screen = $_pfm->screen;
-	my $state  = $_pfm->state;
-	my $pfmrc  = $self->{_pfmrc};
-	# make cursor very visible
-	system ('tput', $pfmrc->{cursorveryvisible} ? 'cvvis' : 'cnorm');
-	# keymap, erase
-	system ('stty', 'erase', $pfmrc->{erase}) if defined($pfmrc->{erase});
-	$_pfm->history->keyboard->set_keymap($pfmrc->{keymap}) if $pfmrc->{keymap};
-	# additional key definitions 'keydef'
-	if ($termkeys = $pfmrc->{'keydef[*]'} .':'. $pfmrc->{"keydef[$ENV{TERM}]"}) {
-		$termkeys =~ s/(\\e|\^\[)/\e/gi;
-		# this does not allow colons (:) to appear in escape sequences!
-		foreach (split /:/, $termkeys) {
-			/^(\w+)=(.*)/ and $screen->def_key($1, $2);
-		}
-	}
-	# determine color_mode if unset
-	$newcolormode =
-		(length($screen->color_mode)
-			? $screen->color_mode
-			: (defined($ENV{ANSI_COLORS_DISABLED})
-				? 'off'
-				: length($pfmrc->{defaultcolorset})
-					? $pfmrc->{defaultcolorset}
-					: (defined $self->{dircolors}{ls_colors}
-						? 'ls_colors'
-						: $self->{colorsetnames}[0])));
-	# init colorsets, ornaments, ident, formatlines, enable mouse
-	$screen->color_mode($newcolormode);
-	$_pfm->history->setornaments($self->{framecolors}{$newcolormode}{message});
-	$_pfm->commandhandler->clobber_mode($self->{clobber_mode});
-	$_pfm->browser->mouse_mode($self->{mouse_mode});
-	$screen->diskinfo->ident_mode($self->{ident_mode});
-	$screen->listing->layout($self->{currentlayout});
-	$screen->set_deferred_refresh($screen->R_ALTERNATE);
-	$state->sort_mode($self->{sort_mode});
-	# hand variables over to the state
-	$state->{dot_mode}         = $self->{dot_mode};
-	$state->{radix_mode}       = $self->{radix_mode};
-	$state->{white_mode}       = $self->{white_mode};
-	$state->directory->path_mode($self->{path_mode});
+	$self->fire(new App::PFM::Event({
+		name   => 'after_parse_config',
+		origin => $self,
+		type   => 'soft',
+		data   => $pfmrc,
+	}));
 }
 
 =item write_default()
@@ -470,7 +424,7 @@ sub write_default {
 	my @resourcefile;
 	my $secs_per_32_days = 60 * 60 * 24 * 32;
 	my $maxdatelen = 0;
-	my $version    = $_pfm->{VERSION};
+	my $version    = $self->{_pfm_version};
 	local $_;
 	# if necessary, create the directory, but only if $ENV{PFMRC} is not set
 	unless ($ENV{PFMRC} || -d CONFIGDIRNAME) {
@@ -569,7 +523,7 @@ should be shown without delay.
 sub write_bookmarks {
 	my ($self, $finishing) = @_;
 	my ($state, $path);
-	my $screen = $_pfm->screen;
+	my $screen = $self->{_screen};
 	unless ($finishing) {
 		$screen->at(0,0)->clreol()
 			->set_deferred_refresh($screen->R_MENU);
@@ -602,6 +556,18 @@ sub write_bookmarks {
 	unless ($finishing) {
 		$screen->error_delay();
 	}
+}
+
+=item on_shutdown()
+
+Called when the application is shutting down. Writes the bookmarks
+to file if so indicated by the config.
+
+=cut
+
+sub on_shutdown {
+	my ($self) = @_;
+	$self->write_bookmarks(1) if $self->{autowritebookmarks};
 }
 
 ##########################################################################
