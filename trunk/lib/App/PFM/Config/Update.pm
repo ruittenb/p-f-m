@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config::Update 2.11.4
+# @(#) App::PFM::Config::Update 2.11.5
 #
 # Name:			App::PFM::Config::Update
-# Version:		2.11.4
+# Version:		2.11.5
 # Author:		Rene Uittenbogaard
 # Created:		2010-05-28
-# Date:			2010-12-13
+# Date:			2011-03-18
 #
 
 ##########################################################################
@@ -995,6 +995,157 @@ use constant UPDATES => {
 			after => qr{^##  =8 : list of marked filenames},
 			batch => [
 				"##  =9 : previous directory path (F2)\n",
+			],
+		}],
+	},
+	# ----- 2.11.5 ---------------------------------------------------------
+	'2.11.5' => {
+		substitutions => sub {
+			s{(extension\[\*\.do(?:c|t|cx)\]\s*:\s*application)/x-ms-office}
+			 {$1/msword};
+			s{(extension\[\*\.p(?:ot|pt|ptx|ps|pz)\]\s*:\s*application)/x-ms-office}
+			 {$1/mspowerpoint};
+			s{(extension\[\*\.xl(?:c|l|m|s|sx|t|w)\]\s*:\s*application)/x-ms-office}
+			 {$1/vnd.ms-excel};
+			s{(magic\[C.*program text\]\s*):\s*application/x-c\>}
+			 {$1: text/x-c\>};
+			s{launch\[application/x-c\]}
+			 {launch[text/x-c]};
+		},
+		additions => [{
+			ifnotpresent => qr{launch.application/msword},
+			after => qr{launch\[application/x-ms-office\]},
+			batch => [
+				"launch[application/msword]      : ooffice =2 &\n",
+				"launch[application/mspowerpoint]: ooffice =2 &\n",
+				"launch[application/vnd.ms-excel]: ooffice =2 &\n",
+			],
+		}, {
+			ifnotpresent => qr{extension\[.*portable},
+			after => qr{extension\[\*\.png\]},
+			batch => [
+				"extension[*.pbm]  : image/x-portable-bitmap\n",
+				"extension[*.pgm]  : image/x-portable-graymap\n",
+				"extension[*.pnm]  : image/x-portable-anymap\n",
+				"extension[*.ppm]  : image/x-portable-pixmap\n",
+			],
+		}, {
+			ifnotpresent => qr{extension\[.*fortran},
+			after => qr{extension\[\*\.exe\]},
+			batch => [
+				"extension[*.f]    : text/x-fortran\n",
+				"extension[*.for]  : text/x-fortran\n",
+				"extension[*.f90]  : text/x-fortran\n",
+				"extension[*.f95]  : text/x-fortran\n",
+			],
+		}, {
+			ifnotpresent => qr{extension\[\*\.jpe\]\s*:},
+			after => qr{extension\[\*\.jpg\]},
+			batch => [
+				"extension[*.jpe]  : image/jpeg\n",
+			],
+		}, {
+			ifnotpresent => qr{extension\[\*\.sit\]\s*:},
+			after => qr{extension\[\*\.zip\]\s*:\s*application/zip},
+			batch => [
+				"extension[*.sit]  : application/x-stuffit\n",
+				"extension[*.hqx]  : application/mac-binhex40\n",
+			],
+		}, {
+			ifnotpresent => qr{extension\[\*\.svg\]\s*:},
+			after => qr{extension.*application/xml},
+			batch => [
+				"extension[*.svg]  : image/svg+xml\n",
+			],
+		}, {
+			ifnotpresent => qr{extension\[\*\.rtf\]\s*:},
+			before => qr{extension\[\*\.txt},
+			batch => [
+				"extension[*.rtf]  : text/rtf\n",
+			],
+		}, {
+			ifnotpresent => qr{extension\[\*\.latex\]\s*:},
+			after => qr{extension\[\.1\]},
+			batch => [
+				"extension[*.latex]  : application/x-latex\n",
+				"extension[*.tex]    : application/x-tex\n",
+				"extension[*.texi]   : application/x-texinfo\n",
+				"extension[*.texinfo]: application/x-texinfo\n",
+			],
+		}, {
+			ifnotpresent => qr{extension\[\*\.rm\]\s*:},
+			after => qr{extension\[\*\.ram\]\s*:\s*audio/x(?:-pn)?-realaudio},
+			batch => [
+				"extension[*.rm]   : audio/x-pn-realaudio\n",
+			],
+		}, {
+			ifnotpresent => qr{extension\[\*\.smi.?\]\s*:},
+			after => qr{extension\[\*\.ram\]\s*:\s*audio/x(?:-pn)?-realaudio},
+			batch => [
+				"extension[*.smi]  : application/smil\n",
+				"extension[*.smil] : application/smil\n",
+			],
+		}, {
+			ifnotpresent => qr{extension\[\*\.aif.?\]\s*:},
+			before => qr{extension\[\*\.arj},
+			batch => [
+				"extension[*.aif]  : audio/x-aiff\n",
+				"extension[*.aifc] : audio/x-aiff\n",
+				"extension[*.aiff] : audio/x-aiff\n",
+			],
+		}, {
+			ifnotpresent => qr{extension\[\*\.cs\]\s*:},
+			after => qr{extension\[\*\.c\]},
+			batch => [
+				"extension[*.cs]      : text/x-csharp\n",
+				"launch[text/x-csharp]: gmcs =2\n",
+			],
+		}, {
+			ifnotpresent => qr{extension\[\*\.cc\]},
+			after => qr{extension\[\*\.c\]},
+			batch => [
+				"extension[*.cc]   : text/x-c++\n",
+				"launch[text/x-c++]: g++ -o =1 =2\n",
+			],
+		}, {
+			ifnotpresent => qr{extension\[\*\.java\]\s*:},
+			after => qr{extension\[\*\.jar\]},
+			batch => [
+				"extension[*.class] : application/octet-stream\n",
+				"extension[*.java]  : text/x-java\n",
+				"launch[text/x-java]: javac =2\n",
+			],
+		}, {
+			ifnotpresent => qr{extension\[\*\.cpio\]},
+			after => qr{extension\[\*\.tar\]},
+			batch => [
+				"extension[*.cpio] : application/x-cpio\n",
+			],
+		}, {
+			ifnotpresent => qr{extension\[\*\.lha\]},
+			before => qr{extension\[\*\.lzh\]},
+			batch => [
+				"extension[*.lha]  : application/x-lha\n",
+			],
+		}, {
+			ifnotpresent => qr{extension\[\*\.mp4\]},
+			after => qr{extension\[\*\.mp3\]},
+			batch => [
+				"extension[*.mp4]  : video/mpeg\n",
+				"extension[*.mpe]  : video/mpeg\n",
+			],
+		}, {
+			ifnotpresent => qr{extension\[\*\.ai\]},
+			after => qr{extension\[\*\.ps\]},
+			batch => [
+				"extension[*.ai]   : application/postscript\n",
+			],
+		}, {
+			ifnotpresent => qr{extension\[\*\.swf\]},
+			after => qr{extension\[\*\.svg\]},
+			batch => [
+				"extension[*.swf]   : application/x-shockwave-flash\n",
+				"extension[*.flv]   : video/x-flv\n",
 			],
 		}],
 	},

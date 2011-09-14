@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Browser::Chooser 0.07
+# @(#) App::PFM::Browser::Chooser 0.09
 #
 # Name:			App::PFM::Browser::Chooser
-# Version:		0.07
+# Version:		0.09
 # Author:		Rene Uittenbogaard
 # Created:		2011-03-11
-# Date:			2011-03-12
+# Date:			2011-03-18
 #
 
 ##########################################################################
@@ -21,8 +21,7 @@ App::PFM::Browser::Chooser
 =head1 DESCRIPTION
 
 This class is derived from App::PFM::Browser to incorporate browsing
-
-functionality. It adds functionality to display a list of items and
+functionality. It adds functionality for displaying a list of items and
 selecting one.
 
 =head1 METHODS
@@ -47,6 +46,23 @@ use locale;
 ##########################################################################
 # private subs
 
+=item _init(App::PFM::Screen $screen, App::PFM::Config $config)
+
+Initializes new instances. Called from the constructor.
+
+=cut
+
+sub _init {
+	my ($self, $screen, $config) = @_;
+	$self->{_prompt}     = '';
+	$self->{_browselist} = undef;
+	$self->{_template}   = undef;
+	$self->{_itemcol}    = 0;
+	$self->{_itemlen}    = 0;
+	$self->SUPER::_init($screen, $config);
+	return;
+}
+
 =item _wait_loop()
 
 Waits for keyboard input. In unused time, flash the cursor and 
@@ -66,6 +82,9 @@ sub _wait_loop {
 		type   => 'soft',
 	});
 
+	if ($self->SHOW_MARKCURRENT) {
+		$screen->listing->markcurrentline($self->SHOW_MARKCURRENT);
+	}
 	$screen->at($screenline, $cursorcol);
 	until ($screen->pending_input($cursorjumptime)) {
 		$self->fire($event_idle);
@@ -76,6 +95,19 @@ sub _wait_loop {
 		}
 		$screen->at($screenline, $cursorcol); # jump cursor
 	}
+	return;
+}
+
+=item _highlight(boolean $value)
+
+Highlights the current item, if I<value> is true. Otherwise, removes
+highlight.
+
+=cut
+
+sub _highlight {
+	my ($self, $value) = @_;
+	$self->show_item($self->{_currentline}, $value);
 	return;
 }
 
@@ -146,12 +178,11 @@ sub choose {
 	my ($self, $prompt) = @_;
 	my ($choice, $event);
 	my $screen       = $self->{_screen};
-	my $listing      = $screen->listing;
 	$self->{_prompt} = $prompt;
 	$screen->set_deferred_refresh(R_SCREEN);
 	do {
 		$screen->refresh();
-#TODO		$listing->highlight_on();
+		$self->_highlight(1);
 		# don't send mouse escapes to the terminal if not necessary
 		$screen->bracketed_paste_on() if $self->{_config}{paste_protection};
 		$screen->mouse_enable()       if $self->{_mouse_mode};
@@ -165,14 +196,14 @@ sub choose {
 			$screen->handleresize();
 		} else {
 			# must be keyboard/mouse input here
-#TODO			$listing->highlight_off();
+			$self->_highlight(0);
 			$screen->bracketed_paste_off();
 			$screen->mouse_disable();
 			$choice = $self->handle($event);
 			if ($choice->{handled}) {
 				# if the received input was valid, then the current
 				# cursor position must be validated again
-				$screen->set_deferred_refresh($screen->R_STRIDE);
+				$screen->set_deferred_refresh(R_STRIDE);
 			}
 		}
 	} until defined $choice->{data};

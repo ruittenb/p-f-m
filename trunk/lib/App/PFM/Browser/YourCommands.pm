@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Browser::YourCommands 0.08
+# @(#) App::PFM::Browser::YourCommands 0.09
 #
 # Name:			App::PFM::Browser::YourCommands
-# Version:		0.08
+# Version:		0.09
 # Author:		Rene Uittenbogaard
 # Created:		2011-03-09
-# Date:			2011-03-13
+# Date:			2011-03-18
 #
 
 ##########################################################################
@@ -44,10 +44,11 @@ use strict;
 use locale;
 
 use constant {
-	SHOW_CLOCK => 0,
-	SCREENTYPE => R_DISKINFO,
-	HEADERTYPE => HEADING_YCOMMAND,
-	FOOTERTYPE => FOOTER_NONE,
+	SHOW_MARKCURRENT => 'Y',
+	SHOW_CLOCK       => 0,
+	SCREENTYPE       => R_DISKINFO,
+	HEADERTYPE       => HEADING_YCOMMAND,
+	FOOTERTYPE       => FOOTER_NONE,
 };
 
 use constant MOTION_COMMANDS_EXCEPT_SPACE =>
@@ -66,8 +67,7 @@ Stores the application's current state internally.
 
 sub _init {
 	my ($self, $screen, $config, $state) = @_;
-	$self->{_state}      = $state;
-	$self->{_prompt}     = '';
+	$self->{_state} = $state;
 	$self->SUPER::_init($screen, $config);
 	return;
 }
@@ -124,14 +124,17 @@ List the Your commands from the App::PFM::Config object.
 =cut
 
 sub list_items {
-	my ($self)     = @_;
-	my $screen     = $self->{_screen};
-	my $printline  = $screen->BASELINE;
-	my $infocol    = $screen->diskinfo->infocol;
-	my $infolength = $screen->diskinfo->infolength;
-	my $spacing    = ' ' x $infolength;
-	my $browselist = $self->browselist;
-	my ($commandkey, $printstr);
+	my ($self)  = @_;
+	my $screen  = $self->{_screen};
+
+	$self->{_browselist} = $self->browselist;
+	$self->{_itemcol}    = $screen->diskinfo->infocol;
+	$self->{_itemlen}    = $screen->diskinfo->infolength;
+	my $fieldlen         = $self->{_itemlen} - 2;
+	$self->{_template}   = "%1s %-${fieldlen}.${fieldlen}s";
+	my $spacing          = ' ' x $self->{_itemlen};
+	my $total            = @{$self->{_browselist}};
+
 	# headings
 	$screen
 		->set_deferred_refresh(R_DISKINFO | R_FRAME)
@@ -141,22 +144,39 @@ sub list_items {
 			prompt   => $self->{_prompt},
 		});
 	# list bookmarks
-	foreach (
-		$self->{_baseindex} .. $self->{_baseindex} + $screen->screenheight
-	) {
-		last if ($printline > $screen->BASELINE + $screen->screenheight);
-		$commandkey = $browselist->[$_];
-		$printstr = $self->{_config}->your($commandkey);
-		$printstr =~ s/\e/^[/g; # in case real escapes are used
-		$screen->at($printline++, $infocol)
-			->puts(sprintf('%1s %s',
-					$commandkey,
-					substr($printstr . $spacing, 0, $infolength - 2)));
+	foreach (0 .. $screen->screenheight) {
+		if ($self->{_baseindex} + $_ <= $total) {
+			$self->show_item($_);
+		} else {
+			$screen->at($screen->BASELINE + $_, $self->{_itemcol})
+				->puts($spacing);
+		}
 	}
-	foreach ($printline .. $screen->BASELINE + $screen->screenheight) {
-		$screen->at($printline++, $infocol)->puts($spacing);
-	}
-	$screen->at($self->{_currentline} + $screen->BASELINE, $infocol);
+	$screen->at($self->{_currentline} + $screen->BASELINE, $self->cursorcol);
+	return;
+}
+
+=item show_item(int $which, boolean $highlight)
+
+Shows one Your command item. Applies highlighting if the I<highlight> argument
+is true.
+
+=cut
+
+sub show_item {
+	my ($self, $which, $highlight) = @_;
+	my ($commandkey, $printstring);
+	my $screen    = $self->{_screen};
+	my $linecolor = $highlight
+		? $self->{_config}{framecolors}{$screen->color_mode}{highlight}
+		: '';
+
+	$commandkey  = $self->{_browselist}[$self->{_baseindex} + $which];
+	$printstring = $self->{_config}->your($commandkey);
+	$printstring =~ s/\e/^[/g; # in case real escapes are used
+	$printstring = sprintf($self->{_template}, $commandkey, $printstring);
+	$screen->at($screen->BASELINE + $which, $self->{_itemcol})
+		->putcolored($linecolor, $printstring);
 	return;
 }
 

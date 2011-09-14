@@ -2159,6 +2159,11 @@ sub handlecommand { # Y or O
 	my $infolength = $screen->diskinfo->infolength;
 	my $e          = $self->{_config}{e};
 	my $key        = uc $event->{data};
+	my $on_browser_idle = sub {
+		my ($event) = @_;
+		# propagate to the application, which will poll jobs.
+		$self->fire($event);
+	};
 	my ($command, $do_this, $prompt, $newdir, $eightset, $chooser);
 	unless ($_pfm->state->{multiple_mode}) {
 		$screen->listing->markcurrentline($key);
@@ -2172,6 +2177,7 @@ sub handlecommand { # Y or O
 		# register the chooser so that the screen object knows who
 		# it is working for.
 		$screen->chooser($chooser);
+		$chooser->register_listener('browser_idle', $on_browser_idle);
 		$chooser->mouse_mode($browser->mouse_mode);
 		$key = $chooser->choose(
 			'Enter one of the highlighted characters below: ');
@@ -2930,7 +2936,7 @@ Creates a bookmark to the current directory (B<M>ore - B<B>ookmark).
 sub handlemorebookmark {
 	my ($self, $event) = @_;
 	my $screen = $self->{_screen};
-	my ($dest, $key, $prompt, $chooser);
+	my ($dest, $key, $prompt, $chooser, %allowed_keys);
 	# the footer has already been cleared by handlemore()
 	$chooser = App::PFM::Browser::Bookmarks->new(
 		$screen, $self->{_config}, $_pfm->states);
@@ -2942,7 +2948,9 @@ sub handlemorebookmark {
 	$screen->chooser(0);
 	return if $key eq "\r";
 	# process key
-	if ($key !~ /^[a-zA-Z]$/) {
+	@allowed_keys{$self->{_config}->BOOKMARKKEYS()} = ();
+	if (!exists($allowed_keys{$key})) {
+#	if (!defined($key !~ /^[a-zA-Z]$/)) {
 		# the bookmark is undefined
 		$self->{_screen}->at(0,0)->clreol()
 				->display_error('Bookmark name not valid');

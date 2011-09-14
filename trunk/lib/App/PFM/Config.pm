@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 1.18
+# @(#) App::PFM::Config 1.20
 #
 # Name:			App::PFM::Config
-# Version:		1.18
+# Version:		1.20
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-03-13
+# Date:			2011-03-18
 #
 
 ##########################################################################
@@ -1157,36 +1157,54 @@ extension[*.1m]   : application/x-nroff-man
 extension[*.1]    : application/x-nroff-man
 extension[*.3i]   : application/x-intercal
 extension[*.3pm]  : application/x-nroff-man
-extension[*.i]    : application/x-intercal
-extension[*.bf]   : application/x-befunge
-extension[*.Z]    : application/x-compress
+extension[*.ai]   : application/postscript
+extension[*.aif]  : audio/x-aiff
+extension[*.aifc] : audio/x-aiff
+extension[*.aiff] : audio/x-aiff
 extension[*.arj]  : application/x-arj
 extension[*.au]   : audio/basic
 extension[*.avi]  : video/x-msvideo
 extension[*.bat]  : application/x-msdos-batch
 extension[*.bin]  : application/octet-stream
+extension[*.bf]   : application/x-befunge
 extension[*.bmp]  : image/x-ms-bitmap
 extension[*.bz2]  : application/x-bzip2
-extension[*.c]    : application/x-c
+extension[*.c]    : text/x-c
+extension[*.cc]   : text/x-c++
+extension[*.class]: application/octet-stream
 extension[*.cmd]  : application/x-msdos-batch
 extension[*.com]  : application/x-executable
+extension[*.cpio] : application/x-cpio
+extension[*.cs]   : text/x-csharp
 extension[*.css]  : text/css
 extension[*.deb]  : application/x-deb
-extension[*.doc]  : application/x-ms-office
-extension[*.docx] : application/x-ms-office
+extension[*.doc]  : application/msword
+extension[*.docx] : application/msword
+extension[*.dot]  : application/msword
 extension[*.dll]  : application/octet-stream
 extension[*.dvi]  : application/x-dvi
 extension[*.eps]  : application/postscript
 extension[*.exe]  : application/x-executable
+extension[*.f]    : text/x-fortran
+extension[*.for]  : text/x-fortran
+extension[*.f90]  : text/x-fortran
+extension[*.f95]  : text/x-fortran
+extension[*.flv]  : video/x-flv
 extension[*.gif]  : image/gif
 extension[*.gz]   : application/x-gzip
+extension[*.hqx]  : application/mac-binhex40
 extension[*.htm]  : text/html
 extension[*.html] : text/html
+extension[*.i]    : application/x-intercal
 extension[*.jar]  : application/zip
+extension[*.java] : text/x-java
+extension[*.jpe]  : image/jpeg
 extension[*.jpeg] : image/jpeg
 extension[*.jpg]  : image/jpeg
 extension[*.js]   : application/javascript
 extension[*.json] : application/json
+extension[*.latex]: application/x-latex
+extension[*.lha]  : application/x-lha
 extension[*.lzh]  : application/x-lha
 extension[*.m3u]  : text/x-m3u-playlist
 extension[*.mid]  : audio/midi
@@ -1196,6 +1214,8 @@ extension[*.man]  : application/x-groff-man
 extension[*.mm]   : application/x-groff-mm
 extension[*.mp2]  : audio/mpeg
 extension[*.mp3]  : audio/mpeg
+extension[*.mp4]  : video/mpeg
+extension[*.mpe]  : video/mpeg
 extension[*.mpeg] : video/mpeg
 extension[*.mpg]  : video/mpeg
 extension[*.odp]  : application/x-openoffice
@@ -1207,21 +1227,38 @@ extension[*.pdb]  : chemical/x-pdb
 extension[*.pdf]  : application/pdf
 extension[*.php]  : text/x-php
 extension[*.phtml]: text/x-php
-extension[*.pps]  : application/x-ms-office
-extension[*.ppt]  : application/x-ms-office
-extension[*.pptx] : application/x-ms-office
+extension[*.pot]  : application/mspowerpoint
+extension[*.pps]  : application/mspowerpoint
+extension[*.ppt]  : application/mspowerpoint
+extension[*.pptx] : application/mspowerpoint
+extension[*.ppz]  : application/mspowerpoint
 extension[*.pl]   : application/x-perl
 extension[*.pm]   : application/x-perl-module
 extension[*.png]  : image/png
+extension[*.pbm]  : image/x-portable-bitmap
+extension[*.pgm]  : image/x-portable-graymap
+extension[*.pnm]  : image/x-portable-anymap
+extension[*.ppm]  : image/x-portable-pixmap
 extension[*.ps]   : application/postscript
 extension[*.qt]   : video/quicktime
 extension[*.ra]   : audio/x-realaudio
 extension[*.ram]  : audio/x-pn-realaudio
+extension[*.rm]   : audio/x-pn-realaudio
 extension[*.rar]  : application/x-rar
+#extension[*.rpm]  : audio/x-pn-realaudio-plugin
 extension[*.rpm]  : application/x-rpm
+extension[*.rtf]  : text/rtf
+extension[*.sit]  : application/x-stuffit
+extension[*.smi]  : application/smil
+extension[*.smil] : application/smil
 extension[*.sql]  : application/x-sql
+extension[*.svg]  : image/svg+xml
+extension[*.swf]  : application/x-shockwave-flash
 extension[*.tar]  : application/x-tar
 extension[*.taz]  : application/x-tar-compress
+extension[*.tex]  : application/x-tex
+extension[*.texi] : application/x-texinfo
+extension[*.texinfo]: application/x-texinfo
 extension[*.tgz]  : application/x-tar-gzip
 extension[*.tif]  : image/tiff
 extension[*.tiff] : image/tiff
@@ -1231,20 +1268,26 @@ extension[*.wav]  : audio/x-wav
 extension[*.wmv]  : video/x-winmedia
 extension[*.xcf]  : image/x-gimp
 extension[*.xbm]  : image/x-xbitmap
-extension[*.xls]  : application/x-ms-office
-extension[*.xlsx] : application/x-ms-office
+extension[*.xlc]  : application/vnd.ms-excel
+extension[*.xll]  : application/vnd.ms-excel
+extension[*.xlm]  : application/vnd.ms-excel
+extension[*.xls]  : application/vnd.ms-excel
+extension[*.xlsx] : application/vnd.ms-excel
+extension[*.xlt]  : application/vnd.ms-excel
+extension[*.xlw]  : application/vnd.ms-excel
 extension[*.xml]  : application/xml
 extension[*.xpm]  : image/x-xpixmap
 extension[*.xwd]  : image/x-xwindowdump
 extension[*.ync]  : application/x-yencoded
 extension[*.yml]  : application/x-yaml
 extension[*.z]    : application/x-compress
+extension[*.Z]    : application/x-compress
 extension[*.zip]  : application/zip
 
 ## launchby magic
 ## these will search by regular expression in the file(1) output
 magic[ASCII English text]   : text/plain
-magic[C\+?\+? program text] : application/x-c
+magic[C\+?\+? program text] : text/x-c
 magic[GIF image data]       : image/gif
 magic[HTML document text]   : text/html
 magic[make commands text]   : text/x-makefile
@@ -1277,6 +1320,9 @@ magic[tar archive]          : application/x-tar
 ## launchby extension or magic
 launch[application/javascript]    : =e =2
 launch[application/json]          : =e =2
+launch[application/msword]        : ooffice =2 &
+launch[application/mspowerpoint]  : ooffice =2 &
+launch[application/vnd.ms-excel]  : ooffice =2 &
 launch[application/octet-stream]  : =p =2
 launch[application/pdf]           : acroread =2 &
 #launch[application/pdf]           : evince =2 &
@@ -1284,7 +1330,6 @@ launch[application/postscript]    : gv =2 &
 launch[application/x-arj]         : unarj x =2
 launch[application/x-befunge]     : mtfi =2
 launch[application/x-bzip2]       : bunzip2 =2
-launch[application/x-c]           : gcc -o =1 =2
 launch[application/x-chem]        : chem =2|groff -pteR -mm > =1.ps; gv =1.ps &
 launch[application/x-compress]    : uncompress =2
 launch[application/x-intercal]    : ick -b =2
@@ -1296,7 +1341,7 @@ launch[application/x-groff-mm]	  : groff -pteR -mm  =2 > =1.ps; gv =1.ps &
 launch[application/x-gzip]        : gunzip =2
 #launch[application/x-lha]         :
 launch[application/x-msdos-batch] : =e =2
-launch[application/x-ms-office]   : ooffice =2 &
+launch[application/x-ms-office]   : ooffice =1 &
 launch[application/x-openoffice]  : ooffice =2 &
 launch[application/x-nroff-man]	  : nroff -p -t -e -man =2 | =p
 launch[application/x-pascal]      : =e =2
@@ -1336,8 +1381,11 @@ launch[image/x-xpixmap]           : =v =2 &
 launch[image/x-xwindowdump]       : =v =2 &
 launch[text/css]                  : =e =2
 launch[text/html]                 : lynx =2
-launch[text/x-makefile]           : make
 launch[text/plain]                : =e =2
+launch[text/x-c]                  : gcc -o =1 =2
+launch[text/x-c++]                : g++ -o =1 =2
+launch[text/x-csharp]             : gmcs =2
+launch[text/x-makefile]           : make
 launch[text/x-m3u-playlist]       : vlc =2 >/dev/null 2>&1
 launch[text/x-php]                : =e =2
 launch[video/mpeg]                : xine =2 &

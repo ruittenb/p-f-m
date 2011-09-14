@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen 0.51
+# @(#) App::PFM::Screen 0.52
 #
 # Name:			App::PFM::Screen
-# Version:		0.51
+# Version:		0.52
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-03-12
+# Date:			2011-03-13
 # Requires:		Term::ScreenColor
 #
 
