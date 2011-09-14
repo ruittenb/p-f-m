@@ -1,7 +1,15 @@
+2.10.9
+
+* first version with bookmark browser
+* fixed: suppress unnecessary svn error when statting '.svn'
+* added 'menukeys' to 'colorset' option
+* added 'cursorjumptime' option
+* updated documentation
+
 2.10.8
 
 * fixed: no more crash in (C)opy/(R)ename/(L)ink when there is no swap state
-* added: option for silent bookmark writing
+* added: silent bookmark writing while testing
 
 2.10.7
 

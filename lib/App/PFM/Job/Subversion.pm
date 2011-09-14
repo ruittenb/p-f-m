@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::Subversion 0.36
+# @(#) App::PFM::Job::Subversion 0.37
 #
 # Name:			App::PFM::Job::Subversion
-# Version:		0.36
+# Version:		0.37
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-22
+# Date:			2010-11-29
 #
 
 ##########################################################################
@@ -144,16 +144,21 @@ sub rcsmax {
 ##########################################################################
 # public subs
 
-=item isapplicable(string $path)
+=item isapplicable(string $path [, string $entry ] )
 
 Checks if there is a F<.svn> directory, in which case Subversion commands
 would be applicable.
 
+Also checks if the I<entry> parameter equals '.svn', in which case
+Subversion commands would not be applicable.
+
 =cut
 
 sub isapplicable {
-	my ($self, $path) = @_;
-	return -d "$path/.svn";
+	my ($self, $path, $entry) = @_;
+	return unless -d "$path/.svn";
+	return if $entry eq '.svn';
+	return 1;
 }
 
 ##########################################################################

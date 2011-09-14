@@ -24,6 +24,8 @@
 - if =5 is requested but there is no swap state, what to do?
 - in general, if an escape is invalid, what to do?
 
+- bug: if a file is copied to subdir/newname, the cursor doesn't follow around.
+
 - fix the unnecessary delay after:
   ^Cmake: *** [data] Interrupt
   Command failed  [delay]
@@ -58,7 +60,11 @@
 
 - have objects (Directory) fire an event to indicate that the current position
   is to be saved ('save_cursor_position' -> position_at())
-  'before_smudge_cursor_position'?
+  'before_smudge_cursor_position' ?
+- like CommandHandler's handlemorebookmark():
+  $_pfm->state->{_position}  = $event->{currentfile}{name};
+  $_pfm->state->{_baseindex} = $event->{lunchbox}{baseindex};
+  => 'before_state_handling'?
 
 - extract abstract code so that browser may be reused for bookmarks and your
   commands; ideally:

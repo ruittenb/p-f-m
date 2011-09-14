@@ -3,10 +3,10 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.10.8
+# Version:		2.10.9
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-28
+# Date:			2010-11-30
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				    [ -l, --layout <number> ] [ -o, --sort <mode> ]
 #				pfm { --help | --usage | --version }
@@ -27,13 +27,13 @@
 # version
 
 # for MakeMaker only
-our $VERSION  = '2.10.8';
+our $VERSION  = '2.10.9';
 
 =pod
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.10.8
+.ds Vw @(#) pfm.pl 2.10.9
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -1203,36 +1203,32 @@ _
 
 =head1 LAUNCHING FILES
 
-The B<ENTER> key, when used on a non-directory file, will attempt to launch
-the file.
+The B<ENTER> key, when used on a non-directory file, will make C<pfm>
+attempt to launch the file.
 
-The command used for launching a file is determined by the file type. File
-types are identified by a unique name, preferably MIME type names. Launch
-commands for every file type may be defined using the config file
-'launch[I<filetype>]' options.
-
-Example:
-
-    launch[image/gif]      :=v =2 &
-    launch[application/pdf]:acroread =2 &
-
-There are three methods for determining the file type. You may opt to
-use one, two, or all three of these methods, thereby using the second and
-third method as fallback.
-
-The following methods are available:
+C<pfm> can be configured to use any combination of four methods for
+determining the appropriate command. These methods are:
 
 =over
 
 =item B<extension>
 
-The filename extension will be translated to a file type using the
-'extension[*.I<extension>]' options in the config file.
+The filename extension will be translated to a file type (preferably a
+MIME type) using the 'extension[*.I<extension>]' options in the config
+file.
 
 Example:
 
-    extension[*.gif]:image/gif
-    extension[*.pdf]:application/pdf
+    extension[*.gif]: image/gif
+    extension[*.pdf]: application/pdf
+
+Launch commands for every file type may be defined using the
+'launch[I<filetype>]' options.
+
+Example:
+
+    launch[image/gif]      : =v =2 &
+    launch[application/pdf]: acroread =2 &
 
 =item B<magic>
 
@@ -1242,8 +1238,11 @@ options in the config file.
 
 Example:
 
-    magic[GIF image data]:image/gif
-    magic[PDF document]  :application/pdf
+    magic[GIF image data]: image/gif
+    magic[PDF document]  : application/pdf
+
+The file type will then be used to look up a launch command as described
+above.
 
 =item B<xbit>
 
@@ -1251,15 +1250,28 @@ The executable bits in the file permissions will be checked (after
 symbolic links have been followed). If the current file is executable,
 C<pfm> will attempt to start the file as an executable command.
 
+=item B<name>
+
+Some filenames have their own unique way of launching them. These can be
+configured using the 'launchname' config option:
+
+	launchname[Makefile]   : make
+	launchname[Imakefile]  : xmkmf
+	launchname[Makefile.PL]: perl =2
+
 =back
 
-To select which method or methods (I<extension>, I<magic>, and/or I<xbit>)
-should be used for determining the file type, you should specify these
-using the 'launchby' option (separated by commas if more than one).
+To select which method or methods (I<extension>, I<magic>, I<xbit>, and/or
+I<name>) should be used for determining the file type, you should specify
+these using the 'launchby' option (separated by commas if there is more
+than one).
 
 Example:
 
-    launchby:xbit,extension
+    launchby:name,xbit,extension
+
+C<pfm> will try these methods in succession until one succeeds, or all
+fail.
 
 If the file type cannot be determined, the current file will be displayed
 using your pager.
