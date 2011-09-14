@@ -1,6 +1,6 @@
 %!PS-Adobe-3.0
 %%Creator: groff version 1.20.1
-%%CreationDate: Mon Mar 21 13:13:12 2011
+%%CreationDate: Thu Jun 16 16:10:21 2011
 %%DocumentNeededResources: font Times-Roman
 %%+ font Times-Bold
 %%+ font Courier
@@ -243,12 +243,13 @@ BP
 /F0 10/Times-Roman@0 SF 402.16(PFM\(1\) PFM\(1\))72 48 R/F1 10.95
 /Times-Bold@0 SF -.219(NA)72 84 S(ME).219 E/F2 10/Courier@0 SF(pfm)108
 96 Q F0 2.5<ad50>2.5 G(ersonal File Manager for Linux/Unix)-2.5 E F1
-(SYNOPSIS)72 112.8 Q F2 2.087(pfm [)108 124.8 R/F3 10/Times-Italic@0 SF
-(dir)2.5 E(ectory)-.37 E F2 8.087(][)2.5 G 2.087(\255s, \255\255swap)
--5.587 F F3(dir)8.087 E(ectory)-.37 E F2 12.674(][)2.5 G 2.087
-(\255l, \255\255layout)-10.174 F F3(number)8.087 E F2 8.087(][)2.5 G
-2.087(\255o, \255\255sort)-5.587 F F3(mode)108 136.8 Q F2 8.5(][)2.5 G
-(\255c, \255\255colorset)-6 E F3(string)6 E F2(])2.5 E
+(SYNOPSIS)72 112.8 Q F2 .144(pfm [)108 124.8 R/F3 10/Times-Italic@0 SF
+(dir)2.5 E(ectory)-.37 E F2 6.144(][)2.5 G .144(\255s, \255\255swap)
+-3.644 F F3(dir)6.144 E(ectory)-.37 E F2 8.788(][)2.5 G .144
+(\255c, \255\255colorset)-6.288 F F3(string)6.143 E F2 8.786(][)2.5 G
+.143(\255l, \255\255layout)-6.286 F F3(number)108 136.8 Q F2 6(][)2.5 G
+-3.5(\255\255login ])-3.5 F 2.5<5bad>8.5 G(o, \255\255sort)-2.5 E F3
+(mode)6 E F2(])2.5 E
 (pfm { \255\255help | \255\255usage | \255\255version })108 153.6 Q F1
 (DESCRIPTION)72 170.4 Q F2(pfm)108 182.4 Q F0
 (is a terminal-based \214le manager)2.5 E 2.5(,b)-.4 G(ased on)-2.5 E/F4
@@ -269,7 +270,7 @@ BP
 (ype of \214le, not just plain re)-2.711 F .211
 (gular \214les. These will)-.15 F(be referred to as)108 264 Q F3 -.37
 (re)2.5 G(gular \214les)-.03 E F0(.)A(This manual pertains to)108 280.8
-Q F2(pfm)2.5 E F0 -.15(ve)2.5 G(rsion 2.11.6.).15 E F1(OPTIONS)72 297.6
+Q F2(pfm)2.5 E F0 -.15(ve)2.5 G(rsion 2.11.7.).15 E F1(OPTIONS)72 297.6
 Q F0 4.754(Most of)108 309.6 R F2(pfm)7.254 E F0 5.854 -.55('s c)D 4.754
 (on\214guration is read from a con\214g \214le. The def).55 F 4.755
 (ault location for this \214le is)-.1 F/F5 10/Courier-Oblique@0 SF
@@ -311,114 +312,117 @@ Q F2(pfm)2.5 E F0(using the speci\214ed colorset \(as de\214ned in the)
 2.5 E F3(.pfmr)2.5 E(c)-.37 E F0(\).)A(\255l, \255\255layout)108 537.6 Q
 F3(number)2.5 E F0(Start)128 549.6 Q F2(pfm)2.5 E F0
 (using the speci\214ed column layout \(as de\214ned in the)2.5 E F3
-(.pfmr)2.5 E(c)-.37 E F0(\).)A(\255o, \255\255sort)108 566.4 Q F3(mode)
-2.5 E F0(Start)128 578.4 Q F2(pfm)2.5 E F0
-(using the speci\214ed sort mode \(as sho)2.5 E(wn by the)-.25 E F6(F6)
-2.5 E F0(command\).)2.5 E<ad732c20adad7377>108 595.2 Q(ap)-.1 E F3(dir)
-2.5 E(ectory)-.37 E F0 3.066(The directory that)128 607.2 R F2(pfm)5.566
-E F0 3.065(should initially use as sw)5.566 F 3.065(ap directory)-.1 F
-5.565(.\()-.65 G 3.065(See also belo)-5.565 F 4.365 -.65(w, u)-.25 H
-3.065(nder the).65 F F6(F7)5.565 E F0(command\).)128 619.2 Q .071
-(There w)128 637.2 R .071(ould be no point in setting the sw)-.1 F .071
-(ap directory and subsequently returning to the main directory)-.1 F
-2.227(if 'persistentsw)128 649.2 R 2.227(ap' is turned of)-.1 F 4.726
+(.pfmr)2.5 E(c)-.37 E F0(\).)A(\255\255login)108 566.4 Q(Start)128 578.4
+Q F2(pfm)2.5 E F0(as a login shell.)2.5 E F2(pfm)2.5 E F0
+(will change its name to)2.5 E F2(\255pfm)2.5 E F0(and start a ne)2.5 E
+2.5(ws)-.25 G(ession using)-2.5 E F3(setsid\(\))2.5 E F0(.)A
+(\255o, \255\255sort)108 595.2 Q F3(mode)2.5 E F0(Start)128 607.2 Q F2
+(pfm)2.5 E F0(using the speci\214ed sort mode \(as sho)2.5 E(wn by the)
+-.25 E F6(F6)2.5 E F0(command\).)2.5 E<ad732c20adad7377>108 624 Q(ap)-.1
+E F3(dir)2.5 E(ectory)-.37 E F0 3.066(The directory that)128 636 R F2
+(pfm)5.566 E F0 3.065(should initially use as sw)5.566 F 3.065
+(ap directory)-.1 F 5.565(.\()-.65 G 3.065(See also belo)-5.565 F 4.365
+-.65(w, u)-.25 H 3.065(nder the).65 F F6(F7)5.565 E F0(command\).)128
+648 Q .071(There w)128 666 R .071(ould be no point in setting the sw)-.1
+F .071(ap directory and subsequently returning to the main directory)-.1
+F 2.227(if 'persistentsw)128 678 R 2.227(ap' is turned of)-.1 F 4.726
 (fi)-.25 G 4.726(ny)-4.726 G 2.226(our con\214g \214le. Therefore,)
 -4.726 F F2(pfm)4.726 E F0 2.226(will sw)4.726 F 2.226
-(ap back to the main)-.1 F(directory)128 661.2 Q F3(only)2.5 E F0
-(if 'persistentsw)2.5 E(ap' is turned on.)-.1 E(\255\255usage)108 678 Q
-(Print concise usage information, then e)128 690 Q(xit.)-.15 E<adad76>
-108 706.8 Q(ersion)-.15 E(Print current v)128 718.8 Q(ersion, then e)
--.15 E(xit.)-.15 E 203.17(2011-03-21 1)282.67 768 R 0 Cg EP
+(ap back to the main)-.1 F(directory)128 690 Q F3(only)2.5 E F0
+(if 'persistentsw)2.5 E(ap' is turned on.)-.1 E(\255\255usage)108 706.8
+Q(Print concise usage information, then e)128 718.8 Q(xit.)-.15 E 203.17
+(2011-06-16 1)282.67 768 R 0 Cg EP
 %%Page: 2 2
 %%BeginPageSetup
 BP
 %%EndPageSetup
-/F0 10/Times-Roman@0 SF 402.16(PFM\(1\) PFM\(1\))72 48 R/F1 10.95
-/Times-Bold@0 SF -.219(NA)72 84 S(VIGA)-1.369 E(TION)-1.04 E F0(Na)108
-96 Q(vig)-.2 E 1.13
+/F0 10/Times-Roman@0 SF 402.16(PFM\(1\) PFM\(1\))72 48 R<adad76>108 84 Q
+(ersion)-.15 E(Print current v)128 96 Q(ersion, then e)-.15 E(xit.)-.15
+E/F1 10.95/Times-Bold@0 SF -.219(NA)72 112.8 S(VIGA)-1.369 E(TION)-1.04
+E F0(Na)108 124.8 Q(vig)-.2 E 1.13
 (ation through directories is essentially done using the arro)-.05 F
 3.63(wk)-.25 G -.15(ey)-3.73 G 3.63(sa).15 G 1.13(nd the)-3.63 F/F2 10
 /Times-Italic@0 SF(vi)3.631 E F0 1.131(\(1\) cursor k)1.666 F -.15(ey)
 -.1 G 3.631(s\().15 G/F3 10/Times-Bold@0 SF(hjkl)-3.631 E F0(\).)A
-(The follo)108 108 Q(wing additional na)-.25 E(vig)-.2 E(ation k)-.05 E
--.15(ey)-.1 G 2.5(sa).15 G(re a)-2.5 E -.25(va)-.2 G(ilable:).25 E(Mo)
-108 124.8 Q -.15(ve)-.15 G(ment inside a directory:).15 E .4 LW 448
-134.1 128 134.1 DL F2(up arr)128 143.6 Q(ow)-.45 E F0(,)A F2(down arr)
+(The follo)108 136.8 Q(wing additional na)-.25 E(vig)-.2 E(ation k)-.05
+E -.15(ey)-.1 G 2.5(sa).15 G(re a)-2.5 E -.25(va)-.2 G(ilable:).25 E(Mo)
+108 153.6 Q -.15(ve)-.15 G(ment inside a directory:).15 E .4 LW 448
+162.9 128 162.9 DL F2(up arr)128 172.4 Q(ow)-.45 E F0(,)A F2(down arr)
 2.5 E(ow)-.45 E F0(mo)25.33 E .3 -.15(ve t)-.15 H(he cursor by one line)
-.15 E F3(k)128 155.6 Q F0(,)A F3(j)2.5 E F0(mo)101.11 E .3 -.15(ve t)
--.15 H(he cursor by one line).15 E F3(-)128 167.6 Q F0(,)A F3(+)2.5 E F0
+.15 E F3(k)128 184.4 Q F0(,)A F3(j)2.5 E F0(mo)101.11 E .3 -.15(ve t)
+-.15 H(he cursor by one line).15 E F3(-)128 196.4 Q F0(,)A F3(+)2.5 E F0
 (mo)100.97 E .3 -.15(ve t)-.15 H(he cursor by ten lines).15 E F3(CTRL-E)
-128 179.6 Q F0(,)A F3(CTRL-Y)2.5 E F0(scroll the screen by one line)
-33.89 E F3(CTRL-U)128 191.6 Q F0(,)A F3(CTRL-D)2.5 E F0(mo)33.34 E .3
--.15(ve t)-.15 H(he cursor by half a page).15 E F3(CTRL-B)128 203.6 Q F0
+128 208.4 Q F0(,)A F3(CTRL-Y)2.5 E F0(scroll the screen by one line)
+33.89 E F3(CTRL-U)128 220.4 Q F0(,)A F3(CTRL-D)2.5 E F0(mo)33.34 E .3
+-.15(ve t)-.15 H(he cursor by half a page).15 E F3(CTRL-B)128 232.4 Q F0
 (,)A F3(CTRL-F)2.5 E F0(mo)35 E .3 -.15(ve t)-.15 H
-(he cursor by a full page).15 E F3(PgUp)128 215.6 Q F0(,)A F3(PgDn)2.5 E
+(he cursor by a full page).15 E F3(PgUp)128 244.4 Q F0(,)A F3(PgDn)2.5 E
 F0(mo)62.22 E .3 -.15(ve t)-.15 H(he cursor by a full page).15 E F3
-(HOME)128 227.6 Q F0(,)A F3(END)2.5 E F0(mo)57.22 E .3 -.15(ve t)-.15 H
-(he cursor to the top or bottom line).15 E F3(SP)128 239.6 Q -.55(AC)
--.74 G(E).55 E F0 .038(mark the current \214le, then mo)243 239.6 R .338
--.15(ve t)-.15 H .037(he cursor one line).15 F(do)243 251.6 Q(wn)-.25 E
-448 256.1 128 256.1 DL 235.5 134.1 235.5 256.1 DL(Mo)108 270.4 Q -.15
-(ve)-.15 G(ment between directories:).15 E 448 279.7 128 279.7 DL F3(l)
-128 289.2 Q F0(,)A F2(right arr)2.5 E 58.77(ow c)-.45 F(hdir\(\))-.15 E
-F0(to a subdirectory)2.5 E F3(h)128 301.2 Q F0(,)A F2(left arr)2.5 E
-62.66(ow c)-.45 F(hdir\(\))-.15 E F0(to the parent directory)2.5 E F3
-(ENTER)128 313.2 Q F2 -.15(ch)80.55 G(dir\(\)).15 E F0
-(to a subdirectory)2.5 E F3(ESC)128 325.2 Q F0(,)A F3(BS)2.5 E F2 -.15
-(ch)78.32 G(dir\(\)).15 E F0(to the parent directory)2.5 E 448 329.7 128
-329.7 DL 235.5 279.7 235.5 329.7 DL 1.421
-(If the option 'chdirautocmd' has been speci\214ed in the)108 344 R F2
-(.pfmr)3.921 E(c)-.37 E F0 1.421(\214le, pfm will e)3.921 F -.15(xe)-.15
-G 1.422(cute that command after).15 F -2.15 -.25(ev e)108 356 T(ry).25 E
-F2 -.15(ch)2.5 G(dir\(\)).15 E F0 2.5(.T)C(his can be used)-2.5 E F2
--.15(e.)2.5 G -.15(g.).15 G F0(to set the title of an xterm windo)2.65 E
--.65(w.)-.25 G .04(Note: the)108 372.8 R F3(l)2.54 E F0(and)2.54 E/F4 9
-/Times-Bold@0 SF(ENTER)2.54 E F0 -.1(ke)2.54 G .04(ys function dif)-.05
-F .04(ferently when the cursor is on a non-directory \214le \(see belo)
--.25 F 2.539(wu)-.25 G(nder)-2.539 E F3(L)108 384.8 Q F0(ink and `)A(`)
--.74 E/F5 9/Times-Roman@0 SF(LA)A .25(UNCHING FILES)-.495 F F0 1.48 -.74
-('' r)D(especti).74 E -.15(ve)-.25 G(ly\).).15 E F1(COMMANDS)72 401.6 Q
-F3(Attrib)108 413.6 Q(ute)-.2 E F0 .545
-(Changes the mode of the \214le if you are the o)128 425.6 R(wner)-.25 E
+(HOME)128 256.4 Q F0(,)A F3(END)2.5 E F0(mo)57.22 E .3 -.15(ve t)-.15 H
+(he cursor to the top or bottom line).15 E F3(SP)128 268.4 Q -.55(AC)
+-.74 G(E).55 E F0 .038(mark the current \214le, then mo)243 268.4 R .338
+-.15(ve t)-.15 H .037(he cursor one line).15 F(do)243 280.4 Q(wn)-.25 E
+448 284.9 128 284.9 DL 235.5 162.9 235.5 284.9 DL(Mo)108 299.2 Q -.15
+(ve)-.15 G(ment between directories:).15 E 448 308.5 128 308.5 DL F3(l)
+128 318 Q F0(,)A F2(right arr)2.5 E 58.77(ow c)-.45 F(hdir\(\))-.15 E F0
+(to a subdirectory)2.5 E F3(h)128 330 Q F0(,)A F2(left arr)2.5 E 62.66
+(ow c)-.45 F(hdir\(\))-.15 E F0(to the parent directory)2.5 E F3(ENTER)
+128 342 Q F2 -.15(ch)80.55 G(dir\(\)).15 E F0(to a subdirectory)2.5 E F3
+(ESC)128 354 Q F0(,)A F3(BS)2.5 E F2 -.15(ch)78.32 G(dir\(\)).15 E F0
+(to the parent directory)2.5 E 448 358.5 128 358.5 DL 235.5 308.5 235.5
+358.5 DL 1.421(If the option 'chdirautocmd' has been speci\214ed in the)
+108 372.8 R F2(.pfmr)3.921 E(c)-.37 E F0 1.421(\214le, pfm will e)3.921
+F -.15(xe)-.15 G 1.422(cute that command after).15 F -2.15 -.25(ev e)108
+384.8 T(ry).25 E F2 -.15(ch)2.5 G(dir\(\)).15 E F0 2.5(.T)C
+(his can be used)-2.5 E F2 -.15(e.)2.5 G -.15(g.).15 G F0
+(to set the title of an xterm windo)2.65 E -.65(w.)-.25 G .04(Note: the)
+108 401.6 R F3(l)2.54 E F0(and)2.54 E/F4 9/Times-Bold@0 SF(ENTER)2.54 E
+F0 -.1(ke)2.54 G .04(ys function dif)-.05 F .04
+(ferently when the cursor is on a non-directory \214le \(see belo)-.25 F
+2.539(wu)-.25 G(nder)-2.539 E F3(L)108 413.6 Q F0(ink and `)A(`)-.74 E
+/F5 9/Times-Roman@0 SF(LA)A .25(UNCHING FILES)-.495 F F0 1.48 -.74('' r)
+D(especti).74 E -.15(ve)-.25 G(ly\).).15 E F1(COMMANDS)72 430.4 Q F3
+(Attrib)108 442.4 Q(ute)-.2 E F0 .545
+(Changes the mode of the \214le if you are the o)128 454.4 R(wner)-.25 E
 3.045(.T)-.55 G .545(he mode may be speci\214ed either symbolically or)
--3.045 F(numerically)128 437.6 Q 2.5(,s)-.65 G(ee)-2.5 E F2 -.15(ch)2.5
+-3.045 F(numerically)128 466.4 Q 2.5(,s)-.65 G(ee)-2.5 E F2 -.15(ch)2.5
 G(mod).15 E F0(\(1\) for more details.)1.666 E
-(Note 1: the mode on a symbolic link cannot be set. See)128 455.6 Q F2
+(Note 1: the mode on a symbolic link cannot be set. See)128 484.4 Q F2
 -.15(ch)2.5 G(mod).15 E F0(\(1\) for more details.)1.666 E
-(Note 2: the name)128 473.6 Q F3(Attrib)2.5 E(ute)-.2 E F0
+(Note 2: the name)128 502.4 Q F3(Attrib)2.5 E(ute)-.2 E F0
 (for this command is a reminiscence of the)2.5 E F5(DOS)2.5 E F0 -.15
-(ve)2.5 G(rsion.).15 E F3(Copy)108 490.4 Q F0(Cop)128 502.4 Q 4.578(yc)
+(ve)2.5 G(rsion.).15 E F3(Copy)108 519.2 Q F0(Cop)128 531.2 Q 4.578(yc)
 -.1 G 2.078(urrent \214le. Y)-4.578 F 2.077
 (ou will be prompted for the destination \214lename.)-1.1 F 2.077
-(Directories will be copied)7.077 F(recursi)128 514.4 Q -.15(ve)-.25 G
+(Directories will be copied)7.077 F(recursi)128 543.2 Q -.15(ve)-.25 G
 (ly with all underlying \214les.).15 E 1.504
-(In multiple-\214le mode, it is not allo)128 532.4 R 1.504
+(In multiple-\214le mode, it is not allo)128 561.2 R 1.504
 (wed to specify a single non-directory \214lename as a destination.)-.25
 F 1.203(Instead, the destination name must be a directory or a name con\
-taining a)128 544.4 R F3(=1)3.703 E F0(,)A F3(=2)3.703 E F0(or)3.702 E
-F3(=7)3.702 E F0 1.202(escape \(see)3.702 F(belo)128 556.4 Q 2.5(wu)-.25
-G(nder c)-2.5 E F3(O)A F0(mmand\).)A .7(If clobber mode is of)128 574.4
+taining a)128 573.2 R F3(=1)3.703 E F0(,)A F3(=2)3.703 E F0(or)3.702 E
+F3(=7)3.702 E F0 1.202(escape \(see)3.702 F(belo)128 585.2 Q 2.5(wu)-.25
+G(nder c)-2.5 E F3(O)A F0(mmand\).)A .7(If clobber mode is of)128 603.2
 R 3.2(f\()-.25 G .7(see belo)-3.2 F 3.2(wu)-.25 G .7(nder the)-3.2 F F3
 (!)3.2 E F0 .7(command\), e)3.2 F .7(xisting \214les will not be o)-.15
 F -.15(ve)-.15 G .7(rwritten unless).15 F
-(the action is con\214rmed by the user)128 586.4 Q(.)-.55 E(Whether)128
-604.4 Q F3(C)2.514 E F0(op)A 2.514(yf)-.1 G(ollo)-2.514 E .014
+(the action is con\214rmed by the user)128 615.2 Q(.)-.55 E(Whether)128
+633.2 Q F3(C)2.514 E F0(op)A 2.514(yf)-.1 G(ollo)-2.514 E .014
 (ws symlinks or copies them is OS-speci\214c; you can change the def)
 -.25 F .014(ault beha)-.1 F .014(vior by)-.2 F(setting the 'cop)128
-616.4 Q(yoptions' option in your)-.1 E F2(.pfmr)2.5 E(c)-.37 E F0 2.5
-(.S)C(ee)-2.5 E F2(cp)2.5 E F0(\(1\).)1.666 E F3(Delete)108 633.2 Q F0
-1.229(Delete a \214le or directory)128 645.2 R 3.729(.Y)-.65 G 1.229
+645.2 Q(yoptions' option in your)-.1 E F2(.pfmr)2.5 E(c)-.37 E F0 2.5
+(.S)C(ee)-2.5 E F2(cp)2.5 E F0(\(1\).)1.666 E F3(Delete)108 662 Q F0
+1.229(Delete a \214le or directory)128 674 R 3.729(.Y)-.65 G 1.229
 (ou must con\214rm this command with)-4.829 F F3(Y)3.73 E F0 1.23
 (to actually delete the \214le. If the)3.73 F .368
-(current \214le is a directory which contains \214les, and you w)128
-657.2 R .368(ant to delete it recursi)-.1 F -.15(ve)-.25 G(ly).15 E
-2.868(,y)-.65 G .368(ou must respond)-2.868 F(with)128 669.2 Q F3(A)
-3.669 E F0 -.25<668c>C(rmati).25 E 1.469 -.15(ve t)-.25 H 3.669(ot).15 G
-1.169(he additional prompt. Lost \214les \(\214les on the screen b)
--3.669 F 1.17(ut not actually present on)-.2 F 1.159(disk\) can be dele\
-ted from the screen listing without con\214rmation. Whiteouts cannot be\
- deleted; use)128 681.2 R(un)128 693.2 Q F3(W)A F0
-(hiteout for this purpose.)A 203.17(2011-03-21 2)282.67 768 R 0 Cg EP
+(current \214le is a directory which contains \214les, and you w)128 686
+R .368(ant to delete it recursi)-.1 F -.15(ve)-.25 G(ly).15 E 2.868(,y)
+-.65 G .368(ou must respond)-2.868 F(with)128 698 Q F3(A)3.669 E F0 -.25
+<668c>C(rmati).25 E 1.469 -.15(ve t)-.25 H 3.669(ot).15 G 1.169
+(he additional prompt. Lost \214les \(\214les on the screen b)-3.669 F
+1.17(ut not actually present on)-.2 F 1.159(disk\) can be deleted from \
+the screen listing without con\214rmation. Whiteouts cannot be deleted;\
+ use)128 710 R(un)128 722 Q F3(W)A F0(hiteout for this purpose.)A 203.17
+(2011-06-16 2)282.67 768 R 0 Cg EP
 %%Page: 3 3
 %%BeginPageSetup
 BP
@@ -483,7 +487,7 @@ H 2.5(ra).15 G 2.5(na)-2.5 G(bsolute symlink name.)-2.5 E .72
 (ene/incoming/.plan)-.37 E F0 3.22(,a)C .72(nd you request an absolute)
 -3.22 F 1.5(symlink to be made with either the name)148 691.2 R F3
 (../.plan)4 E F0(or)4 E F3(/home/r)4 E(ene/.plan)-.37 E F0 4(,t)C 1.5
-(he actual symlink will)-4 F(become:)148 703.2 Q 203.17(2011-03-21 3)
+(he actual symlink will)-4 F(become:)148 703.2 Q 203.17(2011-06-16 3)
 282.67 768 R 0 Cg EP
 %%Page: 4 4
 %%BeginPageSetup
@@ -578,7 +582,7 @@ F1(cd)2.5 E F0(,)A F1(pfm)2.5 E F0(itself will change to that directory)
 -.25 F(.)-.55 E 1.154(This escape character is de\214ned with the optio\
 n 'escapechar' in your)128 720.8 R F3(.pfmr)3.654 E(c)-.37 E F0 1.154
 (\214le. By def)3.654 F 1.154(ault it is)-.1 F F2(=)3.655 E F0(.)A
-203.17(2011-03-21 4)282.67 768 R 0 Cg EP
+203.17(2011-06-16 4)282.67 768 R 0 Cg EP
 %%Page: 5 5
 %%BeginPageSetup
 BP
@@ -655,7 +659,7 @@ DL(See also belo)128 612 Q 2.5(wu)-.25 G(nder `)-2.5 E(`)-.74 E/F4 9
 (should ask for)6.131 F(con\214rmation. Note that by pressing a capital)
 128 705.6 Q F2(Q)2.5 E F0(\(quick quit\), you will)2.5 E F3(ne)2.5 E
 (ver)-.15 E F0(be ask)2.5 E(ed for con\214rmation.)-.1 E 203.17
-(2011-03-21 5)282.67 768 R 0 Cg EP
+(2011-06-16 5)282.67 768 R 0 Cg EP
 %%Page: 6 6
 %%BeginPageSetup
 BP
@@ -750,7 +754,7 @@ ts the total number of bytes in allocated data blocks. F)-2.901 F .4
 (oes not contain the 'grand total' column, then the '\214lesize')-3.619
 F .829(column will temporarily be used instead. A 'grand total' column \
 in the layout will ne)128 728.4 R -.15(ve)-.25 G 3.33(rb).15 G 3.33
-<658c>-3.33 G .83(lled in)-3.33 F 203.17(2011-03-21 6)282.67 768 R 0 Cg
+<658c>-3.33 G .83(lled in)-3.33 F 203.17(2011-06-16 6)282.67 768 R 0 Cg
 EP
 %%Page: 7 7
 %%BeginPageSetup
@@ -839,7 +843,7 @@ E 3.384(If 'windo)128 700.8 R 3.384(wtype' is `)-.25 F(`standalone')-.74
 E 5.884('a)-.74 G 3.383(nd 'windo)-5.884 F 3.383(wcmd' is something lik)
 -.25 F 5.883(e`)-.1 G(`nautilus')-6.623 E 3.383(', then a ne)-.74 F(w)
 -.25 E F2(nautilus)128 712.8 Q F0(windo)2.5 E 2.5(ww)-.25 G
-(ill be opened.)-2.5 E 203.17(2011-03-21 7)282.67 768 R 0 Cg EP
+(ill be opened.)-2.5 E 203.17(2011-06-16 7)282.67 768 R 0 Cg EP
 %%Page: 8 8
 %%BeginPageSetup
 BP
@@ -929,7 +933,7 @@ G(rder to vie)-2.5 E 2.5(wa)-.25 G(ll a)-2.5 E -.25(va)-.2 G
 entity information: username, hostname, and/or ttyname.)128 699.6 Q F1
 (>)108 716.4 Q F0 -.15(Pa)128 716.4 S 2.5(nt).15 G(he menu and footer)
 -2.5 E 2.5(,i)-.4 G 2.5(no)-2.5 G(rder to vie)-2.5 E 2.5(wa)-.25 G(ll a)
--2.5 E -.25(va)-.2 G(ilable commands.).25 E 203.17(2011-03-21 8)282.67
+-2.5 E -.25(va)-.2 G(ilable commands.).25 E 203.17(2011-06-16 8)282.67
 768 R 0 Cg EP
 %%Page: 9 9
 %%BeginPageSetup
@@ -1025,7 +1029,7 @@ F1(^^)3.726 E F0(and)3.726 E F1(,,)3.726 E F0 -.15(ex)3.726 G(pansions)
 (rt each matched character in the e).15 F .53(xpanded v)-.15 F .53
 (alue; the)-.25 F F1(^)3.03 E F0(and)3.03 E F1(,)3.03 E F0 -.15(ex)3.03
 G .53(pansions match and con).15 F -.15(ve)-.4 G .53(rt only).15 F
-203.17(2011-03-21 9)282.67 768 R 0 Cg EP
+203.17(2011-06-16 9)282.67 768 R 0 Cg EP
 %%Page: 10 10
 %%BeginPageSetup
 BP
@@ -1083,7 +1087,7 @@ E(ession)-.37 E F0(]' options in the con\214g \214le.)A(Example:)128
 651.6 Q F5(magic[GIF image data]: image/gif)152 669.6 Q
 (magic[PDF document])152 681.6 Q 6(:a)12 G(pplication/pdf)-6 E F0(The \
 \214le type will then be used to look up a launch command as described \
-abo)128 699.6 Q -.15(ve)-.15 G(.).15 E 198.17(2011-03-21 10)282.67 768 R
+abo)128 699.6 Q -.15(ve)-.15 G(.).15 E 198.17(2011-06-16 10)282.67 768 R
 0 Cg EP
 %%Page: 11 11
 %%BeginPageSetup
@@ -1163,7 +1167,7 @@ G 3.337(oa)-3.337 G(shell, all metacharacters are replaced)128 624 Q F3
 -.15 E(acter)-.15 E 2.5(se)-.1 G(scaped)-2.5 E F0(.)A
 (At the same time, an)128 700.8 Q(y)-.15 E F2(=[^1\2559eEpv])2.5 E F0
 (character sequence is just replaced with the character itself.)2.5 E
-(In short:)108 717.6 Q 198.17(2011-03-21 11)282.67 768 R 0 Cg EP
+(In short:)108 717.6 Q 198.17(2011-06-16 11)282.67 768 R 0 Cg EP
 %%Page: 12 12
 %%BeginPageSetup
 BP
@@ -1212,217 +1216,222 @@ E F0(ho)A 15(wE)-.25 G(NTER)-15 E F2(M)15 E F0(ore -)A F2(O)2.5 E F0
 (NTER)-15 E F2(M)15 E F0(ore -)A F2(O)2.5 E F0(pen win)A 458.85 417.3
 108 417.3 DL(up)113.985 426.8 Q F3(\214ve lines up)154.04 E F0(do)108
 438.8 Q(wn)-.25 E F3(\214ve lines down)142.22 E 458.85 443.3 108 443.3
-DL 137.47 339.3 137.47 443.3 DL F0 1.051(The cursor will)108 457.6 R F3
-(only)3.551 E F0(mo)3.551 E -.15(ve)-.15 G 3.551(dt).15 G 3.551(oa)
--3.551 G 1.051(nother \214le when a directory is click)-3.551 F 1.051
-(ed or the mouse wheel is used.)-.1 F(The)6.052 E 1.176(mouse wheel mo)
-108 469.6 R -.15(ve)-.15 G 3.676(st).15 G 1.176(he cursor \214v)-3.676 F
-3.676(el)-.15 G 1.176(ines per notch by def)-3.676 F 1.176
+DL 137.47 339.3 137.47 443.3 DL F0 1.311
+(If the con\214g option 'mouse_mo)108 457.6 R -.15(ve)-.15 G 1.311
+(s_cursor' has been set to 'yes', a mouse click on a non-directory will)
+.15 F(mo)108 469.6 Q .695 -.15(ve t)-.15 H .394
+(he cursor to that \214le. Otherwise, the cursor will).15 F F3(only)
+2.894 E F0(mo)2.894 E .694 -.15(ve w)-.15 H .394
+(hen a directory is click).15 F .394(ed or the mouse)-.1 F
+(wheel is used.)108 481.6 Q .214(The mouse wheel mo)108 498.4 R -.15(ve)
+-.15 G 2.714(st).15 G .214(he cursor \214v)-2.714 F 2.714(el)-.15 G .214
+(ines per notch by def)-2.714 F .215
 (ault, or one line if shift is pressed. The actual)-.1 F
-(number of lines can be con\214gured in your)108 481.6 Q F3(.pfmr)2.5 E
-(c)-.37 E F0(using 'mouse)2.5 E(wheeljumpsize'.)-.25 E 1.689(Clicking b)
-108 498.4 R 1.689(utton 1 on the current directory path will)-.2 F F3
--.15(ch)4.189 G(dir\(\)).15 E F0 1.69(up to the click)4.189 F 1.69
-(ed ancestor directory)-.1 F 4.19(.I)-.65 G 4.19(ft)-4.19 G(he)-4.19 E
-(current directory w)108 510.4 Q(as click)-.1 E(ed, or the de)-.1 E
+(number of lines can be con\214gured in your)108 510.4 Q F3(.pfmr)2.5 E
+(c)-.37 E F0(using 'mouse)2.5 E(wheeljumpsize'.)-.25 E 1.69(Clicking b)
+108 527.2 R 1.69(utton 1 on the current directory path will)-.2 F F3
+-.15(ch)4.189 G(dir\(\)).15 E F0 1.689(up to the click)4.189 F 1.689
+(ed ancestor directory)-.1 F 4.189(.I)-.65 G 4.189(ft)-4.189 G(he)-4.189
+E(current directory w)108 539.2 Q(as click)-.1 E(ed, or the de)-.1 E
 (vice name, it will act lik)-.25 E 2.5(ea)-.1 G F2(M)A F0(ore \255)A F2
-(S)2.5 E F0(ho)A 2.5(wc)-.25 G(ommand.)-2.5 E(Clicking b)108 527.2 Q
+(S)2.5 E F0(ho)A 2.5(wc)-.25 G(ommand.)-2.5 E(Clicking b)108 556 Q
 (utton 2 on a directory name will open a ne)-.2 E 2.5(ww)-.25 G(indo)
 -2.5 E 2.5(wl)-.25 G(ik)-2.5 E(e)-.1 E F2(M)2.5 E F0(ore \255)A F2(O)2.5
 E F0(pen windo)A -.65(w.)-.25 G .737(Clicking on the column headings wi\
-ll sort the directory contents by that heading. Clicking ag)108 544 R
-.736(ain will sort)-.05 F(the directory in re)108 556 Q -.15(ve)-.25 G
-(rse order).15 E(.)-.55 E .266(Clicking on `)108 572.8 R(`Sort')-.74 E
-2.766('i)-.74 G 2.766(nt)-2.766 G .266(he footer will c)-2.766 F .267(y\
+ll sort the directory contents by that heading. Clicking ag)108 572.8 R
+.737(ain will sort)-.05 F(the directory in re)108 584.8 Q -.15(ve)-.25 G
+(rse order).15 E(.)-.55 E .267(Clicking on `)108 601.6 R(`Sort')-.74 E
+2.767('i)-.74 G 2.767(nt)-2.767 G .267(he footer will c)-2.767 F .266(y\
 cle through a number of precon\214gured sort modes as de\214ned in the)
--.15 F(con\214g option ')108 584.8 Q(sortc)-.55 E(ycle'.)-.15 E
-(Clicking on the menu or footer will e)108 601.6 Q -.15(xe)-.15 G
+-.15 F(con\214g option ')108 613.6 Q(sortc)-.55 E(ycle'.)-.15 E
+(Clicking on the menu or footer will e)108 630.4 Q -.15(xe)-.15 G
 (cute the command that w).15 E(as click)-.1 E(ed.)-.1 E(Clicking on one\
  of the identity lines in the info column will toggle the display lik)
-108 618.4 Q 2.5(et)-.1 G(he)-2.5 E F2(=)2.5 E F0(command does.)2.5 E
-(Mouse use will be turned of)108 635.2 Q 2.5(fd)-.25 G(uring the e)-2.5
-E -.15(xe)-.15 G(cution of commands.).15 E F4 -.11(WO)72 652 S
+108 647.2 Q 2.5(et)-.1 G(he)-2.5 E F2(=)2.5 E F0(command does.)2.5 E
+(Mouse use will be turned of)108 664 Q 2.5(fd)-.25 G(uring the e)-2.5 E
+-.15(xe)-.15 G(cution of commands.).15 E F4 -.11(WO)72 680.8 S
 (RKING DIRECT).11 E(OR)-.197 E 2.738(YI)-.383 G(NHERIT)-2.738 E(ANCE)
--.986 E F0 .476(Upon e)108 664 R(xit,)-.15 E F1(pfm)2.976 E F0 .476
-(will sa)2.976 F .776 -.15(ve i)-.2 H .476(ts current w).15 F .476
+-.986 E F0 .475(Upon e)108 692.8 R(xit,)-.15 E F1(pfm)2.975 E F0 .475
+(will sa)2.975 F .775 -.15(ve i)-.2 H .475(ts current w).15 F .476
 (orking directory in the \214le)-.1 F/F5 10/Courier-Oblique@0 SF($HOME)
-2.975 E F3(/.pfm/cwd)A F0 2.975(,a)C .475(nd its sw)-2.975 F .475
-(ap directory)-.1 F(,)-.65 E 2.019(if an)108 676 R 3.319 -.65(y, i)-.15
-H(n).65 E F5($HOME)4.519 E F3(/.pfm/swd)A F0 7.019(.T)C 2.019
-(his enables the user to ha)-7.019 F 2.319 -.15(ve t)-.2 H 2.02
+2.976 E F3(/.pfm/cwd)A F0 2.976(,a)C .476(nd its sw)-2.976 F .476
+(ap directory)-.1 F(,)-.65 E 2.02(if an)108 704.8 R 3.32 -.65(y, i)-.15
+H(n).65 E F5($HOME)4.52 E F3(/.pfm/swd)A F0 7.02(.T)C 2.019
+(his enables the user to ha)-7.02 F 2.319 -.15(ve t)-.2 H 2.019
 (he calling process \(shell\) `).15 F(`inherit')-.74 E(')-.74 E F1(pfm)
-4.52 E F0 -.55('s)C 1.122(current w)108 688 R 1.122(orking directory)-.1
-F 3.622(,a)-.65 G 1.122(nd to reinstate the sw)-3.622 F 1.121
-(ap directory upon the ne)-.1 F 1.121(xt in)-.15 F -.2(vo)-.4 G 3.621
-(cation. T).2 F 3.621(oa)-.8 G(chie)-3.621 E 1.421 -.15(ve t)-.25 H
-(his,).15 E(you may call)108 700 Q F1(pfm)2.5 E F0
+4.519 E F0 -.55('s)C 1.121(current w)108 716.8 R 1.121(orking directory)
+-.1 F 3.621(,a)-.65 G 1.121(nd to reinstate the sw)-3.621 F 1.121
+(ap directory upon the ne)-.1 F 1.122(xt in)-.15 F -.2(vo)-.4 G 3.622
+(cation. T).2 F 3.622(oa)-.8 G(chie)-3.622 E 1.422 -.15(ve t)-.25 H
+(his,).15 E(you may call)108 728.8 Q F1(pfm)2.5 E F0
 (using a function or alias lik)2.5 E 2.5(et)-.1 G(he follo)-2.5 E(wing:)
--.25 E(Example for)108 716.8 Q F3(ksh)2.5 E F0(\(1\),)1.666 E F3(bash)
-2.5 E F0(\(1\) and)1.666 E F3(zsh)2.5 E F0(\(1\):)1.666 E 198.17
-(2011-03-21 12)282.67 768 R 0 Cg EP
+-.25 E 198.17(2011-06-16 12)282.67 768 R 0 Cg EP
 %%Page: 13 13
 %%BeginPageSetup
 BP
 %%EndPageSetup
-/F0 10/Times-Roman@0 SF 402.16(PFM\(1\) PFM\(1\))72 48 R/F1 10/Courier@0
-SF(pfm\(\) {)132 84 Q(if [ \255s ~/.pfm/swd ]; then)156 96 Q
-(swd=\255s"\222cat ~/.pfm/swd\222")180 108 Q(fi)156 120 Q 6(#p)156 132 S
-(roviding $swd is optional)-6 E(env pfm $swd "$@")156 144 Q
-(if [ \255s ~/.pfm/cwd ]; then)156 156 Q(cd "\222cat ~/.pfm/cwd\222")180
-168 Q(rm \255f ~/.pfm/cwd)180 180 Q(fi)156 192 Q(})132 204 Q F0
-(Example for)108 220.8 Q/F2 10/Times-Italic@0 SF(csh)2.5 E F0(\(1\) and)
-1.666 E F2(tcsh)2.5 E F0(\(1\):)1.666 E F1(alias pfm \010:)132 237.6 Q
-(\\)174 E(if \(\255s ~/.pfm/swd\) then)132 249.6 Q(\\)108 E
-(set swd=\255s"\222cat ~/.pfm/swd\222")156 261.6 Q(\\)54 E 210(endif \\)
-132 273.6 R 6(:p)132 285.6 S(roviding $swd is optional)-6 E(\\)78 E
-(env pfm $swd \\!*)132 297.6 Q(\\)150 E(if \(\255s ~/.pfm/cwd\) then)132
-309.6 Q(\\)108 E(cd "\222cat ~/.pfm/cwd\222")156 321.6 Q(\\)96 E
-(rm \255f ~/.pfm/cwd)156 333.6 Q(\\)126 E(endif\010)132 345.6 Q/F3 10.95
-/Times-Bold@0 SF(ENVIR)72 362.4 Q(ONMENT)-.329 E/F4 9/Times-Bold@0 SF
-(ANSI_COLORS_DISABLED)108 374.4 Q F0(Detected as an indication that)128
-386.4 Q/F5 9/Times-Roman@0 SF(ANSI)2.5 E F0
-(coloring escape sequences should not be used.)2.5 E F4(CDP)108 403.2 Q
--.855(AT)-.666 G(H).855 E F0 3.772(Ac)128 415.2 S 1.272(olon-separated \
-list of directories specifying the search path when changing directorie\
-s. There is)-3.772 F(al)128 427.2 Q -.1(wa)-.1 G(ys an implicit).1 E/F6
-10/Times-Bold@0 SF(.)2.5 E F0(entry at the start of this search path.)
-2.5 E F4(DISPLA)108 444 Q(Y)-.9 E F0(The X display on which the 'windo)
-128 456 Q(wcmd' will be opened.)-.25 E F4(EDIT)108 472.8 Q(OR)-.162 E F0
-(The editor to be used for the)128 484.8 Q F6(E)2.5 E F0
+/F0 10/Times-Roman@0 SF 402.16(PFM\(1\) PFM\(1\))72 48 R(Example for)108
+84 Q/F1 10/Times-Italic@0 SF(ksh)2.5 E F0(\(1\),)1.666 E F1(bash)2.5 E
+F0(\(1\) and)1.666 E F1(zsh)2.5 E F0(\(1\):)1.666 E/F2 10/Courier@0 SF
+(pfm\(\) {)132 100.8 Q(if [ \255s ~/.pfm/swd ]; then)156 112.8 Q
+(swd=\255s"\222cat ~/.pfm/swd\222")180 124.8 Q(fi)156 136.8 Q 6(#p)156
+148.8 S(roviding $swd is optional)-6 E(env pfm $swd "$@")156 160.8 Q
+(if [ \255s ~/.pfm/cwd ]; then)156 172.8 Q(cd "\222cat ~/.pfm/cwd\222")
+180 184.8 Q(rm \255f ~/.pfm/cwd)180 196.8 Q(fi)156 208.8 Q(})132 220.8 Q
+F0(Example for)108 237.6 Q F1(csh)2.5 E F0(\(1\) and)1.666 E F1(tcsh)2.5
+E F0(\(1\):)1.666 E F2(alias pfm \010:)132 254.4 Q(\\)174 E
+(if \(\255s ~/.pfm/swd\) then)132 266.4 Q(\\)108 E
+(set swd=\255s"\222cat ~/.pfm/swd\222")156 278.4 Q(\\)54 E 210(endif \\)
+132 290.4 R 6(:p)132 302.4 S(roviding $swd is optional)-6 E(\\)78 E
+(env pfm $swd \\!*)132 314.4 Q(\\)150 E(if \(\255s ~/.pfm/cwd\) then)132
+326.4 Q(\\)108 E(cd "\222cat ~/.pfm/cwd\222")156 338.4 Q(\\)96 E
+(rm \255f ~/.pfm/cwd)156 350.4 Q(\\)126 E(endif\010)132 362.4 Q/F3 10.95
+/Times-Bold@0 SF(ENVIR)72 379.2 Q(ONMENT)-.329 E/F4 9/Times-Bold@0 SF
+(ANSI_COLORS_DISABLED)108 391.2 Q F0(Detected as an indication that)128
+403.2 Q/F5 9/Times-Roman@0 SF(ANSI)2.5 E F0
+(coloring escape sequences should not be used.)2.5 E F4(CDP)108 420 Q
+-.855(AT)-.666 G(H).855 E F0 3.773(Ac)128 432 S 1.272(olon-separated li\
+st of directories specifying the search path when changing directories.\
+ There is)-3.773 F(al)128 444 Q -.1(wa)-.1 G(ys an implicit).1 E/F6 10
+/Times-Bold@0 SF(.)2.5 E F0(entry at the start of this search path.)2.5
+E F4(DISPLA)108 460.8 Q(Y)-.9 E F0(The X display on which the 'windo)128
+472.8 Q(wcmd' will be opened.)-.25 E F4(EDIT)108 489.6 Q(OR)-.162 E F0
+(The editor to be used for the)128 501.6 Q F6(E)2.5 E F0
 (dit command. Ov)A(erridden by)-.15 E F5(VISU)2.5 E(AL)-.36 E F0(.)A F4
-(LC_ALL)108 501.6 Q(LC_COLLA)108 513.6 Q(TE)-.855 E(LC_CTYPE)108 525.6 Q
-(LC_MESSA)108 537.6 Q(GES)-.495 E(LC_NUMERIC)108 549.6 Q(LC_TIME)108
-561.6 Q(LANG)108 573.6 Q F0 1.213(Determine locale settings, most notab\
-ly for collation sequence, messages and date/time format. See)128 585.6
-R F2(locale)128 597.6 Q F0(\(7\).)1.666 E F4 -1.413 -.666(PA G)108 614.4
-T(ER).666 E F0 .237(Identi\214es the pager with which to vie)128 626.4 R
-2.737(wt)-.25 G -.15(ex)-2.737 G 2.737<748c>.15 G .238(les. Def)-2.737 F
-.238(aults to)-.1 F F2(less)2.738 E F0 .238(\(1\) for Linux systems or)
-1.666 F F2(mor)2.738 E(e)-.37 E F0 .238(\(1\) for)1.666 F(Unix systems.)
-128 638.4 Q F4(PERL_RL)108 655.2 Q F0 .617(Indicate whether and ho)128
-667.2 R 3.117(wt)-.25 G .617(he readline prompts should be highlighted.)
--3.117 F(See)5.617 E F2 -.92(Te)3.117 G(rm::ReadLine).92 E F0 .617
-(\(3pm\). If)1.666 F(unset, a good guess is made based on your con\214g\
- \214le 'framecolors[]' setting.)128 679.2 Q F4(PFMRC)108 696 Q F0 .396
-(Specify a location of an alternate)128 708 R F2(.pfmr)2.897 E(c)-.37 E
-F0 .397(\214le. If unset, the def)2.897 F .397(ault location)-.1 F/F7 10
-/Courier-Oblique@0 SF($HOME)2.897 E F2(/.pfm/.pfmr)A(c)-.37 E F0 .397
-(is used.)2.897 F 1.741
-(The cwd\255 and history-\214les cannot be displaced in this manner)128
-720 R 4.241(,a)-.4 G 1.74(nd will al)-4.241 F -.1(wa)-.1 G 1.74
-(ys be located in the).1 F 198.17(2011-03-21 13)282.67 768 R 0 Cg EP
+(LC_ALL)108 518.4 Q(LC_COLLA)108 530.4 Q(TE)-.855 E(LC_CTYPE)108 542.4 Q
+(LC_MESSA)108 554.4 Q(GES)-.495 E(LC_NUMERIC)108 566.4 Q(LC_TIME)108
+578.4 Q(LANG)108 590.4 Q F0 1.213(Determine locale settings, most notab\
+ly for collation sequence, messages and date/time format. See)128 602.4
+R F1(locale)128 614.4 Q F0(\(7\).)1.666 E F4 -1.413 -.666(PA G)108 631.2
+T(ER).666 E F0 .238(Identi\214es the pager with which to vie)128 643.2 R
+2.738(wt)-.25 G -.15(ex)-2.738 G 2.738<748c>.15 G .238(les. Def)-2.738 F
+.237(aults to)-.1 F F1(less)2.737 E F0 .237(\(1\) for Linux systems or)
+1.666 F F1(mor)2.737 E(e)-.37 E F0 .237(\(1\) for)1.666 F(Unix systems.)
+128 655.2 Q F4(PERL_RL)108 672 Q F0 .617(Indicate whether and ho)128 684
+R 3.117(wt)-.25 G .617(he readline prompts should be highlighted.)-3.117
+F(See)5.617 E F1 -.92(Te)3.117 G(rm::ReadLine).92 E F0 .617(\(3pm\). If)
+1.666 F(unset, a good guess is made based on your con\214g \214le 'fram\
+ecolors[]' setting.)128 696 Q 198.17(2011-06-16 13)282.67 768 R 0 Cg EP
 %%Page: 14 14
 %%BeginPageSetup
 BP
 %%EndPageSetup
-/F0 10/Times-Roman@0 SF 402.16(PFM\(1\) PFM\(1\))72 48 R(directory)128
-84 Q/F1 10/Courier-Oblique@0 SF($HOME)2.5 E/F2 10/Times-Italic@0 SF
-(/.pfm/)A F0(.)A/F3 9/Times-Bold@0 SF(PRINTER)108 100.8 Q F0
-(May be used to specify a printer to print to using the)128 112.8 Q/F4
-10/Times-Bold@0 SF(P)2.5 E F0(rint command.)A F3(SHELL)108 129.6 Q F0
--1.1(Yo)128 141.6 S(ur def)1.1 E(ault login shell, spa)-.1 E(wned by)
--.15 E F4(M)2.5 E F0(ore \255 s)A F4(H)A F0(ell.)A F3(VISU)108 158.4 Q
-(AL)-.54 E F0(The editor to be used for the)128 170.4 Q F4(E)2.5 E F0
+/F0 10/Times-Roman@0 SF 402.16(PFM\(1\) PFM\(1\))72 48 R/F1 9
+/Times-Bold@0 SF(PFMRC)108 84 Q F0 .397
+(Specify a location of an alternate)128 96 R/F2 10/Times-Italic@0 SF
+(.pfmr)2.897 E(c)-.37 E F0 .397(\214le. If unset, the def)2.897 F .396
+(ault location)-.1 F/F3 10/Courier-Oblique@0 SF($HOME)2.896 E F2
+(/.pfm/.pfmr)A(c)-.37 E F0 .396(is used.)2.896 F 1.74
+(The cwd\255 and history-\214les cannot be displaced in this manner)128
+108 R 4.241(,a)-.4 G 1.741(nd will al)-4.241 F -.1(wa)-.1 G 1.741
+(ys be located in the).1 F(directory)128 120 Q F3($HOME)2.5 E F2(/.pfm/)
+A F0(.)A F1(PRINTER)108 136.8 Q F0
+(May be used to specify a printer to print to using the)128 148.8 Q/F4
+10/Times-Bold@0 SF(P)2.5 E F0(rint command.)A F1(SHELL)108 165.6 Q F0
+-1.1(Yo)128 177.6 S(ur def)1.1 E(ault login shell, spa)-.1 E(wned by)
+-.15 E F4(M)2.5 E F0(ore \255 s)A F4(H)A F0(ell.)A F1(VISU)108 194.4 Q
+(AL)-.54 E F0(The editor to be used for the)128 206.4 Q F4(E)2.5 E F0
 (dit command. Ov)A(errides)-.15 E/F5 9/Times-Roman@0 SF(EDIT)2.5 E(OR)
--.162 E F0(.)A/F6 10.95/Times-Bold@0 SF(FILES)72 187.2 Q F0 .236
-(The directory)108 199.2 R F1($HOME)2.736 E F2(/.pfm/)A F0 .237
+-.162 E F0(.)A/F6 10.95/Times-Bold@0 SF(FILES)72 223.2 Q F0 .237
+(The directory)108 235.2 R F3($HOME)2.737 E F2(/.pfm/)A F0 .237
 (and \214les therein. A number of input histories and the current w)
-2.736 F .237(orking directory)-.1 F(on e)108 211.2 Q(xit are sa)-.15 E
+2.737 F .236(orking directory)-.1 F(on e)108 247.2 Q(xit are sa)-.15 E
 -.15(ve)-.2 G 2.5(dt).15 G 2.5(ot)-2.5 G(his directory)-2.5 E(.)-.65 E
-(The def)108 228 Q(ault location for the con\214g \214le is)-.1 E F1
-($HOME)2.5 E F2(/.pfm/.pfmr)A(c)-.37 E F0(.)A F6(EXIT ST)72 244.8 Q
--1.04(AT)-.986 G(US)1.04 E F0(0)110.5 256.8 Q
-(Success \(could also be a user requested e)128 256.8 Q(xit,)-.15 E F2
+(The def)108 264 Q(ault location for the con\214g \214le is)-.1 E F3
+($HOME)2.5 E F2(/.pfm/.pfmr)A(c)-.37 E F0(.)A F6(EXIT ST)72 280.8 Q
+-1.04(AT)-.986 G(US)1.04 E F0(0)110.5 292.8 Q
+(Success \(could also be a user requested e)128 292.8 Q(xit,)-.15 E F2
 -.15(e.)2.5 G -.15(g.).15 G F0(after)2.65 E F4(\255\255help)2.5 E F0(or)
-2.5 E F4<adad76>2.5 E(ersion)-.1 E F0(\).)A(1)110.5 273.6 Q(In)128 273.6
-Q -.25(va)-.4 G(lid commandline option.).25 E(2)110.5 290.4 Q(No v)128
-290.4 Q(alid layout found in the)-.25 E F2(.pfmr)2.5 E(c)-.37 E F0
-(\214le.)2.5 E F6(DIA)72 307.2 Q(GNOSIS)-.602 E F0(If)108 319.2 Q/F7 10
-/Courier@0 SF(pfm)5.53 E F0 3.029(reports that your con\214g \214le mig\
-ht be outdated, you might be missing some of the ne)5.53 F(wer)-.25 E
-.563(con\214guration options \(or def)108 331.2 R .563(ault v)-.1 F .563
+2.5 E F4<adad76>2.5 E(ersion)-.1 E F0(\).)A(1)110.5 309.6 Q(In)128 309.6
+Q -.25(va)-.4 G(lid commandline option.).25 E(2)110.5 326.4 Q(No v)128
+326.4 Q(alid layout found in the)-.25 E F2(.pfmr)2.5 E(c)-.37 E F0
+(\214le.)2.5 E F6(DIA)72 343.2 Q(GNOSIS)-.602 E F0(If)108 355.2 Q/F7 10
+/Courier@0 SF(pfm)5.529 E F0 3.029(reports that your con\214g \214le mi\
+ght be outdated, you might be missing some of the ne)5.529 F(wer)-.25 E
+.564(con\214guration options \(or def)108 367.2 R .564(ault v)-.1 F .563
 (alues for these\). The best w)-.25 F .563(ay to solv)-.1 F 3.063(et)
--.15 G .564(his is by ha)-3.063 F(ving)-.2 E F7(pfm)3.064 E F0 .564
-(generate a)3.064 F(ne)108 343.2 Q 4.377(wc)-.25 G 1.877
-(on\214g \214le,)-4.377 F F2 -.15(e.)4.377 G -.15(g.).15 G F0 1.877
+-.15 G .563(his is by ha)-3.063 F(ving)-.2 E F7(pfm)3.063 E F0 .563
+(generate a)3.063 F(ne)108 379.2 Q 4.376(wc)-.25 G 1.876
+(on\214g \214le,)-4.376 F F2 -.15(e.)4.377 G -.15(g.).15 G F0 1.877
 (by running the follo)4.527 F 1.877(wing command and comparing the ne)
--.25 F 4.377(wc)-.25 G 1.876(on\214g \214le with your)-4.377 F
-(original one:)108 355.2 Q F7(env PFMRC=~/.pfm/.pfmrc\255new pfm)132 372
-Q F0(Alternati)108 388.8 Q -.15(ve)-.25 G(ly).15 E 2.5(,y)-.65 G
+-.25 F 4.377(wc)-.25 G 1.877(on\214g \214le with your)-4.377 F
+(original one:)108 391.2 Q F7(env PFMRC=~/.pfm/.pfmrc\255new pfm)132 408
+Q F0(Alternati)108 424.8 Q -.15(ve)-.25 G(ly).15 E 2.5(,y)-.65 G
 (ou may reply with)-2.5 E F4(y)2.5 E F0(when)2.5 E F7(pfm)2.5 E F0(of)
 2.5 E(fers to update the con\214g \214le for you.)-.25 E .848
-(If a function k)108 405.6 R 1.148 -.15(ey l)-.1 H(ik).15 E(e)-.1 E F4
+(If a function k)108 441.6 R 1.148 -.15(ey l)-.1 H(ik).15 E(e)-.1 E F4
 (F1)3.348 E F0(or)3.348 E F4(F10)3.348 E F0 .848
 (is intercepted by your windo)3.348 F .848(wing system or)-.25 F F5(OS)
-3.348 E F0 3.348(,a)C .848(nd it is not feasible to)-3.348 F 1.009
-(change that mapping, then you can de\214ne an alternati)108 417.6 R
-1.309 -.15(ve k)-.25 H 1.309 -.15(ey m).05 H 1.008(apping \(lik).15 F
-3.508(eS)-.1 G(hift\255)-3.508 E F4(F1)A F0 3.508(,S)C(hift\255)-3.508 E
-F4(F10)A F0 3.508(\)i)C 3.508(ny)-3.508 G(our)-3.508 E F2(.pfmr)108
-429.6 Q(c)-.37 E F0(,)A F2 -.15(e.)2.5 G -.15(g.).15 G F0(:).15 E F7
-(keydef[*]:k1=\\eO1;2P:k10=\\e[21;2~:)132 446.4 Q F0
-(Or for a speci\214c v)108 463.2 Q(alue of)-.25 E F3(TERM)2.5 E F0(:)A
-F7(keydef[xterm]:k1=\\eO1;2P:k10=\\e[21;2~:)132 480 Q F6 -.11(BU)72
-496.8 S(GS and W).11 E(ARNINGS)-1.314 E F0 .806(The smallest terminal s\
+3.348 E F0 3.348(,a)C .848(nd it is not feasible to)-3.348 F 1.008
+(change that mapping, then you can de\214ne an alternati)108 453.6 R
+1.309 -.15(ve k)-.25 H 1.309 -.15(ey m).05 H 1.009(apping \(lik).15 F
+3.509(eS)-.1 G(hift\255)-3.509 E F4(F1)A F0 3.509(,S)C(hift\255)-3.509 E
+F4(F10)A F0 3.509(\)i)C 3.509(ny)-3.509 G(our)-3.509 E F2(.pfmr)108
+465.6 Q(c)-.37 E F0(,)A F2 -.15(e.)2.5 G -.15(g.).15 G F0(:).15 E F7
+(keydef[*]:k1=\\eO1;2P:k10=\\e[21;2~:)132 482.4 Q F0
+(Or for a speci\214c v)108 499.2 Q(alue of)-.25 E F1(TERM)2.5 E F0(:)A
+F7(keydef[xterm]:k1=\\eO1;2P:k10=\\e[21;2~:)132 516 Q F6 -.11(BU)72
+532.8 S(GS and W).11 E(ARNINGS)-1.314 E F0 .806(The smallest terminal s\
 ize supported is 80x24. The display will be messed up if you resize you\
-r terminal)108 508.8 R(windo)108 520.8 Q 4.135(wt)-.25 G 4.135(oas)
--4.135 G 1.635(maller size, unless you specify 'force_minimum_size' in \
-the con\214g \214le and the terminal)-4.135 F
-(supports resizing; in that case)108 532.8 Q F7(pfm)2.5 E F0
+r terminal)108 544.8 R(windo)108 556.8 Q 4.134(wt)-.25 G 4.134(oas)
+-4.134 G 1.635(maller size, unless you specify 'force_minimum_size' in \
+the con\214g \214le and the terminal)-4.134 F
+(supports resizing; in that case)108 568.8 Q F7(pfm)2.5 E F0
 (will resize the terminal to at least 80 columns and/or 24 ro)2.5 E(ws.)
--.25 E .186(The author once almost pressed)108 549.6 R F3(ENTER)2.686 E
-F0 .187(when logged in as root and with the cursor on the \214le)2.686 F
-F2(/sbin/r)2.687 E(eboot)-.37 E F0(.)A -1.1(Yo)108 561.6 S 2.5(uh)1.1 G
--2.25 -.2(av e)-2.5 H(been w)2.7 E(arned.)-.1 E F6(VERSION)72 578.4 Q F0
-(This manual pertains to)108 590.4 Q F7(pfm)2.5 E F0 -.15(ve)2.5 G
-(rsion 2.11.6.).15 E F6 -.548(AU)72 607.2 S(THOR and COPYRIGHT).548 E F0
-(Cop)108 619.2 Q(yright \251 1999-2011, Ren\351 Uittenbog)-.1 E
-(aard \(ruittenb@users.sourcefor)-.05 E(ge.net\).)-.18 E 1.235
-(This program is free softw)108 636 R 1.234(are; you can redistrib)-.1 F
+-.25 E .187(The author once almost pressed)108 585.6 R F1(ENTER)2.687 E
+F0 .186(when logged in as root and with the cursor on the \214le)2.687 F
+F2(/sbin/r)2.686 E(eboot)-.37 E F0(.)A -1.1(Yo)108 597.6 S 2.5(uh)1.1 G
+-2.25 -.2(av e)-2.5 H(been w)2.7 E(arned.)-.1 E F6(VERSION)72 614.4 Q F0
+(This manual pertains to)108 626.4 Q F7(pfm)2.5 E F0 -.15(ve)2.5 G
+(rsion 2.11.7.).15 E F6 -.548(AU)72 643.2 S(THOR and COPYRIGHT).548 E F0
+(Cop)108 655.2 Q(yright \251 1999-2011, Ren\351 Uittenbog)-.1 E
+(aard \(ruittenb@users.sourcefor)-.05 E(ge.net\).)-.18 E 1.234
+(This program is free softw)108 672 R 1.234(are; you can redistrib)-.1 F
 1.234(ute it and/or modify it under the terms described by the)-.2 F F5
-(GNU)108 648 Q F0(General Public License v)2.5 E(ersion 3.)-.15 E .32
-(This program w)108 664.8 R .32(as based on)-.1 F F5(PFM)2.82 E F0 .32
+(GNU)108 684 Q F0(General Public License v)2.5 E(ersion 3.)-.15 E .321
+(This program w)108 700.8 R .32(as based on)-.1 F F5(PFM)2.82 E F0 .32
 (.COM v)B .32(ersion 2.32, originally written for MS-DOS by P)-.15 F .32
-(aul R. Culle)-.15 F 2.821(ya)-.15 G(nd)-2.821 E(Henk de Heer)108 676.8
-Q 2.5(.T)-.55 G(he name 'pfm' w)-2.5 E
+(aul R. Culle)-.15 F 2.82(ya)-.15 G(nd)-2.82 E(Henk de Heer)108 712.8 Q
+2.5(.T)-.55 G(he name 'pfm' w)-2.5 E
 (as adopted with kind permission of the original authors.)-.1 E
-(Special thanks to Ew)108 693.6 Q
-(oud Kappers for useful suggestions and testing.)-.1 E(Special thanks t\
-o Maurice Makaay for useful suggestions and assistance with deb)108
-710.4 Q(ugging.)-.2 E 198.17(2011-03-21 14)282.67 768 R 0 Cg EP
+(Special thanks to Ew)108 729.6 Q
+(oud Kappers for useful suggestions and testing.)-.1 E 198.17
+(2011-06-16 14)282.67 768 R 0 Cg EP
 %%Page: 15 15
 %%BeginPageSetup
 BP
 %%EndPageSetup
-/F0 10/Times-Roman@0 SF 402.16(PFM\(1\) PFM\(1\))72 48 R/F1 10.95
-/Times-Bold@0 SF(SEE ALSO)72 84 Q F0 3.477(The documentation on)108 96 R
-/F2 9/Times-Roman@0 SF(PFM)5.977 E F0 3.477(.COM. The manual pages for)B
-/F3 10/Times-Italic@0 SF -.15(ch)5.977 G(mod).15 E F0(\(1\),)1.666 E F3
-(cp)5.977 E F0(\(1\),)1.666 E F3(\214le)5.976 E F0(\(1\),)1.666 E F3
-(less)5.976 E F0(\(1\),)1.666 E F3(ln)5.976 E F0(\(1\),)1.666 E F3
-(locale)108 108 Q F0(\(7\),)1.666 E F3(lpr)2.5 E F0(\(1\),)1.666 E F3
-(touc)2.5 E(h)-.15 E F0(\(1\),)1.666 E F3(vi)2.5 E F0(\(1\).)1.666 E
--.15(Fo)108 124.8 S 2.5(rd).15 G -2.15 -.25(ev e)-2.5 H(lopers:).25 E F3
--.92(Te)2.5 G(rm::Scr).92 E(een)-.37 E F0(\(3pm\),)1.666 E F3 -.92(Te)
-2.5 G(rm::Scr).92 E(eenColor)-.37 E F0(\(3pm\),)1.666 E F3 -.92(Te)2.5 G
-(rm::ReadLine).92 E F0(\(3pm\),)1.666 E F3(App::PFM::Abstr)108 136.8 Q
-(act)-.15 E F0(\(3pm\),)1.666 E F3(App::PFM::Application)2.5 E F0
-(\(3pm\),)1.666 E F3(App::PFM::Br)2.5 E(owser)-.45 E F0(\(3pm\),)1.666 E
-F3(App::PFM::Br)108 148.8 Q(owser::F)-.45 E(iles)-.45 E F0(\(3pm\),)
-1.666 E F3(App::PFM::Br)2.5 E(owser::Bookmarks)-.45 E F0(\(3pm\),)1.666
-E F3(App::PFM::CommandHandler)108 160.8 Q F0(\(3pm\),)1.666 E F3
+/F0 10/Times-Roman@0 SF 402.16(PFM\(1\) PFM\(1\))72 48 R(Special thanks\
+ to Maurice Makaay for useful suggestions and assistance with deb)108 84
+Q(ugging.)-.2 E/F1 10.95/Times-Bold@0 SF(SEE ALSO)72 100.8 Q F0 3.476
+(The documentation on)108 112.8 R/F2 9/Times-Roman@0 SF(PFM)5.976 E F0
+3.477(.COM. The manual pages for)B/F3 10/Times-Italic@0 SF -.15(ch)5.977
+G(mod).15 E F0(\(1\),)1.666 E F3(cp)5.977 E F0(\(1\),)1.666 E F3(\214le)
+5.977 E F0(\(1\),)1.666 E F3(less)5.977 E F0(\(1\),)1.666 E F3(ln)5.977
+E F0(\(1\),)1.666 E F3(locale)108 124.8 Q F0(\(7\),)1.666 E F3(lpr)2.5 E
+F0(\(1\),)1.666 E F3(touc)2.5 E(h)-.15 E F0(\(1\),)1.666 E F3(vi)2.5 E
+F0(\(1\).)1.666 E -.15(Fo)108 141.6 S 2.5(rd).15 G -2.15 -.25(ev e)-2.5
+H(lopers:).25 E F3 -.92(Te)2.5 G(rm::Scr).92 E(een)-.37 E F0(\(3pm\),)
+1.666 E F3 -.92(Te)2.5 G(rm::Scr).92 E(eenColor)-.37 E F0(\(3pm\),)1.666
+E F3 -.92(Te)2.5 G(rm::ReadLine).92 E F0(\(3pm\),)1.666 E F3
+(App::PFM::Abstr)108 153.6 Q(act)-.15 E F0(\(3pm\),)1.666 E F3
+(App::PFM::Application)2.5 E F0(\(3pm\),)1.666 E F3(App::PFM::Br)2.5 E
+(owser)-.45 E F0(\(3pm\),)1.666 E F3(App::PFM::Br)108 165.6 Q(owser::F)
+-.45 E(iles)-.45 E F0(\(3pm\),)1.666 E F3(App::PFM::Br)2.5 E
+(owser::Bookmarks)-.45 E F0(\(3pm\),)1.666 E F3
+(App::PFM::CommandHandler)108 177.6 Q F0(\(3pm\),)1.666 E F3
 (App::PFM::Con\214g)2.5 E F0(\(3pm\),)1.666 E F3(App::PFM::Dir)2.5 E
-(ectory)-.37 E F0(\(3pm\),)1.666 E F3(App::PFM::Event)108 172.8 Q F0
+(ectory)-.37 E F0(\(3pm\),)1.666 E F3(App::PFM::Event)108 189.6 Q F0
 (\(3pm\),)1.666 E F3(App::PFM::F)2.5 E(ile)-.45 E F0(\(3pm\),)1.666 E F3
-(App::PFM::History)2.5 E F0(\(3pm\),)1.666 E F3(App::PFM::J)108 184.8 Q
+(App::PFM::History)2.5 E F0(\(3pm\),)1.666 E F3(App::PFM::J)108 201.6 Q
 (obHandler)-.25 E F0(\(3pm\),)1.666 E F3(App::PFM::J)2.5 E(ob::Abstr)
 -.25 E(act)-.15 E F0(\(3pm\),)1.666 E F3(App::PFM::OS)2.5 E F0(\(3pm\),)
-1.666 E F3(App::PFM::Scr)108 196.8 Q(een)-.37 E F0(\(3pm\),)1.666 E F3
+1.666 E F3(App::PFM::Scr)108 213.6 Q(een)-.37 E F0(\(3pm\),)1.666 E F3
 (App::PFM::State)2.5 E F0(\(3pm\) and)1.666 E F3(App::PFM::Util)2.5 E F0
-(\(3pm\).)1.666 E(The pfm project page: <http://sourcefor)108 213.6 Q
+(\(3pm\).)1.666 E(The pfm project page: <http://sourcefor)108 230.4 Q
 (ge.net/projects/p\255f\255m/>)-.18 E
-(The pfm homepage: <http://p\255f\255m.sourcefor)108 230.4 Q(ge.net/>)
--.18 E 198.17(2011-03-21 15)282.67 768 R 0 Cg EP
+(The pfm homepage: <http://p\255f\255m.sourcefor)108 247.2 Q(ge.net/>)
+-.18 E 198.17(2011-06-16 15)282.67 768 R 0 Cg EP
 %%Trailer
 end
 %%EOF

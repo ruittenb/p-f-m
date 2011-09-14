@@ -1,5 +1,5 @@
 
-LWP_VER            = 6.01
+LWP_VER            = 6.02
 LWP                = libwww-perl-$(LWP_VER)
 HTML_PARSER_VER    = 3.68
 HTML_PARSER        = HTML-Parser-$(HTML_PARSER_VER)

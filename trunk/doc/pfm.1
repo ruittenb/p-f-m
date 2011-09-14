@@ -124,13 +124,13 @@
 .\" ========================================================================
 .\"
 .IX Title "PFM 1"
-.TH PFM 1 "2011-03-21" " " " "
+.TH PFM 1 "2011-06-16" " " " "
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
 .nh
 .ds Yr 2011
-.ds Vw @(#) pfm.pl 2.11.6
+.ds Vw @(#) pfm.pl 2.11.7
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -140,8 +140,9 @@ This manual pertains to \f(CWpfm\fP version \\$3.
 .SH "SYNOPSIS"
 .IX Header "SYNOPSIS"
 \&\f(CW\*(C`pfm [\*(C'\fR\ \fIdirectory\fR\ \f(CW\*(C`] [\*(C'\fR\ \f(CW\*(C`\-s, \-\-swap \*(C'\fR\fIdirectory\fR\ \f(CW\*(C`]\*(C'\fR
-\&\f(CW\*(C` [\*(C'\fR\ \f(CW\*(C`\-l, \-\-layout \*(C'\fR\fInumber\fR\ \f(CW\*(C`] [\*(C'\fR\ \f(CW\*(C`\-o, \-\-sort \*(C'\fR\fImode\fR\ \f(CW\*(C`]\*(C'\fR
 \&\f(CW\*(C` [\*(C'\fR\ \f(CW\*(C`\-c, \-\-colorset \*(C'\fR\fIstring\fR\ \f(CW\*(C`]\*(C'\fR
+\&\f(CW\*(C` [\*(C'\fR\ \f(CW\*(C`\-l, \-\-layout \*(C'\fR\fInumber\fR\ \f(CW\*(C`] [\*(C'\fR\ \f(CW\*(C`\-\-login\*(C'\fR\ \f(CW\*(C`]\*(C'\fR
+\&\f(CW\*(C` [\*(C'\fR\ \f(CW\*(C`\-o, \-\-sort \*(C'\fR\fImode\fR\ \f(CW\*(C`]\*(C'\fR
 .PP
 \&\f(CW\*(C`pfm { \-\-help | \-\-usage | \-\-version }\*(C'\fR
 .SH "DESCRIPTION"
@@ -189,6 +190,10 @@ Start \f(CW\*(C`pfm\*(C'\fR using the specified colorset (as defined in the \fI.
 .IP "\-l, \-\-layout \fInumber\fR" 4
 .IX Item "-l, --layout number"
 Start \f(CW\*(C`pfm\*(C'\fR using the specified column layout (as defined in the \fI.pfmrc\fR).
+.IP "\-\-login" 4
+.IX Item "--login"
+Start \f(CW\*(C`pfm\*(C'\fR as a login shell. \f(CW\*(C`pfm\*(C'\fR will change its name to \f(CW\*(C`\-pfm\*(C'\fR
+and start a new session using \fIsetsid()\fR.
 .IP "\-o, \-\-sort \fImode\fR" 4
 .IX Item "-o, --sort mode"
 Start \f(CW\*(C`pfm\*(C'\fR using the specified sort mode (as shown by the \fBF6\fR command).
@@ -1126,10 +1131,14 @@ down	\fIfive lines down\fP
 _
 .TE
 .PP
-The cursor will \fIonly\fR moved to another file when a directory is clicked
-or the mouse wheel is used.  The mouse wheel moves the cursor five lines
-per notch by default, or one line if shift is pressed. The actual number
-of lines can be configured in your \fI.pfmrc\fR using 'mousewheeljumpsize'.
+If the config option 'mouse_moves_cursor' has been set to 'yes', a mouse
+click on a non-directory will move the cursor to that file. Otherwise,
+the cursor will \fIonly\fR move when a directory is clicked or the mouse
+wheel is used.
+.PP
+The mouse wheel moves the cursor five lines per notch by default,
+or one line if shift is pressed. The actual number of lines can be
+configured in your \fI.pfmrc\fR using 'mousewheeljumpsize'.
 .PP
 Clicking button 1 on the current directory path will \fIchdir()\fR up to the
 clicked ancestor directory. If the current directory was clicked, or the

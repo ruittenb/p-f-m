@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.11.6
+# @(#) App::PFM::Application 2.11.7
 #
 # Name:			App::PFM::Application
-# Version:		2.11.6
+# Version:		2.11.7
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-03-25
+# Date:			2011-04-15
 #
 
 ##########################################################################
@@ -48,32 +48,36 @@ use App::PFM::JobHandler;
 use App::PFM::OS;
 use App::PFM::Screen;
 use App::PFM::State;
-use Getopt::Long;
+use Getopt::Long qw(GetOptionsFromArray);
+use POSIX qw(setsid);
 use Cwd;
 
 use locale;
 use strict;
 
-our $VERSION  = '2.11.6';
+our $VERSION  = '2.11.7';
 our $LASTYEAR = 2011;
 
 ##########################################################################
 # private subs
 
-=item I<_init()>
+=item I<_init(string $argvnull, arrayref $argv)>
 
 Initializes new instances. Called from the constructor.
+The arguments pass the I<argv> array, to be used at bootstrap time.
 
 =cut
 
 sub _init {
-	my ($self) = @_;
+	my ($self, $argvnull, $argv) = @_;
 	$self->{VERSION}        = $VERSION;
 	$self->{LASTYEAR}       = $LASTYEAR;
 	$self->{LATEST_VERSION} = '';
 	$self->{_bootstrapped}  = 0;
 	$self->{_options}       = {};
 	$self->{_states}        = {};
+	$self->{_argvnull}      = $argvnull;
+	$self->{_argv}          = $argv || [];
 	return;
 }
 
@@ -94,7 +98,7 @@ sub _usage {
 	my $configname = App::PFM::Config::location();
 	print "Usage: pfm [ $directory ] [ -s, --swap $directory ]\n",
 		  "           [ -c, --colorset $name ] [ -l, --layout $number ]\n",
-		  "           [ -o, --sort $sortmode ]\n",
+		  "           [ --login ] [ -o, --sort $sortmode ]\n",
 		  "       pfm { --help | --usage | --version }\n\n";
 	return unless $extended;
 	print "    $directory            : specify starting directory\n",
@@ -103,10 +107,25 @@ sub _usage {
 		  "    -o, --sort $sortmode  : specify initial sortmode\n",
 		  "    -s, --swap $directory : specify swap directory\n",
 		  "        --help           : print extended help and exit\n",
+		  "        --login          : start pfm as login shell\n",
 		  "        --usage          : print concise help and exit\n",
 		  "        --version        : print version information and exit\n\n",
 		  "Configuration options will be read from $configname\n",
 		  "(or override this with \$PFMRC)\n";
+	return;
+}
+
+=item I<_setlogin()>
+
+Changes this shell into a login shell (starts a new session, and
+changes the program name to C<-pfm>).
+
+=cut
+
+sub _setlogin {
+	my ($self) = @_;
+	setsid();
+	$0 = $self->{_argvnull} = '-pfm';
 	return;
 }
 
@@ -151,9 +170,11 @@ Phase 1 of the bootstrap process: parse commandline arguments.
 =cut
 
 sub _bootstrap_commandline {
-	my ($self) = @_;
-	my ($screen, $invalid, $opt_help, $opt_usage, $opt_version,
+	my ($self)  = @_;
+	my @options = @{$self->{_argv}};
+	my ($screen, $invalid, $opt_help, $opt_login, $opt_usage, $opt_version,
 		$startingswapdir, $startingsort, $startingcolorset, $startinglayout);
+	$opt_login = $self->{_argvnull} =~ /^-/;
 	# hand over the application object to the other classes
 	# for easy access.
 	$self->{_screen} = App::PFM::Screen->new($self);
@@ -161,24 +182,29 @@ sub _bootstrap_commandline {
 	$screen->at($screen->rows(), 0)->cooked_echo();
 	
 	Getopt::Long::Configure(qw'bundling permute');
-	GetOptions ('s|swap=s'     => \$startingswapdir,
-				'o|sort=s'     => \$startingsort,
-				'c|colorset=s' => \$startingcolorset,
-				'l|layout=i'   => \$startinglayout,
-				'help'         => \$opt_help,
-				'usage'        => \$opt_usage,
-				'version'      => \$opt_version) or $invalid = 1;
+	GetOptionsFromArray(\@options,
+			's|swap=s'     => \$startingswapdir,
+			'o|sort=s'     => \$startingsort,
+			'c|colorset=s' => \$startingcolorset,
+			'l|layout=i'   => \$startinglayout,
+			'help'         => \$opt_help,
+			'login'        => \$opt_login,
+			'usage'        => \$opt_usage,
+			'version'      => \$opt_version) or $invalid = 1;
 	$self->_usage($opt_help) if $opt_help || $opt_usage || $invalid;
 	$self->_printversion()   if $opt_version;
 	die                      if $invalid; # Died at ...
 	exit 0                   if $opt_help || $opt_usage || $opt_version;
+	$self->_setlogin()       if $opt_login;
 
-	$self->{_options}{'directory'} = shift @ARGV;
+	$self->{_options}{'directory'} = shift @options;
 	$self->{_options}{'swap'}      = $startingswapdir;
 	$self->{_options}{'colorset'}  = $startingcolorset;
 	$self->{_options}{'sort'}      = $startingsort;
 	$self->{_options}{'layout'}    = $startinglayout;
 	$self->{_options}{'help'}      = $opt_help;
+	$self->{_options}{'login'}     = $opt_login;
+	$self->{_options}{'usage'}     = $opt_usage;
 	$self->{_options}{'version'}   = $opt_version;
 	return;
 }

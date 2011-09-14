@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Listing 1.13
+# @(#) App::PFM::Screen::Listing 1.16
 #
 # Name:			App::PFM::Screen::Listing
-# Version:		1.13
+# Version:		1.16
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-03-20
+# Date:			2011-05-27
 #
 
 ##########################################################################
@@ -120,6 +120,9 @@ sub _validate_layoutnum {
 	my $columnlayouts = $self->{_config}{columnlayouts};
 	if ($num > $#$columnlayouts) {
 		$num %= @$columnlayouts;
+	}
+	while ($num < 0) {
+		$num += @$columnlayouts;
 	}
 	return $num;
 }
@@ -375,15 +378,22 @@ sub highlight_on {
 	return $self->{_screen};
 }
 
-=item select_next_layout()
+=item select_next_layout(bool $direction)
 
 Switch the directory listing to the next configured layout.
+If I<direction> is true, cycle forward; else backward.
 
 =cut
 
 sub select_next_layout {
-	my ($self) = @_;
-	return $self->layout($self->{_layout} + 1);
+	my ($self, $direction) = @_;
+	my $result;
+	if ($direction) {
+		$result = $self->layout($self->{_layout} + 1);
+	} else {
+		$result = $self->layout($self->{_layout} - 1);
+	}
+	return $result;
 }
 
 =item show()
@@ -544,9 +554,9 @@ sub makeformatlines {
 	my ($squeezedlayoutline, $prev, $trans, $temp, $infocol, $infolength,
 		$maxdatetimelen, %timestampcharcount, $lendiff);
 	my $currentlayoutline = $self->get_first_valid_layout();
-	# determine the correct width of the timestamp fields if we cannot
-	# truncate them.
-	if (!$self->{_config}{timestamptruncate}) {
+	# determine the correct width of the timestamp fields if stretching
+	# is selected.
+	if ($self->{_config}{timefieldstretch}) {
 		# calculate needed width (maximum needed by locale)
 		$maxdatetimelen = maxdatetimelen($self->{_config}{timestampformat});
 		# available field widths

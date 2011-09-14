@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Abstract 0.16
+# @(#) App::PFM::Abstract 0.17
 #
 # Name:			App::PFM::Abstract
-# Version:		0.16
+# Version:		0.17
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-21
+# Date:			2011-03-29
 #
 
 ##########################################################################
@@ -127,9 +127,11 @@ sub register_listener {
 	return 1;
 }
 
-=item I<unregister_listener(string $event_name, coderef $code)>
+=item I<unregister_listener(string $event_name [ , coderef $code ] )>
 
-Unregisters the code reference provided as listener for the specified event.
+If a I<code> argument is provided, unregisters it as listener for the
+specified event. If no I<code> argument is provided, unregisters all listeners
+for the specified event.
 
 =cut
 
@@ -140,7 +142,9 @@ sub unregister_listener {
 	return 0 unless exists $handlers->{$event_name};
 	my $success = 0;
 	foreach my $i (reverse 0 .. $#{$handlers->{$event_name}}) {
-		if ($listener == ${$handlers->{$event_name}}[$i]) {
+		if (!defined ($listener) or
+			$listener == ${$handlers->{$event_name}}[$i]
+		) {
 			$success = 1;
 			splice @{$handlers->{$event_name}}, $i, 1;
 		}
