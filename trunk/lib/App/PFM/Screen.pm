@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen 0.36
+# @(#) App::PFM::Screen 0.39
 #
 # Name:			App::PFM::Screen
-# Version:		0.36
+# Version:		0.39
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-13
+# Date:			2010-09-22
 # Requires:		Term::ScreenColor
 #
 
@@ -42,12 +42,27 @@ use App::PFM::Screen::Diskinfo qw(:constants);  # imports the LINE_* constants
 use App::PFM::Screen::Frame    qw(:constants);  # imports the MENU_*, HEADER_*
 												#         and FOOTER_* constants
 use App::PFM::Util qw(fitpath max);
+use App::PFM::Event;
+
 use POSIX qw(getcwd);
 
 use strict;
 use locale;
 
 use constant {
+	BRACKETED_PASTE_START  => 'kpaste[',
+	BRACKETED_PASTE_END    => 'kpaste]',
+	BRACKETED_SCRAP        => 'kpaste[]',
+	MOUSE_BUTTON_LEFT      =>  0,
+	MOUSE_BUTTON_MIDDLE    =>  1,
+	MOUSE_BUTTON_RIGHT     =>  2,
+	MOUSE_BUTTON_UP        =>  3,
+	MOUSE_MODIFIER_SHIFT   =>  4,
+	MOUSE_MODIFIER_META    =>  8,
+	MOUSE_MODIFIER_CONTROL => 16,
+	MOUSE_WHEEL_UP         => 64,
+	MOUSE_WHEEL_DOWN       => 65,
+	MAXBURSTSIZE    => 30,
 	PATH_PHYSICAL	=> 1,
 	ERRORDELAY		=> 1,	 # in seconds (fractions allowed)
 	IMPORTANTDELAY	=> 2,	 # extra time for important errors
@@ -77,7 +92,8 @@ use constant R_SCREEN => R_LISTING | R_DISKINFO | R_FRAME;
 use constant R_CLRSCR => R_CLEAR | R_SCREEN;
 use constant R_CHDIR  => R_NEWDIR | R_SCREEN | R_STRIDE;
 
-use constant MAXBURSTSIZE => 30;
+use constant MOUSE_MODIFIER_ANY =>
+		MOUSE_MODIFIER_SHIFT | MOUSE_MODIFIER_META | MOUSE_MODIFIER_CONTROL;
 
 our $FIONREAD = 0;
 #eval {
@@ -107,6 +123,16 @@ our %EXPORT_TAGS = (
 		R_ALTERNATE
 		R_NEWDIR
 		R_CHDIR
+		MOUSE_BUTTON_LEFT
+		MOUSE_BUTTON_MIDDLE
+		MOUSE_BUTTON_RIGHT
+		MOUSE_BUTTON_UP
+		MOUSE_MODIFIER_SHIFT
+		MOUSE_MODIFIER_META
+		MOUSE_MODIFIER_CONTROL
+		MOUSE_MODIFIER_ANY
+		MOUSE_WHEEL_UP
+		MOUSE_WHEEL_DOWN
 	) ]
 );
 
@@ -135,8 +161,8 @@ sub _init {
 	my ($self, $pfm, $config) = @_;
 	$_pfm = $pfm;
 	$self->{_config}    = $config; # undefined, see on_after_parse_config
-	$self->{_frame}     = new App::PFM::Screen::Frame(   $pfm, $self);
-	$self->{_listing}   = new App::PFM::Screen::Listing( $pfm, $self);
+	$self->{_frame}     = new App::PFM::Screen::Frame(   $pfm, $self, $config);
+	$self->{_listing}   = new App::PFM::Screen::Listing( $pfm, $self, $config);
 	$self->{_diskinfo}  = new App::PFM::Screen::Diskinfo($pfm, $self, $config);
 	$self->{_winheight}        = 0;
 	$self->{_winwidth}         = 0;
@@ -145,6 +171,9 @@ sub _init {
 	$self->{_deferred_refresh} = 0;
 	$self->{_color_mode}       = '';
 	$SIG{WINCH} = \&_catch_resize;
+	# special key bindings for bracketed paste
+	$self->def_key(BRACKETED_PASTE_START, "\e[200~");
+	$self->def_key(BRACKETED_PASTE_END,   "\e[201~");
 }
 
 =item _catch_resize()
@@ -298,13 +327,34 @@ Tells the terminal to start/stop receiving information about the mouse.
 
 sub mouse_enable {
 	my ($self) = @_;
-	print "\e[?9h";
+	print "\e[?1000h";
 	return $self;
 }
 
 sub mouse_disable {
 	my ($self) = @_;
-	print "\e[?9l";
+	print "\e[?1000l";
+	return $self;
+}
+
+=item bracketed_paste_on()
+
+=item bracketed_paste_off()
+
+Switches bracketed paste mode on and off. Bracketed paste mode is used
+to intercept paste actions when C<pfm> is expecting a single command key.
+
+=cut
+
+sub bracketed_paste_on {
+	my ($self) = @_;
+	print "\e[?2004h";
+	return $self;
+}
+
+sub bracketed_paste_off {
+	my ($self) = @_;
+	print "\e[?2004l";
 	return $self;
 }
 
@@ -326,6 +376,29 @@ sub alternate_off {
 	my ($self) = @_;
 	print "\e[?47l";
 	return $self;
+}
+
+=item getch()
+
+Overrides the Term::ScreenColor version of getch().
+If a bracketed paste is received, it is discarded.
+
+=cut
+
+sub getch() {
+	my ($self) = @_;
+	my $key = $self->SUPER::getch();
+	my $buffer = '';
+	if ($key eq BRACKETED_PASTE_START) {
+		while (1) {
+			$key = $self->SUPER::getch();
+			last if $key eq BRACKETED_PASTE_END;
+			$buffer .= $key;
+		}
+		# flag that a paste was received
+		$key = BRACKETED_SCRAP;
+	}
+	return wantarray ? ($key, $buffer) : $key;
 }
 
 =item calculate_dimensions()
@@ -428,7 +501,7 @@ sub pending_input {
 	}
 	# the next block is highly experimental - maybe this
 	# could be used to suppress paste actions in command mode
-	if ($input_ready and $self->_burst_size > MAXBURSTSIZE) {
+	if ($input_ready and $self->_burst_size() > MAXBURSTSIZE) {
 		$self->flush_input()->flash();	# experimental
 		$input_ready = 0;				# experimental
 	}									# experimental
@@ -445,6 +518,7 @@ pending_input()).
 
 sub get_event() {
 	my ($self) = @_;
+	# resize event
 	if ($_wasresized) {
 		$_wasresized = 0;
 		return new App::PFM::Event({
@@ -453,46 +527,38 @@ sub get_event() {
 			type   => 'resize',
 		});
 	}
-	# must be keyboard/mouse input here
-	my $key   = $self->getch();
-	# first assume it was a keyboard event
+	# must be keyboard/mouse/paste input here
+	my ($key, $buffer) = $self->getch();
 	my $event = new App::PFM::Event({
 		name   => 'after_receive_user_input',
 		origin => $self,
-		type   => 'key',
-		data   => $key,
 	});
+	# paste event
+	if ($key eq BRACKETED_SCRAP) {
+		$event->{type} = 'paste';
+		$event->{data} = $buffer;
+		return $event;
+	}
+	# key event
 	if ($key ne 'kmous') {
-		# it is a key command.
+		$event->{type} = 'key';
+		$event->{data} = $key;
 		return $event;
 	}
 	
-	# only mouse commands here.
+	# mouse event
+	$event->{type} = 'mouse';
+	$event->{data} = $key; # 'kmous'
+
 	$self->noecho();
 	$event->{mousebutton} = ord($self->getch()) - 040;
 	$event->{mousecol}    = ord($self->getch()) - 041;
 	$event->{mouserow}    = ord($self->getch()) - 041;
 	$self->echo();
 
-	if ($event->{mousebutton} < 64) {
-		# first or second button clicked is considered
-		# type=mouse, data:kmous
-		$event->{type} = 'mouse';
-		# the mousewheel will be considered a key:
-		# type=key, data=mup/mdown/etc.
-	} elsif ($event->{mousebutton} == 64) {
-		# wheel up
-		$event->{data} = 'mup';
-	} elsif ($event->{mousebutton} == 65) {
-		# wheel down
-		$event->{data} = 'mdown';
-	} elsif ($event->{mousebutton} == 68) {
-		# shift-wheel up
-		$event->{data} = 'mshiftup';
-	} elsif ($event->{mousebutton} == 69) {
-		# shift-wheel down
-		$event->{data} = 'mshiftdown';
-	}
+	$event->{mousemodifier} = $event->{mousebutton} &  MOUSE_MODIFIER_ANY;
+	$event->{mousebutton}   = $event->{mousebutton} & ~MOUSE_MODIFIER_ANY;
+
 	return $event;
 }
 
@@ -826,6 +892,17 @@ sub pathline {
 		. ($overflow ? $self->{_listing}->NAMETOOLONGCHAR : ' ') . "[$dev]";
 }
 
+=item on_after_parse_usecolor(App::PFM::Event $event)
+
+Applies the 'usecolor' config option to the Term::ScreenColor(3pm) object.
+
+=cut
+
+sub on_after_parse_usecolor() {
+	my ($self, $event) = @_;
+	$self->colorizable($event->{origin}{usecolor});
+}
+
 =item on_after_parse_config(App::PFM::Event $event)
 
 Applies the config settings when the config file has been read and parsed.
@@ -840,6 +917,8 @@ sub on_after_parse_config {
 	$self->{_config} = $event->{origin};
 	# make cursor very visible
 	system ('tput', $pfmrc->{cursorveryvisible} ? 'cvvis' : 'cnorm');
+	# set colorizable
+	$self->on_after_parse_usecolor($event);
 	# additional key definitions 'keydef'
 	if ($keydefs = $pfmrc->{'keydef[*]'} .':'. $pfmrc->{"keydef[$ENV{TERM}]"}) {
 		$keydefs =~ s/(\\e|\^\[)/\e/gi;
@@ -862,8 +941,8 @@ sub on_after_parse_config {
 	# init colorsets
 	$self->color_mode($newcolormode);
 	$self->set_deferred_refresh(R_ALTERNATE);
-	$self->diskinfo->after_parse_config($event);
-	$self->listing->layout($self->{_config}{currentlayout});
+	$self->diskinfo->on_after_parse_config($event);
+	$self->listing->on_after_parse_config($event);
 }
 
 =item on_shutdown(bool $altscreen_mode)
@@ -876,9 +955,13 @@ indicates if the State has used the alternate screen buffer.
 sub on_shutdown {
 	my ($self, $altscreen_mode) = @_;
 	my $message = 'Goodbye from your Personal File Manager!';
+	# reset bracketed paste mode twice: gnome-terminal has different
+	# bracketed paste settings for main and alternate screen buffers
 	$self->cooked_echo()
 		->mouse_disable()
-		->alternate_off();
+		->bracketed_paste_off()
+		->alternate_off()
+		->bracketed_paste_off();
 	system qw(tput cnorm) if $self->{_config}{cursorveryvisible};
 	if ($altscreen_mode) {
 		print "\n";

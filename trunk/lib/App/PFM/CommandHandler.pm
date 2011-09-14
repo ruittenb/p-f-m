@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.33
+# @(#) App::PFM::CommandHandler 1.35
 #   
 # Name:			App::PFM::CommandHandler
-# Version:		1.33
+# Version:		1.35
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-18
+# Date:			2010-09-23
 #
 
 ##########################################################################
@@ -48,19 +48,11 @@ use strict;
 use locale;
 
 use constant {
-	FALSE	      => 0,
-	TRUE	      => 1,
-	QUOTE_OFF     => 0,
-	QUOTE_ON      => 1,
-	BUTTON_LEFT   => 0,
-	BUTTON_MIDDLE => 1,
-	BUTTON_RIGHT  => 2,
-	SPAWNEDCHAR   => '*',
-};
-
-use constant NUMFORMATS => {
-	'hex' => '%#04lx',
-	'oct' => '%03lo',
+	FALSE               => 0,
+	TRUE                => 1,
+	QUOTE_OFF           => 0,
+	QUOTE_ON            => 1,
+	SPAWNEDCHAR         => '*',
 };
 
 use constant INC_CRITERIA => [
@@ -126,7 +118,7 @@ sub _init {
 	$self->{_config}       = $config;
 	$self->{_os}           = $os;
 	$self->{_history}      = $history;
-	$self->{_clobber_mode} = 0;
+	$self->{_clobber_mode} = undef;
 }
 
 =item _helppage(int $pageno)
@@ -156,10 +148,10 @@ sub _helppage {
  SPACE           mark file & advance              F11  restat file              
  l, right arrow  enter directory                  F12  toggle mouse mode        
  h, left arrow   leave directory                 -------------------------------
- ENTER           enter directory; launch          !    toggle clobber mode      
- ESC, BS         leave directory                  *    toggle radix for display 
+ ENTER           enter directory; launch          ?    help                     
+ ESC, BS         leave directory                  !    toggle clobber mode      
 ---------------------------------------------     "    toggle pathmode          
- ?               help                             =    cycle idents             
+ @               enter perl command (debug)       =    cycle idents             
  <               pan commands menu left           .    filter dotfiles          
  >               pan commands menu right          %    filter whiteouts         
 --------------------------------------------------------------------------------
@@ -173,8 +165,8 @@ sub _helppage {
  a      Attribute (chmod)                x   eXclude                            
  c      Copy                             y   Your command                       
  d DEL  Delete                           z   siZe (grand total)                 
- e      Edit                             @   enter perl command (for debugging) 
- f /    Find                            ----------------------------------------
+ e      Edit                            ----------------------------------------
+ f /    Find                             m@  perl shell (for debugging)         
  g      change symlink tarGet            ma  edit ACL                           
  i      Include                          mb  make Bookmark                      
  L      sym/hard Link                    mc  Configure pfm                      
@@ -503,6 +495,20 @@ sub clobber_mode {
 ##########################################################################
 # public subs
 
+=item on_after_parse_config(App::PFM::Event $event)
+
+Applies the config settings when the config file has been read and parsed.
+
+=cut
+
+sub on_after_parse_config {
+	my ($self, $event) = @_;
+#	my $pfmrc = $event->{data};
+	setifnotdefined \$self->{_clobber_mode}, $self->{_config}{clobber_mode};
+}
+
+
+
 =item by_name()
 
 Sorting routine: sorts files by name.
@@ -606,7 +612,6 @@ sub handle {
 		/^g$/io				and $self->handletarget($event),			  last;
 		/^k12$/o			and $self->handlemousemode($event),			  last;
 		/^=$/o				and $self->handleident($event),				  last;
-		/^\*$/o				and $self->handleradix($event),				  last;
 		/^!$/o				and $self->handleclobber($event),			  last;
 		/^"$/o				and $self->handlepathmode($event),			  last;
 		/^w$/io				and $self->handleunwo($event),				  last;
@@ -917,7 +922,16 @@ showing nonprintable characters in the B<N>ame command.
 sub handleradix {
 	my ($self, $event) = @_;
 	my $state = $_pfm->state;
-	$state->{radix_mode} = ($state->{radix_mode} eq 'hex' ? 'oct' : 'hex');
+	my $i;
+	if ($event->{data} eq '*') {
+		my @mode_from = keys %{$state->NUMFORMATS};
+		my @mode_to   = @mode_from[1 .. $#mode_from, 0];
+		my %translations;
+		@translations{@mode_from} = @mode_to;
+		$state->radix_mode($translations{$state->radix_mode});
+	} elsif ($event->{data} eq ' ' and $event->{type} eq 'soft') {
+		$state->{trspace}    = $state->{trspace} eq ' ' ? '' : ' ';
+	}
 	$self->{_screen}->set_deferred_refresh(R_FOOTER);
 }
 
@@ -1292,7 +1306,7 @@ sub handlesort {
 	});
 	$screen->diskinfo->clearcolumn();
 	# we can't use foreach (keys %sortmodes) because we would lose ordering
-	foreach (grep { ($i += 1) %= 2 } @{$_pfm->state->SORTMODES()}) {
+	foreach (grep { ++$i % 2 } @{$_pfm->state->SORTMODES()}) {
 		# keep keys, skip values
 		last if ($printline > $screen->BASELINE + $screen->screenheight);
 		next if /[[:upper:]]/;
@@ -1307,7 +1321,9 @@ sub handlesort {
 		}));
 		$screen->raw_noecho();
 	} else {
+		$screen->bracketed_paste_on() if $self->{_config}{paste_protection};
 		$newmode = $screen->at(0, $menulength)->getch();
+		$screen->bracketed_paste_off();
 	}
 	$screen->set_deferred_refresh(R_SCREEN);
 	$screen->diskinfo->clearcolumn();
@@ -1331,9 +1347,8 @@ footer region.
 sub handlecyclesort {
 	my ($self, $event) = @_;
 	# setup translations
-	my @mode_to   = split(/,/, $self->{_config}{sortcycle});
-	my @mode_from = ($mode_to[-1], @mode_to);
-	pop @mode_from;
+	my @mode_from = split(/,/, $self->{_config}{sortcycle});
+	my @mode_to   = @mode_from[1 .. $#mode_from, 0];
 	my %translations;
 	@translations{@mode_from} = @mode_to;
 	# do the translation
@@ -1353,19 +1368,20 @@ Shows all chacacters of the filename in a readable manner (B<N>ame).
 
 sub handlename {
 	my ($self, $event) = @_;
-	my $numformat   = ${NUMFORMATS()}{$_pfm->state->{radix_mode}};
 	my $browser     = $_pfm->browser;
+	my $state       = $_pfm->state;
 	my $screen      = $self->{_screen};
 	my $workfile    = $event->{currentfile}->clone();
-	my $screenline  = $browser->currentline + $screen->BASELINE;
+	my $screenline  = $event->{lunchbox}{currentline} + $screen->BASELINE;
 	my $filenamecol = $screen->listing->filenamecol;
-	my $trspace     = $self->{_config}{trspace};
+	my $trspace     = $state->{trspace};
+	my $numformat   = $state->NUMFORMATS()->{$state->radix_mode};
 	my ($line, $linecolor, $key);
 	$screen->listing->markcurrentline('N'); # disregard multiple_mode
 	for ($workfile->{name}, $workfile->{target}) {
 		s/\\/\\\\/;
-		s{([${trspace}\177[:cntrl:]]|[^[:ascii:]])}
-		 {'\\' . sprintf($numformat, unpack('C', $1))}eg;
+		s{([$trspace\177[:cntrl:]]|[^[:ascii:]])}
+		 {sprintf($numformat, unpack('C', $1))}eg;
 	}
 	$line = $workfile->{name} . $workfile->filetypeflag() .
 			(length($workfile->{target}) ? ' -> ' . $workfile->{target} : '');
@@ -1377,14 +1393,14 @@ sub handlename {
 	$screen->listing->applycolor(
 		$screenline, $screen->listing->FILENAME_LONG, $workfile);
 	$key = $screen->noecho()->getch();
+	$key = '*' if uc($key) eq 'N';
 	if ($key eq '*' or $key eq ' ') {
-		if ($key eq '*') {
-			$self->handleradix();
-		} else {
-			# key eq space
-			$self->{_config}{trspace} =
-				$self->{_config}{trspace} eq ' ' ? '' : ' ';
-		}
+		$self->handleradix(new App::PFM::Event({
+			name   => 'after_receive_non_motion_input',
+			type   => 'soft',
+			origin => $self,
+			data   => $key,
+		}));
 		$screen->echo()->at($screenline, $filenamecol)
 			->puts(' ' x length $line)
 			->frame->show_footer(FOOTER_SINGLE);
@@ -1414,8 +1430,7 @@ B<Find> or key B</>.
 
 sub handlefind {
 	my ($self, $event) = @_;
-#	if ($_pfm->state->sort_mode =~ /^[nm]$/io) {
-	if ($_pfm->state->sort_mode =~ /^n$/io) {
+	if ($_pfm->state->sort_mode =~ /^[nm]$/io) {
 		goto &handlefind_incremental;
 	}
 	my ($findme, $file);
@@ -1429,7 +1444,7 @@ sub handlefind {
 	return if $findme eq '';
 	FINDENTRY:
 	foreach $file (
-		sort { $self->by_name } @{$_pfm->state->directory->showncontents}
+		sort by_name @{$_pfm->state->directory->showncontents}
 	) {
 		if ($findme le $file->{name}) {
 			$_pfm->browser->position_at($file->{name});
@@ -1743,7 +1758,7 @@ sub handleinclude { # include/exclude flag (from keypress)
 		$boundarytime, $boundarysize);
 	$exin = lc $exin;
 	$screen->diskinfo->clearcolumn();
-	# we can't use foreach (keys %mark_criteria) because we would lose ordering
+	# we can't use foreach (keys %inc_criteria) because we would lose ordering
 	foreach (grep { ($i += 1) %= 2 } @{INC_CRITERIA()}) { # keep keys, skip values
 		last if ($printline > $screen->BASELINE + $screen->screenheight);
 		$screen->at($printline++, $infocol)
@@ -1965,7 +1980,7 @@ sub handlecommand { # Y or O
 	if ($key eq 'Y') { # Your command
 		$prompt = 'Enter one of the highlighted characters below: ';
 		foreach (
-			sort { $self->alphabetically } $self->{_config}->your_commands
+			sort alphabetically $self->{_config}->your_commands
 		) {
 			last if ($printline > $screen->BASELINE + $screen->screenheight);
 			$printstr = $self->{_config}->pfmrc->{$_};
@@ -1980,8 +1995,9 @@ sub handlecommand { # Y or O
 			footer   => FOOTER_NONE,
 			prompt   => $prompt,
 		});
+		$screen->bracketed_paste_on() if $self->{_config}{paste_protection};
 		$key = $screen->getch();
-		$screen->diskinfo->clearcolumn()
+		$screen->bracketed_paste_off()->diskinfo->clearcolumn()
 			->set_deferred_refresh(R_DISKINFO | R_FRAME);
 		# next line contains an assignment on purpose
 		return unless $command = $self->{_config}->pfmrc->{"your[$key]"};
@@ -2288,9 +2304,12 @@ sub handlemousedown {
 	# 2     cOmmand  (pfm command) sort rev  Show      ENTER    new win
 	# 3     cOmmand  (pfm command) sort rev  Show      ENTER    new win
 	# -----------------------------------------------------------------
-	if ($mouserow == $screen->PATHLINE) {
+	if ($mbutton == MOUSE_BUTTON_UP) {
+		# uninteresting for us
+		return 1;
+	} elsif ($mouserow == $screen->PATHLINE) {
 		# path line
-		if ($mbutton == BUTTON_LEFT) {
+		if ($mbutton == MOUSE_BUTTON_LEFT) {
 			$self->handlemousepathjump($event);
 		} else {
 			$propagated_event->{data} = 'o';
@@ -2325,7 +2344,7 @@ sub handlemousedown {
 		$on_name = (
 			$mousecol >= $listing->filenamecol and
 			$mousecol <= $listing->filenamecol + $listing->maxfilenamelength);
-		if ($on_name and $mbutton != BUTTON_LEFT) {
+		if ($on_name and $mbutton != MOUSE_BUTTON_LEFT) {
 			if ($event->{mouseitem}{type} eq 'd') {
 				# keep the mouse event here, since there is no keyboard
 				# command to open a new window.
@@ -2335,7 +2354,7 @@ sub handlemousedown {
 				$propagated_event->{data} = "\r";
 				$self->handleenter($propagated_event);
 			}
-		} elsif (!$on_name and $mbutton == BUTTON_LEFT) {
+		} elsif (!$on_name and $mbutton == MOUSE_BUTTON_LEFT) {
 			$propagated_event->{data} = 'k8';
 			$self->handlemark($propagated_event);
 		} else {
@@ -2407,7 +2426,7 @@ sub handlemouseheadingsort {
 	# translate field character to sort mode character
 	$key = $sortmodes{$key};
 	if ($key) {
-		$key = uc($key) if $event->{mousebutton} != BUTTON_LEFT;
+		$key = uc($key) if $event->{mousebutton} != MOUSE_BUTTON_LEFT;
 		# we don't need locale-awareness here
 		$key =~ tr/A-Za-z/a-zA-Z/ if ($_pfm->state->sort_mode eq $key);
 		$_pfm->state->sort_mode($key);
@@ -2511,6 +2530,7 @@ sub handlemore {
 			footer => FOOTER_MORE,
 			menu   => MENU_MORE,
 		});
+	$self->{_screen}->bracketed_paste_on() if $self->{_config}{paste_protection};
 	MORE_PAN: {
 		$key = $self->{_screen}->at(0, $headerlength+1)->getch();
 		for ($key) {
@@ -2542,6 +2562,7 @@ sub handlemore {
 			$self->{_screen}->flash() unless $_ eq "\cM" or $_ eq ' ';
 		}
 	}
+	$self->{_screen}->bracketed_paste_off();
 	$frame->currentpan($oldpan);
 }
 

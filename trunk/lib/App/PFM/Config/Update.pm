@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config::Update 2.09.2
+# @(#) App::PFM::Config::Update 2.09.3
 #
 # Name:			App::PFM::Config::Update
-# Version:		2.09.2
+# Version:		2.09.3
 # Author:		Rene Uittenbogaard
 # Created:		2010-05-28
-# Date:			2010-09-18
+# Date:			2010-09-23
 #
 
 ##########################################################################
@@ -64,6 +64,8 @@ use constant UPDATES => {
 		}],
 		additions => [{
 			ifnotpresent => qr//,
+			before => qr//,
+			after  => qr//,
 			batch => [],
 		}],
 	},
@@ -836,6 +838,30 @@ use constant UPDATES => {
 				"## should F5 always leave marks untouched like (M)ore-F5?\n",
 				"#refresh_always_smart:no\n",
 				"\n",
+			],
+		}],
+	},
+	# ----- 2.09.3 ---------------------------------------------------------
+	'2.09.3' => {
+		substitutions => sub {
+			s{^#+\s*translate spaces when viewing Name}
+			 {## default translate spaces when viewing Name};
+			s[^(#*\s*)translatespace:(.*)]
+			 [${1}defaulttranslatespace:${2}];
+			s{^(#+\s*initial radix that Name will use to display.*)hex,oct(.*)}
+			 {$1(hex,oct,dec)$2};
+		},
+		additions => [{
+			batch => [
+				"## disable pasting when a menu is active. This requires a terminal\n",
+				"## that understands 'bracketed paste' mode. (yes,no,xterm)\n",
+				"paste_protection:xterm\n",
+				"\n",
+			]
+		}, {
+			after => qr/translate spaces when viewing Name/,
+			batch => [
+				"## (toggle with SPACE when viewing Name)\n",
 			],
 		}],
 	},

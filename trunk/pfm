@@ -3,10 +3,10 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.09.2
+# Version:		2.09.3
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-18
+# Date:			2010-09-23
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				    [ -l, --layout <number> ] [ -o, --sort <mode> ]
 #				pfm { -v, --version | -h, --help }
@@ -24,7 +24,7 @@
 # version
 
 # for MakeMaker
-our $VERSION = '2.09.2';
+our $VERSION = '2.09.3';
 
 # macros for *roff
 our $ROFFVERSION = <<'=cut';
@@ -33,7 +33,7 @@ our $ROFFVERSION = <<'=cut';
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.09.2
+.ds Vw @(#) pfm.pl 2.09.3
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -474,7 +474,7 @@ characters will be displayed as their octal or hexadecimal equivalents like
 the examples in the following table. Spaces will be converted if
 the 'translatespace' option is turned on in the F<.pfmrc> file.
 
-When the name is shown in its converted form, pressing B<*> will change
+When the name is shown in its converted form, pressing B<N> will change
 the radix, and pressing B<SPACE> will toggle the translation of spaces.
 The 'defaultradix' option specifies the initial radix that will be used.
 
@@ -943,10 +943,6 @@ in the current directory path will be preserved.
 =item B<%>
 
 Toggle show/hide whiteout files.
-
-=item B<S< *>>
-
-Toggle the radix used by the B<N>ame command.
 
 =item B<.>
 

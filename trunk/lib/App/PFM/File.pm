@@ -44,7 +44,6 @@ use locale;
 
 use constant SYMBOLIC_MODES     => [ qw(--- --x -w- -wx r-- r-x rw- rwx) ];
 use constant MAJORMINORTEMPLATE => '%d,%d';
-use constant GAPFILLING         => ' ' x 80; # 80 is safe enough
 use constant LOSTMSG            => ''; # was ' (lost)'
 
 our ($_pfm);
@@ -211,7 +210,7 @@ sub stat_entry {
 		blocks		=> $blocks,
 		blksize		=> $blksize,
 		rcs			=> '-',
-		gap			=> GAPFILLING,
+		gap			=> '',
 	};
 	@{$self}{keys %$ptr} = values %$ptr;
 
@@ -268,6 +267,7 @@ sub format {
 	$self->{atimestring}   = $self->stamp2str($self->{atime});
 	$self->{mtimestring}   = $self->stamp2str($self->{mtime});
 	$self->{ctimestring}   = $self->stamp2str($self->{ctime});
+	$self->{gap}           = ' ' x $listing->{_gaplength};
 	$self->{name_too_long} =
 		length($self->{display}) > $listing->maxfilenamelength-1
 			? $listing->NAMETOOLONGCHAR : ' ';

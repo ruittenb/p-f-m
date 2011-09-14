@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.09.2
+# @(#) App::PFM::Application 2.09.3
 #
 # Name:			App::PFM::Application
-# Version:		2.09.2
+# Version:		2.09.3
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-09-16
@@ -251,6 +251,8 @@ sub _bootstrap_members {
 	
 	# event handler for copyright message
 	my $on_after_parse_usecolor = sub {
+		my $event = shift;
+		$screen->on_after_parse_usecolor($event);
 		$self->_copyright($config->pfmrc->{copyrightdelay});
 	};
 
@@ -326,7 +328,7 @@ sub _bootstrap_event_hub {
 		my ($event) = @_;
 		$self->{_screen}        ->on_after_parse_config($event);
 		$self->{_history}       ->on_after_parse_config($event);
-		$self->{_commandhandler}->clobber_mode($event->{origin}{clobber_mode});
+		$self->{_commandhandler}->on_after_parse_config($event);
 		$self->{_browser}       ->mouse_mode(  $event->{origin}{mouse_mode});
 		$self->{_states}{S_MAIN}->on_after_parse_config($event);
 	};

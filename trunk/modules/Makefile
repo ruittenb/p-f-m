@@ -1,7 +1,7 @@
 
 TERM_SCREEN_VER    = 1.03
 TERM_SCREEN        = Term-Screen-$(TERM_SCREEN_VER)
-TERM_SCRCOL_VER    = 1.16
+TERM_SCRCOL_VER    = 1.17
 TERM_SCRCOL        = Term-ScreenColor-$(TERM_SCRCOL_VER)
 TERM_RL_GNU_VER    = 1.20
 TERM_RL_GNU        = Term-ReadLine-Gnu-$(TERM_RL_GNU_VER)

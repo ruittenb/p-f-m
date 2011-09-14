@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 1.02
+# @(#) App::PFM::Config 1.06
 #
 # Name:			App::PFM::Config
-# Version:		1.02
+# Version:		1.06
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-18
+# Date:			2010-09-23
 #
 
 ##########################################################################
@@ -53,6 +53,9 @@ use constant {
 	CONFIGDIRMODE	 => 0700,
 	BOOKMARKFILENAME => 'bookmarks',
 };
+
+use constant DEFAULTFORMAT =>
+	'* nnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss mmmmmmmmmmmmmmmm pppppppppp ffffffffffffff';
 
 use constant BOOKMARKKEYS => [qw(
 	a b c d e f g h i j k l m n o p q r s t u v w x y z
@@ -322,13 +325,7 @@ remain accessable in the hash member C<$config-E<gt>{_pfmrc}>.
 
 sub parse {
 	my ($self) = @_;
-	my $state          = $_pfm->state;
-	my $screen         = $self->{_screen};
-	my $diskinfo       = $screen->diskinfo;
-	my $commandhandler = $_pfm->commandhandler;
-	my $pfmrc          = $self->{_pfmrc};
-	my $i              = 0;
-	my %identmodes     = map { $_, $i++ } $diskinfo->IDENTMODES();
+	my $pfmrc      = $self->{_pfmrc};
 	my $e;
 	local $_;
 	$self->{dircolors}     = {};
@@ -337,17 +334,20 @@ sub parse {
 	# 'usecolor' - find out when color must be turned _off_
 	# we want to do this _now_ so that the copyright message is colored.
 	if (defined($ENV{ANSI_COLORS_DISABLED}) or isno($pfmrc->{usecolor})) {
-		$screen->colorizable(0);
+		$self->{usecolor} = 0;
 	} elsif ($pfmrc->{usecolor} eq 'force') {
-		$screen->colorizable(1);
+		$self->{usecolor} = 1;
+	} else {
+		$self->{usecolor} = $self->{_screen}->colorizable;
 	}
 	# copyright message
 	$self->fire(new App::PFM::Event({
 		name   => 'after_parse_usecolor',
 		origin => $self,
 		type   => 'soft',
+		data   => $pfmrc,
 	}));
-	# time/date format for clock and timestamps
+	# parse and set defaults
 	$self->{clockdateformat}	 = $pfmrc->{clockdateformat} || '%Y %b %d';
 	$self->{clocktimeformat}	 = $pfmrc->{clocktimeformat} || '%H:%M:%S';
 	$self->{timestampformat}	 = $pfmrc->{timestampformat} || '%y %b %d %H:%M';
@@ -357,8 +357,6 @@ sub parse {
 	$self->{mousewheeljumpratio} = $pfmrc->{mousewheeljumpratio} || 4;
 	$self->{launchby}			 = $pfmrc->{launchby};
 	$self->{copyoptions}		 = $pfmrc->{copyoptions};
-	# Don't change settings back to the defaults if they may have
-	# been modified by key commands.
 	$self->{cursorveryvisible}	 = isyes($pfmrc->{cursorveryvisible});
 	$self->{clsonexit}			 = isyes($pfmrc->{clsonexit});
 	$self->{confirmquit}		 = isyes($pfmrc->{confirmquit});
@@ -370,23 +368,25 @@ sub parse {
 	$self->{highlightname}		 = isyes($pfmrc->{highlightname} || 'yes');
 	$self->{swap_persistent}	 = isyes($pfmrc->{persistentswap} || 'yes');
 	$self->{autosort}			 = isyes($pfmrc->{autosort} || 'yes');
-	$self->{trspace}			 = isyes($pfmrc->{translatespace}) ? ' ' : '';
+	$self->{trspace}			 = isyes($pfmrc->{defaulttranslatespace}) ? ' ' : '';
 	$self->{dotdot_mode}		 = isyes($pfmrc->{dotdotmode});
 	$self->{autorcs}			 = isyes($pfmrc->{autorcs});
 	$self->{remove_marks_ok}	 = isyes($pfmrc->{remove_marks_ok});
 	$self->{clickiskeypresstoo}	 = isyes($pfmrc->{clickiskeypresstoo} || 'yes');
-	$self->{clobber_mode}		 = ifnotdefined($commandhandler->clobber_mode,isyes($pfmrc->{defaultclobber}));
-	$self->{path_mode}			 = ifnotdefined($state->directory->path_mode, $pfmrc->{defaultpathmode} || 'log');
-	$self->{currentlayout}		 = ifnotdefined($screen->listing->layout,     $pfmrc->{defaultlayout}   ||  0);
-	$self->{white_mode}			 = ifnotdefined($state->{white_mode},         isyes($pfmrc->{defaultwhitemode}));
-	$self->{dot_mode}			 = ifnotdefined($state->{dot_mode},           isyes($pfmrc->{defaultdotmode}));
-	$self->{sort_mode}			 = ifnotdefined($state->sort_mode,            $pfmrc->{defaultsortmode} || 'n');
-	$self->{radix_mode}			 = ifnotdefined($state->{radix_mode},         $pfmrc->{defaultradix}    || 'hex');
-	$self->{ident_mode}			 = ifnotdefined($diskinfo->ident_mode,
-								   $identmodes{$pfmrc->{defaultident}} || 0);
+	$self->{clobber_mode}		 = isyes($pfmrc->{defaultclobber});
+	$self->{currentlayout}		 = $pfmrc->{defaultlayout} || 0;
+	$self->{white_mode}			 = isyes($pfmrc->{defaultwhitemode});
+	$self->{dot_mode}			 = isyes($pfmrc->{defaultdotmode});
+	$self->{path_mode}			 = $pfmrc->{defaultpathmode} eq 'phys' ? 'phys' : 'log';
+	$self->{sort_mode}			 = $pfmrc->{defaultsortmode} || 'n';
+	$self->{radix_mode}			 = $pfmrc->{defaultradix} || 'oct';
+	$self->{ident_mode}			 = $pfmrc->{defaultident} || 'user,host';
 	$self->{escapechar} =
 	$self->{e}			= $e	 = $pfmrc->{escapechar} || '=';
 	$self->{sortcycle}			 = $pfmrc->{sortcycle} || 'n,en,dn,Dn,sn,Sn,tn,un';
+	$self->{paste_protection}	 = $pfmrc->{paste_protection} || 'xterm';
+	$self->{paste_protection}	 = ($self->{paste_protection} eq 'xterm' && isxterm($ENV{TERM}))
+								 || isyes($self->{paste_protection});
 	$self->{force_minimum_size}	 = $pfmrc->{force_minimum_size} || 'xterm';
 	$self->{force_minimum_size}	 = ($self->{force_minimum_size} eq 'xterm' && isxterm($ENV{TERM}))
 								 || isyes($self->{force_minimum_size});
@@ -407,9 +407,9 @@ sub parse {
 	$self->{showlockchar}		 = ( $pfmrc->{showlock} eq 'sun' && $^O =~ /sun|solaris/i
 								 or isyes($pfmrc->{showlock}) ) ? 'l' : 'S';
 	$self->{viewer}				 = $pfmrc->{viewer} || 'xv';
-	$self->{editor}				 = $ENV{VISUAL} || $ENV{EDITOR}   || $pfmrc->{editor} || 'vi';
+	$self->{editor}				 = $ENV{VISUAL} || $ENV{EDITOR} || $pfmrc->{editor} || 'vi';
 	$self->{fg_editor}			 = $pfmrc->{fg_editor} || $self->{editor};
-	$self->{pager}				 = $ENV{PAGER}  || $pfmrc->{pager} || ($^O =~ /linux/i ? 'less' : 'more');
+	$self->{pager}				 = $ENV{PAGER} || $pfmrc->{pager} || ($^O eq 'linux' ? 'less' : 'more');
 	# flags
 	if (isyes($pfmrc->{filetypeflags})) {
 		$self->{filetypeflags} = FILETYPEFLAGS;
@@ -422,7 +422,7 @@ sub parse {
 	$self->{columnlayouts} = [
 		$pfmrc->{columnlayouts}
 			? split(/:/, $pfmrc->{columnlayouts})
-			:'* nnnnnnnnnnnnnnnnnnnnnnnnnnnssssssss mmmmmmmmmmmmmmmm pppppppppp ffffffffffffff'
+			: DEFAULTFORMAT
 	];
 	$self->_parse_colorsets();
 	$self->fire(new App::PFM::Event({
@@ -697,13 +697,17 @@ defaultmousemode:xterm
 ## (toggle with ")
 defaultpathmode:log
 
-## initial radix that Name will use to display non-ascii chars with (hex,oct)
+## initial radix that Name will use to display non-ascii chars with (hex,oct,dec)
 ## (toggle with *)
 defaultradix:hex
 
 ## initial sort mode (nNmMeEfFdDaAsSzZtTuUgGvViI*) (default: n)
 ## (select with F6)
 defaultsortmode:n
+
+## default translate spaces when viewing Name
+## (toggle with SPACE when viewing Name)
+defaulttranslatespace:no
 
 ## show whiteout files initially? (hide them otherwise, toggle with % key)
 defaultwhitemode:no
@@ -787,6 +791,10 @@ mousewheeljumpmax:11
 ## your pager (don't specify =2 here). you can also use $PAGER
 #pager:less
 
+## disable pasting when a menu is active. This requires a terminal
+## that understands 'bracketed paste' mode. (yes,no,xterm)
+paste_protection:xterm
+
 ## F7 key swap path method is persistent? (default yes)
 #persistentswap:no
 
@@ -818,9 +826,6 @@ timestampformat:%y %b %d %H:%M
 #timestampformat:%b %d %H:%M
 #timestampformat:%c
 #timestampformat:%Y %V %a
-
-## translate spaces when viewing Name
-translatespace:no
 
 ## use color (yes,no,force) (may be overridden by ANSI_COLORS_DISABLED)
 ## 'no'    = use no color at all

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::State 0.19
+# @(#) App::PFM::State 0.20
 #
 # Name:			App::PFM::State
-# Version:		0.19
+# Version:		0.20
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-12
+# Date:			2010-09-19
 #
 
 ##########################################################################
@@ -36,6 +36,7 @@ package App::PFM::State;
 use base 'App::PFM::Abstract';
 
 use App::PFM::Directory;
+use App::PFM::Util qw(ifnotdefined setifnotdefined);
 
 use strict;
 use locale;
@@ -57,6 +58,12 @@ use constant SORTMODES => [
 	 i =>'Inode',		I =>' reverse',
 	'*'=>'mark',
 ];
+
+use constant NUMFORMATS => {
+	'hex' => '\\%#04lx',
+	'oct' => '\\%03lo',
+	'dec' => '&#%d;',
+};
 
 ##########################################################################
 # private subs
@@ -83,8 +90,9 @@ sub _init {
 	$self->{_baseindex}		= undef;
 	$self->{multiple_mode}	= 0;
 	$self->{dot_mode}		= undef;
-	$self->{radix_mode}		= undef;
 	$self->{white_mode}		= undef;
+	$self->{trspace}		= undef;
+	$self->{_radix_mode}	= undef;
 	$self->{_sort_mode}		= undef;
 	# path_mode    sits in App::PFM::Directory
 	# color_mode   sits in App::PFM::Screen
@@ -148,6 +156,21 @@ sub sort_mode {
 	return $self->{_sort_mode};
 }
 
+=item radix_mode( [ string $radix_mode ] )
+
+Getter/setter for the radix mode. The radix mode must be one of the values
+defined in NUMFORMATS.
+
+=cut
+
+sub radix_mode {
+	my ($self, $value) = @_;
+	if (defined $value and exists ${NUMFORMATS()}{$value}) {
+		$self->{_radix_mode} = $value;
+	}
+	return $self->{_radix_mode};
+}
+
 ##########################################################################
 # public subs
 
@@ -164,9 +187,6 @@ object. I<sort_mode> specifies the initial sort mode.
 sub prepare {
 	my ($self, $path, $sort_mode) = @_;
 	$self->sort_mode($sort_mode || $self->{_config}{sort_mode});
-	$self->{dot_mode}   = $self->{_config}{dot_mode};
-	$self->{radix_mode} = $self->{_config}{radix_mode};
-	$self->{white_mode} = $self->{_config}{white_mode};
 	$self->{_position}  = '.';
 	$self->{_baseindex} = 0;
 	$self->{_directory}->prepare($path);
@@ -181,13 +201,25 @@ Applies the config settings when the config file has been read and parsed.
 sub on_after_parse_config {
 	my ($self, $event) = @_;
 	# store config
-	my $pfmrc        = $event->{data};
+#	my $pfmrc        = $event->{data};
 	$self->{_config} = $event->{origin};
-	$self->sort_mode(           $self->{_config}{sort_mode});
-	$self->{dot_mode}         = $self->{_config}{dot_mode};
-	$self->{radix_mode}       = $self->{_config}{radix_mode};
-	$self->{white_mode}       = $self->{_config}{white_mode};
-	$self->directory->path_mode($self->{_config}{path_mode});
+
+	# Don't change settings back to the defaults if they may have
+	# been modified by key commands.
+	setifnotdefined \$self->{dot_mode},   $self->{_config}{dot_mode};
+	setifnotdefined \$self->{trspace},    $self->{_config}{trspace};
+	setifnotdefined \$self->{white_mode}, $self->{_config}{white_mode};
+	unless (defined $self->{_sort_mode}) {
+		$self->sort_mode($self->{_config}{sort_mode});
+		setifnotdefined \$self->{_sort_mode}, 'n';
+	}
+	unless (defined $self->{_radix_mode}) {
+		$self->radix_mode($self->{_config}{radix_mode});
+		setifnotdefined \$self->{_radix_mode}, 'oct';
+	}
+	unless (defined $self->directory->path_mode) {
+		$self->directory->path_mode($self->{_config}{path_mode});
+	}
 }
 
 ##########################################################################

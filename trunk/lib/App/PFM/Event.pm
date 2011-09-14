@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Event 0.14
+# @(#) App::PFM::Event 0.15
 #
 # Name:			App::PFM::Event
-# Version:		0.14
+# Version:		0.15
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-30
-# Date:			2010-09-16
+# Date:			2010-09-23
 #
 
 ##########################################################################
@@ -41,7 +41,7 @@ use locale;
 use constant KNOWN_PROPERTIES => {
 	name		=> 1, # event name (mandatory)
 	origin		=> 1, # object
-	type		=> 1, # 'key', 'mouse', 'job', 'soft', 'resize'
+	type		=> 1, # 'key', 'mouse', 'paste', 'resize', 'job', 'soft'
 	data		=> 1, # received key (for 'key');
 					  # received job command data (for 'job');
 					  # parsed $pfmrc (for 'after_parse_config')
@@ -125,6 +125,18 @@ sub clone {
 	return $clone;
 }
 
+=item to_string()
+
+=cut
+
+sub to_string {
+	my ($self) = @_;
+	return "Event name: $self->{name} origin: ".ref($self->{origin})
+	.	" type: $self->{type} data: $self->{data}"
+	.	" mrow: $self->{mouserow} mcol: $self->{mousecol}"
+	.	" mbutton: $self->{mousebutton}";
+}
+
 ##########################################################################
 
 =back
@@ -158,6 +170,14 @@ A keyboard command has been received.
 
 A mouse command has been received.
 
+=item paste
+
+An X selection has been pasted to the window.
+
+=item resize
+
+A window resize has been requested.
+
 =item job
 
 A job receives input
@@ -165,10 +185,6 @@ A job receives input
 =item soft
 
 An event that is triggered by one of C<pfm>'s functions.
-
-=item resize
-
-A window resize has been requested.
 
 =back
 

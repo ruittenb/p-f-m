@@ -89,7 +89,7 @@ our ($_pfm);
 
 Initializes new instances. Called from the constructor.
 
-Note that at the time of instantiation, the config file has probably
+Note that at the time of instantiation, the config file has normally
 not yet been read.
 
 =cut
@@ -98,7 +98,7 @@ sub _init {
 	my ($self, $pfm, $screen, $config) = @_;
 	$_pfm                = $pfm;
 	$self->{_screen}     = $screen;
-	$self->{_config}     = $config; # undefined, see after_parse_config
+	$self->{_config}     = $config; # undefined, see on_after_parse_config
 	$self->{_ident}      = [];
 	$self->{_ident_mode} = undef;
 	$self->{_infolength} = 0;
@@ -265,16 +265,23 @@ sub extended_dateinfo {
 ##########################################################################
 # public subs
 
-=item after_parse_config(App::PFM::Event $event)
+=item on_after_parse_config(App::PFM::Event $event)
 
 Applies the config settings when the config file has been read and parsed.
 
 =cut
 
-sub after_parse_config {
+sub on_after_parse_config {
 	my ($self, $event) = @_;
+	my $i = 0;
+	# only now can we set _config in $self
 	$self->{_config} = $event->{origin};
-	$self->ident_mode($self->{_config}{ident_mode});
+	unless (defined $self->{_ident_mode}) {
+		my %identmodes = map { $_, $i++ } @{IDENTMODES()};
+		$self->ident_mode(
+			$identmodes{$self->{_config}{ident_mode}} || 0
+		);
+	}
 }
 
 =item show()

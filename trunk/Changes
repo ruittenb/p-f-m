@@ -1,6 +1,19 @@
+2.09.3-beta
+
+* fixed applying the 'columnlayouts' again after (M)ore - (C)onfig
+* fixed memory-consuming way of handling the gap between the
+  diskinfo column and file record
+* fixed intercepting paste events when the menu is active, configurable
+  with 'paste_protection'
+* added radix 'dec' for (N)ame command
+* deprecated '*' key. 'N' key toggles radix while in (N)ame command.
+* added support for incremental find when sortmode is m or M (name ignorecase)
+* changed option 'translatespace' to 'defaulttranslatespace'
+* restructured code
+
 2.09.2-beta
 
-* fixed bugs in checking for pfm updates on the pfm site
+* fixed bugs in checking for pfm updates on the website
 * fixed scrolling the directory listing in incremental find
 * added: (M)ore - <F5>: smart refresh: refresh directory contents
   but keep the marks.
