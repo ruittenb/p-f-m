@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::History 0.24
+# @(#) App::PFM::History 0.25
 #
 # Name:			App::PFM::History
-# Version:		0.24
+# Version:		0.25
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-26
+# Date:			2010-09-01
 #
 
 ##########################################################################
@@ -204,34 +204,36 @@ sub write_dirs {
 	}
 }
 
-=item input(string $history, string $prompt [, string $default_input
-[, string $history_input [, string $pushfilter ] ] ])
+=item input(hashref { history => string $history [, prompt => string $prompt ]
+[, default_input => string $default_input ] [, history_input => string
+$history_input ] [, pushfilter => string $pushfilter ] } )
 
-Displays I<prompt> and prompts for input from the keyboard. The
-string I<default_input> is offered, while the string I<history_input>
-is offered as the most-recent history item.  If the user's input is
-not equal to I<pushfilter>, the input is pushed onto the appropriate
-history.
+Displays I<prompt> and prompts for input from the keyboard. The parameter
+I<history> selects the history list to use and may use the B<H_*> constants
+as defined by App::PFM::History. The string I<default_input> is offered,
+while the string I<history_input> is offered as the most-recent history item.
+If the user's input is not equal to I<pushfilter>, the input is pushed
+onto the appropriate history list.
 
 =cut
 
 sub input {
-	my ($self, $history, $prompt, $input, $histpush, $pushfilter) = @_;
-	$history = $self->{_histories}{$history};
-	$prompt ||= '';
-	$input  ||= '';
+	my ($self, $options) = @_;
+	my ($history, $input);
+	$history = $self->{_histories}{$options->{history}};
 	local $SIG{INT} = 'IGNORE'; # do not interrupt pfm
-	if (length $histpush and 
+	if (length $options->{history_input} and 
 		(@$history == 0 or
-		(@$history > 0 && $histpush ne ${$history}[-1])))
+		(@$history > 0 && $options->{history_input} ne ${$history}[-1])))
 	{
-		push(@$history, $histpush);
+		push(@$history, $options->{history_input});
 	}
 	$self->_set_term_history(@$history);
-	$input = $self->{_keyboard}->readline($prompt, $input);
+	$input = $self->{_keyboard}->readline(
+		$options->{prompt}, $options->{default_input});
 	if ($input =~ /\S/ and @$history > 0 and
 		$input ne ${$history}[-1] and
-		$input ne $pushfilter)
+		$input ne $options->{pushfilter})
 	{
 		push(@$history, $input);
 	}
@@ -288,7 +290,7 @@ They can be imported with C<use App::PFM::History qw(:constants)>.
 
 =item H_COMMAND
 
-The history of shell commands entered, I<e.g.> for the B<O> command.
+The history of shell commands entered, I<e.g.> for cB<O>mmand.
 
 =item H_MODE
 
@@ -316,7 +318,7 @@ The history of Perl commands entered for the B<@> command.
 An input line may be stored in one of the histories by providing
 one of these constants to input() I<e.g.>
 
-    $self->input(H_PATH);
+    $self->input({ history => H_PATH });
 
 =head1 SEE ALSO
 

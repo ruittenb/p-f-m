@@ -2,8 +2,8 @@
 ################################################################################
 # issues
 
-- config file layouts: characters in the "gap" between filerecord and
-  infocolumn ("f") are not cleared when switching columnformats.
+- config columnlayouts: characters in the "gap" between filerecord and
+  infocolumn ("f") are not cleared when switching columnlayouts.
   Solve this by inserting an artificial "gap" field?
 
 - handlecopyrename: if "overwrite?" is answered with "no", then the
@@ -15,12 +15,13 @@
 
 - after (C)opy, the rcs status is not automatically added 
 
-- layout which is too short leaves gap: do something about it
-
 - Term::ScreenColor does not pass some tests on Solaris 11
 
 - call $pfm->checkupdates() in '@' (perlcommand) does not finish the job;
   call $pfm->checkupdates(); sleep 2; finishes it.
+
+- Link - Rel should move the pointer to the destination directory if it is in
+  the currentdir
 
 ################################################################################
 # structural enhancements
@@ -43,11 +44,10 @@
 - make our() variables member variables
 
 - standardize the names of constants
+  Config::READ_FIRST?
 
-- have History->input() accept a hash instead of 6 arguments
-
-- have objects fire an event to indicate that the current position is to
-  be saved ('save_cursor_position' -> position_at())
+- have objects (Directory) fire an event to indicate that the current position
+  is to be saved ('save_cursor_position' -> position_at())
 
 - have objects fire an event to indicate that the screen is to be updated?
   ('request_deferred_refresh' -> set_deferred_refresh())
@@ -84,7 +84,6 @@
 - provide information about arguments.
 
   DONE (use I<...> in =items)
-  DONE (add cB<O>mmand etc. to commandhandler)
 
   TODO: Abstract Application Browser CommandHandler Config Directory
   	Event File History State Util

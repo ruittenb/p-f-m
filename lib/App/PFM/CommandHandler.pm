@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.18
-#
+# @(#) App::PFM::CommandHandler 1.20
+#   
 # Name:			App::PFM::CommandHandler
-# Version:		1.18
+# Version:		1.20
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-31
+# Date:			2010-09-01
 #
 
 ##########################################################################
@@ -40,7 +40,7 @@ use App::PFM::History		qw(:constants); # imports the H_* constants
 use App::PFM::Directory 	qw(:constants); # imports the D_* and M_* constants
 use App::PFM::Screen		qw(:constants); # imports the R_* constants
 use App::PFM::Screen::Frame qw(:constants); # imports the MENU_*, HEADING_*
-											#         and FOOTER_* constants
+#											#         and FOOTER_* constants
 
 use POSIX qw(strftime mktime);
 use Config;
@@ -390,8 +390,11 @@ sub _promptforboundarytime {
 			   . " modification time CCYY-MM-DD hh:mm[.ss]: ";
 	my $boundarytime;
 	$_screen->at(0,0)->clreol()->cooked_echo();
-	$boundarytime = $_pfm->history->input(H_TIME, $prompt,
-		strftime ("%Y-%m-%d %H:%M.%S", localtime time));
+	$boundarytime = $_pfm->history->input({
+		history       => H_TIME,
+		prompt        => $prompt,
+		default_input => strftime ("%Y-%m-%d %H:%M.%S", localtime time),
+	});
 	# show_menu is done in handleinclude
 	$_screen->raw_noecho();
 	return mktime gmtime touch2time($boundarytime);
@@ -429,7 +432,10 @@ sub _promptforwildfilename {
 	my $prompt = 'Wild filename (regular expression): ';
 	my $wildfilename;
 	$_screen->at(0,0)->clreol()->cooked_echo();
-	$wildfilename = $_pfm->history->input(H_REGEX, $prompt);
+	$wildfilename = $_pfm->history->input({
+		history => H_REGEX,
+		prompt  => $prompt,
+	});
 	# show_menu is done in handleinclude
 	$_screen->raw_noecho();
 	eval "/$wildfilename/";
@@ -632,8 +638,8 @@ sub handlepan {
 
 =item handlescroll(char $key)
 
-Handles B<CTRL-E> and B<CTRL-Y>, which scroll the current window on the
-directory.
+Handles B<CTRL-E> and B<CTRL-Y>, which scroll the current view of
+the directory.
 
 =cut
 
@@ -762,7 +768,10 @@ sub handleswap {
 		# --------------------------------------------------
 		# ask and swap forward
 		$_screen->at(0,0)->clreol()->cooked_echo();
-		$nextdir = $_pfm->history->input(H_PATH, $prompt);
+		$nextdir = $_pfm->history->input({
+			history => H_PATH,
+			prompt  => $prompt
+		});
 		$_screen->raw_noecho()
 			->set_deferred_refresh(R_FRAME);
 		return if $nextdir eq '';
@@ -790,7 +799,7 @@ sub handleswap {
 
 =item handlerefresh()
 
-Handles the command to refresh the current directory.
+Handles the command to refresh the current directory (B<F5>).
 
 =cut
 
@@ -804,7 +813,7 @@ sub handlerefresh {
 
 =item handlewhiteout()
 
-Toggles the filtering of whiteout files.
+Toggles the filtering of whiteout files (key B<%>).
 
 =cut
 
@@ -821,7 +830,7 @@ sub handlewhiteout {
 
 =item handlemultiple()
 
-Toggles multiple mode.
+Toggles multiple mode (B<F10>).
 
 =cut
 
@@ -833,7 +842,7 @@ sub handlemultiple {
 
 =item handledot()
 
-Toggles the filtering of dotfiles.
+Toggles the filtering of dotfiles (key B<.>).
 
 =cut
 
@@ -850,7 +859,7 @@ sub handledot {
 
 =item handlecolor()
 
-Cycles through color modes.
+Cycles through color modes (B<F4>).
 
 =cut
 
@@ -861,7 +870,7 @@ sub handlecolor {
 
 =item handlemousemode()
 
-Handles turning mouse mode on or off.
+Handles turning mouse mode on or off (B<F12>).
 
 =cut
 
@@ -873,7 +882,7 @@ sub handlemousemode {
 
 =item handlelayouts()
 
-Handles moving on to the next configured layout.
+Handles moving on to the next configured layout (B<F9>).
 
 =cut
 
@@ -884,7 +893,7 @@ sub handlelayouts {
 
 =item handlefit()
 
-Recalculates the screen size and adjusts the layouts.
+Recalculates the screen size and adjusts the layouts (B<F3>).
 
 =cut
 
@@ -896,7 +905,7 @@ sub handlefit {
 =item handleident()
 
 Calls the diskinfo class to cycle through showing
-the username, hostname or both.
+the username, hostname or both (key B<=>).
 
 =cut
 
@@ -908,7 +917,7 @@ sub handleident {
 =item handleclobber()
 
 Toggles between clobbering files automatically, or prompting
-before overwrite.
+before overwrite (key B<!>.
 
 =cut
 
@@ -920,7 +929,7 @@ sub handleclobber {
 
 =item handlepathmode()
 
-Toggles between logical and physical path mode.
+Toggles between logical and physical path mode (key B<">).
 
 =cut
 
@@ -932,8 +941,8 @@ sub handlepathmode {
 
 =item handleradix()
 
-Toggles between showing nonprintable characters as octal or hexadecimal
-codes in the B<N>ame command.
+Toggles between octal and hexadecimal radix (key B<*>), which is used for
+showing nonprintable characters in the B<N>ame command.
 
 =cut
 
@@ -969,7 +978,7 @@ sub handlequit {
 
 =item handleperlcommand()
 
-Handles the B<@> command (execute Perl command).
+Handles executing a Perl command (key B<@>).
 
 =cut
 
@@ -997,7 +1006,7 @@ sub handleperlcommand {
 		prompt => 'Enter Perl command:'
 	});
 	$_screen->at($_screen->PATHLINE,0)->clreol()->cooked_echo();
-	$perlcmd = $_pfm->history->input(H_PERLCMD);
+	$perlcmd = $_pfm->history->input({ history => H_PERLCMD });
 	$_screen->raw_noecho();
 	eval $perlcmd;
 	$_screen->display_error($@) if $@;
@@ -1006,7 +1015,7 @@ sub handleperlcommand {
 
 =item handlehelp()
 
-Shows a help page with an overview of commands.
+Shows a help page with an overview of commands (B<F1>).
 
 =cut
 
@@ -1034,7 +1043,9 @@ sub handlehelp {
 
 =item handleentry(char $key)
 
-Handles entering or leaving a directory.
+Handles entering or leaving a directory (left arrow, right arrow,
+B<ESC>, B<BS>, B<h>, B<l> (if on a directory), B<ENTER> (if on a
+directory)).
 
 =cut
 
@@ -1062,7 +1073,8 @@ sub handleentry {
 
 =item handlemark()
 
-Handles marking (including or excluding) a file.
+Handles marking (including or excluding) a file (key B<SPACE>
+or B<F8>).
 
 =cut
 
@@ -1119,8 +1131,8 @@ sub handlemarkall {
 
 =item handlemarkinverse()
 
-Handles inverting all marks.
-The entries F<.> and F<..> are exempt from this action.
+Handles inverting all marks (B<I>nclude - B<I>nvert or eB<X>clude -
+B<I>nvert). The entries F<.> and F<..> are exempt from this action.
 
 =cut
 
@@ -1161,7 +1173,7 @@ sub handlekeyell {
 
 =item handlerestat()
 
-Re-executes a stat() on the current (or selected) files.
+Re-executes a stat() on the current (or selected) files (B<F11>).
 
 =cut
 
@@ -1172,7 +1184,8 @@ sub handlerestat {
 
 =item handlelink()
 
-Handles the uppercase C<L> key: create hard or symbolic link.
+Creates a hard or symbolic link (B<L>ink as uppercase B<L>, or
+lowercase B<l> if on a non-directory).
 
 =cut
 
@@ -1201,7 +1214,11 @@ sub handlelink {
 		( $absrel eq 'r' ? 'relative symbolic'
 		: $absrel eq 'a' ? 'absolute symbolic' : 'hard') . ' link: ';
 	
-	chomp($newname = $_pfm->history->input(H_PATH, $prompt, '', $histpush));
+	chomp($newname = $_pfm->history->input({
+		history       => H_PATH,
+		prompt        => $prompt,
+		history_input => $histpush,
+	}));
 	$_screen->raw_noecho();
 	return if ($newname eq '');
 	$newname = canonicalize_path($newname);
@@ -1263,7 +1280,7 @@ sub handlelink {
 
 =item handlesort()
 
-Handles sorting the current directory.
+Handles sorting the current directory (B<F6>).
 
 =cut
 
@@ -1299,7 +1316,8 @@ sub handlesort {
 
 =item handlecyclesort()
 
-Cycles through sort modes.
+Cycles through sort modes. Initiated by a mouse click on the 'Sort'
+footer region.
 
 =cut
 
@@ -1319,7 +1337,7 @@ sub handlecyclesort {
 
 =item handlename()
 
-Shows all chacacters of the filename in a readable manner.
+Shows all chacacters of the filename in a readable manner (B<N>ame).
 
 =cut
 
@@ -1365,12 +1383,14 @@ sub handlename {
 =item handlefind()
 
 Prompts for a filename to find, then positions the cursor at that file.
+B<Find> or key B</>.
 
 =item handlefind_incremental()
 
 Prompts for a filename to find, and positions the cursor while the name
 is typed (incremental find). Only applicable if the current sort_mode
 is by name (ascending or descending).
+B<Find> or key B</>.
 
 =cut
 
@@ -1380,9 +1400,11 @@ sub handlefind {
 		goto &handlefind_incremental;
 	}
 	my ($findme, $file);
-	my $prompt = 'File to find: ';
 	$_screen->clear_footer()->at(0,0)->clreol()->cooked_echo();
-	($findme = $_pfm->history->input(H_PATH, $prompt)) =~ s/\/$//;
+	($findme = $_pfm->history->input({
+		history => H_PATH,
+		prompt  => 'File to find: ',
+	})) =~ s/\/$//;
 	if ($findme =~ /\//) { $findme = basename($findme) };
 	$_screen->raw_noecho()->set_deferred_refresh(R_MENU);
 	return if $findme eq '';
@@ -1440,7 +1462,7 @@ sub handlefind_incremental {
 
 =item handleedit()
 
-Starts the editor for editing the current fileZ<>(s).
+Starts the editor for editing the current fileZ<>(s) (B<E>dit command).
 
 =cut
 
@@ -1460,14 +1482,13 @@ sub handleedit {
 
 =item handlechown()
 
-Handles changing the owner of a file.
+Handles changing the owner of a file (B<U>ser command).
 
 =cut
 
 sub handlechown {
 	my ($self) = @_;
 	my ($newuid, $do_this);
-	my $prompt = 'New [user][:group] ';
 	if ($_pfm->state->{multiple_mode}) {
 		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO | R_LISTING);
 	} else {
@@ -1475,7 +1496,10 @@ sub handlechown {
 		$_screen->listing->markcurrentline('U');
 	}
 	$_screen->clear_footer()->at(0,0)->clreol()->cooked_echo();
-	chomp($newuid = $_pfm->history->input(H_MODE, $prompt));
+	chomp($newuid = $_pfm->history->input({
+		history => H_MODE,
+		prompt  => 'New [user][:group] ',
+	}));
 	$_screen->raw_noecho();
 	return if ($newuid eq '');
 	$do_this = sub {
@@ -1500,14 +1524,13 @@ sub handlechown {
 
 =item handlechmod()
 
-Handles changing the mode (permission bits) of a file.
+Handles changing the mode (permission bits) of a file (B<A>ttribute command).
 
 =cut
 
 sub handlechmod {
 	my ($self) = @_;
 	my ($newmode, $do_this);
-	my $prompt = 'New mode [ugoa][-=+][rwxslt] or octal: ';
 	if ($_pfm->state->{multiple_mode}) {
 		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO | R_LISTING);
 	} else {
@@ -1515,7 +1538,10 @@ sub handlechmod {
 		$_screen->listing->markcurrentline('A');
 	}
 	$_screen->clear_footer()->at(0,0)->clreol()->cooked_echo();
-	chomp($newmode = $_pfm->history->input(H_MODE, $prompt));
+	chomp($newmode = $_pfm->history->input({
+		history => H_MODE,
+		prompt  => 'New mode [ugoa][-=+][rwxslt] or octal: ',
+	}));
 	$_screen->raw_noecho();
 	return if ($newmode eq '');
 	if ($newmode =~ s/^\s*(\d+)\s*$/oct($1)/e) {
@@ -1538,14 +1564,13 @@ sub handlechmod {
 
 =item handletime()
 
-Handles changing the timestamp of a file.
+Handles changing the timestamp of a file (B<T>ime command).
 
 =cut
 
 sub handletime {
 	my ($self) = @_;
 	my ($newtime, $do_this, @cmdopts);
-	my $prompt = "Timestamp [[CC]YY-]MM-DD hh:mm[.ss]: ";
 	if ($_pfm->state->{multiple_mode}) {
 		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO | R_LISTING);
 	} else {
@@ -1553,8 +1578,11 @@ sub handletime {
 		$_screen->listing->markcurrentline('T');
 	}
 	$_screen->clear_footer()->at(0,0)->clreol()->cooked_echo();
-	$newtime = $_pfm->history->input(
-		H_TIME, $prompt, '', strftime ("%Y-%m-%d %H:%M.%S", localtime time));
+	$newtime = $_pfm->history->input({
+		history       => H_TIME,
+		prompt        => 'Timestamp [[CC]YY-]MM-DD hh:mm[.ss]: ',
+		history_input => strftime ("%Y-%m-%d %H:%M.%S", localtime time),
+	});
 	$_screen->raw_noecho();
 	return if ($newtime eq '');
 	if ($newtime eq '.') {
@@ -1586,7 +1614,7 @@ sub handletime {
 
 =item handleshow()
 
-Handles displaying the contents of a file.
+Handles displaying the contents of a file (B<S>how command).
 
 =cut
 
@@ -1611,7 +1639,7 @@ sub handleshow {
 
 =item handleunwo()
 
-Handles removing a whiteout file.
+Handles removing a whiteout file (unB<W>hiteout command).
 
 =cut
 
@@ -1648,7 +1676,7 @@ sub handleunwo {
 =item handleversion()
 
 Checks if the current directory is under version control,
-and starts a job for the file if so.
+and starts a job for the file if so (B<V>ersion command).
 
 =cut
 
@@ -1666,7 +1694,8 @@ sub handleversion {
 
 =item handleinclude(char $key)
 
-Handles including (marking) and excluding (unmarking) files.
+Handles including (marking) and excluding (unmarking) files
+(B<I>nclude and eB<X>clude commands).
 
 =cut
 
@@ -1765,7 +1794,8 @@ sub handleinclude { # include/exclude flag (from keypress)
 
 =item handlesize()
 
-Handles reporting the size of a file, or of a directory and subdirectories.
+Handles reporting the size of a file, or of a directory and
+subdirectories (siB<Z>e command).
 
 =cut
 
@@ -1818,7 +1848,7 @@ sub handlesize {
 
 =item handletarget()
 
-Changes the target of a symbolic link.
+Changes the target of a symbolic link (tarB<G>et command).
 
 =cut
 
@@ -1838,10 +1868,12 @@ sub handletarget {
 		$_screen->at(0,0)->clreol()->display_error($nosymlinkerror);
 		return;
 	}
-	my $prompt = 'New symlink target: ';
 	$_screen->clear_footer()->at(0,0)->clreol()->cooked_echo();
-	chomp($newtarget = $_pfm->history->input(
-			H_PATH, $prompt, '', $_pfm->browser->currentfile->{target}));
+	chomp($newtarget = $_pfm->history->input({
+		history       => H_PATH,
+		prompt        => 'New symlink target: ',
+		history_input => $_pfm->browser->currentfile->{target},
+	}));
 	$_screen->raw_noecho();
 	return if ($newtarget eq '');
 	$do_this = sub {
@@ -1873,7 +1905,7 @@ sub handletarget {
 
 =item handlecommand(char $key)
 
-Executes a shell command.
+Executes a shell command (cB<O>mmand and B<Y>our-command).
 
 =cut
 
@@ -1929,7 +1961,10 @@ sub handlecommand { # Y or O
 		$_screen->at(0,0)->clreol()->putmessage($prompt)
 			->at($_screen->PATHLINE,0)->clreol()
 			->cooked_echo();
-		$command = $_pfm->history->input(H_COMMAND, '');
+		$command = $_pfm->history->input({
+			history => H_COMMAND,
+			prompt  => ''
+		});
 		$_screen->diskinfo->clearcolumn();
 	}
 	# chdir special case
@@ -1971,7 +2006,7 @@ sub handlecommand { # Y or O
 
 =item handleprint()
 
-Executes a print command.
+Executes a print command (B<P>print).
 
 =cut
 
@@ -1988,7 +2023,12 @@ sub handleprint {
 	});
 	$_screen->at($_screen->PATHLINE, 0)->clreol()
 		->cooked_echo();
-	$command = $_pfm->history->input(H_COMMAND,'', $printcmd, undef, $printcmd);
+	$command = $_pfm->history->input({
+		history       => H_COMMAND,
+		prompt        => '',
+		default_input => $printcmd,
+		pushfilter    => $printcmd,
+	});
 	$_screen->raw_noecho();
 	if ($command eq '') {
 		$_screen->set_deferred_refresh(R_FRAME | R_DISKINFO | R_PATHINFO);
@@ -2013,7 +2053,7 @@ sub handleprint {
 
 =item handledelete()
 
-Handles deleting files.
+Handles deleting files (B<D>elete command).
 
 =cut
 
@@ -2089,7 +2129,7 @@ sub handledelete {
 
 =item handlecopyrename(char $key)
 
-Handles copying and renaming files.
+Handles copying and renaming files (B<C>opy and B<R>ename).
 
 =cut
 
@@ -2112,8 +2152,13 @@ sub handlecopyrename {
 		$_screen->listing->markcurrentline($key);
 	}
 	$_screen->clear_footer()->at(0,0)->clreol()->cooked_echo();
-	$newname = $_pfm->history->input(H_PATH, $prompt, '',
-		$state->{multiple_mode} ? undef : $browser->currentfile->{name});
+	my $history_input =
+		$state->{multiple_mode} ? undef : $browser->currentfile->{name};
+	$newname = $_pfm->history->input({
+		history       => H_PATH,
+		prompt        => $prompt,
+		history_input => $history_input,
+	});
 	$_screen->raw_noecho();
 	return if ($newname eq '');
 	# expand \[3456] at this point as a test, but not \[1278]
@@ -2165,6 +2210,29 @@ sub handlecopyrename {
 	return;
 }
 
+=item handleopenwindow(App::PFM::File $file)
+
+Opens a new terminal window running pfm.
+
+=cut
+
+sub handleopenwindow {
+	my ($self, $file) = @_;
+	my $windowcmd = $_pfm->config->{windowcmd};
+	if ($_pfm->config->{windowtype} eq 'pfm') {
+		# windowtype = pfm
+		if (ref $_pfm->state('S_SWAP')) {
+			system("$windowcmd 'pfm \Q$file->{name}\E -s " .
+				quotemeta($_pfm->state('S_SWAP')->{path}) . "' &");
+		} else {
+			system("$windowcmd 'pfm \Q$file->{name}\E' &");
+		}
+	} else {
+		# windowtype = standalone
+		system("$windowcmd \Q$file->{name}\E &");
+	}
+}
+
 =item handlemousedown(App::PFM::Event $event)
 
 Handles mouse clicks. Note that the mouse wheel has already been handled
@@ -2207,7 +2275,7 @@ sub handlemousedown {
 		or	($mousecol >= $_screen->diskinfo->infocol
 		and	$_screen->diskinfo->infocol > $listing->filerecordcol))
 	{
-		$self->handleident() if $mouserow == $_screen->diskinfo->L_USERINFO;
+		$self->handleident() if $mouserow == $_screen->diskinfo->LINE_USERINFO;
 	} elsif (defined ${$_pfm->state->directory->showncontents}[
 		$mouserow - $_screen->BASELINE + $_pfm->browser->baseindex])
 	{
@@ -2222,7 +2290,7 @@ sub handlemousedown {
 		if ($on_name and $mbutton) {
 			$currentfile = $_pfm->browser->currentfile;
 			if ($currentfile->{type} eq 'd') {
-				$_pfm->openwindow($currentfile);
+				$self->handleopenwindow($currentfile);
 			} else {
 				$self->handleenter();
 			}
@@ -2430,18 +2498,20 @@ sub handlemore {
 
 =item handlemoreshow()
 
-Does a chdir() to any directory.
+Does a chdir() to any directory (B<M>ore - B<S>how).
 
 =cut
 
 sub handlemoreshow {
 	my ($self) = @_;
 	my ($newname);
-	my $prompt = 'Directory Pathname: ';
 	$_screen->set_deferred_refresh(R_MENU);
 	return if !$_screen->ok_to_remove_marks();
 	$_screen->at(0,0)->clreol()->cooked_echo();
-	$newname = $_pfm->history->input(H_PATH, $prompt);
+	$newname = $_pfm->history->input({
+		history => H_PATH,
+		prompt  => 'Directory Pathname: ',
+	});
 	$_screen->raw_noecho();
 	return if $newname eq '';
 	$self->_expand_escapes(QUOTE_OFF, $newname, $_pfm->browser->currentfile);
@@ -2453,17 +2523,19 @@ sub handlemoreshow {
 
 =item handlemoremake()
 
-Makes a new directory.
+Makes a new directory (B<M>ore - B<M>ake).
 
 =cut
 
 sub handlemoremake {
 	my ($self) = @_;
 	my ($newname);
-	my $prompt = 'New Directory Pathname: ';
 	$_screen->set_deferred_refresh(R_MENU);
 	$_screen->at(0,0)->clreol()->cooked_echo();
-	$newname = $_pfm->history->input(H_PATH, $prompt);
+	$newname = $_pfm->history->input({
+		history => H_PATH,
+		prompt  => 'New Directory Pathname: ',
+	});
 	$self->_expand_escapes(QUOTE_OFF, $newname, $_pfm->browser->currentfile);
 	$_screen->raw_noecho();
 	return if $newname eq '';
@@ -2487,7 +2559,8 @@ sub handlemoremake {
 
 =item handlemoreconfig()
 
-Opens the current config file (F<.pfmrc>) in the configured editor.
+Opens the current config file (F<.pfmrc>) in the configured editor
+(B<M>ore - B<C>onfig).
 
 =cut
 
@@ -2515,17 +2588,19 @@ sub handlemoreconfig {
 
 =item handlemoreedit()
 
-Opens any file in the configured editor.
+Opens any file in the configured editor (B<M>ore - B<E>dit).
 
 =cut
 
 sub handlemoreedit {
 	my ($self) = @_;
 	my $newname;
-	my $prompt  = 'Filename to edit: ';
 	$_screen->at(0,0)->clreol()->cooked_echo()
 		->set_deferred_refresh(R_CLRSCR);
-	$newname = $_pfm->history->input(H_PATH, $prompt);
+	$newname = $_pfm->history->input({
+		history => H_PATH,
+		prompt  => 'Filename to edit: ',
+	});
 	$self->_expand_escapes(QUOTE_OFF, $newname, $_pfm->browser->currentfile);
 	if (system $_pfm->config->{editor}." \Q$newname\E") {
 		$_screen->display_error('Editor failed');
@@ -2535,7 +2610,7 @@ sub handlemoreedit {
 
 =item handlemoreshell()
 
-Starts the user's login shell.
+Starts the user's login shell (B<M>ore - sB<H>ell).
 
 =cut
 
@@ -2553,7 +2628,7 @@ sub handlemoreshell {
 
 =item handlemoreacl()
 
-Allows the user to edit the file's Access Control List.
+Allows the user to edit the file's Access Control List (B<M>ore - B<A>cl).
 
 =cut
 
@@ -2575,7 +2650,7 @@ sub handlemoreacl {
 
 =item handlemorebookmark()
 
-Creates a bookmark to the current directory.
+Creates a bookmark to the current directory (B<M>ore - B<B>ookmark).
 
 =cut
 
@@ -2608,7 +2683,7 @@ sub handlemorebookmark {
 =item handlemorego()
 
 Shows a list of the current bookmarks, then offers the user a choice to
-jump to one of them.
+jump to one of them (B<M>ore - B<G>o).
 
 =cut
 
@@ -2684,18 +2759,20 @@ sub handlemorego {
 
 =item handlemorefifo()
 
-Handles creating a FIFO (named pipe).
+Handles creating a FIFO (named pipe) (B<M>ore - mkB<F>ifo).
 
 =cut
 
 sub handlemorefifo {
 	my ($self) = @_;
 	my ($newname, $findindex);
-	my $prompt = 'New FIFO name: ';
 	$_screen->at(0,0)->clreol()
 		->set_deferred_refresh(R_MENU)
 		->cooked_echo();
-	$newname = $_pfm->history->input(H_PATH, $prompt);
+	$newname = $_pfm->history->input({
+		history => H_PATH,
+		prompt  => 'New FIFO name: ',
+	});
 	$self->_expand_escapes(QUOTE_OFF, $newname, $_pfm->browser->currentfile);
 	$_screen->raw_noecho();
 	return if $newname eq '';
@@ -2715,7 +2792,7 @@ sub handlemorefifo {
 
 =item handlemorehistwrite()
 
-Writes the histories and the bookmarks to file.
+Writes the histories and the bookmarks to file (B<M>ore - B<W>rite-history).
 
 =cut
 
@@ -2729,7 +2806,7 @@ sub handlemorehistwrite {
 =item handlemorealtscreen()
 
 Shows the alternate terminal screen (I<e.g.> for viewing the output of
-a previous command).
+a previous command) (B<M>ore - alB<T>screen).
 
 =cut
 
@@ -2742,7 +2819,7 @@ sub handlemorealtscreen {
 
 =item handlemorephyspath()
 
-Shows the canonical pathname of the current directory.
+Shows the canonical pathname of the current directory (B<M>ore - B<P>hysical).
 
 =cut
 
@@ -2759,7 +2836,7 @@ sub handlemorephyspath {
 =item handlemoreversion()
 
 Checks if the current directory is under version control,
-and starts a job for the current directory if so.
+and starts a job for the current directory if so (B<M>ore - B<V>ersion).
 
 =cut
 
@@ -2770,7 +2847,7 @@ sub handlemoreversion {
 
 =item handleenter()
 
-Handles the ENTER key: enter a directory or launch a file.
+Enter a directory or launch a file (B<ENTER>).
 
 =cut
 

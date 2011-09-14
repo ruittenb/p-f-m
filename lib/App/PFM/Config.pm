@@ -69,8 +69,7 @@ sub _init {
 	my ($self, $pfm) = @_;
 	$_pfm = $pfm;
 	$self->{_pfmrc} = {};
-	$self->{_configfilename} =
-		$ENV{PFMRC} ? $ENV{PFMRC} : CONFIGDIRNAME . "/" . CONFIGFILENAME;
+	$self->{_configfilename} = $self->give_location();
 }
 
 =item _parse_colorsets()
@@ -170,7 +169,7 @@ is currently being used.
 
 sub give_location {
 #	my ($self) = @_;
-	return ($ENV{PFMRC} ? "$ENV{PFMRC}" : CONFIGDIRNAME . "/" . CONFIGFILENAME);
+	return ($ENV{PFMRC} ? $ENV{PFMRC} : CONFIGDIRNAME . "/" . CONFIGFILENAME);
 }
 
 =item read(bool $firstread)
@@ -593,7 +592,8 @@ defaultpathmode:log
 ## (toggle with *)
 defaultradix:hex
 
-## initial sort mode (nNmMeEfFsSzZiItTdDaA) (default: n) (select with F6)
+## initial sort mode (nNmMeEfFdDaAsSzZtTuUgGvViI*) (default: n)
+## (select with F6)
 defaultsortmode:n
 
 ## show whiteout files initially? (hide them otherwise, toggle with % key)
