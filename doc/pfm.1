@@ -124,13 +124,13 @@
 .\" ========================================================================
 .\"
 .IX Title "PFM 1"
-.TH PFM 1 "2010-09-17" " " " "
+.TH PFM 1 "2010-09-23" " " " "
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
 .nh
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.09.2
+.ds Vw @(#) pfm.pl 2.09.3
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -414,7 +414,7 @@ characters will be displayed as their octal or hexadecimal equivalents like
 the examples in the following table. Spaces will be converted if
 the 'translatespace' option is turned on in the \fI.pfmrc\fR file.
 .Sp
-When the name is shown in its converted form, pressing \fB*\fR will change
+When the name is shown in its converted form, pressing \fBN\fR will change
 the radix, and pressing \fB\s-1SPACE\s0\fR will toggle the translation of spaces.
 The 'defaultradix' option specifies the initial radix that will be used.
 .Sp
@@ -475,7 +475,7 @@ the basename of the current directory
 the extension of the current filename (see below)
 .IP "\fB=8\fR" 4
 .IX Item "=8"
-a space-separated list of all selected filenames
+a space-separated list of all marked filenames
 .IP "\fB==\fR" 4
 .IX Item "=="
 a single literal \fB=\fR
@@ -707,6 +707,9 @@ Allows the user to enter a string of sort mode characters which will be
 applied sequentially. Example: a string of \fBsN\fR will sort by size
 ascending followed by name descending; the string \fBtn\fR will sort
 directories before files, each sorted alphabetically.
+.IP "\fB@\fR" 4
+.IX Item "@"
+Starts a perl shell in the context of \f(CW\*(C`pfm\*(C'\fR. Primarily used for debugging.
 .SH "MISCELLANEOUS and FUNCTION KEYS"
 .IX Header "MISCELLANEOUS and FUNCTION KEYS"
 .IP "\fB\s-1ENTER\s0\fR" 4
@@ -730,9 +733,6 @@ in the current directory path will be preserved.
 .IP "\fB%\fR" 4
 .IX Item "%"
 Toggle show/hide whiteout files.
-.IP "\fB\ *\fR" 4
-.IX Item "*"
-Toggle the radix used by the \fBN\fRame command.
 .IP "\fB.\fR" 4
 .IX Item "."
 Toggle show/hide dot files.

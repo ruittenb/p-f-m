@@ -31,7 +31,7 @@ fi
 treesed "$previousver" "$currentver"	\
 	-files README pfm pfmrcupdate lib/App/PFM/Application.pm
 
-treesed "# @(#) App::PFM::Config::Update $previousver"	\
+treesed "# @.#. App::PFM::Config::Update $previousver"	\
 	"# @(#) App::PFM::Config::Update $currentver"	\
 	-files lib/App/PFM/Config/Update.pm
 

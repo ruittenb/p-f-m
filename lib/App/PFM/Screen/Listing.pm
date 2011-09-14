@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Listing 1.07
+# @(#) App::PFM::Screen::Listing 1.08
 #
 # Name:			App::PFM::Screen::Listing
-# Version:		1.07
+# Version:		1.08
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-13
+# Date:			2010-09-20
 #
 
 ##########################################################################
@@ -70,22 +70,27 @@ use constant LAYOUTFIELDS => {
 	'_' => 'gap',
 };
 
-our ($_pfm, $_screen);
+our ($_pfm);
 
 ##########################################################################
 # private subs
 
-=item _init(App::PFM::Application $pfm, App::PFM::Screen $screen)
+=item _init(App::PFM::Application $pfm, App::PFM::Screen $screen
+[, App::PFM::Config $config ] )
 
 Initializes new instances. Called from the constructor.
+
+Note that at the time of instantiation, the config file has normally
+not yet been read.
 
 =cut
 
 sub _init {
-	my ($self, $pfm, $screen) = @_;
-	$_pfm    = $pfm;
-	$_screen = $screen;
-	$self->{_layout}               = 0;
+	my ($self, $pfm, $screen, $config) = @_;
+	$_pfm               = $pfm;
+	$self->{_screen}    = $screen;
+	$self->{_config}    = $config; # undefined, see on_after_parse_config
+	$self->{_layout}               = undef;
 	$self->{_layoutname}           = '';
 	$self->{_layoutfields}         = [];
 	$self->{_layoutfieldswithinfo} = [];
@@ -107,9 +112,11 @@ Checks if the layout number does not exceed the total number of layouts.
 
 sub _validate_layoutnum {
 	my ($self, $num) = @_;
-	my $columnlayouts = $_pfm->config->{columnlayouts};
-	while ($num > $#$columnlayouts) {
-		$num -= @$columnlayouts;
+	# convert to numeric
+	$num = 0 + $num;
+	my $columnlayouts = $self->{_config}{columnlayouts};
+	if ($num > $#$columnlayouts) {
+		$num %= @$columnlayouts;
 	}
 	return $num;
 }
@@ -123,24 +130,25 @@ Turns highlight on/off on the line with the cursor.
 
 sub _highlightline {
 	my ($self, $onoff, $currentline, $currentfile) = @_;
+	my $screen = $self->{_screen};
 	$currentfile  ||= $_pfm->browser->currentfile;
 	my $screenline  = $currentline || $_pfm->browser->currentline;
-	$screenline    += $_screen->BASELINE;
+	$screenline    += $screen->BASELINE;
 	my $linecolor;
-	$_screen->at($screenline, $self->{_filerecordcol});
+	$screen->at($screenline, $self->{_filerecordcol});
 	if ($onoff) {
 		$linecolor =
-			$_pfm->config->{framecolors}{$_screen->color_mode}{highlight};
+			$self->{_config}{framecolors}{$screen->color_mode}{highlight};
 		# in case colorizable() is off:
-		$_screen->bold()		if ($linecolor =~ /bold/);
-		$_screen->reverse()		if ($linecolor =~ /reverse/);
-#		$_screen->underline()	if ($linecolor =~ /under(line|score)/);
-		$_screen->term()->Tputs('us', 1, *STDOUT)
+		$screen->bold()		if ($linecolor =~ /bold/);
+		$screen->reverse()		if ($linecolor =~ /reverse/);
+#		$screen->underline()	if ($linecolor =~ /under(line|score)/);
+		$screen->term()->Tputs('us', 1, *STDOUT)
 							if ($linecolor =~ /under(line|score)/);
 	}
-	$_screen->putcolored($linecolor, $self->fileline($currentfile));
+	$screen->putcolored($linecolor, $self->fileline($currentfile));
 	$self->applycolor($screenline, FILENAME_SHORT, $currentfile, $onoff);
-	$_screen->reset()->normal()->at($screenline, $self->{_cursorcol});
+	$screen->reset()->normal()->at($screenline, $self->{_cursorcol});
 }
 
 ##########################################################################
@@ -159,7 +167,7 @@ sub layout {
 		$self->{_layout} = $self->_validate_layoutnum($value);
 		$self->makeformatlines();
 		$self->reformat();
-		$_screen->set_deferred_refresh($_screen->R_SCREEN);
+		$self->{_screen}->set_deferred_refresh($self->{_screen}->R_SCREEN);
 	}
 	return $self->{_layout};
 }
@@ -241,8 +249,9 @@ Getter for the string defining the layout of a file record.
 
 sub currentlayoutline {
 	my ($self) = @_;
-	my $currentlayoutline = $_pfm->config->{columnlayouts}->[$self->{_layout}];
-	$currentlayoutline =~ s/n/'n' x ($_screen->screenwidth - 79)/e;
+	my $currentlayoutline = $self->{_config}{columnlayouts}->[$self->{_layout}];
+	# layouts are all based on a screenwidth of 80: adjust filename field
+	$currentlayoutline =~ s/n/'n' x ($self->{_screen}->screenwidth - 79)/e;
 	return $currentlayoutline;
 }
 
@@ -311,6 +320,22 @@ sub maxgrandtotallength {
 ##########################################################################
 # public subs
 
+=item on_after_parse_config(App::PFM::Event $event)
+
+Applies the config settings when the config file has been read and parsed.
+
+=cut
+
+sub on_after_parse_config {
+	my ($self, $event) = @_;
+	# only now can we set _config in $self
+	$self->{_config} = $event->{origin};
+	$self->layout(defined($self->{_layout})
+		? $self->{_layout}
+		: $self->{_config}{currentlayout}
+	);
+}
+
 =item highlight_off( [ int $currentline, App::PFM::File $currentfile ] )
 
 =item highlight_on( [ int $currentline, App::PFM::File $currentfile ] )
@@ -348,15 +373,16 @@ Displays the directory listing.
 
 sub show {
 	my ($self) = @_;
+	my $screen    = $self->{_screen};
 	my $contents  = $_pfm->state->directory->showncontents;
 	my $baseindex = $_pfm->browser->baseindex;
-	my $baseline  = $_screen->BASELINE;
+	my $baseline  = $screen->BASELINE;
 	my $file;
-	foreach my $i ($baseindex .. $baseindex+$_screen->screenheight) {
-		$_screen->at($i+$baseline-$baseindex, $self->{_filerecordcol});
+	foreach my $i ($baseindex .. $baseindex + $screen->screenheight) {
+		$screen->at($i + $baseline - $baseindex, $self->{_filerecordcol});
 		unless ($i > $#$contents) {
 			$file = $$contents[$i];
-			$_screen->puts($self->fileline($file));
+			$screen->puts($self->fileline($file));
 			# file manager operations may change the orphan status of
 			# a symlink; therefore, update a symlink's color every time
 			if ($file->{type} eq 'l') {
@@ -365,11 +391,11 @@ sub show {
 			$self->applycolor(
 				$i + $baseline - $baseindex, FILENAME_SHORT, $file);
 		} else {
-			$_screen->puts(
-				' 'x($_screen->screenwidth - $_screen->diskinfo->infolength));
+			$screen->puts(
+				' ' x ($screen->screenwidth - $screen->diskinfo->infolength));
 		}
 	}
-	return $_screen;
+	return $screen;
 }
 
 =item applycolor(int $line, bool $usemax, App::PFM::File $file
@@ -386,19 +412,20 @@ option 'highlightname' must be 'yes' as well.
 
 sub applycolor {
 	my ($self, $line, $usemax, $file, $highlight) = @_;
+	my $screen = $self->{_screen};
 	my $linecolor;
 	my $maxlength = $usemax ? 255 : $self->{_maxfilenamelength} - 1;
-	if ($highlight and $_pfm->config->{highlightname}) {
+	if ($highlight and $self->{_config}{highlightname}) {
 		# only bold, reverse and underscore are copied
 		$linecolor =
-			$_pfm->config->{framecolors}{$_screen->color_mode}{highlight};
-		$_screen->bold()		if ($linecolor =~ /bold/);
-		$_screen->reverse()		if ($linecolor =~ /reverse/);
-#		$_screen->underline()	if ($linecolor =~ /under(line|score)/);
-		$_screen->term()->Tputs('us', 1, *STDOUT)
+			$self->{_config}{framecolors}{$screen->color_mode}{highlight};
+		$screen->bold()		if ($linecolor =~ /bold/);
+		$screen->reverse()		if ($linecolor =~ /reverse/);
+#		$screen->underline()	if ($linecolor =~ /under(line|score)/);
+		$screen->term()->Tputs('us', 1, *STDOUT)
 							if ($linecolor =~ /under(line|score)/);
 	}
-	$_screen->at($line, $self->{_filenamecol})
+	$screen->at($line, $self->{_filenamecol})
 		->putcolored(
 			$file->{color} || $linecolor,
 			substr($file->{name}, 0, $maxlength));
@@ -418,16 +445,30 @@ sub fileline {
 	);
 }
 
-=item makeformatlines()
+=item get_first_valid_layout()
 
-Parses the configured layouts.
+Gets the first layout (counting starts at the current one) that
+meets all the requirements, which are:
+
+=over 2
+
+=item *
+
+The fields B<n> (filename), B<f> (diskinfo) and B<*> (cursor/mark)
+are mandatory.
+
+=item *
+
+The B<f> field (diskinfo) must be the first or the last field on
+the line.
+
+=back
 
 =cut
 
-sub makeformatlines {
+sub get_first_valid_layout {
 	my ($self) = @_;
-	my ($squeezedlayoutline, $currentlayoutline, $firstwronglayout, $prev,
-		$letter, $trans, $temp, $infocol, $infolength, $miss, $error);
+	my ($miss, $error, $firstwronglayout, $currentlayoutline);
 	LAYOUT: {
 		$currentlayoutline = $self->currentlayoutline;
 		$error = '';
@@ -447,29 +488,44 @@ sub makeformatlines {
 		}
 		if ($error) {
 			$firstwronglayout ||= $self->{_layout} || '0 but true';
-			$_screen->at(0,0)->clreol()->display_error(
+			$self->{_screen}->at(0,0)->clreol()->display_error(
 				"Bad layout #" . $self->{_layout} .
 				": mandatory field '$miss' $error");
-			$_screen->important_delay();
 			$self->{_layout} = $self->_validate_layoutnum($self->{_layout}+1);
 			if ($self->{_layout} != $firstwronglayout) {
 				redo LAYOUT;
 			} else {
-				$_screen
-					->alternate_off()
-					->clrscr()->at(0,0)
-					->cooked_echo()
-					->mouse_disable();
-				die "No valid layout defined in " .
-					$_pfm->config->location() . "\n";
+				$self->{_screen}->at(0,0)->clreol()->display_error(
+					"No valid layout defined in " .
+					$self->{_config}->location());
+				# overwrite everything
+				$self->{_config}{columnlayouts} = [
+					$self->{_config}->DEFAULTFORMAT
+				];
+				$self->{_layout} = 0;
+				$currentlayoutline = $self->currentlayoutline;
 			}
 		}
 	}
-	# layouts are all based on a screenwidth of 80: elongate filename field
-#	$currentlayoutline =~ s/n/'n' x ($_screen->screenwidth - 79)/e;
+	return $currentlayoutline;
+}
+
+=item makeformatlines()
+
+Parses the current layout line and transforms it to a perl-style
+formatline which can be used with the formline() function.
+
+=cut
+
+sub makeformatlines {
+	my ($self) = @_;
+	my ($squeezedlayoutline, $prev, $letter, $trans, $temp,
+		$infocol, $infolength);
+	my $currentlayoutline = $self->get_first_valid_layout();
+	# the filename field has been adjusted in currentlayoutline()
 	# find out the length of the filename, filesize, grand total and info fields
-	$infolength =
-	$_screen->diskinfo->infolength($infolength = $currentlayoutline =~ tr/f//);
+	$self->{_screen}
+		->diskinfo->infolength($infolength = $currentlayoutline =~ tr/f//);
 	$self->{_maxfilenamelength}   = ($currentlayoutline =~ tr/n//);
 	$self->{_maxfilesizelength}   = 10 ** ($currentlayoutline =~ tr/s// -1) -1;
 	if ($self->{_maxfilesizelength} < 2) {
@@ -493,7 +549,8 @@ sub makeformatlines {
 	$self->filerecordcol(length $temp);
 	$self->cursorcol(index($currentlayoutline, '*'));
 	$self->filenamecol(index($currentlayoutline, 'n'));
-	$_screen->diskinfo->infocol($infocol = index($currentlayoutline, 'f'));
+	$self->{_screen}
+		->diskinfo->infocol($infocol = index($currentlayoutline, 'f'));
 	$self->{_gapcol}	= index($currentlayoutline, '_');
 	# determine the layout field set (no spaces)
 	($squeezedlayoutline = $currentlayoutline) =~
@@ -534,8 +591,8 @@ Shows the current command letter on the current file in the cursor column.
 
 sub markcurrentline {
 	my ($self, $letter) = @_;
-	$_screen->at(
-			$_pfm->browser->currentline + $_screen->BASELINE,
+	$self->{_screen}->at(
+			$_pfm->browser->currentline + $self->{_screen}->BASELINE,
 			$self->{_cursorcol})
 		->puts($letter);
 }

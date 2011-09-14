@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Browser 0.49
+# @(#) App::PFM::Browser 0.51
 #
 # Name:			App::PFM::Browser
-# Version:		0.49
+# Version:		0.51
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-13
+# Date:			2010-09-23
 #
 
 ##########################################################################
@@ -38,12 +38,13 @@ package App::PFM::Browser;
 use base 'App::PFM::Abstract';
 
 use App::PFM::Util qw(min max);
+use App::PFM::Screen qw(:constants);
 
 use strict;
 use locale;
 
-use constant MOTION_COMMANDS =>
-	qr/^(?:[-+jk\cF\cB\cD\cU]|ku|kd|pgup|pgdn|home|end|m(shift)?(up|down))$/io;
+use constant MOTION_COMMANDS_EXCEPT_SPACE =>
+	qr/^(?:[-+jk\cF\cB\cD\cU]|ku|kd|pgup|pgdn|home|end)$/io;
 
 our ($_pfm);
 
@@ -323,23 +324,38 @@ sub position_cursor_fuzzy {
 
 	# don't position fuzzy if sort mode is not by name,
 	# or exact positioning was requested
-	if ($self->{_position_exact} or uc($_pfm->state->sort_mode) ne 'N') {
+	if ($self->{_position_exact} or $_pfm->state->sort_mode !~ /^[nm]$/io) {
 		goto &position_cursor;
 	}
 
-	if ($_pfm->state->sort_mode eq 'n') {
-		$criterion = sub {
-			return (
-				$self->{_position_at} le
-					substr($_[0], 0, length($self->{_position_at}))
-			);
+	for ($_pfm->state->sort_mode) {
+		$_ eq 'n' and do {
+			$criterion = sub {
+				return ($self->{_position_at} le
+						substr($_[0], 0, length($self->{_position_at}))
+				);
+			};
 		};
-	} else { # $_pfm->state->sort_mode eq 'N'
-		$criterion = sub {
-			return (
-				$self->{_position_at} ge
-					substr($_[0], 0, length($self->{_position_at}))
-			);
+		$_ eq 'N' and do {
+			$criterion = sub {
+				return ($self->{_position_at} ge
+						substr($_[0], 0, length($self->{_position_at}))
+				);
+			};
+		};
+		$_ eq 'm' and do {
+			$criterion = sub {
+				return (uc($self->{_position_at}) le
+						substr(uc($_[0]), 0, length($self->{_position_at}))
+				);
+			};
+		};
+		$_ eq 'M' and do {
+			$criterion = sub {
+				return (uc($self->{_position_at}) ge
+						substr(uc($_[0]), 0, length($self->{_position_at}))
+				);
+			};
 		};
 	}
 
@@ -472,15 +488,30 @@ sub handle {
 	my ($self, $event) = @_;
 	my $screenheight = $self->{_screen}->screenheight;
 	my $handled = 0;
-	my $BASELINE;
+	my ($BASELINE, $dir);
 	if ($event->{type} eq 'key' and
-		$event->{data} =~ MOTION_COMMANDS)
+		$event->{data} =~ MOTION_COMMANDS_EXCEPT_SPACE)
 	{
 		$handled = $self->handlemove($event->{data});
 	} elsif ($event->{type} eq 'key' and
 			 $event->{data} =~ /^[\cE\cY]$/o)
 	{
 		$handled = $self->handlescroll($event->{data});
+	} elsif ($event->{type} eq 'paste') {
+#		$self->{_screen}->at(1,0)->puts("Pasted:$event->{data}:");
+		$self->{_screen}->flash();
+	} elsif ($event->{type} eq 'mouse' and
+		$event->{mousebutton} == MOUSE_WHEEL_UP ||
+		$event->{mousebutton} == MOUSE_WHEEL_DOWN
+	) {
+		if ($event->{mousebutton} == MOUSE_WHEEL_UP) {
+			$dir = $event->{mousemodifier} == MOUSE_MODIFIER_SHIFT
+				? 'mshiftup' : 'mup';
+		} else { # MOUSE_WHEEL_DOWN
+			$dir = $event->{mousemodifier} == MOUSE_MODIFIER_SHIFT
+				? 'mshiftdown' : 'mdown';
+		}
+		$handled = $self->handlemove($dir);
 	} else {
 		if ($event->{type} eq 'mouse') {
 			$BASELINE = $self->{_screen}->BASELINE;
@@ -535,8 +566,9 @@ sub browse {
 		$screen->refresh();
 		$listing->highlight_on();
 		# don't send mouse escapes to the terminal if not necessary
+		$screen->bracketed_paste_on() if $self->{_config}{paste_protection};
 		$screen->mouse_enable()
-			if $self->{_mouse_mode} && $self->{_config}->{mouseturnoff};
+			if $self->{_mouse_mode} && $self->{_config}{mouseturnoff};
 		# enter main wait loop, which is exited on a resize event
 		# or on keyboard/mouse input.
 		$self->_wait_loop();
@@ -548,6 +580,7 @@ sub browse {
 		} else {
 			# must be keyboard/mouse input here
 			$listing->highlight_off();
+			$screen->bracketed_paste_off();
 			$screen->mouse_disable() if $self->{_config}->{mouseturnoff};
 			# the next line contains an assignment on purpose
 			if ($command_result = $self->handle($event))

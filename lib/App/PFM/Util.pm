@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Util 0.49
+# @(#) App::PFM::Util 0.50
 #
 # Name:			App::PFM::Util
-# Version:		0.49
+# Version:		0.50
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-18
+# Date:			2010-09-19
 #
 
 ##########################################################################
@@ -48,8 +48,8 @@ our %EXPORT_TAGS = (
 	all => [ qw(
 		min max inhibit toggle triggle isxterm isyes isno dirname basename
 		formatted in_array time2str fit2limit canonicalize_path reducepaths
-		reversepath isorphan ifnotdefined clearugidcache find_uid find_gid
-		condquotemeta touch2time testdirempty fitpath
+		reversepath isorphan ifnotdefined setifnotdefined clearugidcache
+		find_uid find_gid condquotemeta touch2time testdirempty fitpath
 	) ]
 );
 
@@ -355,6 +355,19 @@ if it is defined, otherwise the second).
 sub ifnotdefined ($$) {
 	my ($a, $b) = @_;
 	return (defined($a) ? $a : $b);
+}
+
+=item setifnotdefined(mixed ref $first, mixed $second)
+
+Emulates the perl 5.10 C<//=> operator (if the first argument
+is undefined, it is set to the value of the second).
+
+=cut
+
+sub setifnotdefined ($$) {
+	my ($a, $b) = @_;
+	$$a = $b unless defined $$a;
+	return $$a;
 }
 
 =item clearugidcache()

@@ -292,7 +292,8 @@ sub _getfooter {
 		.		" .-Dotfiles[$ONOFF{$state{dot_mode}}]"
 		.		" %-Whiteouts[$ONOFF{$state{white_mode}}]"
 		.		" \"-Pathnames[" . $_pfm->state->directory->path_mode . "]"
-		.		" *-Radix[$state{radix_mode}]"
+#		.		" *-Radix[$state{radix_mode}]"
+#		.		" SP-Spaces[$state{trspace}]"
 #		.		" =-Ident[$state{ident_mode}]"
 		;
 	}
@@ -432,7 +433,7 @@ sub show_menu {
 		$_screen->putcolored($color, 'Multiple');
 	}
 	$color = $_pfm->config->{framecolors}{$_screen->color_mode}{menu};
-	$_screen->color($color)->puts(' ' x $do_multi)->puts($menu)->bold();
+	$_screen->putcolor($color)->puts(' ' x $do_multi)->puts($menu)->bold();
 	while ($menu =~ /[[:upper:]<>](?![xn]clude\?)/g) {
 		$pos = pos($menu) -1;
 		$_screen->at(0, $pos + 9*$do_multi)->puts(substr($menu, $pos, 1));

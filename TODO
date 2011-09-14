@@ -27,6 +27,12 @@
 
 - handlemorego should check to see if any files are marked (or? PREV still has them)
 
+- upon entering a directory with 'refresh_always_smart', files in the new directory
+  will inherit the marks of identically-named files in the previous directory
+
+- make bracketed paste configurable
+- figure out when bracketed paste must be turned on and off
+
 ################################################################################
 # structural enhancements
 
@@ -40,6 +46,8 @@
 
 - move History->write_dirs() to state objects;
   provide a state->on_shutdown to write the info
+
+- get rid of slimy $oSname ($^O) for /solaris/ and lockchar
 
 - make our() variables member variables (Get Rid of Slimy applicaSion object)
 - store $browser->{_screen, _config, _main_state}; remove _pfm
@@ -69,15 +77,11 @@
 
 - implement 'after_create_entry'
 
-- color names correctly (on black)
-
-- allow incremental sort when sort_mode =~ /[mM]/
+- color filenames correctly (on black)
 
 - use mouse tracking mode for screen (and others?)
 
-- make gap smaller (intelligent?) for memory usage
-
-- check if incremental find ^W works correctly
+- get rid of '# the mousewheel will be considered a key:' in Screen/Browser
 
 - don't: Config: $self->{ident} = $state->{ident} // $pfmrc->{ident};
   do   : Config: $pfmrc->{ident}; State: $self->{ident} ||= $config->{ident};
@@ -85,8 +89,6 @@
 ################################################################################
 # functional enhancements
 
-- intercept bursts of input
- 
 - if a file is copied/moved/linked to =5, add it to the swap state
 
 - introduce SIGQUIT for interrupt multi?
@@ -99,6 +101,8 @@
 
 ################################################################################
 # documentation enhancements
+
+- UML: Config->paste_protection
 
 - manpages: use I<...> in =items
 
