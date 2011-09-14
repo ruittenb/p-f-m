@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 0.95
+# @(#) App::PFM::Config 0.96
 #
 # Name:			App::PFM::Config
-# Version:		0.95
+# Version:		0.96
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-06
+# Date:			2010-09-10
 #
 
 ##########################################################################
@@ -616,7 +616,6 @@ autowritehistory:no
 
 ## command to perform automatically after every chdir()
 #chdirautocmd:printf "\033]0;pfm - $(basename $(pwd))\007"
-#chdirautocmd:xtitle "pfm - $(hostname):$(pwd)"
 
 ## Must 'Hit any key to continue' also accept mouse clicks?
 #clickiskeypresstoo:yes
@@ -633,13 +632,6 @@ clocktimeformat:%H:%M:%S
 ## whether you want to have the screen cleared when pfm exits.
 ## Has no effect if altscreenmode is set.
 clsonexit:no
-
-## In case the regular editor automatically forks in the background, you
-## may want to specify a foreground editor here. If defined, this editor
-## will be used for editing the config file, so that pfm will be able to
-## wait for the editor to finish before rereading the config file.
-## It will also be used for editing ACLs.
-#fg_editor:vim
 
 ## have pfm ask for confirmation when you press 'q'uit? (yes,no,marked)
 ## 'marked' = ask only if there are any marked files in the current directory
@@ -707,6 +699,13 @@ editor:vi
 ## (default =). Previous versions used \ but this leads to confusing results.
 #escapechar:=
 #escapechar:\
+
+## In case the regular editor automatically forks in the background, you
+## may want to specify a foreground editor here. If defined, this editor
+## will be used for editing the config file, so that pfm will be able to
+## wait for the editor to finish before rereading the config file.
+## It will also be used for editing ACLs.
+#fg_editor:vim
 
 ## display file type flags (yes, no, dirs)
 ## yes: 'ls -F' type, dirs: 'ls -p' type
@@ -826,7 +825,7 @@ viewer:eog
 
 ## What to open when a directory is middle-clicked with the mouse?
 ## 'pfm'       : open directories with pfm in a terminal window.
-##				 specify the terminal command with 'windowcmd'.
+##               specify the terminal command with 'windowcmd'.
 ## 'standalone': open directories in a new window with the 'windowcmd'
 ##               (e.g. nautilus).
 #windowtype:standalone

@@ -224,14 +224,17 @@ sub _sort_singlelevel {
 				return        $a->{selected} cmp $b->{selected};
 		};
 		/[ef]/i and do {
-			 $a->{name} =~ /^.*(\.[^\.]+)$/;
-			 $exta = $1;
-			 $b->{name} =~ /^.*(\.[^\.]+)$/;
-			 $extb = $1;
-			 /e/ and return    $exta  cmp    $extb;
-			 /E/ and return    $extb  cmp    $exta;
-			 /f/ and return lc($exta) cmp lc($extb);
-			 /F/ and return lc($extb) cmp lc($exta);
+			$exta = $extb = '';
+			if ($a->{name} =~ /^.*(\.[^\.]+)$/) {
+				$exta = $1;
+			}
+			if ($b->{name} =~ /^.*(\.[^\.]+)$/) {
+				$extb = $1;
+			}
+			/e/ and return    $exta  cmp    $extb;
+			/E/ and return    $extb  cmp    $exta;
+			/f/ and return lc($exta) cmp lc($extb);
+			/F/ and return lc($extb) cmp lc($exta);
 		};
 	}
 }

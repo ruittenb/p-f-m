@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Browser 0.46
+# @(#) App::PFM::Browser 0.48
 #
 # Name:			App::PFM::Browser
-# Version:		0.46
+# Version:		0.48
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-09
+# Date:			2010-09-10
 #
 
 ##########################################################################
@@ -45,12 +45,13 @@ use locale;
 use constant MOTION_COMMANDS =>
 	qr/^(?:[-+jk\cF\cB\cD\cU]|ku|kd|pgup|pgdn|home|end|m(shift)?(up|down))$/io;
 
-our ($_pfm, $_screen);
+our ($_pfm);
 
 ##########################################################################
 # private subs
 
-=item _init(App::PFM::Application $pfm)
+=item _init(App::PFM::Application $pfm, App::PFM::Screen $screen,
+App::PFM::Config $config)
 
 Initializes new instances. Called from the constructor.
 Expects to be passed the application object as the first parameter.
@@ -58,9 +59,10 @@ Expects to be passed the application object as the first parameter.
 =cut
 
 sub _init {
-	my ($self, $pfm) = @_;
+	my ($self, $pfm, $screen, $config) = @_;
 	$_pfm					 = $pfm;
-	$_screen				 = $pfm->screen;
+	$self->{_screen}		 = $screen;
+	$self->{_config}		 = $config;
 	$self->{_currentline}	 = 0;
 	$self->{_baseindex}		 = 0;
 	$self->{_position_at}	 = '';
@@ -78,19 +80,20 @@ the on-screen clock.
 
 sub _wait_loop {
 	my ($self) = @_;
-	my $screenline = $self->{_currentline} + $_screen->BASELINE;
-	my $cursorcol  = $_screen->listing->cursorcol;
+	my $screen     = $self->{_screen};
+	my $screenline = $self->{_currentline} + $screen->BASELINE;
+	my $cursorcol  = $screen->listing->cursorcol;
 	my $event_idle = new App::PFM::Event({
 		name   => 'browser_idle',
 		origin => $self,
 		type   => 'soft',
 	});
-	until ($_screen->pending_input(0.4)) {
+	until ($screen->pending_input(0.4)) {
 		$self->fire($event_idle);
-		$_screen->refresh_headings()
+		$screen->refresh_headings()
 			->at($screenline, $cursorcol);
-		return if $_screen->pending_input(0.6);
-		$_screen->diskinfo->clock_info()
+		return if $screen->pending_input(0.6);
+		$screen->diskinfo->clock_info()
 			->at($screenline, $cursorcol);
 	}
 }
@@ -136,7 +139,7 @@ sub baseindex {
 	if (defined $value) {
 		$self->{_baseindex} = $value;
 		$self->validate_position();
-		$_screen->set_deferred_refresh($_screen->R_LISTING);
+		$self->{_screen}->set_deferred_refresh($self->{_screen}->R_LISTING);
 	}
 	return $self->{_baseindex};
 }
@@ -153,7 +156,7 @@ sub setview {
 	$self->{_currentline} = $line;
 	$self->{_baseindex}   = $index;
 	$self->validate_position();
-	$_screen->set_deferred_refresh($_screen->R_LISTING);
+	$self->{_screen}->set_deferred_refresh($self->{_screen}->R_LISTING);
 	return ($self->{_currentline}, $self->{_baseindex});
 }
 
@@ -195,13 +198,15 @@ are to be intercepted by the application.
 
 sub mouse_mode {
 	my ($self, $value) = @_;
+	my $screen = $self->{_screen};
 	if (defined($value)) {
+		# next line is an assignment on purpose
 		if ($self->{_mouse_mode} = $value) {
-			$_screen->mouse_enable();
+			$screen->mouse_enable();
 		} else {
-			$_screen->mouse_disable();
+			$screen->mouse_disable();
 		}
-		$_screen->set_deferred_refresh($_screen->R_FOOTER);
+		$screen->set_deferred_refresh($screen->R_FOOTER);
 	}
 	return $self->{_mouse_mode};
 }
@@ -215,9 +220,10 @@ considers its current directory as 'swap' directory.
 
 sub swap_mode {
 	my ($self, $value) = @_;
+	my $screen = $self->{_screen};
 	if (defined($value)) {
 		$self->{_swap_mode} = $value;
-		$_screen->set_deferred_refresh($_screen->R_FRAME);
+		$screen->set_deferred_refresh($screen->R_FRAME);
 	}
 	return $self->{_swap_mode};
 }
@@ -237,7 +243,7 @@ sub validate_position {
 	my ($self) = @_;
 	# requirement:
 	# $showncontents[ $self->{_currentline} + $self->{_baseindex} ] is defined
-	my $screenheight  = $_screen->screenheight;
+	my $screenheight  = $self->{_screen}->screenheight;
 	my $oldbaseindex  = $self->{_baseindex};
 	my @showncontents = @{$_pfm->state->directory->showncontents};
 	
@@ -261,7 +267,7 @@ sub validate_position {
 	# By limiting the number of listing-refreshes to when the baseindex
 	# is/might have been changed, browsing becomes snappier.
 	if ($oldbaseindex != $self->{_baseindex}) {
-		$_screen->set_deferred_refresh($_screen->R_LISTING);
+		$self->{_screen}->set_deferred_refresh($self->{_screen}->R_LISTING);
 	}
 }
 
@@ -291,7 +297,7 @@ sub position_cursor {
 	$self->{_position_at}    = '';
 	$self->{_position_exact} = 0;
 	$self->validate_position();
-	$_screen->set_deferred_refresh($_screen->R_LISTING);
+	$self->{_screen}->set_deferred_refresh($self->{_screen}->R_LISTING);
 }
 
 =item position_cursor_fuzzy( [ string $filename ] )
@@ -352,7 +358,7 @@ sub position_cursor_fuzzy {
 	$self->{_position_at}    = '';
 	$self->{_position_exact} = 0;
 	$self->validate_position();
-	$_screen->set_deferred_refresh($_screen->R_LISTING);
+	$self->{_screen}->set_deferred_refresh($self->{_screen}->R_LISTING);
 }
 
 =item find_best_find_match(string $seek, string $first, string $second )
@@ -389,7 +395,7 @@ the directory.
 sub handlescroll {
 	my ($self, $key) = @_;
 	my $up = ($key =~ /^\cE$/o);
-	my $screenheight  = $_screen->screenheight;
+	my $screenheight  = $self->{_screen}->screenheight;
 	my $showncontents = $_pfm->state->directory->showncontents;
 	return 0 if ( $up and
 				  $self->{_baseindex} == $#$showncontents and
@@ -414,20 +420,20 @@ Handles the keys which move around in the current directory.
 sub handlemove {
 	my ($self, $key) = @_;
 	local $_ = $key;
-	my $screenheight   = $_screen->screenheight;
+	my $screenheight   = $self->{_screen}->screenheight;
 	my $baseindex      = $self->{_baseindex};
 	my $currentline    = $self->{_currentline};
 	my $showncontents  = $_pfm->state->directory->showncontents;
-	my $wheeljumpsize  = $_pfm->config->{mousewheeljumpsize};
+	my $wheeljumpsize  = $self->{_config}->{mousewheeljumpsize};
 	if ($wheeljumpsize eq 'variable') {
 		$wheeljumpsize = sprintf('%d',
-			0.5 + $#$showncontents / $_pfm->config->{mousewheeljumpratio});
+			0.5 + $#$showncontents / $self->{_config}->{mousewheeljumpratio});
 		$wheeljumpsize = max(
 			min(
 				$wheeljumpsize,
-				$_pfm->config->{mousewheeljumpmax},
+				$self->{_config}->{mousewheeljumpmax},
 			),
-			$_pfm->config->{mousewheeljumpmin},
+			$self->{_config}->{mousewheeljumpmin},
 			1,
 		);
 	}
@@ -458,7 +464,9 @@ If unsuccessful, we return false.
 
 sub handle {
 	my ($self, $event) = @_;
+	my $screenheight = $self->{_screen}->screenheight;
 	my $handled = 0;
+	my $BASELINE;
 	if ($event->{type} eq 'key' and
 		$event->{data} =~ MOTION_COMMANDS)
 	{
@@ -468,6 +476,17 @@ sub handle {
 	{
 		$handled = $self->handlescroll($event->{data});
 	} else {
+		if ($event->{type} eq 'mouse') {
+			$BASELINE = $self->{_screen}->BASELINE;
+			if ($event->{mouserow} >= $BASELINE and
+				$event->{mouserow} <= $BASELINE + $screenheight)
+			{
+				# potentially on a fileline (might be diskinfo column though)
+				$event->{mouseitem} = ${$_pfm->state->directory->showncontents}[
+					$self->{_baseindex} + $event->{mouserow} - $BASELINE
+				];
+			}
+		}
 		# pass it to the commandhandler
 		$event->{name} = 'after_receive_non_motion_input';
 		$event->{currentfile}           = $self->currentfile;
@@ -502,31 +521,32 @@ sub browse {
 	my ($self) = @_;
 	my ($event, $command_result);
 	# prefetch objects
-	my $listing = $_screen->listing;
+	my $screen  = $self->{_screen};
+	my $listing = $screen->listing;
 	until ($command_result eq 'quit') {
-		$_screen->refresh();
+		$screen->refresh();
 		$listing->highlight_on();
 		# don't send mouse escapes to the terminal if not necessary
-		$_screen->mouse_enable()
-			if $self->{_mouse_mode} && $_pfm->config->{mouseturnoff};
+		$screen->mouse_enable()
+			if $self->{_mouse_mode} && $self->{_config}->{mouseturnoff};
 		# enter main wait loop, which is exited on a resize event
 		# or on keyboard/mouse input.
 		$self->_wait_loop();
 		# find out what happened
-		$event = $_screen->get_event();
+		$event = $screen->get_event();
 		# was it a resize?
 		if ($event->{name} eq 'resize_window') {
-			$_screen->handleresize();
+			$screen->handleresize();
 		} else {
 			# must be keyboard/mouse input here
 			$listing->highlight_off();
-			$_screen->mouse_disable() if $_pfm->config->{mouseturnoff};
+			$screen->mouse_disable() if $self->{_config}->{mouseturnoff};
 			# the next line contains an assignment on purpose
 			if ($command_result = $self->handle($event))
 			{
 				# if the received input was valid, then the current
 				# cursor position must be validated again
-				$_screen->set_deferred_refresh($_screen->R_STRIDE);
+				$screen->set_deferred_refresh($screen->R_STRIDE);
 			}
 		}
 	}

@@ -21,8 +21,6 @@
 
 - in install.sh wordt ${pkgadd} niet geinterpoleerd
 
-- sort mode 'es': bug
-
 - Update: give error if starting version too low
 
 - call $pfm->checkupdates() in '@' (perlcommand) does not finish the job;
@@ -46,10 +44,11 @@
 
 - have directories keep track of their own background jobs
 
-- pass events from handlemore() to handlemore*()
-
 - make our() variables member variables
 - store $browser->{_screen, _config, _main_state}; remove _pfm
+  | $_pfm->config->{mouseturnoff};
+  | $_pfm->state->directory->showncontents;
+  | $_pfm->state->sort_mode
 
 - standardize the names of constants
   Config::READ_FIRST?
@@ -75,8 +74,6 @@
 
 - implement 'after_create_entry'
 
-- use lookahead in handlemousefootercommand
-
 - TEST: have Browser determine on which file the mouse was clicked, and pass that
   "current"file + "current"line to in the event to the CommandHandler
 
@@ -94,7 +91,6 @@
 - figure out and display if an ACL is applicable for a file
 
 - add (M)ore - (O)pen window?
-- add e(X)clude - (.)dotfiles?
 
 ################################################################################
 # documentation enhancements
