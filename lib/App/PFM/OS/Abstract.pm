@@ -43,7 +43,7 @@ use strict;
 
 use constant {
 	MINORBITS => 2 ** 8,
-	IFMTCHARS => ' pc?d?b?-nl?sDw?', # includes whiteouts
+	IFMTCHARS => ' pc?d?b?-Cl?sDw?', # whiteouts and contiguous files
 };
 
 our ($AUTOLOAD);

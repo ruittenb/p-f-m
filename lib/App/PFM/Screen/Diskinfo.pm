@@ -34,7 +34,7 @@ a count of marked files, identity and clock.
 
 package App::PFM::Screen::Diskinfo;
 
-use base 'App::PFM::Abstract';
+use base qw(App::PFM::Abstract Exporter);
 
 use App::PFM::Util qw(formatted fit2limit max);
 use POSIX qw(strftime);
@@ -43,14 +43,26 @@ use locale;
 use strict;
 
 use constant {
-	DISKINFOLINE	=> 4,
-	DIRINFOLINE		=> 9,
-	MARKINFOLINE	=> 15,
-	USERINFOLINE	=> 21,
-	DATEINFOLINE	=> 22,
+	LINE_DISKINFO	=> 4,
+	LINE_DIRINFO	=> 9,
+	LINE_MARKINFO	=> 15,
+	LINE_USERINFO	=> 21,
+	LINE_DATEINFO	=> 22,
 };
 
 use constant IDENTMODES => { user => 0, host => 1, 'user@host' => 2 };
+
+our %EXPORT_TAGS = (
+	constants => [ qw(
+		LINE_DISKINFO
+		LINE_DIRINFO
+		LINE_MARKINFO
+		LINE_USERINFO
+		LINE_DATEINFO
+	) ]
+);
+
+our @EXPORT_OK = @{$EXPORT_TAGS{constants}};
 
 our ($_pfm, $_screen);
 
@@ -188,14 +200,14 @@ sub show {
 		$infocol - length($currentformatline)-$filerecordcol,
 		$filerecordcol - $self->{_infolength}));
 	$self->disk_info();
-	$_screen->at(DIRINFOLINE-2, $infocol)->puts($spaces);
+	$_screen->at(LINE_DIRINFO-2, $infocol)->puts($spaces);
 	$self->dir_info();
-	$_screen->at(MARKINFOLINE-2, $infocol)->puts($spaces);
+	$_screen->at(LINE_MARKINFO-2, $infocol)->puts($spaces);
 	$self->mark_info();
-	$_screen->at(USERINFOLINE-1, $infocol)->puts($spaces);
+	$_screen->at(LINE_USERINFO-1, $infocol)->puts($spaces);
 	$self->user_info();
 	$self->clock_info();
-	foreach (DATEINFOLINE+2 .. $_screen->BASELINE + $_screen->screenheight) {
+	foreach (LINE_DATEINFO+2 .. $_screen->BASELINE + $_screen->screenheight) {
 		$_screen->at($_, $infocol)->puts($spaces);
 	}
 	return $_screen;
@@ -224,7 +236,7 @@ Displays the hostname, username or username@hostname.
 
 sub user_info {
 	my ($self) = @_;
-	$_screen->at(USERINFOLINE, $self->{_infocol})->putcolored(
+	$_screen->at(LINE_USERINFO, $self->{_infocol})->putcolored(
 		($> ? 'normal' : 'red'), $self->_str_informatted($self->{_ident})
 	);
 }
@@ -239,7 +251,7 @@ sub disk_info {
 	my ($self) = @_;
 	my @desc      = ('K tot','K usd','K avl');
 	my @values    = @{$_pfm->state->directory->disk}{qw/total used avail/};
-	my $startline = DISKINFOLINE;
+	my $startline = LINE_DISKINFO;
 	$_screen->at($startline-1, $self->{_infocol})
 		->puts($self->_str_informatted('Disk space'));
 	foreach (0..2) {
@@ -267,7 +279,7 @@ sub dir_info {
 			   + $total_nr_of{'p'} + $total_nr_of{'s'}
 			   + $total_nr_of{'D'} + $total_nr_of{'w'}
 			   + $total_nr_of{'n'};
-	my $startline = DIRINFOLINE;
+	my $startline = LINE_DIRINFO;
 	my $heading = 'Directory';
 	# pfm1 style
 #	my $heading = 'Directory'
@@ -298,7 +310,7 @@ sub mark_info {
 			   + $selected_nr_of{'p'} + $selected_nr_of{'s'}
 			   + $selected_nr_of{'D'} + $selected_nr_of{'w'}
 			   + $selected_nr_of{'n'};
-	my $startline = MARKINFOLINE;
+	my $startline = LINE_MARKINFO;
 	my $heading = 'Marked files';
 	my $total = 0;
 	$values[0] = join ('', fit2limit($values[0], 9_999_999));
@@ -321,7 +333,7 @@ Displays the clock in the diskinfo column.
 
 sub clock_info {
 	my ($self) = @_;
-	my $line = DATEINFOLINE;
+	my $line = LINE_DATEINFO;
 	my $now = time;
 	my $date = strftime($_pfm->config->{clockdateformat}, localtime $now),
 	my $time = strftime($_pfm->config->{clocktimeformat}, localtime $now);
@@ -334,6 +346,36 @@ sub clock_info {
 }
 
 ##########################################################################
+
+=back
+
+=head1 CONSTANTS
+
+This package provides the several constants defining screen line numbers
+for blocks of information.
+They can be imported with C<use App::PFM::Screen::Frame qw(:constants)>.
+
+=over
+
+=item LINE_DISKINFO
+
+The screenline of the start of the disk info block.
+
+=item LINE_DIRINFO
+
+The screenline of the start of the directory info block.
+
+=item LINE_MARKINFO
+
+The screenline of the start of the marked file info block.
+
+=item LINE_USERINFO
+
+The screenline of the start of the ident information.
+
+=item LINE_DATEINFO
+
+The screenline of the start of the date/time block.
 
 =back
 

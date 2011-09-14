@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Frame 0.32
+# @(#) App::PFM::Screen::Frame 0.33
 #
 # Name:			App::PFM::Screen::Frame
-# Version:		0.32
+# Version:		0.33
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-24
+# Date:			2010-08-25
 #
 
 ##########################################################################
@@ -34,7 +34,7 @@ and panning it.
 
 package App::PFM::Screen::Frame;
 
-use base 'App::PFM::Abstract';
+use base qw(App::PFM::Abstract Exporter);
 
 use App::PFM::Util qw(formatted max);
 
@@ -56,9 +56,9 @@ use constant {
 	HEADING_ESCAPE		=> 3,
 	HEADING_CRITERIA	=> 4,
 	HEADING_BOOKMARKS	=> 8,
-	FOOTER_SINGLE       => 0,
-	FOOTER_MULTI        => 1,
-	FOOTER_NONE         => 65536,
+	FOOTER_SINGLE		=> 0,
+	FOOTER_MULTI		=> 1,
+	FOOTER_NONE			=> 65536,
 };
 
 my %ONOFF = ('' => 'off', 0 => 'off', 1 => 'on');
@@ -89,6 +89,30 @@ our %_fieldheadings = (
 	rcs				=> 'rcs',
 	diskinfo		=> 'disk info',
 );
+
+our %EXPORT_TAGS = (
+	constants => [ qw(
+		MENU_SINGLE
+		MENU_MULTI
+		MENU_MORE
+		MENU_SORT
+		MENU_INCLUDE
+		MENU_EXCLUDE
+		MENU_LNKTYPE
+		MENU_NONE
+		HEADING_DISKINFO
+		HEADING_YCOMMAND
+		HEADING_SORT
+		HEADING_ESCAPE
+		HEADING_CRITERIA
+		HEADING_BOOKMARKS
+		FOOTER_SINGLE
+		FOOTER_MULTI
+		FOOTER_NONE
+	) ]
+);
+
+our @EXPORT_OK = @{$EXPORT_TAGS{constants}};
 
 our ($_pfm, $_screen);
 
@@ -293,7 +317,7 @@ sub rcsrunning {
 ##########################################################################
 # public subs
 
-=item show( { menu => int $menu_mode, footer => int $footer_mode,
+=item show(hashref { menu => int $menu_mode, footer => int $footer_mode,
 headings => int $heading_mode, prompt => string $prompt } )
 
 Displays menu, footer and headings according to the specified modes.
@@ -481,6 +505,89 @@ sub pan {
 ##########################################################################
 
 =back
+
+=head1 CONSTANTS
+
+This package provides the several constants identifying menus, headers
+and footer.
+They can be imported with C<use App::PFM::Screen::Frame qw(:constants)>.
+
+=over
+
+=item MENU_SINGLE
+
+The standard menu for single file mode.
+
+=item MENU_MULTI
+
+The standard menu for multiple file mode.
+
+=item MENU_MORE
+
+The menu for the B<M>ore command.
+
+=item MENU_SORT
+
+The menu for the B<F6> command.
+
+=item MENU_INCLUDE
+
+The menu for the B<I>nclude command.
+
+=item MENU_EXCLUDE
+
+The menu for the eB<X>clude command.
+
+=item MENU_LNKTYPE
+
+The menu for the B<L>ink command.
+
+=item MENU_NONE
+
+Display no menu.
+
+=item HEADING_DISKINFO
+
+The standard heading for single file mode (diskinfo is shown).
+
+=item HEADING_YCOMMAND
+
+The heading for the B<Y>our command ('your' commands are shown).
+
+=item HEADING_SORT
+
+The heading for the B<F6> command (sort modes are shown).
+
+=item HEADING_ESCAPE
+
+The heading for cB<O>mmand (the B<=1> I<etc.> escapes are shown).
+
+=item HEADING_CRITERIA
+
+The for B<I>nclude and e<X>clude (selection criteria are shown).
+
+=item HEADING_BOOKMARKS
+
+The heading for bookmarks.
+
+=item FOOTER_SINGLE
+
+The standard footer for single file mode.
+
+=item FOOTER_MULTI
+
+The standard footer for single file mode.
+
+=item FOOTER_NONE
+
+Display no footer.
+
+=back
+
+These constants may be provided to the methods that display menu,
+headings and footer, I<e.g.>
+
+    $frame->show_menu(MENU_SORT);
 
 =head1 SEE ALSO
 

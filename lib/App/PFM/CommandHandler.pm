@@ -35,10 +35,12 @@ package App::PFM::CommandHandler;
 
 use base 'App::PFM::Abstract';
 
-use App::PFM::Util		qw(:all);
-use App::PFM::History	qw(:constants); # imports the H_* constants
-use App::PFM::Screen	qw(:constants); # imports the R_* constants
-use App::PFM::Directory qw(:constants); # imports the M_* constants
+use App::PFM::Util			qw(:all);
+use App::PFM::History		qw(:constants); # imports the H_* constants
+use App::PFM::Directory 	qw(:constants); # imports the M_* constants
+use App::PFM::Screen		qw(:constants); # imports the R_* constants
+use App::PFM::Screen::Frame qw(:constants); # imports the MENU_*, HEADING_*
+											#         and FOOTER_* constants
 
 use POSIX qw(strftime mktime);
 use Config;
@@ -455,8 +457,8 @@ sub _listbookmarks {
 	$_screen
 		->set_deferred_refresh(R_SCREEN)
 		->show_frame({
-			headings => $_screen->frame->HEADING_BOOKMARKS,
-			footer => $_screen->frame->FOOTER_NONE,
+			headings => HEADING_BOOKMARKS,
+			footer   => FOOTER_NONE,
 		});
 	# list bookmarks
 	foreach (@{$_pfm->BOOKMARKKEYS}) {
@@ -588,8 +590,7 @@ sub handle {
 		/^k8$/o				and $self->handlemark(),				last;
 		/^k11$/o			and $self->handlerestat(),				last;
 		/^[\/f]$/io			and $self->handlefind(),				last;
-		/^[<>]$/io			and $self->handlepan($_,
-								$_screen->frame->MENU_SINGLE),		last;
+		/^[<>]$/io			and $self->handlepan($_, MENU_SINGLE),	last;
 		/^(?:k3|\cL|\cR)$/o	and $self->handlefit(),					last;
 		/^t$/io				and $self->handletime(),				last;
 		/^a$/io				and $self->handlechmod(),				last;
@@ -982,7 +983,7 @@ sub handlequit {
 	return 'quit' if
 		($confirmquit =~ /marked/i and !$_screen->diskinfo->mark_info);
 	$_screen->show_frame({
-			footer => $_screen->frame->FOOTER_NONE,
+			footer => FOOTER_NONE,
 			prompt => 'Are you sure you want to quit [Y/N]? '
 	});
 	my $sure = $_screen->getch();
@@ -1017,7 +1018,7 @@ sub handleperlcommand {
 	# now do!
 	$_screen->listing->markcurrentline('@'); # disregard multiple_mode
 	$_screen->show_frame({
-			footer => $_screen->frame->FOOTER_NONE,
+			footer => FOOTER_NONE,
 			prompt => 'Enter Perl command:'
 	});
 	$_screen->at($_screen->PATHLINE,0)->clreol()->cooked_echo();
@@ -1229,7 +1230,7 @@ sub handlelink {
 	}
 	
 	$headerlength = $_screen->show_frame({
-		menu => $_screen->frame->MENU_LNKTYPE,
+		menu => MENU_LNKTYPE,
 	});
 	$absrel = $_screen->at(0, $headerlength+1)->getch();
 	return unless $absrel =~ /^[arh]$/;
@@ -1314,9 +1315,9 @@ sub handlesort {
 	my %sortmodes = @SORTMODES;
 	my ($i, $key, $menulength);
 	$menulength = $frame->show({
-		menu     => $frame->MENU_SORT,
-		footer   => $frame->FOOTER_NONE,
-		headings => $frame->HEADING_SORT,
+		menu     => MENU_SORT,
+		footer   => FOOTER_NONE,
+		headings => HEADING_SORT,
 	});
 	$_screen->diskinfo->clearcolumn();
 	# we can't use foreach (keys %sortmodes) because we would lose ordering
@@ -1718,15 +1719,13 @@ sub handleinclude { # include/exclude flag (from keypress)
 		$_screen->at($printline++, $infocol)
 			->puts(sprintf('%1s %s', $_, $inc_criteria{$_}));
 	}
-	my $menu_mode = $exin eq 'x'
-		? $_screen->frame->MENU_EXCLUDE
-		: $_screen->frame->MENU_INCLUDE;
+	my $menu_mode = $exin eq 'x' ? MENU_EXCLUDE : MENU_INCLUDE;
 	$menulength = $_screen
 		->set_deferred_refresh(R_FRAME | R_PATHINFO | R_DISKINFO)
 		->show_frame({
-			menu => $menu_mode,
-			footer => $_screen->frame->FOOTER_NONE,
-			headings => $_screen->frame->HEADING_CRITERIA
+			menu     => $menu_mode,
+			footer   => FOOTER_NONE,
+			headings => HEADING_CRITERIA
 		});
 	$key = lc $_screen->at(0, $menulength+1)->getch();
 	if      ($key eq 'o') { # oldmarks
@@ -1935,9 +1934,9 @@ sub handlecommand { # Y or O
 						substr($printstr,0,$infolength-2)));
 		}
 		$_screen->show_frame({
-			headings => $_screen->frame->HEADING_YCOMMAND,
-			footer => $_screen->frame->FOOTER_NONE,
-			prompt => $prompt,
+			headings => HEADING_YCOMMAND,
+			footer   => FOOTER_NONE,
+			prompt   => $prompt,
 		});
 		$key = $_screen->getch();
 		$_screen->diskinfo->clearcolumn()
@@ -1956,9 +1955,9 @@ sub handlecommand { # Y or O
 			}
 		}
 		$_screen->show_frame({
-			menu => $_screen->frame->MENU_NONE,
-			footer => $_screen->frame->FOOTER_NONE,
-			headings => $_screen->frame->HEADING_ESCAPE,
+			menu     => MENU_NONE,
+			footer   => FOOTER_NONE,
+			headings => HEADING_ESCAPE,
 		});
 		$_screen->set_deferred_refresh(R_DISKINFO);
 		$_screen->at(0,0)->clreol()->putmessage($prompt)
@@ -2013,14 +2012,13 @@ Executes a print command.
 sub handleprint {
 	my ($self) = @_;
 	my ($do_this, $command);
-	my $prompt = 'Enter print command: ';
 	my $printcmd = $_pfm->config->{printcmd};
 	if (!$_pfm->state->{multiple_mode}) {
 		$_screen->listing->markcurrentline('P');
 	}
 	$_screen->show_frame({
-		footer => $_screen->frame->FOOTER_NONE,
-		prompt => $prompt,
+		footer => FOOTER_NONE,
+		prompt => 'Enter print command: ',
 	});
 	$_screen->at($_screen->PATHLINE, 0)->clreol()
 		->cooked_echo();
@@ -2065,7 +2063,7 @@ sub handledelete {
 	if ($_pfm->state->{multiple_mode} or $browser->currentfile->{nlink}) {
 		$_screen->set_deferred_refresh(R_MENU | R_FOOTER)
 			->show_frame({
-				footer => $_screen->frame->FOOTER_NONE,
+				footer => FOOTER_NONE,
 				prompt => 'Are you sure you want to delete [Y/N]? ',
 			});
 		$sure = $_screen->getch();
@@ -2257,7 +2255,7 @@ sub handlemousedown {
 		or	($mousecol >= $_screen->diskinfo->infocol
 		and	$_screen->diskinfo->infocol > $listing->filerecordcol))
 	{
-		$self->handleident() if $mouserow == $_screen->diskinfo->USERINFOLINE;
+		$self->handleident() if $mouserow == $_screen->diskinfo->L_USERINFO;
 	} elsif (defined ${$_pfm->state->directory->showncontents}[
 		$mouserow - $_screen->BASELINE + $_pfm->browser->baseindex])
 	{
@@ -2436,8 +2434,8 @@ sub handlemore {
 #		->set_deferred_refresh(R_MENU);
 	my $headerlength = $_screen->noecho()->set_deferred_refresh(R_MENU)
 		->show_frame({
-			footer => $frame->FOOTER_NONE,
-			menu   => $frame->MENU_MORE,
+			footer => FOOTER_NONE,
+			menu   => MENU_MORE,
 		});
 	MORE_PAN: {
 		$key = $_screen->at(0, $headerlength+1)->getch();
@@ -2456,8 +2454,8 @@ sub handlemore {
 			/^p$/io		and $self->handlemorephyspath(),	last MORE_PAN;
 			/^a$/io		and $self->handlemoreacl(),			last MORE_PAN;
 			/^[<>]$/io	and do {
-				$self->handlepan($_, $frame->MENU_MORE);
-				$headerlength = $frame->show_menu($frame->MENU_MORE);
+				$self->handlepan($_, MENU_MORE);
+				$headerlength = $frame->show_menu(MENU_MORE);
 #				$frame->show_footer();
 				redo MORE_PAN;
 			};
@@ -2625,7 +2623,7 @@ sub handlemorebookmark {
 	# choice
 	$self->_listbookmarks();
 	$_screen->show_frame({
-		footer => $_screen->frame->FOOTER_NONE,
+		footer => FOOTER_NONE,
 		prompt => 'Bookmark under which letter? ',
 	});
 	$key = $_screen->getch();

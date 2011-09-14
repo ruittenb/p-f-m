@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::File 0.35
+# @(#) App::PFM::File 0.36
 #
 # Name:			App::PFM::File
-# Version:		0.35
+# Version:		0.36
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-22
+# Date:			2010-08-26
 #
 
 ##########################################################################
@@ -44,18 +44,16 @@ use locale;
 
 my @SYMBOLIC_MODES = qw(--- --x -w- -wx r-- r-x rw- rwx);
 
-my $IFMT2STR = ($^O eq 'solaris' or $^O eq 'sunos')
-				? ' pc?d?b?-nl?sDP?' # Solaris has event ports
-				: ' pc?d?b?-nl?sDw?';# BSD has whiteouts
-
 our ($_pfm);
 
 ##########################################################################
 # private subs
 
-=item _init()
+=item _init(hashref { parent => string $parent_dir, entry => string
+$filename, white => char $iswhite, mark => char $selected_flag } )
 
 Initializes new instances. Called from the constructor.
+If I<entry> is defined, the method stat_entry() is called automatically.
 
 =cut
 
@@ -100,9 +98,9 @@ sub _decidecolor {
 ##########################################################################
 # public subs
 
-=item mode2str()
+=item mode2str(int $st_mode)
 
-Converts a numeric file mode (permission bits) to a symbolic one
+Converts a numeric I<st_mode> field (permission bits) to a symbolic one
 (I<e.g.> C<drwxr-x--->).
 
 Possible inode types are:
@@ -119,7 +117,7 @@ Possible inode types are:
  6000  S_IFBLK   b   060000  block special
  7000  S_IFMPB       070000  multiplexed block special (V7)
  8000  S_IFREG   -   100000  regular
- ?     S_IFCNT   C   ?       contiguous file
+ 9000  S_IFCNT   C   110000  contiguous file
  9000  S_IFNWK   n   110000  network special (HP-UX)
  a000  S_IFLNK   l@  120000  symbolic link
  b000  S_IFSHAD      130000  Solaris ACL shadow inode,
@@ -128,6 +126,7 @@ Possible inode types are:
  d000  S_IFDOOR  D>  150000  door (Solaris)
  e000  S_IFWHT   w%  160000  whiteout (BSD)
  e000  S_IFPORT  P   160000  event port (Solaris)
+ f000  S_IFEVC       170000  UNOS event count
 
 =cut
 
@@ -151,7 +150,7 @@ sub mode2str {
 	return $strmode;
 }
 
-=item stamp2str()
+=item stamp2str(int $timestamp)
 
 Formats a timestamp for printing.
 
@@ -162,14 +161,14 @@ sub stamp2str {
 	return strftime($_pfm->config->{timestampformat}, localtime $time);
 }
 
-=item stat_entry()
+=item stat_entry(string $entry, char $iswhite, char $selected_flag)
 
 Initializes the current file information by performing a stat() on it.
 
-The $iswhite argument is provided because the directory already has an
-idea if this file is a whiteout. Allowed values: 'w', '?', ''.
+The I<iswhite> argument indicates if the directory already has
+an idea if this file is a whiteout. Allowed values: 'w', '?', ''.
 
-The $selected_flag argument is used to have the caller specify whether
+The I<selected_flag> argument is used to have the caller specify whether
 the 'selected' field of the file info should be cleared (when reading
 a new directory) or kept intact (when re-statting).
 
@@ -270,9 +269,17 @@ sub format {
 	$self->{color} = $self->_decidecolor();
 }
 
-=item apply()
+=item apply(coderef $do_this, string $special_mode, array @args)
 
 Applies the supplied function to the current file.
+The function will be called as C<< $do_this->($self, @args) >>
+where I<self> is the current File object.
+
+The current file will be temporarily unregistered from the current
+directory for the duration of do_this().
+
+If I<special_mode> does not equal 'norestat', the file is re-stat()
+after executing do_this().
 
 =cut
 

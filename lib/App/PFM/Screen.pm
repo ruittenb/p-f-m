@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen 0.32
+# @(#) App::PFM::Screen 0.33
 #
 # Name:			App::PFM::Screen
-# Version:		0.32
+# Version:		0.33
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-25
+# Date:			2010-08-26
 # Requires:		Term::ScreenColor
 #
 
@@ -37,9 +37,10 @@ package App::PFM::Screen;
 
 use base qw(App::PFM::Abstract Term::ScreenColor Exporter);
 
-use App::PFM::Screen::Frame;
 use App::PFM::Screen::Listing;
-use App::PFM::Screen::Diskinfo;
+use App::PFM::Screen::Diskinfo qw(:constants);  # imports the LINE_* constants
+use App::PFM::Screen::Frame    qw(:constants);  # imports the MENU_*, HEADER_*
+												#         and FOOTER_* constants
 use App::PFM::Util qw(fitpath max);
 use POSIX qw(getcwd);
 
@@ -97,7 +98,7 @@ our ($_pfm, $_wasresized);
 ##########################################################################
 # private subs
 
-=item _init()
+=item _init(App::PFM::Application $pfm)
 
 Called from the constructor. Initializes new instances. Stores the
 application object for later use and instantiates a App::PFM::Screen::Frame
@@ -134,7 +135,7 @@ sub _catch_resize {
 ##########################################################################
 # constructor, getters and setters
 
-=item new()
+=item new(array @args)
 
 Specific constructor for App::PFM::Screen. Constructs an object based on
 Term::ScreenColor.
@@ -150,9 +151,9 @@ sub new {
 	return $self;
 }
 
-=item screenwidth()
+=item screenwidth( [ int $screenwidth ] )
 
-=item screenheight()
+=item screenheight( [ int $screenheight ] )
 
 Getters/setters for the dimensions of the screen.
 
@@ -196,7 +197,7 @@ sub diskinfo {
 	return $self->{_diskinfo};
 }
 
-=item wasresized()
+=item wasresized( [ bool $wasresized ] )
 
 Getter/setter for the flag that indicates that the window was resized
 and needs to be updated.
@@ -209,7 +210,7 @@ sub wasresized {
 	return $_wasresized;
 }
 
-=item color_mode()
+=item color_mode( [ string $colormodename ] )
 
 Getter/setter for the choice of color mode (I<e.g.> 'dark', 'light',
 'ls_colors'). Schedules a screen refresh if the color mode is set.
@@ -237,12 +238,12 @@ Sets the terminal to I<raw> or I<cooked> mode.
 =cut
 
 sub raw_noecho {
-	my $self = shift;
+	my ($self) = @_;
 	$self->raw()->noecho();
 }
 
 sub cooked_echo {
-	my $self = shift;
+	my ($self) = @_;
 	$self->cooked()->echo();
 }
 
@@ -255,13 +256,13 @@ Tells the terminal to start/stop receiving information about the mouse.
 =cut
 
 sub mouse_enable {
-	my $self = shift;
+	my ($self) = @_;
 	print "\e[?9h";
 	return $self;
 }
 
 sub mouse_disable {
-	my $self = shift;
+	my ($self) = @_;
 	print "\e[?9l";
 	return $self;
 }
@@ -275,13 +276,13 @@ Switches to alternate terminal screen and back.
 =cut
 
 sub alternate_on {
-	my $self = shift;
+	my ($self) = @_;
 	print "\e[?47h";
 	return $self;
 }
 
 sub alternate_off {
-	my $self = shift;
+	my ($self) = @_;
 	print "\e[?47l";
 	return $self;
 }
@@ -293,7 +294,7 @@ Calculates the height and width of the screen.
 =cut
 
 sub calculate_dimensions {
-	my $self = shift;
+	my ($self) = @_;
 	my $newheight = $self->rows();
 	my $newwidth  = $self->cols();
 	if ($newheight || $newwidth) {
@@ -360,15 +361,16 @@ the cursor position.
 =cut
 
 sub handleresize {
-	my $self = shift;
+	my ($self) = @_;
 	$_wasresized = 0;
 	$self->fit();
 	return $self;
 }
 
-=item pending_input()
+=item pending_input(float $delay)
 
 Returns a boolean indicating that there is input ready to be processed.
+The delay indicates how long should be waited for input.
 
 =cut
 
@@ -383,7 +385,7 @@ sub pending_input {
 	return $input_ready;
 }
 
-=item show_frame( { menu => int $menu_mode, footer => int $footer_mode,
+=item show_frame(hashref { menu => int $menu_mode, footer => int $footer_mode,
 headings => int $heading_mode, prompt => string $prompt } )
 
 Uses the App::PFM::Screen::Frame object to redisplay the frame.
@@ -403,8 +405,8 @@ for the footer.
 =cut
 
 sub clear_footer {
-	my $self = shift;
-	$self->{_frame}->show_footer($self->{_frame}->FOOTER_NONE);
+	my ($self) = @_;
+	$self->{_frame}->show_footer(FOOTER_NONE);
 	$self->set_deferred_refresh(R_FOOTER);
 	return $self;
 }
@@ -416,7 +418,7 @@ Finds the next colorset to use.
 =cut
 
 sub select_next_color {
-	my $self = shift;
+	my ($self) = @_;
 	my @colorsetnames = @{$_pfm->config->{colorsetnames}};
 	my $index = $#colorsetnames;
 	while ($self->{_color_mode} ne $colorsetnames[$index] and $index > 0) {
@@ -430,9 +432,9 @@ sub select_next_color {
 
 }
 
-=item putcentered()
+=item putcentered(string $message)
 
-Displays a message on the current screen line, vertically centered.
+Displays a message on the current screen line, horizontally centered.
 
 =cut
 
@@ -441,7 +443,7 @@ sub putcentered {
 	$self->puts(' ' x (($self->{_screenwidth} - length $string)/2) . $string);
 }
 
-=item putmessage()
+=item putmessage(string $message_part1 [, string $message_part2 ... ] )
 
 Displays a message in the configured message color.
 Accepts an array with message fragments.
@@ -467,7 +469,7 @@ Displays a message and waits for a key to be pressed.
 =cut
 
 sub pressanykey {
-	my $self = shift;
+	my ($self) = @_;
 	$self->putmessage("\r\n*** Hit any key to continue ***");
 	$self->raw_noecho();
 	if ($_pfm->browser->mouse_mode && $_pfm->config->{clickiskeypresstoo}) {
@@ -496,7 +498,7 @@ their marks in the current directory.
 =cut
 
 sub ok_to_remove_marks {
-	my $self = shift;
+	my ($self) = @_;
 	my $sure;
 	if ($_pfm->config->{remove_marks_ok} or
 		$self->{_diskinfo}->mark_info() <= 0)
@@ -512,7 +514,7 @@ sub ok_to_remove_marks {
 	return ($sure =~ /y/i);
 }
 
-=item display_error()
+=item display_error(string $message_part1 [, string $message_part2 ... ] )
 
 Displays an error which may be passed as an array with message
 fragments. Waits for a key to be pressed and returns the keypress.
@@ -525,7 +527,7 @@ sub display_error {
 	return $self->error_delay();
 }
 
-=item neat_error()
+=item neat_error(string $message_part1 [, string $message_part2 ... ] )
 
 Displays an error which may be passed as an array with message
 fragments. Waits for a key to be pressed and returns the keypress.
@@ -560,7 +562,7 @@ sub important_delay {
 	return $_[0]->key_pressed(IMPORTANTDELAY);
 }
 
-=item set_deferred_refresh()
+=item set_deferred_refresh(int $flag_bits)
 
 Flags a screen element as 'needs to be redrawn'.
 
@@ -572,7 +574,7 @@ sub set_deferred_refresh {
 	return $self;
 }
 
-=item unset_deferred_refresh()
+=item unset_deferred_refresh(int $flag_bits)
 
 Flags a screen element as 'does not need to be redrawn'.
 
@@ -594,7 +596,7 @@ sub refresh_headings {
 	my ($self) = @_;
 	if ($self->{_deferred_refresh} & R_HEADINGS) {
 		$self->{_frame}->show_headings(
-			$_pfm->browser->swap_mode, $self->{_frame}->HEADING_DISKINFO);
+			$_pfm->browser->swap_mode, HEADING_DISKINFO);
 		$self->{_deferred_refresh} &= ~R_HEADINGS;
 	}
 	return $self;
@@ -669,7 +671,7 @@ sub refresh {
 	}
 	if ($deferred_refresh & R_HEADINGS) {
 		$self->{_frame}->show_headings(
-			$_pfm->browser->swap_mode, $self->{_frame}->HEADING_DISKINFO);
+			$_pfm->browser->swap_mode, HEADING_DISKINFO);
 	}
 	if ($deferred_refresh & R_FOOTER) {
 		$self->{_frame}->show_footer();
@@ -677,10 +679,11 @@ sub refresh {
 	return $self;
 }
 
-=item path_info()
+=item path_info(bool $physical)
 
 Redisplays information about the current directory path and the current
-filesystem.
+filesystem. If the argument flag I<physical> is set, the physical
+pathname of the current directory is shown.
 
 =cut
 
@@ -692,10 +695,13 @@ sub path_info {
 		 ->puts($self->pathline($path, $directory->device));
 }
 
-=item pathline()
+=item pathline(string $path, string $device [, ref $baselen, ref $ellipssize ] )
 
 Formats the information about the current directory path and the current
-filesystem.
+filesystem.  The reference arguments are used by the CommandHandler for
+finding out where in the pathline the mouse was clicked. I<baselen> is
+set to the length of the pathline before the ellipsis string.
+I<ellipssize> is the length of the ellipsis string.
 
 =cut
 
