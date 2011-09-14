@@ -1,3 +1,7 @@
+2.06.5-alpha
+
+* fixed bug in cursor positioning after changing sort mode
+
 2.06.4-alpha
 
 * fixed: swap (F7) to current directory now updates the listing,

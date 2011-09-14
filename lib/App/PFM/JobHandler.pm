@@ -51,7 +51,7 @@ our ($_pfm);
 ##########################################################################
 # private subs
 
-=item _init()
+=item _init(App::PFM::Application $pfm)
 
 Initializes new instances. Called from the constructor.
 
@@ -66,7 +66,7 @@ sub _init {
 ##########################################################################
 # constructor, getters and setters
 
-=item job()
+=item job( [ int $index [, App::PFM::Job::Abstract $job ] ] )
 
 Getter/setter for the job with the specified jobnumber.
 
@@ -84,10 +84,12 @@ sub job {
 ##########################################################################
 # public subs
 
-=item start()
+=item start(string $subclass [, array @args ] )
 
 Starts one job of the type specified. Adds the job to the internal
 job stack. Returns the jobnumber.
+
+Arguments are passed to the constructor of the job.
 
 =cut
 
@@ -101,7 +103,7 @@ sub start {
 	return $#{$self->{_jobs}};
 }
 
-=item stop()
+=item stop(int $jobno)
 
 Stops the job with the provided jobnumber.
 
@@ -115,7 +117,7 @@ sub stop {
 	return $ret;
 }
 
-=item poll()
+=item poll(int $jobno)
 
 Polls the job with the number provided. If it is done, the job is
 removed from the stack. Returns a boolean indicating if the job is
@@ -161,6 +163,10 @@ sub pollall {
 =item count()
 
 Counts the number of running jobs.
+
+NOTE: This sub is unstable and should not be used because it sometimes causes
+a crash with the message: 'Modification of a read-only value attempted at
+JobHandler.pm line 169.'  The reason for this message is unknown.
 
 =cut
 

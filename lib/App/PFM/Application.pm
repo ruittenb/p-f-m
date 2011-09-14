@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.06.2
+# @(#) App::PFM::Application 2.06.5
 #
 # Name:			App::PFM::Application
-# Version:		2.06.2
+# Version:		2.06.5
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-06-21
+# Date:			2010-08-21
 #
 
 ##########################################################################
@@ -67,7 +67,7 @@ Initializes new instances. Called from the constructor.
 =cut
 
 sub _init {
-	my $self = shift;
+	my ($self) = @_;
 	($self->{VERSION}, $self->{LASTYEAR}) = $self->_findversion();
 	$self->{NEWER_VERSION} = '';
 	$self->{_bootstrapped} = 0;
@@ -76,13 +76,15 @@ sub _init {
 
 =item _findversionfromfile()
 
-Reads the current file and parses it to find the current version and
-last change date. These are returned as an array.
+Reads the current file and parses it to find the current version
+and last change date.
+
+Returns: (string $version, string $year)
 
 =cut
 
 sub _findversionfromfile {
-	my $self    = shift;
+#	my ($self)  = @_;
 	my $version = 'unknown';
 	# default year, in case the year cannot be determined
 	my $year    = 3 * 10 * 67;
@@ -104,10 +106,12 @@ sub _findversionfromfile {
 Determines the current version and year using the ROFFVERSION variable in
 the main package.
 
+Returns: (string $version, string $year)
+
 =cut
 
 sub _findversion {
-	my $self    = shift;
+#	my ($self)   = @_;
 	my ($version)=($main::ROFFVERSION =~ /^\.ds Vw \S+ pfm.pl ([a-z0-9.]+)$/ms);
 	my ($year)   =($main::ROFFVERSION =~ /^\.ds Yr (\d+)$/ms);
 	# default values, in case they cannot be determined
@@ -118,12 +122,13 @@ sub _findversion {
 
 =item _usage()
 
-Print usage information: commandline options and F<.pfmrc> file.
+Prints usage information for the user: commandline options and
+location of the F<.pfmrc> file.
 
 =cut
 
 sub _usage {
-	my $self      = shift;
+	my ($self) = @_;
 	$_screen->colorizable(1);
 	my $directory = $_screen->colored('underline', 'directory');
 	my $number    = $_screen->colored('underline', 'number');
@@ -147,7 +152,7 @@ Prints version information.
 =cut
 
 sub _printversion {
-	my $self = shift;
+	my ($self) = @_;
 	print "pfm ", $self->{VERSION}, "\r\n";
 }
 
@@ -159,9 +164,9 @@ Prints a goodbye message and restores the screen to a usable state.
 =cut
 
 sub _goodbye {
-	my $self  = shift;
-	my $bye   = 'Goodbye from your Personal File Manager!';
-	my $state = $self->{_states}{S_MAIN};
+	my ($self) = @_;
+	my $bye    = 'Goodbye from your Personal File Manager!';
+	my $state  = $self->{_states}{S_MAIN};
 	$_screen->cooked_echo()
 		->mouse_disable()
 		->alternate_off();
@@ -217,10 +222,12 @@ Getter for the App::PFM::JobHandler object.
 
 Getter for the App::PFM::Screen object.
 
-=item state()
+=item state( [ string $statename [, App::PFM::State $state ] ] )
 
-Getter for the current App::PFM::State object. If an argument is provided,
-it indicates which item from the state stack is to be returned.
+Getter/setter for the current App::PFM::State object. If a I<statename>
+is provided, it indicates which item from the state stack is to be returned.
+I<statename> defaults to B<S_MAIN> (the main state).
+
 The predefined constants B<S_MAIN>, B<S_SWAP> and B<S_PREV> can be used to
 refer to the main, swap and previous states.
 
@@ -259,7 +266,7 @@ sub state {
 	return $self->{_states}{$index};
 }
 
-=item newer_version()
+=item newer_version( [ string $version ] )
 
 Getter/setter for the variable that indicates the latest version on the
 pfm website.
@@ -275,7 +282,7 @@ sub newer_version {
 ##########################################################################
 # public subs
 
-=item openwindow()
+=item openwindow(App::PFM::File $file)
 
 Opens a new terminal window running pfm.
 
@@ -297,7 +304,7 @@ sub openwindow {
 	}
 }
 
-=item swap_states()
+=item swap_states(string $statename1, string $statename2)
 
 Swaps two state objects in the hash %_states.
 
@@ -329,10 +336,12 @@ sub checkupdates {
 	$_jobhandler->start('CheckUpdates', %on);
 }
 
-=item bootstrap()
+=item bootstrap( [ bool $silent ] )
 
-Initializes the application.
-Instantiates the necessary objects.
+Initializes the application and instantiates the necessary objects.
+
+The I<silent> argument suppresses output and may be used for testing
+if the application bootstraps correctly.
 
 =cut
 
@@ -411,7 +420,7 @@ been done yet.
 =cut
 
 sub run {
-	my $self = shift;
+	my ($self) = @_;
 	$self->bootstrap() if !$self->{_bootstrapped};
 	$_browser->browse();
 	$self->_goodbye();

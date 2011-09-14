@@ -1,8 +1,9 @@
 
-- cursor at 'lib', sort by name with mouse click: cursor ends up
-  at 'lib-app-pfm'
+################################################################################
+# issues
 
-- si(Z)e does not work correctly because a restat() is done afterwards
+- si(Z)e does not work correctly because a restat() is done afterwards.
+  The restat() is done in File::apply().
 
 - handlecopyrename: after overwrite? -> no, then cursor is moved anyway
 
@@ -12,4 +13,59 @@
   canonicalize_pathname()
 
 - after (C)opy, the rcs status is not automatically added 
+
+- when in (M)ore, the < key messes up the screen if the menu bar is
+  scrolled to the extreme left
+
+################################################################################
+# structural enhancements
+
+- rename R_DIRCONTENTS, R_DIRSORT, R_DIRFILTER to D_ constants (directory/dirty)
+  set_dirty_flag() etc.
+
+- Config->apply: call separate class's import() routines and have them import
+  the config options that are interesting for them.
+
+- restructure chdir(), handleswap() etc.
+
+- add a 'is_main' flag to directories so that they know if a job event may
+  trigger a screen update
+
+- have directories keep track of their own background jobs
+
+- have jobs use new events?
+
+- have the browser use events to tell the application that the commandhandler
+  should be called; keep the browser for browsing
+
+- extract abstract code so that browser may be reused for bookmarks and your
+  commands; ideally:
+  - Screen/Listing/File
+  - Screen/Listing/Bookmark
+  - Screen/Listing/Your
+  - Browser/File
+  - Browser/Bookmark
+  - Browser/Your
+
+################################################################################
+# functional enhancements
+
+- intercept bursts of input
+
+- keep marks when F5 refreshing
+
+- introduce SIGQUIT for interrupt multi?
+
+################################################################################
+# documentation enhancements
+
+- provide information about arguments.
+
+  DONE: Abstract Application Browser State JobHandler
+
+  TODO: CommandHandler Config Directory File History
+        Screen Util
+	Job/Abstract Job/Bazaar Job/CheckUpdates Job/Cvs Job/Git Job/RCS
+	Job/Subversion
+	Screen/Diskinfo Screen/Frame Screen/Listing
 

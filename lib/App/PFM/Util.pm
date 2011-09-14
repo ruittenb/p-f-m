@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Util 0.46
+# @(#) App::PFM::Util 0.47
 #
 # Name:			App::PFM::Util
-# Version:		0.46
+# Version:		0.47
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-06-20
+# Date:			2010-08-17
 #
 
 ##########################################################################
@@ -185,7 +185,7 @@ sub fit2limit ($$) {
 	return ($size_num, $size_power);
 }
 
-=item canonicalize_path()
+=item canonicalize_path(string $path)
 
 Turns a directory path into a canonical path (like realpath()),
 but does not resolve symlinks.
@@ -213,7 +213,36 @@ sub canonicalize_path ($) {
 	return $path;
 }
 
-=item reducepaths()
+=item semi_canonicalize_path(string $path)
+
+Turns a directory path into a canonical path (like realpath()),
+but does not resolve symlinks, nor B<.> and B<..> pathname
+components at the end of the string.
+
+=cut
+
+sub semi_canonicalize_path ($) {
+	# works like realpath() but does not resolve symlinks
+	my $path = shift;
+	1 while $path =~ s!/\./!/!g;
+	1 while $path =~ s!^\./+!!g;
+	1 while $path =~ s{/\./\.$}{/.}g;
+	1 while $path =~ s!
+		(^|/)				# start of string or following /
+		(?:\.?[^./][^/]*
+		|\.\.[^/]+)			# any filename except ..
+		/+					# any number of slashes
+		\.\.				# the name '..'
+		(?=/)				# followed by a slash
+		!$1!gx;
+	1 while $path =~ s!//!/!g;
+	1 while $path =~ s!^/\.\.(/|$)!/!g;
+	$path =~ s{(.)/$}{$1}g;
+	length($path) or $path = '/';
+	return $path;
+}
+
+=item reducepaths(string $firstpath, string $secondpath)
 
 Removes an identical prefix from two paths.
 
@@ -270,7 +299,7 @@ sub reversepath {
 	return canonicalize_path($result);
 }
 
-=item isorphan()
+=item isorphan(string $path)
 
 Returns if a symlink is an orphan symlink or not.
 
@@ -280,7 +309,7 @@ sub isorphan ($) {
 	return ! -e $_[0];
 }
 
-=item ifnotdefined()
+=item ifnotdefined(mixed $first, mixed $second)
 
 Emulates the perl 5.10 C<//> operator (returns the first argument
 if it is defined, otherwise the second).

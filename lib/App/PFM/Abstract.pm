@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Abstract 0.07
+# @(#) App::PFM::Abstract 0.10
 #
 # Name:			App::PFM::Abstract
-# Version:		0.07
+# Version:		0.10
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-13
+# Date:			2010-08-16
 #
 
 ##########################################################################
@@ -62,9 +62,11 @@ sub _clone() {
 ##########################################################################
 # constructor, getters and setters
 
-=item new()
+=item new( [ array @args ] )
 
 Constructor for all classes based on App::PFM::Abstract.
+
+The I<args> are passed to the _init() methods of individual classes.
 
 =cut
 
@@ -82,11 +84,13 @@ sub new {
 	return $self;
 }
 
-=item clone()
+=item clone( [ array @args ] )
 
 Clone one object to create an independent one. By calling
 the _clone() method, each class can define which contained objects
 must be recursively cloned.
+
+The I<args> are passed to the _init() methods of individual classes.
 
 =cut
 
@@ -106,21 +110,10 @@ sub clone {
 ##########################################################################
 # public subs
 
-=item register_listener()
+=item register_listener(string $event, coderef $code)
 
 Register the code reference provided as listener for the specified event.
-Example usage:
-
-	package Parent;
-
-	my $onGreet = sub {
-		system "xmessage 'Hello, world!'";
-	};
-	$child->register_listener('greetWorld', $onGreet);
-
-	package Child;
-
-	$self->fire('greetWorld');
+For an example, see below under fire().
 
 =cut
 
@@ -136,7 +129,7 @@ sub register_listener {
 	return 1;
 }
 
-=item unregister_listener()
+=item unregister_listener(string $event, coderef $code)
 
 Unregisters the code reference provided as listener for the specified event.
 
@@ -157,9 +150,32 @@ sub unregister_listener {
 	return $success;
 }
 
-=item fire()
+=item fire(string $event [, array @args ] )
 
 Fire an event. Calls all event handlers that have registered themselves.
+
+Example usage:
+
+	package Parent;
+
+	sub start()
+	{
+		my $onGreet = sub {
+			my $who = shift;
+			system "xmessage 'Hello, $who!'";
+		};
+		$child = new Child();
+		$child->register_listener('greetWorld', $onGreet);
+		$child->do_something();
+	}
+
+	package Child;
+
+	sub do_something()
+	{
+		my $self = shift;
+		$self->fire('greetWorld', 'Fred');
+	}
 
 =cut
 

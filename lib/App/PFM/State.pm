@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::State 0.12
+# @(#) App::PFM::State 0.13
 #
 # Name:			App::PFM::State
-# Version:		0.12
+# Version:		0.13
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-10
+# Date:			2010-06-16
 #
 
 ##########################################################################
@@ -44,7 +44,7 @@ our $_pfm;
 ##########################################################################
 # private subs
 
-=item _init()
+=item _init(App::PFM::Application $pfm)
 
 Initializes new instances. Called from the constructor.
 Instantiates a App::PFM::Directory object.
@@ -72,10 +72,12 @@ sub _init {
 	# clobber_mode sits in App::PFM::CommandHandler
 }
 
-=item _clone()
+=item _clone( [ array @args ] )
 
 Performs one phase of the cloning process by cloning an existing
 App::PFM::Directory instance.
+
+Arguments are passed to the clone() function of the Directory object.
 
 =cut
 
@@ -87,7 +89,7 @@ sub _clone {
 ##########################################################################
 # constructor, getters and setters
 
-=item directory()
+=item directory( [ App::PFM::Directory $directory ] )
 
 Getter/setter for the App::PFM::Directory object.
 
@@ -102,10 +104,13 @@ sub directory {
 ##########################################################################
 # public subs
 
-=item prepare()
+=item prepare(string $path)
 
 Prepares the contents of this state object. Called in case this state
 is not to be displayed on-screen right away.
+
+The I<path> argument is passed to the prepare() method of the Directory
+object.
 
 =cut
 
