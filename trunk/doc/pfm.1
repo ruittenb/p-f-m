@@ -124,13 +124,13 @@
 .\" ========================================================================
 .\"
 .IX Title "PFM 1"
-.TH PFM 1 "2010-09-23" " " " "
+.TH PFM 1 "2010-09-29" " " " "
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
 .nh
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.09.3
+.ds Vw @(#) pfm.pl 2.09.4
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -486,7 +486,8 @@ the editor specified with the 'editor' option in the config file
 .IX Item "=f"
 the 'foreground' editor, specified with the 'fg_editor' option in the
 config file. This is expected to be defined as an editor that does not
-fork into the background, so that \f(CW\*(C`pfm\*(C'\fR can wait for its results.
+fork into the background. \f(CW\*(C`pfm\*(C'\fR uses this editor in a few cases so
+that it can wait for its results.
 .IP "\fB=p\fR" 4
 .IX Item "=p"
 the pager specified with the 'pager' option in the config file
