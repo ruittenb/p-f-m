@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Frame 0.27
+# @(#) App::PFM::Screen::Frame 0.28
 #
 # Name:			App::PFM::Screen::Frame
-# Version:		0.27
+# Version:		0.28
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-06-01
+# Date:			2010-08-18
 #
 
 ##########################################################################
@@ -90,7 +90,7 @@ our ($_pfm, $_screen);
 ##########################################################################
 # private subs
 
-=item _init()
+=item _init(App::PFM::Application $pfm, App::PFM::Screen $screen)
 
 Initializes new instances by storing the application object.
 Called from the constructor.
@@ -105,9 +105,9 @@ sub _init {
 	$self->{_rcsrunning} = 0;
 }
 
-=item _maxpan()
+=item _maxpan(string $banner, int $width)
 
-Determines how many times a banner (menu or footer) can be panned.
+Determines how many times a I<banner> (menu or footer) can be panned.
 
 =cut
 
@@ -125,10 +125,11 @@ sub _maxpan {
 	};
 }
 
-=item _fitbanner()
+=item _fitbanner(string $banner, int $width)
 
-Chops off part of the "banner" (menu or footer), and returns the part that
-will fit on the screen. Pan key marks B<E<lt>> and B<E<gt>> will be added.
+Chops off part of the I<banner> (menu or footer), and returns the part that
+will fit on the screen, as indicated by I<width>. Pan key marks B<E<lt>>
+and B<E<gt>> will be added.
 
 =cut
 
@@ -150,9 +151,10 @@ sub _fitbanner {
 	return $banner;
 }
 
-=item _getmenu()
+=item _getmenu(int $menu_mode)
 
-Returns the menu for the current application mode.
+Returns the menu for the given menu mode.
+This uses the B<MENU_> constants as defined in App::PFM::Screen::Frame.
 
 =cut
 
@@ -180,15 +182,20 @@ sub _getmenu {
 	}
 }
 
-=item _getfooter()
+=item _getfooter(int $menu_mode)
 
 Returns the footer for the current application state.
+The I<menu_mode> parameter indicates the type of menu that is shown,
+using the B<MENU_> constants as defined in App::PFM::Screen::Frame.
 
 =cut
 
 sub _getfooter {
-	my $self = shift;
+	my ($self, $menu_mode) = @_;
 	my %state = %{$_pfm->state};
+	if ($menu_mode != MENU_SINGLE and $menu_mode != MENU_MULTI) {
+		return '';
+	}
 	my $f =	"F1-Help F2-Prev F3-Redraw"
 	.		" F4-Color[".$_screen->color_mode."] F5-Reread"
 	.		" F6-Sort[$state{sort_mode}]"
@@ -220,7 +227,7 @@ sub fieldheadings {
 	return \%_fieldheadings;
 }
 
-=item currentpan()
+=item currentpan( [ int $pan_value ] )
 
 Getter/setter for the amount by which the menu and footer are currently
 panned.
@@ -261,7 +268,7 @@ sub bookmark_headings {
 	# ' A* @<<<<<<<<<<<<<<<<<<<<< @>>>>>>>>>>>>>>>'
 }
 
-=item rcsrunning()
+=item rcsrunning( [ bool $rcsrunning_value ] )
 
 Getter/setter for the flag that indicates whether an rcs command is running.
 
@@ -286,7 +293,7 @@ Displays menu, footer and headings.
 =cut
 
 sub show {
-	my $self = shift;
+	my ($self) = @_;
 	$self->show_menu();
 	$self->show_headings(
 		$_pfm->browser->swap_mode,
@@ -296,19 +303,22 @@ sub show {
 	return $self;
 }
 
-=item show_menu()
+=item show_menu(int $menu_mode)
 
 Displays the menu, i.e., the top line on the screen.
+The I<menu_mode> argument indicates which kind of menu is to be shown,
+using the B<MENU_> constants as defined in App::PFM::Screen::Frame.
 
 =cut
 
 sub show_menu {
-	my ($self, $mode) = @_;
+	my ($self, $menu_mode) = @_;
 	my ($pos, $menu, $menulength, $vscreenwidth, $color, $do_multi);
-	$mode ||= ($_pfm->state->{multiple_mode} * MENU_MULTI);
-	$do_multi = $mode & MENU_MULTI;
+	$menu_mode ||= ($_pfm->state->{multiple_mode} * MENU_MULTI);
+	$do_multi = $menu_mode & MENU_MULTI;
 	$vscreenwidth = $_screen->screenwidth - 9 * $do_multi;
-	$menu         = $self->_fitbanner($self->_getmenu($mode), $vscreenwidth);
+	$menu         = $self->_fitbanner(
+		$self->_getmenu($menu_mode), $vscreenwidth);
 	$menulength   = length($menu);
 	if ($menulength < $vscreenwidth) {
 		$menu .= ' ' x ($vscreenwidth - $menulength);
@@ -328,19 +338,22 @@ sub show_menu {
 	return $menulength;
 }
 
-=item show_headings()
+=item show_headings(bool $swapmode, int $heading_mode)
 
 Displays the column headings.
+The I<heading_mode> argument indicates which kind of information
+is shown in the diskinfo column, using the B<HEADING_> constants as
+defined in App::PFM::Screen::Frame.
 
 =cut
 
 sub show_headings {
-	my ($self, $swapmode, $info) = @_;
+	my ($self, $swapmode, $heading_mode) = @_;
 	my ($linecolor, $diskinfo, $padding);
 	my @fields = @{$_screen->listing->layoutfieldswithinfo};
 	my $state  = $_pfm->state;
 	$padding = ' ' x ($_screen->diskinfo->infolength - 14);
-	for ($info) {
+	for ($heading_mode) {
 		$_ == HEADING_DISKINFO	and $diskinfo = "$padding     disk info";
 		$_ == HEADING_SORT		and $diskinfo = "sort mode     $padding";
 		$_ == HEADING_YCOMMAND	and $diskinfo = "your commands $padding";
@@ -365,16 +378,17 @@ sub show_headings {
 		->reset()->normal();
 }
 
-=item show_footer()
+=item show_footer( [ int $menu_mode ] )
 
 Displays the footer, i.e. the last line on screen with the status info.
 
 =cut
 
 sub show_footer {
-	my $self	  = shift;
+	my ($self, $menu_mode) = @_;
+	$menu_mode  ||= MENU_SINGLE; # MULTI or SINGLE makes no difference
 	my $width	  = $_screen->screenwidth;
-	my $footer	  = $self->_fitbanner($self->_getfooter(), $width);
+	my $footer	  = $self->_fitbanner($self->_getfooter($menu_mode), $width);
 	my $padding	  = ' ' x ($width - length $footer);
 	my $linecolor =
 		$_pfm->config->{framecolors}{$_screen->color_mode}{footer};
@@ -395,7 +409,7 @@ Clears the footer.
 =cut
 
 sub clear_footer {
-	my $self	  = shift;
+	my ($self)    = @_;
 	my $padding	  = ' ' x ($_screen->screenwidth);
 	my $linecolor =
 		$_pfm->config->{framecolors}{$_screen->color_mode}{footer};
@@ -405,7 +419,7 @@ sub clear_footer {
 		->putcolored($linecolor, $padding)->reset()->normal();
 }
 
-=item show_bookmark_headings()
+=item show_bookmark_headings(bool $swapmode)
 
 Displays the column headings for the bookmarks screen.
 
@@ -450,18 +464,20 @@ sub update_headings {
 	}
 }
 
-=item pan()
+=item pan(string $key, $string $menu_mode)
 
 Pans the menu and footer according to the key pressed.
+The I<menu_mode> parameter indicates the type of menu that should be shown,
+using the B<MENU_> constants as defined in App::PFM::Screen::Frame.
 
 =cut
 
 sub pan {
-	my ($self, $key, $mode) = @_;
+	my ($self, $key, $menu_mode) = @_;
 	my $width = $_screen->screenwidth - 9 * $_pfm->state->{multiple_mode};
 	my $count = max(
-		$self->_maxpan($self->_getmenu($mode), $width),
-		$self->_maxpan($self->_getfooter(), $width)
+		$self->_maxpan($self->_getmenu($menu_mode), $width),
+		$self->_maxpan($self->_getfooter($menu_mode), $width)
 	);
 	$self->{_currentpan} += ($key eq '>' and $self->{_currentpan} < $count)
 						  - ($key eq '<' and $self->{_currentpan} > 0);
