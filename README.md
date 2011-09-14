@@ -14,6 +14,8 @@
     File::Temp             0.22 ?        0.2304
     HTML::Parser           3.59 ?        3.72
       LWP                  5.827 ?       6.26
+    Encode                 2.35 ?        2.89
+      Encode::Locale       1.01          1.05
     Module::Load           0.16          0.32
   readline                 4.1           5
     Term-ReadLine-Gnu      1.09          1.24

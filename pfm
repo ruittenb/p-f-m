@@ -3,7 +3,7 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.12.4
+# Version:		2.12.5E
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2017-03-03
@@ -18,6 +18,8 @@
 #				Getopt::Long
 #				Module::Load
 #				LWP::UserAgent
+#				Encoding
+#				Encoding::Locale
 #				File::Temp
 #				File::Stat::Bits
 # Description:	Personal File Manager for Unix/Linux
@@ -28,13 +30,13 @@
 # version
 
 # for MakeMaker only
-our $VERSION  = '2.12.4';
+our $VERSION  = '2.12.5E';
 
 =pod
 
 =for roff
 .ds Yr 2017
-.ds Vw @(#) pfm.pl 2.12.4
+.ds Vw @(#) pfm.pl 2.12.5E
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..

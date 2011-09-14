@@ -48,6 +48,7 @@ use App::PFM::JobHandler;
 use App::PFM::OS;
 use App::PFM::Screen;
 use App::PFM::State;
+use App::PFM::Util qw(initlocale);
 use Getopt::Long qw(GetOptionsFromArray);
 use POSIX qw(setsid);
 use Cwd;
@@ -583,6 +584,7 @@ if the application bootstraps correctly.
 
 sub bootstrap {
 	my ($self, $silent) = @_;
+	initlocale();
 	$self->_bootstrap_commandline();    # phase 1
 	$self->_bootstrap_members($silent); # phase 2 + 3
 	$self->_bootstrap_states();         # phase 4

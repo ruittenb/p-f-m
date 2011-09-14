@@ -22,10 +22,6 @@
 * added: expand <prefix>=8<suffix> to each of the marked filenames with the
   provided prefix and suffix applied.
 
-2.12.0E
-
-* merged 2.12.0 and 2.11.9E.
-
 2.12.0
 
 * fixed: the si(Z)e command now can correctly figure out the exit status
@@ -43,10 +39,6 @@
 * added: (M)ore - <F4> (Color) and (M)ore - <F9> (Layout) as alternatives for
   shift-F4 and shift-F9.
 
-2.11.9E
-
-* merged 2.11.9 and 2.11.8E.
-
 2.11.9
 
 * fixed: a problem expanding sequences like '==8'.
@@ -54,10 +46,6 @@
 * fixed: a problem when testing if a newer version is available.
 * added: menu message providing help for the (N)ame command.
 * changed: the semantics for the '=7' escape were changed.
-
-2.11.8E
-
-* merged 2.11.8 and 2.11.7E.
 
 2.11.8
 
@@ -80,10 +68,6 @@
 * changed: (M)ore - (W)rite history/bookmarks now prompts to write the
   input history and/or bookmarks to disk.
 
-2.11.7E
-
-* merged 2.11.7 and 2.11.6E.
-
 2.11.7
 
 * renamed 'timestamptruncate' to 'timefieldstretch'
@@ -96,7 +80,7 @@
 * fixed problem where a newly created file in the current directory is not
   added if the current directory is not known by its canonical name
 
-2.11.6E
+2.11.6-i18n
 
 * added usage of Encode::Locale, to be able to correctly calculate
   localized string widths. Needs much testing.

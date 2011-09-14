@@ -61,6 +61,11 @@ Can't use string ("") as a subroutine ref while "strict refs" in use at /usr/loc
 
 - BUG: when returning (M)(G) to an instantiated bookmark, the cursor is not positioned correctly.
 
+- fix encodings with wide characters.
+- fix filenames in russian addressed in LC_ALL=fr_FR.utf8;
+  do we need a $file->{bytename} ?
+- read/save config file in '<:encoding(locale)'
+
 - (M)ore - <F7>: swap to bookmark
 
 - remove date/time warning in Config

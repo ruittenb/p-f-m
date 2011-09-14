@@ -364,6 +364,7 @@ This uses the F<.pfmrc> option B<term_mouse_mode>.
 sub mouse_enable {
 	my ($self) = @_;
 	my $term_mouse_mode = $self->{_config}->{term_mouse_mode}; # x10|normal|motion
+	binmode(STDIN, ":bytes");
 	if ($term_mouse_mode eq 'x10') {
 		print "\e[?9h";    # X10 compatibility : mouse-down only
 	} elsif ($term_mouse_mode ne 'motion') {
@@ -378,6 +379,7 @@ sub mouse_enable {
 sub mouse_disable {
 	my ($self) = @_;
 	my $term_mouse_mode = $self->{_config}->{term_mouse_mode}; # x10|normal|motion
+	binmode(STDIN, ":encoding(console_in)");
 	if ($term_mouse_mode eq 'x10') {
 		print "\e[?9l";    # X10 compatibility : mouse-down only
 	} elsif ($term_mouse_mode ne 'motion') {
