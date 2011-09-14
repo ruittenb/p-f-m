@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Browser::Files 0.12
+# @(#) App::PFM::Browser::Files 0.13
 #
 # Name:			App::PFM::Browser::Files
-# Version:		0.12
+# Version:		0.13
 # Author:		Rene Uittenbogaard
 # Created:		2010-11-29
 # Date:			2011-03-28
@@ -290,15 +290,19 @@ the string 'quit' in case the user requested an application quit).
 
 sub handle_non_motion_input {
 	my ($self, $event) = @_;
-	my $screenheight = $self->{_screen}->screenheight;
-	my $BASELINE     = $self->{_screen}->BASELINE;
-	my $res          = {};
+	my $screen         = $self->{_screen};
+	my $screenheight   = $screen->screenheight;
+	my $BASELINE       = $screen->BASELINE;
+	my $res            = {};
+	# should not be necessary to initialize _itemcol and _itemlen here:
+	# they are set right after screen->refresh() in browse()
+#	$self->{_itemcol}  = $screen->listing->filerecordcol;
+#	$self->{_itemlen}  = length $screen->listing->currentformatline;
 	if ($event->{type} eq 'mouse') {
 		if ($event->{mouserow} >= $BASELINE and
-			$event->{mouserow} <= $BASELINE + $screenheight
-#			and
-#			$event->{mousecol} >= $self->{_itemcol} and
-#			$event->{mousecol} <  $self->{_itemcol} + $self->{_itemlen}
+			$event->{mouserow} <= $BASELINE + $screenheight and
+			$event->{mousecol} >= $self->{_itemcol} and
+			$event->{mousecol} <  $self->{_itemcol} + $self->{_itemlen}
 		) {
 			# potentially on a fileline (might be diskinfo column though)
 			$event->{mouseitem} = ${$self->browselist}[

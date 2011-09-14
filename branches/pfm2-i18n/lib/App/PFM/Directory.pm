@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Directory 1.03
+# @(#) App::PFM::Directory 1.04
 #
 # Name:			App::PFM::Directory
-# Version:		1.03
+# Version:		1.04
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-03-25
+# Date:			2011-05-31
 #
 
 ##########################################################################
@@ -117,6 +117,7 @@ sub _init {
 	$self->{_os}             = $os;
 	$self->{_jobhandler}     = $jobhandler;
 	$self->{_path}			 = $path;
+	$self->{_logicalpath}	 = $path;
 	$self->{_rcsjob}		 = undef;
 	$self->{_wasquit}		 = undef;
 	$self->{_path_mode}		 = 'log';
@@ -579,7 +580,11 @@ sub path_mode {
 	my ($self, $value) = @_;
 	if (defined $value) {
 		$self->{_path_mode} = $value;
-		$self->{_path} = getcwd() if $self->{_path_mode} eq 'phys';
+		if ($self->{_path_mode} eq 'phys') {
+			$self->{_path} = getcwd();
+		} else {
+			$self->{_path} = $self->{_logicalpath};
+		}
 		$self->{_screen}->set_deferred_refresh(R_FOOTER | R_PATHINFO);
 	}
 	return $self->{_path_mode};
@@ -616,7 +621,8 @@ sub prepare {
 	my ($self, $path) = @_;
 	$self->path_mode($self->{_config}{path_mode});
 	if (defined $path) {
-		$self->{_path} = $path;
+		$self->{_path}        = $path;
+		$self->{_logicalpath} = $path;
 	}
 	$self->_init_filesystem_info();
 	$self->_readcontents(); # prepare(), so no need for D_SMART
@@ -680,6 +686,7 @@ sub chdir {
 		} else {
 			$self->{_path} = $nextdir;
 		}
+		$self->{_logicalpath} = $self->{_path};
 		# restore the cursor position
 		if ($swapping) {
 			$_pfm->browser->position_at($_pfm->state->{_position});
@@ -963,13 +970,13 @@ sub checkrcsapplicable {
 			}
 			# currentdir or subdir?
 			if ($file =~ m!/!) {
-			# change in subdirectory
-			($topdir = $file) =~ s!/.*!!;
-			$mapindex = $nameindexmap{$topdir};
-			# find highest prio marker
-			$oldval = $self->{_showncontents}[$mapindex]{rcs};
-			$self->{_showncontents}[$mapindex]{rcs} =
-				$job->rcsmax($oldval, $flags);
+				# change in subdirectory
+				($topdir = $file) =~ s!/.*!!;
+				$mapindex = $nameindexmap{$topdir};
+				# find highest prio marker
+				$oldval = $self->{_showncontents}[$mapindex]{rcs};
+				$self->{_showncontents}[$mapindex]{rcs} =
+					$job->rcsmax($oldval, $flags);
 #				# if there was a change in a subdir, then show M on currentdir
 #				$mapindex = $nameindexmap{'.'};
 #				# find highest prio marker

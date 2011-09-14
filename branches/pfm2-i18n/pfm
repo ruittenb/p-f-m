@@ -3,13 +3,13 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.11.6E
+# Version:		2.11.7E
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-03-19
+# Date:			2011-04-15
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				    [ -l, --layout <number> ] [ -o, --sort <mode> ]
-#					[ -c, --colorset <mode> ]
+#					[ -c, --colorset <mode> ] [ --login ]
 #				pfm { --help | --usage | --version }
 # Requires:		PFM::Application
 #				Term::ReadLine (preferably Term::ReadLine::Gnu)
@@ -30,13 +30,13 @@
 # version
 
 # for MakeMaker only
-our $VERSION  = '2.11.6E';
+our $VERSION  = '2.11.7E';
 
 =pod
 
 =for roff
 .ds Yr 2011
-.ds Vw @(#) pfm.pl 2.11.6E
+.ds Vw @(#) pfm.pl 2.11.7E
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -68,7 +68,7 @@ END {
 ##########################################################################
 # main
 
-$pfm = App::PFM::Application->new();
+$pfm = App::PFM::Application->new($0, \@ARGV);
 $pfm->run();
 $pfm->shutdown();
 
@@ -86,8 +86,9 @@ C<pfm> - Personal File Manager for Linux/Unix
 =head1 SYNOPSIS
 
 C<pfm [>S< >I<directory>S< >C<] [>S< >C<-s, --swap >I<directory>S< >C<]>
-C< [>S< >C<-l, --layout >I<number>S< >C<] [>S< >C<-o, --sort >I<mode>S< >C<]>
 C< [>S< >C<-c, --colorset >I<string>S< >C<]>
+C< [>S< >C<-l, --layout >I<number>S< >C<] [>S< >C<--login>S< >C<]>
+C< [>S< >C<-o, --sort >I<mode>S< >C<]>
 
 C<pfm { --help | --usage | --version }>
 
@@ -145,6 +146,11 @@ Start C<pfm> using the specified colorset (as defined in the F<.pfmrc>).
 =item -l, --layout I<number>
 
 Start C<pfm> using the specified column layout (as defined in the F<.pfmrc>).
+
+=item --login
+
+Start C<pfm> as a login shell. C<pfm> will change its name to C<-pfm>
+and start a new session using setsid().
 
 =item -o, --sort I<mode>
 
@@ -1579,10 +1585,14 @@ _
 
 =end roff
 
-The cursor will I<only> moved to another file when a directory is clicked
-or the mouse wheel is used.  The mouse wheel moves the cursor five lines
-per notch by default, or one line if shift is pressed. The actual number
-of lines can be configured in your F<.pfmrc> using 'mousewheeljumpsize'.
+If the config option 'mouse_moves_cursor' has been set to 'yes', a mouse
+click on a non-directory will move the cursor to that file. Otherwise,
+the cursor will I<only> move when a directory is clicked or the mouse
+wheel is used.
+
+The mouse wheel moves the cursor five lines per notch by default,
+or one line if shift is pressed. The actual number of lines can be
+configured in your F<.pfmrc> using 'mousewheeljumpsize'.
 
 Clicking button 1 on the current directory path will chdir() up to the
 clicked ancestor directory. If the current directory was clicked, or the

@@ -1,3 +1,19 @@
+2.11.7E
+
+* merged changes from 2.11.7 into 2.11.6E.
+
+2.11.7
+
+* renamed 'timestamptruncate' to 'timefieldstretch'
+* added 'esc_timeout' option
+* added '--login' option to start pfm as a login shell
+* added: Directory keeps track of logical pathname so that the " command
+  can switch back from physical to logical pathname
+* added support for terminal keys 'ks4' (shift-F4) and 'ks9' (shift-F9)
+  which cycle backwards through colorsets and layouts, respectively.
+* fixed problem where a newly created file in the current directory is not
+  added if the current directory is not known by its canonical name
+
 2.11.6E
 
 * added usage of Encode::Locale, to be able to correctly calculate
