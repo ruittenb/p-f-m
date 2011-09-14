@@ -3,9 +3,9 @@
 ##########################################################################
 #
 # Name:         test.pl
-# Version:      0.14
+# Version:      0.15
 # Author:       Rene Uittenbogaard
-# Date:         2010-10-16
+# Date:         2010-10-23
 # Usage:        test.pl
 # Description:  Test the pfm script and the associated libraries for
 #		syntax errors (using perl -cw).
@@ -52,8 +52,9 @@ sub produce_output {
 }
 
 sub filter_output {
+	my $handle = shift;
 	# parent process: filter result
-	while (<HANDLE>) {
+	while (<$handle>) {
 		s/\e\[([0-9;]*H|2J|\?[0-9;]+[hl])//g;
 		print;
 	}
@@ -66,7 +67,7 @@ sub main {
 
 	if ($childpid) {
 		# parent
-		filter_output();
+		filter_output(*HANDLE);
 	} else {
 		# child
 		produce_output();

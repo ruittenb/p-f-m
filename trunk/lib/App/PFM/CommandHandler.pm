@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.42
+# @(#) App::PFM::CommandHandler 1.43
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.42
+# Version:		1.43
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-10-23
+# Date:			2010-10-28
 #
 
 ##########################################################################
@@ -440,12 +440,13 @@ sub _multi_to_single {
 	my $qe = quotemeta $e;
 	$self->{_screen}->set_deferred_refresh(R_PATHINFO);
 	if ($_pfm->state->{multiple_mode} and
-		$testname !~ /(?<!$qe)(?:$qe$qe)*${e}[127]/ and !-d $testname)
+		$testname !~ /(?<!$qe)(?:$qe$qe)*$qe[127]/ and
+		$testname !~ /(?<!$qe)(?:$qe$qe)*$qe\{[127][#%^,]{1,2}[^}]*\}/ and
+		!-d $testname)
 	{
 		$self->{_screen}->at(0,0)->putmessage(
-			'Cannot do multifile operation when destination is single file.'
+			'Cannot do multifile operation when destination is a single file.'
 		)->at(0,0)->pressanykey();
-		#path_info(); # necessary?
 		return 1;
 	}
 	return 0;
@@ -1305,7 +1306,7 @@ sub handlelink {
 	my @lncmd = $self->{_clobber_mode} ? qw(ln -f) : qw(ln);
 	
 	if ($_pfm->state->{multiple_mode}) {
-		$self->{_screen}->set_deferred_refresh(R_FRAME | R_LISTING);
+		$self->{_screen}->set_deferred_refresh(R_SCREEN);
 	} else {
 		$self->{_screen}->set_deferred_refresh(R_FRAME);
 		$self->{_screen}->listing->markcurrentline('L');
@@ -2341,7 +2342,7 @@ sub handlecopyrename {
 	my $browser = $_pfm->browser;
 	my $state   = $_pfm->state;
 	if ($state->{multiple_mode}) {
-		$screen->set_deferred_refresh(R_MENU | R_FOOTER | R_LISTING);
+		$screen->set_deferred_refresh(R_SCREEN);
 	} else {
 		$screen->set_deferred_refresh(R_MENU | R_FOOTER);
 		$screen->listing->markcurrentline($key);
