@@ -30,6 +30,7 @@
 	<li><a href="#working_directory_inheritance">WORKING DIRECTORY INHERITANCE</a></li>
 	<li><a href="#environment">ENVIRONMENT</a></li>
 	<li><a href="#files">FILES</a></li>
+	<li><a href="#exit_status">EXIT STATUS</a></li>
 	<li><a href="#diagnosis">DIAGNOSIS</a></li>
 	<li><a href="#bugs_and_warnings">BUGS and WARNINGS</a></li>
 	<li><a href="#version">VERSION</a></li>
@@ -78,9 +79,10 @@ many comments on the available options, and is therefore supposed to be
 self-explanatory. <code>pfm</code> will issue a warning if the config file version
 is older than the version of <code>pfm</code> you are running. In this case, please
 let <code>pfm</code> create a new default config file and compare the changes with
-your own settings, so that you do not miss any new config options or
-format changes. See also the <strong>C</strong>onfig command under MORE COMMANDS below,
-and DIAGNOSIS.</p>
+your own settings, so that you do not miss out on any new config options
+or format changes. You can also try running the <code>pfmrcupdate</code> script that
+is provided in the distribution. See also the <strong>C</strong>onfig command under
+MORE COMMANDS below, and DIAGNOSIS.</p>
 <p>There are two commandline options that specify starting directories.
 The <a href="#cdpath"><code>CDPATH</code></a> environment variable is taken into account when <code>pfm</code>
 tries to find these directories.</p>
@@ -169,11 +171,11 @@ keys are available:</p>
 <table border="0" cellspacing="4" align="center" width="80%">
 <tr><td colspan="2"><hr /></td></tr>
 <tr>
-	<td width="30%"><i>right arrow</i>, <b>l</b></td>
+	<td width="30%"><b>l</b>, <i>right arrow</i></td>
 	<td><i>chdir()</i> to a subdirectory</td>
 </tr>
 <tr>
-	<td><i>left arrow</i>, <b>h</b></td>
+	<td><b>h</b>, <i>left arrow</i></td>
 	<td><i>chdir()</i> to the parent directory</td>
 </tr>
 <tr>
@@ -186,24 +188,24 @@ keys are available:</p>
 </tr>
 <tr><td colspan="2"><hr /></td></tr>
 </table><p>If the option 'chdirautocmd' has been specified in the <em class="file">.pfmrc</em> file,
-pfm will execute that command after every <code>chdir()</code>.</p>
-<p>Note 1: the <strong>l</strong> and <strong>ENTER</strong> keys function differently when the cursor
+pfm will execute that command after every <code>chdir()</code>. This can be used
+<em>e.g.</em> to set the title of an xterm window.</p>
+<p>Note: the <strong>l</strong> and <strong>ENTER</strong> keys function differently when the cursor
 is on a non-directory file (see below under <strong>L</strong>ink and LAUNCHING FILES
 respectively).</p>
-<p>Note 2: see below under BUGS on the functioning of <strong>ESC</strong>.</p>
 <p>
 </p>
 <hr />
 <h1><a name="commands">COMMANDS</a></h1>
 <dl>
-<dt><strong><a name="attrib" class="item"><strong>Attrib</strong></a></strong></dt>
+<dt><strong><a name="attribute" class="item"><strong>Attribute</strong></a></strong></dt>
 
 <dd>
 <p>Changes the mode of the file if you are the owner. The mode may be specified
 either symbolically or numerically, see <code>chmod(1)</code> for more details.</p>
 <p>Note 1: the mode on a symbolic link cannot be set. See <code>chmod(1)</code> for more
 details.</p>
-<p>Note 2: the name <strong>Attrib</strong> for this command is a reminiscence of the DOS
+<p>Note 2: the name <strong>Attribute</strong> for this command is a reminiscence of the DOS
 version.</p>
 </dd>
 <dt><strong><a name="copy" class="item"><strong>Copy</strong></a></strong></dt>
@@ -217,6 +219,9 @@ directory or a name containing a <strong>=1</strong>, <strong>=2</strong> or <st
 under c<strong>O</strong>mmand).</p>
 <p>If clobber mode is off (see below under the <strong>!</strong> command), existing files
 will not be overwritten unless the action is confirmed by the user.</p>
+<p>Whether <strong>Copy</strong> follows symlinks or copies them is OS-specific; you can
+change the default behavior by setting the 'copyoptions' option in your
+<em class="file">.pfmrc</em>. See <code>cp(1)</code>.</p>
 </dd>
 <dt><strong><a name="delete" class="item"><strong>Delete</strong></a></strong></dt>
 
@@ -240,7 +245,7 @@ in the <em class="file">.pfmrc</em> file. Otherwise <code>vi(1)</code> is used.<
 
 <dd>
 <p>If the current sort mode is by filename, you are prompted for a (partial)
-filename. While you type, the cursor is positioned on the best match. 
+filename. While you type, the cursor is positioned on the best match.
 Type ENTER to end typing.</p>
 <p>If the current sort mode is not by filename, then you are prompted for a
 filename. The cursor is then positioned on that file.</p>
@@ -264,7 +269,7 @@ have permission to remove the current symbolic link.</p>
 <dt><strong><a name="every_file" class="item"><strong>E</strong>very file</a></strong></dt>
 
 <dd>
-<p>all files, including dotfiles, except for the <strong>.</strong> and <strong>..</strong> entries</p>
+<p>all files, including dotfiles, except for the <em class="file">.</em> and <em class="file">..</em> entries</p>
 </dd>
 <dt><strong><a name="files_only" class="item"><strong>F</strong>iles only</a></strong></dt>
 
@@ -272,11 +277,22 @@ have permission to remove the current symbolic link.</p>
 <p>regular files of which the filenames match a specified regular expression
 (not a glob pattern!)</p>
 </dd>
+<dt><strong><a name="greater_smaller" class="item"><strong>G</strong>reater / <strong>S</strong>maller</a></strong></dt>
+
+<dd>
+<p>files that are bigger or smaller than the provided size in bytes.</p>
+</dd>
+<dt><strong><a name="newmarks" class="item"><strong>N</strong>ewmarks</a></strong></dt>
+
+<dd>
+<p>files which were created during a previous multiple command and are now
+denoted with a <em>newmark</em> (<strong>~</strong>)</p>
+</dd>
 <dt><strong><a name="oldmarks" class="item"><strong>O</strong>ldmarks</a></strong></dt>
 
 <dd>
-<p>files which were previously marked and are now denoted with
-an <em>oldmark</em> (<strong>.</strong>).</p>
+<p>files which were marked (<strong>*</strong>) before a previous multiple command and are
+now denoted with an <em>oldmark</em> (<strong>.</strong>)</p>
 </dd>
 <dt><strong><a name="user" class="item"><strong>U</strong>ser</a></strong></dt>
 
@@ -284,7 +300,17 @@ an <em>oldmark</em> (<strong>.</strong>).</p>
 <p>files owned by the current user</p>
 </dd>
 </dl>
-<p>Oldmarks may be used to perform more than one command on a group of files.</p>
+<p>Oldmarks and newmarks may be used to perform more than one command on a
+group of files.</p>
+<p>There is also the option:</p>
+<dl>
+<dt><strong><a name="invert" class="item"><strong>I</strong>nvert</a></strong></dt>
+
+<dd>
+<p>Inverts the selection, except for the <em class="file">.</em> and <em class="file">..</em> entries, which remain
+untouched.</p>
+</dd>
+</dl>
 </dd>
 <dt><strong><a name="link" class="item"><strong>Link</strong></a></strong></dt>
 
@@ -306,7 +332,7 @@ and you request an absolute symlink to be made with either the name
 
 <dd>
 <p>This will create an additional hard link to the current file with the
-specified name, which must be on the same filesystem.</p>
+specified name, which must be on the same filesystem (see ln(1)).</p>
 </dd>
 <dt><strong><a name="a_relative_symlink" class="item">a <strong>R</strong>elative symlink</a></strong></dt>
 
@@ -335,9 +361,9 @@ command will <em>always</em> try to make a link.</p>
 
 <dd>
 <p>Presents you with a choice of operations not related to the current
-files. Use this to configure <code>pfm</code>, edit a new file, make a new directory,
-show a different directory, kill all child processes, or write the history
-files to disk. See below under MORE COMMANDS. Pressing <strong>ESC</strong> will take
+file. Use this <em>e.g.</em> to configure <code>pfm</code>, edit a new file, make a
+new directory, show a different directory, or write the history files to
+disk. See below under MORE COMMANDS. Pressing <strong>ESC</strong> or <strong>ENTER</strong> will take
 you back to the main menu.</p>
 </dd>
 <dt><strong><a name="name" class="item"><strong>Name</strong></a></strong></dt>
@@ -393,15 +419,16 @@ The 'defaultradix' option specifies the initial radix that will be used.</p>
 
 <dd>
 <p>Allows execution of a shell command. After the command completes, <code>pfm</code>
-will resume.</p>
-<p>On the commandline, you may use several special abbreviations, which will
-be replaced by <code>pfm</code> with the current filename, directoryname etc. (see
+will resume. If the command is <code>cd</code>, <code>pfm</code> itself will change to
+that directory.</p>
+<p>On the commandline, you may use several special abbreviations, which
+<code>pfm</code> will replace with the current filename, directoryname etc. (see
 below). These abbreviations start with an escape character. This escape
-character is defined with the option 'escapechar' in your <em class="file">.pfmrc</em> file. The
-default is <strong>=</strong>. Previous versions of <code>pfm</code> used <strong>\</strong>, but this was deemed
-too confusing because backslashes are parsed by the shell as well. This
-manual page (and the default config file) will assume you are using <strong>=</strong> as
-'escapechar'.</p>
+character is defined with the option 'escapechar' in your <em class="file">.pfmrc</em>
+file. By default it is <strong>=</strong>. (Previous versions of <code>pfm</code> used <strong>\</strong>, but
+this was deemed too confusing because backslashes are parsed by the shell
+as well. This manual page (and the default config file) will assume you
+are using <strong>=</strong> as 'escapechar').</p>
 <p>The following abbreviations are available:</p>
 <dl>
 <dt><strong><a name="1" class="item"><strong>=1</strong></a></strong></dt>
@@ -453,6 +480,13 @@ manual page (and the default config file) will assume you are using <strong>=</s
 
 <dd>
 <p>the editor specified with the 'editor' option in the config file</p>
+</dd>
+<dt><strong><a name="f" class="item"><strong>=f</strong></a></strong></dt>
+
+<dd>
+<p>the 'foreground' editor, specified with the 'fg_editor' option in the
+config file. This is expected to be defined as an editor that does not
+fork into the background, so that <code>pfm</code> can wait for its results.</p>
 </dd>
 <dt><strong><a name="p" class="item"><strong>=p</strong></a></strong></dt>
 
@@ -555,26 +589,26 @@ either with or without clarifying interpunction (e.g. 2008-12-04 08:42.12)
 as the interpunction will be removed to obtain a format which <code>touch(1)</code>
 can use. Enter <strong>.</strong> to set the mtime to the current date and time.</p>
 </dd>
-<dt><strong><a name="uid" class="item"><strong>Uid</strong></a></strong></dt>
+<dt><strong><a name="user2" class="item"><strong>User</strong></a></strong></dt>
 
 <dd>
 <p>Change ownership of a file. Note that many Unix variants do not allow normal
 (non-<code>root</code>) users to change ownership. Symbolic links will be followed.</p>
 </dd>
-<dt><strong><a name="svn" class="item"><strong>sVn</strong></a></strong></dt>
+<dt><strong><a name="version" class="item"><strong>Version</strong></a></strong></dt>
 
 <dd>
-<p>Updates the current file with Subversion status information. The command
-to use can be configured in the <em class="file">.pfmrc</em> with the 'rcscmd' option.
-See also <strong>M</strong>ore - s<strong>V</strong>n.</p>
+<p>Updates the current file with status information of the applicable
+versioning system. <code>pfm</code> will examine the current directory to figure
+out which versioning system is used. Supported versioning systems are:
+Subversion, CVS, Bazaar and Git.  See also <strong>M</strong>ore - re<strong>V</strong>ision.</p>
 </dd>
 <dt><strong><a name="unwhiteout" class="item"><strong>unWhiteout</strong></a></strong></dt>
 
 <dd>
-<p>(Only on platforms that support whiteout files). Provides the option
-to remove the whiteout entry in the top layer of a translucent (tfs),
-inheriting (ifs) or union (unionfs) filesystem, thereby restoring access
-to the corresponding file in the lower layer.</p>
+<p>(Only on platforms that support whiteout files). Provides the option to
+remove the whiteout entry in the top layer of a stacked/overlay filesystem,
+thereby restoring access to the corresponding file in the lower layer.</p>
 </dd>
 <dt><strong><a name="exclude" class="item"><strong>eXclude</strong></a></strong></dt>
 
@@ -587,8 +621,8 @@ criterion. See <strong>I</strong>nclude for details.</p>
 <dd>
 <p>Like c<strong>O</strong>mmand (see above), except that it uses one-letter commands
 (case-sensitive) that have been preconfigured in the <em class="file">.pfmrc</em> file.
-<strong>Y</strong>our commands may use <strong>=1</strong> up to <strong>=8</strong> and <strong>=e</strong>, <strong>=p</strong> and <strong>=v</strong>
-escapes just as in c<strong>O</strong>mmand, e.g.</p>
+<strong>Y</strong>our commands may use <strong>=1</strong> up to <strong>=8</strong> and <strong>=e</strong>, <strong>=f</strong>, <strong>=p</strong>
+and <strong>=v</strong> escapes just as in c<strong>O</strong>mmand, e.g.</p>
 <pre>
     your[c]:tar cvf - =2 | gzip &gt; =2.tar.gz
     your[t]:tar tvf =2 | =p
@@ -603,15 +637,13 @@ and its contents.</p>
 data blocks. For regular files, this is often more than the reported
 file size. For special files and <em>fast symbolic links</em>, the number is
 zero, as no data blocks are allocated for these file types.</p>
-<p>If the screen layout (selected with <strong>F9</strong>) contains a 'grand total' column,
-that column will be used. Otherwise, the 'filesize' column will temporarily
-be (mis)used. A 'grand total' column in the layout will never be filled in
-when entering the directory.</p>
+<p>If the screen layout (selected with <strong>F9</strong>) does not contain the
+'grand total' column, then the 'filesize' column will temporarily be
+used instead. A 'grand total' column in the layout will never be
+filled in when entering the directory.</p>
 <p>Note: since <code>du(1)</code> commands are not portable, <code>pfm</code> guesses how it can
-calculate the size according to the Unix variant that it runs on. If <code>pfm</code>
-guesses this incorrectly, you might have to specify the <code>du</code> command (or
-<code>du | awk</code> combination) applicable for your Unix version in the <em class="file">.pfmrc</em>
-file. Examples are provided. Please notify the author if you know any
+calculate the size according to the Unix variant that it runs on. If
+<code>pfm</code> makes an incorrect guess, please notify the author of any
 corrections that should be made.</p>
 </dd>
 </dl>
@@ -621,25 +653,35 @@ corrections that should be made.</p>
 <h1><a name="more_commands">MORE COMMANDS</a></h1>
 <p>These commands are accessible through the main screen <strong>M</strong>ore command.</p>
 <dl>
+<dt><strong><a name="acl" class="item"><strong>Acl</strong></a></strong></dt>
+
+<dd>
+<p>Edit the Access Control List for this file. Note:
+This feature has not yet been implemented for all Un*x variants.</p>
+<p>WARNING: This feature has not been well tested on all Unices.
+Use it at your own risk.</p>
+<p>Any help getting the commands right would be appreciated by the author.</p>
+</dd>
 <dt><strong><a name="bookmark" class="item"><strong>Bookmark</strong></a></strong></dt>
 
 <dd>
-<p>This command will push the current directory onto the path history. With
-the <strong>M</strong>ore - <strong>S</strong>how command, it can be recalled using the up-arrow key.</p>
+<p>Lists all the available bookmarks and asks the user in which slot the
+current directory should be bookmarked.  If the input is valid, a new
+bookmark is created in the bookmark list.</p>
 </dd>
 <dt><strong><a name="config_pfm" class="item"><strong>Config pfm</strong></a></strong></dt>
 
 <dd>
-<p>This command will open the <em class="file">.pfmrc</em> config file with your preferred
+<p>This command will open the <em class="file">.pfmrc</em> config file with the configured
 editor. The file will be re-read by <code>pfm</code> after you exit your editor.
 Options that are only modifiable through the config file (like
 'columnlayouts') will be reinitialized immediately, options that affect
 settings modifiable by key commands (like 'defaultsortmode') will not.</p>
 </dd>
-<dt><strong><a name="edit_new_file" class="item"><strong>Edit new file</strong></a></strong></dt>
+<dt><strong><a name="edit_any_file" class="item"><strong>Edit any file</strong></a></strong></dt>
 
 <dd>
-<p>You will be prompted for the new filename, then your editor will
+<p>You will be prompted for a filename, then your editor will
 be spawned.</p>
 </dd>
 <dt><strong><a name="make_fifo" class="item"><strong>make Fifo</strong></a></strong></dt>
@@ -648,17 +690,17 @@ be spawned.</p>
 <p>Prompts for a name, then creates a FIFO file (named pipe) with that
 name. See also <code>fifo(4)</code> and <code>mkfifo(1)</code>.</p>
 </dd>
+<dt><strong><a name="go_to_bookmark" class="item"><strong>Go to bookmark</strong></a></strong></dt>
+
+<dd>
+<p>Lists all the available bookmarks and asks the user which bookmark should
+be loaded to the current directory (and file).  If the input is valid,
+the bookmark is loaded and a <code>chdir()</code> is done to the directory.</p>
+</dd>
 <dt><strong><a name="shell" class="item"><strong>sHell</strong></a></strong></dt>
 
 <dd>
 <p>Spawns your default login shell. When you exit from it, <code>pfm</code> will resume.</p>
-</dd>
-<dt><strong><a name="kill_children" class="item"><strong>Kill children</strong></a></strong></dt>
-
-<dd>
-<p>Lists available signals. After selection of a signal, sends this signal
-to all child processes of <code>pfm</code> (more accurately: all processes in the
-same process group).</p>
 </dd>
 <dt><strong><a name="make_new_directory" class="item"><strong>Make new directory</strong></a></strong></dt>
 
@@ -667,6 +709,11 @@ same process group).</p>
 if you don't have any files marked, your current directory will be set to
 the newly created directory.</p>
 </dd>
+<dt><strong><a name="physical_path" class="item"><strong>Physical path</strong></a></strong></dt>
+
+<dd>
+<p>Shows the physical pathname of the current directory until a key is pressed.</p>
+</dd>
 <dt><strong><a name="show_directory" class="item"><strong>Show directory</strong></a></strong></dt>
 
 <dd>
@@ -674,11 +721,22 @@ the newly created directory.</p>
 command is different from <strong>F7</strong> because this will not change your current
 swap directory status.</p>
 </dd>
-<dt><strong><a name="svn2" class="item"><strong>sVn</strong></a></strong></dt>
+<dt><strong><a name="alternate_screen" class="item"><strong>alTernate screen</strong></a></strong></dt>
 
 <dd>
-<p>Updates the current directory with Subversion status information.
-If you set the 'autorcs' option in your <em class="file">.pfmrc</em>, this will automatically
+<p>If the terminal has an alternate screen (like <strong>xterm</strong>), and <code>pfm</code> has been
+configured to use it (through the 'altscreenmode' option in the <em class="file">.pfmrc</em>),
+then this command shows the alternate screen until a key is pressed.
+This is useful for reading error messages of shell commands and so on.</p>
+</dd>
+<dt><strong><a name="version2" class="item"><strong>Version</strong></a></strong></dt>
+
+<dd>
+<p>Updates the current directory with status information of the applicable
+versioning system. <code>pfm</code> will examine the current directory to figure
+out which versioning system is used. Supported versioning systems are:
+Subversion, CVS, Bazaar and Git.</p>
+<p>If you set the 'autorcs' option in your <em class="file">.pfmrc</em>, this will automatically
 be done every time <code>pfm</code> shows directory contents.</p>
 </dd>
 <dt><strong><a name="write_history" class="item"><strong>Write history</strong></a></strong></dt>
@@ -746,7 +804,7 @@ in the current directory path will be preserved.</p>
 <dt><strong><a name="_" class="item"><strong>&lt;</strong></a></strong></dt>
 
 <dd>
-<p>Scroll the header and footer, in order to view all available commands.</p>
+<p>Scroll the menu and footer, in order to view all available commands.</p>
 </dd>
 <dt><strong><a name="_" class="item"><strong>=</strong></a></strong></dt>
 
@@ -756,7 +814,7 @@ in the current directory path will be preserved.</p>
 <dt><strong><a name="_" class="item"><strong>&gt;</strong></a></strong></dt>
 
 <dd>
-<p>Scroll the header and footer, in order to view all available commands.</p>
+<p>Scroll the menu and footer, in order to view all available commands.</p>
 </dd>
 <dt><strong><a name="" class="item"><strong>?</strong></a></strong></dt>
 
@@ -808,7 +866,7 @@ a number of sort modes.</p>
 <p>Alternates the display between two directories. When switching for the first
 time, you are prompted for a directory path to show. When you switch back by
 pressing <strong>F7</strong> again, the contents of the alternate directory are displayed
-unchanged. Header text changes color when in swap screen. In shell commands,
+unchanged. Menu text changes color when in swap screen. In shell commands,
 the directory path from the alternate screen may be referred to as <strong>=5</strong>.
 If the 'persistentswap' option has been set in the config file, then
 leaving the swap mode will store the main directory path as swap path again.</p>
@@ -907,7 +965,10 @@ multiple files.</p>
 <hr />
 <h1><a name="quoting_rules">QUOTING RULES</a></h1>
 <p><code>pfm</code> adds an extra layer of parsing to filenames and shell commands. It
-is important to take notice of the rules that <code>pfm</code> uses.</p>
+is therefore important to take notice of the rules that <code>pfm</code> uses.</p>
+<p>In versions prior to 1.93.1, the default escape character was <strong>\</strong>. Since
+this causes confusing results, this is no longer the default, and you are
+discouraged from using it.</p>
 <p>The following six types of input can be distinguished:</p>
 <dl>
 <dt><strong><a name="expression" class="item"><strong>a regular expression</strong> (only the <strong>I</strong>nclude and e<strong>X</strong>clude commands)</a></strong></dt>
@@ -925,7 +986,7 @@ is important to take notice of the rules that <code>pfm</code> uses.</p>
 <dd>
 <p>The input is taken literally.</p>
 </dd>
-<dt><strong><a name="command" class="item"><strong>not a filename or shell command</strong> (e.g. in <strong>A</strong>ttribute or <strong>U</strong>id)</a></strong></dt>
+<dt><strong><a name="command" class="item"><strong>not a filename or shell command</strong> (e.g. in <strong>A</strong>ttribute or <strong>U</strong>ser)</a></strong></dt>
 
 <dd>
 <p>The input is taken literally.</p>
@@ -939,7 +1000,8 @@ value.</p>
 <p>At the same time, any <code>=[^1-8evp]</code> character sequence is just replaced
 with the character itself.</p>
 <p>Finally, if the filename is to be processed by <code>pfm</code>, it is taken literally;
-if it is to be handed over to a shell, all metacharacters are replaced <em>escaped</em>.</p>
+if it is to be handed over to a shell, all metacharacters are replaced
+<em>escaped</em>.</p>
 </dd>
 <dt><strong><strong>a shell command</strong> (e.g. in c<strong>O</strong>mmand or <strong>P</strong>rint)</strong></dt>
 
@@ -1022,8 +1084,8 @@ literally must be escaped one extra time.</p>
 </p>
 <hr />
 <h1><a name="mouse_commands">MOUSE COMMANDS</a></h1>
-<p>When <code>pfm</code> is run in an xterm or other terminal that supports the
-use of a mouse, turning on mouse mode (either initially with the
+<p>When <code>pfm</code> is run in an xterm or other terminal (or emulator) that supports
+the use of a mouse, turning on mouse mode (either initially with the
 'defaultmousemode' option in the <em class="file">.pfmrc</em> file, or while running using
 the <strong>F12</strong> key) will give mouse access to the following commands:</p>
 <table border="0" cellspacing="4" align="center" width="70%">
@@ -1035,8 +1097,8 @@ the <strong>F12</strong> key) will give mouse access to the following commands:<
 <tr><td colspan="7"><hr /></td></tr>
 <tr>
 	<td>pathline</td>
-	<td>title/header</td>
-	<td>footer</td>
+	<td>menu/footer</td>
+	<td>heading</td>
 	<td>fileline</td>
 	<td>filename</td>
 	<td>dirname</td>
@@ -1045,8 +1107,8 @@ the <strong>F12</strong> key) will give mouse access to the following commands:<
 <tr>
 	<td>1</td>
 	<td><i>chdir()</i></td>
-	<td>CTRL-U</td>
-	<td>CTRL-D</td>
+	<td><i>command</i></td>
+	<td>sort</td>
 	<td>F8</td>
 	<td><b>S</b>how</td>
 	<td><b>S</b>how</td>
@@ -1054,8 +1116,8 @@ the <strong>F12</strong> key) will give mouse access to the following commands:<
 <tr>
 	<td>2</td>
 	<td>c<b>O</b>mmand</td>
-	<td>PgUp</td>
-	<td>PgDn</td>
+	<td><i>command</i></td>
+	<td>sort rev</td>
 	<td><b>S</b>how</td>
 	<td>ENTER</td>
 	<td><i>new window</i></td>
@@ -1063,8 +1125,8 @@ the <strong>F12</strong> key) will give mouse access to the following commands:<
 <tr>
 	<td>3</td>
 	<td>c<b>O</b>mmand</td>
-	<td>PgUp</td>
-	<td>PgDn</td>
+	<td><i>command</i></td>
+	<td>sort rev</td>
 	<td><b>S</b>how</td>
 	<td>ENTER</td>
 	<td><i>new window</i></td>
@@ -1079,13 +1141,18 @@ the <strong>F12</strong> key) will give mouse access to the following commands:<
 	<td colspan="6" align="center"><i>three lines down</i></td>
 </tr>
 <tr><td colspan="7"><hr /></td></tr>
-</table><p>The cursor will <em>only</em> be moved when the title, header or footer is
-clicked, or when changing directory. The mouse wheel also works and
-moves the cursor three lines per notch, or one line if shift is pressed.</p>
+</table><p>The cursor will <em>only</em> moved to another file when a directory is clicked
+or the mouse wheel is used.  The mouse wheel moves the cursor five lines
+per notch, or one line if shift is pressed.</p>
 <p>Clicking button 1 on the current directory path will <code>chdir()</code> up to the
 clicked ancestor directory. If the current directory was clicked, or the
 device name, it will act like a <strong>M</strong>ore - <strong>S</strong>how command.</p>
 <p>Clicking button 2 on a directory name will open a new pfm terminal window.</p>
+<p>Clicking on the column headings will sort the directory contents by that
+heading. Clicking again will sort the directory in reverse order.</p>
+<p>Clicking on the menu or footer will execute the command that was clicked.</p>
+<p>Clicking on the identity line in the info column will switch the display
+like the <strong>=</strong> command does.</p>
 <p>Mouse use will be turned off during the execution of commands, unless
 'mouseturnoff' is set to 'no' in <em class="file">.pfmrc</em>. Note that setting this to
 'no' means that your (external) commands (like your pager and editor)
@@ -1213,28 +1280,47 @@ and the current working directory on exit are saved to this directory.</p>
 <p>
 </p>
 <hr />
+<h1><a name="exit_status">EXIT STATUS</a></h1>
+<ol>
+<li>
+<p>Success (could also be a user requested exit, <em>e.g.</em> after
+<strong>--help</strong> or <strong>--version</strong>).</p>
+</li>
+<li>
+<p>Invalid commandline option.</p>
+</li>
+<li>
+<p>No valid layout found in the <em class="file">.pfmrc</em> file.</p>
+</li>
+</ol>
+<p>
+</p>
+<hr />
 <h1><a name="diagnosis">DIAGNOSIS</a></h1>
 <p>If <code>pfm</code> reports that your config file might be outdated, you might be
 missing some of the newer configuration options (or default values for
-these). Try the following command and compare the new config file with
-your original one:</p>
+these). The best way to solve this is by running the following command
+and comparing the new config file with your original one:</p>
 <pre>
     env PFMRC=~/.pfm/.pfmrc-new pfm</pre>
+<p>Alternatively, you may try running the <code>pfmrcupdate</code> script that
+is provided in the distribution.</p>
 <p>To prevent the warning from occurring again, update the '## Version' line.</p>
 <p>
 </p>
 <hr />
 <h1><a name="bugs_and_warnings">BUGS and WARNINGS</a></h1>
-<p>When typed by itself, the <strong>ESC</strong> key needs to be pressed twice. This is
-due to the lack of a proper timeout in <code>Term::Screen</code>.</p>
 <p><code>Term::ReadLine::Gnu</code> does not allow a half-finished line to be aborted by
 pressing <strong>ESC</strong>. For most commands, you will need to clear the half-finished
 line. You may use the terminal kill character (usually <strong>CTRL-U</strong>) for this
-(see stty(1)).</p>
+purpose (see stty(1)).</p>
 <p>The author once almost pressed <strong>ENTER</strong> when logged in as root and with
 the cursor on the file <em class="file">/sbin/reboot</em>. You have been warned.</p>
 <p>The smallest terminal size supported is 80x24. The display will be messed
-up if you resize your terminal window to a smaller size.</p>
+up if you resize your terminal window to a smaller size, unless you specify
+'force_minimum_size' in the config file and the terminal supports resizing;
+in that case <code>pfm</code> will resize the terminal to at least 80 columns and/or
+24 rows.</p>
 <p>
 </p>
 <hr />
@@ -1250,17 +1336,21 @@ License version 2.</p>
 <p>This program was based on PFM.COM version 2.32, originally written for
 MS-DOS by Paul R. Culley and Henk de Heer. The name 'pfm' was adopted
 with kind permission of the original authors.</p>
+<p>Special thanks to Maurice Makaay for help with debugging.</p>
 <p>
 </p>
 <hr />
 <h1><a name="see_also">SEE ALSO</a></h1>
-<p>The documentation on PFM.COM. The manual pages for <code>chmod(1)</code>, <code>file(1)</code>,
-<code>less(1)</code>, <code>locale(7)</code>, <code>lpr(1)</code>, <code>touch(1)</code>, <code>vi(1)</code>.</p>
-<p>For programmers: Term::Screen(3pm), Term::ScreenColor(3pm),
-Term::ReadLine(3pm), PFM::Abstract(3pm), PFM::Application(3pm),
-PFM::Browser(3pm), PFM::CommandHandler(3pm), PFM::Config(3pm),
-PFM::Directory(3pm), PFM::History(3pm), PFM::Job(3pm),
-PFM::Screen(3pm), PFM::State(3pm) and PFM::Util(3pm).</p>
+<p>The documentation on PFM.COM. The manual pages for <code>chmod(1)</code>, <code>cp(1)</code>,
+<code>file(1)</code>, <code>less(1)</code>, <code>ln(1)</code>, <code>locale(7)</code>, <code>lpr(1)</code>, <code>touch(1)</code>, <code>vi(1)</code>.</p>
+<p>For developers: Term::Screen(3pm), Term::ScreenColor(3pm),
+Term::ReadLine(3pm), App::PFM::Abstract(3pm), App::PFM::Application(3pm),
+App::PFM::Browser(3pm), App::PFM::CommandHandler(3pm), App::PFM::Config(3pm),
+App::PFM::Directory(3pm), App::PFM::File(3pm), App::PFM::History(3pm),
+App::PFM::JobHandler(3pm), App::PFM::Job::Abstract(3pm),
+App::PFM::Screen(3pm), App::PFM::State(3pm) and App::PFM::Util(3pm).</p>
+<p>The pfm project page: <a href="http://sourceforge.net/projects/p-f-m/">http://sourceforge.net/projects/p-f-m/</a></p>
+<p>The pfm homepage: <a href="http://p-f-m.sourceforge.net/">http://p-f-m.sourceforge.net/</a></p>
 
 </body>
 
