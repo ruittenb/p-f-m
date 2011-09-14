@@ -1,8 +1,16 @@
+2.11.4
+
+* added support for numeric Your commands, e.g. (Y)our - (1)
+* added support for numeric bookmarks, e.g. (M)ore - (G)o - (3)
+* fixed bugs in screen resize and refresh in bookmark/Your command browser
+* change in (M)ore - (G)o: only valid bookmarkkeys may report 'Bookmark not
+  defined'. Keys that are not valid bookmarkkeys abort the action silently.
+
 2.11.3
 
 * first version with Your command browser
 * fixed bug in bookmark browser: ^E and ^Y work again
-* added icons
+* added icons to distribution
 
 2.11.2
 

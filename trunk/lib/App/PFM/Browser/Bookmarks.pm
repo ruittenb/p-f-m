@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Browser::Bookmarks 0.05
+# @(#) App::PFM::Browser::Bookmarks 0.07
 #
 # Name:			App::PFM::Browser::Bookmarks
-# Version:		0.05
+# Version:		0.07
 # Author:		Rene Uittenbogaard
 # Created:		2010-12-01
-# Date:			2011-03-09
+# Date:			2011-03-12
 #
 
 ##########################################################################
@@ -20,8 +20,8 @@ App::PFM::Browser::Bookmarks
 
 =head1 DESCRIPTION
 
-This class is responsible for the bookmark-specific part of browsing
-through bookmarks and selecting one.
+This class is responsible for the browsing functionality that is specific
+for browsing through bookmarks and selecting one.
 
 =head1 METHODS
 
@@ -34,7 +34,7 @@ through bookmarks and selecting one.
 
 package App::PFM::Browser::Bookmarks;
 
-use base qw(App::PFM::Browser App::PFM::Abstract);
+use base qw(App::PFM::Browser::Chooser App::PFM::Abstract);
 
 use App::PFM::Screen::Frame qw(:constants); # MENU_*, HEADING_*, and FOOTER_*
 use App::PFM::Screen        qw(:constants); # R_*
@@ -43,8 +43,11 @@ use App::PFM::Util			qw(fitpath);
 use strict;
 use locale;
 
-
 use constant {
+	SHOW_CLOCK  => 1,
+	SCREENTYPE  => R_LISTING,
+	HEADERTYPE  => HEADING_BOOKMARKS,
+	FOOTERTYPE  => FOOTER_NONE,
 	SPAWNEDCHAR => '*',
 };
 
@@ -67,91 +70,6 @@ sub _init {
 	$self->{_states} = $states;
 	$self->{_prompt} = '';
 	$self->SUPER::_init($screen, $config);
-	return;
-}
-
-=item _list_items()
-
-List the bookmarks from the hash of states.
-
-=cut
-
-sub _list_items {
-	my ($self)          = @_;
-	my $screen          = $self->{_screen};
-	my $printline       = $screen->BASELINE;
-	my $bookmarkpathcol = $screen->listing->bookmarkpathcol;
-	my @heading         = $screen->frame->bookmark_headings;
-	my $bookmarkpathlen = $heading[2];
-	my $spacing         =
-		' ' x ($screen->screenwidth - $screen->diskinfo->infolength);
-	my ($dest, $spawned, $overflow, $bookmarkkey);
-	# headings
-	$screen
-		->set_deferred_refresh(R_SCREEN)
-		->show_frame({
-			headings => HEADING_BOOKMARKS,
-			footer   => FOOTER_NONE,
-			prompt   => $self->{_prompt},
-		});
-	# list bookmarks
-	foreach (
-		$self->{_baseindex} .. $self->{_baseindex} + $screen->screenheight
-	) {
-		last if ($printline > $screen->BASELINE + $screen->screenheight);
-		$bookmarkkey = ${$self->{_config}->BOOKMARKKEYS}[$_];
-		$dest        = ${$self->{_states}}{$bookmarkkey};
-		$spawned     = ' ';
-		if (ref $dest) {
-			$dest    = $dest->directory->path . '/' . $dest->{_position};
-			$dest    =~ s{/\.$}{/};
-			$dest    =~ s{^//}{/};
-			$spawned = SPAWNEDCHAR;
-		}
-		if (length($dest)) {
-			($dest, undef, $overflow) = fitpath($dest, $bookmarkpathlen);
-			$dest .= ($overflow ? $screen->listing->NAMETOOLONGCHAR : ' ');
-		}
-		$screen->at($printline++, $bookmarkpathcol)
-			->puts(sprintf($heading[0], $bookmarkkey, $spawned, $dest));
-	}
-	foreach ($printline .. $screen->BASELINE + $screen->screenheight) {
-		$screen->at($printline++, $bookmarkpathcol)->puts($spacing);
-	}
-	$screen->at($self->{_currentline} + $screen->BASELINE, $bookmarkpathcol);
-	return;
-}
-
-=item _wait_loop()
-
-Waits for keyboard input. In unused time, update the on-screen clock
-and flash the cursor.
-
-=cut
-
-sub _wait_loop {
-	my ($self) = @_;
-	my $screen         = $self->{_screen};
-	my $screenline     = $self->{_currentline} + $screen->BASELINE;
-	my $cursorcol      = $self->cursorcol;
-	my $cursorjumptime = $self->{_config}{cursorjumptime};
-	my $event_idle     = App::PFM::Event->new({
-		name   => 'browser_idle',
-		origin => $self,
-		type   => 'soft',
-	});
-
-	$screen->at($screenline, $cursorcol);
-	until ($screen->pending_input($cursorjumptime)) {
-		$self->fire($event_idle);
-		# note: fire() called in vain. nobody has had the chance to register.
-		$screen->at(0, length($self->{_prompt})); # jump cursor
-		return if $screen->pending_input($cursorjumptime);
-		if ($self->SHOW_CLOCK) {
-			$screen->diskinfo->clock_info();
-		}
-		$screen->at($screenline, $cursorcol); # jump cursor
-	}
 	return;
 }
 
@@ -196,84 +114,56 @@ sub currentitem {
 ##########################################################################
 # public subs
 
-=item handle_non_motion_input(App::PFM::Event $event)
+=item list_items()
 
-Attempts to handle the non-motion event (keyboard- or mouse-input).
-Returns a hash reference with a member 'handled' indicating if this
-was successful, and a member 'data' with additional data (like
-the string 'quit' in case the user requested an application quit).
+List the bookmarks from the hash of states.
 
 =cut
 
-sub handle_non_motion_input {
-	my ($self, $event) = @_;
-	my $screenheight = $self->{_screen}->screenheight;
-	my $BASELINE     = $self->{_screen}->BASELINE;
-	my $browselist   = $self->browselist;
-	my $res          = {};
-	if ($event->{type} eq 'mouse') {
-		if ($event->{mouserow} >= $BASELINE and
-			$event->{mouserow} <= $BASELINE + $screenheight)
-		{
-			# potentially on an item, regardless of column
-			$res->{data} = $browselist->[
-				$self->{_baseindex} + $event->{mouserow} - $BASELINE
-			];
+sub list_items {
+	my ($self)          = @_;
+	my $screen          = $self->{_screen};
+	my $printline       = $screen->BASELINE;
+	my $bookmarkpathcol = $screen->listing->bookmarkpathcol;
+	my @heading         = $screen->frame->bookmark_headings;
+	my $bookmarkpathlen = $heading[2];
+	my $spacing         =
+		' ' x ($screen->screenwidth - $screen->diskinfo->infolength);
+	my ($dest, $spawned, $overflow, $bookmarkkey);
+	# headings
+	$screen
+		->set_deferred_refresh(R_SCREEN)
+		->show_frame({
+			headings => $self->HEADERTYPE,
+			footer   => $self->FOOTERTYPE,
+			prompt   => $self->{_prompt},
+		});
+	# list bookmarks
+	foreach (
+		$self->{_baseindex} .. $self->{_baseindex} + $screen->screenheight
+	) {
+		last if ($printline > $screen->BASELINE + $screen->screenheight);
+		$bookmarkkey = ${$self->{_config}->BOOKMARKKEYS}[$_];
+		$dest        = ${$self->{_states}}{$bookmarkkey};
+		$spawned     = ' ';
+		if (ref $dest) {
+			$dest    = $dest->directory->path . '/' . $dest->{_position};
+			$dest    =~ s{/\.$}{/};
+			$dest    =~ s{^//}{/};
+			$spawned = SPAWNEDCHAR;
 		}
-	} elsif ($event->{data} eq "\r") {
-		# ENTER key
-		$res->{data} = $browselist->[
-			$self->{_currentline} + $self->{_baseindex}
-		];
-	} else {
-		# other key events
-		$res->{data} = $event->{data};
+		if (length($dest)) {
+			($dest, undef, $overflow) = fitpath($dest, $bookmarkpathlen);
+			$dest .= ($overflow ? $screen->listing->NAMETOOLONGCHAR : ' ');
+		}
+		$screen->at($printline++, $bookmarkpathcol)
+			->puts(sprintf($heading[0], $bookmarkkey, $spawned, $dest));
 	}
-	return $res;
-}
-
-=item choose(string $prompt)
-
-Allows the user to browse through the listing of bookmarks and
-make their choice.
-
-=cut
-
-sub choose {
-	my ($self, $prompt) = @_;
-	my ($choice, $event);
-	my $screen       = $self->{_screen};
-	my $listing      = $screen->listing;
-	$self->{_prompt} = $prompt;
-	do {
-		$self->_list_items();
-#TODO		$listing->highlight_on();
-		# don't send mouse escapes to the terminal if not necessary
-		$screen->bracketed_paste_on() if $self->{_config}{paste_protection};
-		$screen->mouse_enable()       if $self->{_mouse_mode};
-		# enter main wait loop, which is exited on a resize event
-		# or on keyboard/mouse input.
-		$self->_wait_loop();
-		# find out what happened
-		$event = $screen->get_event();
-		# was it a resize?
-		if ($event->{name} eq 'resize_window') {
-			$screen->handleresize();
-		} else {
-			# must be keyboard/mouse input here
-#TODO			$listing->highlight_off();
-			$screen->bracketed_paste_off();
-			$screen->mouse_disable();
-			$choice = $self->handle($event);
-			if ($choice->{handled}) {
-				# if the received input was valid, then the current
-				# cursor position must be validated again
-				$screen->set_deferred_refresh($screen->R_STRIDE); # TODO
-			}
-		}
-	} until defined $choice->{data};
-	$self->{_screen}->bracketed_paste_off();
-	return $choice->{data};
+	foreach ($printline .. $screen->BASELINE + $screen->screenheight) {
+		$screen->at($printline++, $bookmarkpathcol)->puts($spacing);
+	}
+	$screen->at($self->{_currentline} + $screen->BASELINE, $bookmarkpathcol);
+	return;
 }
 
 ##########################################################################

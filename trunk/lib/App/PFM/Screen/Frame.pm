@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Frame 0.45
+# @(#) App::PFM::Screen::Frame 0.46
 #
 # Name:			App::PFM::Screen::Frame
-# Version:		0.45
+# Version:		0.46
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-12-14
+# Date:			2011-03-12
 #
 
 ##########################################################################
@@ -380,7 +380,7 @@ sub show {
 	my ($self, $options) = @_;
 	my $menulength;
 	my $prompt       = $options->{prompt};
-	my $menu_mode    = $options->{menu}     || MENU_SINGLE;
+	my $menu_mode    = $options->{menu}     ||= MENU_SINGLE;
 	my $heading_mode = $options->{headings} || HEADING_DISKINFO;
 	my $footer_mode  = $options->{footer};
 	$footer_mode   ||=
@@ -391,6 +391,23 @@ sub show {
 				: FOOTER_NONE;
 	$self->show_headings($self->{_pfm}->browser->swap_mode, $heading_mode);
 	$self->show_footer($footer_mode);
+	$menulength = $self->show_menu_or_prompt($options);
+	return $menulength;
+}
+
+=item show_menu_or_prompt(hashref { menu => int $menu_mode,
+prompt => string $prompt } )
+
+Unified interface for displaying either the menu (i.e., the top
+line on the screen), using show_menu(), or a prompt.
+
+=cut
+
+sub show_menu_or_prompt {
+	my ($self, $options) = @_;
+	my $menulength;
+	my $prompt       = $options->{prompt};
+	my $menu_mode    = $options->{menu}   || MENU_SINGLE;
 	if ($prompt) {
 		$self->{_screen}->at(0,0)->clreol()->putmessage($prompt);
 		$menulength = length $prompt;

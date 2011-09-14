@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen 0.50
+# @(#) App::PFM::Screen 0.51
 #
 # Name:			App::PFM::Screen
-# Version:		0.50
+# Version:		0.51
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-03-09
+# Date:			2011-03-12
 # Requires:		Term::ScreenColor
 #
 
@@ -77,11 +77,11 @@ use constant {
 	R_FOOTER		=> 16,	 # reprint the footer
 #	R_FRAME					 # R_MENU + R_PATHINFO + R_HEADINGS + R_FOOTER
 	R_DISKINFO		=> 32,	 # reprint the disk- and directory info column
-	R_LISTING		=> 64,	 # redisplay directory listing
+	R_LISTING		=> 128,	 # redisplay directory listing
 #	R_SCREEN				 # R_LISTING + R_DISKINFO + R_FRAME
-	R_CLEAR			=> 256,	 # clear the screen
+	R_CLEAR			=> 512,	 # clear the screen
 #	R_CLRSCR				 # R_CLEAR + R_SCREEN
-	R_ALTERNATE		=> 512,	 # switch screens according to 'altscreen_mode'
+	R_ALTERNATE		=> 1024, # switch screens according to 'altscreen_mode'
 	R_NEWDIR		=> 8192, # re-init directory-specific vars
 #	R_CHDIR					 # R_NEWDIR + R_SCREEN + R_STRIDE
 };
@@ -159,7 +159,7 @@ sub _init {
 	$self->{_screenwidth}      = 0;
 	$self->{_deferred_refresh} = 0;
 	$self->{_color_mode}       = '';
-	$self->{_modus}            = 'Files';
+	$self->{_chooser}          = undef;
 	$SIG{WINCH} = \&_catch_resize;
 	# special key bindings for bracketed paste
 	$self->def_key(BRACKETED_PASTE_START, "\e[200~");
@@ -274,6 +274,26 @@ sub color_mode {
 		$self->set_deferred_refresh(R_SCREEN);
 	}
 	return $self->{_color_mode};
+}
+
+=item chooser( [ App:PFM::Browser $chooser ] )
+
+Getter/setter for a I<chooser> object for which this screen object
+should perform refreshes. This alters the behavior of the refresh()
+method based on the I<chooser>'s SCREENTYPE.
+
+To undefine the I<chooser>, call this method with a zero argument.
+
+=cut
+
+sub chooser {
+	my ($self, $value) = @_;
+	if (ref $value) {
+		$self->{_chooser} = $value;
+	} elsif (defined $value) {
+		$self->{_chooser} = undef;
+	}
+	return $self->{_chooser};
 }
 
 ##########################################################################
@@ -763,9 +783,13 @@ Redisplays the headings if they have been flagged as 'needs to be redrawn'.
 
 sub refresh_headings {
 	my ($self) = @_;
+	my $headertype = HEADING_DISKINFO;
 	if ($self->{_deferred_refresh} & R_HEADINGS) {
+		if ($self->{_chooser}) {
+			$headertype = $self->{_chooser}->HEADERTYPE;
+		}
 		$self->{_frame}->show_headings(
-			$_pfm->browser->swap_mode, HEADING_DISKINFO);
+			$_pfm->browser->swap_mode, $headertype);
 		$self->{_deferred_refresh} &= ~R_HEADINGS;
 	}
 	return $self;
@@ -780,7 +804,11 @@ Redisplays all screen elements that have been flagged as 'need to be redrawn'.
 sub refresh {
 	my ($self)           = @_;
 	my $browser          = $_pfm->browser;
+	my $chooser          = $self->{_chooser};
 	my $deferred_refresh = $self->{_deferred_refresh};
+	my $headertype       = HEADING_DISKINFO;
+	my $footertype       = undef;
+	my $prompt           = $chooser ? $chooser->prompt : undef;
 	
 	if ($deferred_refresh & R_ALTERNATE) {
 		if ($self->{_config}->{altscreen_mode}) {
@@ -794,7 +822,7 @@ sub refresh {
 		$self->clrscr();
 	}
 	if ($deferred_refresh & R_FRAME) {
-		$self->{_frame}->show();
+		$self->{_frame}->show({ prompt => $prompt });
 	}
 	# now in order of severity
 	if ($deferred_refresh & R_NEWDIR) {
@@ -809,27 +837,49 @@ sub refresh {
 
 	# refresh the filelisting
 	if ($deferred_refresh & R_STRIDE) {
-		$browser->position_cursor_fuzzy();
-		$browser->position_cursor('.') unless defined $browser->currentfile;
+		if ($chooser) {
+			$chooser->validate_position();
+		} else {
+			$browser->position_cursor_fuzzy();
+			$browser->position_cursor('.') unless defined $browser->currentfile;
+		}
 	}
+
+	# validations may have requested more refreshing
+	$deferred_refresh = $self->{_deferred_refresh};
+
 	if ($deferred_refresh & R_LISTING) {
-		$self->{_listing}->show();
+		if ($chooser and $chooser->SCREENTYPE == R_LISTING) {
+			$chooser->list_items();
+		} else {
+			$self->{_listing}->show();
+		}
 	}
 	if ($deferred_refresh & R_DISKINFO) {
-		$self->{_diskinfo}->show();
+		if ($chooser and $chooser->SCREENTYPE == R_DISKINFO) {
+			$chooser->list_items();
+		} else {
+			$self->{_diskinfo}->show();
+		}
 	}
 	if ($deferred_refresh & R_MENU) {
-		$self->{_frame}->show_menu();
+		$self->{_frame}->show_menu_or_prompt({ prompt => $prompt });
 	}
 	if ($deferred_refresh & R_PATHINFO) {
 		$self->path_info();
 	}
 	if ($deferred_refresh & R_HEADINGS) {
+		if ($chooser) {
+			$headertype = $chooser->HEADERTYPE;
+		}
 		$self->{_frame}->show_headings(
-			$_pfm->browser->swap_mode, HEADING_DISKINFO);
+			$_pfm->browser->swap_mode, $headertype);
 	}
 	if ($deferred_refresh & R_FOOTER) {
-		$self->{_frame}->show_footer();
+		if ($chooser) {
+			$footertype = $chooser->FOOTERTYPE;
+		}
+		$self->{_frame}->show_footer($footertype);
 	}
 	$self->{_deferred_refresh} = 0;
 	return $self;

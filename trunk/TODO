@@ -34,20 +34,14 @@
 - maybe allow for file sizes to be displayed with thousands separator,
   e.g. 51_130_240.
 
-- extract abstract code so that browser may be reused for bookmarks and your
-  commands; ideally:
-  - Screen/Listing/Files
-  - Screen/Listing/Bookmarks
-  - Screen/Listing/YourCommands
-  - Browser/Files
-  - Browser/Bookmarks
-  - Browser/YourCommands
+- locale fr_FR.utf8 makes the screen a mess, out-of-the-box
+
+- do something about "svn: write error: broken pipe" (errno 141: 128 + 13)
 
 - Browser: integrate the different choose() and browse() methods.
-  Use Screen::Listing to refresh the different screen states and highlight the
-  correct screen line.
-
-- on resize: does not work well in Browser::Bookmarks and Browser::YourCommands.
+- Highlight the correct screen line.
+- pass browser_idle event when a chooser is active.
+- find out if chooser objects check the 'handled' member correctly in choose()
 
 ################################################################################
 # structural enhancements
