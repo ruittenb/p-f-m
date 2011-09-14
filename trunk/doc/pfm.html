@@ -24,6 +24,7 @@
 	<li><a href="#commands">COMMANDS</a></li>
 	<li><a href="#more_commands">MORE COMMANDS</a></li>
 	<li><a href="#miscellaneous_and_function_keys">MISCELLANEOUS and FUNCTION KEYS</a></li>
+	<li><a href="#escape_modifiers">ESCAPE MODIFIERS</a></li>
 	<li><a href="#launching_files">LAUNCHING FILES</a></li>
 	<li><a href="#quoting_rules">QUOTING RULES</a></li>
 	<li><a href="#mouse_commands">MOUSE COMMANDS</a></li>
@@ -80,8 +81,8 @@ self-explanatory. <code>pfm</code> will issue a warning if the version number of
 existing config file is less than the version of <code>pfm</code> you are running, and
 will offer to update it to its own version.  Alternatively, you could let
 <code>pfm</code> create a new default config file and compare the changes with your
-own settings, so that you can configure the new options right away.
-See also the <strong>C</strong>onfig command under MORE COMMANDS below, and DIAGNOSIS.</p>
+own settings, so that you can configure the new options right away. See
+also the <strong>C</strong>onfig command under <a href="#more_commands">MORE COMMANDS</a> below, and <a href="#diagnosis">DIAGNOSIS</a>.</p>
 <p>There are two commandline options that specify starting directories.
 The CDPATH environment variable is taken into account when <code>pfm</code>
 tries to find these directories.</p>
@@ -195,8 +196,8 @@ keys are available:</p>
 pfm will execute that command after every <code>chdir()</code>. This can be used
 <em>e.g.</em> to set the title of an xterm window.</p>
 <p>Note: the <strong>l</strong> and <strong>ENTER</strong> keys function differently when the cursor
-is on a non-directory file (see below under <strong>L</strong>ink and LAUNCHING FILES
-respectively).</p>
+is on a non-directory file (see below under <strong>L</strong>ink and
+<a href="#launching_files">LAUNCHING FILES</a> respectively).</p>
 <p>
 </p>
 <hr />
@@ -223,7 +224,7 @@ directory or a name containing a <strong>=1</strong>, <strong>=2</strong> or <st
 under c<strong>O</strong>mmand).</p>
 <p>If clobber mode is off (see below under the <strong>!</strong> command), existing files
 will not be overwritten unless the action is confirmed by the user.</p>
-<p>Whether <strong>Copy</strong> follows symlinks or copies them is OS-specific; you can
+<p>Whether <strong>C</strong>opy follows symlinks or copies them is OS-specific; you can
 change the default behavior by setting the 'copyoptions' option in your
 <em class="file">.pfmrc</em>. See <code>cp(1)</code>.</p>
 </dd>
@@ -244,6 +245,7 @@ this purpose.</p>
 <p>Edit a file with your external editor. You can specify an editor with the
 environment variable VISUAL or EDITOR or with the 'editor' option
 in the <em class="file">.pfmrc</em> file. Otherwise <code>vi(1)</code> is used.</p>
+<p>If a capital <strong>E</strong> is pressed, the foreground editor is used ('fg_editor').</p>
 </dd>
 <dt><strong><a name="find" class="item"><strong>Find</strong></a></strong></dt>
 
@@ -373,8 +375,8 @@ command will <em>always</em> try to make a link.</p>
 <p>Presents you with a choice of operations not related to the current
 file. Use this <em>e.g.</em> to configure <code>pfm</code>, edit a new file, make a
 new directory, show a different directory, or write the history files to
-disk. See below under MORE COMMANDS. Pressing <strong>ESC</strong> or <strong>ENTER</strong> will take
-you back to the main menu.</p>
+disk. See below under <a href="#more_commands">MORE COMMANDS</a>. Pressing <strong>ESC</strong> or <strong>ENTER</strong> will
+take you back to the main menu.</p>
 </dd>
 <dt><strong><a name="name" class="item"><strong>Name</strong></a></strong></dt>
 
@@ -500,7 +502,7 @@ are using <strong>=</strong> as 'escapechar').</p>
 <dd>
 <p>the editor specified with the 'editor' option in the config file</p>
 </dd>
-<dt><strong><a name="f" class="item"><strong>=f</strong></a></strong></dt>
+<dt><strong><a name="e" class="item"><strong>=E</strong></a></strong></dt>
 
 <dd>
 <p>the 'foreground' editor, specified with the 'fg_editor' option in the
@@ -530,43 +532,29 @@ name. The filename <strong>=1</strong> is the part before the period.</p>
 <table border="0" cellspacing="4" align="center" width="50%">
 <tr><td colspan="3"><hr /></td></tr>
 <tr>
-	<td><b>=2</b></td>
-	<td><b>=1</b></td>
-	<td><b>=7</b></td>
+	<td><b>=2</b></td>		<td><b>=1</b></td>		<td><b>=7</b></td>
+</tr>
+<tr><td	colspan="3"><hr	/></td></tr>
+<tr>
+	<td>track01.wav</td>	<td>track01</td>		<td>.wav</td>
+</tr>
+<tr>
+	<td>garden.jpg</td>		<td>garden</td>			<td>.jpg</td>
+</tr>
+<tr>
+	<td>end.</td>			<td>end</td>			<td>.</td>
+</tr>
+<tr>
+	<td>somename</td>		<td>somename</td>		<td><i>empty</i></td>
+</tr>
+<tr>
+	<td>.profile</td>		<td><i>empty</i></td>	<td>.profile</td>
+</tr>
+<tr>
+	<td>.profile.old</td>	<td>.profile</td>		<td>.old</td>
 </tr>
 <tr><td colspan="3"><hr /></td></tr>
-<tr>
-	<td>track01.wav</td>
-	<td>track01</td>
-	<td>.wav</td>
-</tr>
-<tr>
-	<td>garden.jpg</td>
-	<td>garden</td>
-	<td>.jpg</td>
-</tr>
-<tr>
-	<td>end.</td>
-	<td>end</td>
-	<td>.</td>
-</tr>
-<tr>
-	<td>somename</td>
-	<td>somename</td>
-	<td><i>empty</i></td>
-</tr>
-<tr>
-	<td>.profile</td>
-	<td><i>empty</i></td>
-	<td>.profile</td>
-</tr>
-<tr>
-	<td>.profile.old</td>
-	<td>.profile</td>
-	<td>.old</td>
-</tr>
-<tr><td colspan="3"><hr /></td></tr>
-</table><p>See also below under QUOTING RULES.</p>
+</table><p>See also below under <a href="#escape_modifiers">ESCAPE MODIFIERS</a> and <a href="#quoting_rules">QUOTING RULES</a>.</p>
 </dd>
 <dt><strong><a name="print" class="item"><strong>Print</strong></a></strong></dt>
 
@@ -642,7 +630,7 @@ criterion. See <strong>I</strong>nclude for details.</p>
 <dd>
 <p>Like c<strong>O</strong>mmand (see above), except that it uses one-letter commands
 (case-sensitive) that have been preconfigured in the <em class="file">.pfmrc</em> file.
-<strong>Y</strong>our commands may use <strong>=1</strong> up to <strong>=8</strong> and <strong>=e</strong>, <strong>=f</strong>, <strong>=p</strong>
+<strong>Y</strong>our commands may use <strong>=1</strong> up to <strong>=8</strong> and <strong>=e</strong>, <strong>=E</strong>, <strong>=p</strong>
 and <strong>=v</strong> escapes just as in c<strong>O</strong>mmand, e.g.</p>
 <pre>
     your[c]:tar cvf - =2 | gzip &gt; =2.tar.gz
@@ -704,6 +692,7 @@ settings modifiable by key commands (like 'defaultsortmode') will not.</p>
 <dd>
 <p>You will be prompted for a filename, then your editor will
 be spawned.</p>
+<p>If a capital <strong>E</strong> is pressed, the foreground editor is used ('fg_editor').</p>
 </dd>
 <dt><strong><a name="make_fifo" class="item"><strong>make Fifo</strong></a></strong></dt>
 
@@ -809,8 +798,8 @@ directories before files, each sorted alphabetically.</p>
 
 <dd>
 <p>If the current file is a directory, <code>pfm</code> will <code>chdir()</code> to that directory.
-Otherwise, <code>pfm</code> will attempt to <em>launch</em> the file. See LAUNCHING
-FILES below.</p>
+Otherwise, <code>pfm</code> will attempt to <em>launch</em> the file. See
+<a href="#launching_files">LAUNCHING FILES</a> below.</p>
 </dd>
 <dt><strong><a name="del" class="item"><strong>DEL</strong></a></strong></dt>
 
@@ -845,6 +834,11 @@ in the current directory path will be preserved.</p>
 
 <dd>
 <p>Identical to <strong>F</strong>ind (see above).</p>
+</dd>
+<dt><strong><a name="_" class="item"><strong>;</strong></a></strong></dt>
+
+<dd>
+<p>Toggle show/hide svn ignored files.</p>
 </dd>
 <dt><strong><a name="_" class="item"><strong>&lt;</strong></a></strong></dt>
 
@@ -944,10 +938,123 @@ the si<strong>Z</strong>e command is issued, not when reading the directory cont
 <dt><strong><a name="f12" class="item"><strong>F12</strong></a></strong></dt>
 
 <dd>
-<p>Toggle mouse use. See below under MOUSE COMMANDS.</p>
+<p>Toggle mouse use. See below under <a href="#mouse_commands">MOUSE COMMANDS</a>.</p>
 </dd>
 </dl>
 <p>
+</p>
+<hr />
+<h1><a name="escape_modifiers">ESCAPE MODIFIERS</a></h1>
+<p>The above mentioned escapes <strong>=1</strong> to <strong>=8</strong> and <strong>=e</strong>, <strong>=E</strong>, <strong>=p</strong>
+and <strong>=v</strong> can make use of the following modifiers:</p>
+<dl>
+<dt><strong><a name="escape_prefix" class="item"><strong>={escape#prefix}</strong></a></strong></dt>
+
+<dt><strong><a name="escape_prefix2" class="item"><strong>={escape##prefix}</strong></a></strong></dt>
+
+<dd>
+<p><em>prefix</em> is a word which may use <strong>*</strong> characters as a wildcard.
+If the <em>prefix</em> matches the beginning of the value of the escape,
+then the result of the expansion is the expanded value of
+<em>escape</em> with the shortest (<strong>#</strong>) or longest (<strong>##</strong>) matching
+string deleted.</p>
+</dd>
+<dt><strong><a name="escape_suffix" class="item"><strong>={escape%suffix}</strong></a></strong></dt>
+
+<dt><strong><a name="escape_suffix2" class="item"><strong>={escape%%suffix}</strong></a></strong></dt>
+
+<dd>
+<p><em>suffix</em> is a word which may use <strong>*</strong> characters as a wildcard.
+If the <em>suffix</em> matches a trailing portion of the value of the
+escape, then the result of the expansion is the expanded
+value of <em>escape</em> with the shortest (<strong>%</strong>) or longest (<strong>%%</strong>)
+matching string deleted.</p>
+</dd>
+<dt><strong><a name="escape_letters" class="item"><strong>={escape^letters}</strong></a></strong></dt>
+
+<dt><strong><a name="escape_letters2" class="item"><strong>={escape^^letters}</strong></a></strong></dt>
+
+<dt><strong><a name="escape_letters3" class="item"><strong>={escape,letters}</strong></a></strong></dt>
+
+<dt><strong><a name="escape_letters4" class="item"><strong>={escape,,letters}</strong></a></strong></dt>
+
+<dd>
+<p>This expansion modifies the case of alphabetic characters in <em>escape</em>.
+The <strong>^</strong> operator converts letters in <em>letters</em> to uppercase;
+the <strong>,</strong> operator converts letters in <em>letters</em> to lowercase.
+The <strong>^^</strong> and <strong>,,</strong> expansions convert each matched character in the expanded
+value; the <strong>^</strong> and <strong>,</strong> expansions match and convert only the first
+character in the expanded value. If <em>letters</em> is omitted, it is treated like
+a <strong>?</strong>, which matches every letter.</p>
+</dd>
+</dl>
+<p>If a modification is done on <strong>=8</strong>, it is done on each of the expanded values.</p>
+<p>Examples:</p>
+<table border="0" cellspacing="4" align="center" width="50%">
+<tr><td colspan="2"><hr /></td></tr>
+<tr>
+	<td><b>escape</b></td>	<td><b>result</b></td>
+</tr>
+<tr><td colspan="2"><hr /></td></tr>
+<tr>
+	<td>=2</td>				<td>ActivateDebtor.php</td>
+</tr>
+<tr>
+	<td>={2}</td>			<td>ActivateDebtor.php</td>
+</tr>
+<tr>
+	<td>={2#Activate}</td>	<td>Debtor.php</td>
+</tr>
+<tr>
+	<td>={2#t}</td>			<td>ActivateDebtor.php</td>
+</tr>
+<tr>
+	<td>={2#*t}</td>		<td>ivateDebtor.php</td>
+</tr>
+<tr>
+	<td>={2##*t}</td>		<td>or.php</td>
+</tr>
+<tr>
+	<td>={2%hp}</td>		<td>ActivateDebtor.p</td>
+</tr>
+<tr>
+	<td>={2%t}</td>			<td>ActivateDebtor.php</td>
+</tr>
+<tr>
+	<td>={2%t*}</td>		<td>ActivateDeb</td>
+</tr>
+<tr>
+	<td>={2%%t*}</td>		<td>Ac</td>
+</tr>
+<tr>
+	<td>={2,d}</td>			<td>Activatedebtor.php</td>
+</tr>
+<tr>
+	<td>={2^ph}</td>		<td>ActivateDebtor.Php</td>
+</tr>
+<tr>
+	<td>={2,,t}</td>		<td>ActivateDebtor.php</td>
+</tr>
+<tr>
+	<td>={2^^t}</td>		<td>AcTivaTeDebTor.php</td>
+</tr>
+<tr>
+	<td>={2,,}</td>			<td>activatedebtor.php</td>
+</tr>
+<tr>
+	<td>={2^^}</td>			<td>ACTIVATEDEBTOR.PHP</td>
+</tr>
+<tr>
+	<td>=8</td>				<td>UserName.php UserId.php</td>
+</tr>
+<tr>
+	<td>={8,}</td>			<td>userName.php userId.php</td>
+</tr>
+<tr>
+	<td>={8#User}</td>		<td>Name.php Id.php</td>
+</tr>
+<tr><td colspan="2"><hr /></td></tr>
+</table><p>
 </p>
 <hr />
 <h1><a name="launching_files">LAUNCHING FILES</a></h1>
@@ -1041,9 +1148,9 @@ discouraged from using it.</p>
 
 <dd>
 <p>First of all, tilde expansion is performed.</p>
-<p>Next, any <code>=[1-8efpv]</code> character sequence is expanded to the corresponding
+<p>Next, any <code>=[1-8eEpv]</code> character sequence is expanded to the corresponding
 value.</p>
-<p>At the same time, any <code>=[^1-8efpv]</code> character sequence is just replaced
+<p>At the same time, any <code>=[^1-8eEpv]</code> character sequence is just replaced
 with the character itself.</p>
 <p>Finally, if the filename is to be processed by <code>pfm</code>, it is taken literally;
 if it is to be handed over to a shell, all metacharacters are replaced
@@ -1053,9 +1160,9 @@ if it is to be handed over to a shell, all metacharacters are replaced
 
 <dd>
 <p>First of all, tilde expansion is performed.</p>
-<p>Next, any <code>=[1-8efpv]</code> character sequence is expanded to the corresponding
+<p>Next, any <code>=[1-8eEpv]</code> character sequence is expanded to the corresponding
 value, <em>with shell metacharacters escaped</em>.</p>
-<p>At the same time, any <code>=[^1-8efpv]</code> character sequence is just replaced
+<p>At the same time, any <code>=[^1-8eEpv]</code> character sequence is just replaced
 with the character itself.</p>
 </dd>
 </dl>
@@ -1336,18 +1443,24 @@ and the current working directory on exit are saved to this directory.</p>
 </p>
 <hr />
 <h1><a name="exit_status">EXIT STATUS</a></h1>
-<ol>
-<li>
+<dl>
+<dt><strong><a name="0" class="item">&nbsp;0</a></strong></dt>
+
+<dd>
 <p>Success (could also be a user requested exit, <em>e.g.</em> after
 <strong>--help</strong> or <strong>--version</strong>).</p>
-</li>
-<li>
+</dd>
+<dt><strong><a name="12" class="item">&nbsp;1</a></strong></dt>
+
+<dd>
 <p>Invalid commandline option.</p>
-</li>
-<li>
+</dd>
+<dt><strong><a name="22" class="item">&nbsp;2</a></strong></dt>
+
+<dd>
 <p>No valid layout found in the <em class="file">.pfmrc</em> file.</p>
-</li>
-</ol>
+</dd>
+</dl>
 <p>
 </p>
 <hr />

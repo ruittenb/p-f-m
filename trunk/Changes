@@ -1,3 +1,8 @@
+2.10.0
+
+* added: smart expansion like in bash(1): ={2%%pattern} etc.
+* updated documentation
+
 2.09.9-beta
 
 * fixed: (M)ore - (V)ersion now correctly updates statuses

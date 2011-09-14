@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::OS 0.13
+# @(#) App::PFM::OS 0.14
 #
 # Name:			App::PFM::OS
-# Version:		0.13
+# Version:		0.14
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-20
-# Date:			2010-09-18
+# Date:			2010-10-23
 #
 
 ##########################################################################
@@ -36,20 +36,6 @@ package App::PFM::OS;
 use base 'App::PFM::Abstract';
 
 use App::PFM::OS::Abstract;
-use App::PFM::OS::Aix;
-use App::PFM::OS::Beos;
-use App::PFM::OS::Darwin;
-use App::PFM::OS::Dec_osf;
-use App::PFM::OS::Freebsd;
-use App::PFM::OS::Haiku;
-use App::PFM::OS::Hpux;
-use App::PFM::OS::Irix;
-use App::PFM::OS::Linux;
-use App::PFM::OS::Macosx;
-use App::PFM::OS::Sco;
-use App::PFM::OS::Solaris;
-use App::PFM::OS::Sunos;
-use App::PFM::OS::Tru64;
 
 use Carp;
 use strict;
@@ -72,9 +58,10 @@ sub _init {
 	my ($self, $config) = @_;
 	my $osname = ucfirst lc($^O);
 	my $class  = "App::PFM::OS::$osname";
-	eval {
-		$self->{_os} = $class->new($config);
-	};
+	$self->{_os} = eval "
+		require $class;
+		return $class->new(\$config);
+	";
 	if ($@) {
 		$self->{_os} = new App::PFM::OS::Abstract($config);
 	}

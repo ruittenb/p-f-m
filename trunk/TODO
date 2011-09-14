@@ -25,8 +25,6 @@
 - call $pfm->checkupdates() in '@' (perlcommand) does not finish the job;
   call $pfm->checkupdates(); sleep 2; finishes it.
 
-- handlemorego should check to see if any files are marked (or? PREV still has them)
-
 - find_best_find_match() should take into account that the sort mode could be 
   case-insensitive. In other words, 'serviceore' matches 'ServiceOrderXPerson'
   better than 'ServiceTypeGp'.
@@ -35,18 +33,12 @@
 - if =5 is requested but there is no swap state, what to do?
 - in general, if an escape is invalid, what to do?
 
-- _expand_filename_escapes() ? 
-  _expand_command_escapes() ?
-
 - bug: resizing a very tall window can leave the currentfile on the last line of
   the screen, overwriting the footer. the cursor position is not correctly validated
   then.
 
 ################################################################################
 # structural enhancements
-
-- OS: dynamically use() modules, as in:
-  $c = 'Complex'; eval "use Math::$c; \$main::a = 4 + i";
 
 - restructure chdir(), handleswap()/handlemoreshow()/handlemorego() etc.
 - check function of $swapping flag behavior
@@ -85,10 +77,14 @@
 
 - implement 'after_create_entry'
 
-- implement ={2%.php} and ={1#Base}
+- implement ={2/pat/string}
 
 ################################################################################
 # functional enhancements
+
+- launch by absolute name: Makefile, Makefile.PL
+  launchfile[Makefile]   : make
+  launchfile[Makefile.PL]: perl Makefile.PL
 
 - if a file is copied/moved/linked to =5, add it to the swap state
 
@@ -104,12 +100,6 @@
 
 ################################################################################
 # documentation enhancements
-
-- UML:
-  CommandHandler
-    ::_unmark_eightset()
-    ::_expand_tildes()
-    ::_expand_8_escapes()
 
 - manpages: use I<...> in =items
 

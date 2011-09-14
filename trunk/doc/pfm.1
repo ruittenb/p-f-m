@@ -124,13 +124,13 @@
 .\" ========================================================================
 .\"
 .IX Title "PFM 1"
-.TH PFM 1 "2010-09-30" " " " "
+.TH PFM 1 "2010-10-23" " " " "
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
 .nh
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.09.5
+.ds Vw @(#) pfm.pl 2.10.0
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -169,8 +169,8 @@ self-explanatory. \f(CW\*(C`pfm\*(C'\fR will issue a warning if the version numb
 existing config file is less than the version of \f(CW\*(C`pfm\*(C'\fR you are running, and
 will offer to update it to its own version.  Alternatively, you could let
 \&\f(CW\*(C`pfm\*(C'\fR create a new default config file and compare the changes with your
-own settings, so that you can configure the new options right away.
-See also the \fBC\fRonfig command under \s-1MORE\s0 \s-1COMMANDS\s0 below, and \s-1DIAGNOSIS\s0.
+own settings, so that you can configure the new options right away. See
+also the \fBC\fRonfig command under \*(L"\s-1MORE\s0 \s-1COMMANDS\s0\*(R" below, and \*(L"\s-1DIAGNOSIS\s0\*(R".
 .PP
 There are two commandline options that specify starting directories.
 The \s-1CDPATH\s0 environment variable is taken into account when \f(CW\*(C`pfm\*(C'\fR
@@ -246,8 +246,8 @@ pfm will execute that command after every \fIchdir()\fR. This can be used
 \&\fIe.g.\fR to set the title of an xterm window.
 .PP
 Note: the \fBl\fR and \fB\s-1ENTER\s0\fR keys function differently when the cursor
-is on a non-directory file (see below under \fBL\fRink and \s-1LAUNCHING\s0 \s-1FILES\s0
-respectively).
+is on a non-directory file (see below under \fBL\fRink and
+\&\*(L"\s-1LAUNCHING\s0 \s-1FILES\s0\*(R" respectively).
 .SH "COMMANDS"
 .IX Header "COMMANDS"
 .IP "\fBAttribute\fR" 4
@@ -290,6 +290,8 @@ this purpose.
 Edit a file with your external editor. You can specify an editor with the
 environment variable \s-1VISUAL\s0 or \s-1EDITOR\s0 or with the 'editor' option
 in the \fI.pfmrc\fR file. Otherwise \fIvi\fR\|(1) is used.
+.Sp
+If a capital \fBE\fR is pressed, the foreground editor is used ('fg_editor').
 .IP "\fBFind\fR" 4
 .IX Item "Find"
 If the current sort mode is by filename, you are prompted for a (partial)
@@ -402,8 +404,8 @@ command will \fIalways\fR try to make a link.
 Presents you with a choice of operations not related to the current
 file. Use this \fIe.g.\fR to configure \f(CW\*(C`pfm\*(C'\fR, edit a new file, make a
 new directory, show a different directory, or write the history files to
-disk. See below under \s-1MORE\s0 \s-1COMMANDS\s0. Pressing \fB\s-1ESC\s0\fR or \fB\s-1ENTER\s0\fR will take
-you back to the main menu.
+disk. See below under \*(L"\s-1MORE\s0 \s-1COMMANDS\s0\*(R". Pressing \fB\s-1ESC\s0\fR or \fB\s-1ENTER\s0\fR will
+take you back to the main menu.
 .IP "\fBName\fR" 4
 .IX Item "Name"
 Shows the complete long filename. For a symbolic link, this command
@@ -486,8 +488,8 @@ a single literal \fB=\fR
 .IP "\fB=e\fR" 4
 .IX Item "=e"
 the editor specified with the 'editor' option in the config file
-.IP "\fB=f\fR" 4
-.IX Item "=f"
+.IP "\fB=E\fR" 4
+.IX Item "=E"
 the 'foreground' editor, specified with the 'fg_editor' option in the
 config file. This is expected to be defined as an editor that does not
 fork into the background. \f(CW\*(C`pfm\*(C'\fR uses this editor in a few cases so
@@ -530,7 +532,7 @@ _
 .TE
 .in -4n
 .Sp
-See also below under \s-1QUOTING\s0 \s-1RULES\s0.
+See also below under \*(L"\s-1ESCAPE\s0 \s-1MODIFIERS\s0\*(R" and \*(L"\s-1QUOTING\s0 \s-1RULES\s0\*(R".
 .RE
 .IP "\fBPrint\fR" 4
 .IX Item "Print"
@@ -589,7 +591,7 @@ criterion. See \fBI\fRnclude for details.
 .IX Item "Your command"
 Like c\fBO\fRmmand (see above), except that it uses one-letter commands
 (case-sensitive) that have been preconfigured in the \fI.pfmrc\fR file.
-\&\fBY\fRour commands may use \fB=1\fR up to \fB=8\fR and \fB=e\fR, \fB=f\fR, \fB=p\fR
+\&\fBY\fRour commands may use \fB=1\fR up to \fB=8\fR and \fB=e\fR, \fB=E\fR, \fB=p\fR
 and \fB=v\fR escapes just as in c\fBO\fRmmand, e.g.
 .Sp
 .Vb 3
@@ -644,6 +646,8 @@ settings modifiable by key commands (like 'defaultsortmode') will not.
 .IX Item "Edit any file"
 You will be prompted for a filename, then your editor will
 be spawned.
+.Sp
+If a capital \fBE\fR is pressed, the foreground editor is used ('fg_editor').
 .IP "\fBmake Fifo\fR" 4
 .IX Item "make Fifo"
 Prompts for a name, then creates a \s-1FIFO\s0 file (named pipe) with that
@@ -720,8 +724,8 @@ Starts a perl shell in the context of \f(CW\*(C`pfm\*(C'\fR. Primarily used for 
 .IP "\fB\s-1ENTER\s0\fR" 4
 .IX Item "ENTER"
 If the current file is a directory, \f(CW\*(C`pfm\*(C'\fR will \fIchdir()\fR to that directory.
-Otherwise, \f(CW\*(C`pfm\*(C'\fR will attempt to \fIlaunch\fR the file. See \s-1LAUNCHING\s0
-\&\s-1FILES\s0 below.
+Otherwise, \f(CW\*(C`pfm\*(C'\fR will attempt to \fIlaunch\fR the file. See
+\&\*(L"\s-1LAUNCHING\s0 \s-1FILES\s0\*(R" below.
 .IP "\fB\s-1DEL\s0\fR" 4
 .IX Item "DEL"
 Identical to the \fBD\fRelete command (see above).
@@ -744,12 +748,16 @@ Toggle show/hide dot files.
 .IP "\fB/\fR" 4
 .IX Item "/"
 Identical to \fBF\fRind (see above).
+.IP "\fB;\fR" 4
+.IX Item ";"
+Toggle show/hide svn ignored files.
 .IP "\fB<\fR" 4
 .IX Item "<"
 Pan the menu and footer, in order to view all available commands.
 .IP "\fB=\fR" 4
 .IX Item "="
-Cycle through displaying the username, the hostname, or username@hostname.
+Cycle through displaying identity information: username, hostname,
+and/or ttyname.
 .IP "\fB>\fR" 4
 .IX Item ">"
 Pan the menu and footer, in order to view all available commands.
@@ -809,7 +817,83 @@ Switch between single-file and multiple-file mode.
 Refresh (using \fIlstat\fR\|(2)) the displayed file data for the current file.
 .IP "\fBF12\fR" 4
 .IX Item "F12"
-Toggle mouse use. See below under \s-1MOUSE\s0 \s-1COMMANDS\s0.
+Toggle mouse use. See below under \*(L"\s-1MOUSE\s0 \s-1COMMANDS\s0\*(R".
+.SH "ESCAPE MODIFIERS"
+.IX Header "ESCAPE MODIFIERS"
+The above mentioned escapes \fB=1\fR to \fB=8\fR and \fB=e\fR, \fB=E\fR, \fB=p\fR
+and \fB=v\fR can make use of the following modifiers:
+.IP "\fB={escape#prefix}\fR" 4
+.IX Item "={escape#prefix}"
+.PD 0
+.IP "\fB={escape##prefix}\fR" 4
+.IX Item "={escape##prefix}"
+.PD
+\&\fIprefix\fR is a word which may use \fB*\fR characters as a wildcard.
+If the \fIprefix\fR matches the beginning of the value of the escape,
+then the result of the expansion is the expanded value of
+\&\fIescape\fR with the shortest (\fB#\fR) or longest (\fB##\fR) matching
+string deleted.
+.IP "\fB={escape%suffix}\fR" 4
+.IX Item "={escape%suffix}"
+.PD 0
+.IP "\fB={escape%%suffix}\fR" 4
+.IX Item "={escape%%suffix}"
+.PD
+\&\fIsuffix\fR is a word which may use \fB*\fR characters as a wildcard.
+If the \fIsuffix\fR matches a trailing portion of the value of the
+escape, then the result of the expansion is the expanded
+value of \fIescape\fR with the shortest (\fB%\fR) or longest (\fB%%\fR)
+matching string deleted.
+.IP "\fB={escape^letters}\fR" 4
+.IX Item "={escape^letters}"
+.PD 0
+.IP "\fB={escape^^letters}\fR" 4
+.IX Item "={escape^^letters}"
+.IP "\fB={escape,letters}\fR" 4
+.IX Item "={escape,letters}"
+.IP "\fB={escape,,letters}\fR" 4
+.IX Item "={escape,,letters}"
+.PD
+This expansion modifies the case of alphabetic characters in \fIescape\fR.
+The \fB^\fR operator converts letters in \fIletters\fR to uppercase;
+the \fB,\fR operator converts letters in \fIletters\fR to lowercase.
+The \fB^^\fR and \fB,,\fR expansions convert each matched character in the expanded
+value; the \fB^\fR and \fB,\fR expansions match and convert only the first
+character in the expanded value. If \fIletters\fR is omitted, it is treated like
+a \fB?\fR, which matches every letter.
+.PP
+If a modification is done on \fB=8\fR, it is done on each of the expanded values.
+.PP
+Examples:
+.in +4n
+.TS
+lb lb
+l  l  .
+_
+escape	result
+_
+=2	ActivateDebtor.php
+={2}	ActivateDebtor.php
+={2#Activate}	Debtor.php
+={2#t}	ActivateDebtor.php
+={2#*t}	ivateDebtor.php
+={2##*t}	or.php
+={2%hp}	ActivateDebtor.p
+={2%t}	ActivateDebtor.php
+={2%t*}	ActivateDeb
+={2%%t*}	Ac
+={2,d}	Activatedebtor.php
+={2^ph}	ActivateDebtor.Php
+={2,,t}	ActivateDebtor.php
+={2^^t}	AcTivaTeDebTor.php
+={2,,}	activatedebtor.php
+={2^^}	ACTIVATEDEBTOR.PHP
+=8	UserName.php UserId.php
+={8,}	userName.php userId.php
+={8#User}	Name.php Id.php
+_
+.TE
+.in -4n
 .SH "LAUNCHING FILES"
 .IX Header "LAUNCHING FILES"
 The \fB\s-1ENTER\s0\fR key, when used on a non-directory file, will attempt to launch
@@ -903,10 +987,10 @@ The input is taken literally.
 .IX Item "a filename (e.g. in Copy or tarGet)."
 First of all, tilde expansion is performed.
 .Sp
-Next, any \f(CW\*(C`=[1\-8efpv]\*(C'\fR character sequence is expanded to the corresponding
+Next, any \f(CW\*(C`=[1\-8eEpv]\*(C'\fR character sequence is expanded to the corresponding
 value.
 .Sp
-At the same time, any \f(CW\*(C`=[^1\-8efpv]\*(C'\fR character sequence is just replaced
+At the same time, any \f(CW\*(C`=[^1\-8eEpv]\*(C'\fR character sequence is just replaced
 with the character itself.
 .Sp
 Finally, if the filename is to be processed by \f(CW\*(C`pfm\*(C'\fR, it is taken literally;
@@ -916,10 +1000,10 @@ if it is to be handed over to a shell, all metacharacters are replaced
 .IX Item "a shell command (e.g. in cOmmand or Print)"
 First of all, tilde expansion is performed.
 .Sp
-Next, any \f(CW\*(C`=[1\-8efpv]\*(C'\fR character sequence is expanded to the corresponding
+Next, any \f(CW\*(C`=[1\-8eEpv]\*(C'\fR character sequence is expanded to the corresponding
 value, \fIwith shell metacharacters escaped\fR.
 .Sp
-At the same time, any \f(CW\*(C`=[^1\-8efpv]\*(C'\fR character sequence is just replaced
+At the same time, any \f(CW\*(C`=[^1\-8eEpv]\*(C'\fR character sequence is just replaced
 with the character itself.
 .PP
 In short:
@@ -1017,8 +1101,8 @@ preconfigured sort modes as defined in the config option 'sortcycle'.
 .PP
 Clicking on the menu or footer will execute the command that was clicked.
 .PP
-Clicking on the identity line in the info column will switch the display
-like the \fB=\fR command does.
+Clicking on one of the identity lines in the info column will toggle the
+display like the \fB=\fR command does.
 .PP
 Mouse use will be turned off during the execution of commands, unless
 \&'mouseturnoff' is set to 'no' in \fI.pfmrc\fR. Note that setting this to
@@ -1200,6 +1284,7 @@ with debugging.
 .IX Header "SEE ALSO"
 The documentation on \s-1PFM\s0.COM. The manual pages for \fIchmod\fR\|(1), \fIcp\fR\|(1),
 \&\fIfile\fR\|(1), \fIless\fR\|(1), \fIln\fR\|(1), \fIlocale\fR\|(7), \fIlpr\fR\|(1), \fItouch\fR\|(1), \fIvi\fR\|(1).
+.ad l \" right-justification off
 .PP
 For developers: \fITerm::Screen\fR\|(3pm), \fITerm::ScreenColor\fR\|(3pm),
 \&\fITerm::ReadLine\fR\|(3pm), \fIApp::PFM::Abstract\fR\|(3pm), \fIApp::PFM::Application\fR\|(3pm),
@@ -1209,6 +1294,6 @@ For developers: \fITerm::Screen\fR\|(3pm), \fITerm::ScreenColor\fR\|(3pm),
 \&\fIApp::PFM::Job::Abstract\fR\|(3pm), \fIApp::PFM::OS\fR\|(3pm), \fIApp::PFM::Screen\fR\|(3pm),
 \&\fIApp::PFM::State\fR\|(3pm) and \fIApp::PFM::Util\fR\|(3pm).
 .PP
-The pfm project page: http://sourceforge.net/projects/p\-f\-m/
+The pfm project page: <http://sourceforge.net/projects/p\-f\-m/>
 .PP
-The pfm homepage: http://p\-f\-m.sourceforge.net/
+The pfm homepage: <http://p\-f\-m.sourceforge.net/>
