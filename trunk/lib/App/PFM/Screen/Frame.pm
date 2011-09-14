@@ -282,7 +282,7 @@ sub _getfooter {
 		$f = "F5-Smart-refresh F6-Multilevel-sort";
 	} elsif ($footer_mode == FOOTER_SINGLE or $footer_mode == FOOTER_MULTI) {
 		$f =	"F1-Help F2-Prev F3-Redraw"
-		.		" F4-Color[" . $_screen->color_mode . "] F5-Reread"
+		.		" F4-Color[" . $_screen->color_mode . "] F5-Refresh"
 		.		" F6-Sort[" . $_pfm->state->sort_mode . "]"
 		.		" F7-Swap[$ONOFF{$_pfm->browser->swap_mode}] F8-In/Exclude"
 		.		" F9-Layout[" . $_screen->listing->layout . "]" # $layoutname ?

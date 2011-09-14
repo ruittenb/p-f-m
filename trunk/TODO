@@ -27,7 +27,9 @@
 
 - handlemorego should check to see if any files are marked (or? PREV still has them)
 
-- test if /bold/ /reverse/ etc. don't give false positives with "noansibold" etc.
+- find_best_find_match() should take into account that the sort mode could be 
+  case-insensitive. In other words, 'serviceore' matches 'ServiceOrderXPerson'
+  better than 'ServiceTypeGp'.
 
 ################################################################################
 # structural enhancements

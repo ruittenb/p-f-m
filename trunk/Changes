@@ -1,3 +1,9 @@
+2.09.6-alpha
+
+* added: default launch command for Makefiles is 'make'
+* added: key 'e' starts editor, 'E' foreground editor
+* changed: foreground editor escape '=f' has been replaced by '=E'
+
 2.09.5-beta
 
 * fixed small bugs in installer and test script

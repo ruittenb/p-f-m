@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config::Update 2.09.5
+# @(#) App::PFM::Config::Update 2.09.6
 #
 # Name:			App::PFM::Config::Update
-# Version:		2.09.5
+# Version:		2.09.6
 # Author:		Rene Uittenbogaard
 # Created:		2010-05-28
 # Date:			2010-10-03
@@ -872,6 +872,24 @@ use constant UPDATES => {
 			qr/^(#+\s*)'sun' = show locking only on sunos.solaris/,
 			qr/^(#*\s*)showlock:/,
 		],
+	},
+	# ----- 2.09.6 ---------------------------------------------------------
+	'2.09.6' => {
+		additions => [{
+			after => qr{^launch\[text/html\].*:},
+			batch => [
+				"launch[text/x-makefile]           : make\n",
+			],
+		}, {
+			after => qr{^magic\[HTML document text\]},
+			batch => [
+				"magic[make commands text]   : text/x-makefile\n",
+			],
+		}],
+		substitutions => sub {
+			s{^##  =f : 'fg_editor' .defined above.}
+			 {##  =E : 'fg_editor' (defined above)};
+		 },
 	},
 };
 

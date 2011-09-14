@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.38
+# @(#) App::PFM::CommandHandler 1.39
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.38
+# Version:		1.39
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-10-03
+# Date:			2010-10-08
 #
 
 ##########################################################################
@@ -79,7 +79,7 @@ use constant CMDESCAPES => {
 	'7' => 'extension',
 	'8' => 'selection',
 	'e' => 'editor',
-#	'f' => 'fg editor', # don't advocate
+	'E' => 'fg editor',
 	'p' => 'pager',
 	'v' => 'viewer',
 };
@@ -165,7 +165,7 @@ sub _helppage {
  a      Attribute (chmod)                x   eXclude                            
  c      Copy                             y   Your command                       
  d DEL  Delete                           z   siZe (grand total)                 
- e      Edit                            ----------------------------------------
+ e E    (foreground) Edit                ----------------------------------------
  f /    Find                             m@  perl shell (for debugging)         
  g      change symlink tarGet            ma  edit ACL                           
  i      Include                          mb  make Bookmark                      
@@ -244,7 +244,7 @@ $name_no_extension, string $name, string $extension ] )
 Does the actual escape expansion in commands and filenames
 for one occurrence of an escape sequence.
 
-All escape types B<=1> .. B<=8> escapes plus B<=e>, B<=f>, B<=p> and B<=v>
+All escape types B<=1> .. B<=8> escapes plus B<=e>, B<=E>, B<=p> and B<=v>
 are recognized.  See pfm(1) for more information about the meaning of
 these escapes.
 
@@ -265,7 +265,7 @@ sub _expand_replace {
 		/7/ and return condquotemeta($qif, $extension);
 		/8/ and return join (' ', $self->_markednames($qif));
 		/e/ and return condquotemeta($qif, $self->{_config}{editor});
-		/f/ and return condquotemeta($qif, $self->{_config}{fg_editor});
+		/E/ and return condquotemeta($qif, $self->{_config}{fg_editor});
 		/p/ and return condquotemeta($qif, $self->{_config}{pager});
 		/v/ and return condquotemeta($qif, $self->{_config}{viewer});
 		# this also handles the special $e$e case - don't quotemeta() this!
@@ -545,7 +545,7 @@ sub escape_midway {
 	} elsif ($b eq "$e$e" && $a =~ /\d/) {
 		return -1;
 	} else {
-		return $a cmp $b;
+		return uc $a cmp uc $b;
 	}
 }
 
@@ -1507,10 +1507,13 @@ Starts the editor for editing the current fileZ<>(s) (B<E>dit command).
 sub handleedit {
 	my ($self, $event) = @_;
 	my $do_this;
+	my $editor = $event->{data} eq 'E'
+		? $self->{_config}{fg_editor}
+		: $self->{_config}{editor};
 	$self->{_screen}->alternate_off()->clrscr()->at(0,0)->cooked_echo();
 	$do_this = sub {
 		my $file = shift;
-		system $self->{_config}{editor}." \Q$file->{name}\E"
+		system "$editor \Q$file->{name}\E"
 			and $self->{_screen}->display_error('Editor failed');
 	};
 	$_pfm->state->directory->apply($do_this, $event);
@@ -2007,7 +2010,7 @@ sub handlecommand { # Y or O
 		$screen->cooked_echo();
 	} else { # cOmmand
 		$prompt =
-			"Enter Unix command ($e"."[1-8] or $e"."[epv] escapes see below):";
+			"Enter Unix command ($e"."[1-8] or $e"."[eEpv] escapes see below):";
 		foreach (sort { $self->escape_midway } keys %{CMDESCAPES()}, $e) {
 			if ($printline <= $screen->BASELINE + $screen->screenheight) {
 				$screen->at($printline++, $infocol)
@@ -3130,7 +3133,7 @@ sub launchbyxbit {
 		$self->{_screen}->clrscr()->at(0,0)
 			->puts("Launch executable $file->{name}\n");
 		if (system "./\Q$file->{name}\E") {
-			$self->{_screen}->display_error('Launch failed');
+			$self->{_screen}->display_error('Command failed');
 		}
 	};
 	return $do_this;
@@ -3200,7 +3203,7 @@ sub launchbymime {
 		$self->_expand_escapes(QUOTE_ON, \$command, $file);
 		$self->{_screen}->clrscr()->at(0,0)
 			->puts("Launch type $mime\n$command\n");
-		system $command and $self->{_screen}->display_error('Launch failed');
+		system $command and $self->{_screen}->display_error('Command failed');
 	};
 	return $do_this;
 }

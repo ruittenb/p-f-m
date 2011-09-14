@@ -1062,7 +1062,7 @@ ppppppppppllll uuuuuuuu ggggggggssssssss mmmmmmmmmmmmmmm *nnnnnnn ffffffffffffff
 ##  =8 : list of marked filenames
 ##  == : a single literal '='
 ##  =e : 'editor'    (defined above)
-##  =f : 'fg_editor' (defined above)
+##  =E : 'fg_editor' (defined above)
 ##  =p : 'pager'     (defined above)
 ##  =v : 'viewer'    (defined above)
 
@@ -1204,6 +1204,7 @@ magic[ASCII English text]   : text/plain
 magic[C\+?\+? program text] : application/x-c
 magic[GIF image data]       : image/gif
 magic[HTML document text]   : text/html
+magic[make commands text]   : text/x-makefile
 magic[JPEG image data]      : image/jpeg
 magic[MP3]                  : audio/mpeg
 magic[MS Windows.*executab] : application/x-executable
@@ -1291,6 +1292,7 @@ launch[image/x-xpixmap]           : =v =2 &
 launch[image/x-xwindowdump]       : =v =2 &
 launch[text/css]                  : =e =2
 launch[text/html]                 : lynx =2
+launch[text/x-makefile]           : make
 launch[text/plain]                : =e =2
 launch[text/x-m3u-playlist]       : vlc =2 >/dev/null 2>&1
 launch[text/x-php]                : =e =2
