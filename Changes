@@ -1,3 +1,21 @@
+2.07.8-alpha
+
+* fixed bug: handling time zones in (T)ime and
+  (I)nclude/e(X)clude - (A)fter/(B)efore
+* fixed unclear error message when column layout was invalid
+* fixed bug displaying headings in (M)ore - (B)ookmark
+* fixed bug displaying headings with rightmost field left-aligned
+* fixed bug in detecting resize_window event
+* fixed bug in processing data from CheckUpdates job under new
+  event system
+* code cleanup
+* updated documentation
+
+2.07.7-alpha
+
+* restructured code: events are now used to transfer control
+  from the browser to the commandhandler.
+
 2.07.6-alpha
 
 * code cleanup
@@ -54,6 +72,7 @@
 
 2.06.7-beta
 
+* stable version: beta release
 * fixed bug: panning the menu in the (M)ore command now works
   correctly
 

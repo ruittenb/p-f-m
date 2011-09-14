@@ -371,7 +371,7 @@ sub find_gid ($) {
 			(defined($gid) ? getgrgid($gid) : '') || $gid);
 }
 
-=item condquotemeta(bool $condition, string $text)
+=item condquotemeta(bool $do_quote, string $text)
 
 Conditionally quotemeta() a string.
 

@@ -458,7 +458,7 @@ sub browse {
 		# find out what happened
 		$event = $_screen->get_event();
 		# was it a resize?
-		if ($event->{name} eq 'resize') {
+		if ($event->{name} eq 'resize_window') {
 			$_screen->handleresize();
 		} else {
 			# must be keyboard/mouse input here

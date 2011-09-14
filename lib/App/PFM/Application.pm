@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.07.7
+# @(#) App::PFM::Application 2.07.8
 #
 # Name:			App::PFM::Application
-# Version:		2.07.7
+# Version:		2.07.8
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-26
+# Date:			2010-08-30
 #
 
 ##########################################################################
@@ -358,17 +358,17 @@ available for download.
 
 sub checkupdates {
 	my ($self) = @_;
-	my $compareversions = sub {
-		my ($job, $input) = @_;
-		if ($input gt $self->{VERSION}) {
-			$self->{NEWER_VERSION}	= $input;
+	my $on_after_job_receive_data = sub {
+		my ($event) = @_;
+		my $job     = $event->{origin};
+		if ($event->{data} gt $self->{VERSION}) {
+			$self->{NEWER_VERSION}	= $event->{data};
 			$self->{PFM_URL}		= $job->PFM_URL;
 		}
 	};
-	my $on_after_receive_job_data = {
-		after_receive_job_data => $compareversions
-	};
-	$_jobhandler->start('CheckUpdates', $on_after_receive_job_data);
+	$_jobhandler->start('CheckUpdates', {
+		after_job_receive_data => $on_after_job_receive_data,
+	});
 }
 
 =item bootstrap( [ bool $silent ] )

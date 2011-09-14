@@ -44,6 +44,7 @@ use constant KNOWN_FIELDS => {
 };
 
 use constant KNOWN_EVENTS => {
+	resize_window					=> 1, # screen
 	before_job_start				=> 1, # job
 	after_job_start					=> 1, # job
 	after_job_receive_data			=> 1, # job
@@ -80,9 +81,11 @@ sub new {
 	unless ($self->{name}) {
 		croak('Event is missing mandatory field "name"');
 	}
+	unless (${KNOWN_EVENTS()}{$self->{name}}) {
+		croak(sprintf('"%s" is not a known event name', $self->{name}));
+	}
 	bless($self, $type);
 	return $self;
-
 }
 
 ##########################################################################
@@ -94,7 +97,7 @@ sub new {
 
 =head1 EVENT FIELDS
 
-Events have got the following fields:
+Event objects have got the following fields:
 
 =over
 

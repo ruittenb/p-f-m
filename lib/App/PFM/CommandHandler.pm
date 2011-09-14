@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.17
+# @(#) App::PFM::CommandHandler 1.18
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.17
+# Version:		1.18
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-08-31
@@ -55,9 +55,12 @@ use constant {
 	SPAWNEDCHAR => '*',
 };
 
-my %NUMFORMATS = ( 'hex' => '%#04lx', 'oct' => '%03lo');
+use constant NUMFORMATS => {
+	'hex' => '%#04lx',
+	'oct' => '%03lo',
+};
 
-my @INC_CRITERIA = (
+use constant INC_CRITERIA => [
 	'e' => 'Every',
 	'o' => 'Oldmarks',
 	'n' => 'Newmarks',
@@ -68,9 +71,9 @@ my @INC_CRITERIA = (
 	'u' => 'User',
 	'f' => 'Files only',
 	'i' => 'Invert',
-);
+];
 
-my %CMDESCAPES = (
+use constant CMDESCAPES => {
 	'1' => 'name',
 	'2' => 'name.ext',
 	'3' => 'curr path',
@@ -83,9 +86,9 @@ my %CMDESCAPES = (
 #	'f' => 'fg editor', # don't advocate
 	'p' => 'pager',
 	'v' => 'viewer',
-);
+};
 
-my @SORTMODES = (
+use constant SORTMODES => [
 	 n =>'Name',		N =>' reverse',
 	'm'=>' ignorecase',	M =>' rev+igncase',
 	 e =>'Extension',	E =>' reverse',
@@ -100,9 +103,9 @@ my @SORTMODES = (
 	 v =>'Version',		V =>' reverse',
 	 i =>'Inode',		I =>' reverse',
 	'*'=>'mark',
-);
+];
 
-my @FIELDS_TO_SORTMODE = (
+use constant FIELDS_TO_SORTMODE => [
 	 n => 'n', # name
 	'm'=> 'd', # mtime --> date
 	 a => 'a', # atime
@@ -114,7 +117,7 @@ my @FIELDS_TO_SORTMODE = (
 	 u => 'u', # user
 	 g => 'g', # group
 	'*'=> '*', # mark
-);
+];
 
 our ($_pfm, $_screen);
 our ($command);
@@ -122,7 +125,7 @@ our ($command);
 ##########################################################################
 # private subs
 
-=item _init()
+=item _init(App::PFM::Application $pfm)
 
 Initializes new instances. Called from the constructor.
 
@@ -135,47 +138,6 @@ sub _init {
 	$self->{_clobber_mode} = 0;
 }
 
-=item _credits()
-
-Prints elaborate information about pfm. Called from handlehelp().
-
-=cut
-
-sub _credits {
-	my ($self) = @_;
-	$_screen->clrscr()->cooked_echo();
-	my $name = $_screen->colored('bold', 'pfm');
-	my $version_message = $_pfm->{NEWER_VERSION}
-		? "A new version $_pfm->{NEWER_VERSION} is available from"
-		: "  New versions will be published on";
-	print <<"    _endCredits_";
-
-
-          $name for Unix and Unix-like operating systems.  Version $_pfm->{VERSION}
-             Original idea/design: Paul R. Culley and Henk de Heer
-             Author and Copyright (c) 1999-$_pfm->{LASTYEAR} Rene Uittenbogaard
-
-
-       $name is distributed under the GNU General Public License version 2.
-                    $name is distributed without any warranty,
-             even without the implied warranties of merchantability
-                      or fitness for a particular purpose.
-                   Please read the file COPYING for details.
-
-      You are encouraged to copy and share this program with other users.
-   Any bug, comment or suggestion is welcome in order to update this product.
-
-  $version_message http://sourceforge.net/projects/p-f-m/
-
-                For questions, remarks or suggestions about $name,
-                 send email to: ruittenb\@users.sourceforge.net
-
-
-                                                         any key to exit to $name
-    _endCredits_
-	$_screen->raw_noecho()->getch();
-}
-
 =item _helppage(int $pageno)
 
 Returns the text for a specific help page.
@@ -184,11 +146,11 @@ Returns the text for a specific help page.
 
 sub _helppage {
 	my ($self, $page) = @_;
-	my @lines;
+	my $prompt;
 	if ($page == 1) {
-		@lines = <<'        _endPage1_';
+		print <<'        _endPage1_';
 --------------------------------------------------------------------------------
-                          NAVIGATION AND DISPLAY KEYS                      [1/2]
+                          NAVIGATION AND DISPLAY KEYS                      [1/3]
 --------------------------------------------------------------------------------
  k, up arrow     move one line up                 F1   help                     
  j, down arrow   move one line down               F2   go to previous directory 
@@ -211,10 +173,11 @@ sub _helppage {
  >               shift commands menu right        %    filter whiteouts         
 --------------------------------------------------------------------------------
         _endPage1_
-	} else {
-		@lines = <<'        _endPage2_';
+		$prompt = 'F1 or ? for manpage, arrows or BS/ENTER to browse ';
+	} elsif ($page == 2) {
+		print <<'        _endPage2_';
 --------------------------------------------------------------------------------
-                                  COMMAND KEYS                             [2/2]
+                                  COMMAND KEYS                             [2/3]
 --------------------------------------------------------------------------------
  a      Attribute (chmod)                w   remove Whiteout                    
  c      Copy                             x   eXclude                            
@@ -237,11 +200,44 @@ sub _helppage {
  v      Version status                   mw  Write history                      
 --------------------------------------------------------------------------------
         _endPage2_
+		$prompt = 'F1 or ? for manpage, arrows or BS/ENTER to browse ';
+	} else {
+		my $name = $_screen->colored('bold', 'pfm');
+		my $version_message = $_pfm->{NEWER_VERSION}
+			? "A new version $_pfm->{NEWER_VERSION} is available from"
+			: "  New versions will be published on";
+		print <<"        _endCredits_";
+--------------------------------------------------------------------------------
+                                     CREDITS                               [3/3]
+--------------------------------------------------------------------------------
+
+          $name for Unix and Unix-like operating systems.  Version $_pfm->{VERSION}
+             Original idea/design: Paul R. Culley and Henk de Heer
+             Author and Copyright (c) 1999-$_pfm->{LASTYEAR} Rene Uittenbogaard
+
+       $name is distributed under the GNU General Public License version 2.
+                    $name is distributed without any warranty,
+             even without the implied warranties of merchantability
+                      or fitness for a particular purpose.
+                   Please read the file COPYING for details.
+
+      You are encouraged to copy and share this program with other users.
+   Any bug, comment or suggestion is welcome in order to update this product.
+
+  $version_message http://sourceforge.net/projects/p-f-m/
+
+                For questions, remarks or suggestions about $name,
+                 send email to: ruittenb\@users.sourceforge.net
+
+--------------------------------------------------------------------------------
+        _endCredits_
+		$prompt = "F1 or ? for manpage, arrows or BS/ENTER to browse, "
+				.	"any other key exit to $name ";
 	}
-	return @lines;
+	return $prompt;
 }
 
-=item _markednames()
+=item _markednames(bool $do_quote)
 
 Creates a list of names of marked files, for the B<=8> escape.
 
@@ -259,9 +255,15 @@ sub _markednames {
 	return @res;
 }
 
-=item _expand_replace()
+=item _expand_replace(bool $do_quote, char $escapechar [, string
+$name_no_extension, string $name, string $extension ] )
 
-Does the actual escape expansion in commands and filenames.
+Does the actual escape expansion in commands and filenames
+for one occurrence of an escape sequence.
+
+All escape types B<=1> .. B<=8> escapes plus B<=e>, B<=f>, B<=p> and B<=v>
+are recognized.  See pfm(1) for more information about the meaning of
+these escapes.
 
 =cut
 
@@ -288,9 +290,9 @@ sub _expand_replace {
 	}
 }
 
-=item _expand_3456_escapes()
+=item _expand_3456_escapes(bool $do_quote)
 
-Fills in the data for the B<=3> .. B<=6> escapes.
+Expands all occurrences of B<=3> .. B<=6> escapes.
 
 =cut
 
@@ -307,9 +309,9 @@ sub _expand_3456_escapes { # quoteif, command
 	$command =~ s/$qe([^1278])/_expand_replace($self, $qif, $1)/ge;
 }
 
-=item _expand_escapes()
+=item _expand_escapes(bool $do_quote, stringref *command, App::PFM::File $file)
 
-Fills in the data for all escapes.
+Expands all occurrences of all types of escapes.
 
 =cut
 
@@ -338,7 +340,7 @@ sub _expand_escapes { # quoteif, command, \%currentfile
 	/ge;
 }
 
-=item _multi_to_single()
+=item _multi_to_single(string $filename)
 
 Checks if the destination of a multifile operation is a single file
 (not allowed).
@@ -362,7 +364,7 @@ sub _multi_to_single {
 	return 0;
 }
 
-=item _followmode()
+=item _followmode(App::PFM::File $file)
 
 Fetches the mode of the file, or of the target if it is a symlink.
 
@@ -375,7 +377,7 @@ sub _followmode {
 		   : $file->mode2str((stat $file->{name})[2]);
 }
 
-=item _promptforboundarytime()
+=item _promptforboundarytime(char $key)
 
 Prompts for entering a time determining which files should be
 included (marked) or excluded (unmarked).
@@ -392,10 +394,10 @@ sub _promptforboundarytime {
 		strftime ("%Y-%m-%d %H:%M.%S", localtime time));
 	# show_menu is done in handleinclude
 	$_screen->raw_noecho();
-	return touch2time($boundarytime);
+	return mktime gmtime touch2time($boundarytime);
 }
 
-=item _promptforboundarysize()
+=item _promptforboundarysize(char $key)
 
 Prompts for entering a size determining which files should be
 included (marked) or excluded (unmarked).
@@ -415,7 +417,7 @@ sub _promptforboundarysize {
 	return $boundarysize;
 }
 
-=item _promptforwildfilename()
+=item _promptforwildfilename(char $key)
 
 Prompts for entering a regular expression determining which files
 should be included (marked) or excluded (unmarked).
@@ -486,7 +488,7 @@ sub _listbookmarks {
 ##########################################################################
 # constructor, getters and setters
 
-=item clobber_mode()
+=item clobber_mode( [ bool $clobber_mode ] )
 
 Getter/setter for the clobber mode, which determines if files will be
 overwritten without confirmation.
@@ -554,7 +556,7 @@ sub not_implemented {
 		->display_error('Command not implemented');
 }
 
-=item handle()
+=item handle(App::PFM::Event $event)
 
 Finds out how an event should be handled, and acts on it.
 
@@ -616,9 +618,10 @@ sub handle {
 	return $handled;
 }
 
-=item handlepan()
+=item handlepan(char $key, int $menu_mode)
 
 Handles the pan keys B<E<lt>> and B<E<gt>>.
+This uses the B<MENU_> constants as defined in App::PFM::Screen::Frame.
 
 =cut
 
@@ -627,7 +630,7 @@ sub handlepan {
 	$_screen->frame->pan($key, $mode);
 }
 
-=item handlescroll()
+=item handlescroll(char $key)
 
 Handles B<CTRL-E> and B<CTRL-Y>, which scroll the current window on the
 directory.
@@ -941,7 +944,7 @@ sub handleradix {
 	$_screen->set_deferred_refresh(R_FOOTER);
 }
 
-=item handlequit()
+=item handlequit(char $key)
 
 Handles the B<q>uit and quick B<Q>uit commands.
 
@@ -1009,31 +1012,27 @@ Shows a help page with an overview of commands.
 
 sub handlehelp {
 	my ($self) = @_;
-	my $pages = 2;
+	my $pages = 3;
 	my $page  = 1;
-	my $key;
+	my ($key, $prompt);
 	while ($page <= $pages) {
 		$_screen->clrscr()->cooked_echo();
-		print $self->_helppage($page);
-		$_screen->raw_noecho()->at(23, 0)->puts(
-			"F1 or ? for more elaborate help, " .
-			"arrows or BACKSPACE/ENTER to browse ");
-		$key = $_screen->getch();
-		if ($key =~ /(pgup|kl|ku|\cH|\c?|del)/) {
+		$prompt = $self->_helppage($page);
+		$key = $_screen->raw_noecho()->puts($prompt)->getch();
+		if ($key =~ /(pgup|kl|ku|\cH|\c?|del)/o) {
 			$page-- if $page > 1;
 			redo;
-		} elsif ($key =~ /(k1|\?)/) {
-			system qw(man pfm); # how unsubtle :-)
+		} elsif ($key =~ /(k1|\?)/o) {
+			system qw(man pfm);
 			last;
 		}
 	} continue {
 		$page++;
 	}
-	$self->_credits();
 	$_screen->set_deferred_refresh(R_CLRSCR);
 }
 
-=item handleentry()
+=item handleentry(char $key)
 
 Handles entering or leaving a directory.
 
@@ -1273,7 +1272,7 @@ sub handlesort {
 	my $printline = $_screen->BASELINE;
 	my $infocol   = $_screen->diskinfo->infocol;
 	my $frame     = $_screen->frame;
-	my %sortmodes = @SORTMODES;
+	my %sortmodes = @{SORTMODES()};
 	my ($i, $key, $menulength);
 	$menulength = $frame->show({
 		menu     => MENU_SORT,
@@ -1282,7 +1281,7 @@ sub handlesort {
 	});
 	$_screen->diskinfo->clearcolumn();
 	# we can't use foreach (keys %sortmodes) because we would lose ordering
-	foreach (grep { ($i += 1) %= 2 } @SORTMODES) { # keep keys, skip values
+	foreach (grep { ($i += 1) %= 2 } @{SORTMODES()}) { # keep keys, skip values
 		last if ($printline > $_screen->BASELINE + $_screen->screenheight);
 		$_screen->at($printline++, $infocol)
 			->puts(sprintf('%1s %s', $_, $sortmodes{$_}));
@@ -1326,7 +1325,7 @@ Shows all chacacters of the filename in a readable manner.
 
 sub handlename {
 	my ($self) = @_;
-	my $numformat   = $NUMFORMATS{$_pfm->state->{radix_mode}};
+	my $numformat   = ${NUMFORMATS()}{$_pfm->state->{radix_mode}};
 	my $browser     = $_pfm->browser;
 	my $workfile    = $browser->currentfile->clone();
 	my $screenline  = $browser->currentline + $_screen->BASELINE;
@@ -1351,7 +1350,8 @@ sub handlename {
 	if ($_screen->noecho()->getch() eq '*') {
 		$self->handleradix();
 		$_screen->echo()->at($screenline, $filenamecol)
-			->puts(' ' x length $line);
+			->puts(' ' x length $line)
+			->frame->show_footer(FOOTER_SINGLE);
 		goto &handlename;
 	}
 	if ($filenamecol < $_screen->diskinfo->infocol &&
@@ -1653,8 +1653,7 @@ and starts a job for the file if so.
 =cut
 
 sub handleversion {
-	# TODO check if this is still correct.
-	my ($self, $file) = @_;
+	my ($self) = @_;
 	if ($_pfm->state->{multiple_mode}) {
 		$_pfm->state->directory->apply(sub {});
 		$_pfm->state->directory->checkrcsapplicable();
@@ -1665,7 +1664,7 @@ sub handleversion {
 	}
 }
 
-=item handleinclude()
+=item handleinclude(char $key)
 
 Handles including (marking) and excluding (unmarking) files.
 
@@ -1676,13 +1675,13 @@ sub handleinclude { # include/exclude flag (from keypress)
 	my $directory    = $_pfm->state->directory;
 	my $printline    = $_screen->BASELINE;
 	my $infocol      = $_screen->diskinfo->infocol;
-	my %inc_criteria = @INC_CRITERIA;
+	my %inc_criteria = @{INC_CRITERIA()};
 	my ($criterion, $menulength, $key, $wildfilename, $entry, $i,
 		$boundarytime, $boundarysize);
 	$exin = lc $exin;
 	$_screen->diskinfo->clearcolumn();
 	# we can't use foreach (keys %mark_criteria) because we would lose ordering
-	foreach (grep { ($i += 1) %= 2 } @INC_CRITERIA) { # keep keys, skip values
+	foreach (grep { ($i += 1) %= 2 } @{INC_CRITERIA()}) { # keep keys, skip values
 		last if ($printline > $_screen->BASELINE + $_screen->screenheight);
 		$_screen->at($printline++, $infocol)
 			->puts(sprintf('%1s %s', $_, $inc_criteria{$_}));
@@ -1800,9 +1799,8 @@ sub handlesize {
 			!$_pfm->state->{multiple_mode})
 		{
 			my $screenline = $_pfm->browser->currentline + $_screen->BASELINE;
-			# use filesize field
+			# use filesize field of a cloned object.
 			$tempfile = $file->clone();
-			# TODO next line ignores the fact that size_num could be major/minor
 			@{$tempfile}{qw(size size_num size_power)} =
 				($recursivesize, fit2limit(
 					$recursivesize, $_screen->listing->maxfilesizelength));
@@ -1873,7 +1871,7 @@ sub handletarget {
 	$_pfm->state->directory->apply($do_this);
 }
 
-=item handlecommand()
+=item handlecommand(char $key)
 
 Executes a shell command.
 
@@ -1915,11 +1913,11 @@ sub handlecommand { # Y or O
 	} else { # cOmmand
 		$prompt =
 			"Enter Unix command ($e"."[1-8] or $e"."[epv] escapes see below):";
-		foreach (sort escape_midway keys %CMDESCAPES, $e) {
+		foreach (sort escape_midway keys %{CMDESCAPES()}, $e) {
 			if ($printline <= $_screen->BASELINE + $_screen->screenheight) {
 				$_screen->at($printline++, $infocol)
 					->puts(sprintf(' %1s%1s %s', $e, $_,
-							$CMDESCAPES{$_} || "literal $e"));
+							${CMDESCAPES()}{$_} || "literal $e"));
 			}
 		}
 		$_screen->show_frame({
@@ -2089,7 +2087,7 @@ sub handledelete {
 	return;
 }
 
-=item handlecopyrename()
+=item handlecopyrename(char $key)
 
 Handles copying and renaming files.
 
@@ -2167,7 +2165,7 @@ sub handlecopyrename {
 	return;
 }
 
-=item handlemousedown()
+=item handlemousedown(App::PFM::Event $event)
 
 Handles mouse clicks. Note that the mouse wheel has already been handled
 by the browser. This handles only the first three mouse buttons.
@@ -2240,9 +2238,10 @@ sub handlemousedown {
 	return 1; # must return true to fill $valid in sub handle()
 }
 
-=item handlemousepathjump()
+=item handlemousepathjump(int $mouse_column)
 
 Handles a click in the directory path, and changes to this directory.
+The parameter I<mouse_column> indicates where the mouse was clicked.
 
 =cut
 
@@ -2279,7 +2278,7 @@ sub handlemousepathjump {
 	}
 }
 
-=item handlemouseheadingsort()
+=item handlemouseheadingsort(int $mouse_column, int $mouse_button)
 
 Sorts the directory contents according to the heading clicked.
 
@@ -2288,7 +2287,7 @@ Sorts the directory contents according to the heading clicked.
 sub handlemouseheadingsort {
 	my ($self, $mousecol, $mbutton) = @_;
 	my $currentlayoutline = $_screen->listing->currentlayoutline;
-	my %sortmodes = @FIELDS_TO_SORTMODE;
+	my %sortmodes = @{FIELDS_TO_SORTMODE()};
 	# get field character
 	my $key = substr($currentlayoutline, $mousecol, 1);
 #	if ($key eq '*') {
@@ -2308,7 +2307,7 @@ sub handlemouseheadingsort {
 	$_pfm->state->directory->set_dirty(D_SORT | D_FILTER);
 }
 
-=item handlemousemenucommand()
+=item handlemousemenucommand(int $mouse_column)
 
 Starts the menu command that was clicked on.
 
@@ -2347,7 +2346,7 @@ sub handlemousemenucommand {
 	}));
 }
 
-=item handlemousefootercommand()
+=item handlemousefootercommand(int $mouse_column)
 
 Starts the footer command that was clicked on.
 
@@ -2588,8 +2587,9 @@ sub handlemorebookmark {
 	# choice
 	$self->_listbookmarks();
 	$_screen->show_frame({
-		footer => FOOTER_NONE,
-		prompt => 'Bookmark under which letter? ',
+		headings => HEADING_BOOKMARKS,
+		footer   => FOOTER_NONE,
+		prompt   => 'Bookmark under which letter? ',
 	});
 	$key = $_screen->getch();
 	return if $key eq "\r";
@@ -2764,7 +2764,7 @@ and starts a job for the current directory if so.
 =cut
 
 sub handlemoreversion {
-	my ($self, $file) = @_;
+	my ($self) = @_;
 	$_pfm->state->directory->checkrcsapplicable();
 }
 
@@ -2881,7 +2881,7 @@ sub launchbyextension {
 	return $do_this;
 }
 
-=item launchbymime()
+=item launchbymime(string $mime_type)
 
 Returns an anonymous subroutine for executing the file according to
 the definition for its MIME type.

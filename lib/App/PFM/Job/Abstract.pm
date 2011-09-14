@@ -45,7 +45,7 @@ use strict;
 ##########################################################################
 # private subs
 
-=item _init(hashref { $event1 => coderef $handler1 [, ...] })
+=item _init(hashref { $eventname1 => coderef $handler1 [, ...] })
 
 Initializes the 'running' flag ('childpid'), and registers the
 provided event handlers.
