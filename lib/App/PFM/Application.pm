@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.07.5
+# @(#) App::PFM::Application 2.07.6
 #
 # Name:			App::PFM::Application
-# Version:		2.07.5
+# Version:		2.07.6
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-08-26
@@ -447,8 +447,8 @@ sub bootstrap {
 	}
 	# swap directory
 	if (defined $swapstartdir) {
-		$self->{_states}{S_SWAP} = new App::PFM::State($self);
-		$self->{_states}{S_SWAP}->prepare($swapstartdir);
+		$self->{_states}{S_SWAP} = new App::PFM::State($self, $swapstartdir);
+		$self->{_states}{S_SWAP}->prepare();
 	}
 	# flag done
 	$self->{_bootstrapped} = 1;

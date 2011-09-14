@@ -1,6 +1,12 @@
+2.07.6-alpha
+
+* code cleanup
+* updated documentation
+
 2.07.5-alpha
 
 * fixed bugs in (M)ore - (A)cl
+* code cleanup
 
 2.07.4-alpha
 
@@ -30,7 +36,7 @@
 2.07.0-alpha
 
 * fixed bugs in install script
-* use File::Stat::Bits(3pm) to split rdev into major/minor
+* use File::Stat::Bits to split rdev into major/minor
   numbers (more portable)
 
 2.06.9-alpha

@@ -828,7 +828,7 @@ sub handlerefresh {
 #	my ($self) = @_;
 	if ($_screen->ok_to_remove_marks()) {
 		$_screen->set_deferred_refresh(R_SCREEN);
-		$_pfm->state->directory->set_dirty(D_ALL);
+		$_pfm->state->directory->set_dirty(D_FILELIST);
 	}
 }
 
@@ -842,13 +842,11 @@ sub handlewhiteout {
 #	my ($self) = @_;
 	my $browser = $_pfm->browser;
 	toggle($_pfm->state->{white_mode});
-	# next line should not be necessary. the directory object
-	# schedules a position_at when $d->refresh() is called and
-	# the directory is dirty.
-#	$browser->position_at($browser->currentfile->{name});
+	# the directory object schedules a position_at when
+	# $d->refresh() is called and the directory is dirty.
 	$_screen->frame->update_headings();
 	$_screen->set_deferred_refresh(R_SCREEN);
-	$_pfm->state->directory->set_dirty(D_DIRFILTER);
+	$_pfm->state->directory->set_dirty(D_FILTER);
 }
 
 =item handlemultiple()
@@ -873,13 +871,11 @@ sub handledot {
 #	my ($self) = @_;
 	my $browser = $_pfm->browser;
 	toggle($_pfm->state->{dot_mode});
-	# next line should not be necessary. the directory object
-	# schedules a position_at when $d->refresh() is called and
-	# the directory is dirty.
-#	$browser->position_at($browser->currentfile->{name});
+	# the directory object schedules a position_at when
+	# $d->refresh() is called and the directory is dirty.
 	$_screen->frame->update_headings();
 	$_screen->set_deferred_refresh(R_SCREEN);
-	$_pfm->state->directory->set_dirty(D_DIRFILTER);
+	$_pfm->state->directory->set_dirty(D_FILTER);
 }
 
 =item handlecolor()
@@ -1344,7 +1340,7 @@ sub handlesort {
 			$_pfm->browser->currentfile->{name}, { force => 0, exact => 1 });
 	}
 	$_screen->set_deferred_refresh(R_SCREEN);
-	$_pfm->state->directory->set_dirty(D_DIRSORT | D_DIRFILTER);
+	$_pfm->state->directory->set_dirty(D_SORT | D_FILTER);
 }
 
 =item handlecyclesort()
@@ -1364,7 +1360,7 @@ sub handlecyclesort {
 	$_pfm->browser->position_at(
 		$_pfm->browser->currentfile->{name}, { force => 0, exact => 1 });
 	$_screen->set_deferred_refresh(R_SCREEN);
-	$_pfm->state->directory->set_dirty(D_DIRSORT | D_DIRFILTER);
+	$_pfm->state->directory->set_dirty(D_SORT | D_FILTER);
 }
 
 =item handlename()
@@ -1541,7 +1537,7 @@ sub handlechown {
 		$_screen->set_deferred_refresh(R_LISTING);
 		# 2.06.4: sortcontents() doesn't sort @showncontents.
 		# therefore, apply the filter again as well.
-		$_pfm->state->directory->set_dirty(D_DIRSORT | D_DIRFILTER);
+		$_pfm->state->directory->set_dirty(D_SORT | D_FILTER);
 		# TODO fire 'save_cursor_position'
 		$_pfm->browser->position_at($_pfm->browser->currentfile->{name});
 	}
@@ -1626,7 +1622,7 @@ sub handletime {
 		$_screen->set_deferred_refresh(R_LISTING);
 		# 2.06.4: sortcontents() doesn't sort @showncontents.
 		# therefore, apply the filter again as well.
-		$_pfm->state->directory->set_dirty(D_DIRSORT | D_DIRFILTER);
+		$_pfm->state->directory->set_dirty(D_SORT | D_FILTER);
 		# TODO fire 'save_cursor_position'
 		$_pfm->browser->position_at($_pfm->browser->currentfile->{name});
 	}
@@ -2086,7 +2082,7 @@ sub handledelete {
 	}
 	$_screen->at($_screen->PATHLINE, 0)
 		->set_deferred_refresh(R_SCREEN);
-	$_pfm->state->directory->set_dirty(D_ALL);
+	$_pfm->state->directory->set_dirty(D_FILELIST);
 	$do_this = sub {
 		my $file = shift;
 		my ($msg, $success);
@@ -2367,7 +2363,7 @@ sub handlemouseheadingsort {
 			$_pfm->browser->currentfile->{name}, { force => 0, exact => 1 });
 	}
 	$_screen->set_deferred_refresh(R_SCREEN);
-	$_pfm->state->directory->set_dirty(D_DIRSORT | D_DIRFILTER);
+	$_pfm->state->directory->set_dirty(D_SORT | D_FILTER);
 }
 
 =item handlemousemenucommand()
@@ -2561,7 +2557,7 @@ sub handlemoreconfig {
 			# there is no key to toggle dotdot mode, therefore
 			# it is allowed to switch dotdot mode here.
 			$_pfm->browser->position_at($_pfm->browser->currentfile->{name});
-			$_pfm->state->directory->set_dirty(D_DIRSORT);
+			$_pfm->state->directory->set_dirty(D_SORT);
 		}
 	}
 }
