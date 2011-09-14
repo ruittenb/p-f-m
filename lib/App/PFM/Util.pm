@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Util 0.47
+# @(#) App::PFM::Util 0.48
 #
 # Name:			App::PFM::Util
-# Version:		0.47
+# Version:		0.48
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-17
+# Date:			2010-08-24
 #
 
 ##########################################################################
@@ -36,15 +36,23 @@ package App::PFM::Util;
 
 use base 'Exporter';
 
+use POSIX qw(mktime);
 use Carp;
 
 use strict;
 
-our @EXPORT = qw(
-	min max inhibit toggle triggle isxterm isyes isno dirname basename
-	formatted time2str fit2limit canonicalize_path reducepaths reversepath
-	isorphan ifnotdefined clearugidcache find_uid find_gid condquotemeta
-	testdirempty fitpath);
+# This allows the declaration: use Foo::Bar ':all';
+#
+our %EXPORT_TAGS = (
+	all => [ qw(
+		min max inhibit toggle triggle isxterm isyes isno dirname basename
+		formatted time2str fit2limit canonicalize_path reducepaths reversepath
+		isorphan ifnotdefined clearugidcache find_uid find_gid condquotemeta
+		touch2time testdirempty fitpath
+	) ]
+);
+
+our @EXPORT_OK = @{$EXPORT_TAGS{all}};
 
 my $XTERMS = qr/^(.*xterm.*|rxvt.*|gnome.*|kterm)$/;
 
@@ -371,6 +379,26 @@ Conditionally quotemeta() a string.
 
 sub condquotemeta ($$) {
 	return $_[0] ? quotemeta($_[1]) : $_[1];
+}
+
+=item touch2time(string $datetime)
+
+Parses a datetime string of the format [[CC]YY-]MM-DD hh:mm[.ss]
+and returns a datetime integer as created by mktime(3).
+
+=cut
+
+sub touch2time ($) {
+	my ($input) = @_;
+	my ($yr, $mon, $day, $hr, $min, $sec) =
+		($input =~ /((?:\d\d)?\d\d)?-?(\d\d)-?(\d\d)\s*(\d\d):?(\d\d)(\...)?$/);
+	if ($yr < 70) {
+		$yr = 2000 + $yr;
+	} elsif ($yr >= 70 and $yr < 100) {
+		$yr = 1900 + $yr;
+	}
+	return mktime($sec, $min, $hr, $day, $mon-1, $yr-1900, 0, 0, 0);
+
 }
 
 =item testdirempty(string $dirpath)

@@ -35,7 +35,7 @@ package App::PFM::File;
 
 use base 'App::PFM::Abstract';
 
-use App::PFM::Util;
+use App::PFM::Util qw(find_uid find_gid isorphan fit2limit);
 
 use POSIX qw(strftime);
 

@@ -1,7 +1,0 @@
-
-TODO:
-
-
-bug: 'f' field in layout: characters in the 'gap' between filerecord & infocolumn
-	are not cleared when switching columnformats -> insert an artificial "gap" field?
-

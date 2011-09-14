@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::Cvs 0.30
+# @(#) App::PFM::Job::Cvs 0.31
 #
 # Name:			App::PFM::Job::Cvs
-# Version:		0.30
+# Version:		0.31
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-05-19
+# Date:			2010-08-24
 #
 
 ##########################################################################
@@ -35,14 +35,14 @@ package App::PFM::Job::Cvs;
 
 use base 'App::PFM::Job::RCS';
 
-use App::PFM::Util;
+use App::PFM::Util qw(dirname basename);
 
 use strict;
 
 ##########################################################################
 # private subs
 
-=item _init()
+=item _init(string $event1 => coderef $handler1 [, ...] )
 
 Initializes new instances. Called from the constructor.
 
@@ -55,7 +55,7 @@ sub _init {
 	$self->SUPER::_init(@args);
 }
 
-=item _preprocess()
+=item _preprocess(string $data)
 
 Split the status output in a filename- and a status-field.
 
@@ -84,9 +84,11 @@ sub _preprocess {
 	return [ $1, $2 ];
 }
 
-=item _cvsmaxchar()
+=item _cvsmaxchar(char $a, char $b)
 
-=item rcsmax()
+Sorting routine for CVS status characters.
+
+=item rcsmax(string $old, string $new)
 
 Determine which status character should be displayed on
 a directory that holds files with different status characters.
@@ -147,7 +149,7 @@ sub command {
 ##########################################################################
 # public subs
 
-=item isapplicable()
+=item isapplicable(string $path)
 
 Checks if there is a F<CVS> directory, in which case CVS commands
 would be applicable.

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::Abstract 0.91
+# @(#) App::PFM::Job::Abstract 0.92
 #
 # Name:			App::PFM::Job::Abstract
-# Version:		0.91
+# Version:		0.92
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-05-24
+# Date:			2010-08-24
 #
 
 ##########################################################################
@@ -43,10 +43,10 @@ use strict;
 ##########################################################################
 # private subs
 
-=item _init()
+=item _init(string $event1 => coderef $handler1 [, ...] )
 
-Initializes the 'running' flag ('childpid'), and assigns the hash of event
-handlers.
+Initializes the 'running' flag ('childpid'), and assigns the hash of
+event handlers.
 
 =cut
 
@@ -60,7 +60,7 @@ sub _init {
 	$self->{_stop_next_iteration} = 0;
 }
 
-=item _fire_event()
+=item _fire_event(string $event, array @args)
 
 Fires an event. Currently supported events are:
 
@@ -127,7 +127,7 @@ sub _stop_child {
 	# my ($self) = @_;
 }
 
-=item _preprocess()
+=item _preprocess(string $data)
 
 Stub routine for preprocessing job output.
 This routine is used for "massaging" the command output
@@ -143,7 +143,7 @@ sub _preprocess {
 ##########################################################################
 # constructor, getters and setters
 
-=item on()
+=item on(string $event, coderef $handler)
 
 Registers an event handler. At most one handler is supported per event.
 

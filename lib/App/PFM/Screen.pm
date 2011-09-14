@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen 0.30
+# @(#) App::PFM::Screen 0.31
 #
 # Name:			App::PFM::Screen
-# Version:		0.30
+# Version:		0.31
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-21
+# Date:			2010-08-24
 # Requires:		Term::ScreenColor
 #
 
@@ -39,7 +39,7 @@ use base qw(App::PFM::Abstract Term::ScreenColor Exporter);
 use App::PFM::Screen::Frame;
 use App::PFM::Screen::Listing;
 use App::PFM::Screen::Diskinfo;
-use App::PFM::Util;
+use App::PFM::Util qw(fitpath max);
 use POSIX qw(getcwd);
 
 use strict;

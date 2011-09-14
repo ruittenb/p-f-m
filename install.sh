@@ -455,7 +455,8 @@ check_distro
 check_package ncurses
 check_package readline
 
-# check, download and install the Perl modules
+# check, download and install the Perl modules.
+# check with the minimum required version.
 check_cpan
 check_download_and_install_perl_module File::Stat::Bits  0.19
 check_download_and_install_perl_module HTML::Parser      3.59

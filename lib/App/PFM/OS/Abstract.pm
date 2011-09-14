@@ -57,6 +57,7 @@ Called from the constructor.
 
 sub _init {
 	my ($self, $pfm) = @_;
+	$self->{_pfm} = $pfm;
 	$self->_init_white_commands();
 }
 

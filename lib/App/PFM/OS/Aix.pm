@@ -83,6 +83,35 @@ sub df {
 	return @lines;
 }
 
+=item acledit(string $path)
+
+AIX-specific method for editing Access Control Lists.
+
+=cut
+
+sub acledit {
+	# AIX$ getacl filename
+	# AIX$ ls -e
+	#
+	# AIX$ acledit filename
+	# 
+	# attributes: SUID
+	# base permissions:
+	#     owner(root): rw-
+	#     group(root): r-x
+	#     others: ---
+	# extended permissions:
+	#     enabled
+	#     permit  r--  u:oracle
+	#     permit  rw-  u:robin
+	#     deny    r-x  u:catwoman
+	#     deny    rwx  g:intergang
+	#
+	my ($self, $path) = @_;
+	local $ENV{EDITOR} = $self->{_pfm}->config->{fg_editor};
+	$self->system('acledit', $path);
+}
+
 ##########################################################################
 
 =back

@@ -35,7 +35,7 @@ package App::PFM::CommandHandler;
 
 use base 'App::PFM::Abstract';
 
-use App::PFM::Util;
+use App::PFM::Util qw(:all);
 use App::PFM::History;		# imports the H_* constants
 use App::PFM::Screen;		# imports the R_* constants
 use App::PFM::Directory;	# imports the M_* constants
@@ -325,10 +325,7 @@ sub _promptforboundarytime {
 		strftime ("%Y-%m-%d %H:%M.%S", localtime time));
 	# show_menu is done in handleinclude
 	$_screen->raw_noecho();
-	$boundarytime =~ tr/0-9.//dc;
-	$boundarytime =~ /(....)(..)(..)(..)(..)(\...)?$/;
-	$boundarytime = mktime($6, $5, $4, $3, $2-1, $1-1900, 0, 0, 0);
-	return $boundarytime;
+	return touch2time($boundarytime);
 }
 
 =item _promptforboundarysize()
@@ -345,8 +342,6 @@ sub _promptforboundarysize {
 	my $boundarysize;
 	$_screen->at(0,0)->clreol()->cooked_echo();
 	$boundarysize = $_pfm->history->keyboard->readline($prompt);
-#	$boundarysize = $_pfm->history->input(H_TIME, $prompt,
-#		strftime ("%Y-%m-%d %H:%M.%S", localtime time));
 	# show_menu is done in handleinclude
 	$_screen->raw_noecho();
 	$boundarysize =~ tr/0-9//dc;
@@ -1531,7 +1526,7 @@ Handles changing the timestamp of a file.
 sub handletime {
 	my ($self) = @_;
 	my ($newtime, $do_this, @cmdopts);
-	my $prompt = "Timestamp [[CC]YY]-MM-DD hh:mm[.ss]: ";
+	my $prompt = "Timestamp [[CC]YY-]MM-DD hh:mm[.ss]: ";
 	if ($_pfm->state->{multiple_mode}) {
 		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO | R_DIRLIST);
 	} else {
@@ -1542,12 +1537,16 @@ sub handletime {
 	$newtime = $_pfm->history->input(
 		H_TIME, $prompt, '', strftime ("%Y-%m-%d %H:%M.%S", localtime time));
 	$_screen->raw_noecho();
-	$newtime =~ tr/0-9.//cd;
 	return if ($newtime eq '');
-	@cmdopts = ($newtime eq '.') ? () : ('-t', $newtime);
+	if ($newtime eq '.') {
+		$newtime = localtime time;
+	} else {
+		$newtime = touch2time($newtime);
+		return unless defined $newtime;
+	}
 	$do_this = sub {
 		my $file = shift;
-		if (system ('touch', @cmdopts, $file->{name})) {
+		if (!utime $newtime, $newtime, $file->{name}) {
 			$_screen->neat_error('Set timestamp failed');
 		}
 	};

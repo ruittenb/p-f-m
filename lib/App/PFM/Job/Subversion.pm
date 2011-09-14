@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::Subversion 0.30
+# @(#) App::PFM::Job::Subversion 0.31
 #
 # Name:			App::PFM::Job::Subversion
-# Version:		0.30
+# Version:		0.31
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-05-19
+# Date:			2010-08-24
 #
 
 ##########################################################################
@@ -40,7 +40,7 @@ use strict;
 ##########################################################################
 # private subs
 
-=item _init()
+=item _init(string $event1 => coderef $handler1 [, ...] )
 
 Initializes new instances. Called from the constructor.
 
@@ -52,7 +52,7 @@ sub _init {
 	$self->SUPER::_init(@args);
 }
 
-=item _preprocess()
+=item _preprocess(string $data)
 
 Split the status output in a filename- and a status-field.
 
@@ -93,9 +93,11 @@ sub _preprocess {
 	return [ $1, $2 ];
 }
 
-=item _svnmaxchar()
+=item _svnmaxchar(char $a, char $b)
 
-=item rcsmax()
+Sorting routine for subversion status characters.
+
+=item rcsmax(string $old, string $new)
 
 Determines which subversion status character should be displayed on
 a directory that holds files with different status characters.
@@ -138,7 +140,7 @@ sub rcsmax {
 ##########################################################################
 # public subs
 
-=item isapplicable()
+=item isapplicable(string $path)
 
 Checks if there is a F<.svn> directory, in which case Subversion commands
 would be applicable.

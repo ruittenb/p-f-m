@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::RCS 0.32
+# @(#) App::PFM::Job::RCS 0.33
 #
 # Name:			App::PFM::Job::RCS
-# Version:		0.32
+# Version:		0.33
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-05-24
+# Date:			2010-08-24
 #
 
 ##########################################################################
@@ -40,7 +40,7 @@ use strict;
 ##########################################################################
 # private subs
 
-=item _init()
+=item _init(string $event1 => coderef $handler1 [, ...] )
 
 Initializes new instances. Called from the constructor.
 

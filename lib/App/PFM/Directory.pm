@@ -41,7 +41,7 @@ use App::PFM::Job::Cvs;
 use App::PFM::Job::Bazaar;
 use App::PFM::Job::Git;
 use App::PFM::File;
-use App::PFM::Util;
+use App::PFM::Util qw(clearugidcache canonicalize_path basename dirname);
 use POSIX qw(getcwd);
 
 use strict;
