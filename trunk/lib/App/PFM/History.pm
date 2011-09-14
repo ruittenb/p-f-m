@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::History 0.25
+# @(#) App::PFM::History 0.26
 #
 # Name:			App::PFM::History
-# Version:		0.25
+# Version:		0.26
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-01
+# Date:			2010-09-12
 #
 
 ##########################################################################
@@ -71,7 +71,8 @@ our ($_pfm);
 ##########################################################################
 # private subs
 
-=item _init(App::PFM::Application $pfm)
+=item _init(App::PFM::Application $pfm, App::PFM::Screen $screen,
+App::PFM::Config $config)
 
 Initializes this instance by instantiating a Term::ReadLine object.
 Called from the constructor.
@@ -79,8 +80,10 @@ Called from the constructor.
 =cut
 
 sub _init {
-	my ($self, $pfm) = @_;
+	my ($self, $pfm, $screen, $config) = @_;
 	$_pfm = $pfm;
+	$self->{_screen}   = $screen;
+	$self->{_config}   = $config;
 	$self->{_keyboard} = new Term::ReadLine('pfm');
 	if (ref $self->{_keyboard}->Features) {
 		$self->{_features} = $self->{_keyboard}->Features;
@@ -142,7 +145,7 @@ sub read {
 	my ($self) = @_;
 	my $hfile;
 	foreach (keys %{$self->{_histories}}) {
-		$hfile = $_pfm->config->CONFIGDIRNAME . "/$_";
+		$hfile = $self->{_config}->CONFIGDIRNAME . "/$_";
 		if (-s $hfile and open (HISTFILE, $hfile)) {
 			chomp( @{$self->{_histories}{$_}} = <HISTFILE> );
 			close HISTFILE;
@@ -161,13 +164,13 @@ should be shown without delay.
 sub write {
 	my ($self, $finishing) = @_;
 	my $failed;
-	my $screen = $_pfm->screen;
+	my $screen = $self->{_screen};
 	unless ($finishing) {
 		$screen->at(0,0)->clreol()
 			->set_deferred_refresh($screen->R_MENU);
 	}
 	foreach (keys %{$self->{_histories}}) {
-		if (open HISTFILE, '>'.$_pfm->config->CONFIGDIRNAME."/$_") {
+		if (open HISTFILE, '>'.$self->{_config}->CONFIGDIRNAME."/$_") {
 			print HISTFILE join "\n", @{$self->{_histories}{$_}}, '';
 			close HISTFILE;
 		} elsif (!$failed) {
@@ -193,18 +196,18 @@ the config directory.
 
 sub write_dirs {
 	my ($self) = @_;
-	my $configdirname = $_pfm->config->CONFIGDIRNAME;
+	my $configdirname = $self->{_config}->CONFIGDIRNAME;
 	my $swap_state	  = $_pfm->state('S_SWAP');
 	
 	if (open CWDFILE, ">$configdirname/".FILENAME_CWD) {
 		print CWDFILE $_pfm->state->directory->path, "\n";
 		close CWDFILE;
 	} else {
-		$_pfm->screen->putmessage(
+		$self->{_screen}->putmessage(
 			"Unable to create $configdirname/".FILENAME_CWD.": $!\n"
 		);
 	}
-	if (defined($swap_state) && $_pfm->config->{swap_persistent} &&
+	if (defined($swap_state) && $self->{_config}->{swap_persistent} &&
 		open SWDFILE,">$configdirname/".FILENAME_SWD)
 	{
 		print SWDFILE $swap_state->directory->path, "\n";
@@ -263,7 +266,7 @@ sub setornaments {
 	my ($self, $color) = @_;
 	my @cols;
 	$color ||=
-		$_pfm->config->{framecolors}{$_pfm->screen->color_mode}{message};
+		$self->{_config}->{framecolors}{$self->{_screen}->color_mode}{message};
 	unless (exists $ENV{PERL_RL}) {
 		# this would have been nice, however,
 		# readline processes only the first (=most important) capability
@@ -284,6 +287,39 @@ Tells the readline library that the screen size has changed.
 sub handleresize {
 	my ($self) = @_;
 	$self->{_keyboard}->resize_terminal();
+}
+
+=item on_after_parse_config(App::PFM::Event $event)
+
+Applies the config settings when the config file has been read and parsed.
+
+=cut
+
+sub on_after_parse_config {
+	my ($self, $event) = @_;
+	# store config
+	my $pfmrc        = $event->{data};
+	$self->{_config} = $event->{origin};
+	# keymap, erase
+	system ('stty', 'erase', $pfmrc->{erase}) if defined($pfmrc->{erase});
+	$self->keyboard->set_keymap($pfmrc->{keymap}) if $pfmrc->{keymap};
+	$self->setornaments(
+		$self->{_config}{framecolors}{$self->{_screen}->color_mode}{message});
+}
+
+=item on_shutdown()
+
+Called when the application is shutting down. Writes history and directories
+to files under F<~/.pfm>S< >.
+
+=cut
+
+sub on_shutdown {
+	my ($self) = @_;
+	# write current and swap dirs
+	$self->write_dirs();
+	# write history
+	$self->write(1) if $self->{_config}{autowritehistory};
 }
 
 ##########################################################################

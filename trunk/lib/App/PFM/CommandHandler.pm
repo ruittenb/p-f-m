@@ -2601,7 +2601,6 @@ sub handlemoreconfig {
 	} else {
 		$config->read($config->READ_AGAIN);
 		$config->parse();
-		$config->apply();
 		if ($olddotdot != $config->{dotdot_mode}) {
 			# there is no key to toggle dotdot mode, therefore
 			# it is allowed to switch dotdot mode here.

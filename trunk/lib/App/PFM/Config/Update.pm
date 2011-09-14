@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config::Update 2.08.7
+# @(#) App::PFM::Config::Update 2.08.8
 #
 # Name:			App::PFM::Config::Update
-# Version:		2.08.7
+# Version:		2.08.8
 # Author:		Rene Uittenbogaard
 # Created:		2010-05-28
-# Date:			2010-09-11
+# Date:			2010-09-12
 #
 
 ##########################################################################
@@ -59,7 +59,8 @@ use constant UPDATES => {
 		insertions => [{
 			ifnotpresent => qr//,
 			before => qr//,
-			batch => [],
+			after  => qr//,
+			batch  => [],
 		}],
 		additions => [{
 			ifnotpresent => qr//,
@@ -118,6 +119,14 @@ use constant UPDATES => {
 				"dircolors[*]:\\\n",
 				"di=bold:ln=underscore:\n",
 				"\n",
+			],
+		}, {
+			after => qr/^##  \\6 = current directory basename/,
+			batch => [
+				"##  \\\\ = a literal backslash\n",
+				"##  \\e = 'editor' (defined above)\n",
+				"##  \\p = 'pager'  (defined above)\n",
+				"##  \\v = 'viewer' (defined above)\n",
 			],
 		}],
 	},
@@ -250,7 +259,7 @@ use constant UPDATES => {
 			s/\\\\/==/g;
 			s{^## these must NOT be quoted any more!}
 			 {## these must NOT be quoted.};
-			s{^(##  =[3467] )= (.*)}
+			s{^(##  =[3467epv] )= (.*)}
 			 {$1: $2};
 			s{^##  =1 = filename without extension}
 			 {##  =1 : current filename without extension};
@@ -514,6 +523,13 @@ use constant UPDATES => {
 			qr/^#+\s*[sS]pecify so that the outcome is in bytes/,
 			qr/^#+\s*this is commented out because pfm makes a clever guess for your OS/,
 		],
+		additions => [{
+			ifnotpresent => qr/^##  =f : 'fg_editor'/,
+			after => qr/^##  =e . 'editor'.*defined above/,
+			batch => [
+				"##  =f : 'fg_editor' (defined above)\n",
+			],
+		}],
 	},
 	# ----- 2.08.0 ---------------------------------------------------------
 	'2.08.0' => {
@@ -600,7 +616,8 @@ use constant UPDATES => {
 	},
 	# ----- 2.08.3-backlog -------------------------------------------------
 	'2.08.3-backlog' => {
-		# backlog of fixes that should have been updated in earlier versions.
+		# This was not a real pfm version. This entry fixes a backlog of
+		# changes that should have been updated in earlier versions.
 		removals => [
 			qr'^## [iI]n other words: /\^\\s\*\(\[\^:\\s\]\+\)\\s\*:\\s\*\(\.\*\)\$/',
 			qr/## the first three layouts were the old .pre-v1.72. defaults/,
@@ -642,7 +659,7 @@ use constant UPDATES => {
 			 {## *    mark                yes 1};
 			s{## n    filename                variable length;}
 			 {## n    filename            yes variable length;};
-			s{## p    permissions .mode.      10}
+			s{## p    permissions .(?:mode)?\s+10}
 			 {## p    mode (permissions)      10};
 			s{(## a    access time             15)}
 			 {$1 (using "%y %b %d %H:%M" if len(%b) == 3)};
@@ -676,10 +693,15 @@ use constant UPDATES => {
 				"## the diskinfo field *must* be the _first_ or _last_ field on the line.\n",
 			],
 		}, {
-			ifnotpresent => qr/(?:## v    versioning info|## f    diskinfo)/,
+			ifnotpresent => qr/^## v    versioning info/,
 			after => qr/^## l    link count/,
 			batch => [
 				"## v    versioning info         >=4\n",
+			],
+		}, {
+			ifnotpresent => qr/^## f    diskinfo/,
+			after => qr/^## l    link count/,
+			batch => [
 				"## f    diskinfo            yes >=14 (using clockformat, if len(%x) <= 14)\n",
 			],
 		}, {
@@ -764,6 +786,7 @@ use constant UPDATES => {
 				"'Makefile'=underline:'Makefile.PL'=underline:\\\n",
 			],
 		}, {
+			ifnotpresent => qr/gnome-terminal.+?handles F1\s+?itself.+?enable shift-F1/,
 			after => qr/## also check 'kmous' from terminfo if your mouse is malfunctioning/,
 			batch => [
 				"## gnome-terminal handles F1  itself. enable shift-F1 by adding:\n",
