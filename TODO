@@ -37,6 +37,11 @@
   the screen, overwriting the footer. the cursor position is not correctly validated
   then.
 
+- on starting pfm, the screen size is not checked for minimum size
+
+- multi_to_single(): old/={2%~} arrives as old/{2%~}, which is a reason to
+  reject the name. Check expansion by _expand_3456_escapes().
+
 ################################################################################
 # structural enhancements
 
