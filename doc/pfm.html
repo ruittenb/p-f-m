@@ -2,7 +2,7 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
-<title>C&lt;pfm&gt; - Personal File Manager for Linux/Unix</title>
+<title>pfm - Personal File Manager for Linux/Unix</title>
 <meta http-equiv="content-type" content="text/html; charset=utf-8" />
 <link rev="made" href="mailto:root@localhost" />
 </head>
@@ -54,7 +54,7 @@
 <h1><a name="synopsis">SYNOPSIS</a></h1>
 <p><code>pfm [</code>&nbsp;<em>directory</em>&nbsp;<code>] [</code>&nbsp;<code>-s, --swap </code><em>directory</em>&nbsp;<code>]</code>
 <code> [</code>&nbsp;<code>-l, --layout </code><em>number</em>&nbsp;<code>] [</code>&nbsp;<code>-o, --sort </code><em>mode</em>&nbsp;<code>]</code></p>
-<p><code>pfm { -v, --version | -h, --help }</code></p>
+<p><code>pfm { --help | --usage | --version }</code></p>
 <p>
 </p>
 <hr />
@@ -93,10 +93,10 @@ tries to find these directories.</p>
 <p>The directory that <code>pfm</code> should initially use as its main directory. If
 unspecified, the current directory is used.</p>
 </dd>
-<dt><strong><a name="h_help" class="item">-h, --help</a></strong></dt>
+<dt><strong><a name="help" class="item">--help</a></strong></dt>
 
 <dd>
-<p>Print usage information, then exit.</p>
+<p>Print extended usage information, then exit.</p>
 </dd>
 <dt><strong><a name="l_layout_number" class="item">-l, --layout <em>number</em></a></strong></dt>
 
@@ -118,7 +118,12 @@ returning to the main directory if 'persistentswap' is turned off in your
 config file. Therefore, <code>pfm</code> will swap back to the main directory <em>only</em>
 if 'persistentswap' is turned on.</p>
 </dd>
-<dt><strong><a name="v_version" class="item">-v, --version</a></strong></dt>
+<dt><strong><a name="usage" class="item">--usage</a></strong></dt>
+
+<dd>
+<p>Print concise usage information, then exit.</p>
+</dd>
+<dt><strong><a name="version" class="item">--version</a></strong></dt>
 
 <dd>
 <p>Print current version, then exit.</p>
@@ -275,7 +280,7 @@ have permission to remove the current symbolic link.</p>
 <dt><strong><a name="every_file" class="item"><strong>E</strong>very file</a></strong></dt>
 
 <dd>
-<p>all files, including dotfiles, except for the <em class="file">.</em> and <em class="file">..</em> entries</p>
+<p>all files, including dotfiles (but not the <em class="file">.</em> and <em class="file">..</em> entries)</p>
 </dd>
 <dt><strong><a name="files_only" class="item"><strong>F</strong>iles only</a></strong></dt>
 
@@ -308,19 +313,19 @@ now denoted with an <em>oldmark</em> (<strong>.</strong>)</p>
 <dt><strong><a name="_" class="item"><strong>.</strong></a></strong></dt>
 
 <dd>
-<p>all filenames that start with a <strong>.</strong> (dot), including the <em class="file">.</em> and <em class="file">..</em>
-entries.</p>
+<p>all dotfiles (but not the <em class="file">.</em> and <em class="file">..</em> entries).</p>
 </dd>
 </dl>
 <p>Oldmarks and newmarks may be used to perform more than one command on the
 same group of files.</p>
+<p>Note that the <em class="file">.</em> and <em class="file">..</em> entries will never automatically become marked.</p>
 <p>There is also the option:</p>
 <dl>
 <dt><strong><a name="invert" class="item"><strong>I</strong>nvert</a></strong></dt>
 
 <dd>
-<p>Inverts the selection, except for the <em class="file">.</em> and <em class="file">..</em> entries, which remain
-untouched.</p>
+<p>Inverts the selection, except for the <em class="file">.</em> and <em class="file">..</em> entries, which become
+unmarked.</p>
 </dd>
 </dl>
 </dd>
@@ -1474,21 +1479,26 @@ new config file with your original one:</p>
     env PFMRC=~/.pfm/.pfmrc-new pfm</pre>
 <p>Alternatively, you may reply with <strong>y</strong> when <code>pfm</code> offers to update the
 config file for you.</p>
+<p>If a function key like <strong>F1</strong> or <strong>F10</strong> is intercepted by your windowing
+system or OS, and it is not feasible to change that mapping, then you can
+define an alternative key mapping (like Shift-<strong>F1</strong>, Shift-<strong>F10</strong>) in
+your <em class="file">.pfmrc</em>, <em>e.g.</em>:</p>
+<pre>
+    keydef[*]:k1=\eO1;2P:k10=\e[21;2~:</pre>
+<p>Or for a specific value of <strong>TERM</strong>:</p>
+<pre>
+    keydef[xterm]:k1=\eO1;2P:k10=\e[21;2~:</pre>
 <p>
 </p>
 <hr />
 <h1><a name="bugs_and_warnings">BUGS and WARNINGS</a></h1>
-<p><code>Term::ReadLine::Gnu</code> does not allow a half-finished line to be aborted by
-pressing <strong>ESC</strong>. For most commands, you will need to clear the half-finished
-line. You may use the terminal kill character (usually <strong>CTRL-U</strong>) for this
-purpose (see stty(1)).</p>
-<p>The author once almost pressed <strong>ENTER</strong> when logged in as root and with
-the cursor on the file <em class="file">/sbin/reboot</em>. You have been warned.</p>
 <p>The smallest terminal size supported is 80x24. The display will be messed
 up if you resize your terminal window to a smaller size, unless you specify
 'force_minimum_size' in the config file and the terminal supports resizing;
 in that case <code>pfm</code> will resize the terminal to at least 80 columns and/or
 24 rows.</p>
+<p>The author once almost pressed <strong>ENTER</strong> when logged in as root and with
+the cursor on the file <em class="file">/sbin/reboot</em>. You have been warned.</p>
 <p>
 </p>
 <hr />
@@ -1504,7 +1514,7 @@ License version 2.</p>
 <p>This program was based on PFM.COM version 2.32, originally written for
 MS-DOS by Paul R. Culley and Henk de Heer. The name 'pfm' was adopted
 with kind permission of the original authors.</p>
-<p>Special thanks to Ewoud Verburg for useful suggestions and testing.</p>
+<p>Special thanks to Ewoud Kappers for useful suggestions and testing.</p>
 <p>Special thanks to Maurice Makaay for useful suggestions and assistance
 with debugging.</p>
 <p>

@@ -3,9 +3,9 @@
 ##########################################################################
 #
 # Name:         test.pl
-# Version:      0.17
+# Version:      0.18
 # Author:       Rene Uittenbogaard
-# Date:         2010-11-22
+# Date:         2010-11-28
 # Usage:        test.pl
 # Description:  Test the pfm script and the associated libraries for
 #		syntax errors (using perl -cw).
@@ -74,12 +74,12 @@ sub filter_output {
 
 sub main {
 	# setup pipe
-	my $childpid = open(HANDLE, "-|");
+	my $childpid = open my $handle, "-|";
 	die "cannot fork(): $!" unless (defined $childpid);
 
 	if ($childpid) {
 		# parent
-		filter_output(*HANDLE);
+		filter_output($handle);
 	} else {
 		# child
 		produce_output();

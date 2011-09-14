@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Directory 0.98
+# @(#) App::PFM::Directory 0.99
 #
 # Name:			App::PFM::Directory
-# Version:		0.98
+# Version:		0.99
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-22
+# Date:			2010-11-28
 #
 
 ##########################################################################
@@ -1110,7 +1110,7 @@ sub apply {
 					$self->unregister($loopfile);
 					$deleted_index = $nameindexmap{$loopfile->{name}};
 					splice @{$self->{_dircontents}}, $deleted_index, 1;
-					splice @{$self->{_showncontents}}, $i, 1;
+					$self->set_dirty(D_FILTER);
 				}
 			}
 			# from perlfunc/system:
@@ -1141,7 +1141,7 @@ sub apply {
 			$deleted_index = $self->dirlookup(
 				$loopfile->{name}, @{$self->{_dircontents}});
 			splice @{$self->{_dircontents}}, $deleted_index, 1;
-#			splice @{$self->{_showncontents}}, $i, 1; # TODO WRONG
+			$self->set_dirty(D_FILTER);
 		}
 	}
 	return;

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.48
+# @(#) App::PFM::CommandHandler 1.49
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.48
+# Version:		1.49
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-22
+# Date:			2010-11-28
 #
 
 ##########################################################################
@@ -1348,6 +1348,7 @@ sub handlelink {
 	my $state      = $_pfm->state;
 	my $swap_state = $_pfm->state('S_SWAP');
 	my $currentdir = $state->directory->path;
+	my $swap_dir   = $swap_state->directory->path;
 	
 	if ($_pfm->state->{multiple_mode}) {
 		$self->{_screen}->set_deferred_refresh(R_SCREEN);
@@ -1386,7 +1387,6 @@ sub handlelink {
 		my $file = shift;
 		my $newnameexpanded = $newname;
 		my ($simpletarget, $simplename, $targetstring, $mark);
-		# $self is the commandhandler (closure!)
 		$self->_expand_escapes(QUOTE_OFF, \$newnameexpanded, $file);
 		# keep this expanded version of the filename:
 		# it will be used to determine if the newname is a subdirectory
@@ -1432,11 +1432,16 @@ sub handlelink {
 				white   => '',
 				mark    => $mark,
 				refresh => TRUE);
-		} elsif ($newname =~ m{^=5/?$} and $swap_state) {
+#		} elsif ($newname =~ m{^=5/?$} and $swap_state) {
+		} elsif ($swap_state and
+			substr($newnameexpanded, 0, length($swap_dir)) eq $swap_dir and
+			substr($newnameexpanded, length($swap_dir)) =~ m{^(?:$|/([^/]*)$)}
+		) {
+			my $destination = $1 ? $1 : $file->{name};
 			# add newname to the swap directory listing.
 			$mark = ($swap_state->{multiple_mode}) ? M_NEWMARK : " ";
 			$swap_state->directory->addifabsent(
-				entry   => $file->{name},
+				entry   => $destination,
 				white   => '',
 				mark    => $mark,
 				refresh => TRUE);
@@ -2133,7 +2138,6 @@ sub handletarget {
 		if ($file->{type} ne 'l') {
 			$screen->at(0,0)->clreol()->display_error($nosymlinkerror);
 		} else {
-			# $self is the commandhandler (closure!)
 			$newtargetexpanded = $newtarget;
 			$self->_expand_escapes(QUOTE_OFF, \$newtargetexpanded, $file);
 			$oldtargetok = 1;
@@ -2253,7 +2257,6 @@ sub handlecommand { # Y or O
 	$do_this = sub {
 		my $file = shift;
 		my $do_command = $command;
-		# $self is the commandhandler (closure!)
 		$self->_expand_escapes(QUOTE_ON, \$do_command, $file);
 		$screen->puts("\n$do_command\n");
 		system $do_command
@@ -2344,8 +2347,8 @@ sub handledelete {
 	}
 	$screen->at($screen->PATHLINE, 0)
 		->set_deferred_refresh(R_SCREEN);
-#	$_pfm->state->directory->set_dirty(D_FILELIST);
-	$_pfm->state->directory->set_dirty(D_SORT | D_FILTER);
+	$_pfm->state->directory->set_dirty(D_FILELIST);
+	# D_FILTER is set by Directory->apply()
 	$do_this = sub {
 		my $file = shift;
 		my ($msg, $success);
@@ -2417,6 +2420,7 @@ sub handlecopyrename {
 	my $browser    = $_pfm->browser;
 	my $state      = $_pfm->state;
 	my $swap_state = $_pfm->state('S_SWAP');
+	my $swap_dir   = $swap_state->directory->path;
 	if ($state->{multiple_mode}) {
 		$screen->set_deferred_refresh(R_SCREEN);
 	} else {
@@ -2441,7 +2445,7 @@ sub handlecopyrename {
 	$do_this = sub {
 		my $file = shift;
 		my $findindex;
-		# move this outsde of do_this
+		# move this outside of do_this
 #		if ($key eq 'C' and $file->{type} =~ /[ld]/ ) {
 #			# AIX: cp -r follows symlink
 #			# Linux: cp -r copies symlink
@@ -2454,7 +2458,6 @@ sub handlecopyrename {
 #			}
 #			$screen->clreol();
 #		}
-		# $self is the commandhandler (closure!)
 		$newnameexpanded = $newname;
 		$self->_expand_escapes(QUOTE_OFF, \$newnameexpanded, $file);
 		if (system @command, $file->{name}, $newnameexpanded) {
@@ -2472,11 +2475,16 @@ sub handlecopyrename {
 				white   => '',
 				mark    => $mark,
 				refresh => TRUE);
-		} elsif ($newname =~ m{^=5/?$} and $swap_state) {
+#		} elsif ($newname =~ m{^=5/?$} and $swap_state) {
+		} elsif ($swap_state and
+			substr($newnameexpanded, 0, length($swap_dir)) eq $swap_dir and
+			substr($newnameexpanded, length($swap_dir)) =~ m{^(?:$|/([^/]*)$)}
+		) {
+			my $destination = $1 ? $1 : $file->{name};
 			# add newname to the swap directory listing.
 			$mark = ($swap_state->{multiple_mode}) ? M_NEWMARK : " ";
 			$swap_state->directory->addifabsent(
-				entry   => $file->{name},
+				entry   => $destination,
 				white   => '',
 				mark    => $mark,
 				refresh => TRUE);
