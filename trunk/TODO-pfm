@@ -46,7 +46,10 @@
 
 - have directories keep track of their own background jobs
 
+- pass events from handlemore() to handlemore*()
+
 - make our() variables member variables
+- store $browser->{_screen, _config, _main_state}; remove _pfm
 
 - standardize the names of constants
   Config::READ_FIRST?
@@ -70,6 +73,13 @@
 
 - test Config::Update
 
+- implement 'after_create_entry'
+
+- use lookahead in handlemousefootercommand
+
+- TEST: have Browser determine on which file the mouse was clicked, and pass that
+  "current"file + "current"line to in the event to the CommandHandler
+
 ################################################################################
 # functional enhancements
 
@@ -83,17 +93,18 @@
 
 - figure out and display if an ACL is applicable for a file
 
+- add (M)ore - (O)pen window?
+- add e(X)clude - (.)dotfiles?
+
 ################################################################################
 # documentation enhancements
 
-- add constants MENU_* HEADING_* etc. to uml
+- manpages: use I<...> in =items
 
-- manpages: update formatting of arguments.
-
-  DONE (use I<...> in =items)
+  DONE:
 
   TODO: Abstract Application Browser CommandHandler Config Directory
-  	Event File History State Util
+	Event File History State Util
 	OS OS/Abstract OS/Linux OS/Aix OS/Hpux OS/Sco OS/Solaris
 	Screen Screen/Frame Screen/Diskinfo Screen/Listing
 	JobHandler Job/CheckUpdates

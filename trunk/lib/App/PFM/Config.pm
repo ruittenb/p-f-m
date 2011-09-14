@@ -877,7 +877,8 @@ footer=bold reverse blue on white:message=bold cyan:highlight=bold:
 ## ex=executable su=setuid sg=setgid ca=capability (not implemented)
 ## ow=other-writable dir (d???????w?) st=sticky dir (d????????t)
 ## tw=sticky and other-writable dir (d???????wt)
-## *.<ext> defines extension colors
+## *.ext      defines colors for files with a specific extension
+## 'filename' defines colors for complete specific filenames
 
 dircolors[dark]:\
 no=reset:fi=:\
@@ -890,6 +891,7 @@ su=white on red:sg=black on yellow:\
 ow=blue on green:st=white on blue:tw=black on green:\
 ex=green:\
 ca=black on red:\
+'Makefile'=underline:'Makefile.PL'=underline:\
 *.cmd=bold green:*.exe=bold green:*.com=bold green:\
 *.btm=bold green:*.bat=bold green:\
 *.pas=green:\
@@ -932,6 +934,7 @@ su=white on red:sg=black on yellow:\
 ow=blue on green:st=white on blue:tw=black on green:\
 ex=green:\
 ca=black on red:\
+'Makefile'=underline:'Makefile.PL'=underline:\
 *.cmd=bold green:*.exe=bold green:*.com=bold green:\
 *.btm=bold green:*.bat=bold green:\
 *.pas=green:\

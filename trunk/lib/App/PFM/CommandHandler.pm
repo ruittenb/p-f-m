@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.24
+# @(#) App::PFM::CommandHandler 1.27
 #   
 # Name:			App::PFM::CommandHandler
-# Version:		1.24
+# Version:		1.27
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-07
+# Date:			2010-09-09
 #
 
 ##########################################################################
@@ -49,11 +49,14 @@ use strict;
 use locale;
 
 use constant {
-	FALSE		=> 0,
-	TRUE		=> 1,
-	QUOTE_OFF	=> 0,
-	QUOTE_ON	=> 1,
-	SPAWNEDCHAR => '*',
+	FALSE	      => 0,
+	TRUE	      => 1,
+	QUOTE_OFF     => 0,
+	QUOTE_ON      => 1,
+	BUTTON_LEFT   => 0,
+	BUTTON_MIDDLE => 1,
+	BUTTON_RIGHT  => 2,
+	SPAWNEDCHAR   => '*',
 };
 
 use constant NUMFORMATS => {
@@ -154,8 +157,8 @@ sub _helppage {
  ESC, BS         leave directory                  *    toggle radix for display 
 ---------------------------------------------     "    toggle pathmode          
  ?               help                             =    cycle idents             
- <               shift commands menu left         .    filter dotfiles          
- >               shift commands menu right        %    filter whiteouts         
+ <               pan commands menu left           .    filter dotfiles          
+ >               pan commands menu right          %    filter whiteouts         
 --------------------------------------------------------------------------------
         _endPage1_
 		$prompt = 'F1 or ? for manpage, arrows or BS/ENTER to browse ';
@@ -559,57 +562,56 @@ sub handle {
 	for ($event->{data}) {
 		# order is determined by (supposed) frequency of use
 		/^(?:kr|kl|[h\e\cH])$/io
-							and $self->handleentry($_),					  last;
-		/^[\cE\cY]$/o		and $self->handlescroll($_),				  last;
-		/^l$/o				and $self->handlekeyell($_),				  last;
-		/^k5$/o				and $self->handlerefresh(),					  last;
-		/^[cr]$/io			and $self->handlecopyrename($_),			  last;
-		/^[yo]$/io			and $self->handlecommand($_),				  last;
-		/^e$/io				and $self->handleedit(),					  last;
-		/^(?:d|del)$/io		and $self->handledelete(),					  last;
-		/^[ix]$/io			and $self->handleinclude($_),				  last;
-		/^\r$/io			and $self->handleenter(),					  last;
-		/^s$/io				and $self->handleshow(),					  last;
+							and $self->handleentry($event),				  last;
+		/^l$/o				and $self->handlekeyell($event),			  last;
+		/^k5$/o				and $self->handlerefresh($event),			  last;
+		/^[cr]$/io			and $self->handlecopyrename($event),		  last;
+		/^[yo]$/io			and $self->handlecommand($event),			  last;
+		/^e$/io				and $self->handleedit($event),				  last;
+		/^(?:d|del)$/io		and $self->handledelete($event),			  last;
+		/^[ix]$/io			and $self->handleinclude($event),			  last;
+		/^\r$/io			and $self->handleenter($event),				  last;
+		/^s$/io				and $self->handleshow($event),				  last;
 		/^kmous$/o			and $handled = $self->handlemousedown($event),last;
-		/^k7$/o				and $self->handleswap(),					  last;
-		/^k10$/o			and $self->handlemultiple(),				  last;
-		/^m$/io				and $self->handlemore(),					  last;
-		/^p$/io				and $self->handleprint(),					  last;
-		/^L$/o				and $self->handlelink(),					  last;
-		/^n$/io				and $self->handlename(),					  last;
-		/^(k8| )$/o			and $self->handlemark(),					  last;
-		/^k11$/o			and $self->handlerestat(),					  last;
-		/^[\/f]$/io			and $self->handlefind(),					  last;
-		/^[<>]$/io			and $self->handlepan($_, MENU_SINGLE),		  last;
-		/^(?:k3|\cL|\cR)$/o	and $self->handlefit(),						  last;
-		/^t$/io				and $self->handletime(),					  last;
-		/^a$/io				and $self->handlechmod(),					  last;
-		/^q$/io				and $handled = $self->handlequit($_),		  last;
-		/^k6$/o				and $self->handlesinglesort(),				  last;
-		/^(?:k1|\?)$/o		and $self->handlehelp(),					  last;
-		/^k2$/o				and $self->handleprev(),					  last;
-		/^\.$/o				and $self->handledot(),						  last;
-		/^k9$/o				and $self->handlelayouts(),					  last;
-		/^k4$/o				and $self->handlecolor(),					  last;
-		/^\@$/o				and $self->handleperlcommand(),				  last;
-		/^u$/io				and $self->handlechown(),					  last;
-		/^v$/io				and $self->handleversion(),					  last;
-		/^z$/io				and $self->handlesize(),					  last;
-		/^g$/io				and $self->handletarget(),					  last;
-		/^k12$/o			and $self->handlemousemode(),				  last;
-		/^=$/o				and $self->handleident(),					  last;
-		/^\*$/o				and $self->handleradix(),					  last;
-		/^!$/o				and $self->handleclobber(),					  last;
-		/^"$/o				and $self->handlepathmode(),				  last;
-		/^w$/io				and $self->handleunwo(),					  last;
-		/^%$/o				and $self->handlewhiteout(),				  last;
+		/^k7$/o				and $self->handleswap($event),				  last;
+		/^k10$/o			and $self->handlemultiple($event),			  last;
+		/^m$/io				and $self->handlemore($event),				  last;
+		/^p$/io				and $self->handleprint($event),				  last;
+		/^L$/o				and $self->handlelink($event),				  last;
+		/^n$/io				and $self->handlename($event),				  last;
+		/^(k8| )$/o			and $self->handlemark($event),				  last;
+		/^k11$/o			and $self->handlerestat($event),			  last;
+		/^[\/f]$/io			and $self->handlefind($event),				  last;
+		/^[<>]$/io			and $self->handlepan($event, MENU_SINGLE),	  last;
+		/^(?:k3|\cL|\cR)$/o	and $self->handlefit($event),				  last;
+		/^t$/io				and $self->handletime($event),				  last;
+		/^a$/io				and $self->handlechmod($event),				  last;
+		/^q$/io				and $handled = $self->handlequit($event),	  last;
+		/^k6$/o				and $self->handlesinglesort($event),		  last;
+		/^(?:k1|\?)$/o		and $self->handlehelp($event),				  last;
+		/^k2$/o				and $self->handleprev($event),				  last;
+		/^\.$/o				and $self->handledot($event),				  last;
+		/^k9$/o				and $self->handlelayouts($event),			  last;
+		/^k4$/o				and $self->handlecolor($event),				  last;
+		/^\@$/o				and $self->handleperlcommand($event),		  last;
+		/^u$/io				and $self->handlechown($event),				  last;
+		/^v$/io				and $self->handleversion($event),			  last;
+		/^z$/io				and $self->handlesize($event),				  last;
+		/^g$/io				and $self->handletarget($event),			  last;
+		/^k12$/o			and $self->handlemousemode($event),			  last;
+		/^=$/o				and $self->handleident($event),				  last;
+		/^\*$/o				and $self->handleradix($event),				  last;
+		/^!$/o				and $self->handleclobber($event),			  last;
+		/^"$/o				and $self->handlepathmode($event),			  last;
+		/^w$/io				and $self->handleunwo($event),				  last;
+		/^%$/o				and $self->handlewhiteout($event),			  last;
 		$handled = 0;
 		$_screen->flash();
 	}
 	return $handled;
 }
 
-=item handlepan(char $key, int $menu_mode)
+=item handlepan(App::PFM::Event $event, int $menu_mode)
 
 Handles the pan keys B<E<lt>> and B<E<gt>>.
 This uses the B<MENU_> constants as defined in App::PFM::Screen::Frame.
@@ -617,50 +619,24 @@ This uses the B<MENU_> constants as defined in App::PFM::Screen::Frame.
 =cut
 
 sub handlepan {
-	my ($self, $key, $mode) = @_;
-	$_screen->frame->pan($key, $mode);
+	my ($self, $event, $mode) = @_;
+	$_screen->frame->pan($event->{data}, $mode);
 }
 
-=item handlescroll(char $key)
-
-Handles B<CTRL-E> and B<CTRL-Y>, which scroll the current view of
-the directory.
-
-=cut
-
-sub handlescroll {
-	my ($self, $key) = @_;
-	my $up = ($key =~ /^\cE$/o);
-	my $screenheight  = $_screen->screenheight;
-	my $browser       = $_pfm->browser;
-	my $baseindex     = $browser->baseindex;
-	my $currentline   = $browser->currentline;
-	my $showncontents = $_pfm->state->directory->showncontents;
-	return 0 if ( $up and
-				  $baseindex == $#$showncontents and
-				  $currentline == 0)
-			 or (!$up and $baseindex == 0);
-	my $displacement = $up - ! $up;
-	$baseindex   += $displacement;
-	$currentline -= $displacement if $currentline-$displacement >= 0
-								 and $currentline-$displacement <= $screenheight;
-	$browser->setview($currentline, $baseindex);
-}
-
-=item handleprev()
+=item handleprev(App::PFM::Event $event)
 
 Handles the B<previous> command (B<F2>).
 
 =cut
 
 sub handleprev {
-	my ($self) = @_;
+	my ($self, $event) = @_;
 	my $browser = $_pfm->browser;
 	my $prevdir = $_pfm->state('S_PREV')->directory->path;
 	my $chdirautocmd;
 	if (chdir $prevdir) {
 		# store current cursor position
-		$_pfm->state->{_position}  = $browser->currentfile->{name};
+		$_pfm->state->{_position}  = $event->{currentfile}{name};
 		$_pfm->state->{_baseindex} = $browser->baseindex;
 		# perform the swap
 		$_pfm->swap_states('S_MAIN', 'S_PREV');
@@ -676,14 +652,14 @@ sub handleprev {
 	}
 }
 
-=item handleswap()
+=item handleswap(App::PFM::Event $event)
 
 Swaps to an alternative directory (B<F7>).
 
 =cut
 
 sub handleswap {
-	my ($self) = @_;
+	my ($self, $event) = @_;
 	my $browser         = $_pfm->browser;
 	my $swap_persistent = $_pfm->config->{swap_persistent};
 	my $prompt          = 'Directory Pathname: ';
@@ -696,7 +672,7 @@ sub handleswap {
 			# there is a persistent swap state
 			# --------------------------------------------------
 			# store current cursor position
-			$_pfm->state->{_position}  = $browser->currentfile->{name};
+			$_pfm->state->{_position}  = $event->{currentfile}{name};
 			$_pfm->state->{_baseindex} = $browser->baseindex;
 			# perform the swap
 			$_pfm->swap_states('S_MAIN', 'S_SWAP');
@@ -763,14 +739,14 @@ sub handleswap {
 		# set refresh already (we may be swapping to '.')
 		$_screen->set_deferred_refresh(R_SCREEN);
 		# store current cursor position
-		$_pfm->state->{_position}  = $browser->currentfile->{name};
+		$_pfm->state->{_position}  = $event->{currentfile}{name};
 		$_pfm->state->{_baseindex} = $browser->baseindex;
 		# store the main state
 		$_pfm->state('S_SWAP', $_pfm->state->clone());
 		# toggle swap mode flag
 		$browser->swap_mode(!$browser->swap_mode);
 		# fix destination
-		$self->_expand_escapes(QUOTE_OFF, $nextdir, $browser->currentfile);
+		$self->_expand_escapes(QUOTE_OFF, $nextdir, $event->{currentfile});
 		# go there using the directory's chdir() (TODO $swapping flag behavior?)
 		if ($_pfm->state->directory->chdir($nextdir, 0)) {
 			# set the cursor position
@@ -782,29 +758,28 @@ sub handleswap {
 	}
 }
 
-=item handlerefresh()
+=item handlerefresh(App::PFM::Event $event)
 
 Handles the command to refresh the current directory (B<F5>).
 
 =cut
 
 sub handlerefresh {
-#	my ($self) = @_;
+#	my ($self, $event) = @_;
 	if ($_screen->ok_to_remove_marks()) {
 		$_screen->set_deferred_refresh(R_SCREEN);
 		$_pfm->state->directory->set_dirty(D_FILELIST);
 	}
 }
 
-=item handlewhiteout()
+=item handlewhiteout(App::PFM::Event $event)
 
 Toggles the filtering of whiteout files (key B<%>).
 
 =cut
 
 sub handlewhiteout {
-#	my ($self) = @_;
-	my $browser = $_pfm->browser;
+#	my ($self, $event) = @_;
 	toggle($_pfm->state->{white_mode});
 	# the directory object schedules a position_at when
 	# $d->refresh() is called and the directory is dirty.
@@ -813,27 +788,26 @@ sub handlewhiteout {
 	$_pfm->state->directory->set_dirty(D_FILTER);
 }
 
-=item handlemultiple()
+=item handlemultiple(App::PFM::Event $event)
 
 Toggles multiple mode (B<F10>).
 
 =cut
 
 sub handlemultiple {
-#	my ($self) = @_;
+#	my ($self, $event) = @_;
 	toggle($_pfm->state->{multiple_mode});
 	$_screen->set_deferred_refresh(R_MENU);
 }
 
-=item handledot()
+=item handledot(App::PFM::Event $event)
 
 Toggles the filtering of dotfiles (key B<.>).
 
 =cut
 
 sub handledot {
-#	my ($self) = @_;
-	my $browser = $_pfm->browser;
+#	my ($self, $event) = @_;
 	toggle($_pfm->state->{dot_mode});
 	# the directory object schedules a position_at when
 	# $d->refresh() is called and the directory is dirty.
@@ -842,52 +816,52 @@ sub handledot {
 	$_pfm->state->directory->set_dirty(D_FILTER);
 }
 
-=item handlecolor()
+=item handlecolor(App::PFM::Event $event)
 
 Cycles through color modes (B<F4>).
 
 =cut
 
 sub handlecolor {
-#	my ($self) = @_;
+#	my ($self, $event) = @_;
 	$_screen->select_next_color();
 }
 
-=item handlemousemode()
+=item handlemousemode(App::PFM::Event $event)
 
 Handles turning mouse mode on or off (B<F12>).
 
 =cut
 
 sub handlemousemode {
-#	my ($self) = @_;
+#	my ($self, $event) = @_;
 	my $browser = $_pfm->browser;
 	$browser->mouse_mode(!$browser->mouse_mode);
 }
 
-=item handlelayouts()
+=item handlelayouts(App::PFM::Event $event)
 
 Handles moving on to the next configured layout (B<F9>).
 
 =cut
 
 sub handlelayouts {
-#	my ($self) = @_;
+#	my ($self, $event) = @_;
 	$_screen->listing->select_next_layout();
 }
 
-=item handlefit()
+=item handlefit(App::PFM::Event $event)
 
 Recalculates the screen size and adjusts the layouts (B<F3>).
 
 =cut
 
 sub handlefit {
-#	my ($self) = @_;
+#	my ($self, $event) = @_;
 	$_screen->fit();
 }
 
-=item handleident()
+=item handleident(App::PFM::Event $event)
 
 Calls the diskinfo class to cycle through showing
 the username, hostname or both (key B<=>).
@@ -895,11 +869,11 @@ the username, hostname or both (key B<=>).
 =cut
 
 sub handleident {
-#	my ($self) = @_;
+#	my ($self, $event) = @_;
 	$_screen->diskinfo->select_next_ident();
 }
 
-=item handleclobber()
+=item handleclobber(App::PFM::Event $event)
 
 Toggles between clobbering files automatically, or prompting
 before overwrite (key B<!>.
@@ -907,24 +881,24 @@ before overwrite (key B<!>.
 =cut
 
 sub handleclobber {
-	my ($self) = @_;
+	my ($self, $event) = @_;
 	$self->clobber_mode(!$self->{_clobber_mode});
 	$_screen->set_deferred_refresh(R_FOOTER);
 }
 
-=item handlepathmode()
+=item handlepathmode(App::PFM::Event $event)
 
 Toggles between logical and physical path mode (key B<">).
 
 =cut
 
 sub handlepathmode {
-#	my ($self) = @_;
+#	my ($self, $event) = @_;
 	my $directory = $_pfm->state->directory;
 	$directory->path_mode($directory->path_mode eq 'phys' ? 'log' : 'phys');
 }
 
-=item handleradix()
+=item handleradix(App::PFM::Event $event)
 
 Toggles between octal and hexadecimal radix (key B<*>), which is used for
 showing nonprintable characters in the B<N>ame command.
@@ -932,23 +906,23 @@ showing nonprintable characters in the B<N>ame command.
 =cut
 
 sub handleradix {
-#	my ($self) = @_;
+#	my ($self, $event) = @_;
 	my $state = $_pfm->state;
 	$state->{radix_mode} = ($state->{radix_mode} eq 'hex' ? 'oct' : 'hex');
 	$_screen->set_deferred_refresh(R_FOOTER);
 }
 
-=item handlequit(char $key)
+=item handlequit(App::PFM::Event $event)
 
 Handles the B<q>uit and quick B<Q>uit commands.
 
 =cut
 
 sub handlequit {
-	my ($self, $key) = @_;
+	my ($self, $event) = @_;
 	my $confirmquit = $_pfm->config->{confirmquit};
 	return 'quit' if isno($confirmquit);
-	return 'quit' if $key eq 'Q'; # quick quit
+	return 'quit' if $event->{data} eq 'Q'; # quick quit
 	return 'quit' if
 		($confirmquit =~ /marked/i and !$_screen->diskinfo->mark_info);
 	$_screen->show_frame({
@@ -961,14 +935,14 @@ sub handlequit {
 	return 0;
 }
 
-=item handleperlcommand()
+=item handleperlcommand(App::PFM::Event $event)
 
 Handles executing a Perl command (key B<@>).
 
 =cut
 
 sub handleperlcommand {
-	my ($self) = @_;
+	my ($self, $event) = @_;
 	my $perlcmd;
 	# for ease of use when debugging
 	my $pfm            = $_pfm;
@@ -981,7 +955,7 @@ sub handleperlcommand {
 	my $listing        = $screen->listing;
 	my $frame          = $screen->frame;
 	my $browser        = $_pfm->browser;
-	my $currentfile    = $browser->currentfile;
+	my $currentfile    = $event->{currentfile};
 	my $state          = $_pfm->state;
 	my $directory      = $state->directory;
 	# now do!
@@ -998,14 +972,14 @@ sub handleperlcommand {
 	$_screen->set_deferred_refresh(R_SCREEN);
 }
 
-=item handlehelp()
+=item handlehelp(App::PFM::Event $event)
 
 Shows a help page with an overview of commands (B<F1>).
 
 =cut
 
 sub handlehelp {
-	my ($self) = @_;
+	my ($self, $event) = @_;
 	my $pages = 3;
 	my $page  = 1;
 	my ($key, $prompt);
@@ -1026,7 +1000,7 @@ sub handlehelp {
 	$_screen->set_deferred_refresh(R_CLRSCR);
 }
 
-=item handleentry(char $key)
+=item handleentry(App::PFM::Event $event)
 
 Handles entering or leaving a directory (left arrow, right arrow,
 B<ESC>, B<BS>, B<h>, B<l> (if on a directory), B<ENTER> (if on a
@@ -1035,14 +1009,14 @@ directory)).
 =cut
 
 sub handleentry {
-	my ($self, $key) = @_;
+	my ($self, $event) = @_;
 	my ($tempptr, $nextdir, $success, $direction);
 	my $currentdir = $_pfm->state->directory->path;
-	if ( $key =~ /^(?:kl|h|\e|\cH)$/io ) {
+	if ($event->{data} =~ /^(?:kl|h|\e|\cH)$/io) {
 		$nextdir   = '..';
 		$direction = 'up';
 	} else {
-		$nextdir   = $_pfm->browser->currentfile->{name};
+		$nextdir   = $event->{currentfile}{name};
 		$direction = $nextdir eq '..' ? 'up' : 'down';
 	}
 	return if ($nextdir    eq '.');
@@ -1056,7 +1030,7 @@ sub handleentry {
 	return $success;
 }
 
-=item handlemark()
+=item handlemark(App::PFM::Event $event)
 
 Handles marking (including or excluding) a file (key B<SPACE>
 or B<F8>).
@@ -1064,8 +1038,8 @@ or B<F8>).
 =cut
 
 sub handlemark {
-	my ($self) = @_;
-	my $currentfile  = $_pfm->browser->currentfile;
+	my ($self, $event) = @_;
+	my $currentfile  = $event->{currentfile};
 	my $was_selected = $currentfile->{selected} eq M_MARK;
 	if ($was_selected) {
 		$_pfm->state->directory->exclude($currentfile, ' ');
@@ -1139,16 +1113,16 @@ sub handlemarkinverse {
 	$_screen->set_deferred_refresh(R_SCREEN);
 }
 
-=item handlekeyell()
+=item handlekeyell(App::PFM::Event $event)
 
 Handles the lowercase B<l> key: enter the directory or create a link.
 
 =cut
 
 sub handlekeyell {
-	my ($self) = @_;
+	my ($self, $event) = @_;
 	# small l only
-	if ($_pfm->browser->currentfile->{type} eq 'd') {
+	if ($event->{currentfile}{type} eq 'd') {
 		# this automagically passes the args to handleentry()
 		goto &handleentry;
 	} else {
@@ -1156,18 +1130,18 @@ sub handlekeyell {
 	}
 }
 
-=item handlerestat()
+=item handlerestat(App::PFM::Event $event)
 
 Re-executes a stat() on the current (or selected) files (B<F11>).
 
 =cut
 
 sub handlerestat {
-#	my ($self) = @_;
+	my ($self, $event) = @_;
 	$_pfm->state->directory->apply(sub {});
 }
 
-=item handlelink()
+=item handlelink(App::PFM::Event $event)
 
 Creates a hard or symbolic link (B<L>ink as uppercase B<L>, or
 lowercase B<l> if on a non-directory).
@@ -1175,7 +1149,7 @@ lowercase B<l> if on a non-directory).
 =cut
 
 sub handlelink {
-	my ($self) = @_;
+	my ($self, $event) = @_;
 	my ($newname, $do_this, $testname, $headerlength, $absrel, $histpush);
 	my @lncmd = $self->{_clobber_mode} ? qw(ln -f) : qw(ln);
 	
@@ -1184,7 +1158,7 @@ sub handlelink {
 	} else {
 		$_screen->set_deferred_refresh(R_FRAME);
 		$_screen->listing->markcurrentline('L');
-		$histpush = $_pfm->browser->currentfile->{name};
+		$histpush = $event->{currentfile}{name};
 	}
 	
 	$headerlength = $_screen->show_frame({
@@ -1267,18 +1241,18 @@ sub handlelink {
 	$_pfm->state->directory->apply($do_this);
 }
 
-=item handlesinglesort()
+=item handlesinglesort(App::PFM::Event $event)
 
 Handles asking for user input and setting single-level sort mode.
 
 =cut
 
 sub handlesinglesort {
-	my ($self) = @_;
-	$self->handlesort(FALSE);
+	my ($self, $event) = @_;
+	$self->handlesort($event, FALSE);
 }
 
-=item handlesort( [ bool $multilevel ] )
+=item handlesort(App::PFM::Event $event [, bool $multilevel ] )
 
 Handles sorting the current directory (B<F6>).
 The I<multilevel> argument indicates if the user must be offered
@@ -1288,7 +1262,7 @@ just a single one.
 =cut
 
 sub handlesort {
-	my ($self, $multilevel) = @_;
+	my ($self, $event, $multilevel) = @_;
 	my $printline = $_screen->BASELINE;
 	my $infocol   = $_screen->diskinfo->infocol;
 	my $frame     = $_screen->frame;
@@ -1325,12 +1299,12 @@ sub handlesort {
 	if ($newmode eq $_pfm->state->sort_mode($newmode)) {
 		# if it has been set
 		$_pfm->browser->position_at(
-			$_pfm->browser->currentfile->{name}, { force => 0, exact => 1 });
+			$event->{currentfile}{name}, { force => 0, exact => 1 });
 	}
 	$_pfm->state->directory->set_dirty(D_SORT | D_FILTER);
 }
 
-=item handlecyclesort()
+=item handlecyclesort(App::PFM::Event $event)
 
 Cycles through sort modes. Initiated by a mouse click on the 'Sort'
 footer region.
@@ -1338,7 +1312,7 @@ footer region.
 =cut
 
 sub handlecyclesort {
-	my ($self) = @_;
+	my ($self, $event) = @_;
 	# setup translations
 	my @mode_to   = split(/,/, $_pfm->config->{sortcycle});
 	my @mode_from = ($mode_to[-1], @mode_to);
@@ -1349,22 +1323,22 @@ sub handlecyclesort {
 	my $newmode = $translations{$_pfm->state->sort_mode} || $mode_to[0];
 	$_pfm->state->sort_mode($newmode);
 	$_pfm->browser->position_at(
-		$_pfm->browser->currentfile->{name}, { force => 0, exact => 1 });
+		$event->{currentfile}{name}, { force => 0, exact => 1 });
 	$_screen->set_deferred_refresh(R_SCREEN);
 	$_pfm->state->directory->set_dirty(D_SORT | D_FILTER);
 }
 
-=item handlename()
+=item handlename(App::PFM::Event $event)
 
 Shows all chacacters of the filename in a readable manner (B<N>ame).
 
 =cut
 
 sub handlename {
-	my ($self) = @_;
+	my ($self, $event) = @_;
 	my $numformat   = ${NUMFORMATS()}{$_pfm->state->{radix_mode}};
 	my $browser     = $_pfm->browser;
-	my $workfile    = $browser->currentfile->clone();
+	my $workfile    = $event->{currentfile}->clone();
 	my $screenline  = $browser->currentline + $_screen->BASELINE;
 	my $filenamecol = $_screen->listing->filenamecol;
 	my $trspace     = $_pfm->config->{trspace};
@@ -1399,7 +1373,7 @@ sub handlename {
 	}
 }
 
-=item handlefind()
+=item handlefind(App::PFM::Event $event)
 
 Prompts for a filename to find, then positions the cursor at that file.
 B<Find> or key B</>.
@@ -1414,7 +1388,7 @@ B<Find> or key B</>.
 =cut
 
 sub handlefind {
-	my ($self) = @_;
+	my ($self, $event) = @_;
 	if (lc($_pfm->state->sort_mode) eq 'n') {
 		goto &handlefind_incremental;
 	}
@@ -1479,14 +1453,14 @@ sub handlefind_incremental {
 	$_screen->set_deferred_refresh(R_MENU);
 }
 
-=item handleedit()
+=item handleedit(App::PFM::Event $event)
 
 Starts the editor for editing the current fileZ<>(s) (B<E>dit command).
 
 =cut
 
 sub handleedit {
-	my ($self) = @_;
+#	my ($self, $event) = @_;
 	my $do_this;
 	$_screen->alternate_off()->clrscr()->at(0,0)->cooked_echo();
 	$do_this = sub {
@@ -1499,14 +1473,14 @@ sub handleedit {
 	$_screen->raw_noecho()->set_deferred_refresh(R_CLRSCR);
 }
 
-=item handlechown()
+=item handlechown(App::PFM::Event $event)
 
 Handles changing the owner of a file (B<U>ser command).
 
 =cut
 
 sub handlechown {
-	my ($self) = @_;
+	my ($self, $event) = @_;
 	my ($newuid, $do_this);
 	if ($_pfm->state->{multiple_mode}) {
 		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO | R_LISTING);
@@ -1541,14 +1515,14 @@ sub handlechown {
 	}
 }
 
-=item handlechmod()
+=item handlechmod(App::PFM::Event $event)
 
 Handles changing the mode (permission bits) of a file (B<A>ttribute command).
 
 =cut
 
 sub handlechmod {
-	my ($self) = @_;
+	my ($self, $event) = @_;
 	my ($newmode, $do_this);
 	if ($_pfm->state->{multiple_mode}) {
 		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO | R_LISTING);
@@ -1581,14 +1555,14 @@ sub handlechmod {
 	$_pfm->state->directory->apply($do_this);
 }
 
-=item handletime()
+=item handletime(App::PFM::Event $event)
 
 Handles changing the timestamp of a file (B<T>ime command).
 
 =cut
 
 sub handletime {
-	my ($self) = @_;
+	my ($self, $event) = @_;
 	my ($newtime, $do_this, @cmdopts);
 	if ($_pfm->state->{multiple_mode}) {
 		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO | R_LISTING);
@@ -1631,16 +1605,16 @@ sub handletime {
 	}
 }
 
-=item handleshow()
+=item handleshow(App::PFM::Event $event)
 
 Handles displaying the contents of a file (B<S>how command).
 
 =cut
 
 sub handleshow {
-	my ($self) = @_;
+	my ($self, $event) = @_;
 	my ($do_this);
-	if ($self->_followmode($_pfm->browser->currentfile) =~ /^d/) {
+	if ($self->_followmode($event->{currentfile}) =~ /^d/) {
 		goto &handleentry;
 	}
 	$_screen->clrscr()->at(0,0)->cooked_echo();
@@ -1656,14 +1630,14 @@ sub handleshow {
 	$_screen->raw_noecho()->set_deferred_refresh(R_CLRSCR);
 }
 
-=item handleunwo()
+=item handleunwo(App::PFM::Event $event)
 
 Handles removing a whiteout file (unB<W>hiteout command).
 
 =cut
 
 sub handleunwo {
-	my ($self) = @_;
+	my ($self, $event) = @_;
 	my ($do_this);
 	my $nowhiteouterror = 'Current file is not a whiteout';
 	if ($_pfm->state->{multiple_mode}) {
@@ -1673,7 +1647,7 @@ sub handleunwo {
 		$_screen->listing->markcurrentline('W');
 	}
 	if (!$_pfm->state->{multiple_mode} and
-		$_pfm->browser->currentfile->{type} ne 'w')
+		$event->{currentfile}{type} ne 'w')
 	{
 		$_screen->at(0,0)->clreol()->display_error($nowhiteouterror);
 		return;
@@ -1692,7 +1666,7 @@ sub handleunwo {
 	$_pfm->state->directory->apply($do_this);
 }
 
-=item handleversion()
+=item handleversion(App::PFM::Event $event)
 
 Checks if the current directory is under version control,
 and starts a job for the file if so (B<V>ersion command).
@@ -1700,18 +1674,18 @@ and starts a job for the file if so (B<V>ersion command).
 =cut
 
 sub handleversion {
-	my ($self) = @_;
+	my ($self, $event) = @_;
 	if ($_pfm->state->{multiple_mode}) {
 		$_pfm->state->directory->apply(sub {});
 		$_pfm->state->directory->checkrcsapplicable();
 		$_screen->set_deferred_refresh(R_LISTING | R_MENU);
 	} else {
 		$_pfm->state->directory->checkrcsapplicable(
-			$_pfm->browser->currentfile->{name});
+			$event->{currentfile}{name});
 	}
 }
 
-=item handleinclude(char $key)
+=item handleinclude(App::PFM::Event $event)
 
 Handles including (marking) and excluding (unmarking) files
 (B<I>nclude and eB<X>clude commands).
@@ -1719,10 +1693,11 @@ Handles including (marking) and excluding (unmarking) files
 =cut
 
 sub handleinclude { # include/exclude flag (from keypress)
-	my ($self, $exin) = @_;
+	my ($self, $event) = @_;
 	my $directory    = $_pfm->state->directory;
 	my $printline    = $_screen->BASELINE;
 	my $infocol      = $_screen->diskinfo->infocol;
+	my $exin         = $event->{data};
 	my %inc_criteria = @{INC_CRITERIA()};
 	my ($criterion, $menulength, $key, $wildfilename, $entry, $i,
 		$boundarytime, $boundarysize);
@@ -1811,7 +1786,7 @@ sub handleinclude { # include/exclude flag (from keypress)
 	}
 }
 
-=item handlesize()
+=item handlesize(App::PFM::Event $event)
 
 Handles reporting the size of a file, or of a directory and
 subdirectories (siB<Z>e command).
@@ -1819,7 +1794,7 @@ subdirectories (siB<Z>e command).
 =cut
 
 sub handlesize {
-	my ($self) = @_;
+	my ($self, $event) = @_;
 	my ($do_this);
 	my $filerecordcol = $_screen->listing->filerecordcol;
 	if ($_pfm->state->{multiple_mode}) {
@@ -1865,14 +1840,14 @@ sub handlesize {
 	$_pfm->state->directory->apply($do_this, 'norestat');
 }
 
-=item handletarget()
+=item handletarget(App::PFM::Event $event)
 
 Changes the target of a symbolic link (tarB<G>et command).
 
 =cut
 
 sub handletarget {
-	my ($self) = @_;
+	my ($self, $event) = @_;
 	my ($newtarget, $do_this);
 	if ($_pfm->state->{multiple_mode}) {
 		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO | R_LISTING);
@@ -1881,7 +1856,7 @@ sub handletarget {
 		$_screen->listing->markcurrentline('G');
 	}
 	my $nosymlinkerror = 'Current file is not a symbolic link';
-	if ($_pfm->browser->currentfile->{type} ne 'l' and
+	if ($event->{currentfile}{type} ne 'l' and
 		!$_pfm->state->{multiple_mode})
 	{
 		$_screen->at(0,0)->clreol()->display_error($nosymlinkerror);
@@ -1891,7 +1866,7 @@ sub handletarget {
 	chomp($newtarget = $_pfm->history->input({
 		history       => H_PATH,
 		prompt        => 'New symlink target: ',
-		history_input => $_pfm->browser->currentfile->{target},
+		history_input => $event->{currentfile}{target},
 	}));
 	$_screen->raw_noecho();
 	return if ($newtarget eq '');
@@ -1922,24 +1897,25 @@ sub handletarget {
 	$_pfm->state->directory->apply($do_this);
 }
 
-=item handlecommand(char $key)
+=item handlecommand(App::PFM::Event $event)
 
 Executes a shell command (cB<O>mmand and B<Y>our-command).
 
 =cut
 
 sub handlecommand { # Y or O
-	my ($self, $key) = @_;
+	my ($self, $event) = @_;
 	my $printline  = $_screen->BASELINE;
 	my $infocol    = $_screen->diskinfo->infocol;
 	my $infolength = $_screen->diskinfo->infolength;
 	my $e          = $_pfm->config->{e};
+	my $key        = uc $event->{data};
 	my ($command, $do_this, $prompt, $printstr, $newdir);
 	unless ($_pfm->state->{multiple_mode}) {
-		$_screen->listing->markcurrentline(uc $key);
+		$_screen->listing->markcurrentline($key);
 	}
 	$_screen->diskinfo->clearcolumn();
-	if (uc($key) eq 'Y') { # Your command
+	if ($key eq 'Y') { # Your command
 		$prompt = 'Enter one of the highlighted characters below: ';
 		foreach (sort alphabetically $_pfm->config->your_commands) {
 			last if ($printline > $_screen->BASELINE + $_screen->screenheight);
@@ -1989,7 +1965,7 @@ sub handlecommand { # Y or O
 	# chdir special case
 	if ($command =~ /^\s*cd\s(.*)$/) {
 		$newdir = $1;
-		$self->_expand_escapes(QUOTE_OFF, $newdir, $_pfm->browser->currentfile);
+		$self->_expand_escapes(QUOTE_OFF, $newdir, $event->{currentfile});
 		$_screen->raw_noecho();
 		if (!$_screen->ok_to_remove_marks()) {
 			$_screen->set_deferred_refresh(R_MENU); # R_SCREEN?
@@ -2023,14 +1999,14 @@ sub handlecommand { # Y or O
 	$_screen->raw_noecho()->set_deferred_refresh(R_CLRSCR);
 }
 
-=item handleprint()
+=item handleprint(App::PFM::Event $event)
 
 Executes a print command (B<P>print).
 
 =cut
 
 sub handleprint {
-	my ($self) = @_;
+	my ($self, $event) = @_;
 	my ($do_this, $command);
 	my $printcmd = $_pfm->config->{printcmd};
 	if (!$_pfm->state->{multiple_mode}) {
@@ -2070,21 +2046,21 @@ sub handleprint {
 	return;
 }
 
-=item handledelete()
+=item handledelete(App::PFM::Event $event)
 
 Handles deleting files (B<D>elete command).
 
 =cut
 
 sub handledelete {
-	my ($self) = @_;
+	my ($self, $event) = @_;
 	my ($do_this, $sure, $oldpos);
 	my $browser    = $_pfm->browser;
 	my $directory  = $_pfm->state->directory;
 	unless ($_pfm->state->{multiple_mode}) {
 		$_screen->listing->markcurrentline('D');
 	}
-	if ($_pfm->state->{multiple_mode} or $browser->currentfile->{nlink}) {
+	if ($_pfm->state->{multiple_mode} or $event->{currentfile}{nlink}) {
 		$_screen->set_deferred_refresh(R_MENU | R_FOOTER)
 			->show_frame({
 				footer => FOOTER_NONE,
@@ -2134,7 +2110,7 @@ sub handledelete {
 		}
 		return $success ? 'deleted' : '';
 	};
-	$oldpos = $browser->currentfile->{name};
+	$oldpos = $event->{currentfile}{name};
 	$directory->apply($do_this, 'delete');
 	if ($_pfm->state->{multiple_mode}) {
 		# %nameindexmap may be completely invalid at this point. use dirlookup()
@@ -2147,15 +2123,15 @@ sub handledelete {
 	return;
 }
 
-=item handlecopyrename(char $key)
+=item handlecopyrename(App::PFM::Event $event)
 
 Handles copying and renaming files (B<C>opy and B<R>ename).
 
 =cut
 
 sub handlecopyrename {
-	my ($self, $key) = @_;
-	$key = uc $key;
+	my ($self, $event) = @_;
+	my $key = uc $event->{data};
 	my @command = (($key eq 'C' ? qw(cp -r) : 'mv'),
 					($self->{_clobber_mode} ? '-f' : '-i'));
 	if ($_pfm->config->{copyoptions}) {
@@ -2173,7 +2149,7 @@ sub handlecopyrename {
 	}
 	$_screen->clear_footer()->at(0,0)->clreol()->cooked_echo();
 	my $history_input =
-		$state->{multiple_mode} ? undef : $browser->currentfile->{name};
+		$state->{multiple_mode} ? undef : $event->{currentfile}{name};
 	$newname = $_pfm->history->input({
 		history       => H_PATH,
 		prompt        => $prompt,
@@ -2230,14 +2206,21 @@ sub handlecopyrename {
 	return;
 }
 
-=item handleopenwindow(App::PFM::File $file)
+=item handleopenwindow(App::PFM::Event $event)
 
 Opens a new terminal window running pfm.
 
 =cut
 
 sub handleopenwindow {
-	my ($self, $file) = @_;
+	my ($self, $event) = @_;
+	my $file = $event->{currentfile};
+	my $nodirerror = 'Current file is not a directory';
+	if ($file->{type} ne 'd')
+	{
+		$_screen->at(0,0)->clreol()->display_error($nodirerror);
+		return;
+	}
 	my $windowcmd = $_pfm->config->{windowcmd};
 	if ($_pfm->config->{windowtype} eq 'pfm') {
 		# windowtype = pfm
@@ -2262,82 +2245,100 @@ by the browser. This handles only the first three mouse buttons.
 
 sub handlemousedown {
 	my ($self, $event) = @_;
-	my ($prevcurrentline, $on_name, $currentfile);
+	my ($on_name, $clicked_file);
 	my $browser  = $_pfm->browser;
 	my $listing  = $_screen->listing;
 	my $mbutton  = $event->{mousebutton};
 	my $mousecol = $event->{mousecol};
 	my $mouserow = $event->{mouserow};
+	my $propagated_event = new App::PFM::Event({
+		name   => 'after_receive_non_motion_input',
+		type   => 'key',
+		origin => $self,
+	});
 	# button ---------------- location clicked ------------------------
 	#       pathline  menu/footer  heading   fileline  filename dirname
-	# 1     chdir()   (command)    sort      F8        Show     Show
-	# 2     cOmmand   (command)    sort rev  Show      ENTER    new win
-	# 3     cOmmand   (command)    sort rev  Show      ENTER    new win
+	# 1     chdir()  (pfm command) sort      F8        Show     Show
+	# 2     cOmmand  (pfm command) sort rev  Show      ENTER    new win
+	# 3     cOmmand  (pfm command) sort rev  Show      ENTER    new win
 	# -----------------------------------------------------------------
 	if ($mouserow == $_screen->PATHLINE) {
 		# path line
-		if ($mbutton) {
-			$self->handlecommand('o');
+		if ($mbutton == BUTTON_LEFT) {
+			$self->handlemousepathjump($event);
 		} else {
-			$self->handlemousepathjump($mousecol);
+			$propagated_event->{data} = 'o';
+			$self->handlecommand($propagated_event);
 		}
 	} elsif ($mouserow == $_screen->HEADINGLINE) {
 		# headings
-		$self->handlemouseheadingsort($mousecol, $mbutton);
+		$self->handlemouseheadingsort($event);
 	} elsif ($mouserow == 0) {
 		# menu
 		# return the return value as this could be 'quit'
-		return $self->handlemousemenucommand($mousecol);
+		return $self->handlemousemenucommand($event);
 	} elsif ($mouserow > $_screen->screenheight + $_screen->BASELINE) {
 		# footer
-		$self->handlemousefootercommand($mousecol);
-	} elsif (($mousecol <  $listing->filerecordcol)
+		$self->handlemousefootercommand($event);
+	} elsif (($mousecol < $listing->filerecordcol)
 		or	($mousecol >= $_screen->diskinfo->infocol
 		and	$_screen->diskinfo->infocol > $listing->filerecordcol))
 	{
-		$self->handleident() if $mouserow == $_screen->diskinfo->LINE_USERINFO;
+		# diskinfo
+		$self->handleident($event)
+			if $mouserow == $_screen->diskinfo->LINE_USERINFO;
 	} elsif (defined ${$_pfm->state->directory->showncontents}[
-		$mouserow - $_screen->BASELINE + $_pfm->browser->baseindex])
+		$mouserow - $_screen->BASELINE + $browser->baseindex])
 	{
 		# clicked on an existing file
-		# save currentline
-		$prevcurrentline   = $_pfm->browser->currentline;
-		# put cursor temporarily on another file
-		$_pfm->browser->currentline($mouserow - $_screen->BASELINE);
+#TODO		# save currentline
+#TODO		$prevcurrentline   = $browser->currentline;
+#TODO		# put cursor temporarily on another file
+#TODO		$browser->currentline($mouserow - $_screen->BASELINE);
+		$clicked_file = $event->{mouseitem};
+		$propagated_event->{currentfile} = $clicked_file;
 		$on_name = (
 			$mousecol >= $listing->filenamecol and
 			$mousecol <= $listing->filenamecol + $listing->maxfilenamelength);
-		if ($on_name and $mbutton) {
-			$currentfile = $_pfm->browser->currentfile;
-			if ($currentfile->{type} eq 'd') {
-				$self->handleopenwindow($currentfile);
+		if ($on_name and $mbutton != BUTTON_LEFT) {
+			if ($clicked_file->{type} eq 'd') {
+				# keep the mouse event here, since there is no keyboard
+				# command to open a new window.
+				$propagated_event = $event->clone();
+				$propagated_event->{currentfile} = $clicked_file;
+				$self->handleopenwindow($propagated_event);
 			} else {
-				$self->handleenter();
+				$propagated_event->{data} = "\r";
+				$self->handleenter($propagated_event);
 			}
-		} elsif (!$on_name and !$mbutton) {
-			$self->handlemark();
+		} elsif (!$on_name and $mbutton == BUTTON_LEFT) {
+			$propagated_event->{data} = 'k8';
+			$self->handlemark($propagated_event);
 		} else {
-			$self->handleshow();
+			$propagated_event->{data} = 's';
+			$self->handleshow($propagated_event);
 		}
-		# restore currentline
-		# note that if we changed directory, there will be a position_at anyway
-		$_pfm->browser->currentline($prevcurrentline);
+#TODO		# restore currentline
+#TODO		# note that if we changed directory, there will be a position_at anyway
+#TODO		$browser->currentline($prevcurrentline);
 	}
 	return 1; # must return true to fill $valid in sub handle()
 }
 
-=item handlemousepathjump(int $mouse_column)
+=item handlemousepathjump(App::PFM::Event $event)
 
 Handles a click in the directory path, and changes to this directory.
-The parameter I<mouse_column> indicates where the mouse was clicked.
+The parameter I<event> contains information about where the mouse was
+clicked (See App::PFM::Event).
 
 =cut
 
 sub handlemousepathjump {
-	my ($self, $mousecol) = @_;
+	my ($self, $event) = @_;
 	my ($baselen, $skipsize, $selecteddir);
+	my $mousecol   = $event->{mousecol};
 	my $currentdir = $_pfm->state->directory->path;
-	my $pathline = $_screen->pathline(
+	my $pathline   = $_screen->pathline(
 		$currentdir,
 		$_pfm->state->directory->disk->{'device'},
 		\$baselen,
@@ -2366,25 +2367,25 @@ sub handlemousepathjump {
 	}
 }
 
-=item handlemouseheadingsort(int $mouse_column, int $mouse_button)
+=item handlemouseheadingsort(App::PFM::Event $event)
 
 Sorts the directory contents according to the heading clicked.
 
 =cut
 
 sub handlemouseheadingsort {
-	my ($self, $mousecol, $mbutton) = @_;
+	my ($self, $event) = @_;
 	my $currentlayoutline = $_screen->listing->currentlayoutline;
 	my %sortmodes = @{FIELDS_TO_SORTMODE()};
 	# get field character
-	my $key = substr($currentlayoutline, $mousecol, 1);
+	my $key = substr($currentlayoutline, $event->{mousecol}, 1);
 #	if ($key eq '*') {
 #		goto &handlemarkall;
 #	}
 	# translate field character to sort mode character
 	$key = $sortmodes{$key};
 	if ($key) {
-		$key = uc($key) if $mbutton;
+		$key = uc($key) if $event->{mousebutton} != BUTTON_LEFT;
 		# we don't need locale-awareness here
 		$key =~ tr/A-Za-z/a-zA-Z/ if ($_pfm->state->sort_mode eq $key);
 		$_pfm->state->sort_mode($key);
@@ -2395,22 +2396,23 @@ sub handlemouseheadingsort {
 	$_pfm->state->directory->set_dirty(D_SORT | D_FILTER);
 }
 
-=item handlemousemenucommand(int $mouse_column)
+=item handlemousemenucommand(App::PFM::Event $event)
 
 Starts the menu command that was clicked on.
 
 =cut
 
 sub handlemousemenucommand {
-	my ($self, $mousecol) = @_;
+	my ($self, $event) = @_;
 	my $vscreenwidth = $_screen->screenwidth - 9* $_pfm->state->{multiple_mode};
-	# hack: add 'Multiple' marker
+	# hack: add 'Multiple' marker. We need a special character
+	# for multiple mode so that the regexp below can recognize it
 	my $M     = "0";
 	my $menu  = ($_pfm->state->{multiple_mode} ? "${M}ultiple " : '') .
 						$_screen->frame->_fitbanner(
 							$_screen->frame->_getmenu(), $vscreenwidth);
-	my $left  = $mousecol - 1;
-	my $right = $_screen->screenwidth - $mousecol - 1;
+	my $left  = $event->{mousecol} - 1;
+	my $right = $_screen->screenwidth - $event->{mousecol} - 1;
 	my $choice;
 	$menu =~ /^					# anchor
 		(?:.{0,$left}\s|)		# (empty string left  || chars then space)
@@ -2425,27 +2427,26 @@ sub handlemousemenucommand {
 	} elsif ($choice eq $M) {
 		$choice = 'k10';
 	}
-	#$_screen->at(1,0)->puts("L-$left :$choice: R-$right    ");
-	return $self->handle(new App::PFM::Event({
-		name   => 'after_receive_non_motion_input',
-		type   => 'key',
-		origin => $self,
-		data   => $choice,
-	}));
+#	$_screen->at(1,0)->puts("L-$left :$choice: R-$right    ");
+	my $propagated_event        = $event->clone();
+	$propagated_event->{type}   = 'key';
+	$propagated_event->{data}   = $choice;
+	$propagated_event->{origin} = $self;
+	return $self->handle($propagated_event);
 }
 
-=item handlemousefootercommand(int $mouse_column)
+=item handlemousefootercommand(App::PFM::Event $event)
 
 Starts the footer command that was clicked on.
 
 =cut
 
 sub handlemousefootercommand {
-	my ($self, $mousecol) = @_;
+	my ($self, $event) = @_;
 	my $menu  = $_screen->frame->_fitbanner(
 					$_screen->frame->_getfooter(), $_screen->screenwidth);
-	my $left  = $mousecol - 1;
-	my $right = $_screen->screenwidth - $mousecol - 1;
+	my $left  = $event->{mousecol} - 1;
+	my $right = $_screen->screenwidth - $event->{mousecol} - 1;
 	my $choice;
 	$menu =~ /^					# anchor
 		(?:.{0,$left}\s|)		# (empty string left  || chars then space)
@@ -2461,23 +2462,22 @@ sub handlemousefootercommand {
 	($choice = $1)	=~ s/-$//;	# transform F12- to F12
 	$choice			=~ s/^F/k/;	# transform F12  to k12
 	#$_screen->at(1,0)->puts("L-$left :$choice: R-$right    ");
-	return $self->handlecyclesort() if ($choice eq 'k6');
-	return $self->handle(new App::PFM::Event({
-		name   => 'after_receive_non_motion_input',
-		type   => 'key',
-		origin => $self,
-		data   => $choice,
-	}));
+	my $propagated_event        = $event->clone();
+	$propagated_event->{type}   = 'key';
+	$propagated_event->{data}   = $choice;
+	$propagated_event->{origin} = $self;
+	return $self->handlecyclesort($propagated_event) if ($choice eq 'k6');
+	return $self->handle($propagated_event);
 }
 
-=item handlemore()
+=item handlemore(App::PFM::Event $event)
 
 Shows the menu of B<M>ore commands, and handles the user's choice.
 
 =cut
 
 sub handlemore {
-	my ($self) = @_;
+	my ($self, $event) = @_;
 	my $frame  = $_screen->frame;
 	my $oldpan = $frame->currentpan();
 	$frame->currentpan(0);
@@ -2492,39 +2492,42 @@ sub handlemore {
 	MORE_PAN: {
 		$key = $_screen->at(0, $headerlength+1)->getch();
 		for ($key) {
-			/^s$/io		and $self->handlemoreshow(),		last MORE_PAN;
-			/^m$/io		and $self->handlemoremake(),		last MORE_PAN;
-			/^c$/io		and $self->handlemoreconfig(),		last MORE_PAN;
-			/^e$/io		and $self->handlemoreedit(),		last MORE_PAN;
-			/^h$/io		and $self->handlemoreshell(),		last MORE_PAN;
-			/^a$/io		and $self->handlemoreacl(),			last MORE_PAN;
-			/^b$/io		and $self->handlemorebookmark(),	last MORE_PAN;
-			/^g$/io		and $self->handlemorego(),			last MORE_PAN;
-			/^f$/io		and $self->handlemorefifo(),		last MORE_PAN;
-			/^w$/io		and $self->handlemorehistwrite(),	last MORE_PAN;
-			/^t$/io		and $self->handlemorealtscreen(),	last MORE_PAN;
-			/^p$/io		and $self->handlemorephyspath(),	last MORE_PAN;
-			/^v$/io		and $self->handlemoreversion(),		last MORE_PAN;
-			/^k6$/io	and $self->handlemoremultisort(),	last MORE_PAN;
+			/^s$/io		and $self->handlemoreshow($event),		last MORE_PAN;
+			/^m$/io		and $self->handlemoremake($event),		last MORE_PAN;
+			/^c$/io		and $self->handlemoreconfig($event),	last MORE_PAN;
+			/^e$/io		and $self->handlemoreedit($event),		last MORE_PAN;
+			/^h$/io		and $self->handlemoreshell(),			last MORE_PAN;
+			/^a$/io		and $self->handlemoreacl($event),		last MORE_PAN;
+			/^b$/io		and $self->handlemorebookmark($event),	last MORE_PAN;
+			/^g$/io		and $self->handlemorego($event),		last MORE_PAN;
+			/^f$/io		and $self->handlemorefifo($event),		last MORE_PAN;
+			/^w$/io		and $self->handlemorehistwrite(),		last MORE_PAN;
+			/^t$/io		and $self->handlemorealtscreen(),		last MORE_PAN;
+			/^p$/io		and $self->handlemorephyspath(),		last MORE_PAN;
+			/^v$/io		and $self->handlemoreversion(),			last MORE_PAN;
+			/^k6$/io	and $self->handlemoremultisort($event),	last MORE_PAN;
 			/^[<>]$/io	and do {
-				$self->handlepan($_, MENU_MORE);
+				$event->{data} = $key;
+				$self->handlepan($event, MENU_MORE);
 				$headerlength = $frame->show_menu(MENU_MORE);
 				$frame->show_footer(FOOTER_MORE);
 				redo MORE_PAN;
 			};
+			# invalid key
+			$_screen->flash();
 		}
 	}
 	$frame->currentpan($oldpan);
 }
 
-=item handlemoreshow()
+=item handlemoreshow(App::PFM::Event $event)
 
 Does a chdir() to any directory (B<M>ore - B<S>how).
 
 =cut
 
 sub handlemoreshow {
-	my ($self) = @_;
+	my ($self, $event) = @_;
 	my ($newname);
 	$_screen->set_deferred_refresh(R_MENU);
 	return if !$_screen->ok_to_remove_marks();
@@ -2538,21 +2541,21 @@ sub handlemoreshow {
 	});
 	$_screen->raw_noecho();
 	return if $newname eq '';
-	$self->_expand_escapes(QUOTE_OFF, $newname, $_pfm->browser->currentfile);
+	$self->_expand_escapes(QUOTE_OFF, $newname, $event->{currentfile});
 	if (!$_pfm->state->directory->chdir($newname)) {
 		$_screen->set_deferred_refresh(R_PATHINFO)
 			->display_error("$newname: $!");
 	}
 }
 
-=item handlemoremake()
+=item handlemoremake(App::PFM::Event $event)
 
 Makes a new directory (B<M>ore - B<M>ake).
 
 =cut
 
 sub handlemoremake {
-	my ($self) = @_;
+	my ($self, $event) = @_;
 	my ($newname);
 	$_screen->set_deferred_refresh(R_MENU);
 	$_screen->show_frame({
@@ -2563,7 +2566,7 @@ sub handlemoremake {
 		history => H_PATH,
 		prompt  => 'New Directory Pathname: ',
 	});
-	$self->_expand_escapes(QUOTE_OFF, $newname, $_pfm->browser->currentfile);
+	$self->_expand_escapes(QUOTE_OFF, $newname, $event->{currentfile});
 	$_screen->raw_noecho();
 	return if $newname eq '';
 	# don't use perl's mkdir: we want to be able to use -p
@@ -2584,7 +2587,7 @@ sub handlemoremake {
 	}
 }
 
-=item handlemoreconfig()
+=item handlemoreconfig(App::PFM::Event $event)
 
 Opens the current config file (F<.pfmrc>) in the configured editor
 (B<M>ore - B<C>onfig).
@@ -2592,10 +2595,10 @@ Opens the current config file (F<.pfmrc>) in the configured editor
 =cut
 
 sub handlemoreconfig {
-	my ($self) = @_;
-	my $config        = $_pfm->config;
-	my $olddotdot     = $config->{dotdot_mode};
-	my $config_editor = $config->{fg_editor} || $config->{editor};
+	my ($self, $event) = @_;
+	my $config         = $_pfm->config;
+	my $olddotdot      = $config->{dotdot_mode};
+	my $config_editor  = $config->{fg_editor} || $config->{editor};
 	$_screen->at(0,0)->clreol()
 		->set_deferred_refresh(R_CLRSCR);
 	if (system $config_editor, $config->location()) {
@@ -2607,20 +2610,20 @@ sub handlemoreconfig {
 		if ($olddotdot != $config->{dotdot_mode}) {
 			# there is no key to toggle dotdot mode, therefore
 			# it is allowed to switch dotdot mode here.
-			$_pfm->browser->position_at($_pfm->browser->currentfile->{name});
+			$_pfm->browser->position_at($event->{currentfile}{name});
 			$_pfm->state->directory->set_dirty(D_SORT);
 		}
 	}
 }
 
-=item handlemoreedit()
+=item handlemoreedit(App::PFM::Event $event)
 
 Opens any file in the configured editor (B<M>ore - B<E>dit).
 
 =cut
 
 sub handlemoreedit {
-	my ($self) = @_;
+	my ($self, $event) = @_;
 	my $newname;
 	$_screen->show_frame({
 		footer => FOOTER_NONE,
@@ -2631,7 +2634,7 @@ sub handlemoreedit {
 		history => H_PATH,
 		prompt  => 'Filename to edit: ',
 	});
-	$self->_expand_escapes(QUOTE_OFF, $newname, $_pfm->browser->currentfile);
+	$self->_expand_escapes(QUOTE_OFF, $newname, $event->{currentfile});
 	if (system $_pfm->config->{editor}." \Q$newname\E") {
 		$_screen->display_error('Editor failed');
 	}
@@ -2656,14 +2659,14 @@ sub handlemoreshell {
 	system("$chdirautocmd") if length($chdirautocmd);
 }
 
-=item handlemoreacl()
+=item handlemoreacl(App::PFM::Event $event)
 
 Allows the user to edit the file's Access Control List (B<M>ore - B<A>cl).
 
 =cut
 
 sub handlemoreacl {
-    my ($self) = @_;
+    my ($self, $event) = @_;
 	# we count on the OS-specific command to start an editor.
 	$_screen->alternate_off()->clrscr()->at(0,0)->cooked_echo();
 	my $do_this = sub {
@@ -2678,15 +2681,14 @@ sub handlemoreacl {
 	$_screen->raw_noecho()->set_deferred_refresh(R_CLRSCR);
 }
 
-=item handlemorebookmark()
+=item handlemorebookmark(App::PFM::Event $event)
 
 Creates a bookmark to the current directory (B<M>ore - B<B>ookmark).
 
 =cut
 
 sub handlemorebookmark {
-	my ($self) = @_;
-	my $browser   = $_pfm->browser;
+	my ($self, $event) = @_;
 	my ($dest, $key, $prompt);# , $destfile
 	# the footer has already been cleared by handlemore()
 	# choice
@@ -2705,12 +2707,12 @@ sub handlemorebookmark {
 				->display_error('Bookmark name not valid');
 		return;
 	}
-	$_pfm->state->{_position}  = $browser->currentfile->{name};
-	$_pfm->state->{_baseindex} = $browser->baseindex;
+	$_pfm->state->{_position}  = $event->{currentfile}{name};
+	$_pfm->state->{_baseindex} = $event->{lunchbox}{baseindex};
 	$_pfm->state($key, $_pfm->state->clone());
 }
 
-=item handlemorego()
+=item handlemorego(App::PFM::Event $event)
 
 Shows a list of the current bookmarks, then offers the user a choice to
 jump to one of them (B<M>ore - B<G>o).
@@ -2718,8 +2720,8 @@ jump to one of them (B<M>ore - B<G>o).
 =cut
 
 sub handlemorego {
-	my ($self) = @_;
-	my $browser   = $_pfm->browser;
+	my ($self, $event) = @_;
+	my $browser = $_pfm->browser;
 	my ($dest, $key, $prompt, $destfile, $success,
 		$prevdir, $prevstate, $chdirautocmd);
 	# the footer has already been cleared by handlemore()
@@ -2787,14 +2789,14 @@ sub handlemorego {
 	}
 }
 
-=item handlemorefifo()
+=item handlemorefifo(App::PFM::Event $event)
 
 Handles creating a FIFO (named pipe) (B<M>ore - mkB<F>ifo).
 
 =cut
 
 sub handlemorefifo {
-	my ($self) = @_;
+	my ($self, $event) = @_;
 	my ($newname, $findindex);
 	$_screen->show_frame({
 		footer => FOOTER_NONE,
@@ -2806,7 +2808,7 @@ sub handlemorefifo {
 		history => H_PATH,
 		prompt  => 'New FIFO name: ',
 	});
-	$self->_expand_escapes(QUOTE_OFF, $newname, $_pfm->browser->currentfile);
+	$self->_expand_escapes(QUOTE_OFF, $newname, $event->{currentfile});
 	$_screen->raw_noecho();
 	return if $newname eq '';
 	$_screen->set_deferred_refresh(R_SCREEN);
@@ -2883,28 +2885,28 @@ sub handlemoreversion {
 	$_pfm->state->directory->checkrcsapplicable();
 }
 
-=item handlemoremultisort()
+=item handlemoremultisort(App::PFM::Event $event)
 
 Handles asking for user input and setting multilevel sort mode.
 
 =cut
 
 sub handlemoremultisort {
-	my ($self) = @_;
-	$self->handlesort(TRUE);
+	my ($self, $event) = @_;
+	$self->handlesort($event, TRUE);
 }
 
-=item handleenter()
+=item handleenter(App::PFM::Event $event)
 
 Enter a directory or launch a file (B<ENTER>).
 
 =cut
 
 sub handleenter {
-	my ($self) = @_;
-	my $directory   = $_pfm->state->directory;
-	my $currentfile = $_pfm->browser->currentfile;
-	my $pfmrc       = $_pfm->config->pfmrc;
+	my ($self, $event) = @_;
+	my $currentfile    = $event->{currentfile};
+	my $directory      = $_pfm->state->directory;
+	my $pfmrc          = $_pfm->config->pfmrc;
 	my $do_this;
 	if ($self->_followmode($currentfile) =~ /^d/) {
 		goto &handleentry;
@@ -2915,9 +2917,9 @@ sub handleenter {
 		# these functions return either:
 		# - a code reference to be used in Directory->apply()
 		# - a falsy value if no applicable launch command can be found
-		/magic/     and $do_this = $self->launchbymagic();
-		/extension/ and $do_this = $self->launchbyextension();
-		/xbit/      and $do_this = $self->launchbyxbit();
+		/magic/     and $do_this = $self->launchbymagic(    $currentfile);
+		/extension/ and $do_this = $self->launchbyextension($currentfile);
+		/xbit/      and $do_this = $self->launchbyxbit(     $currentfile);
 		# continue trying until one of the modes finds a launch command
 		last LAUNCH if $do_this;
 	}
@@ -2943,7 +2945,7 @@ sub handleenter {
 	$_screen->alternate_on() if $_pfm->config->{altscreen_mode};
 }
 
-=item launchbyxbit()
+=item launchbyxbit(App::PFM::File $file)
 
 Returns an anonymous subroutine for executing the file if it is executable;
 otherwise, returns undef.
@@ -2951,8 +2953,7 @@ otherwise, returns undef.
 =cut
 
 sub launchbyxbit {
-	my ($self) = @_;
-	my $currentfile = $_pfm->browser->currentfile;
+	my ($self, $currentfile) = @_;
 	my $do_this = '';
 	return '' if ($self->_followmode($currentfile) !~ /[xsS]/);
 	$do_this = sub {
@@ -2965,18 +2966,17 @@ sub launchbyxbit {
 	return $do_this;
 }
 
-=item launchbymagic()
+=item launchbymagic(App::PFM::File $file)
 
 Determines the MIME type of a file, using its magic (see file(1)).
 
 =cut
 
 sub launchbymagic {
-	my ($self) = @_;
-	my $currentfile = $_pfm->browser->currentfile;
-	my $pfmrc       = $_pfm->config->pfmrc;
-	my $magic       = `file \Q$currentfile->{name}\E`;
-	my $do_this     = '';
+	my ($self, $currentfile) = @_;
+	my $pfmrc   = $_pfm->config->pfmrc;
+	my $magic   = `file \Q$currentfile->{name}\E`;
+	my $do_this = '';
 	my $re;
 	MAGIC: foreach (grep /^magic\[/, keys %{$pfmrc}) {
 		($re) = (/magic\[([^]]+)\]/);
@@ -2989,18 +2989,17 @@ sub launchbymagic {
 	return $do_this;
 }
 
-=item launchbyextension()
+=item launchbyextension(App::PFM::File $file)
 
 Determines the MIME type of a file by looking at its extension.
 
 =cut
 
 sub launchbyextension {
-	my ($self) = @_;
-	my $currentfile = $_pfm->browser->currentfile;
-	my $pfmrc       = $_pfm->config->pfmrc;
-	my ($ext)       = ( $currentfile->{name} =~ /(\.[^\.]+?)$/ );
-	my $do_this     = '';
+	my ($self, $currentfile) = @_;
+	my $pfmrc   = $_pfm->config->pfmrc;
+	my ($ext)   = ( $currentfile->{name} =~ /(\.[^\.]+?)$/ );
+	my $do_this = '';
 	if (exists $pfmrc->{"extension[*$ext]"}) {
 		$do_this = $self->launchbymime($pfmrc->{"extension[*$ext]"});
 	}

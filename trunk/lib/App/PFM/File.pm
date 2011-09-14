@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::File 0.38
+# @(#) App::PFM::File 0.39
 #
 # Name:			App::PFM::File
-# Version:		0.38
+# Version:		0.39
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-02
+# Date:			2010-09-08
 #
 
 ##########################################################################
@@ -99,6 +99,10 @@ sub _decidecolor {
 	$self->{type}  eq 'D'				and return $dircolors{'do'};
 	$self->{type}  eq 'n'				and return $dircolors{nt};
 	$self->{type}  eq 'P'				and return $dircolors{ep};
+	# by filename
+	exists
+		$dircolors{"'$self->{name}'"}	and return $dircolors{
+											"'$self->{name}'"};
 	# by nr. of hard links
 	$self->{type}  eq '-'			&&
 		$self->{nlink} > 1			&&

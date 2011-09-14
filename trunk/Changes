@@ -1,3 +1,8 @@
+2.08.5-alpha
+
+* added: config option 'dircolors' now accepts coloring for specific
+  filenames by using the syntax :'Makefile'=<colorspec>:
+
 2.08.4-alpha
 
 * fixed: respect locale settings throughout pfm
