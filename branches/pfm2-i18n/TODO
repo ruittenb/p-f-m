@@ -43,6 +43,11 @@
 
 - add MIME types
 
+- fix encodings with wide characters.
+- fix filenames in russian addressed in LC_ALL=fr_FR.utf8;
+  do we need a $file->{bytename} ?
+- read/save config file in '<:encoding(locale)'
+
 - fix 'mouse_moves_cursor' in combination with clicks in diskinfo column.
   Browser::Files seems to need _infocol and _infolen
 

@@ -15,17 +15,23 @@ TERM_SCRCOL_VER    = 1.20
 TERM_SCRCOL        = Term-ScreenColor-$(TERM_SCRCOL_VER)
 TERM_RL_GNU_VER    = 1.20
 TERM_RL_GNU        = Term-ReadLine-Gnu-$(TERM_RL_GNU_VER)
+ENCODE_VER         = 2.42
+ENCODE             = Encode-$(ENCODE_VER)
+ENCODE_LOCALE_VER  = 1.01
+ENCODE_LOCALE      = Encode-Locale-$(ENCODE_LOCALE_VER)
 
 DARWINOPTS = --includedir=/opt/local/include --libdir=/opt/local/lib
 
 SUDO = $$SUDO
 
 all: LWP HTML-Parser File-Temp File-Stat-Bits				\
-	Module-Load Term-Screen Term-ScreenColor Term-ReadLine-Gnu
+	Module-Load Term-Screen Term-ScreenColor Term-ReadLine-Gnu	\
+	Encode Encode-Locale
 
 clean:
 	rm -rf $(LWP) $(HTML_PARSER) $(FILE_TEMP) $(FILE_STAT_BITS)	\
-	$(MODULE_LOAD) $(TERM_SCREEN) $(TERM_SCRCOL) $(TERM_RL_GNU)
+	$(MODULE_LOAD) $(TERM_SCREEN) $(TERM_SCRCOL) $(TERM_RL_GNU)	\
+	$(ENCODE) $(ENCODE_LOCALE)
 
 LWP:
 	@echo 'Checking installation of LWP...'
@@ -156,6 +162,37 @@ Term-ReadLine-Gnu:
 		)							\
 	fi
 
+Encode:
+	@echo 'Checking installation of Encode...'
+	@if 2>/dev/null perl -MEncode -e				\
+	'exit !($$Encode::VERSION ge "$(ENCODE_VER)")';			\
+	then :;								\
+	else								\
+		gunzip < $(ENCODE).tar.gz | tar xvf - ;			\
+		(							\
+			cd $(ENCODE)		&&			\
+			perl Makefile.PL	&&			\
+			make all test		&&			\
+			${SUDO} make install				\
+		)							\
+	fi
+
+Encode-Locale:
+	@echo 'Checking installation of Encode::Locale...'
+	@if 2>/dev/null perl -MEncode::Locale -e			\
+	'exit !($$Encode::Locale::VERSION ge "$(ENCODE_LOCALE_VER)")';	\
+	then :;								\
+	else								\
+		gunzip < $(ENCODE_LOCALE).tar.gz | tar xvf - ;		\
+		(							\
+			cd $(ENCODE_LOCALE)	&&			\
+			perl Makefile.PL	&&			\
+			make all test		&&			\
+			${SUDO} make install				\
+		)							\
+	fi
+
 .PHONY: LWP HTML-Parser File-Temp File-Stat-Bits			\
-	Module-Load Term-Screen Term-ScreenColor Term-ReadLine-Gnu
+	Module-Load Term-Screen Term-ScreenColor Term-ReadLine-Gnu	\
+	Encode Encode-Locale
 

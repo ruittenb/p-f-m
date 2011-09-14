@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.11.6
+# @(#) App::PFM::Application 2.11.6E
 #
 # Name:			App::PFM::Application
-# Version:		2.11.6
+# Version:		2.11.6E
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2011-03-25
@@ -48,6 +48,7 @@ use App::PFM::JobHandler;
 use App::PFM::OS;
 use App::PFM::Screen;
 use App::PFM::State;
+use App::PFM::Util qw(initlocale);
 use Getopt::Long;
 use Cwd;
 
@@ -525,6 +526,7 @@ if the application bootstraps correctly.
 
 sub bootstrap {
 	my ($self, $silent) = @_;
+	initlocale();
 	$self->_bootstrap_commandline();
 	$self->_bootstrap_members($silent);
 	$self->_bootstrap_states();
