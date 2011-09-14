@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.52
+# @(#) App::PFM::CommandHandler 1.54
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.52
+# Version:		1.54
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-12-03
+# Date:			2010-12-12
 #
 
 ##########################################################################
@@ -69,7 +69,8 @@ use constant INC_CRITERIA => [
 	'i' => 'Invert',
 ];
 
-use constant CMDESCAPES => [
+use constant CMDESCAPE_BREAK => 9;
+use constant CMDESCAPES      => [
 	'1 name',
 	'2 name.ext',
 	'3 curr path',
@@ -78,6 +79,7 @@ use constant CMDESCAPES => [
 	'6 base path',
 	'7 extension',
 	'8 selection',
+	'9 prev path',
 	'',
 	'',
 	'e editor',
@@ -196,8 +198,8 @@ sub _helppage {
 		$prompt = 'F1 or ? for manpage, arrows or BS/ENTER to browse ';
 	} else {
 		my $name = $self->{_screen}->colored('bold', 'pfm');
-		my $version_message = $_pfm->{NEWER_VERSION}
-			? "A new version $_pfm->{NEWER_VERSION} is available"
+		my $version_message = $_pfm->latest_version gt $_pfm->{VERSION}
+			? "A new version " . $_pfm->latest_version . " is available"
 			: " New versions will be published";
 		print <<"        _endCredits_";
 --------------------------------------------------------------------------------
@@ -267,7 +269,7 @@ $name_no_extension, string $name, string $extension ] )
 Does the actual escape expansion in commands and filenames
 for one occurrence of an escape sequence.
 
-All escape types B<=1> .. B<=8> escapes plus B<=e>, B<=E>, B<=p> and B<=v>
+All escape types B<=1> .. B<=9> escapes plus B<=e>, B<=E>, B<=p> and B<=v>
 are recognized.  See pfm(1) for more information about the meaning of
 these escapes.
 
@@ -286,34 +288,35 @@ sub _expand_replace {
 		/6/o and return condquotemeta($qif,
                                     basename($_pfm->state->directory->path));
 		/7/o and return condquotemeta($qif, $extension);
-		/8/o and do {
-			return join(' ', $self->_markednames($qif));
-		};
-		/e/o and return condquotemeta($qif, $self->{_config}{editor});
-		/E/o and return condquotemeta($qif, $self->{_config}{fg_editor});
-		/p/o and return condquotemeta($qif, $self->{_config}{pager});
-		/v/o and return condquotemeta($qif, $self->{_config}{viewer});
+		/8/o and return join(' ', $self->_markednames($qif));
+		/9/o and $_pfm->state('S_PREV')
+			and return condquotemeta($qif,
+                                $_pfm->state('S_PREV')->directory->path);
+		/e/o and return $self->{_config}{editor};
+		/E/o and return $self->{_config}{fg_editor};
+		/p/o and return $self->{_config}{pager};
+		/v/o and return $self->{_config}{viewer};
 		# this also handles the special $e$e case - don't quotemeta() this!
 		return $_;
 	}
 	return;
 }
 
-=item _expand_3456_escapes(bool $apply_quoting, stringref $command)
+=item _expand_34569_escapes(bool $apply_quoting, stringref $command)
 
-Expands tildes and all occurrences of B<=3> .. B<=6> and B<=e>, B<=E>,
+Expands tildes and all occurrences of B<=3> .. B<=6>, B<=9>, and B<=e>, B<=E>,
 B<=p> and B<=v> escapes.
 
 =cut
 
-sub _expand_3456_escapes {
+sub _expand_34569_escapes {
 	my ($self, $qif, $command) = @_;
 	my $qe = quotemeta $self->{_config}{e};
 	# replace tildes
 	$self->_expand_tildes($command);
 	# replace the escapes
 #	$$command =~ s/$qe([^1278])/$self->_expand_replace($qif, $1)/ge;
-	$$command =~ s/$qe([3456eEpv])/$self->_expand_replace($qif, $1)/ge;
+	$$command =~ s/$qe([34569eEpv])/$self->_expand_replace($qif, $1)/ge;
 	return;
 }
 
@@ -477,6 +480,77 @@ sub _followmode {
 	return $file->{type} ne 'l'
 		   ? $file->{mode}
 		   : $file->mode2str((stat $file->{name})[2]);
+}
+
+=item _chase_processed_file(string $oldfilename, string $newfilename,
+boolean $to_dir)
+
+Lets the cursor follow around in the current directory. If the file
+has been copied to the swap directory or to the previous directory,
+add it there.
+The flag I<to_dir> indicates whether the I<newfilename> was a
+directory before the file was processed.
+
+=cut
+
+sub _chase_processed_file {
+	my ($self, $oldfilename, $newnameexpanded, $to_dir) = @_;
+	my $state        = $_pfm->state;
+	my $state_dir    = $state->directory->path;
+	my $newnamefull  = ($newnameexpanded =~ m!^/!)
+		? $newnameexpanded : "$state_dir/$newnameexpanded";
+	$newnamefull     = canonicalize_path($newnamefull);
+	$newnameexpanded = basename($newnameexpanded);
+	my $mark;
+	# see if the file stayed in the current directory
+	if (substr($newnamefull, 0, length($state_dir)) eq $state_dir &&
+		substr($newnamefull, length($state_dir)) =~ m{
+			^(?:           # at begin
+				/([^/]*)   # slash, non-slashes, end
+			)?$            # or nothing
+		}x
+	) {
+		# if the file stayed in this directory,
+		# let the cursor follow around
+		if (!$to_dir) {
+			$_pfm->browser->position_at($newnameexpanded)
+				unless $state->{multiple_mode};
+		}
+		# see if we need to refresh rcs info
+		$state->directory->checkrcsapplicable($newnameexpanded)
+			if $self->{_config}{autorcs};
+		# add newnameexpanded to the current directory listing.
+		$mark = ($state->{multiple_mode}) ? M_NEWMARK : " ";
+		$state->directory->addifabsent(
+			entry   => $newnameexpanded,
+			white   => '',
+			mark    => $mark,
+			refresh => TRUE);
+	}
+	# see if we need to add newnameexpanded to the directory listings
+	# of other states.
+	foreach (qw(S_SWAP S_PREV)) {
+		$state = $_pfm->state($_);
+		next unless $state;
+		$state_dir = $state->directory->path;
+		if ($state and
+			substr($newnamefull, 0, length($state_dir)) eq $state_dir and
+			substr($newnamefull, length($state_dir)) =~ m{
+				^(?:           # at begin
+					/([^/]*)   # slash, non-slashes, end
+				)?$            # or nothing
+			}x
+		) {
+			my $destination = $1 ? $1 : $oldfilename;
+			# add newnameexpanded to the other directory listing.
+			$mark = ($state->{multiple_mode}) ? M_NEWMARK : " ";
+			$state->directory->addifabsent(
+				entry   => $destination,
+				white   => '',
+				mark    => $mark,
+				refresh => TRUE);
+		}
+	}
 }
 
 =item _promptforboundarytime(char $key)
@@ -1296,12 +1370,10 @@ lowercase B<l> if on a non-directory).
 
 sub handlelink {
 	my ($self, $event) = @_;
-	my ($newname, $do_this, $testname, $headerlength, $absrel, $histpush);
+	my ($newname, $do_this, $testname, $to_dir, $absrel, $histpush);
 	my @lncmd      = $self->{_clobber_mode} ? qw(ln -f) : qw(ln);
 	my $state      = $_pfm->state;
-	my $swap_state = $_pfm->state('S_SWAP');
 	my $currentdir = $state->directory->path;
-	my $swap_dir   = $swap_state ? $swap_state->directory->path : undef;
 	
 	if ($_pfm->state->{multiple_mode}) {
 		$self->{_screen}->set_deferred_refresh(R_SCREEN);
@@ -1311,10 +1383,14 @@ sub handlelink {
 		$histpush = $event->{currentfile}{name};
 	}
 	
-	$headerlength = $self->{_screen}->show_frame({
-		menu => MENU_LNKTYPE,
-	});
-	$absrel = lc $self->{_screen}->at(0, $headerlength+1)->getch();
+#	$headerlength = $self->{_screen}->show_frame({
+#		menu => MENU_LNKTYPE,
+#	});
+#	$absrel = lc $self->{_screen}->at(0, $headerlength+1)->getch();
+
+	$self->{_screen}->at(0,0)->clreol()->putmessage(
+		'Absolute, Relative symlink or Hard link? ');
+	$absrel = lc $self->{_screen}->getch();
 	return unless $absrel =~ /^[arh]$/;
 	push @lncmd, '-s' unless $absrel eq 'h';
 	
@@ -1331,15 +1407,15 @@ sub handlelink {
 	$self->{_screen}->raw_noecho();
 	return if ($newname eq '');
 	$newname = canonicalize_path($newname);
-	# expand =[3456] at this point as a test, but not =[1278]
+	# expand =[34569] at this point as a test, but not =[1278]
 	$testname = $newname;
-	$self->_expand_3456_escapes(QUOTE_OFF, \$testname);
+	$self->_expand_34569_escapes(QUOTE_OFF, \$testname);
 	return if $self->_multi_to_single($testname);
 	
 	$do_this = sub {
 		my $file = shift;
 		my $newnameexpanded = $newname;
-		my ($simpletarget, $simplename, $targetstring, $mark);
+		my ($simpletarget, $simplename, $targetstring);
 		$self->_expand_escapes(QUOTE_OFF, \$newnameexpanded, $file);
 		# keep this expanded version of the filename:
 		# it will be used to determine if the newname is a subdirectory
@@ -1370,34 +1446,12 @@ sub handlelink {
 			# hand over an absolute path
 			$targetstring = $currentdir.'/'.$file->{name};
 		}
+		$to_dir = -d $newnameexpanded;
 		if (system @lncmd, $targetstring, $newnameexpanded) {
 			$self->{_screen}->neat_error('Linking failed');
-		} elsif ($orignewnameexpanded !~ m!/!) {
-			# let cursor follow around
-			$_pfm->browser->position_at($orignewnameexpanded)
-				unless $state->{multiple_mode};
-			$state->directory->checkrcsapplicable($orignewnameexpanded)
-				if $self->{_config}{autorcs};
-			# add newname to the current directory listing.
-			$mark = ($state->{multiple_mode}) ? M_NEWMARK : " ";
-			$state->directory->addifabsent(
-				entry   => $orignewnameexpanded,
-				white   => '',
-				mark    => $mark,
-				refresh => TRUE);
-#		} elsif ($newname =~ m{^=5/?$} and $swap_state) {
-		} elsif ($swap_state and
-			substr($newnameexpanded, 0, length($swap_dir)) eq $swap_dir and
-			substr($newnameexpanded, length($swap_dir)) =~ m{^(?:$|/([^/]*)$)}
-		) {
-			my $destination = $1 ? $1 : $file->{name};
-			# add newname to the swap directory listing.
-			$mark = ($swap_state->{multiple_mode}) ? M_NEWMARK : " ";
-			$swap_state->directory->addifabsent(
-				entry   => $destination,
-				white   => '',
-				mark    => $mark,
-				refresh => TRUE);
+		} else {
+			$self->_chase_processed_file(
+				$file->{name}, $orignewnameexpanded, $to_dir);
 		}
 	};
 	$_pfm->state->directory->apply($do_this, $event);
@@ -2158,11 +2212,11 @@ sub handlecommand { # Y or O
 		$screen->cooked_echo();
 	} else { # cOmmand
 		$prompt =
-			"Enter Unix command ($e"."[1-8] or $e"."[eEpv] escapes see below):";
+			"Enter Unix command ($e"."[1-9] or $e"."[eEpv] escapes see below):";
 		my @cmdescapes = @{CMDESCAPES()};
-		foreach (@cmdescapes[0 .. 8],
+		foreach (@cmdescapes[0 .. CMDESCAPE_BREAK],
 			"$e literal $e",
-			@cmdescapes[9 .. $#cmdescapes])
+			@cmdescapes[CMDESCAPE_BREAK+1 .. $#cmdescapes])
 		{
 			if ($printline <= $screen->BASELINE + $screen->screenheight) {
 				$screen->at($printline++, $infocol)
@@ -2370,11 +2424,9 @@ sub handlecopyrename {
 		push @command, $self->{_config}{copyoptions};
 	}
 	my $prompt = $key eq 'C' ? 'Destination: ' : 'New name: ';
-	my ($testname, $newname, $newnameexpanded, $do_this, $sure, $mark);
+	my ($testname, $newname, $newnameexpanded, $do_this, $sure, $to_dir);
 	my $browser    = $_pfm->browser;
 	my $state      = $_pfm->state;
-	my $swap_state = $_pfm->state('S_SWAP');
-	my $swap_dir   = $swap_state ? $swap_state->directory->path : undef;
 	if ($state->{multiple_mode}) {
 		$screen->set_deferred_refresh(R_SCREEN);
 	} else {
@@ -2391,14 +2443,13 @@ sub handlecopyrename {
 	});
 	$screen->raw_noecho();
 	return if ($newname eq '');
-	# expand =[3456] at this point as a test, but not =[1278]
+	# expand =[34569] at this point as a test, but not =[1278]
 	$testname = $newname;
-	$self->_expand_3456_escapes(QUOTE_OFF, \$testname);
+	$self->_expand_34569_escapes(QUOTE_OFF, \$testname);
 	return if $self->_multi_to_single($testname);
 	$screen->at(1,0)->clreol() unless $self->{_clobber_mode};
 	$do_this = sub {
 		my $file = shift;
-		my $findindex;
 		# move this outside of do_this
 #		if ($key eq 'C' and $file->{type} =~ /[ld]/ ) {
 #			# AIX: cp -r follows symlink
@@ -2414,34 +2465,12 @@ sub handlecopyrename {
 #		}
 		$newnameexpanded = $newname;
 		$self->_expand_escapes(QUOTE_OFF, \$newnameexpanded, $file);
+		$to_dir = -d $newnameexpanded;
 		if (system @command, $file->{name}, $newnameexpanded) {
 			$screen->neat_error($key eq 'C' ? 'Copy failed' : 'Rename failed');
-		} elsif ($newnameexpanded !~ m!/!) {
-			# let cursor follow around
-			$browser->position_at($newnameexpanded)
-				unless $state->{multiple_mode};
-			$state->directory->checkrcsapplicable($newnameexpanded)
-				if $self->{_config}{autorcs};
-			# add newname to the current directory listing.
-			$mark = ($state->{multiple_mode}) ? M_NEWMARK : " ";
-			$state->directory->addifabsent(
-				entry   => $newnameexpanded,
-				white   => '',
-				mark    => $mark,
-				refresh => TRUE);
-#		} elsif ($newname =~ m{^=5/?$} and $swap_state) {
-		} elsif ($swap_state and
-			substr($newnameexpanded, 0, length($swap_dir)) eq $swap_dir and
-			substr($newnameexpanded, length($swap_dir)) =~ m{^(?:$|/([^/]*)$)}
-		) {
-			my $destination = $1 ? $1 : $file->{name};
-			# add newname to the swap directory listing.
-			$mark = ($swap_state->{multiple_mode}) ? M_NEWMARK : " ";
-			$swap_state->directory->addifabsent(
-				entry   => $destination,
-				white   => '',
-				mark    => $mark,
-				refresh => TRUE);
+		} else {
+			$self->_chase_processed_file(
+				$file->{name}, $newnameexpanded, $to_dir);
 		}
 	};
 	$screen->cooked_echo() unless $self->{_clobber_mode};
@@ -2930,7 +2959,7 @@ sub handlemorebookmark {
 	# the footer has already been cleared by handlemore()
 	$selector = App::PFM::Browser::Bookmarks->new(
 		$self->{_screen}, $self->{_config}, $_pfm->states);
-	$selector->mouse_mode($self->{_browser}->mouse_mode);
+	$selector->mouse_mode($_pfm->browser->mouse_mode);
 	$key = $selector->choose('Bookmark under which letter? ');
 	return if $key eq "\r";
 	# process key

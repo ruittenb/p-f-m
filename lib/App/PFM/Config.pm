@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 1.14
+# @(#) App::PFM::Config 1.15
 #
 # Name:			App::PFM::Config
-# Version:		1.14
+# Version:		1.15
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-12-05
+# Date:			2010-12-07
 #
 
 ##########################################################################
@@ -364,6 +364,7 @@ sub parse {
 	$self->{cursorjumptime}		 = $pfmrc->{cursorjumptime}      || 0.5;
 	$self->{launchby}			 = $pfmrc->{launchby};
 	$self->{copyoptions}		 = $pfmrc->{copyoptions};
+	$self->{checkforupdates}	 = !isno($pfmrc->{checkforupdates});
 	$self->{cursorveryvisible}	 = isyes($pfmrc->{cursorveryvisible});
 	$self->{clsonexit}			 = isyes($pfmrc->{clsonexit});
 	$self->{confirmquit}		 = isyes($pfmrc->{confirmquit});
@@ -655,6 +656,9 @@ autowritehistory:no
 
 ## command to perform automatically after every chdir()
 #chdirautocmd:printf "\033]0;pfm - $(basename $(pwd))\007"
+
+## automatically check for updates on the web (default: yes)
+#checkforupdates:no
 
 ## Must 'Hit any key to continue' also accept mouse clicks?
 #clickiskeypresstoo:yes

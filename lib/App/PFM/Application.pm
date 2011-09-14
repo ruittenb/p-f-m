@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.11.0
+# @(#) App::PFM::Application 2.11.1
 #
 # Name:			App::PFM::Application
-# Version:		2.11.0
+# Version:		2.11.1
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-12-04
+# Date:			2010-12-07
 #
 
 ##########################################################################
@@ -54,7 +54,7 @@ use Cwd;
 use locale;
 use strict;
 
-our $VERSION  = '2.11.0';
+our $VERSION  = '2.11.1';
 our $LASTYEAR = 2010;
 
 ##########################################################################
@@ -68,12 +68,12 @@ Initializes new instances. Called from the constructor.
 
 sub _init {
 	my ($self) = @_;
-	$self->{VERSION}       = $VERSION;
-	$self->{LASTYEAR}      = $LASTYEAR;
-	$self->{NEWER_VERSION} = '';
-	$self->{_bootstrapped} = 0;
-	$self->{_options}      = {};
-	$self->{_states}       = {};
+	$self->{VERSION}        = $VERSION;
+	$self->{LASTYEAR}       = $LASTYEAR;
+	$self->{LATEST_VERSION} = '';
+	$self->{_bootstrapped}  = 0;
+	$self->{_options}       = {};
+	$self->{_states}        = {};
 	return;
 }
 
@@ -86,21 +86,23 @@ if extended information is requested, the location of the F<.pfmrc> file.
 
 sub _usage {
 	my ($self, $extended) = @_;
-	my $screen = $self->{_screen};
-#	$screen->colorizable(1);
+	my $screen     = $self->{_screen};
 	my $directory  = $screen->colored('underline', 'directory');
 	my $number     = $screen->colored('underline', 'number');
 	my $sortmode   = $screen->colored('underline', 'sortmode');
+	my $name       = $screen->colored('underline', 'name');
 	my $configname = App::PFM::Config::location();
 	print "Usage: pfm [ $directory ] [ -s, --swap $directory ]\n",
-		  "           [ -l, --layout $number ] [ -o, --sort $sortmode ]\n",
+		  "           [ -c, --colorset $name ] [ -l, --layout $number ]\n",
+		  "           [ -o, --sort $sortmode ]\n",
 		  "       pfm { --help | --usage | --version }\n\n";
 	return unless $extended;
 	print "    $directory            : specify starting directory\n",
-		  "        --help           : print extended help and exit\n",
-		  "    -l, --layout $number  : startup with specified layout\n",
-		  "    -o, --sort $sortmode  : startup with specified sortmode\n",
+		  "    -c, --colorset $name  : specify initial colorset\n",
+		  "    -l, --layout $number  : specify initial layout\n",
+		  "    -o, --sort $sortmode  : specify initial sortmode\n",
 		  "    -s, --swap $directory : specify swap directory\n",
+		  "        --help           : print extended help and exit\n",
 		  "        --usage          : print concise help and exit\n",
 		  "        --version        : print version information and exit\n\n",
 		  "Configuration options will be read from $configname\n",
@@ -151,7 +153,7 @@ Phase 1 of the bootstrap process: parse commandline arguments.
 sub _bootstrap_commandline {
 	my ($self) = @_;
 	my ($screen, $invalid, $opt_help, $opt_usage, $opt_version,
-		$startingswapdir, $startingsort, $startinglayout);
+		$startingswapdir, $startingsort, $startingcolorset, $startinglayout);
 	# hand over the application object to the other classes
 	# for easy access.
 	$self->{_screen} = App::PFM::Screen->new($self);
@@ -159,12 +161,13 @@ sub _bootstrap_commandline {
 	$screen->at($screen->rows(), 0)->cooked_echo();
 	
 	Getopt::Long::Configure(qw'bundling permute');
-	GetOptions ('s|swap=s'   => \$startingswapdir,
-				'o|sort=s'   => \$startingsort,
-				'l|layout=i' => \$startinglayout,
-				'help'       => \$opt_help,
-				'usage'      => \$opt_usage,
-				'version'    => \$opt_version) or $invalid = 1;
+	GetOptions ('s|swap=s'     => \$startingswapdir,
+				'o|sort=s'     => \$startingsort,
+				'c|colorset=s' => \$startingcolorset,
+				'l|layout=i'   => \$startinglayout,
+				'help'         => \$opt_help,
+				'usage'        => \$opt_usage,
+				'version'      => \$opt_version) or $invalid = 1;
 	$self->_usage($opt_help) if $opt_help || $opt_usage || $invalid;
 	$self->_printversion()   if $opt_version;
 	die                      if $invalid; # Died at ...
@@ -172,6 +175,7 @@ sub _bootstrap_commandline {
 
 	$self->{_options}{'directory'} = shift @ARGV;
 	$self->{_options}{'swap'}      = $startingswapdir;
+	$self->{_options}{'colorset'}  = $startingcolorset;
 	$self->{_options}{'sort'}      = $startingsort;
 	$self->{_options}{'layout'}    = $startinglayout;
 	$self->{_options}{'help'}      = $opt_help;
@@ -248,7 +252,7 @@ sub _bootstrap_members {
 	
 	$screen->listing->layout($self->{_options}{'layout'});
 	$self->{_history}->read();
-	$self->checkupdates();
+	$self->checkupdates() if $config->{checkforupdates};
 	return;
 }
 
@@ -303,6 +307,7 @@ sub _bootstrap_event_hub {
 	# config file has been parsed
 	my $on_after_parse_config = sub {
 		my ($event) = @_;
+		$event->{lunchbox}{colorset} = $self->{_options}{colorset};
 		$self->{_screen}        ->on_after_parse_config($event);
 		$self->{_history}       ->on_after_parse_config($event);
 		$self->{_commandhandler}->on_after_parse_config($event);
@@ -427,17 +432,17 @@ sub states {
 	return $self->{_states};
 }
 
-=item newer_version( [ string $version ] )
+=item latest_version( [ string $version ] )
 
 Getter/setter for the variable that indicates the latest version on the
 pfm website.
 
 =cut
 
-sub newer_version {
+sub latest_version {
 	my ($self, $value) = @_;
-	$self->{NEWER_VERSION} = $value if defined $value;
-	return $self->{NEWER_VERSION};
+	$self->{LATEST_VERSION} = $value if defined $value;
+	return $self->{LATEST_VERSION};
 }
 
 =item bootstrapped()
@@ -489,10 +494,7 @@ sub checkupdates {
 		my $job     = $event->{origin};
 		my $jobdata = $event->{data};
 		if (ref $jobdata eq 'ARRAY') {
-			if ($jobdata->[0] gt $self->{VERSION}) {
-				$self->{NEWER_VERSION}	= $jobdata->[0];
-				$self->{PFM_URL}		= $job->PFM_URL;
-			}
+			$self->{LATEST_VERSION}	= $jobdata->[0];
 		}
 	};
 	$self->{_jobhandler}->start('CheckUpdates', {
@@ -554,10 +556,10 @@ sub shutdown {
 	$self->{_config}->on_shutdown($silent);
 	$self->{_jobhandler}->stopall();
 	
-	if ($self->{NEWER_VERSION} and $self->{PFM_URL}) {
+	if ($self->{LATEST_VERSION} gt $self->{VERSION}) {
 		$self->{_screen}->putmessage(
-			"There is a newer version ($self->{NEWER_VERSION}) ",
-			"available at $self->{PFM_URL}\n");
+			"There is a newer version ($self->{LATEST_VERSION}) ",
+			"available at " . App::PFM::Job::CheckUpdates::PFM_URL . "\n");
 	}
 	$self->{_bootstrapped}   = 0;
 	$self->{_browser}        = undef;

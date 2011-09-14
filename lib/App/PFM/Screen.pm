@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen 0.46
+# @(#) App::PFM::Screen 0.48
 #
 # Name:			App::PFM::Screen
-# Version:		0.46
+# Version:		0.48
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-30
+# Date:			2010-12-08
 # Requires:		Term::ScreenColor
 #
 
@@ -159,6 +159,7 @@ sub _init {
 	$self->{_screenwidth}      = 0;
 	$self->{_deferred_refresh} = 0;
 	$self->{_color_mode}       = '';
+	$self->{_modus}            = 'Files';
 	$SIG{WINCH} = \&_catch_resize;
 	# special key bindings for bracketed paste
 	$self->def_key(BRACKETED_PASTE_START, "\e[200~");
@@ -898,7 +899,7 @@ Applies the config settings when the config file has been read and parsed.
 
 sub on_after_parse_config {
 	my ($self, $event) = @_;
-	my ($keydefs, $newcolormode);
+	my ($keydefs, $lunchboxcolorset, $defaultcolorset, $newcolormode);
 	# store config
 	my $pfmrc        = $event->{data};
 	$self->{_config} = $event->{origin};
@@ -919,16 +920,20 @@ sub on_after_parse_config {
 		/^(\w+)=(.*)/ and $self->def_key($1, $2);
 	}
 	# determine color_mode if unset
+	$lunchboxcolorset = $event->{lunchbox}{colorset};
+	$defaultcolorset  = $pfmrc->{defaultcolorset};
 	$newcolormode =
 		(length($self->{_color_mode})
 			? $self->{_color_mode}
-			: (defined($ENV{ANSI_COLORS_DISABLED})
-				? 'off'
-				: length($pfmrc->{defaultcolorset})
-					? $pfmrc->{defaultcolorset}
-					: (defined $self->{_config}{dircolors}{ls_colors}
-						? 'ls_colors'
-						: $self->{_config}{colorsetnames}[0])));
+			: defined $self->{_config}{dircolors}{$lunchboxcolorset}
+				? $lunchboxcolorset
+				: (defined($ENV{ANSI_COLORS_DISABLED})
+					? 'off'
+					: defined $self->{_config}{dircolors}{$defaultcolorset}
+						? $defaultcolorset
+						: (defined $self->{_config}{dircolors}{ls_colors}
+							? 'ls_colors'
+							: $self->{_config}{colorsetnames}[0])));
 	# init colorsets
 	$self->color_mode($newcolormode);
 	$self->set_deferred_refresh(R_ALTERNATE);

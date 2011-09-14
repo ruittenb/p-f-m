@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config::Update 2.11.0
+# @(#) App::PFM::Config::Update 2.11.1
 #
 # Name:			App::PFM::Config::Update
-# Version:		2.11.0
+# Version:		2.11.1
 # Author:		Rene Uittenbogaard
 # Created:		2010-05-28
 # Date:			2010-12-05
@@ -363,7 +363,8 @@ use constant UPDATES => {
 	},
 	# ----- 1.95.2 ---------------------------------------------------------
 	'1.95.2' => {
-		# this option was deprecated later
+		# this option was deprecated in 2.01.7
+		# this option was reinstated in 2.11.1
 		additions => [{
 			batch => [
 				"## automatically check for updates on exit (default: no) \n",
@@ -381,6 +382,7 @@ use constant UPDATES => {
 	},
 	# ----- 2.01.7 ---------------------------------------------------------
 	'2.01.7' => {
+		# this option was reinstated in 2.11.1
 		removals => [
 			qr/^#*\s*checkforupdates:/,
 			qr/^#+\s*automatically check for updates on exit/,
@@ -979,6 +981,17 @@ use constant UPDATES => {
 			qr/^(#+\s*).*? will receive escape codes on mousedown events/,
 			qr/^(#*\s*)mouseturnoff:/,
 		],
+	},
+	# ----- 2.11.1 ---------------------------------------------------------
+	'2.11.1' => {
+		additions => [{
+			ifnotpresent => qr/checkforupdates:/,
+			batch => [
+				"## automatically check for updates on the web (default: yes) \n",
+				"#checkforupdates:no \n",
+				"\n",
+			],
+		}],
 	},
 };
 

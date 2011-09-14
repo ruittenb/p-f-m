@@ -1,6 +1,16 @@
+2.11.1
+
+* fixed crash when the 'defaultcolorset' was not defined as a colorset
+* fixed bug positioning the cursor in the bookmark browser
+* added commandline option '-c' (initial colorset)
+* added =9 escape (previous path)
+* added: if a file is (C)opied/(R)enamed/(L)inked to the previous directory
+  (=9), it is added to its directory listing.
+* reinstated 'checkforupdates' option. Call me indecisive.
+
 2.11.0
 
-* fixed bug scrolling in bookmark browser
+* fixed bug with scrolling in bookmark browser
 * fixed bug in handling mouse input in bookmark browser
 * added 'footerkeys' to 'colorset' option
 * deprecated 'mouseturnoff' option
@@ -84,7 +94,7 @@
 
 2.09.9-beta
 
-* fixed: (M)ore - (V)ersion now correctly updates statuses
+* fixed: sometimes (M)ore - (V)ersion didn't update statuses correctly
 * fixed: updating the count of marked files is now correctly updated when
   using an =8 escape.
 * added: 'ignore' mode to show the status on svn-ignored files

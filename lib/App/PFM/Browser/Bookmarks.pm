@@ -78,7 +78,7 @@ sub _listbookmarks {
 	my ($self)          = @_;
 	my $screen          = $self->{_screen};
 	my $printline       = $screen->BASELINE;
-	my $filerecordcol   = $screen->listing->filerecordcol;
+	my $bookmarkpathcol = $screen->listing->bookmarkpathcol;
 	my @heading         = $screen->frame->bookmark_headings;
 	my $bookmarkpathlen = $heading[2];
 	my $spacing         =
@@ -110,13 +110,13 @@ sub _listbookmarks {
 			($dest, undef, $overflow) = fitpath($dest, $bookmarkpathlen);
 			$dest .= ($overflow ? $screen->listing->NAMETOOLONGCHAR : ' ');
 		}
-		$screen->at($printline++, $filerecordcol)
+		$screen->at($printline++, $bookmarkpathcol)
 			->puts(sprintf($heading[0], $bookmarkkey, $spawned, $dest));
 	}
 	foreach ($printline .. $screen->BASELINE + $screen->screenheight) {
-		$screen->at($printline++, $filerecordcol)->puts($spacing);
+		$screen->at($printline++, $bookmarkpathcol)->puts($spacing);
 	}
-	$screen->at($self->{_currentline} + $screen->BASELINE, $screen->cursorcol);
+	$screen->at($self->{_currentline} + $screen->BASELINE, $bookmarkpathcol);
 	return;
 }
 
@@ -131,7 +131,7 @@ sub _wait_loop {
 	my ($self) = @_;
 	my $screen     = $self->{_screen};
 	my $screenline = $self->{_currentline} + $screen->BASELINE;
-	my $cursorcol  = $screen->listing->cursorcol;
+	my $cursorcol  = $screen->listing->bookmarkpathcol;
 	my $cursorjumptime = $self->{_config}{cursorjumptime};
 	my $event_idle = App::PFM::Event->new({
 		name   => 'browser_idle',

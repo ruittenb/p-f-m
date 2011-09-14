@@ -462,20 +462,33 @@ sub _get_command_possibilities {
 
 =item _directory_expander(string $path)
 
-Replaces B<=5/> at the beginning of a path string with the actual swap path.
+Replaces B<=5/> and B<=9/> at the beginning of a path string with the
+actual swap path or previous path.
 
 =cut
 
 sub _directory_expander {
 	my ($self) = @_; # 2nd arg modified directly
+	my $replaced;
 	my $swap_state = $_pfm->state('S_SWAP');
-	return unless $swap_state;
-	my $replaced = ($_[1] =~ s!
-		^=5    # swap path escape at beginning
-		($|/)  # followed by nothing or /
-	!
-		$swap_state->directory->path . '/';
-	!ex);
+	if ($swap_state) {
+		$replaced = ($_[1] =~ s!
+			^=5      # swap path escape at beginning
+			(?:$|/)  # followed by nothing or /
+		!
+			$swap_state->directory->path . '/';
+		!ex);
+		return $replaced if $replaced;
+	}
+	my $prev_state = $_pfm->state('S_PREV');
+	if ($prev_state) {
+		$replaced ||= ($_[1] =~ s!
+			^=9      # prev path escape at beginning
+			(?:$|/)  # followed by nothing or /
+		!
+			$prev_state->directory->path . '/';
+		!ex);
+	}
 	return $replaced;
 }
 

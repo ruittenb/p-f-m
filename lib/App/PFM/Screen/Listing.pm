@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Listing 1.11
+# @(#) App::PFM::Screen::Listing 1.12
 #
 # Name:			App::PFM::Screen::Listing
-# Version:		1.11
+# Version:		1.12
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-22
+# Date:			2010-12-11
 #
 
 ##########################################################################
@@ -169,6 +169,23 @@ sub layout {
 	return $self->{_layout};
 }
 
+=item bookmarkpathcol( [ int $column ] )
+
+Getter for the column of the bookmark path in the current layout.
+This is normally the same as the I<filerecordcol>, except when the
+diskinfo is on the left side of the screen, in which case I<filerecordcol>
+includes the gap, and I<bookmarkpathcol> does not.
+
+=cut
+
+sub bookmarkpathcol {
+	my ($self) = @_;
+	my $bookmarkpathcol = $self->{_filerecordcol} +
+		($self->{_screen}->diskinfo->infocol < $self->{_filerecordcol}
+			? $self->{_gaplength} : 0);
+	return $bookmarkpathcol;
+}
+
 =item cursorcol( [ int $column ] )
 
 Getter/setter for the column of the cursor in the current layout.
@@ -187,6 +204,9 @@ sub cursorcol {
 
 Getter/setter for the column where the file record starts in the
 current layout.
+This is normally the same as the I<bookmarkpathcol>, except when the
+diskinfo is on the left side of the screen, in which case I<filerecordcol>
+includes the gap, and I<bookmarkpathcol> does not.
 
 =cut
 
@@ -552,7 +572,7 @@ sub makeformatlines {
 	$self->filenamecol(index($currentlayoutline, 'n'));
 	$self->{_screen}
 		->diskinfo->infocol($infocol = index($currentlayoutline, 'f'));
-	$self->{_gapcol}	= index($currentlayoutline, '_');
+	$self->{_gapcol} = index($currentlayoutline, '_');
 	# determine the layout field set (no spaces)
 	($squeezedlayoutline = $currentlayoutline) =~
 		tr/*nNsSzZugwhpacmdilvf_ /*nNsSzZugwhpacmdilvf_/ds;
