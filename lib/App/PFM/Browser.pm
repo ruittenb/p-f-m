@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Browser 0.53
+# @(#) App::PFM::Browser 0.54
 #
 # Name:			App::PFM::Browser
-# Version:		0.53
+# Version:		0.54
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-15
+# Date:			2010-11-17
 #
 
 ##########################################################################
@@ -409,6 +409,12 @@ Returns 0 (first match is better) or 1 (second is better).
 sub find_best_find_match {
 	my ($self, $seek, $first, $second) = @_;
 	my $char;
+	if (lc $self->{_state}->sort_mode eq 'm') {
+		# case-insensitive
+		$first  = lc $first;
+		$second = lc $second;
+		$seek   = lc $seek;
+	}
 	for ($char = length($seek); $char > 0; $char--) {
 		if (substr($first,  0, $char) eq substr($seek, 0, $char)) {
 			return 0;

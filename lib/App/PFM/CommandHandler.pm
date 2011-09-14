@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.44
+# @(#) App::PFM::CommandHandler 1.45
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.44
+# Version:		1.45
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-17
+# Date:			2010-11-18
 #
 
 ##########################################################################
@@ -1117,6 +1117,10 @@ sub handleperlcommand {
 	eval $perlcmd unless $perlcmd =~ /^exit\b/o;
 	$screen->display_error($@) if $@;
 	$screen->set_deferred_refresh(R_SCREEN);
+	# the application can be shut down from the perl command
+	unless ($pfm->bootstrapped) {
+		exit 0;
+	}
 }
 
 =item handlehelp(App::PFM::Event $event)
@@ -1272,7 +1276,7 @@ Handles the lowercase B<l> key: enter the directory or create a link.
 sub handlekeyell {
 	my ($self, $event) = @_;
 	# small l only
-	if ($event->{currentfile}{type} eq 'd') {
+	if ($self->_followmode($event->{currentfile}) =~ /^d/) {
 		# this automagically passes the args to handleentry()
 		goto &handleentry;
 	} else {
@@ -2340,8 +2344,9 @@ sub handlecopyrename {
 	}
 	my $prompt = $key eq 'C' ? 'Destination: ' : 'New name: ';
 	my ($testname, $newname, $newnameexpanded, $do_this, $sure, $mark);
-	my $browser = $_pfm->browser;
-	my $state   = $_pfm->state;
+	my $browser    = $_pfm->browser;
+	my $state      = $_pfm->state;
+	my $swap_state = $_pfm->state('S_SWAP');
 	if ($state->{multiple_mode}) {
 		$screen->set_deferred_refresh(R_SCREEN);
 	} else {
@@ -2378,7 +2383,7 @@ sub handlecopyrename {
 #			} else {
 #			}
 #			$screen->clreol();
-#		} elsif
+#		}
 		# $self is the commandhandler (closure!)
 		$newnameexpanded = $newname;
 		$self->_expand_escapes(QUOTE_OFF, \$newnameexpanded, $file);
@@ -2391,10 +2396,17 @@ sub handlecopyrename {
 			$state->directory->checkrcsapplicable($newnameexpanded)
 				if $self->{_config}{autorcs};
 			# add newname to the current directory listing.
-			# TODO if newnameexpanded == swapdir, add there
 			$mark = ($state->{multiple_mode}) ? M_NEWMARK : " ";
 			$state->directory->addifabsent(
 				entry   => $newnameexpanded,
+				white   => '',
+				mark    => $mark,
+				refresh => TRUE);
+		} elsif ($newname =~ m{^=5/?$} and $swap_state) {
+			# add newname to the swap directory listing.
+			$mark = ($swap_state->{multiple_mode}) ? M_NEWMARK : " ";
+			$swap_state->directory->addifabsent(
+				entry   => $file->{name},
 				white   => '',
 				mark    => $mark,
 				refresh => TRUE);
@@ -3199,6 +3211,10 @@ sub handlemoreperlshell {
 	}
 	$screen->alternate_on() if $self->{_config}{altscreen_mode};
 	$screen->raw_noecho()->set_deferred_refresh(R_CLRSCR);
+	# the application can be shut down from the perl command
+	unless ($pfm->bootstrapped) {
+		exit 0;
+	}
 }
 
 =item handleenter(App::PFM::Event $event)
@@ -3222,6 +3238,7 @@ sub handleenter {
 		# these functions return either:
 		# - a code reference to be used in Directory->apply()
 		# - a falsy value if no applicable launch command can be found
+		/name/      and $do_this = $self->launchbyname(     $currentfile);
 		/magic/     and $do_this = $self->launchbymagic(    $currentfile);
 		/extension/ and $do_this = $self->launchbyextension($currentfile);
 		/xbit/      and $do_this = $self->launchbyxbit(     $currentfile);
@@ -3232,10 +3249,9 @@ sub handleenter {
 		# a code reference: possible way to launch
 		$currentfile->apply($do_this);
 		$screen->set_deferred_refresh(R_CLRSCR)->pressanykey();
-#		$self->_unmark_eightset(); # TODO only unmark if the launch was not by xbit
 	} elsif (defined $do_this) {
-		# an error message: the file type was unknown.
-		# feed it to the pager instead.
+		# defined but false: the method was valid, but the file type
+		# was unknown. feed it to the pager instead.
 		$screen->clrscr();
 		if (system $self->{_config}{pager}." \Q$currentfile->{name}\E")
 		{
@@ -3249,6 +3265,30 @@ sub handleenter {
 	}
 	$screen->raw_noecho();
 	$screen->alternate_on() if $self->{_config}{altscreen_mode};
+}
+
+=item launchbyname(App::PFM::File $file)
+
+Determines the MIME type of a file, using its magic (see file(1)).
+
+=cut
+
+sub launchbyname {
+	my ($self, $currentfile) = @_;
+	my $pfmrc   = $self->{_config}->pfmrc;
+	my $do_this;
+	if (exists $pfmrc->{"launchname[$currentfile->{name}]"}) {
+		$do_this = sub {
+			my $file = shift;
+			my $command = $pfmrc->{"launchname[$file->{name}]"};
+#			$self->_expand_8_escapes(\$command); # complicated. don't.
+			$self->_expand_escapes(QUOTE_ON, \$command, $file);
+			$self->{_screen}->clrscr()->at(0,0)
+				->puts("Launch file $file->{name}\n$command\n");
+			system $command and $self->{_screen}->display_error('Command failed');
+		};
+	}
+	return $do_this;
 }
 
 =item launchbyxbit(App::PFM::File $file)

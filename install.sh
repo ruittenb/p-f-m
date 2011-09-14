@@ -2,9 +2,9 @@
 ############################################################################
 #
 # Name:         install.sh
-# Version:      0.46
+# Version:      0.47
 # Authors:      Rene Uittenbogaard
-# Date:         2010-11-09
+# Date:         2010-11-17
 # Usage:        sh install.sh
 # Description:  Un*x-like systems can be very diverse.
 #		This script is meant as an example how pfm dependencies
@@ -437,7 +437,7 @@ install_pfm() {
 check_listwhite() {
 	echo
 	echo "Do you use a filesystem which makes use of whiteout files,"
-	echo "such as: unionfs, tfs (translucent filesystem),"
+	echo "such as: aufs, unionfs, tfs (translucent filesystem),"
 	echo "ovlfs (overlay filesystem) or ifs (inheriting filesystem)?"
 	echo $n "If you don't know what this is about, say no. (Yes/No) "
 	read answer
@@ -462,8 +462,9 @@ check_distro
 check_package ncurses
 check_package readline
 
-# check, download and install the Perl modules.
-# check with the minimum required version.
+# Check, download and install the Perl modules.
+# Check with the minimum required version.
+# The bundled versions are more recent.
 check_cpan
 check_download_and_install_perl_module HTML::Parser      3.59
 check_download_and_install_perl_module File::Temp        0.22

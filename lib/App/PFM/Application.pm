@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.10.3
+# @(#) App::PFM::Application 2.10.4
 #
 # Name:			App::PFM::Application
-# Version:		2.10.3
+# Version:		2.10.4
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-11-15
@@ -413,6 +413,26 @@ sub newer_version {
 	my ($self, $value) = @_;
 	$self->{NEWER_VERSION} = $value if defined $value;
 	return $self->{NEWER_VERSION};
+}
+
+=item bootstrapped()
+
+Getter/setter for the flag indicating that the application has been
+bootstrapped.  If the flag is set this way, the appropriate action
+(bootstrap or shutdown) is invoked.
+
+=cut
+
+sub bootstrapped {
+	my ($self, $value) = @_;
+	if (defined $value) {
+		if ($value) {
+			$self->bootstrap();
+		} else {
+			$self->shutdown();
+		}
+	}
+	return $self->{_bootstrapped};
 }
 
 ##########################################################################

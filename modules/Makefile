@@ -9,17 +9,17 @@ FILE_TEMP_VER      = 0.22
 FILE_TEMP          = File-Temp-$(FILE_TEMP_VER)
 FILE_STAT_BITS_VER = 0.19
 FILE_STAT_BITS     = File-Stat-Bits-1.01
-HTML_PARSER_VER    = 3.67
+HTML_PARSER_VER    = 3.68
 HTML_PARSER        = HTML-Parser-$(HTML_PARSER_VER)
-LWP_VER            = 5.836
+LWP_VER            = 5.837
 LWP                = libwww-perl-$(LWP_VER)
 
 DARWINOPTS = --includedir=/opt/local/include --libdir=/opt/local/lib
 
 SUDO = $$SUDO
 
-all: Term-Screen Term-ScreenColor Term-ReadLine-Gnu			\
-	File-Temp File-Stat-Bits HTML-Parser LWP
+all: LWP HTML-Parser Term-Screen Term-ScreenColor Term-ReadLine-Gnu	\
+	File-Temp File-Stat-Bits
 
 clean:
 	rm -rf $(TERM_SCREEN) $(TERM_SCRCOL) $(TERM_RL_GNU)		\
