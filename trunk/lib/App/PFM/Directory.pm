@@ -684,10 +684,6 @@ sub checkrcsapplicable {
 		after_start			=> sub {
 			# next line needs to provide a '1' argument because
 			# $self->{_rcsjob} has not yet been set
-#			$screen->frame->show_headings(
-#				$_pfm->browser->swap_mode,
-#				$screen->frame->HEADING_DISKINFO,
-#				RCS_RUNNING);
 			$screen->set_deferred_refresh($screen->R_HEADINGS);
 			$screen->frame->rcsrunning(RCS_RUNNING);
 		},
@@ -728,9 +724,6 @@ sub checkrcsapplicable {
 		},
 		after_finish		=> sub {
 			$self->{_rcsjob} = undef;
-#			$screen->frame->show_headings(
-#				$_pfm->browser->swap_mode,
-#				$screen->frame->HEADING_DISKINFO);
 			$screen->set_deferred_refresh($screen->R_HEADINGS);
 			$screen->frame->rcsrunning(RCS_DONE);
 		},

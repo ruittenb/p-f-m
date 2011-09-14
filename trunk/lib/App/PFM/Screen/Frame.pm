@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Frame 0.28
+# @(#) App::PFM::Screen::Frame 0.31
 #
 # Name:			App::PFM::Screen::Frame
-# Version:		0.28
+# Version:		0.31
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-18
+# Date:			2010-08-20
 #
 
 ##########################################################################
@@ -49,11 +49,16 @@ use constant {
 	MENU_INCLUDE		=> 8,
 	MENU_EXCLUDE		=> 16,
 	MENU_LNKTYPE		=> 32,
+	MENU_NONE			=> 65536,
 	HEADING_DISKINFO	=> 0,
 	HEADING_YCOMMAND	=> 1,
 	HEADING_SORT		=> 2,
 	HEADING_ESCAPE		=> 3,
 	HEADING_CRITERIA	=> 4,
+	HEADING_BOOKMARKS	=> 8,
+	FOOTER_SINGLE       => 0,
+	FOOTER_MULTI        => 1,
+	FOOTER_NONE         => 65536,
 };
 
 my %ONOFF = ('' => 'off', 0 => 'off', 1 => 'on');
@@ -151,7 +156,7 @@ sub _fitbanner {
 	return $banner;
 }
 
-=item _getmenu(int $menu_mode)
+=item _getmenu( [ int $menu_mode ] )
 
 Returns the menu for the given menu mode.
 This uses the B<MENU_> constants as defined in App::PFM::Screen::Frame.
@@ -160,40 +165,43 @@ This uses the B<MENU_> constants as defined in App::PFM::Screen::Frame.
 
 sub _getmenu {
 	my ($self, $mode) = @_;
+	$mode ||= MENU_SINGLE;
 	# disregard multiple mode: show_menu will take care of it
-	if		($mode & MENU_SORT) {
+	if		($mode == MENU_SORT) {
 		return	'Sort by: Name, Extension, Size, Date, Type, Version '
 		.		'(or see below):';
-	} elsif ($mode & MENU_MORE) {
+	} elsif ($mode == MENU_MORE) {
 		return	'Bookmark Config Edit-any mkFifo Go sHell Mkdir '
 		.		'Phys-path Show-dir alTscreen Version Write-hist';
-	} elsif ($mode & MENU_EXCLUDE) {
+	} elsif ($mode == MENU_EXCLUDE) {
 		return	"Exclude? Every, Old-/Newmarks, After/Before, "
 		.		"Greater/Smaller, User, Files only:";
-	} elsif ($mode & MENU_INCLUDE) {
+	} elsif ($mode == MENU_INCLUDE) {
 		return	"Include? Every, Old-/Newmarks, After/Before, "
 		.		"Greater/Smaller, User, Files only:";
-	} elsif ($mode & MENU_LNKTYPE) {
+	} elsif ($mode == MENU_LNKTYPE) {
 		return	'Absolute, Relative symlink or Hard link:';
-	} else {
+	} elsif ($mode == MENU_NONE) {
+		return	'';
+	} else { # SINGLE or MULTI
 		return	'Attribute Copy Delete Edit Find tarGet Include Link More Name'
 		.		' cOmmand Print Quit Rename Show Time User Version unWhiteout'
 		.		' eXclude Your-command siZe';
 	}
 }
 
-=item _getfooter(int $menu_mode)
+=item _getfooter( [ int $footer_mode ] )
 
 Returns the footer for the current application state.
-The I<menu_mode> parameter indicates the type of menu that is shown,
-using the B<MENU_> constants as defined in App::PFM::Screen::Frame.
+The I<footer_mode> parameter indicates the type of footer that is shown,
+using the B<FOOTER_> constants as defined in App::PFM::Screen::Frame.
 
 =cut
 
 sub _getfooter {
-	my ($self, $menu_mode) = @_;
+	my ($self, $footer_mode) = @_;
 	my %state = %{$_pfm->state};
-	if ($menu_mode != MENU_SINGLE and $menu_mode != MENU_MULTI) {
+	if ($footer_mode != FOOTER_SINGLE and $footer_mode != FOOTER_MULTI) {
 		return '';
 	}
 	my $f =	"F1-Help F2-Prev F3-Redraw"
@@ -286,21 +294,39 @@ sub rcsrunning {
 ##########################################################################
 # public subs
 
-=item show()
+=item show( { menu => int $menu_mode, footer => int $footer_mode,
+headings => int $heading_mode, prompt => string $prompt } )
 
-Displays menu, footer and headings.
+Displays menu, footer and headings according to the specified modes.
+If a prompt is specified, no menu is shown, but a prompt is shown instead.
 
 =cut
 
 sub show {
-	my ($self) = @_;
-	$self->show_menu();
-	$self->show_headings(
-		$_pfm->browser->swap_mode,
-		$_pfm->state->directory->{_rcsjob},
-		HEADING_DISKINFO);
-	$self->show_footer();
-	return $self;
+	my ($self, $options) = @_;
+	my $menulength;
+	my $prompt       = $options->{prompt};
+	my $menu_mode    = $options->{menu}     || MENU_SINGLE;
+	my $heading_mode = $options->{headings} || HEADING_DISKINFO;
+	my $footer_mode  = $options->{footer};
+	$footer_mode   ||=
+		$menu_mode == MENU_SINGLE
+			? FOOTER_SINGLE
+			: $menu_mode == MENU_MULTI
+				? FOOTER_MULTI
+				: FOOTER_NONE;
+	$self->show_headings($_pfm->browser->swap_mode, $heading_mode);
+	$self->show_footer($footer_mode);
+	if ($prompt) {
+#        $_screen->at(0,0)->clreol()->putcolored(
+#			$_pfm->config->{framecolors}{$_screen->color_mode}{message},
+#			$prompt);
+        $_screen->at(0,0)->clreol()->putmessage($prompt);
+		$menulength = length $prompt;
+	} else {
+		$menulength = $self->show_menu($menu_mode);
+	}
+	return $menulength;
 }
 
 =item show_menu(int $menu_mode)
@@ -349,85 +375,6 @@ defined in App::PFM::Screen::Frame.
 
 sub show_headings {
 	my ($self, $swapmode, $heading_mode) = @_;
-	my ($linecolor, $diskinfo, $padding);
-	my @fields = @{$_screen->listing->layoutfieldswithinfo};
-	my $state  = $_pfm->state;
-	$padding = ' ' x ($_screen->diskinfo->infolength - 14);
-	for ($heading_mode) {
-		$_ == HEADING_DISKINFO	and $diskinfo = "$padding     disk info";
-		$_ == HEADING_SORT		and $diskinfo = "sort mode     $padding";
-		$_ == HEADING_YCOMMAND	and $diskinfo = "your commands $padding";
-		$_ == HEADING_ESCAPE	and $diskinfo = "esc legend    $padding";
-		$_ == HEADING_CRITERIA	and $diskinfo = "criteria      $padding";
-	}
-	$_fieldheadings{diskinfo} = $diskinfo;
-	$self->update_headings();
-	$linecolor = $swapmode
-		? $_pfm->config->{framecolors}->{$_screen->color_mode}{swap}
-		: $_pfm->config->{framecolors}->{$_screen->color_mode}{headings};
-	# in case colorizable() is off:
-	$_screen->bold()		if ($linecolor =~ /bold/);
-	$_screen->reverse()		if ($linecolor =~ /reverse/);
-	$_screen->underline()	if ($linecolor =~ /underline/);
-#	$_screen->term()->Tputs('us', 1, *STDOUT)
-#							if ($linecolor =~ /under(line|score)/);
-	$_screen->at($_screen->HEADINGLINE, 0)
-		->putcolored($linecolor, formatted(
-			$_screen->listing->currentformatlinewithinfo,
-			@_fieldheadings{@fields}))
-		->reset()->normal();
-}
-
-=item show_footer( [ int $menu_mode ] )
-
-Displays the footer, i.e. the last line on screen with the status info.
-
-=cut
-
-sub show_footer {
-	my ($self, $menu_mode) = @_;
-	$menu_mode  ||= MENU_SINGLE; # MULTI or SINGLE makes no difference
-	my $width	  = $_screen->screenwidth;
-	my $footer	  = $self->_fitbanner($self->_getfooter($menu_mode), $width);
-	my $padding	  = ' ' x ($width - length $footer);
-	my $linecolor =
-		$_pfm->config->{framecolors}{$_screen->color_mode}{footer};
-	# in case colorizable() is off:
-	$_screen->bold()		if ($linecolor =~ /bold/);
-	$_screen->reverse()		if ($linecolor =~ /reverse/);
-	$_screen->underline()	if ($linecolor =~ /underline/);
-#	$_screen->term()->Tputs('us', 1, *STDOUT)
-#							if ($linecolor =~ /under(line|score)/);
-	$_screen->at($_screen->BASELINE + $_screen->screenheight + 1, 0)
-		->putcolored($linecolor, $footer, $padding)->reset()->normal();
-}
-
-=item clear_footer()
-
-Clears the footer.
-
-=cut
-
-sub clear_footer {
-	my ($self)    = @_;
-	my $padding	  = ' ' x ($_screen->screenwidth);
-	my $linecolor =
-		$_pfm->config->{framecolors}{$_screen->color_mode}{footer};
-#	$_screen->term()->Tputs('us', 1, *STDOUT)
-#							if ($linecolor =~ /under(line|score)/);
-	$_screen->at($_screen->BASELINE + $_screen->screenheight + 1, 0)
-		->putcolored($linecolor, $padding)->reset()->normal();
-}
-
-=item show_bookmark_headings(bool $swapmode)
-
-Displays the column headings for the bookmarks screen.
-
-=cut
-
-sub show_bookmark_headings {
-	my ($self, $swapmode) = @_;
-	my @headline  = $self->bookmark_headings;
 	my $linecolor = $swapmode
 		? $_pfm->config->{framecolors}->{$_screen->color_mode}{swap}
 		: $_pfm->config->{framecolors}->{$_screen->color_mode}{headings};
@@ -437,11 +384,59 @@ sub show_bookmark_headings {
 	$_screen->underline()	if ($linecolor =~ /underline/);
 #	$_screen->term()->Tputs('us', 1, *STDOUT)
 #							if ($linecolor =~ /under(line|score)/);
-	$_screen->at($_screen->HEADINGLINE, $_screen->listing->filerecordcol)
-		->putcolored($linecolor, sprintf($headline[0], ' ', ' ', 'path'));
-	$_screen->at($_screen->HEADINGLINE, $_screen->diskinfo->infocol)
-		->putcolored($linecolor, sprintf($headline[1], 'disk info'))
-		->reset()->normal();
+
+	if ($heading_mode == HEADING_BOOKMARKS) {
+		my @headline  = $self->bookmark_headings;
+		$_screen->at($_screen->HEADINGLINE, $_screen->listing->filerecordcol)
+			->putcolored($linecolor, sprintf($headline[0], ' ', ' ', 'path'));
+		$_screen->at($_screen->HEADINGLINE, $_screen->diskinfo->infocol)
+			->putcolored($linecolor, sprintf($headline[1], 'disk info'))
+			->reset()->normal();
+	} else {
+		my ($diskinfo, $padding);
+		my @fields = @{$_screen->listing->layoutfieldswithinfo};
+		my $state  = $_pfm->state;
+		$padding = ' ' x ($_screen->diskinfo->infolength - 14);
+		for ($heading_mode) {
+			$_ == HEADING_DISKINFO	and $diskinfo = "$padding     disk info";
+			$_ == HEADING_SORT		and $diskinfo = "sort mode     $padding";
+			$_ == HEADING_YCOMMAND	and $diskinfo = "your commands $padding";
+			$_ == HEADING_ESCAPE	and $diskinfo = "esc legend    $padding";
+			$_ == HEADING_CRITERIA	and $diskinfo = "criteria      $padding";
+		}
+		$_fieldheadings{diskinfo} = $diskinfo;
+		$self->update_headings();
+		my $heading = formatted(
+			$_screen->listing->currentformatlinewithinfo,
+			@_fieldheadings{@fields});
+		$_screen->at($_screen->HEADINGLINE, 0)
+			->putcolored($linecolor, $heading)
+			->reset()->normal();
+	}
+}
+
+=item show_footer( [ int $footer_mode ] )
+
+Displays the footer, i.e. the last line on screen with the status info.
+
+=cut
+
+sub show_footer {
+	my ($self, $footer_mode) = @_;
+	$footer_mode ||= ($_pfm->state->{multiple_mode} * FOOTER_MULTI);
+	my $width	   = $_screen->screenwidth;
+	my $footer	   = $self->_fitbanner($self->_getfooter($footer_mode), $width);
+	my $padding	   = ' ' x ($width - length $footer);
+	my $linecolor  =
+		$_pfm->config->{framecolors}{$_screen->color_mode}{footer};
+	# in case colorizable() is off:
+	$_screen->bold()		if ($linecolor =~ /bold/);
+	$_screen->reverse()		if ($linecolor =~ /reverse/);
+	$_screen->underline()	if ($linecolor =~ /underline/);
+#	$_screen->term()->Tputs('us', 1, *STDOUT)
+#							if ($linecolor =~ /under(line|score)/);
+	$_screen->at($_screen->BASELINE + $_screen->screenheight + 1, 0)
+		->putcolored($linecolor, $footer, $padding)->reset()->normal();
 }
 
 =item update_headings()

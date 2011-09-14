@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen 0.29
+# @(#) App::PFM::Screen 0.30
 #
 # Name:			App::PFM::Screen
-# Version:		0.29
+# Version:		0.30
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-12
+# Date:			2010-08-21
 # Requires:		Term::ScreenColor
 #
 
@@ -137,11 +137,11 @@ Term::ScreenColor.
 =cut
 
 sub new {
-	my $type = shift;
+	my ($type, @args) = @_;
 	$type = ref($type) || $type;
 	my $self = new Term::ScreenColor();
 	bless($self, $type);
-	$self->_init(@_);
+	$self->_init(@args);
 	return $self;
 }
 
@@ -375,16 +375,16 @@ sub pending_input {
 	return $input_ready;
 }
 
-=item show_frame()
+=item show_frame( { menu => int $menu_mode, footer => int $footer_mode,
+headings => int $heading_mode, prompt => string $prompt } )
 
 Uses the App::PFM::Screen::Frame object to redisplay the frame.
 
 =cut
 
 sub show_frame {
-	my $self = shift;
-	$_frame->show();
-	return $self;
+	my ($self, $options) = @_;
+	return $_frame->show($options);
 }
 
 =item clear_footer()
@@ -396,7 +396,7 @@ for the footer.
 
 sub clear_footer {
 	my $self = shift;
-	$_frame->clear_footer();
+	$_frame->show_footer($_frame->FOOTER_NONE);
 	$self->set_deferred_refresh(R_FOOTER);
 	return $self;
 }

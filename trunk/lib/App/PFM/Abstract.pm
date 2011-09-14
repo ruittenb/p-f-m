@@ -72,10 +72,10 @@ The I<args> are passed to the _init() methods of individual classes.
 
 sub new {
 	my $type = shift;
+	$type = ref($type) || $type;
 	if ($type =~ /::Abstract$/) {
 		croak("$type should not be instantiated");
 	}
-	$type = ref($type) || $type;
 	my $self = {
 		event_handlers => {},
 	};
