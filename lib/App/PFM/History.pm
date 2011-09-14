@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::History 0.22
+# @(#) App::PFM::History 0.23
 #
 # Name:			App::PFM::History
-# Version:		0.22
+# Version:		0.23
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-05-28
+# Date:			2010-08-25
 #
 
 ##########################################################################
@@ -50,9 +50,15 @@ use constant {
 	H_PERLCMD	=> 'history_perlcmd',
 };
 
-our @EXPORT = qw(H_COMMAND H_MODE H_PATH H_REGEX H_TIME H_PERLCMD);
+our %EXPORT_TAGS = (
+	constants => [ qw(
+		H_COMMAND H_MODE H_PATH H_REGEX H_TIME H_PERLCMD
+	) ]
+);
 
-our ($_pfm, $_keyboard);
+our @EXPORT_OK = @{$EXPORT_TAGS{constants}};
+
+our ($_pfm);
 
 my $CWDFILENAME	= 'cwd';
 my $SWDFILENAME	= 'swd';
@@ -71,12 +77,12 @@ sub _init {
 	my ($self, $pfm) = @_;
 	my $escape;
 	$_pfm      = $pfm;
-	$_keyboard = new Term::ReadLine('pfm');
-	if (ref $_keyboard->Features) {
-		$self->{_features} = $_keyboard->Features;
+	$self->{_keyboard} = new Term::ReadLine('pfm');
+	if (ref $self->{_keyboard}->Features) {
+		$self->{_features} = $self->{_keyboard}->Features;
 	} else {
 		# Term::ReadLine::Zoid does not return a hash reference
-		$self->{_features} = { $_keyboard->Features };
+		$self->{_features} = { $self->{_keyboard}->Features };
 	}
 	# some defaults
 	$self->{_histories} = {
@@ -100,9 +106,9 @@ support the setHistory() method.
 sub _set_term_history {
 	my ($self, @histlines) = @_;
 	if ($self->{_features}->{setHistory}) {
-		$_keyboard->SetHistory(@histlines);
+		$self->{_keyboard}->SetHistory(@histlines);
 	}
-	return $_keyboard;
+	return $self->{_keyboard};
 }
 
 ##########################################################################
@@ -115,7 +121,8 @@ Getter for the Term::ReadLine object.
 =cut
 
 sub keyboard {
-	return $_keyboard;
+	my ($self) = @_;
+	return $self->{_keyboard};
 }
 
 ##########################################################################
@@ -215,7 +222,7 @@ sub input {
 		push(@$history, $histpush);
 	}
 	$self->_set_term_history(@$history);
-	$input = $_keyboard->readline($prompt, $input);
+	$input = $self->{_keyboard}->readline($prompt, $input);
 	if ($input =~ /\S/ and @$history > 0 and
 		$input ne ${$history}[-1] and
 		$input ne $pushfilter)
@@ -246,7 +253,7 @@ sub setornaments {
 		push @cols, 'md' if ($color =~ /bold/);
 		push @cols, 'us' if ($color =~ /under(line|score)/);
 #		$kbd->ornaments(join(';', @cols) . ',me,,');
-		$_keyboard->ornaments($cols[0] . ',me,,');
+		$self->{_keyboard}->ornaments($cols[0] . ',me,,');
 	}
 }
 
@@ -258,7 +265,7 @@ Tells the readline library that the screen size has changed.
 
 sub handleresize {
 	my ($self) = @_;
-	$_keyboard->resize_terminal();
+	$self->{_keyboard}->resize_terminal();
 }
 
 ##########################################################################
@@ -268,7 +275,8 @@ sub handleresize {
 =head1 CONSTANTS
 
 This package provides the B<H_*> constants which indicate the different
-types of input histories. They are:
+types of input histories.
+They can be imported with C<use App::PFM::History qw(:constants)>.
 
 =over
 

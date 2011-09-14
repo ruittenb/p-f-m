@@ -3,7 +3,8 @@ CFLAGS  = @CFLAGS@
 PROG    = listwhite
 VERSION = @VERSION@
 SECTION = 1
-PODOPTS = --release=' ' --center=' ' --date=`date +%Y-%m-%d` --section=$(SECTION)
+PODOPTS = --release=' ' --center=' ' --date=`date +%Y-%m-%d` \
+	  --section=$(SECTION) --name=$(PROG)
 INSTALL = @INSTALL@
 PREFIX  = @prefix@
 WHEEL   = `awk -F: '$$3 == 0 {print $$1}' /etc/group`

@@ -10,6 +10,7 @@
   cursor is repositioned anyway
 
 - (M)ore (S)how same dir: doesn't remove marks
+  is this due to the fact that Directory::_clone() does not clone the files?
 
 - after (C)opy, the rcs status is not automatically added 
 
@@ -33,6 +34,10 @@
   trigger a screen update
 
 - have directories keep track of their own background jobs
+
+- make our() variables member variables
+
+- add File::Temp to install procedure
 
 - have the browser use events to tell the application that the commandhandler
   should be called; keep the browser for browsing
@@ -61,11 +66,6 @@
 - introduce SIGQUIT for interrupt multi?
 
 - add -o commandline option for starting with a certain sort mode
-
-- re-introduce (M)ore-(A)cl command.
-  aclget()
-  acledit()
-  aclput()
 
 ################################################################################
 # documentation enhancements

@@ -41,8 +41,6 @@ use Carp;
 
 use strict;
 
-# This allows the declaration: use Foo::Bar ':all';
-#
 our %EXPORT_TAGS = (
 	all => [ qw(
 		min max inhibit toggle triggle isxterm isyes isno dirname basename

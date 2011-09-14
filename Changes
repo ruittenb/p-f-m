@@ -1,21 +1,26 @@
+2.07.3-alpha
+
+* added editing ACLs with the (M)ore - (A)cl command
+* code cleanup
+
 2.07.2-alpha
 
-* changed: split help information over two pages.
+* changed: help information covers two pages
 * changed implementation of Job event system: now uses generic
   PFM::Abstract event system.
 * moved some OS-specific code to App::PFM::OS::*
 
 2.07.1-alpha
 
-* fixed pfmrcupdate
-* fixed install script
+* fixed bugs in pfmrcupdate
+* fixed bugs in install script
 * changed implementation of (T)ime: does not use touch(1) any
   more, but uses perl's utime(3) instead
 * changed Util.pm: don't export all subs by default
 
 2.07.0-alpha
 
-* fixed install script
+* fixed bugs in install script
 * use File::Stat::Bits(3pm) to split rdev into major/minor
   numbers (more portable)
 

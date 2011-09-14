@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Directory 0.81
+# @(#) App::PFM::Directory 0.82
 #
 # Name:			App::PFM::Directory
-# Version:		0.81
+# Version:		0.82
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-08-25
@@ -62,7 +62,15 @@ use constant RCS => [
 	'Git',
 ];
 
-our @EXPORT = qw(M_MARK M_OLDMARK M_NEWMARK);
+our %EXPORT_TAGS = (
+	constants => [ qw(
+		M_MARK
+		M_OLDMARK
+		M_NEWMARK
+	) ]
+);
+
+our @EXPORT_OK = @{$EXPORT_TAGS{constants}};
 
 our ($_pfm);
 
@@ -859,6 +867,7 @@ sub apply {
 
 This package provides the B<M_*> constants which indicate which characters
 are to be used for mark, oldmark and newmark.
+They can be imported with C<use App::PFM::Directory qw(:constants)>.
 
 =over
 

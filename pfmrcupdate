@@ -3,9 +3,9 @@
 ############################################################################
 #
 # Name:         pfmrcupdate
-# Version:      2.07.2
+# Version:      2.07.3
 # Author:       Rene Uittenbogaard
-# Date:         2010-08-24
+# Date:         2010-08-25
 # Usage:        pfmrcupdate
 # Description:  Update an existing .pfmrc so that it can be used with
 #               newer versions of pfm.
@@ -25,7 +25,7 @@ our $ROFFVERSION = <<'=cut';
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfmrcupdate 2.07.2
+.ds Vw @(#) pfmrcupdate 2.07.3
 .de Vp
 This manual pertains to \f(CWpfmrcupdate\fP version \\$3.
 ..

@@ -35,10 +35,10 @@ package App::PFM::CommandHandler;
 
 use base 'App::PFM::Abstract';
 
-use App::PFM::Util qw(:all);
-use App::PFM::History;		# imports the H_* constants
-use App::PFM::Screen;		# imports the R_* constants
-use App::PFM::Directory;	# imports the M_* constants
+use App::PFM::Util		qw(:all);
+use App::PFM::History	qw(:constants); # imports the H_* constants
+use App::PFM::Screen	qw(:constants); # imports the R_* constants
+use App::PFM::Directory qw(:constants); # imports the M_* constants
 
 use POSIX qw(strftime mktime);
 use Config;
@@ -1543,7 +1543,7 @@ sub handlechmod {
 	my ($newmode, $do_this);
 	my $prompt = 'New mode [ugoa][-=+][rwxslt] or octal: ';
 	if ($_pfm->state->{multiple_mode}) {
-		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO | R_DIRLIST); # R_DIRFILTER?
+		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO | R_DIRLIST);
 	} else {
 		$_screen->set_deferred_refresh(R_MENU | R_PATHINFO);
 		$_screen->listing->markcurrentline('A');
@@ -2454,7 +2454,7 @@ sub handlemore {
 			/^w$/io		and $self->handlemorehistwrite(),	last MORE_PAN;
 			/^t$/io		and $self->handlemorealtscreen(),	last MORE_PAN;
 			/^p$/io		and $self->handlemorephyspath(),	last MORE_PAN;
-#			/^a$/io		and $self->handlemoreacl(),			last MORE_PAN;
+			/^a$/io		and $self->handlemoreacl(),			last MORE_PAN;
 			/^[<>]$/io	and do {
 				$self->handlepan($_, $frame->MENU_MORE);
 				$headerlength = $frame->show_menu($frame->MENU_MORE);
@@ -2587,6 +2587,28 @@ sub handlemoreshell {
 	$_screen->pressanykey(); # will also put the screen back in raw mode
 	$_screen->alternate_on() if $_pfm->config->{altscreen_mode};
 	system("$chdirautocmd") if length($chdirautocmd);
+}
+
+=item handlemoreacl()
+
+Allows the user to edit the file's Access Control List.
+
+=cut
+
+sub handlemoreacl {
+    my ($self) = @_;
+	# we count on the OS-specific command to start an editor.
+	$_screen->alternate_off()->clrscr()->at(0,0)->cooked_echo();
+	my $do_this = sub {
+		my $file = shift;
+		unless ($_pfm->os->acledit($file->{name})) {
+			$_screen->neat_error($!);
+		}
+	};
+	$_pfm->state->directory->apply($do_this);
+	$_screen->pressanykey();
+	$_screen->alternate_on() if $_pfm->config->{altscreen_mode};
+	$_screen->raw_noecho()->set_deferred_refresh(R_CLRSCR);
 }
 
 =item handlemorebookmark()

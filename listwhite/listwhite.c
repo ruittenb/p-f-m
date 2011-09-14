@@ -7,7 +7,8 @@
  * Date:         2003-05-15
  * Last change:  2010-05-30
  * Usage:        listwhite [directories..]
- * Description:  List the names of all whiteout entries in the specified directories
+ * Description:  List the names of all whiteout entries in the specified
+ *               directories
  *
  */
 
@@ -29,27 +30,41 @@ int main(int argc, char **argv)
 	FTSENT *tree_entry;
 	char *dummy;
 
-	if (argc > 1) {
+	if (argc > 1)
+	{
 		pathnames = argv;
 		pathnames++;
-	} else {
+	}
+	else
+	{
 		pathnames    = (char **)malloc(2 * sizeof(char *));
 		pathnames[0] = (char *) malloc(BUFSIZE);
 		dummy = getcwd(pathnames[0], BUFSIZE);
 		pathnames[1] = NULL;
 	}
-	if (!(tree_stream = fts_open(pathnames, FTS_PHYSICAL | FTS_WHITEOUT, NULL))) {
+	if (!(tree_stream =
+		fts_open(pathnames, FTS_PHYSICAL | FTS_WHITEOUT, NULL)))
+	{
 		errormsg = (char *)malloc(BUFSIZE);
 		sprintf(errormsg, "cannot fts_open(\"%s\", ...)", pathnames[0]);
 		perror(errormsg);
 		return 1;
 	}
-	while (tree_entry = fts_read(tree_stream)) {
-		if (tree_entry->fts_info != FTS_NS) {				// stat(2) info available
-			if (tree_entry->fts_info == FTS_W) {			// found whiteout
+	while (tree_entry = fts_read(tree_stream))
+	{
+		if (tree_entry->fts_info != FTS_NS)
+		{
+			// stat(2) info available
+			if (tree_entry->fts_info == FTS_W)
+			{
+				// found whiteout
 				printf("%s\n", tree_entry->fts_name);
-			} else if ((tree_entry->fts_info == FTS_D) && (tree_entry->fts_level == 1)) {
-				fts_set(tree_stream, tree_entry, FTS_SKIP);	// skip subdirectories
+			}
+			else if ((tree_entry->fts_info == FTS_D) &&
+					(tree_entry->fts_level == 1))
+			{
+				// skip subdirectories
+				fts_set(tree_stream, tree_entry, FTS_SKIP);
 			}
 		}
 	}
