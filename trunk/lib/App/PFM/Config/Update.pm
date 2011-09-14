@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config::Update 2.10.3
+# @(#) App::PFM::Config::Update 2.10.4
 #
 # Name:			App::PFM::Config::Update
-# Version:		2.10.3
+# Version:		2.10.4
 # Author:		Rene Uittenbogaard
 # Created:		2010-05-28
-# Date:			2010-10-20
+# Date:			2010-11-18
 #
 
 ##########################################################################
@@ -900,6 +900,42 @@ use constant UPDATES => {
 				"## h    gid                      >=5 (system-dependent)\n",
 			],
 		}],
+	},
+	# ----- 2.10.4 ---------------------------------------------------------
+	'2.10.4' => {
+		additions => [{
+			after => qr{^## how should pfm try to determine the file type},
+			batch => [
+				"## by its unique filename,\n",
+			],
+		}, {
+			before => qr{^## the file type names do not have to be valid MIME},
+			batch => [
+				"## launchby extension\n",
+			],
+		}, {
+			before => qr{^## these will search by regular expression in the},
+			batch => [
+				"## launchby magic\n",
+			],
+		}, {
+			batch => [
+				"## launchby name\n",
+				"## some filenames have their own special launch method\n",
+				"launchname[Makefile]              : make\n",
+				"launchname[Imakefile]             : xmkmf\n",
+				"launchname[Makefile.PL]           : perl =2\n",
+				"\n",
+			],
+		}],
+		substitutions => sub {
+			s[^(#*\s*launchby\s*:\s*)]
+			 [${1}name,];
+			s{('Makefile'=([\w\s]*):)}
+			 {$1'Imakefile'=$2:};
+			s{^(## allowed values: combinations of 'xbit', )('extension' and)}
+			 {$1'name', $2};
+		},
 	},
 };
 

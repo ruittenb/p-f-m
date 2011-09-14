@@ -678,10 +678,10 @@ sub addifabsent {
 		# copy $mark  from file (preserve).
 		$file->stat_entry($file->{name}, $o{white}, $file->{mark});
 		$self->register($file);
+		$self->set_dirty(D_FILTER | D_SORT);
 		# flag screen refresh
 		if ($o{refresh}) {
 			$self->{_screen}->set_deferred_refresh(R_LISTING);
-			$self->set_dirty(D_FILTER | D_SORT);
 		}
 	}
 }
@@ -698,9 +698,9 @@ sub add {
 	my $file = new App::PFM::File(%o, parent => $self->{_path});
 	push @{$self->{_dircontents}}, $file;
 	$self->register($file);
+	$self->set_dirty(D_FILTER | D_SORT);
 	if ($o{refresh}) {
 		$self->{_screen}->set_deferred_refresh(R_LISTING);
-		$self->set_dirty(D_FILTER | D_SORT);
 	}
 }
 

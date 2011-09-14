@@ -90,7 +90,6 @@ Split the status output in a filename- and a status-field.
 # L  locked
 # S  switched to a branch
 
-
 sub _preprocess {
 	my ($self, $data) = @_;
 	$data =~ /^(.....)\s+(.*)/;

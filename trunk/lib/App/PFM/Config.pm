@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 1.07
+# @(#) App::PFM::Config 1.08
 #
 # Name:			App::PFM::Config
-# Version:		1.07
+# Version:		1.08
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-10-03
+# Date:			2010-11-18
 #
 
 ##########################################################################
@@ -919,7 +919,7 @@ su=white on red:sg=black on yellow:\
 ow=blue on green:st=white on blue:tw=black on green:\
 ex=green:\
 ca=black on red:\
-'Makefile'=underline:'Makefile.PL'=underline:\
+'Makefile'=underline:'Imakefile'=underline:'Makefile.PL'=underline:\
 *.cmd=bold green:*.exe=bold green:*.com=bold green:\
 *.btm=bold green:*.bat=bold green:\
 *.pas=green:\
@@ -962,7 +962,7 @@ su=white on red:sg=black on yellow:\
 ow=blue on green:st=white on blue:tw=black on green:\
 ex=green:\
 ca=black on red:\
-'Makefile'=underline:'Makefile.PL'=underline:\
+'Makefile'=underline:'Imakefile'=underline:'Makefile.PL'=underline:\
 *.cmd=bold green:*.exe=bold green:*.com=bold green:\
 *.btm=bold green:*.bat=bold green:\
 *.pas=green:\
@@ -1106,12 +1106,14 @@ your[z]:gzip =2
 ## launch commands
 
 ## how should pfm try to determine the file type? by its magic (using file(1)),
+## by its unique filename,
 ## by extension, should we try to run it as an executable if the 'x' bit is set,
 ## or should we prefer one method and fallback on another one?
-## allowed values: combinations of 'xbit', 'extension' and 'magic'
-launchby:extension,xbit
-#launchby:extension,xbit,magic
+## allowed values: combinations of 'xbit', 'name', 'extension' and 'magic'
+launchby:name,extension,xbit
+#launchby:name,extension,xbit,magic
 
+## launchby extension
 ## the file type names do not have to be valid MIME types
 extension[*.1m]   : application/x-nroff-man
 extension[*.1]    : application/x-nroff-man
@@ -1201,6 +1203,7 @@ extension[*.yml]  : application/x-yaml
 extension[*.z]    : application/x-compress
 extension[*.zip]  : application/zip
 
+## launchby magic
 ## these will search by regular expression in the file(1) output
 magic[ASCII English text]   : text/plain
 magic[C\+?\+? program text] : application/x-c
@@ -1233,6 +1236,7 @@ magic[gzip compressed data] : application/x-gzip
 magic[perl script]          : application/x-perl
 magic[tar archive]          : application/x-tar
 
+## launchby extension or magic
 launch[application/javascript]    : =e =2
 launch[application/json]          : =e =2
 launch[application/octet-stream]  : =p =2
@@ -1245,7 +1249,7 @@ launch[application/x-bzip2]       : bunzip2 =2
 launch[application/x-c]           : gcc -o =1 =2
 launch[application/x-chem]        : chem =2|groff -pteR -mm > =1.ps; gv =1.ps &
 launch[application/x-compress]    : uncompress =2
-launch[application/x-intercal]    : ick =2
+launch[application/x-intercal]    : ick -b =2
 launch[application/x-deb]         : dpkg -L =2
 launch[application/x-dvi]         : xdvi =2 &
 launch[application/x-executable]  : wine =2 &
@@ -1301,6 +1305,12 @@ launch[text/x-php]                : =e =2
 launch[video/mpeg]                : xine =2 &
 #launch[video/quicktime]           :
 launch[video/x-msvideo]           : divxPlayer =2 &
+
+## launchby name
+## some filenames have their own special launch method
+launchname[Makefile]              : make
+launchname[Imakefile]             : xmkmf
+launchname[Makefile.PL]           : perl =2
 
 ## vim: set filetype=xdefaults: # fairly close
 __END__

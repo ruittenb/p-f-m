@@ -17,15 +17,8 @@
   -> is this due to the fact that Directory::_clone() does not clone the files?
   -> handleswap() has different conditions for executing its blocks
 
-- in install.sh wordt ${pkgadd} niet geinterpoleerd -
-  ? linux goed bevonden; test op opensolaris
-
 - call $pfm->checkupdates() in '@' (perlcommand) does not finish the job;
   call $pfm->checkupdates(); sleep 2; finishes it.
-
-- find_best_find_match() should take into account that the sort mode could be 
-  case-insensitive. In other words, 'serviceore' matches 'ServiceOrderXPerson'
-  better than 'ServiceTypeGp'.
 
 - bug: a file can be (R)enamed to '=e'
 - if =5 is requested but there is no swap state, what to do?
@@ -35,6 +28,8 @@
 # structural enhancements
 
 - see if FindBin can help us with version management.
+
+- make more consistent function_call({boo => 3, foo => 4});
 
 - restructure chdir(), handleswap()/handlemoreshow()/handlemorego() etc.
 - check function of $swapping flag behavior
@@ -73,22 +68,29 @@
 
 - implement 'after_create_entry'
 
+- have a look at IPC::Run
+
 - look at Term::ReadLine::Gnu completion functions: completion for:
   ~username
   =5/bla
   foo/=2
   =<tab>
 
-- have a look at IPC::Run
+  complete_internal([WHAT_TO_DO])
+    int     rl_complete_internal(int what_to_do = TAB)
+  completion_mode(FUNCTION)
+    int     rl_completion_mode(FunctionPtr|str function)
+  completion_matches(TEXT [,FUNC])
+    (@str)  rl_completion_matches(str text, pfunc func = filename_completion_function)
+  filename_completion_function(TEXT, STATE)
+    str     rl_filename_completion_function(str text, int state)
+  username_completion_function(TEXT, STATE)
+    str     rl_username_completion_function(str text, int state)
+  list_completion_function(TEXT, STATE)
+    str     list_completion_function(str text, int state)
 
 ################################################################################
 # functional enhancements
-
-- launch by absolute name: Makefile, Makefile.PL
-  launchfile[Makefile]   : make
-  launchfile[Makefile.PL]: perl Makefile.PL
-
-- if a file is copied/moved/linked to =5, add it to the swap state
 
 - introduce SIGQUIT for interrupt multi?
 

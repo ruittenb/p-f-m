@@ -1,3 +1,13 @@
+2.10.4
+
+* fixed: pressing 'l' on a symbolic link pointing to a directory will now
+  correctly enter the directory.
+* fixed: incremental find in case-insensitive sort mode now correctly finds
+  the best match.
+* added: 'launchname' option to define launch commands for specific filenames
+* added: if a file is copied to the swap directory (=5), it is added to the
+  swap directory listing
+
 2.10.3
 
 * fixed: semantics of (I)nclude and e(X)clude: '.' and '..' entries are
