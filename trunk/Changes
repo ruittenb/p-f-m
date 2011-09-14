@@ -1,8 +1,19 @@
+2.10.6
+
+* fixed keymap selection through config option
+* fixed bug preventing entries to be pushed onto the history when it is empty
+* added better error reporting for 'magic[]' config options
+* added 'usergroup' history and readline completion
+* fixed: readline completion now recognizes '=5' escapes
+* updated install script; bundled with Module::Load
+* code cleanup (using Perl::Critic)
+
 2.10.5
 
 * fixed: on changing the colorset, the applied colors are correctly updated
   for the swap state, previous state, and bookmarked states.
-* added: readline completion for usernames, unix commands and perl commands.
+* added: readline completion for unix commands, perl commands and ~username
+  constructs in pathnames.
 
 2.10.4
 

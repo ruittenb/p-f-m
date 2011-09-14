@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::History 0.30
+# @(#) App::PFM::History 0.35
 #
 # Name:			App::PFM::History
-# Version:		0.30
+# Version:		0.35
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-21
+# Date:			2010-11-28
 #
 
 ##########################################################################
@@ -41,18 +41,6 @@ use Term::ReadLine;
 use strict;
 use locale;
 
-use constant {
-	MAXHISTSIZE  => 70,
-	FILENAME_CWD => 'cwd',
-	FILENAME_SWD => 'swd',
-	H_COMMAND    => 'history_command',
-	H_MODE       => 'history_mode',
-	H_PATH       => 'history_path',
-	H_REGEX      => 'history_regex',
-	H_TIME       => 'history_time',
-	H_PERLCMD    => 'history_perlcmd',
-};
-
 use constant PERL_COMMANDS => [qw(
 	accept alarm bind binmode bless break carp case chdir chmod chop chown
 	chroot close closedir cluck confess connect continue croak dbmclose
@@ -68,6 +56,7 @@ use constant PERL_COMMANDS => [qw(
 	unlink unpack unshift untie use utime warn write 
 )];
 
+# single-character functions like m s y q are not expanded.
 use constant PERL_FUNCTIONS => [qw(
 	abs atan2 caller cos chr crypt defined each eof exp exists fileno formline
 	getc getgrent getgrgid getgrnam gethostbyaddr gethostbyname gethostent
@@ -75,11 +64,30 @@ use constant PERL_FUNCTIONS => [qw(
 	getpriority getprotobyname getprotobynumber getprotoent getpwent getpwnam
 	getpwuid getservbyname getservbyport getservent getsockname getsockopt
 	gmtime grep glob new hex index int join keys lc lcfirst length log map
-	msgget oct ord pack pos prototype qq qr quotemeta qx rand readdir readlink
-	readpipe ref reverse rindex scalar semget shmget sin sort split sprintf
-	sqrt substr tell telldir tied time times uc ucfirst values vec wait
-	waitpid wantarray
+	msgget oct ord pack pos prototype qq qr quotemeta qv qx rand readdir
+	readlink readpipe ref reverse rindex scalar semget shmget sin sort split
+	sprintf sqrt substr tell telldir tied time times uc ucfirst values vec
+	wait waitpid wantarray
 )];
+
+# for debugging
+use constant PFM_PACKAGE_VARS => [qw(
+	$pfm $config $history $os $browser $jobhandler $commandhandler
+	$screen $listing $frame $diskinfo $state $directory $currentfile
+)];
+
+use constant {
+	MAXHISTSIZE  => 70,
+	FILENAME_CWD => 'cwd',
+	FILENAME_SWD => 'swd',
+	H_COMMAND    => 'history_command',
+	H_MODE       => 'history_mode',
+	H_PATH       => 'history_path',
+	H_REGEX      => 'history_regex',
+	H_TIME       => 'history_time',
+	H_PERLCMD    => 'history_perlcmd',
+	H_USERGROUP  => 'history_usergroup',
+};
 
 our %EXPORT_TAGS = (
 	constants => [qw(
@@ -89,6 +97,7 @@ our %EXPORT_TAGS = (
 		H_REGEX
 		H_TIME
 		H_PERLCMD
+		H_USERGROUP
 	)]
 );
 
@@ -112,7 +121,7 @@ sub _init {
 	$_pfm = $pfm;
 	$self->{_screen}   = $screen;
 	$self->{_config}   = $config;
-	$self->{_terminal} = new Term::ReadLine('pfm');
+	$self->{_terminal} = Term::ReadLine->new('pfm');
 	# completion lists
 	$self->{_command_possibilities} = [];
 	$self->{_user_possibilities}    = [];
@@ -125,12 +134,13 @@ sub _init {
 	}
 	# some defaults
 	$self->{_histories} = {
-		H_COMMAND,	[ 'du -ks * | sort -n'	],
-		H_MODE,		[ '755', '644'			],
-		H_PATH,		[ '/', $ENV{HOME}		],
-		H_REGEX,	[ '\.jpg$', '\.mp3$'	],
-		H_TIME,		[],
-		H_PERLCMD,	[],
+		H_COMMAND,  [ 'du -ks * | sort -n'  ],
+		H_MODE,     [ '755', '644'          ],
+		H_PATH,     [ '/', $ENV{HOME}       ],
+		H_REGEX,    [ '\.jpg$', '\.mp3$'    ],
+		H_TIME,     [],
+		H_PERLCMD,  [],
+		H_USERGROUP,[],
 	};
 
 	# event hub
@@ -146,6 +156,7 @@ sub _init {
 	};
 	$screen->register_listener(
 		'after_set_color_mode', $on_after_set_color_mode);
+	return;
 }
 
 =item _set_term_history(array @histlines)
@@ -177,30 +188,51 @@ sub _set_input_mode {
 	return unless $self->{_features}{attribs};
 	my $attribs = $self->{_terminal}->Attribs;
 	if ($history eq H_COMMAND) {
-		$attribs->{disable_completion}            = undef;
-		$attribs->{expand_tilde}                  = 1;
-		$attribs->{completion_entry_function}     = undef;
-		$attribs->{attempted_completion_function} = sub {
-			$self->_h_command_completion(@_);
+		$attribs->{inhibit_completion}              = undef;
+		$attribs->{expand_tilde}                    = 1;
+		# removed pfm escape char '='
+		$attribs->{completer_word_break_characters} = " \t\n\"\\\$'`@><;|&{(";
+		$attribs->{directory_completion_hook}       = sub {
+			return $self->_directory_expander(@_);
+		};
+		$attribs->{completion_entry_function}       = undef;
+		$attribs->{attempted_completion_function}   = sub {
+			return $self->_h_command_completion(@_);
 		};
 	} elsif ($history eq H_PATH) {
-		$attribs->{disable_completion}            = undef;
-		$attribs->{expand_tilde}                  = 1;
-		$attribs->{completion_entry_function}     = undef;
-		$attribs->{attempted_completion_function} = sub {
-			$self->_h_path_completion(@_);
+		$attribs->{inhibit_completion}              = undef;
+		$attribs->{expand_tilde}                    = 1;
+		# removed pfm escape char '='
+		$attribs->{completer_word_break_characters} = " \t\n\"\\\$'`@><;|&{(";
+		$attribs->{directory_completion_hook}       = sub {
+			return $self->_directory_expander(@_);
+		};
+		$attribs->{completion_entry_function}       = undef;
+		$attribs->{attempted_completion_function}   = sub {
+			return $self->_h_path_completion(@_);
+		};
+	} elsif ($history eq H_USERGROUP) {
+		$attribs->{inhibit_completion}              = undef;
+		$attribs->{expand_tilde}                    = undef;
+		# added ':' char
+		$attribs->{completer_word_break_characters} = " \t\n\"\\\$'`@><=:;|&{(";
+		$attribs->{completion_entry_function}       = undef;
+		$attribs->{attempted_completion_function}   = sub {
+			return $self->_h_usergroup_completion(@_);
 		};
 	} elsif ($history eq H_PERLCMD) {
-		$attribs->{disable_completion}            = undef;
-		$attribs->{expand_tilde}                  = undef;
-		$attribs->{completion_entry_function}     =
+		$attribs->{inhibit_completion}              = undef;
+		$attribs->{expand_tilde}                    = undef;
+		# removed perl variable sigil '$'
+		$attribs->{completer_word_break_characters} = " \t\n\"\\'`@><=;|&{(";
+		$attribs->{completion_entry_function}       =
 			$attribs->{list_completion_function};
-		$attribs->{attempted_completion_function} = undef;
-		$attribs->{completion_word}               = [
-			@{PERL_COMMANDS()}, @{PERL_FUNCTIONS()}
+		$attribs->{attempted_completion_function}   = undef;
+		$attribs->{completion_word}                 = [
+			@{PERL_COMMANDS()}, @{PERL_FUNCTIONS()}, @{PFM_PACKAGE_VARS()}
 		];
 	} else { # H_REGEX, H_TIME, H_MODE
-		$attribs->{disable_completion} = 1;
+		$attribs->{inhibit_completion} = 1;
 	}
 	return;
 }
@@ -225,13 +257,14 @@ sub _h_path_completion {
 		$text !~ m!/!
 	) {
 		# If the first character is ~ then do username completion
+		$attribs->{completion_append_character} = '/';
 		return $self->{_terminal}->completion_matches(
 			$text, sub {
-				$self->_user_completion(@_);
+				return $self->_user_completion(@_, 1);
 			});
 	}
 	# else do filename completion
-	return ();
+	return;
 }
 
 =item _h_command_completion(string $text, string $line, int $start, int $end)
@@ -253,9 +286,10 @@ sub _h_command_completion {
 		$text !~ m!/!
 	) {
 		# If the current word starts with ~ then do username completion
+		$attribs->{completion_append_character} = '/';
 		return $self->{_terminal}->completion_matches(
 			$text, sub {
-				$self->_user_completion(@_);
+				return $self->_user_completion(@_, 1);
 			});
 	} elsif ($head eq '' || $head =~ /[;&|({]\s*$/o and
 		$textfirst ne '~'
@@ -263,31 +297,63 @@ sub _h_command_completion {
 		# If we are at the first word of a command, do command completion
 		return $self->{_terminal}->completion_matches(
 			$text, sub {
-				$self->_command_completion(@_);
+				return $self->_command_completion(@_);
 			});
 	}
 	# else do filename completion
-	return ();
+	return;
 }
 
-=item _user_completion(string $text, int $rlstate)
+=item _h_usergroup_completion(string $text, string $line, int $start, int $end)
+
+Attempts to complete the command that the user is entering.
+
+=cut
+
+sub _h_usergroup_completion {
+	my ($self, $text, $line, $start, $end) = @_;
+	my $screen = $self->{_screen};
+	$screen->set_deferred_refresh($screen->R_SCREEN);
+	my $attribs = $self->{_terminal}->Attribs;
+	my $head      = substr($line, 0, $start);
+	my $textfirst = substr($text, 0, 1);
+	# examine the situation
+	if ($head eq '' and $text !~ /:/) {
+		# If the first word is without ':', then do username completion
+		$attribs->{completion_append_character} = '';
+		return $self->{_terminal}->completion_matches(
+			$text, sub {
+				return $self->_user_completion(@_, 0);
+			});
+	} else {
+		# After a ':', do groupname completion
+		return $self->{_terminal}->completion_matches(
+			$text, sub {
+				return $self->_group_completion(@_);
+			});
+	}
+	# else do filename completion
+	return;
+}
+
+=item _user_completion(string $text, int $rlstate, bool $tilde)
 
 Returns one entry of the list of usernames that match the given partial
-username.
+username. The flag I<tilde> indicates if we are doing path expansion
+(which requires tildes) or bare username expansion.
 
 =cut
 
 sub _user_completion {
-	my ($self, $text, $rlstate) = @_;
+	my ($self, $text, $rlstate, $tilde) = @_;
 	my $attribs = $self->{_terminal}->Attribs;
-	my $partial_user = substr($text, 1); # remove initial ~
+	my $tilde = $tilde ? '~' : '';
+	my $partial_user;
+	($partial_user = $text) =~ s/^~//; # remove initial ~
 	if ($rlstate == 0) {
 		$self->{_user_possibilities} = [
-			$self->_get_user_possibilities($partial_user)
+			map { $tilde . $_ } $self->_get_user_possibilities($partial_user)
 		];
-	}
-	if (@{$self->{_user_possibilities}} == 0) {
-		$attribs->{completion_append_character} = '/';
 	}
 	return pop @{$self->{_user_possibilities}};
 }
@@ -305,10 +371,51 @@ sub _get_user_possibilities {
 	endpwent();
 	while ($loop_user = getpwent()) {
 		if (substr($loop_user, 0, length $partial_user) eq $partial_user) {
-			push @possibilities, "~$loop_user";
+			push @possibilities, $loop_user;
 		}
 	}
 	endpwent();
+	return @possibilities;
+}
+
+=item _group_completion(string $text, int $rlstate)
+
+Returns one entry of the list of groupnames that match the given partial
+groupname.
+
+=cut
+
+sub _group_completion {
+	my ($self, $text, $rlstate) = @_;
+	my $attribs = $self->{_terminal}->Attribs;
+	my $partial_group;
+	($partial_group = $text) =~ s/^://; # remove initial :
+	if ($rlstate == 0) {
+		$self->{_group_possibilities} = [
+			$self->_get_group_possibilities($partial_group)
+		];
+	}
+	$attribs->{completion_append_character} = '';
+	return pop @{$self->{_group_possibilities}};
+}
+
+=item _get_group_possibilities(string $partial_group, int $rlstate)
+
+Finds the list of groupnames that match the given partial groupname.
+
+=cut
+
+sub _get_group_possibilities {
+	my ($self, $partial_group) = @_;
+	my @possibilities = ();
+	my $loop_group;
+	endgrent();
+	while ($loop_group = getgrent()) {
+		if (substr($loop_group, 0, length $partial_group) eq $partial_group) {
+			push @possibilities, $loop_group;
+		}
+	}
+	endgrent();
 	return @possibilities;
 }
 
@@ -339,18 +446,37 @@ Finds the list of commands that match the given partial command.
 sub _get_command_possibilities {
 	my ($self, $partial_cmd) = @_;
 	my @possibilities = ();
-	my @entries;
+	my (@entries, $BINDIR);
 	foreach my $loop_dir (split /:/, $ENV{PATH}) {
-		opendir BINDIR, $loop_dir;
+		opendir $BINDIR, $loop_dir;
 		@entries = grep {
 			-x "$loop_dir/$_" and
 			substr($_, 0, length $partial_cmd) eq $partial_cmd
 
-		} readdir BINDIR;
+		} readdir $BINDIR;
 		push @possibilities, @entries;
-		closedir BINDIR;
+		closedir $BINDIR;
 	}
 	return @possibilities;
+}
+
+=item _directory_expander(string $path)
+
+Replaces B<=5/> at the beginning of a path string with the actual swap path.
+
+=cut
+
+sub _directory_expander {
+	my ($self) = @_; # 2nd arg modified directly
+	my $swap_state = $_pfm->state('S_SWAP');
+	return unless $swap_state;
+	my $replaced = ($_[1] =~ s!
+		^=5    # swap path escape at beginning
+		($|/)  # followed by nothing or /
+	!
+		$swap_state->directory->path . '/';
+	!ex);
+	return $replaced;
 }
 
 ##########################################################################
@@ -392,18 +518,19 @@ sub read {
 	my $hfile;
 	foreach (keys %{$self->{_histories}}) {
 		$hfile = $self->{_config}->CONFIGDIRNAME . "/$_";
-		if (-s $hfile and open (HISTFILE, $hfile)) {
-			chomp( @{$self->{_histories}{$_}} = <HISTFILE> );
-			close HISTFILE;
+		if (-s $hfile and open(my $HISTFILE, '<', $hfile)) {
+			chomp( @{$self->{_histories}{$_}} = <$HISTFILE> );
+			close $HISTFILE;
 		}
 	}
+	return;
 }
 
 =item write( [ bool $finishing ] )
 
-Writes the histories to files in the config directory.
-The argument I<finishing> indicates that the final message
-should be shown without delay.
+Writes the histories to files in the config directory. The argument
+I<finishing> is used when shutting down pfm and indicates that the
+final message should be shown without delay.
 
 =cut
 
@@ -416,9 +543,9 @@ sub write {
 			->set_deferred_refresh($screen->R_MENU);
 	}
 	foreach (keys %{$self->{_histories}}) {
-		if (open HISTFILE, '>'.$self->{_config}->CONFIGDIRNAME."/$_") {
-			print HISTFILE join "\n", @{$self->{_histories}{$_}}, '';
-			close HISTFILE;
+		if (open my $HISTFILE, '>', $self->{_config}->CONFIGDIRNAME . "/$_") {
+			print $HISTFILE join "\n", @{$self->{_histories}{$_}}, '';
+			close $HISTFILE;
 		} elsif (!$failed) {
 			$screen->putmessage("Unable to save (part of) history: $!");
 			$failed++; # warn only once
@@ -431,6 +558,7 @@ sub write {
 	unless ($finishing) {
 		$screen->error_delay();
 	}
+	return;
 }
 
 =item write_dirs()
@@ -445,22 +573,23 @@ sub write_dirs {
 	my $configdirname = $self->{_config}->CONFIGDIRNAME;
 	my $swap_state	  = $_pfm->state('S_SWAP');
 	
-	if (open CWDFILE, ">$configdirname/".FILENAME_CWD) {
-		print CWDFILE $_pfm->state->directory->path, "\n";
-		close CWDFILE;
+	if (open my $CWDFILE, '>', $configdirname . '/' . FILENAME_CWD) {
+		print $CWDFILE $_pfm->state->directory->path, "\n";
+		close $CWDFILE;
 	} else {
 		$self->{_screen}->putmessage(
-			"Unable to create $configdirname/".FILENAME_CWD.": $!\n"
+			"Unable to create $configdirname/" . FILENAME_CWD . ": $!\n"
 		);
 	}
 	if (defined($swap_state) && $self->{_config}->{swap_persistent} &&
-		open SWDFILE,">$configdirname/".FILENAME_SWD)
+		open my $SWDFILE, '>', $configdirname . '/' . FILENAME_SWD)
 	{
-		print SWDFILE $swap_state->directory->path, "\n";
-		close SWDFILE;
+		print $SWDFILE $swap_state->directory->path, "\n";
+		close $SWDFILE;
 	} else {
 		unlink "$configdirname/".FILENAME_SWD;
 	}
+	return;
 }
 
 =item input(hashref { history => string $history [, prompt => string $prompt ]
@@ -491,10 +620,11 @@ sub input {
 	$self->_set_input_mode($options->{history});
 	$input = $self->{_terminal}->readline(
 		$options->{prompt}, $options->{default_input});
-	if ($input =~ /\S/ and @$history > 0 and
-		$input ne ${$history}[-1] and
-		$input ne $options->{pushfilter})
-	{
+	if ($input =~ /\S/ and
+		$input ne $options->{pushfilter} and
+		(@$history == 0 or
+		(@$history > 0 && $input ne ${$history}[-1]))
+	) {
 		push(@$history, $input);
 	}
 	shift(@$history) while ($#$history > MAXHISTSIZE);
@@ -523,6 +653,7 @@ sub setornaments {
 #		$kbd->ornaments(join(';', @cols) . ',me,,');
 		$self->{_terminal}->ornaments($cols[0] . ',me,,');
 	}
+	return;
 }
 
 =item handleresize()
@@ -534,6 +665,7 @@ Tells the readline library that the screen size has changed.
 sub handleresize {
 	my ($self) = @_;
 	$self->{_terminal}->resize_terminal();
+	return;
 }
 
 =item on_after_parse_config(App::PFM::Event $event)
@@ -549,9 +681,18 @@ sub on_after_parse_config {
 	$self->{_config} = $event->{origin};
 	# keymap, erase
 	system ('stty', 'erase', $pfmrc->{erase}) if defined($pfmrc->{erase});
-	$self->terminal->set_keymap($pfmrc->{keymap}) if $pfmrc->{keymap};
+	# I'd like to test _features for the presence of set_keymap, but
+	# it doesn't (?) include information about it.
+	# I'd like to test with can('set_keymap'), but Term::ReadLine::Gnu
+	# implements it via AUTOLOAD in Term::ReadLine::Gnu::XS.
+	if ($self->{_config}{keymap} and
+		$self->{_terminal}->ReadLine eq 'Term::ReadLine::Gnu'
+	) {
+		$self->{_terminal}->set_keymap($self->{_config}{keymap});
+	}
 	$self->setornaments(
 		$self->{_config}{framecolors}{$self->{_screen}->color_mode}{message});
+	return;
 }
 
 =item on_shutdown()
@@ -567,6 +708,7 @@ sub on_shutdown {
 	$self->write_dirs();
 	# write history
 	$self->write(1) if $self->{_config}{autowritehistory};
+	return;
 }
 
 ##########################################################################
@@ -600,7 +742,11 @@ The history of regular expressions entered.
 
 =item H_TIME
 
-The history of times entered, I<e.g.> for the B<T> command.
+The history of times entered, I<e.g.> for the B<T>ime command.
+
+=item H_USERGROUP
+
+The history of user/group names entered for the B<U>ser command.
 
 =item H_PERLCMD
 

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Browser 0.54
+# @(#) App::PFM::Browser 0.55
 #
 # Name:			App::PFM::Browser
-# Version:		0.54
+# Version:		0.55
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-17
+# Date:			2010-11-22
 #
 
 ##########################################################################
@@ -74,6 +74,7 @@ sub _init {
 		$self->validate_position();
 	};
 	$screen->register_listener('after_resize_window', $on_after_resize_window);
+	return;
 }
 
 =item _wait_loop()
@@ -88,7 +89,7 @@ sub _wait_loop {
 	my $screen     = $self->{_screen};
 	my $screenline = $self->{_currentline} + $screen->BASELINE;
 	my $cursorcol  = $screen->listing->cursorcol;
-	my $event_idle = new App::PFM::Event({
+	my $event_idle = App::PFM::Event->new({
 		name   => 'browser_idle',
 		origin => $self,
 		type   => 'soft',
@@ -101,6 +102,7 @@ sub _wait_loop {
 		$screen->diskinfo->clock_info()
 			->at($screenline, $cursorcol);
 	}
+	return;
 }
 
 ##########################################################################
@@ -289,6 +291,7 @@ sub validate_position {
 	if ($oldbaseindex != $self->{_baseindex}) {
 		$self->{_screen}->set_deferred_refresh($self->{_screen}->R_LISTING);
 	}
+	return;
 }
 
 =item position_cursor( [ string $filename ] )
@@ -318,6 +321,7 @@ sub position_cursor {
 	$self->{_position_exact} = 0;
 	$self->validate_position();
 	$self->{_screen}->set_deferred_refresh($self->{_screen}->R_LISTING);
+	return;
 }
 
 =item position_cursor_fuzzy( [ string $filename ] )
@@ -333,7 +337,7 @@ sub position_cursor_fuzzy {
 	return if $self->{_position_at} eq '';
 
 	my @showncontents = @{$self->{_state}->directory->showncontents};
-	my ($criterion, $i);
+	my ($criterion);
 
 	# don't position fuzzy if sort mode is not by name,
 	# or exact positioning was requested
@@ -375,7 +379,7 @@ sub position_cursor_fuzzy {
 	$self->{_currentline} = 0;
 	if ($#showncontents > 1) {
 		POSITION_ENTRY_FUZZY: {
-			for $i (1..$#showncontents) {
+			for my $i (1..$#showncontents) {
 				if ($criterion->($showncontents[$i]{name})) {
 					$self->{_currentline} =
 						$self->find_best_find_match(
@@ -394,6 +398,7 @@ sub position_cursor_fuzzy {
 	$self->{_position_exact} = 0;
 	$self->validate_position();
 	$self->{_screen}->set_deferred_refresh($self->{_screen}->R_LISTING);
+	return;
 }
 
 =item find_best_find_match(string $seek, string $first, string $second )
@@ -611,6 +616,7 @@ sub browse {
 			}
 		}
 	}
+	return;
 }
 
 ##########################################################################

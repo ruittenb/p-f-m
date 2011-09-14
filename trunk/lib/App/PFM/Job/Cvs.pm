@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::Cvs 0.34
+# @(#) App::PFM::Job::Cvs 0.36
 #
 # Name:			App::PFM::Job::Cvs
-# Version:		0.34
+# Version:		0.36
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-10-18
+# Date:			2010-11-23
 #
 
 ##########################################################################
@@ -55,6 +55,7 @@ sub _init {
 	# add -l for local (no subdirs)
 	$self->{_COMMAND} = 'cd %s; cvs -n -q update %s';
 	$self->SUPER::_init($handlers, $options);
+	return;
 }
 
 =item _preprocess(string $data)
@@ -82,7 +83,7 @@ Split the status output in a filename- and a status-field.
 
 sub _preprocess {
 	my ($self, $data) = @_;
-	return undef if ($data !~ /^([PMCU\?]) (\S+)/o);
+	return if ($data !~ /^([PMCU\?]) (\S+)/o);
 	return [ $1, $2 ];
 }
 

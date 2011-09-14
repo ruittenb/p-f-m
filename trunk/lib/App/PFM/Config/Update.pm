@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config::Update 2.10.5
+# @(#) App::PFM::Config::Update 2.10.6
 #
 # Name:			App::PFM::Config::Update
-# Version:		2.10.5
+# Version:		2.10.6
 # Author:		Rene Uittenbogaard
 # Created:		2010-05-28
-# Date:			2010-11-18
+# Date:			2010-11-23
 #
 
 ##########################################################################
@@ -937,6 +937,21 @@ use constant UPDATES => {
 			 {$1'name', $2};
 		},
 	},
+	# ----- 2.10.6 ---------------------------------------------------------
+	'2.10.6' => {
+		additions => [{
+			after => qr{^## the keymap to use in readline},
+			batch => [
+				"## emacs (=emacs-standard), emacs-standard, emacs-meta, emacs-ctlx,\n",
+				"## vi (=vi-command), vi-command, vi-move, and vi-insert.\n",
+				"## emacs is the default.\n",
+			],
+		}],
+		substitutions => sub {
+			s{^## the keymap to use in readline.*}
+			 {## the keymap to use in readline. Allowed values are:};
+		},
+	},
 };
 
 ##########################################################################
@@ -950,6 +965,7 @@ Initializes new instances. Called from the constructor.
 
 sub _init {
 	my ($self) = @_;
+	return;
 }
 
 =item _by_pfmrc_rules()
@@ -974,6 +990,7 @@ Sorts the lines in the F<pfmrc> text.
 sub _sort_pfmrc {
 	my ($self, $text) = @_;
 	@$text = sort _by_pfmrc_rules @$text;
+	return;
 }
 
 =item _cross(string $cross, string $from, string $to)
@@ -1004,6 +1021,7 @@ sub _remove {
 			}
 		}
 	}
+	return;
 }
 
 =item _append(arrayref $text, array @addition)
@@ -1018,6 +1036,7 @@ sub _append {
 		@addition = split (/(?<=\n)/, $addition[0]);
 	}
 	push @$lines, @addition;
+	return;
 }
 
 =item _insert(arrayref $text, regexp $before, regexp $after, array @addition)
@@ -1043,6 +1062,7 @@ sub _insert {
 			splice(@$lines, $i + $delta, 0, @addition);
 		}
 	}
+	return;
 }
 
 =item _substitute(arrayref $text, coderef $substitutor)
@@ -1057,6 +1077,7 @@ sub _substitute {
 	foreach (@$lines) {
 		$substitutor->();
 	}
+	return;
 }
 
 =item _get_locale()
@@ -1067,9 +1088,9 @@ Finds the locale that is currently in use for LC_TIME.
 
 sub _get_locale {
 	my ($self) = @_;
-	open PIPE, 'locale|';
-	my @lines = grep /^LC_TIME/, <PIPE>;
-	close PIPE;
+	open my $LOCALEPIPE, '-|', 'locale';
+	my @lines = grep /^LC_TIME/, <$LOCALEPIPE>;
+	close $LOCALEPIPE;
 	chomp @lines;
 	return $lines[0];
 }
@@ -1126,6 +1147,7 @@ sub _update_version_identifier {
 	$self->_substitute($lines, sub {
 		s/^(#.*?Version\D+)[[:alnum:].]+/$1$to/;
 	});
+	return;
 }
 
 =item _update_text(string $version_from, string $version_to, arrayref $text)
@@ -1139,8 +1161,8 @@ definitions that have changed.
 sub _update_text {
 	my ($self, $from, $to, $lines) = (@_);
 	my %updates = %{UPDATES()};
-	my ($version, $change);
-	foreach $version (sort keys %updates) {
+	my $change;
+	foreach my $version (sort keys %updates) {
 		next unless $self->_cross($version, $from, $to);
 		if (defined($change = $updates{$version}{removals})) {
 			# $change is an arrayref with regexps
@@ -1150,7 +1172,7 @@ sub _update_text {
 			# $change is a coderef
 			$self->_substitute($lines, $change);
 		}
-		foreach $change (
+		foreach my $change (
 			@{$updates{$version}{insertions}},
 			@{$updates{$version}{additions}},
 		) {
@@ -1174,6 +1196,7 @@ sub _update_text {
 		}
 	}
 	$self->_update_version_identifier($to, $lines);
+	return;
 }
 
 ##########################################################################
@@ -1205,8 +1228,8 @@ sub check_date_locale {
 	my $timefieldformat = $self->_get_pfmrc_timefieldformat($text);
 	my $locale          = $self->_get_locale();
 	#
-	my ($mon, $timestr, $maxtimelength);
-	foreach $mon (0..11) {
+	my ($timestr, $maxtimelength);
+	foreach my $mon (0..11) {
 		# (sec, min, hour, mday, mon, year, wday = 0, yday = 0, isdst = -1)
 		$timestr = strftime($timefieldformat, (0, 30, 10, 12, $mon, 95));
 		$maxtimelength = max(length($timestr), $maxtimelength);
@@ -1225,6 +1248,7 @@ please change the 'columnlayouts' or 'timestampformat' option manually.
 
 _LOCALE_WARNING_
 	}
+	return;
 }
 
 =item update(string $version_pfmrc, string $version_pfm, arrayref $text)

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Util 0.51
+# @(#) App::PFM::Util 0.53
 #
 # Name:			App::PFM::Util
-# Version:		0.51
+# Version:		0.53
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-19
+# Date:			2010-11-23
 #
 
 ##########################################################################
@@ -81,7 +81,7 @@ Determine the minimum or maximum numeric value out of several.
 
 =cut
 
-sub min (@) {
+sub min {
 	my $min = shift;
 	foreach (@_) {
 		$min = $_ if $_ < $min;
@@ -89,7 +89,7 @@ sub min (@) {
 	return $min;
 }
 
-sub max (@) {
+sub max {
 	my $max = shift;
 	foreach (@_) {
 		$max = $_ if $_ > $max;
@@ -104,7 +104,7 @@ defined as ((not $a) and $b).
 
 =cut
 
-sub inhibit ($$) {
+sub inhibit {
 	return !$_[0] && $_[1];
 }
 
@@ -116,11 +116,12 @@ Determine the next value in a cyclic two/three-state system.
 
 =cut
 
-sub toggle ($) {
+sub toggle {
 	$_[0] = !$_[0];
+	return $_[0];
 }
 
-sub triggle ($) {
+sub triggle {
 	++$_[0] > 2 and $_[0] = 0;
 	return $_[0];
 }
@@ -131,7 +132,8 @@ Determines if a certain value for $ENV{TERM} is compatible with 'xterm'.
 
 =cut
 
-sub isxterm ($) {
+sub isxterm {
+	return 0 unless defined $_[0];
 	return $_[0] =~ $XTERMS;
 }
 
@@ -143,11 +145,13 @@ Determine if a certain string value is equivalent to boolean false or true.
 
 =cut
 
-sub isyes ($) {
+sub isyes {
+	return 0 unless defined $_[0];
 	return $_[0] =~ /^(1|y|yes|true|on|always)$/i;
 }
 
-sub isno ($) {
+sub isno {
+	return 0 unless defined $_[0];
 	return $_[0] =~ /^(0|n|no|false|off|never)$/;
 }
 
@@ -160,7 +164,7 @@ containing the file (dirname) for the specified path.
 
 =cut
 
-sub dirname ($) {
+sub dirname {
 	$_[0] =~ m{^(.*)/.+?};
 	return length($1) ? $1
 					  : $_[0] =~ m!^/! ? '/'
@@ -168,7 +172,7 @@ sub dirname ($) {
 #					  : '.';
 }
 
-sub basename ($) {
+sub basename {
 	$_[0] =~ m{/([^/]*)/?$};
 	return length($1) ? $1 : $_[0];
 }
@@ -179,7 +183,7 @@ Returns a line that has been formatted using Perl formatting algorithm.
 
 =cut
 
-sub formatted (@) {
+sub formatted {
 	local $^A = '';
 	formline(shift, @_);
 	return $^A;
@@ -192,7 +196,7 @@ to a number with kilo (mega, giga, ...) specification.
 
 =cut
 
-sub fit2limit ($$) {
+sub fit2limit {
 	my ($size_num, $limit) = @_;
 	my $size_power = ' ';
 	return ('', ' ') unless defined $size_num && length $size_num;
@@ -213,7 +217,7 @@ left untouched.
 
 =cut
 
-sub canonicalize_path ($;$) {
+sub canonicalize_path {
 	my ($path, $keeptrail) = @_;
 	my $ANY_FILE_EXCEPT_DOTDOT  = qr{(?:\.?[^./][^/]*|\.\.[^/]+)};
 	my $ANY_NUMBER_OF_SLASHES   = qr{/+};
@@ -274,7 +278,7 @@ Removes an identical prefix from two paths.
 
 =cut
 
-sub reducepaths ($$) {
+sub reducepaths {
 	# remove identical prefix from path
 	my ($symlink_target_abs, $symlink_name_abs) = @_;
 	my $subpath;
@@ -295,7 +299,7 @@ from symlink to target.
 
 =cut
 
-sub reversepath ($$) {
+sub reversepath {
 	my ($symlink_target_abs, $symlink_name_rel) =
 		map { canonicalize_path($_, 1) } @_;
 	# $result ultimately is named as requested
@@ -331,7 +335,7 @@ Returns true if a symlink is an orphan symlink.
 
 =cut
 
-sub isorphan ($) {
+sub isorphan {
 	return ! -e $_[0];
 }
 
@@ -342,22 +346,22 @@ if it is defined, otherwise the second).
 
 =cut
 
-sub ifnotdefined ($$) {
+sub ifnotdefined {
 	my ($a, $b) = @_;
 	return (defined($a) ? $a : $b);
 }
 
-=item setifnotdefined(mixed ref $first, mixed $second)
+=item setifnotdefined(mixed ref $var, mixed $value)
 
 Emulates the perl 5.10 C<//=> operator (if the first argument
 is undefined, it is set to the value of the second).
 
 =cut
 
-sub setifnotdefined ($$) {
-	my ($a, $b) = @_;
-	$$a = $b unless defined $$a;
-	return $$a;
+sub setifnotdefined {
+	my ($var, $value) = @_;
+	$$var = $value unless defined $$var;
+	return $$var;
 }
 
 =item clearugidcache()
@@ -366,9 +370,10 @@ Clears the username/groupname cache.
 
 =cut
 
-sub clearugidcache() {
+sub clearugidcache {
 	%_usercache  = ();
 	%_groupcache = ();
+	return;
 }
 
 =item find_uid(int $uid)
@@ -380,7 +385,7 @@ and caches the result.
 
 =cut
 
-sub find_uid ($) {
+sub find_uid {
 	my ($uid) = @_;
 	return '' unless defined $uid;
 	return $_usercache{$uid} ||
@@ -388,7 +393,7 @@ sub find_uid ($) {
 			(defined($uid) ? getpwuid($uid) : '') || $uid);
 }
 
-sub find_gid ($) {
+sub find_gid {
 	my ($gid) = @_;
 	return '' unless defined $gid;
 	return $_groupcache{$gid} ||
@@ -402,7 +407,7 @@ Conditionally quotemeta() a string.
 
 =cut
 
-sub condquotemeta ($$) {
+sub condquotemeta {
 	return $_[0] ? quotemeta($_[1]) : $_[1];
 }
 
@@ -413,7 +418,7 @@ and returns a datetime integer as created by mktime(3).
 
 =cut
 
-sub touch2time ($) {
+sub touch2time {
 	my ($input) = @_;
 	my ($yr, $mon, $day, $hr, $min, $sec) =
 		($input =~ /((?:\d\d)?\d\d)?-?(\d\d)-?(\d\d)\s*(\d\d):?(\d\d)(\...)?$/);
@@ -432,13 +437,14 @@ Tests if a directory is empty.
 
 =cut
 
-sub testdirempty ($) {
+sub testdirempty {
 	my ($dirname) = @_;
-	opendir TESTDIR, $dirname;
-	readdir TESTDIR;				  # every directory has at least a '.' entry
-	readdir TESTDIR;				  # and a '..' entry
-	my $third_entry = readdir TESTDIR;# but not necessarily a third entry
-	closedir TESTDIR;
+	my $TESTDIR;
+	opendir $TESTDIR, $dirname;
+	readdir $TESTDIR;				    # every directory has a '.' entry
+	readdir $TESTDIR;				    # and a '..' entry
+	my $third_entry = readdir $TESTDIR; # but not necessarily a third entry
+	closedir $TESTDIR;
 	# if the directory could not be read at all, this will return true.
 	# instead of catching the exception here, we will simply wait for
 	# 'unlink' to return false
@@ -451,7 +457,7 @@ Fits a path string to a certain length by taking out directory components.
 
 =cut
 
-sub fitpath ($$) {
+sub fitpath {
 	my ($path, $maxlength) = @_;
 	my ($restpathlen);
 	my $r_disppath   = '';

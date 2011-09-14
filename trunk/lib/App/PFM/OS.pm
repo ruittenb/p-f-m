@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::OS 0.14
+# @(#) App::PFM::OS 0.15
 #
 # Name:			App::PFM::OS
-# Version:		0.14
+# Version:		0.15
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-20
-# Date:			2010-10-23
+# Date:			2010-11-23
 #
 
 ##########################################################################
@@ -37,6 +37,7 @@ use base 'App::PFM::Abstract';
 
 use App::PFM::OS::Abstract;
 
+use Module::Load;
 use Carp;
 use strict;
 use locale;
@@ -58,13 +59,14 @@ sub _init {
 	my ($self, $config) = @_;
 	my $osname = ucfirst lc($^O);
 	my $class  = "App::PFM::OS::$osname";
-	$self->{_os} = eval "
-		require $class;
-		return $class->new(\$config);
-	";
+	eval {
+		load $class;
+		$self->{_os} = $class->new($config);
+	};
 	if ($@) {
-		$self->{_os} = new App::PFM::OS::Abstract($config);
+		$self->{_os} = App::PFM::OS::Abstract->new($config);
 	}
+	return;
 }
 
 ##########################################################################

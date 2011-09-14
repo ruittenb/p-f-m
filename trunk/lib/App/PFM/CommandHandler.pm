@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.46
+# @(#) App::PFM::CommandHandler 1.48
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.46
+# Version:		1.48
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-18
+# Date:			2010-11-22
 #
 
 ##########################################################################
@@ -69,20 +69,27 @@ use constant INC_CRITERIA => [
 	'i' => 'Invert',
 ];
 
-use constant CMDESCAPES => {
-	'1' => 'name',
-	'2' => 'name.ext',
-	'3' => 'curr path',
-	'4' => 'mountpoint',
-	'5' => 'swap path',
-	'6' => 'base path',
-	'7' => 'extension',
-	'8' => 'selection',
-	'e' => 'editor',
-	'E' => 'fg editor',
-	'p' => 'pager',
-	'v' => 'viewer',
-};
+use constant CMDESCAPES => [
+	'1 name',
+	'2 name.ext',
+	'3 curr path',
+	'4 mountpoint',
+	'5 swap path',
+	'6 base path',
+	'7 extension',
+	'8 selection',
+	'',
+	'',
+	'e editor',
+	'E fg editor',
+	'p pager',
+	'v viewer',
+#	'',
+#	'{#prefix}',
+#	'{%suffix}',
+#	'{^} toupper',
+#	'{,} tolower',
+];
 
 use constant FIELDS_TO_SORTMODE => [
 	 n => 'n', # name
@@ -121,6 +128,7 @@ sub _init {
 	$self->{_os}           = $os;
 	$self->{_history}      = $history;
 	$self->{_clobber_mode} = undef;
+	return;
 }
 
 =item _helppage(int $pageno)
@@ -250,6 +258,7 @@ sub _expand_tildes {
 	$$command =~ s/^~(\/|$)/$ENV{HOME}\//;
 	# the format of passwd(5) dictates that a username cannot contain colons
 	$$command =~ s/^~([^:\/]+)/(getpwnam $1)[7] || "~$1"/e;
+	return;
 }
 
 =item _expand_replace(bool $do_quote, char $escapechar [, string
@@ -287,6 +296,7 @@ sub _expand_replace {
 		# this also handles the special $e$e case - don't quotemeta() this!
 		return $_;
 	}
+	return;
 }
 
 =item _expand_3456_escapes(bool $apply_quoting, stringref $command)
@@ -304,6 +314,7 @@ sub _expand_3456_escapes {
 	# replace the escapes
 #	$$command =~ s/$qe([^1278])/$self->_expand_replace($qif, $1)/ge;
 	$$command =~ s/$qe([3456eEpv])/$self->_expand_replace($qif, $1)/ge;
+	return;
 }
 
 =item _expand_8_escapes(stringref $command)
@@ -373,6 +384,7 @@ sub _expand_escapes {
 				), $2, $3, $4)
 		)
 	/ge;
+	return;
 }
 
 =item _expansion_modifier(string $name, string $mode, string $pattern)
@@ -426,6 +438,7 @@ sub _unmark_eightset {
 			$_pfm->state->directory->exclude($_, M_OLDMARK);
 		}
 	}
+	return;
 }
 
 =item _multi_to_single(string $filename)
@@ -527,10 +540,10 @@ sub _promptforwildfilename {
 	});
 	# show_menu is done in handleinclude
 	$self->{_screen}->raw_noecho();
-	eval "/$wildfilename/";
+	eval { /$wildfilename/ };
 	if ($@) {
-		$self->{_screen}->display_error($@)
-			->key_pressed($self->{_screen}->IMPORTANTDELAY);
+		$self->{_screen}->set_deferred_refresh(R_SCREEN)->display_error($@);
+		$self->{_screen}->key_pressed($self->{_screen}->IMPORTANTDELAY);
 		$wildfilename = '^$'; # clear illegal regexp
 	}
 	return $wildfilename;
@@ -580,6 +593,7 @@ sub _listbookmarks {
 	foreach ($printline .. $screen->BASELINE + $screen->screenheight) {
 		$screen->at($printline++, $filerecordcol)->puts($spacing);
 	}
+	return;
 }
 
 ##########################################################################
@@ -610,7 +624,9 @@ Applies the config settings when the config file has been read and parsed.
 sub on_after_parse_config {
 	my ($self, $event) = @_;
 #	my $pfmrc = $event->{data};
+	# emulate //= for perl < 5.10
 	setifnotdefined \$self->{_clobber_mode}, $self->{_config}{clobber_mode};
+	return;
 }
 
 
@@ -666,6 +682,7 @@ sub not_implemented {
 	$self->{_screen}->at(0,0)->clreol()
 		->set_deferred_refresh(R_MENU)
 		->display_error('Command not implemented');
+	return;
 }
 
 =item handle(App::PFM::Event $event)
@@ -739,6 +756,7 @@ This uses the B<MENU_> constants as defined in App::PFM::Screen::Frame.
 sub handlepan {
 	my ($self, $event, $mode) = @_;
 	$self->{_screen}->frame->pan($event->{data}, $mode);
+	return;
 }
 
 =item handleprev(App::PFM::Event $event)
@@ -769,6 +787,7 @@ sub handleprev {
 		$self->{_screen}->set_deferred_refresh(R_MENU);
 	}
 	$browser->main_state($_pfm->state('S_MAIN'));
+	return;
 }
 
 =item handleswap(App::PFM::Event $event)
@@ -877,6 +896,7 @@ sub handleswap {
 		}
 	}
 	$browser->main_state($_pfm->state('S_MAIN'));
+	return;
 }
 
 =item handlerefresh(App::PFM::Event $event)
@@ -893,6 +913,7 @@ sub handlerefresh {
 		$self->{_screen}->set_deferred_refresh(R_SCREEN);
 		$_pfm->state->directory->set_dirty(D_FILELIST);
 	}
+	return;
 }
 
 =item handlewhiteout(App::PFM::Event $event)
@@ -909,6 +930,7 @@ sub handlewhiteout {
 	$self->{_screen}->frame->update_headings();
 	$self->{_screen}->set_deferred_refresh(R_SCREEN);
 	$_pfm->state->directory->set_dirty(D_FILTER);
+	return;
 }
 
 =item handlemultiple(App::PFM::Event $event)
@@ -921,6 +943,7 @@ sub handlemultiple {
 	my ($self, $event) = @_;
 	toggle($_pfm->state->{multiple_mode});
 	$self->{_screen}->set_deferred_refresh(R_MENU);
+	return;
 }
 
 =item handledot(App::PFM::Event $event)
@@ -937,6 +960,7 @@ sub handledot {
 	$self->{_screen}->frame->update_headings();
 	$self->{_screen}->set_deferred_refresh(R_SCREEN);
 	$_pfm->state->directory->set_dirty(D_FILTER);
+	return;
 }
 
 =item handlecolor(App::PFM::Event $event)
@@ -948,6 +972,7 @@ Cycles through color modes (B<F4>).
 sub handlecolor {
 	my ($self, $event) = @_;
 	$self->{_screen}->select_next_color();
+	return;
 }
 
 =item handlemousemode(App::PFM::Event $event)
@@ -960,6 +985,7 @@ sub handlemousemode {
 	my ($self, $event) = @_;
 	my $browser = $_pfm->browser;
 	$browser->mouse_mode(!$browser->mouse_mode);
+	return;
 }
 
 =item handlelayouts(App::PFM::Event $event)
@@ -971,6 +997,7 @@ Handles moving on to the next configured layout (B<F9>).
 sub handlelayouts {
 	my ($self, $event) = @_;
 	$self->{_screen}->listing->select_next_layout();
+	return;
 }
 
 =item handlefit(App::PFM::Event $event)
@@ -982,6 +1009,7 @@ Recalculates the screen size and adjusts the layouts (B<F3>).
 sub handlefit {
 	my ($self, $event) = @_;
 	$self->{_screen}->fit();
+	return;
 }
 
 =item handleident(App::PFM::Event $event)
@@ -994,6 +1022,7 @@ the username, hostname or both (key B<=>).
 sub handleident {
 	my ($self, $event) = @_;
 	$self->{_screen}->diskinfo->select_next_ident();
+	return;
 }
 
 =item handleclobber(App::PFM::Event $event)
@@ -1007,6 +1036,7 @@ sub handleclobber {
 	my ($self, $event) = @_;
 	$self->clobber_mode(!$self->{_clobber_mode});
 	$self->{_screen}->set_deferred_refresh(R_FOOTER);
+	return;
 }
 
 =item handlepathmode(App::PFM::Event $event)
@@ -1019,6 +1049,7 @@ sub handlepathmode {
 	my ($self, $event) = @_;
 	my $directory = $_pfm->state->directory;
 	$directory->path_mode($directory->path_mode eq 'phys' ? 'log' : 'phys');
+	return;
 }
 
 =item handleignoremode(App::PFM::Event $event)
@@ -1032,6 +1063,7 @@ sub handleignoremode {
 	my ($self, $event) = @_;
 	my $directory = $_pfm->state->directory;
 	$directory->ignore_mode(!$directory->ignore_mode);
+	return;
 }
 
 =item handleradix(App::PFM::Event $event)
@@ -1055,6 +1087,7 @@ sub handleradix {
 		$state->{trspace}    = $state->{trspace} eq ' ' ? '' : ' ';
 	}
 	$self->{_screen}->set_deferred_refresh(R_FOOTER);
+	return;
 }
 
 =item handlequit(App::PFM::Event $event)
@@ -1105,6 +1138,8 @@ sub handleperlcommand {
 	my $state          = $_pfm->state;
 	my $directory      = $state->directory;
 	my $currentfile    = $event->{currentfile};
+	local $_;
+
 	# now do!
 	$screen->listing->markcurrentline('@'); # disregard multiple_mode
 	$screen->show_frame({
@@ -1114,6 +1149,7 @@ sub handleperlcommand {
 	$screen->at($screen->PATHLINE,0)->clreol()->cooked_echo();
 	$perlcmd = $self->{_history}->input({ history => H_PERLCMD });
 	$screen->raw_noecho();
+	$_ = ''; # prevent commands like 'print' to print junk
 	eval $perlcmd unless $perlcmd =~ /^exit\b/o;
 	$screen->display_error($@) if $@;
 	$screen->set_deferred_refresh(R_SCREEN);
@@ -1151,6 +1187,7 @@ sub handlehelp {
 		$page++;
 	}
 	$self->{_screen}->set_deferred_refresh(R_CLRSCR);
+	return;
 }
 
 =item handleentry(App::PFM::Event $event)
@@ -1206,6 +1243,7 @@ sub handlemark {
 	# redraw the line now, because we could be moving on
 	# to the next file now (space command)
 	$self->{_screen}->listing->highlight_off($currentline, $currentfile);
+	return;
 }
 
 =item handlemarkall()
@@ -1217,7 +1255,6 @@ The entries F<.> and F<..> are exempt from this action.
 
 sub handlemarkall {
 	my ($self) = @_;
-	my $file;
 	my $marked_nr_of  = $_pfm->state->directory->marked_nr_of;
 	my $showncontents = $_pfm->state->directory->showncontents;
 	if ($marked_nr_of->{d} + $marked_nr_of->{'-'} +
@@ -1226,7 +1263,7 @@ sub handlemarkall {
 		$marked_nr_of->{l} + $marked_nr_of->{D} +
 		$marked_nr_of->{w} + $marked_nr_of->{n} + 2 < @$showncontents)
 	{
-		foreach $file (@$showncontents) {
+		foreach my $file (@$showncontents) {
 			if ($file->{mark} ne M_MARK and
 				$file->{name} ne '.' and
 				$file->{name} ne '..')
@@ -1235,7 +1272,7 @@ sub handlemarkall {
 			}
 		}
 	} else {
-		foreach $file (@$showncontents) {
+		foreach my $file (@$showncontents) {
 			if ($file->{mark} eq M_MARK)
 			{
 				$_pfm->state->directory->exclude($file);
@@ -1243,6 +1280,7 @@ sub handlemarkall {
 		}
 	}
 	$self->{_screen}->set_deferred_refresh(R_SCREEN);
+	return;
 }
 
 =item handlemarkinverse()
@@ -1254,9 +1292,8 @@ B<I>nvert). The entries F<.> and F<..> are exempt from this action.
 
 sub handlemarkinverse {
 	my ($self) = @_;
-	my $file;
 	my $showncontents  = $_pfm->state->directory->showncontents;
-	foreach $file (@$showncontents) {
+	foreach my $file (@$showncontents) {
 		if ($file->{mark} eq M_MARK) {
 			$_pfm->state->directory->exclude($file);
 		} else {
@@ -1265,6 +1302,7 @@ sub handlemarkinverse {
 		}
 	}
 	$self->{_screen}->set_deferred_refresh(R_SCREEN);
+	return;
 }
 
 =item handlekeyell(App::PFM::Event $event)
@@ -1293,6 +1331,7 @@ Re-executes a stat() on the current (or marked) files (B<F11>).
 sub handlerestat {
 	my ($self, $event) = @_;
 	$_pfm->state->directory->apply(sub {}, $event);
+	return;
 }
 
 =item handlelink(App::PFM::Event $event)
@@ -1404,6 +1443,7 @@ sub handlelink {
 		}
 	};
 	$_pfm->state->directory->apply($do_this, $event);
+	return;
 }
 
 =item handlesinglesort(App::PFM::Event $event)
@@ -1415,6 +1455,7 @@ Handles asking for user input and setting single-level sort mode.
 sub handlesinglesort {
 	my ($self, $event) = @_;
 	$self->handlesort($event, FALSE);
+	return;
 }
 
 =item handlesort(App::PFM::Event $event [, bool $multilevel ] )
@@ -1470,6 +1511,7 @@ sub handlesort {
 			$event->{currentfile}{name}, { force => 0, exact => 1 });
 	}
 	$_pfm->state->directory->set_dirty(D_SORT | D_FILTER);
+	return;
 }
 
 =item handlecyclesort(App::PFM::Event $event)
@@ -1493,6 +1535,7 @@ sub handlecyclesort {
 		$event->{currentfile}{name}, { force => 0, exact => 1 });
 	$self->{_screen}->set_deferred_refresh(R_SCREEN);
 	$_pfm->state->directory->set_dirty(D_SORT | D_FILTER);
+	return;
 }
 
 =item handlename(App::PFM::Event $event)
@@ -1529,7 +1572,7 @@ sub handlename {
 		$screenline, $screen->listing->FILENAME_LONG, $workfile);
 	$key = uc $screen->noecho()->getch();
 	if ($key eq 'N' or $key eq ' ') {
-		$self->handleradix(new App::PFM::Event({
+		$self->handleradix(App::PFM::Event->new({
 			name   => 'after_receive_non_motion_input',
 			type   => 'soft',
 			origin => $self,
@@ -1546,6 +1589,7 @@ sub handlename {
 	{
 		$screen->set_deferred_refresh(R_CLRSCR);
 	}
+	return;
 }
 
 =item handlefind(App::PFM::Event $event)
@@ -1567,7 +1611,7 @@ sub handlefind {
 	if ($_pfm->state->sort_mode =~ /^[nm]$/io) {
 		goto &handlefind_incremental;
 	}
-	my ($findme, $file);
+	my $findme;
 	$self->{_screen}->clear_footer()->at(0,0)->clreol()->cooked_echo();
 	($findme = $self->{_history}->input({
 		history => H_PATH,
@@ -1577,7 +1621,7 @@ sub handlefind {
 	$self->{_screen}->raw_noecho()->set_deferred_refresh(R_MENU);
 	return if $findme eq '';
 	FINDENTRY:
-	foreach $file (
+	foreach my $file (
 		sort by_name @{$_pfm->state->directory->showncontents}
 	) {
 		if ($findme le $file->{name}) {
@@ -1586,6 +1630,7 @@ sub handlefind {
 		}
 	}
 	$self->{_screen}->set_deferred_refresh(R_LISTING);
+	return;
 }
 
 sub handlefind_incremental {
@@ -1629,6 +1674,7 @@ sub handlefind_incremental {
 		$screen->listing->show();
 	}
 	$screen->set_deferred_refresh(R_MENU);
+	return;
 }
 
 =item handleedit(App::PFM::Event $event)
@@ -1652,6 +1698,7 @@ sub handleedit {
 	$_pfm->state->directory->apply($do_this, $event);
 	$self->{_screen}->alternate_on() if $self->{_config}{altscreen_mode};
 	$self->{_screen}->raw_noecho()->set_deferred_refresh(R_CLRSCR);
+	return;
 }
 
 =item handlechown(App::PFM::Event $event)
@@ -1671,7 +1718,7 @@ sub handlechown {
 	}
 	$self->{_screen}->clear_footer()->at(0,0)->clreol()->cooked_echo();
 	chomp($newowner = $self->{_history}->input({
-		history => H_MODE,
+		history => H_USERGROUP,
 		prompt  => 'New [user][:group] ',
 	}));
 	$self->{_screen}->raw_noecho();
@@ -1694,6 +1741,7 @@ sub handlechown {
 		# TODO fire 'save_cursor_position'
 		$_pfm->browser->position_at($_pfm->browser->currentfile->{name});
 	}
+	return;
 }
 
 =item handlechmod(App::PFM::Event $event)
@@ -1735,6 +1783,7 @@ sub handlechmod {
 		};
 	}
 	$_pfm->state->directory->apply($do_this, $event);
+	return;
 }
 
 =item handletime(App::PFM::Event $event)
@@ -1793,6 +1842,7 @@ sub handletime {
 		# TODO fire 'save_cursor_position'
 		$_pfm->browser->position_at($_pfm->browser->currentfile->{name});
 	}
+	return;
 }
 
 =item handleshow(App::PFM::Event $event)
@@ -1818,6 +1868,7 @@ sub handleshow {
 	};
 	$_pfm->state->directory->apply($do_this, $event);
 	$self->{_screen}->raw_noecho()->set_deferred_refresh(R_CLRSCR);
+	return;
 }
 
 =item handleunwo(App::PFM::Event $event)
@@ -1855,6 +1906,7 @@ sub handleunwo {
 		}
 	};
 	$_pfm->state->directory->apply($do_this, $event);
+	return;
 }
 
 =item handleversion(App::PFM::Event $event)
@@ -1874,6 +1926,7 @@ sub handleversion {
 		$_pfm->state->directory->checkrcsapplicable(
 			$event->{currentfile}{name});
 	}
+	return;
 }
 
 =item handleinclude(App::PFM::Event $event)
@@ -1892,12 +1945,14 @@ sub handleinclude { # include/exclude flag (from keypress)
 	my $exin         = $event->{data};
 	my %inc_criteria = @{INC_CRITERIA()};
 	my $user         = getpwuid($>);
-	my ($criterion, $menulength, $key, $wildfilename, $entry, $i,
-		$boundarytime, $boundarysize);
+	my ($criterion, $menulength, $key, $wildfilename, $i, $boundarytime,
+		$boundarysize);
 	$exin = lc $exin;
 	$screen->diskinfo->clearcolumn();
 	# we can't use foreach (keys %inc_criteria) because we would lose ordering
-	foreach (grep { ($i += 1) %= 2 } @{INC_CRITERIA()}) { # keep keys, skip values
+	foreach (
+		grep { ($i += 1) %= 2 } @{INC_CRITERIA()}
+	) { # keep keys, skip values
 		last if ($printline > $screen->BASELINE + $screen->screenheight);
 		$screen->at($printline++, $infocol)
 			->puts(sprintf('%1s %s', $_, $inc_criteria{$_}));
@@ -1968,7 +2023,7 @@ sub handleinclude { # include/exclude flag (from keypress)
 		return;
 	}
 	if ($criterion) {
-		foreach $entry (@{$directory->showncontents}) {
+		foreach my $entry (@{$directory->showncontents}) {
 			if ($criterion->($entry)) {
 				if ($exin eq 'x') {
 					$directory->exclude($entry);
@@ -1981,6 +2036,7 @@ sub handleinclude { # include/exclude flag (from keypress)
 		}
 		$screen->set_deferred_refresh(R_SCREEN);
 	}
+	return;
 }
 
 =item handlesize(App::PFM::Event $event)
@@ -2037,6 +2093,7 @@ sub handlesize {
 	};
 	$event->{lunchbox}{applyflags} = 'norestat';
 	$_pfm->state->directory->apply($do_this, $event);
+	return;
 }
 
 =item handletarget(App::PFM::Event $event)
@@ -2095,6 +2152,7 @@ sub handletarget {
 		}
 	};
 	$_pfm->state->directory->apply($do_this, $event);
+	return;
 }
 
 =item handlecommand(App::PFM::Event $event)
@@ -2144,11 +2202,14 @@ sub handlecommand { # Y or O
 	} else { # cOmmand
 		$prompt =
 			"Enter Unix command ($e"."[1-8] or $e"."[eEpv] escapes see below):";
-		foreach (sort { $self->escape_midway } keys %{CMDESCAPES()}, $e) {
+		my @cmdescapes = @{CMDESCAPES()};
+		foreach (@cmdescapes[0 .. 8],
+			"$e literal $e",
+			@cmdescapes[9 .. $#cmdescapes])
+		{
 			if ($printline <= $screen->BASELINE + $screen->screenheight) {
 				$screen->at($printline++, $infocol)
-					->puts(sprintf(' %1s%1s %s', $e, $_,
-							${CMDESCAPES()}{$_} || "literal $e"));
+					->puts(sprintf(' %s', ((length) ? $e . $_ : $_)));
 			}
 		}
 		$screen->show_frame({
@@ -2175,8 +2236,8 @@ sub handlecommand { # Y or O
 			$screen->set_deferred_refresh(R_MENU); # R_SCREEN?
 			return;
 		} elsif (!$_pfm->state->directory->chdir($newdir)) {
-			$screen->at(2,0)->display_error("$newdir: $!")
-				->set_deferred_refresh(R_SCREEN);
+			$screen->set_deferred_refresh(R_SCREEN)
+				->at(2,0)->display_error("$newdir: $!");
 			return;
 		}
 		$screen->set_deferred_refresh(R_CHDIR);
@@ -2204,6 +2265,7 @@ sub handlecommand { # Y or O
 	$screen->pressanykey();
 	$screen->alternate_on() if $self->{_config}{altscreen_mode};
 	$screen->raw_noecho()->set_deferred_refresh(R_CLRSCR);
+	return;
 }
 
 =item handleprint(App::PFM::Event $event)
@@ -2446,7 +2508,7 @@ sub handlemousedown {
 	my $mbutton  = $event->{mousebutton};
 	my $mousecol = $event->{mousecol};
 	my $mouserow = $event->{mouserow};
-	my $propagated_event = new App::PFM::Event({
+	my $propagated_event = App::PFM::Event->new({
 		name   => 'after_receive_non_motion_input',
 		type   => 'key',
 		origin => $self,
@@ -2558,6 +2620,7 @@ sub handlemousepathjump {
 			$screen->set_deferred_refresh(R_SCREEN);
 		}
 	}
+	return;
 }
 
 =item handlemouseheadingsort(App::PFM::Event $event)
@@ -2587,6 +2650,7 @@ sub handlemouseheadingsort {
 	}
 	$self->{_screen}->set_deferred_refresh(R_SCREEN);
 	$_pfm->state->directory->set_dirty(D_SORT | D_FILTER);
+	return;
 }
 
 =item handlemousemenucommand(App::PFM::Event $event)
@@ -2717,6 +2781,7 @@ sub handlemore {
 		}
 	}
 	$frame->currentpan($oldpan);
+	return;
 }
 
 =item handlemoreshow(App::PFM::Event $event)
@@ -2746,6 +2811,7 @@ sub handlemoreshow {
 		$screen->set_deferred_refresh(R_PATHINFO)
 			->display_error("$newname: $!");
 	}
+	return;
 }
 
 =item handlemoremake(App::PFM::Event $event)
@@ -2786,6 +2852,7 @@ sub handlemoremake {
 	} elsif (!$_pfm->state->directory->chdir($newname)) {
 		$screen->at(0,0)->clreol()->display_error("$newname: $!");
 	}
+	return;
 }
 
 =item handlemoreconfig(App::PFM::Event $event)
@@ -2814,6 +2881,7 @@ sub handlemoreconfig {
 			$_pfm->state->directory->set_dirty(D_SORT);
 		}
 	}
+	return;
 }
 
 =item handlemoreedit(App::PFM::Event $event, char $key)
@@ -2842,6 +2910,7 @@ sub handlemoreedit {
 		$self->{_screen}->display_error('Editor failed');
 	}
 	$self->{_screen}->raw_noecho();
+	return;
 }
 
 =item handlemoreshell()
@@ -2860,6 +2929,7 @@ sub handlemoreshell {
 	$self->{_screen}->pressanykey(); # will also put the screen back in raw mode
 	$self->{_screen}->alternate_on() if $self->{_config}{altscreen_mode};
 	system("$chdirautocmd") if length($chdirautocmd);
+	return;
 }
 
 =item handlemoreacl(App::PFM::Event $event)
@@ -2876,13 +2946,14 @@ sub handlemoreacl {
 	my $do_this = sub {
 		my $file = shift;
 		unless ($self->{_os}->acledit($file->{name})) {
-			$screen->neat_error($!);
+			$screen->neat_error("ACL edit failed");
 		}
 	};
 	$_pfm->state->directory->apply($do_this, $event);
 	$screen->pressanykey();
 	$screen->alternate_on() if $self->{_config}{altscreen_mode};
 	$screen->raw_noecho()->set_deferred_refresh(R_CLRSCR);
+	return;
 }
 
 =item handlemorebookmark(App::PFM::Event $event)
@@ -2916,6 +2987,7 @@ sub handlemorebookmark {
 	$_pfm->state->{_position}  = $event->{currentfile}{name};
 	$_pfm->state->{_baseindex} = $event->{lunchbox}{baseindex};
 	$_pfm->state($key, $_pfm->state->clone());
+	return;
 }
 
 =item handlemorego(App::PFM::Event $event)
@@ -2998,6 +3070,7 @@ sub handlemorego {
 #		$_pfm->state($key, $_pfm->state->clone());
 	}
 	$browser->main_state($_pfm->state('S_MAIN'));
+	return;
 }
 
 =item handlemorefifo(App::PFM::Event $event)
@@ -3035,6 +3108,7 @@ sub handlemorefifo {
 		white => '',
 		refresh => TRUE);
 	$_pfm->browser->position_at($newname);
+	return;
 }
 
 =item handlemorehistwrite()
@@ -3050,6 +3124,7 @@ sub handlemorehistwrite {
 	});
 	$self->{_history}->write();
 	$self->{_config}->write_bookmarks();
+	return;
 }
 
 
@@ -3065,6 +3140,7 @@ sub handlemorealtscreen {
 	return unless $self->{_config}{altscreen_mode};
 	$self->{_screen}->set_deferred_refresh(R_CLRSCR)
 		->alternate_off()->pressanykey();
+	return;
 }
 
 =item handlemorephyspath()
@@ -3083,6 +3159,7 @@ sub handlemorephyspath {
 		->path_info($self->{_screen}->PATH_PHYSICAL)
 		->set_deferred_refresh(R_PATHINFO | R_MENU)
 		->getch();
+	return;
 }
 
 =item handlemoreversion()
@@ -3096,6 +3173,7 @@ sub handlemoreversion {
 	my ($self) = @_;
 	$_pfm->state->directory->preparercscol();
 	$_pfm->state->directory->checkrcsapplicable();
+	return;
 }
 
 =item handlemoreopenwindow(App::PFM::Event $event)
@@ -3139,6 +3217,7 @@ sub handlemoreopenwindow {
 		}
 	};
 	$_pfm->state->directory->apply($do_this, $event);
+	return;
 }
 
 =item handlemoremultisort(App::PFM::Event $event)
@@ -3150,6 +3229,7 @@ Handles asking for user input and setting multilevel sort mode.
 sub handlemoremultisort {
 	my ($self, $event) = @_;
 	$self->handlesort($event, TRUE);
+	return;
 }
 
 =item handlemoresmartrefresh(App::PFM::Event $event)
@@ -3161,6 +3241,7 @@ Refreshes the current directory but keeps the marks.
 sub handlemoresmartrefresh {
 	my ($self, $event) = @_;
 	$_pfm->state->directory->set_dirty(D_FILELIST_SMART);
+	return;
 }
 
 =item handlemoreperlshell(App::PFM::Event $event)
@@ -3187,13 +3268,15 @@ sub handlemoreperlshell {
 	my $state          = $_pfm->state;
 	my $directory      = $state->directory;
 	my $currentfile    = $event->{currentfile};
+	local $_;
 
 	# debugging helper functions
 	unless (eval 'say') {
-		sub say { print @_, "\n"; }
+		sub say { print @_, "\n"; return; }
 	}
-	sub echo { $_pfm->screen->cooked_echo(); }
+	sub echo { $_pfm->screen->cooked_echo(); return; }
 
+	my $prompt = $> ? 'pfm$ ' : 'pfm# ';
 	my $currentpath = $directory->path eq '/' ? '' : $directory->path;
 	$screen->alternate_off()->clrscr()->at(0,0)->cooked_echo()
 		->putmessage("Exit perl shell with 'exit'\n")
@@ -3201,10 +3284,9 @@ sub handlemoreperlshell {
 			$currentpath, '/', $currentfile->{name}, "\n");
 
 	while (1) {
-        no strict;
 		$perlcmd = $self->{_history}->input({
 			history => H_PERLCMD,
-			prompt  => 'pfm$ ',
+			prompt  => $prompt,
 		});
 		while ($perlcmd =~ s/\\$//) {
 			$perlcmd .= $self->{_history}->input({
@@ -3214,8 +3296,11 @@ sub handlemoreperlshell {
 		}
 		$screen->handleresize() if $screen->wasresized();
 		last if $perlcmd =~ /^(\cD|exit|quit)$/o;
-#		$_ .= " "; # to prevent $@ from containing old errors
-		eval $perlcmd;
+		$_ =''; # prevent commands like 'print' to print junk
+		{
+			no strict;
+			eval $perlcmd;
+		}
 		$screen->putmessage($@) if $@;
 	}
 	$screen->alternate_on() if $self->{_config}{altscreen_mode};
@@ -3264,7 +3349,7 @@ sub handleenter {
 		$screen->clrscr();
 		if (system $self->{_config}{pager}." \Q$currentfile->{name}\E")
 		{
-			$screen->display_error($!);
+			$screen->display_error("Pager failed");
 		}
 		$screen->set_deferred_refresh(R_CLRSCR);
 	} else {
@@ -3274,6 +3359,7 @@ sub handleenter {
 	}
 	$screen->raw_noecho();
 	$screen->alternate_on() if $self->{_config}{altscreen_mode};
+	return;
 }
 
 =item launchbyname(App::PFM::File $file)
@@ -3335,11 +3421,22 @@ sub launchbymagic {
 	my $do_this = '';
 	my $re;
 	MAGIC: foreach (grep /^magic\[/, keys %{$pfmrc}) {
-		($re) = (/magic\[([^]]+)\]/);
-		# this will produce errors if the regexp is invalid
-		if (eval "\$magic =~ /$re/") {
+		($re) = (
+			/^magic
+			\[            # opening delimiter for regexp
+				(
+					[^]]+ # capture the part between delimiters
+				)
+			\]            # closing delimiter for regexp
+			/x);
+		if (eval { $magic =~ /$re/ } ) {
 			$do_this = $self->launchbymime($pfmrc->{$_});
 			last MAGIC;
+		} elsif ($@) {
+			$self->{_screen}->set_deferred_refresh(R_SCREEN)
+				->display_error("Invalid config line: $_:$pfmrc->{$_}: $@");
+			$self->{_screen}->key_pressed($self->{_screen}->IMPORTANTDELAY);
+			return '';
 		}
 	}
 	return $do_this;

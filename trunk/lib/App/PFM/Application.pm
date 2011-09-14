@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.10.5
+# @(#) App::PFM::Application 2.10.6
 #
 # Name:			App::PFM::Application
-# Version:		2.10.5
+# Version:		2.10.6
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-15
+# Date:			2010-11-22
 #
 
 ##########################################################################
@@ -36,6 +36,7 @@ History, Config, OS and the State array.
 package App::PFM::Application;
 
 require 5.008;
+# among other things, for: open my $fh, '-|', 'command';
 
 use base 'App::PFM::Abstract';
 
@@ -53,34 +54,38 @@ use Cwd;
 use locale;
 use strict;
 
+our $VERSION  = '2.10.6';
+our $LASTYEAR = 2010;
+
 ##########################################################################
 # private subs
 
-=item _init(string $version, string $lastyear)
+=item _init()
 
 Initializes new instances. Called from the constructor.
 
 =cut
 
 sub _init {
-	my ($self, $version, $lastyear) = @_;
-	$self->{VERSION}       = $version;
-	$self->{LASTYEAR}      = $lastyear;
+	my ($self) = @_;
+	$self->{VERSION}       = $VERSION;
+	$self->{LASTYEAR}      = $LASTYEAR;
 	$self->{NEWER_VERSION} = '';
 	$self->{_bootstrapped} = 0;
 	$self->{_options}      = {};
 	$self->{_states}       = {};
+	return;
 }
 
-=item _usage()
+=item _usage(bool $extended)
 
 Prints usage information for the user: commandline options and
-location of the F<.pfmrc> file.
+if extended information is requested, the location of the F<.pfmrc> file.
 
 =cut
 
 sub _usage {
-	my ($self) = @_;
+	my ($self, $extended) = @_;
 	my $screen = $self->{_screen};
 #	$screen->colorizable(1);
 	my $directory  = $screen->colored('underline', 'directory');
@@ -89,15 +94,18 @@ sub _usage {
 	my $configname = App::PFM::Config::location();
 	print "Usage: pfm [ $directory ] [ -s, --swap $directory ]\n",
 		  "           [ -l, --layout $number ] [ -o, --sort $sortmode ]\n",
-		  "       pfm { -h, --help | -v, --version }\n\n",
-		  "    $directory            : specify starting directory\n",
-		  "    -h, --help           : print this help and exit\n",
+		  "       pfm { --help | --usage | --version }\n\n";
+	return unless $extended;
+	print "    $directory            : specify starting directory\n",
+		  "        --help           : print extended help and exit\n",
 		  "    -l, --layout $number  : startup with specified layout\n",
 		  "    -o, --sort $sortmode  : startup with specified sortmode\n",
 		  "    -s, --swap $directory : specify swap directory\n",
-		  "    -v, --version        : print version information and exit\n\n",
+		  "        --usage          : print concise help and exit\n",
+		  "        --version        : print version information and exit\n\n",
 		  "Configuration options will be read from $configname\n",
 		  "(or override this with \$PFMRC)\n";
+	return;
 }
 
 =item _printversion()
@@ -109,6 +117,7 @@ Prints version information.
 sub _printversion {
 	my ($self) = @_;
 	print "pfm ", $self->{VERSION}, "\r\n";
+	return;
 }
 
 =item _copyright(float $delay)
@@ -141,24 +150,25 @@ Phase 1 of the bootstrap process: parse commandline arguments.
 
 sub _bootstrap_commandline {
 	my ($self) = @_;
-	my ($screen, $invalid, $opt_version, $opt_help,
+	my ($screen, $invalid, $opt_help, $opt_usage, $opt_version,
 		$startingswapdir, $startingsort, $startinglayout);
 	# hand over the application object to the other classes
 	# for easy access.
-	$self->{_screen}		 = new App::PFM::Screen($self);
-	$screen					 = $self->{_screen};
+	$self->{_screen} = App::PFM::Screen->new($self);
+	$screen          = $self->{_screen};
 	$screen->at($screen->rows(), 0)->cooked_echo();
 	
 	Getopt::Long::Configure(qw'bundling permute');
 	GetOptions ('s|swap=s'   => \$startingswapdir,
 				'o|sort=s'   => \$startingsort,
 				'l|layout=i' => \$startinglayout,
-				'h|help'     => \$opt_help,
-				'v|version'  => \$opt_version) or $invalid = 1;
-	$self->_usage()			if $opt_help || $invalid;
-	$self->_printversion()	if $opt_version;
-	die "Invalid option\n"	if $invalid;
-	die "\n"				if $opt_help || $opt_version;
+				'help'       => \$opt_help,
+				'usage'      => \$opt_usage,
+				'version'    => \$opt_version) or $invalid = 1;
+	$self->_usage($opt_help) if $opt_help || $opt_usage || $invalid;
+	$self->_printversion()   if $opt_version;
+	die                      if $invalid; # Died at ...
+	exit 0                   if $opt_help || $opt_usage || $opt_version;
 
 	$self->{_options}{'directory'} = shift @ARGV;
 	$self->{_options}{'swap'}      = $startingswapdir;
@@ -166,6 +176,7 @@ sub _bootstrap_commandline {
 	$self->{_options}{'layout'}    = $startinglayout;
 	$self->{_options}{'help'}      = $opt_help;
 	$self->{_options}{'version'}   = $opt_version;
+	return;
 }
 
 =item _bootstrap_members( [ bool $silent ] )
@@ -186,24 +197,24 @@ sub _bootstrap_members {
 	# for easy access.
 	$screen					 = $self->{_screen};
 	$config					 =
-	$self->{_config}		 = new App::PFM::Config(
+	$self->{_config}		 = App::PFM::Config->new(
 								$self,
 								$screen,
 								$self->{VERSION});
-	$self->{_history}		 = new App::PFM::History(
+	$self->{_history}		 = App::PFM::History->new(
 								$self,
 								@{$self}{qw(_screen _config)});
-	$self->{_os}			 = new App::PFM::OS(
+	$self->{_os}			 = App::PFM::OS->new(
 								$config);
-	$self->{_jobhandler}	 = new App::PFM::JobHandler();
+	$self->{_jobhandler}	 = App::PFM::JobHandler->new();
 	$self->{_states}{S_MAIN} = $state
-							 = new App::PFM::State(
+							 = App::PFM::State->new(
 								$self,
 								@{$self}{qw(_screen _config _os _jobhandler)});
-	$self->{_commandhandler} = new App::PFM::CommandHandler(
+	$self->{_commandhandler} = App::PFM::CommandHandler->new(
 								$self,
 								@{$self}{qw(_screen _config _os _history)});
-	$self->{_browser}		 = new App::PFM::Browser(
+	$self->{_browser}		 = App::PFM::Browser->new(
 								@{$self}{qw(_screen _config)},
 								$state);
 	
@@ -238,6 +249,7 @@ sub _bootstrap_members {
 	$screen->listing->layout($self->{_options}{'layout'});
 	$self->{_history}->read();
 	$self->checkupdates();
+	return;
 }
 
 =item _bootstrap_states()
@@ -268,7 +280,7 @@ sub _bootstrap_states {
 	# swap directory
 	my $startingswapdir = $self->{_options}{swap};
 	if (defined $startingswapdir) {
-		$self->{_states}{S_SWAP} = new App::PFM::State($self,
+		$self->{_states}{S_SWAP} = App::PFM::State->new($self,
 			$self->{_screen},
 			$self->{_config},
 			$self->{_os},
@@ -276,6 +288,7 @@ sub _bootstrap_states {
 			$startingswapdir);
 		$self->{_states}{S_SWAP}->prepare(undef, $startingsort);
 	}
+	return;
 }
 
 =item _bootstrap_event_hub()
@@ -312,6 +325,7 @@ sub _bootstrap_event_hub {
 	};
 	$self->{_browser}->register_listener(
 		'after_receive_non_motion_input', $on_after_receive_non_motion_input);
+	return;
 }
 
 ##########################################################################
@@ -447,6 +461,7 @@ Swaps two state objects in the hash %_states.
 sub swap_states {
 	my ($self, $first, $second) = @_;
 	@{$self->{_states}}{$first, $second} = @{$self->{_states}}{$second, $first};
+	return;
 }
 
 =item checkupdates()
@@ -472,6 +487,7 @@ sub checkupdates {
 	$self->{_jobhandler}->start('CheckUpdates', {
 		after_job_receive_data => $on_after_job_receive_data,
 	});
+	return;
 }
 
 =item bootstrap( [ bool $silent ] )
@@ -489,6 +505,7 @@ sub bootstrap {
 	$self->_bootstrap_members($silent);
 	$self->_bootstrap_states();
 	$self->{_bootstrapped} = 1;
+	return;
 }
 
 =item run(bool $autoshutdown)
@@ -505,6 +522,7 @@ sub run {
 	if ($autoshutdown) {
 		$self->shutdown();
 	}
+	return;
 }
 
 =item shutdown( [ bool $silent ] )
@@ -539,6 +557,7 @@ sub shutdown {
 	$self->{_os}             = undef;
 	$self->{_screen}         = undef;
 	$self->{_states}         = {};
+	return;
 }
 
 ##########################################################################

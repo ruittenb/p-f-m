@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::OS::Linux 0.06
+# @(#) App::PFM::OS::Linux 0.08
 #
 # Name:			App::PFM::OS::Linux
-# Version:		0.06
+# Version:		0.08
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-20
-# Date:			2010-10-18
+# Date:			2010-11-22
 #
 
 ##########################################################################
@@ -79,20 +79,20 @@ Translates the filesystems 'none' to their filesystem types.
 
 sub df {
 	my ($self, $file) = @_;
-	my ($mount, @fields);
+	my ($mount, @fields, $MOUNTS);
 	my $fstype = '';
 	my @res = $self->SUPER::df($file);
 	return @res unless $res[1] =~ /^none\b/o;
 	my $mountpt = (split /[\s\n]+/, $res[1])[5];
-	if (open MOUNTS, '/proc/mounts') {
-		foreach $mount (<MOUNTS>) {
+	if (open $MOUNTS, '<', '/proc/mounts') {
+		while (my $mount = <$MOUNTS>) {
 			@fields = split /\s+/, $mount;
 			if ($fields[1] eq $file) {
 				$fstype = $fields[2];
 				last;
 			}
 		}
-		close MOUNTS;
+		close $MOUNTS;
 		if ($fstype ne '') {
 			$res[1] =~ s/^none\b/$fstype/;
 		}

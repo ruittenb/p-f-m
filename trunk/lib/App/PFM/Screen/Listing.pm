@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Listing 1.10
+# @(#) App::PFM::Screen::Listing 1.11
 #
 # Name:			App::PFM::Screen::Listing
-# Version:		1.10
+# Version:		1.11
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-10-18
+# Date:			2010-11-22
 #
 
 ##########################################################################
@@ -104,6 +104,7 @@ sub _init {
 	$self->{_cursorcol}            = 0;
 	$self->{_filerecordcol}        = 0;
 	$self->{_filenamecol}          = 0;
+	return;
 }
 
 =item _validate_layoutnum(int $layoutnr)
@@ -145,6 +146,7 @@ sub _highlightline {
 	$screen->putcolored($linecolor, $self->fileline($currentfile));
 	$self->applycolor($screenline, FILENAME_SHORT, $currentfile, $onoff);
 	$screen->reset()->normal()->at($screenline, $self->{_cursorcol});
+	return $screen;
 }
 
 ##########################################################################
@@ -329,6 +331,7 @@ sub on_after_parse_config {
 		? $self->{_layout}
 		: $self->{_config}{currentlayout}
 	);
+	return;
 }
 
 =item highlight_off( [ int $currentline, App::PFM::File $currentfile ] )
@@ -342,11 +345,13 @@ Turns highlight on/off on the line with the cursor.
 sub highlight_off {
 	my ($self, @args) = @_;
 	$self->_highlightline(FALSE, @args);
+	return $self->{_screen};
 }
 
 sub highlight_on {
 	my ($self, @args) = @_;
 	$self->_highlightline(TRUE, @args);
+	return $self->{_screen};
 }
 
 =item select_next_layout()
@@ -424,6 +429,7 @@ sub applycolor {
 		->putcolored(
 			$file->{color} || $hlcolor,
 			substr($file->{name}, 0, $maxlength));
+	return $screen;
 }
 
 =item fileline(App::PFM::File $file)
@@ -514,7 +520,7 @@ formatline which can be used with the formline() function.
 
 sub makeformatlines {
 	my ($self) = @_;
-	my ($squeezedlayoutline, $prev, $letter, $trans, $temp,
+	my ($squeezedlayoutline, $prev, $trans, $temp,
 		$infocol, $infolength);
 	my $currentlayoutline = $self->get_first_valid_layout();
 	# the filename field has been adjusted in currentlayoutline()
@@ -561,7 +567,7 @@ sub makeformatlines {
 	$self->{_currentformatlinewithinfo}	= '';
 	$self->{_currentformatline}			= '';
 	$prev = '';
-	foreach $letter (split //, $currentlayoutline) {
+	foreach my $letter (split //, $currentlayoutline) {
 		if ($letter eq ' ') {
 			$self->{_currentformatlinewithinfo} .= ' ';
 		} elsif ($prev ne $letter) {
@@ -575,7 +581,7 @@ sub makeformatlines {
 	}
 	$self->{_currentformatline} = $self->{_currentformatlinewithinfo};
 	substr($self->{_currentformatline}, $infocol, $infolength, '');
-	$self->fire(new App::PFM::Event({
+	$self->fire(App::PFM::Event->new({
 		name   => 'after_change_formatlines',
 		type   => 'soft',
 		origin => $self,
@@ -595,6 +601,7 @@ sub markcurrentline {
 			$_pfm->browser->currentline + $self->{_screen}->BASELINE,
 			$self->{_cursorcol})
 		->puts($letter);
+	return $self->{_screen};
 }
 
 ##########################################################################

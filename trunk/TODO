@@ -24,10 +24,18 @@
 - if =5 is requested but there is no swap state, what to do?
 - in general, if an escape is invalid, what to do?
 
+- bug: Directory::apply() uses $i where it is not defined.
+  Find a different way to splice the file out of _showncontents.
+
+- fix the unnecessary delay after:
+  ^Cmake: *** [data] Interrupt
+  Command failed  [delay]
+  *** Hit any key to continue ***
+
 ################################################################################
 # structural enhancements
 
-- see if FindBin can help us with version management.
+- replace max() with Scalar::Util (Util::Scalar?)
 
 - make more consistent function_call({boo => 3, foo => 4});
 
@@ -41,6 +49,9 @@
 
 - move History->write_dirs() to state objects;
   provide a state->on_shutdown to write the info
+
+- change Config->{_text} to slurp reading: my $code = do { local $/; <$in> };
+- change Config::Update to /\A...\z/mso
 
 - make our() variables member variables (Get Rid of Slimy applicaSion object)
 
@@ -69,12 +80,9 @@
 - implement 'after_create_entry'
 
 - in Copy/Rename/Link, take care of =5/newname and add to swap dir with new name
+  also take care of actual directory instead of just =5/
 
 - have a look at IPC::Run
-
-- look at Term::ReadLine::Gnu completion functions: completion for:
-  =5/bla
-- command completion only for first word
 
 ################################################################################
 # functional enhancements

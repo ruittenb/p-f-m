@@ -7,7 +7,7 @@
 # Version:		0.42
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-19
+# Date:			2010-11-23
 #
 
 ##########################################################################
@@ -66,7 +66,7 @@ sub _init {
 	if (defined $o{entry}) {
 		$self->stat_entry($o{entry}, $o{white}, $o{mark});
 	}
-	# the constructor returns $self for us.
+	return;
 }
 
 =item _decidecolor()
@@ -113,6 +113,7 @@ sub _decidecolor {
 		defined ($dircolors{$1})		and return $dircolors{$1};
 	# regular file
 	$self->{type}  eq '-'				and return $dircolors{fi};
+	return;
 }
 
 ##########################################################################
@@ -180,7 +181,7 @@ sub stat_entry {
 			chop @white_entries;
 		}
 		if ($iswhite eq 'w' or grep { $_ eq $entry } @white_entries) {
-			$mode = 0160000;
+			$mode = oct(160000);
 		}
 	}
 	$ptr = {
@@ -267,6 +268,7 @@ sub format {
 		length($self->{display}) > $listing->maxfilenamelength-1
 			? $listing->NAMETOOLONGCHAR : ' ';
 	$self->{color} = $self->_decidecolor();
+	return;
 }
 
 =item apply(coderef $do_this, string $special_mode, array @args)

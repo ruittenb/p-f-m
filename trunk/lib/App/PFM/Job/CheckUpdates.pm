@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::CheckUpdates 0.14
+# @(#) App::PFM::Job::CheckUpdates 0.15
 #
 # Name:			App::PFM::Job::CheckUpdates
-# Version:		0.14
+# Version:		0.15
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-17
+# Date:			2010-11-23
 #
 
 ##########################################################################
@@ -66,6 +66,7 @@ sub _init {
 		'
 	!;
 	$self->SUPER::_init(@args);
+	return;
 }
 
 =item _start_child()
@@ -95,6 +96,7 @@ sub _start_child {
 #	# fork failed
 #	$self->{_pipe}->close();
 	$self->{_pipe}->reader($self->command);
+	return;
 }
 
 ##########################################################################

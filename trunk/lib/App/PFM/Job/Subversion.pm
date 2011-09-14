@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::Subversion 0.34
+# @(#) App::PFM::Job::Subversion 0.36
 #
 # Name:			App::PFM::Job::Subversion
-# Version:		0.34
+# Version:		0.36
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-10-18
+# Date:			2010-11-22
 #
 
 ##########################################################################
@@ -54,6 +54,7 @@ sub _init {
 		? 'svn status --no-ignore %s'
 		: 'svn status %s';
 	$self->SUPER::_init($handlers, $options);
+	return;
 }
 
 =item _preprocess(string $data)

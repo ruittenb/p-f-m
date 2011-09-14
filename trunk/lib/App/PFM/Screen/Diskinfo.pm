@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Diskinfo 0.16
+# @(#) App::PFM::Screen::Diskinfo 0.17
 #
 # Name:			App::PFM::Screen::Diskinfo
-# Version:		0.16
+# Version:		0.17
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-18
+# Date:			2010-11-22
 #
 
 ##########################################################################
@@ -104,6 +104,7 @@ sub _init {
 	$self->{_infolength} = 0;
 	$self->{_infocol}	 = 0;
 	$self->_initident();
+	return;
 }
 
 =item _str_informatted(string $info)
@@ -142,6 +143,7 @@ sub _initident {
 		host => $host,
 		tty  => $tty,
 	};
+	return;
 }
 
 ##########################################################################
@@ -204,6 +206,7 @@ sub setident {
 	$self->{_ident} = [ map { $self->{_ident_elements}{$_}; } @ident_mode ];
 	$self->{_screen}->set_deferred_refresh(
 		$self->{_screen}->R_DISKINFO | $self->{_screen}->R_FOOTER);
+	return $self->{_screen};
 }
 
 =item select_next_ident()
@@ -282,6 +285,7 @@ sub on_after_parse_config {
 			$identmodes{$self->{_config}{ident_mode}} || 0
 		);
 	}
+	return;
 }
 
 =item show()
@@ -350,6 +354,7 @@ sub user_info {
 		$screen->at($line++, $self->{_infocol})
 			->putcolored($color, $self->_str_informatted($self->{_ident}[1]));
 	}
+	return $screen;
 }
 
 =item disk_info()
@@ -373,6 +378,7 @@ sub disk_info {
 		$self->{_screen}->at($line + $_, $self->{_infocol})
 				->puts($self->_data_informatted(int($values[$_]), $desc[$_]));
 	}
+	return $self->{_screen};
 }
 
 =item dir_info()
@@ -398,6 +404,7 @@ sub dir_info {
 		$self->{_screen}->at($line + $_, $self->{_infocol})
 				->puts($self->_data_informatted($values[$_], $desc[$_]));
 	}
+	return $self->{_screen};
 }
 
 =item mark_info()
@@ -449,6 +456,7 @@ sub clock_info {
 		$self->{_screen}->at($line++, $self->{_infocol})->puts($date);
 	}
 	$self->{_screen}->at($line, $self->{_infocol})->puts($time);
+	return $screen;
 }
 
 ##########################################################################

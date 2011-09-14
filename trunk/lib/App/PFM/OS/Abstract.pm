@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::OS::Abstract 0.15
+# @(#) App::PFM::OS::Abstract 0.19
 #
 # Name:			App::PFM::OS::Abstract
-# Version:		0.15
+# Version:		0.19
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-20
-# Date:			2010-10-03
+# Date:			2010-11-23
 #
 
 ##########################################################################
@@ -67,6 +67,7 @@ sub _init {
 	$self->{_config}  = $config;
     $self->{_aclfile} = undef;
 	$self->_init_white_commands();
+	return;
 }
 
 =item _init_white_commands()
@@ -101,6 +102,7 @@ sub _init_white_commands {
 	}
 	$self->{_listwhite_cmd} = $listwhite_cmd;
 	$self->{_unwo_cmd}  = [ @unwo_cmd ];
+	return;
 }
 
 =item _df_unwrap(array @lines)
@@ -209,7 +211,7 @@ Possible inode types are:
 
 sub ifmt2str {
 	my ($self, $mode) = @_;
-	return substr($self->IFMTCHARS, oct($mode) & 017, 1);
+	return substr($self->IFMTCHARS, oct($mode) & 15, 1);
 }
 
 =item mode2str(char $sugid, char $user, char $group, char $others)
@@ -238,7 +240,7 @@ sub aclget_to_file {
 	my ($self, $path) = @_;
 	my $res = '';
 	# automatically destroys and unlinks any old file
-	$self->{_aclfile} = new File::Temp(
+	$self->{_aclfile} = File::Temp->new(
 		TEMPLATE => 'pfm.XXXXXXXXXXXX',
 		DIR      => '/tmp',
 	);
@@ -320,6 +322,7 @@ the provided name.
 sub unwo {
 	my ($self, $file) = @_;
 	$self->system(@{$self->{_unwo_cmd}}, $file);
+	return;
 }
 
 =item listwhite(string $path)

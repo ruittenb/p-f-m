@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::Bazaar 0.34
+# @(#) App::PFM::Job::Bazaar 0.35
 #
 # Name:			App::PFM::Job::Bazaar
-# Version:		0.34
+# Version:		0.35
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-10-18
+# Date:			2010-11-22
 #
 
 ##########################################################################
@@ -53,6 +53,7 @@ sub _init {
 	$self->{_COMMAND} = 'bzr status -S %s';
 	$self->{_base}    = $self->isapplicable($options->{path});
 	$self->SUPER::_init($handlers, $options);
+	return;
 }
 
 =item _preprocess(string $data)

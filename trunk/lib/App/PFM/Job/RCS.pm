@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::RCS 0.34
+# @(#) App::PFM::Job::RCS 0.36
 #
 # Name:			App::PFM::Job::RCS
-# Version:		0.34
+# Version:		0.36
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-10-18
+# Date:			2010-11-23
 #
 
 ##########################################################################
@@ -48,10 +48,11 @@ Initializes new instances. Called from the constructor.
 
 =cut
 
-sub _init() {
+sub _init {
 	my ($self, $handlers, $options) = @_;
 	$self->{_path} = $options->{path};
 	$self->SUPER::_init($handlers, $options);
+	return;
 }
 
 =item _start_child()

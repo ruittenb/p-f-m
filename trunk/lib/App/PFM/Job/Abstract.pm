@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::Abstract 0.98
+# @(#) App::PFM::Job::Abstract 0.99
 #
 # Name:			App::PFM::Job::Abstract
-# Version:		0.98
+# Version:		0.99
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-10
+# Date:			2010-11-22
 #
 
 ##########################################################################
@@ -58,7 +58,7 @@ sub _init {
 	my ($self, $handlers, $options) = @_;
 	$self->{_childpid}    = 0;
 	$self->{_pipe}        = undef;
-	$self->{_selector}    = new IO::Select();
+	$self->{_selector}    = IO::Select->new();
 	$self->{_options}     = $options;
 	$self->{_line_buffer} = '';
 	$self->{_poll_buffer} = undef;
@@ -66,6 +66,7 @@ sub _init {
 	foreach (keys %$handlers) {
 		$self->register_listener($_, ${$handlers}{$_});
 	}
+	return;
 }
 
 =item _catch_child()
@@ -77,7 +78,8 @@ Cleans up finished child processes.
 sub _catch_child {
 	my ($self) = @_;
 	my $ret = (wait() == -1) ? 0 : $?;
-	$? = 0;
+#	$? = 0;
+	return;
 }
 
 =item _start_child()
@@ -189,7 +191,7 @@ return I<0 but true>.
 sub start {
 	my ($self) = @_;
 	return 0 if $self->{_childpid};
-	return 0 unless $self->fire(new App::PFM::Event({
+	return 0 unless $self->fire(App::PFM::Event->new({
 		name   => 'before_job_start',
 		origin => $self,  # not used ATM
 		type   => 'soft', # not used ATM
@@ -197,10 +199,10 @@ sub start {
 #	$SIG{CHLD} = \&_catch_child;
 	$self->{_stop_next_iteration} = 0;
 	$self->{_line_buffer} = '';
-	$self->{_pipe}        = new IO::Pipe();
+	$self->{_pipe}        = IO::Pipe->new();
 	$self->{_childpid}    = $self->_start_child() || 1;
 	$self->{_selector}->add($self->{_pipe});
-	$self->fire(new App::PFM::Event({
+	$self->fire(App::PFM::Event->new({
 		name   => 'after_job_start',
 		origin => $self,  # not used ATM
 		type   => 'soft', # not used ATM
@@ -221,7 +223,7 @@ sub poll {
 	my $returnvalue = $self->_poll_data(@args);
 	if (@{$self->{_poll_buffer}}) {
 		$self->fire(
-			new App::PFM::Event({
+			App::PFM::Event->new({
 					name   => 'after_job_receive_data',
 					origin => $self,
 					type   => 'job',
@@ -245,7 +247,7 @@ sub stop {
 	$self->{_childpid} = 0;
 	$self->_stop_child();
 	$self->{_pipe}->close();
-	$self->fire(new App::PFM::Event({
+	$self->fire(App::PFM::Event->new({
 		name   => 'after_job_finish',
 		origin => $self,  # not used ATM
 		type   => 'soft', # not used ATM
