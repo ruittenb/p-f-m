@@ -1,13 +1,13 @@
 2.10.1
 
-* fixed: when smart expanding a filename, pfm no longer incorrectly
+* fixed: when an escape modifier is used, pfm no longer incorrectly
   reports 'Cannot do multifile operation when destination is a single file'
 * fixed: after 'Cannot do multifile operation when destination is a
   single file', the diskinfo column is no longer blanked out.
 
 2.10.0
 
-* added: smart expansion like in bash(1): ={2%%pattern} etc.
+* added: escape modifiers like in bash(1): ={2%%pattern} etc.
 * updated documentation
 
 2.09.9-beta
