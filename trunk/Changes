@@ -1,3 +1,9 @@
+2.07.0-alpha
+
+* use File::Stat::Bits(3pm) to split rdev into major/minor
+  numbers (more portable)
+* updated install script
+
 2.06.9-alpha
 
 * fixed bug: si(Z)e correctly fills the 'total' column now.

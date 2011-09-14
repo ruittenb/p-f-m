@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 0.88
+# @(#) App::PFM::Config 0.89
 #
 # Name:			App::PFM::Config
-# Version:		0.88
+# Version:		0.89
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-15
+# Date:			2010-08-23
 #
 
 ##########################################################################
@@ -70,28 +70,6 @@ sub _init {
 	$self->{_pfmrc} = {};
 	$self->{_configfilename} =
 		$ENV{PFMRC} ? $ENV{PFMRC} : CONFIGDIRNAME . "/" . CONFIGFILENAME;
-}
-
-=item _copyright(float $delay)
-
-Prints a short copyright message. Called at startup.
-
-=cut
-
-sub _copyright {
-	my ($self, $delay) = @_;
-	# lookalike to DOS version :)
-	# note that configured colors are not yet known
-	my $lastyear = $_pfm->{LASTYEAR};
-	my $version  = $_pfm->{VERSION};
-	$_pfm->screen
-		->at(0,0)->clreol()->cyan()
-				 ->puts("PFM $version for Unix and Unix-like operating systems.")
-		->at(1,0)->puts("Copyright (c) 1999-$lastyear Rene Uittenbogaard")
-		->at(2,0)->puts("This software comes with no warranty: " .
-						"see the file COPYING for details.")
-		->reset()->normal();
-	return $_pfm->screen->key_pressed($delay);
 }
 
 =item _parse_colorsets()
@@ -236,7 +214,7 @@ sub read {
 	}
 }
 
-=item parse(bool $show_copyright)
+=item parse()
 
 Processes the settings from the F<.pfmrc> file.
 Most options are fetched into member variables. Those that aren't,
@@ -245,7 +223,7 @@ remain accessable in the hash member C<$config-E<gt>{_pfmrc}>.
 =cut
 
 sub parse {
-	my ($self, $show_copyright) = @_;
+	my ($self) = @_;
 	my $state          = $_pfm->state;
 	my $screen         = $_pfm->screen;
 	my $diskinfo       = $screen->diskinfo;
@@ -263,11 +241,8 @@ sub parse {
 	} elsif ($pfmrc->{usecolor} eq 'force') {
 		$screen->colorizable(1);
 	}
-	# do 'cvvis' _now_ so that the copyright message shows the new cursor.
-	system ('tput', $pfmrc->{cursorveryvisible} ? 'cvvis' : 'cnorm');
 	# copyright message
-#	$self->fire_event('after_screen_config');
-	$self->_copyright($pfmrc->{copyrightdelay}) if $show_copyright;
+	$self->fire_event('after_screen_config', $_pfm, $pfmrc->{copyrightdelay});
 	# time/date format for clock and timestamps
 	$self->{clockdateformat}	= $pfmrc->{clockdateformat} || '%Y %b %d';
 	$self->{clocktimeformat}	= $pfmrc->{clocktimeformat} || '%H:%M:%S';
@@ -357,6 +332,8 @@ sub apply {
 	my $screen = $_pfm->screen;
 	my $state  = $_pfm->state;
 	my $pfmrc  = $self->{_pfmrc};
+	# make cursor very visible
+	system ('tput', $pfmrc->{cursorveryvisible} ? 'cvvis' : 'cnorm');
 	# keymap, erase
 	system ('stty', 'erase', $pfmrc->{erase}) if defined($pfmrc->{erase});
 	$_pfm->history->keyboard->set_keymap($pfmrc->{keymap}) if $pfmrc->{keymap};

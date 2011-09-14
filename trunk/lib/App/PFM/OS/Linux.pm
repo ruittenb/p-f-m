@@ -39,11 +39,11 @@ use strict;
 
 # read somewhere:
 #
-# Linux 2.4 kernel appears to have a major number of 8 bits,
-# likewise for the minor number.
-# By comparison, 2.6 appears to have 12 bits for the major and
-# 20 bits for the minor.
+# 2.4 kernel: major:  8 bits, minor:  8 bits.
+# 2.6 kernel: major: 12 bits, minor: 20 bits.
 #
+# this does not seem to be confirmed when pfm's maj/min numbers are
+# compared to those listed by ls(1). What is going on?
 # do we need to dig into %Config?
 #
 #use constant MINORBITS => 2 ** 20;
