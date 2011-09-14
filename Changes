@@ -1,4 +1,4 @@
-2.07.9-alpha
+2.07.9-beta
 
 * fixed bug: don't crash on clicking the mouse in the diskinfo column
 * reorganized code
