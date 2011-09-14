@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::State 0.14
+# @(#) App::PFM::State 0.16
 #
 # Name:			App::PFM::State
-# Version:		0.14
+# Version:		0.16
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-27
+# Date:			2010-09-02
 #
 
 ##########################################################################
@@ -39,7 +39,24 @@ use App::PFM::Directory;
 
 use strict;
 
-our $_pfm;
+use constant SORTMODES => [
+	 n =>'Name',		N =>' reverse',
+	'm'=>' ignorecase',	M =>' rev+igncase',
+	 e =>'Extension',	E =>' reverse',
+	 f =>' ignorecase',	F =>' rev+igncase',
+	 d =>'Date/mtime',	D =>' reverse',
+	 a =>'date/Atime',	A =>' reverse',
+	's'=>'Size',		S =>' reverse',
+	'z'=>'siZe total',	Z =>' reverse',
+	 t =>'Type',		T =>' reverse',
+	 u =>'User',		U =>' reverse',
+	 g =>'Group',		G =>' reverse',
+	 v =>'Version',		V =>' reverse',
+	 i =>'Inode',		I =>' reverse',
+	'*'=>'mark',
+];
+
+our ($_pfm);
 
 ##########################################################################
 # private subs
@@ -62,8 +79,8 @@ sub _init {
 	$self->{multiple_mode}	= 0;
 	$self->{dot_mode}		= undef;
 	$self->{radix_mode}		= undef;
-	$self->{sort_mode}		= undef;
 	$self->{white_mode}		= undef;
+	$self->{_sort_mode}		= undef;
 	# path_mode    sits in App::PFM::Directory
 	# color_mode   sits in App::PFM::Screen
 	# ident_mode   sits in App::PFM::Screen::Diskinfo
@@ -101,24 +118,41 @@ sub directory {
 	return $self->{_directory};
 }
 
+=item sort_mode( [ char $sort_mode ] )
+
+Getter/setter for the sort mode.
+
+=cut
+
+sub sort_mode {
+	my ($self, $value) = @_;
+	if (defined $value) {
+		my %sortmodes = @{SORTMODES()};
+		if (exists $sortmodes{$value}) {
+			$self->{_sort_mode} = $value;
+		}
+	}
+	return $self->{_sort_mode};
+}
+
 ##########################################################################
 # public subs
 
-=item prepare(string $path)
+=item prepare(string $path [, char $sort_mode ] )
 
 Prepares the contents of this state object. Called in case this state
 is not to be displayed on-screen right away.
 
 The I<path> argument is passed to the prepare() method of the Directory
-object.
+object. I<sort_mode> specifies the initial sort mode.
 
 =cut
 
 sub prepare {
-	my ($self, $path) = @_;
+	my ($self, $path, $sort_mode) = @_;
+	$self->sort_mode($sort_mode || $_pfm->config->{sort_mode});
 	$self->{dot_mode}	= $_pfm->config->{dot_mode};
 	$self->{radix_mode}	= $_pfm->config->{radix_mode};
-	$self->{sort_mode}	= $_pfm->config->{sort_mode};
 	$self->{white_mode}	= $_pfm->config->{white_mode};
 	$self->{_position}	= '.';
 	$self->{_baseindex}	= 0;

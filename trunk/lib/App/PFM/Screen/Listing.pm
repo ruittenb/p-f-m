@@ -388,7 +388,8 @@ Applies color to the provided file at the provided screenline.
 The I<usemax> parameter indicates if the name should be shown
 entirely (true) or just the width of the filename field (false).
 The I<highlight> parameter indicates if the line is currently
-highlighted.
+highlighted. For the filename to become highlighted, the config
+option 'highlightname' must be 'yes' as well.
 
 =cut
 
@@ -396,7 +397,7 @@ sub applycolor {
 	my ($self, $line, $usemax, $file, $highlight) = @_;
 	my $linecolor;
 	my $maxlength = $usemax ? 255 : $self->{_maxfilenamelength} - 1;
-	if ($highlight) {
+	if ($highlight and $_pfm->config->{highlightname}) {
 		# only bold, reverse and underscore are copied
 		$linecolor =
 			$_pfm->config->{framecolors}{$_screen->color_mode}{highlight};

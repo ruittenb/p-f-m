@@ -1,9 +1,22 @@
+2.08.1-alpha
+
+* fixed bug in cyclic sort (config option 'sortcycle')
+* added config option 'highlightname'
+* added config option 'mousewheeljumpsize', 'mousewheeljumpmax' and
+  'mousewheeljumpratio' to make the mouse wheel speed configurable
+* added commandline option '-o' (initial sort mode)
+* added filetypes to dircolors in default .pfmrc
+* added configurable colors like dircolors(1): hardlinked files (hl),
+  setuid files (su), setgid files (sg), sticky directories (st),
+  other-writable directories (ow), sticky and other-writable (tw).
+* updated documentation
+
 2.08.0-alpha
 
 * fixed (L)ink: let the cursor follow around to a local directory
 * fixed applying colors to regular files
 * fixed applying the highlight color to the filename column
-* added color option for event pipes
+* added configurable colors for event pipes
 * restructured code: pfmrcupdate script to its own class; pfm will now
   propose to update an out-of-date config file.
 * updated install script

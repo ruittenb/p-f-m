@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.21
+# @(#) App::PFM::CommandHandler 1.22
 #   
 # Name:			App::PFM::CommandHandler
-# Version:		1.21
+# Version:		1.22
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-09-01
+# Date:			2010-09-02
 #
 
 ##########################################################################
@@ -87,23 +87,6 @@ use constant CMDESCAPES => {
 	'p' => 'pager',
 	'v' => 'viewer',
 };
-
-use constant SORTMODES => [
-	 n =>'Name',		N =>' reverse',
-	'm'=>' ignorecase',	M =>' rev+igncase',
-	 e =>'Extension',	E =>' reverse',
-	 f =>' ignorecase',	F =>' rev+igncase',
-	 d =>'Date/mtime',	D =>' reverse',
-	 a =>'date/Atime',	A =>' reverse',
-	's'=>'Size',		S =>' reverse',
-	'z'=>'siZe total',	Z =>' reverse',
-	 t =>'Type',		T =>' reverse',
-	 u =>'User',		U =>' reverse',
-	 g =>'Group',		G =>' reverse',
-	 v =>'Version',		V =>' reverse',
-	 i =>'Inode',		I =>' reverse',
-	'*'=>'mark',
-];
 
 use constant FIELDS_TO_SORTMODE => [
 	 n => 'n', # name
@@ -791,7 +774,7 @@ sub handleswap {
 			# set the cursor position
 			$browser->baseindex(0);
 			$_pfm->state->{multiple_mode} = 0;
-			$_pfm->state->{sort_mode} = $_pfm->config->{defaultsortmode} || 'n';
+			$_pfm->state->sort_mode($_pfm->config->{defaultsortmode} || 'n');
 			$_screen->set_deferred_refresh(R_CHDIR);
 		}
 	}
@@ -1293,7 +1276,7 @@ sub handlesort {
 	my $printline = $_screen->BASELINE;
 	my $infocol   = $_screen->diskinfo->infocol;
 	my $frame     = $_screen->frame;
-	my %sortmodes = @{SORTMODES()};
+	my %sortmodes = @{$_pfm->state->SORTMODES()};
 	my ($i, $key, $menulength);
 	$menulength = $frame->show({
 		menu     => MENU_SORT,
@@ -1302,7 +1285,8 @@ sub handlesort {
 	});
 	$_screen->diskinfo->clearcolumn();
 	# we can't use foreach (keys %sortmodes) because we would lose ordering
-	foreach (grep { ($i += 1) %= 2 } @{SORTMODES()}) { # keep keys, skip values
+	foreach (grep { ($i += 1) %= 2 } @{$_pfm->state->SORTMODES()}) {
+		# keep keys, skip values
 		last if ($printline > $_screen->BASELINE + $_screen->screenheight);
 		$_screen->at($printline++, $infocol)
 			->puts(sprintf('%1s %s', $_, $sortmodes{$_}));
@@ -1310,7 +1294,7 @@ sub handlesort {
 	$key = $_screen->at(0, $menulength)->getch();
 	$_screen->diskinfo->clearcolumn();
 	if ($sortmodes{$key}) {
-		$_pfm->state->{sort_mode} = $key;
+		$_pfm->state->sort_mode($key);
 		$_pfm->browser->position_at(
 			$_pfm->browser->currentfile->{name}, { force => 0, exact => 1 });
 	}
@@ -1332,7 +1316,8 @@ sub handlecyclesort {
 	pop @mode_from;
 	my %translations;
 	@translations{@mode_from} = @mode_to;
-	$_pfm->state->{sort_mode} = $translations{$_pfm->state->{sort_mode}};
+	my $newmode = $translations{$_pfm->state->sort_mode} || $mode_to[0];
+	$_pfm->state->sort_mode($newmode);
 	$_pfm->browser->position_at(
 		$_pfm->browser->currentfile->{name}, { force => 0, exact => 1 });
 	$_screen->set_deferred_refresh(R_SCREEN);
@@ -1400,7 +1385,7 @@ B<Find> or key B</>.
 
 sub handlefind {
 	my ($self) = @_;
-	if (lc($_pfm->state->{sort_mode}) eq 'n') {
+	if (lc($_pfm->state->sort_mode) eq 'n') {
 		goto &handlefind_incremental;
 	}
 	my ($findme, $file);
@@ -1514,7 +1499,7 @@ sub handlechown {
 	};
 	$_pfm->state->directory->apply($do_this);
 	# re-sort
-	if ($_pfm->state->{sort_mode} =~ /[ug]/i and
+	if ($_pfm->state->sort_mode =~ /[ug]/i and
 		$_pfm->config->{autosort})
 	{
 		$_screen->set_deferred_refresh(R_LISTING);
@@ -1604,7 +1589,7 @@ sub handletime {
 	};
 	$_pfm->state->directory->apply($do_this);
 	# re-sort
-	if ($_pfm->state->{sort_mode} =~ /[da]/i and
+	if ($_pfm->state->sort_mode =~ /[da]/i and
 		$_pfm->config->{autosort})
 	{
 		$_screen->set_deferred_refresh(R_LISTING);
@@ -2370,8 +2355,8 @@ sub handlemouseheadingsort {
 	if ($key) {
 		$key = uc($key) if $mbutton;
 		# we don't need locale-awareness here
-		$key =~ tr/A-Za-z/a-zA-Z/ if ($_pfm->state->{sort_mode} eq $key);
-		$_pfm->state->{sort_mode} = $key;
+		$key =~ tr/A-Za-z/a-zA-Z/ if ($_pfm->state->sort_mode eq $key);
+		$_pfm->state->sort_mode($key);
 		$_pfm->browser->position_at(
 			$_pfm->browser->currentfile->{name}, { force => 0, exact => 1 });
 	}

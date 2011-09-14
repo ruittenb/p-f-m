@@ -3,12 +3,12 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.08.0
+# Version:		2.08.1
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-31
+# Date:			2010-09-02
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
-#				    [ -l, --layout <number> ]
+#				    [ -l, --layout <number> ] [ -o, --sort <mode> ]
 #				pfm { -v, --version | -h, --help }
 # Requires:		PFM::Application
 #				Term::ReadLine (preferably Term::ReadLine::Gnu)
@@ -24,7 +24,7 @@
 # version
 
 # for MakeMaker
-our $VERSION = '2.08.0';
+our $VERSION = '2.08.1';
 
 # macros for *roff
 our $ROFFVERSION = <<'=cut';
@@ -33,7 +33,7 @@ our $ROFFVERSION = <<'=cut';
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.08.0
+.ds Vw @(#) pfm.pl 2.08.1
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -79,7 +79,7 @@ C<pfm> - Personal File Manager for Linux/Unix
 
 =head1 SYNOPSIS
 
-C<pfm [ -l, --layout >I<number>C< ]>
+C<pfm [ -l, --layout >I<number>C< ] [ -o, --sort >I<mode>C< ]>
 C< [ >I<directory>C< ] [ -s, --swap >I<directory>C< ]>
 
 C<pfm { -v, --version | -h, --help }>
@@ -102,19 +102,18 @@ not just plain regular files. These will be referred to as I<regular files>.
 
 Most of C<pfm>'s configuration is read from a config file. The default
 location for this file is F<$HOME/.pfm/.pfmrc>, but an alternative location
-may be specified using the environment variable C<PFMRC>. If there is no
+may be specified using the environment variable PFMRC. If there is no
 config file present at startup, one will be created. The file contains
 many comments on the available options, and is therefore supposed to be
-self-explanatory. C<pfm> will issue a warning if the config file version
-is older than the version of C<pfm> you are running. In this case, please
-let C<pfm> create a new default config file and compare the changes with
-your own settings, so that you do not miss out on any new config options
-or format changes. You can also try running the C<pfmrcupdate> script that
-is provided in the distribution. See also the B<C>onfig command under
-MORE COMMANDS below, and DIAGNOSIS.
+self-explanatory. C<pfm> will issue a warning if the version number of an
+existing config file is less than the version of C<pfm> you are running, and
+will offer to update it to its own version.  Alternatively, you could let
+C<pfm> create a new default config file and compare the changes with your
+own settings, so that you can configure the new options right away.
+See also the B<C>onfig command under MORE COMMANDS below, and DIAGNOSIS.
 
 There are two commandline options that specify starting directories.
-The C<CDPATH> environment variable is taken into account when C<pfm>
+The CDPATH environment variable is taken into account when C<pfm>
 tries to find these directories.
 
 =over
@@ -131,6 +130,10 @@ Print usage information, then exit.
 =item -l, --layout I<number>
 
 Start C<pfm> using the specified column layout (as defined in the F<.pfmrc>).
+
+=item -o, --sort I<mode>
+
+Start C<pfm> using the specified sort mode (as shown by the B<F6> command).
 
 =item -s, --swap I<directory>
 
@@ -330,7 +333,7 @@ in the F<.pfmrc> file. Otherwise vi(1) is used.
 
 If the current sort mode is by filename, you are prompted for a (partial)
 filename. While you type, the cursor is positioned on the best match.
-Type ENTER to end typing.
+Type B<ENTER> to end typing.
 
 If the current sort mode is not by filename, then you are prompted for a
 filename. The cursor is then positioned on that file.
@@ -685,7 +688,7 @@ See also below under QUOTING RULES.
 =item B<Print>
 
 Will prompt for a print command (default C<lpr -P$PRINTER =2>, or C<lpr =2>
-if C<PRINTER> is unset) and will run it. No formatting is done. You may
+if PRINTER is unset) and will run it. No formatting is done. You may
 specify a print command with the 'printcmd' option in the F<.pfmrc> file.
 
 =item B<Quit>
@@ -711,7 +714,7 @@ will not be overwritten unless the action is confirmed by the user.
 
 Displays the contents of the current file or directory on screen.
 You can choose which pager to use for file viewing with the environment
-variable C<PAGER>, or with the 'pager' option in the F<.pfmrc> file.
+variable PAGER, or with the 'pager' option in the F<.pfmrc> file.
 
 =item B<Time>
 
@@ -1478,15 +1481,14 @@ No valid layout found in the F<.pfmrc> file.
 
 If C<pfm> reports that your config file might be outdated, you might be
 missing some of the newer configuration options (or default values for
-these). The best way to solve this is by running the following command
-and comparing the new config file with your original one:
+these). The best way to solve this is by having C<pfm> generate a new
+config file, I<e.g.> by running the following command and comparing the
+new config file with your original one:
 
     env PFMRC=~/.pfm/.pfmrc-new pfm
 
-Alternatively, you may try running the C<pfmrcupdate> script that
-is provided in the distribution.
-
-To prevent the warning from occurring again, update the '## Version' line.
+Alternatively, you may reply with B<y> when C<pfm> offers to update the
+config file for you.
 
 =head1 BUGS and WARNINGS
 

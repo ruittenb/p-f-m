@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 0.91
+# @(#) App::PFM::Config 0.93
 #
 # Name:			App::PFM::Config
-# Version:		0.92
+# Version:		0.93
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2010-09-02
@@ -298,6 +298,9 @@ sub parse {
 	$self->{clockdateformat}	= $pfmrc->{clockdateformat} || '%Y %b %d';
 	$self->{clocktimeformat}	= $pfmrc->{clocktimeformat} || '%H:%M:%S';
 	$self->{timestampformat}	= $pfmrc->{timestampformat} || '%y %b %d %H:%M';
+	$self->{mousewheeljumpsize}	= $pfmrc->{mousewheeljumpsize}  || 'variable';
+	$self->{mousewheeljumpmax}	= $pfmrc->{mousewheeljumpmax}   || 11;
+	$self->{mousewheeljumpratio}= $pfmrc->{mousewheeljumpratio} || 4;
 	$self->{launchby}			= $pfmrc->{launchby};
 	$self->{copyoptions}		= $pfmrc->{copyoptions};
 	# Don't change settings back to the defaults if they may have
@@ -309,6 +312,7 @@ sub parse {
 	$self->{autowritebookmarks}	= isyes($pfmrc->{autowritebookmarks});
 	$self->{autoexitmultiple}	= isyes($pfmrc->{autoexitmultiple});
 	$self->{mouseturnoff}		= isyes($pfmrc->{mouseturnoff});
+	$self->{highlightname}		= isyes($pfmrc->{highlightname} || 'yes');
 	$self->{swap_persistent}	= isyes($pfmrc->{persistentswap} || 'yes');
 	$self->{autosort}			= isyes($pfmrc->{autosort} || 'yes');
 	$self->{trspace}			= isyes($pfmrc->{translatespace}) ? ' ' : '';
@@ -321,7 +325,7 @@ sub parse {
 	$self->{currentlayout}		= ifnotdefined($screen->listing->layout,     $pfmrc->{defaultlayout}   ||  0);
 	$self->{white_mode}			= ifnotdefined($state->{white_mode},         isyes($pfmrc->{defaultwhitemode}));
 	$self->{dot_mode}			= ifnotdefined($state->{dot_mode},           isyes($pfmrc->{defaultdotmode}));
-	$self->{sort_mode}			= ifnotdefined($state->{sort_mode},          $pfmrc->{defaultsortmode} || 'n');
+	$self->{sort_mode}			= ifnotdefined($state->sort_mode,            $pfmrc->{defaultsortmode} || 'n');
 	$self->{radix_mode}			= ifnotdefined($state->{radix_mode},         $pfmrc->{defaultradix}    || 'hex');
 	$self->{ident_mode}			= ifnotdefined($diskinfo->ident_mode,
 								  $diskinfo->IDENTMODES->{$pfmrc->{defaultident}} || 0);
@@ -415,10 +419,10 @@ sub apply {
 	$screen->diskinfo->ident_mode($self->{ident_mode});
 	$screen->listing->layout($self->{currentlayout});
 	$screen->set_deferred_refresh($screen->R_ALTERNATE);
+	$state->sort_mode($self->{sort_mode});
 	# hand variables over to the state
 	$state->{dot_mode}         = $self->{dot_mode};
 	$state->{radix_mode}       = $self->{radix_mode};
-	$state->{sort_mode}        = $self->{sort_mode};
 	$state->{white_mode}       = $self->{white_mode};
 	$state->directory->path_mode($self->{path_mode});
 }
@@ -700,6 +704,9 @@ filetypeflags:yes
 ## valid options: yes,no,xterm.
 force_minimum_size:xterm
 
+## overlay the highlight color onto the current filename? (default yes)
+highlightname:yes
+
 ## convert $LS_COLORS into an additional colorset?
 importlscolors:yes
 
@@ -728,6 +735,21 @@ pgdn=\e[62~:pgup=\e[63~:
 ## caution: if you set this to 'no', your (external) commands (like $pager
 ## and $editor) will receive escape codes on mousedown events
 mouseturnoff:yes
+
+## characteristics of the mouse wheel: the number of lines that the
+## mouse wheel will scroll. This can be an integer or 'variable'.
+#mousewheeljumpsize:5
+mousewheeljumpsize:variable
+
+## if 'mousewheeljumpsize' is 'variable', the next two values are taken
+## into account.
+## 'mousewheeljumpratio' is used to calculate the number of lines that
+## the cursor will jump, namely: the total number of enties in the
+## directory divided by 'mousewheeljumpratio'.
+## 'mousewheeljumpmax' sets an upper bound to the number of lines that
+## the cursor is allowed to jump when using the mousewheel.
+mousewheeljumpratio:4
+mousewheeljumpmax:11
 
 ## your pager (don't specify =2 here). you can also use $PAGER
 #pager:less
@@ -838,32 +860,65 @@ footer=bold reverse blue on white:message=bold cyan:highlight=bold:
 ## the special name 'framecolors[off]' is used for no coloring
 
 ##-file types:
-## no=normal fi=file ex=executable lo=lost file ln=symlink or=orphan link
+## no=normal fi=file lo=lost file ln=symlink or=orphan link hl=hard link
 ## di=directory bd=block special cd=character special pi=fifo so=socket
-## do=door nt=network special (not implemented) wh=whiteout
 ## do=door nt=network special wh=whiteout ep=event pipe
+## ex=executable su=setuid sg=setgid ca=capability (not implemented)
+## ow=other-writable dir (d???????w?) st=sticky dir (d????????t)
+## tw=sticky and other-writable dir (d???????wt)
 ## *.<ext> defines extension colors
 
-dircolors[dark]:no=reset:fi=:ex=green:lo=bold black:di=bold blue:\
-ln=bold cyan:or=white on red:\
+dircolors[dark]:\
+no=reset:fi=:\
+lo=bold black:di=bold blue:\
+ln=bold cyan:or=white on red:hl=white on blue:\
 bd=bold yellow on black:cd=bold yellow on black:\
 pi=yellow on black:so=bold magenta:ep=black on yellow:\
 do=bold magenta:nt=bold magenta:wh=bold black on white:\
-*.cmd=bold green:*.exe=bold green:*.com=bold green:*.btm=bold green:\
-*.bat=bold green:*.pas=green:*.c=magenta:*.h=magenta:*.pm=cyan:*.pl=cyan:\
-*.htm=bold yellow:*.phtml=bold yellow:*.html=bold yellow:*.php=yellow:\
+su=white on red:sg=black on yellow:\
+ow=blue on green:st=white on blue:tw=black on green:\
+ex=green:\
+ca=black on red:\
+*.cmd=bold green:*.exe=bold green:*.com=bold green:\
+*.btm=bold green:*.bat=bold green:\
+*.pas=green:\
+*.c=magenta:*.h=magenta:\
+*.pm=cyan:*.pl=cyan:\
+*.htm=bold yellow:*.phtml=bold yellow:*.html=bold yellow:\
+*.php=yellow:\
 *.tar=bold red:*.tgz=bold red:*.arj=bold red:*.taz=bold red:*.lzh=bold red:\
-*.zip=bold red:*.rar=bold red:\
-*.z=bold red:*.Z=bold red:*.gz=bold red:*.bz2=bold red:*.deb=red:*.rpm=red:\
-*.pkg=red:*.jpg=bold magenta:*.gif=bold magenta:*.bmp=bold magenta:\
-*.xbm=bold magenta:*.xpm=bold magenta:*.png=bold magenta:\
-*.mpg=bold white:*.avi=bold white:*.gl=bold white:*.dl=bold white:
+*.lzma=bold red:*.zip=bold red:*.rar=bold red:*.z=bold red:*.Z=bold red:\
+*.gz=bold red:*.bz2=bold red:*.dz=bold red:*.bz=bold red:*.tbz2=bold red:\
+*.tz=bold red:*.ace=bold red:*.zoo=bold red:*.7z=bold red:*.rz=bold red:\
+*.deb=red:*.rpm=red:*.cpio=red:*.jar=red:*.pkg=red:\
+*.jpg=bold magenta:*.jpeg=bold magenta::*.gif=bold magenta:\
+*.bmp=bold magenta:*.xbm=bold magenta:*.xpm=bold magenta:\
+*.png=bold magenta:*.xcf=bold magenta:*.pbm=bold magenta:\
+*.pgm=bold magenta:*.ppm=bold magenta:*.tga=bold magenta:\
+*.tif=bold magenta:*.tiff=bold magenta:*.pcx=bold magenta:\
+*.svg=bold magenta:*.svgz=bold magenta:*.mng=bold magenta:\
+*.mpg=bold white:*.mpeg=bold white:*.m2v=bold white:*.mkv=bold white:\
+*.ogm=bold white:*.mp4=bold white:*.m4v=bold white:*.mp4v=bold white:\
+*.vob=bold white:*.qt=bold white:*.nuv=bold white:*.wmv=bold white:\
+*.asf=bold white:*.rm=bold white:*.rmvb=bold white:*.flc=bold white:\
+*.avi=bold white:*.fli=bold white:*.flv=bold white:*.gl=bold white:\
+*.dl=bold white:*.xwd=bold white:*.yuv=bold white:*.axv=bold white:\
+*.anx=bold white:*.ogv=bold white:*.ogx=bold white:*.mov=bold white:\
+*.aac=cyan:*.au=cyan:*.flac=cyan:*.mid=cyan:*.midi=cyan:*.mka=cyan:\
+*.aiff=cyan:*.aifc=cyan:*.mp3=cyan:*.mpc=cyan:*.ogg=cyan:*.ra=cyan:\
+*.wav=cyan:*.axa=cyan:*.oga=cyan:*.spx=cyan:*.xspf=cyan:
 
-dircolors[light]:no=reset:fi=:ex=reset green:lo=bold black:di=bold blue:\
-ln=underscore blue:or=white on red:\
+dircolors[light]:\
+no=reset:fi=:\
+lo=bold black:di=bold blue:\
+ln=underscore blue:or=white on red:hl=white on blue:\
 bd=bold yellow on black:cd=bold yellow on black:\
-pi=reset yellow on black:so=bold magenta:ep=black on yellow:\
+pi=yellow on black:so=bold magenta:ep=black on yellow:\
 do=bold magenta:nt=bold magenta:wh=bold white on black:\
+su=white on red:sg=black on yellow:\
+ow=blue on green:st=white on blue:tw=black on green:\
+ex=green:\
+ca=black on red:\
 *.cmd=bold green:*.exe=bold green:*.com=bold green:*.btm=bold green:\
 *.bat=bold green:*.pas=green:*.c=magenta:*.h=magenta:*.pm=on cyan:*.pl=on cyan:\
 *.htm=black on yellow:*.phtml=black on yellow:*.html=black on yellow:\
@@ -873,8 +928,23 @@ do=bold magenta:nt=bold magenta:wh=bold white on black:\
 *.z=bold red:*.Z=bold red:*.gz=bold red:*.bz2=bold red:*.deb=red:*.rpm=red:\
 *.pkg=red:*.jpg=bold magenta:*.gif=bold magenta:*.bmp=bold magenta:\
 *.xbm=bold magenta:*.xpm=bold magenta:*.png=bold magenta:\
-*.mpg=bold white on blue:*.avi=bold white on blue:\
-*.gl=bold white on blue:*.dl=bold white on blue:
+*.mpg=bold white on blue:*.mpeg=bold white on blue:\
+*.m2v=bold white on blue:*.mkv=bold white on blue:\
+*.ogm=bold white on blue:*.mp4=bold white on blue:\
+*.m4v=bold white on blue:*.mp4v=bold white on blue:\
+*.vob=bold white on blue:*.qt=bold white on blue:\
+*.nuv=bold white on blue:*.wmv=bold white on blue:\
+*.asf=bold white on blue:*.rm=bold white on blue:\
+*.rmvb=bold white on blue:*.flc=bold white on blue:\
+*.avi=bold white on blue:*.fli=bold white on blue:\
+*.flv=bold white on blue:*.gl=bold white on blue:\
+*.dl=bold white on blue:*.xwd=bold white on blue:\
+*.yuv=bold white on blue:*.axv=bold white on blue:\
+*.anx=bold white on blue:*.ogv=bold white on blue:\
+*.ogx=bold white on blue:*.mov=bold white on blue:
+*.aac=cyan:*.au=cyan:*.flac=cyan:*.mid=cyan:*.midi=cyan:*.mka=cyan:\
+*.aiff=cyan:*.aifc=cyan:*.mp3=cyan:*.mpc=cyan:*.ogg=cyan:*.ra=cyan:\
+*.wav=cyan:*.axa=cyan:*.oga=cyan:*.spx=cyan:*.xspf=cyan:
 
 ## The special set 'framecolors[*]' will be used for every 'dircolors[x]'
 ## for which there is no corresponding 'framecolors[x]' (like ls_colors)

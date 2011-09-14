@@ -21,12 +21,19 @@
 - call $pfm->checkupdates() in '@' (perlcommand) does not finish the job;
   call $pfm->checkupdates(); sleep 2; finishes it.
 
+- crash: 'pfm -sv' ends up with:
+	Cannot read . : No such file or directory
+	Copyright (c) 1999-2010 Rene Uittenbogaard
+	This software comes with no warranty: see the file COPYING for details.
+	df: `v': No such file or directory
+	df: no file systems processed
+
 ################################################################################
 # structural enhancements
 
 - Config->apply: call separate class's import() routines and have them import
   the config options that are interesting for them.
-  Or use events.
+  Or use events 'apply_config'.
 
 - restructure chdir(), handleswap()/handlemoreshow()/handlemorego() etc.
 - check function of $swapping flag behavior
@@ -72,9 +79,7 @@
 
 - introduce SIGQUIT for interrupt multi?
 
-- add -o commandline option for starting with a certain sort mode
-
-- add colors like dircolors(1) for sticky, setuid etc. and extensions
+- create a 'bypass' option for hl= etc. colors
 
 - figure out and display if an ACL is applicable for a file
 

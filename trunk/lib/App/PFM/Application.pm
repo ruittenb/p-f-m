@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.08.0
+# @(#) App::PFM::Application 2.08.1
 #
 # Name:			App::PFM::Application
-# Version:		2.08.0
+# Version:		2.08.1
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-31
+# Date:			2010-09-02
 #
 
 ##########################################################################
@@ -367,7 +367,7 @@ if the application bootstraps correctly.
 
 sub bootstrap {
 	my ($self, $silent) = @_;
-	my ($startingdir, $swapstartdir, $startinglayout,
+	my ($startingdir, $startingswapdir, $startinglayout, $startingsort,
 		$currentdir, $opt_version, $opt_help,
 		%bookmarks, $invalid, $state, $config, $screen,
 		$on_after_parse_usecolor, $on_after_receive_non_motion_input);
@@ -383,7 +383,8 @@ sub bootstrap {
 	$screen->at($screen->rows(), 0)->cooked_echo();
 	
 	Getopt::Long::Configure(qw'bundling permute');
-	GetOptions ('s|swap=s'   => \$swapstartdir,
+	GetOptions ('s|swap=s'   => \$startingswapdir,
+				'o|sort=s'   => \$startingsort,
 				'l|layout=i' => \$startinglayout,
 				'h|help'     => \$opt_help,
 				'v|version'  => \$opt_version) or $invalid = 1;
@@ -439,7 +440,7 @@ sub bootstrap {
 	#------------------------------------------------------------
 	# current directory - MAIN for the time being
 	$currentdir = getcwd();
-	$self->{_states}{S_MAIN}->prepare($currentdir);
+	$self->{_states}{S_MAIN}->prepare($currentdir, $startingsort);
 	# do we have a starting directory?
 	$startingdir = shift @ARGV;
 	if ($startingdir ne '') {
@@ -454,9 +455,9 @@ sub bootstrap {
 		$self->{_states}{S_PREV} = $self->{_states}{S_MAIN}->clone($self);
 	}
 	# swap directory
-	if (defined $swapstartdir) {
-		$self->{_states}{S_SWAP} = new App::PFM::State($self, $swapstartdir);
-		$self->{_states}{S_SWAP}->prepare();
+	if (defined $startingswapdir) {
+		$self->{_states}{S_SWAP} = new App::PFM::State($self, $startingswapdir);
+		$self->{_states}{S_SWAP}->prepare(undef, $startingsort);
 	}
 	# done
 	$self->{_bootstrapped} = 1;
