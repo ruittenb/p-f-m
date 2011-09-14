@@ -64,9 +64,9 @@ sub new {
 ##########################################################################
 # public subs
 
-=item min()
+=item min(float $first, float $second)
 
-=item max()
+=item max(float $first, float $second)
 
 Determine the minimum or maximum numeric value out of two.
 
@@ -80,7 +80,7 @@ sub max ($$) {
 	return +($_[1] > $_[0]) ? $_[1] : $_[0];
 }
 
-=item inhibit()
+=item inhibit(bool $first, bool $second)
 
 Calculates the logical inhibition of two values,
 defined as ((not $a) and $b).
@@ -91,9 +91,9 @@ sub inhibit ($$) {
 	return !$_[0] && $_[1];
 }
 
-=item toggle()
+=item toggle(bool \$arg)
 
-=item triggle()
+=item triggle(int \$arg)
 
 Determine the next value in a cyclic two/three-state system.
 
@@ -108,7 +108,7 @@ sub triggle ($) {
 	return $_[0];
 }
 
-=item isxterm()
+=item isxterm(string $termname)
 
 Determines if a certain value for $ENV{TERM} is compatible with 'xterm'.
 
@@ -118,9 +118,9 @@ sub isxterm ($) {
 	return $_[0] =~ $XTERMS;
 }
 
-=item isyes()
+=item isyes(string $yesno)
 
-=item isno()
+=item isno(string $yesno)
 
 Determine if a certain string value is equivalent to boolean false or true.
 
@@ -134,9 +134,9 @@ sub isno ($) {
 	return $_[0] =~ /^(0|n|no|false|off|never)$/;
 }
 
-=item dirname()
+=item dirname(string $path)
 
-=item basename()
+=item basename(string $path)
 
 Determine the filename without directory (basename) or directoryname
 containing the file (dirname) for the specified path.
@@ -156,7 +156,7 @@ sub basename ($) {
 	return length($1) ? $1 : $_[0];
 }
 
-=item formatted()
+=item formatted( [ $field1 [, $field2 [, ... ] ] ] )
 
 Returns a line that has been formatted using Perl formatting algorithm.
 
@@ -168,7 +168,7 @@ sub formatted (@) {
 	return $^A;
 }
 
-=item fit2limit()
+=item fit2limit(int $number, int $limit)
 
 Fits a file size into a certain number of characters by converting it
 to a number with kilo (mega, giga, ...) specification.
@@ -185,60 +185,68 @@ sub fit2limit ($$) {
 	return ($size_num, $size_power);
 }
 
-=item canonicalize_path(string $path)
+=item canonicalize_path(string $path [, bool $keeptrail ] )
 
 Turns a directory path into a canonical path (like realpath()),
 but does not resolve symlinks.
 
-=cut
-
-sub canonicalize_path ($) {
-	# works like realpath() but does not resolve symlinks
-	my $path = shift;
-	1 while $path =~ s!/\./!/!g;
-	1 while $path =~ s!^\./+!!g;
-	1 while $path =~ s{/\.$}{}g;
-	1 while $path =~ s!
-		(^|/)				# start of string or following /
-		(?:\.?[^./][^/]*
-		|\.\.[^/]+)			# any filename except ..
-		/+					# any number of slashes
-		\.\.				# the name '..'
-		(?=/|$)				# followed by nothing or a slash
-		!$1!gx;
-	1 while $path =~ s!//!/!g;
-	1 while $path =~ s!^/\.\.(/|$)!/!g;
-	$path =~ s{(.)/$}{$1}g;
-	length($path) or $path = '/';
-	return $path;
-}
-
-=item semi_canonicalize_path(string $path)
-
-Turns a directory path into a canonical path (like realpath()),
-but does not resolve symlinks, nor B<.> and B<..> pathname
-components at the end of the string.
+If I<keeptrail> is set, a trailing B<.> or B<..> component is
+left untouched.
 
 =cut
 
-sub semi_canonicalize_path ($) {
-	# works like realpath() but does not resolve symlinks
-	my $path = shift;
-	1 while $path =~ s!/\./!/!g;
-	1 while $path =~ s!^\./+!!g;
-	1 while $path =~ s{/\./\.$}{/.}g;
-	1 while $path =~ s!
-		(^|/)				# start of string or following /
-		(?:\.?[^./][^/]*
-		|\.\.[^/]+)			# any filename except ..
-		/+					# any number of slashes
-		\.\.				# the name '..'
-		(?=/)				# followed by a slash
-		!$1!gx;
-	1 while $path =~ s!//!/!g;
-	1 while $path =~ s!^/\.\.(/|$)!/!g;
-	$path =~ s{(.)/$}{$1}g;
-	length($path) or $path = '/';
+sub canonicalize_path ($;$) {
+	my ($path, $keeptrail) = @_;
+	my $ANY_FILE_EXCEPT_DOTDOT  = qr{(?:\.?[^./][^/]*|\.\.[^/]+)};
+	my $ANY_NUMBER_OF_SLASHES   = qr{/+};
+	my $DOT                     = qr{\.};
+	my $DOTDOT                  = qr{\.\.};
+	my $ANYTHING                = qr{.*};
+	my $START                   = qr{^};
+	my $END                     = qr{$};
+	my $SLASH                   = qr{/};
+	my $BEFORE_SLASH            = qr{(?=/)};
+	my $START_OR_SLASH          = qr{(?:^|/)};
+	my $END_OR_SLASH            = qr{(?:/|$)};
+	my $END_OR_BEFORE_SLASH     = qr{(?=/|$)};
+
+	# strip trailing slash
+	$path =~ s! (.) $SLASH $END ! $1 !gexo;
+
+	# remove '.' components in the middle
+	1 while $path =~ s! $SLASH $DOT $SLASH !/!gxo;
+	# remove '.' components at start
+	1 while $path =~ s! $START $DOT $ANY_NUMBER_OF_SLASHES ($ANYTHING)
+		! $1 eq '' ? '.' : $1 !gexo;
+	if (!$keeptrail) {
+		# remove '.' components at end
+		1 while $path =~ s! ($ANYTHING) $SLASH $DOT $END
+			! $1 eq '' ? '/' : $1 !gexo;
+		# remove '..' components anywhere
+		1 while $path =~ s! ($START_OR_SLASH) $ANY_FILE_EXCEPT_DOTDOT
+			$ANY_NUMBER_OF_SLASHES $DOTDOT $END_OR_BEFORE_SLASH
+		! $1 eq '' ? '.' : '/' !gexo;
+	} else {
+		# reduce '/.'
+		1 while $path =~ s! $START $SLASH $DOT $END !/!gxo;
+		# remove '..' components, but not at end
+		1 while $path =~ s! ($START_OR_SLASH) $ANY_FILE_EXCEPT_DOTDOT
+			$ANY_NUMBER_OF_SLASHES $DOTDOT $BEFORE_SLASH
+		! $1 eq '' ? '.' : '/' !gexo;
+		#! $1 !gexo;
+	}
+	# reduce multiple slashes
+	1 while $path =~ s! $SLASH $ANY_NUMBER_OF_SLASHES !/!gxo;
+	# remove '/..' at beginning
+	1 while $path =~ s! $START $SLASH $DOTDOT $END_OR_SLASH !/!gxo;
+
+	# strip trailing slash
+	$path =~ s! (.) $SLASH $END ! $1 !gexo;
+	# everything above could have caused './' at the beginning. Remove it.
+	1 while $path =~ s! $START $DOT $ANY_NUMBER_OF_SLASHES ($ANYTHING)
+		! $1 eq '' ? '.' : $1 !gexo;
+
+	# return the result
 	return $path;
 }
 
@@ -248,7 +256,7 @@ Removes an identical prefix from two paths.
 
 =cut
 
-sub reducepaths {
+sub reducepaths ($$) {
 	# remove identical prefix from path
 	my ($symlink_target_abs, $symlink_name_abs) = @_;
 	my $subpath;
@@ -262,16 +270,16 @@ sub reducepaths {
 	return $symlink_target_abs, $symlink_name_abs;
 }
 
-=item reversepath()
+=item reversepath(string $symlink_target_abs, string $symlink_name_rel)
 
 Reverses the path from target to symlink, I<i.e.> returns the path
 from symlink to target.
 
 =cut
 
-sub reversepath {
+sub reversepath ($$) {
 	my ($symlink_target_abs, $symlink_name_rel) =
-		map { canonicalize_path($_) } @_;
+		map { canonicalize_path($_, 1) } @_;
 	# $result ultimately is named as requested
 	my $result = basename($symlink_target_abs);
 	if ($symlink_name_rel !~ m!/!) {
@@ -299,9 +307,9 @@ sub reversepath {
 	return canonicalize_path($result);
 }
 
-=item isorphan(string $path)
+=item isorphan(string $symlinkpath)
 
-Returns if a symlink is an orphan symlink or not.
+Returns true if a symlink is an orphan symlink.
 
 =cut
 
@@ -332,46 +340,46 @@ sub clearugidcache() {
 	%_groupcache = ();
 }
 
-=item find_uid()
+=item find_uid(int $uid)
 
-=item find_gid()
+=item find_gid(int $gid)
 
 Finds the username or group name corresponding to a uid or gid,
 and caches the result.
 
 =cut
 
-sub find_uid {
+sub find_uid ($) {
 	my ($uid) = @_;
 	return $_usercache{$uid} ||
 		+($_usercache{$uid} =
 			(defined($uid) ? getpwuid($uid) : '') || $uid);
 }
 
-sub find_gid {
+sub find_gid ($) {
 	my ($gid) = @_;
 	return $_groupcache{$gid} ||
 		+($_groupcache{$gid} =
 			(defined($gid) ? getgrgid($gid) : '') || $gid);
 }
 
-=item condquotemeta()
+=item condquotemeta(bool $condition, string $text)
 
 Conditionally quotemeta() a string.
 
 =cut
 
-sub condquotemeta { # condition, string
+sub condquotemeta ($$) {
 	return $_[0] ? quotemeta($_[1]) : $_[1];
 }
 
-=item testdirempty()
+=item testdirempty(string $dirpath)
 
 Tests if a directory is empty.
 
 =cut
 
-sub testdirempty {
+sub testdirempty ($) {
 	my ($dirname) = @_;
 	opendir TESTDIR, $dirname;
 	readdir TESTDIR;				  # every directory has at least a '.' entry
@@ -384,13 +392,13 @@ sub testdirempty {
 	return !$third_entry;
 }
 
-=item fitpath()
+=item fitpath(string $path, int $maxlength)
 
 Fits a path string to a certain length by taking out directory components.
 
 =cut
 
-sub fitpath {
+sub fitpath ($$) {
 	my ($path, $maxlength) = @_;
 	my ($restpathlen);
 	my $ELLIPSIS     = '..';

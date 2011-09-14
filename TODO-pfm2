@@ -9,9 +9,6 @@
 
 - (M)ore (S)how same dir: doesn't remove marks
 
-- (L)ink (R)el on '.' or '..' fail to create correct link because of
-  canonicalize_pathname()
-
 - after (C)opy, the rcs status is not automatically added 
 
 - when in (M)ore, the < key messes up the screen if the menu bar is
@@ -40,12 +37,12 @@
 
 - extract abstract code so that browser may be reused for bookmarks and your
   commands; ideally:
-  - Screen/Listing/File
-  - Screen/Listing/Bookmark
-  - Screen/Listing/Your
-  - Browser/File
-  - Browser/Bookmark
-  - Browser/Your
+  - Screen/Listing/Files
+  - Screen/Listing/Bookmarks
+  - Screen/Listing/YourCommands
+  - Browser/Files
+  - Browser/Bookmarks
+  - Browser/YourCommands
 
 ################################################################################
 # functional enhancements
@@ -61,10 +58,10 @@
 
 - provide information about arguments.
 
-  DONE: Abstract Application Browser State JobHandler
+  DONE: Abstract Application Browser JobHandler State Util
 
   TODO: CommandHandler Config Directory File History
-        Screen Util
+        Screen
 	Job/Abstract Job/Bazaar Job/CheckUpdates Job/Cvs Job/Git Job/RCS
 	Job/Subversion
 	Screen/Diskinfo Screen/Frame Screen/Listing
