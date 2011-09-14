@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen 0.27
+# @(#) App::PFM::Screen 0.29
 #
 # Name:			App::PFM::Screen
-# Version:		0.27
+# Version:		0.29
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-06-12
+# Date:			2010-08-12
 # Requires:		Term::ScreenColor
 #
 
@@ -83,11 +83,12 @@ our @EXPORT = qw(R_NOP R_STRIDE R_MENU R_PATHINFO R_HEADINGS R_FOOTER R_FRAME
 	R_DIRCONTENTS R_CHDIR R_NEWDIR
 );
 
-our ($_pfm, $_frame, $_listing, $_diskinfo);
+# _wasresized needs to be a package global because it is accessed by a
+# signal handler.
+# This is no problem as this class is supposed to be singleton anyway.
+our ($_pfm, $_frame, $_listing, $_diskinfo, $_wasresized);
 
-my	($_screenwidth, $_screenheight, $_deferred_refresh, $_wasresized,
-	$_color_mode,
-);
+my	($_deferred_refresh);
 
 ##########################################################################
 # private subs
@@ -106,6 +107,11 @@ sub _init {
 	$_frame		= new App::PFM::Screen::Frame(   $pfm, $self);
 	$_listing	= new App::PFM::Screen::Listing( $pfm, $self);
 	$_diskinfo	= new App::PFM::Screen::Diskinfo($pfm, $self);
+	$self->{_winheight}    = 0;
+	$self->{_winwidth}     = 0;
+	$self->{_screenheight} = 0;
+	$self->{_screenwidth}  = 0;
+	$self->{_color_mode}   = '';
 	$SIG{WINCH} = \&_catch_resize;
 }
 
@@ -149,14 +155,14 @@ Getters/setters for the dimensions of the screen.
 
 sub screenwidth {
 	my ($self, $value) = @_;
-	$_screenwidth = $value if defined $value;
-	return $_screenwidth;
+	$self->{_screenwidth} = $value if defined $value;
+	return $self->{_screenwidth};
 }
 
 sub screenheight {
 	my ($self, $value) = @_;
-	$_screenheight = $value if defined $value;
-	return $_screenheight;
+	$self->{_screenheight} = $value if defined $value;
+	return $self->{_screenheight};
 }
 
 =item frame()
@@ -205,10 +211,10 @@ Getter/setter for the choice of color mode (I<e.g.> 'dark', 'light',
 sub color_mode {
 	my ($self, $value) = @_;
 	if (defined $value) {
-		$_color_mode = $value;
+		$self->{_color_mode} = $value;
 		$self->set_deferred_refresh(R_SCREEN);
 	}
-	return $_color_mode;
+	return $self->{_color_mode};
 }
 
 ##########################################################################
@@ -285,10 +291,33 @@ sub calculate_dimensions {
 	if ($newheight || $newwidth) {
 #		$ENV{ROWS}    = $newheight;
 #		$ENV{COLUMNS} = $newwidth;
-		$_screenheight = $newheight - BASELINE - 2;
-		$_screenwidth  = $newwidth;
+		$self->{_winheight}    = $newheight;
+		$self->{_winwidth}     = $newwidth;
+		$self->{_screenheight} = $newheight - BASELINE - 2;
+		$self->{_screenwidth}  = $newwidth;
 	}
 	return $self;
+}
+
+=item check_minimum_size()
+
+Tests whether the terminal size is smaller than the minimum supported
+24 rows or 80 columns.  If so, sends an escape sequence to adjust the
+terminal size.
+
+=cut
+
+sub check_minimum_size {
+	my ($self) = @_;
+	my ($newwidth, $newheight);
+	return if ($self->{_winwidth} >= 80 and $self->{_winheight} >= 24);
+	if ($_pfm->config->{force_minimum_size}) {
+		$newwidth  = $self->{_winwidth}  < 80 ? 80 : $self->{_winwidth};
+		$newheight = $self->{_winheight} < 24 ? 24 : $self->{_winheight};
+		$self->puts("\e[8;$newheight;${newwidth}t");
+		return 1;
+	}
+	return 0;
 }
 
 =item fit()
@@ -298,9 +327,14 @@ Recalculates the screen size and adjust the layouts.
 =cut
 
 sub fit {
-	my $self = shift;
+	my ($self) = @_;
 	$self->resize();
 	$self->calculate_dimensions();
+	if ($self->check_minimum_size()) {
+		# the size was smaller than the minimum supported and has been adjusted.
+		$self->resize();
+		$self->calculate_dimensions();
+	}
 	$self->listing->makeformatlines();
 	$self->listing->reformat();
 	$self->set_deferred_refresh(R_CLRSCR);
@@ -377,12 +411,12 @@ sub select_next_color {
 	my $self = shift;
 	my @colorsetnames = @{$_pfm->config->{colorsetnames}};
 	my $index = $#colorsetnames;
-	while ($_color_mode ne $colorsetnames[$index] and $index > 0) {
+	while ($self->{_color_mode} ne $colorsetnames[$index] and $index > 0) {
 		$index--;
 	}
 	if ($index-- <= 0) { $index = $#colorsetnames }
-	$_color_mode = $colorsetnames[$index];
-	$self->color_mode($_color_mode);
+	$self->{_color_mode} = $colorsetnames[$index];
+	$self->color_mode($self->{_color_mode});
 	$_pfm->history->setornaments();
 	$self->listing->reformat();
 
@@ -396,7 +430,7 @@ Displays a message on the current screen line, vertically centered.
 
 sub putcentered {
 	my ($self, $string) = @_;
-	$self->puts(' ' x (($_screenwidth - length $string)/2) . $string);
+	$self->puts(' ' x (($self->{_screenwidth} - length $string)/2) . $string);
 }
 
 =item putmessage()
@@ -411,7 +445,7 @@ sub putmessage {
 	my $framecolors = $_pfm->config->{framecolors};
 	if ($framecolors) {
 		$self->putcolored(
-			$framecolors->{$_color_mode}{message},
+			$framecolors->{$self->{_color_mode}}{message},
 			join '', @message);
 	} else {
 		$self->puts(join '', @message);
@@ -656,17 +690,17 @@ filesystem.
 =cut
 
 sub pathline {
-	my ($self, $path, $dev, $p_displen, $p_ellipssize) = @_;
+	my ($self, $path, $dev, $p_baselen, $p_ellipssize) = @_;
 	my $normaldevlen = 12;
 	my $actualdevlen = max($normaldevlen, length($dev));
 	# the three in the next exp is the length of the overflow char plus the '[]'
-	my $maxpathlen   = $_screenwidth - $actualdevlen -3;
+	my $maxpathlen   = $self->{_screenwidth} - $actualdevlen -3;
 	$dev = $dev . ' 'x max($actualdevlen -length($dev), 0);
 	# fit the path
-	my ($disppath, $spacer, $overflow, $ellipssize) =
+	my ($disppath, $spacer, $overflow, $baselen, $ellipssize) =
 		fitpath($path, $maxpathlen);
 	# process the results
-	$$p_displen    = length($disppath);
+	$$p_baselen    = $baselen;
 	$$p_ellipssize = $ellipssize;
 	return $disppath . $spacer
 		. ($overflow ? $_listing->NAMETOOLONGCHAR : ' ') . "[$dev]";

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Abstract 0.06
+# @(#) App::PFM::Abstract 0.07
 #
 # Name:			App::PFM::Abstract
-# Version:		0.06
+# Version:		0.07
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-04-07
+# Date:			2010-08-13
 #
 
 ##########################################################################
@@ -74,7 +74,9 @@ sub new {
 		croak("$type should not be instantiated");
 	}
 	$type = ref($type) || $type;
-	my $self = {};
+	my $self = {
+		event_handlers => {},
+	};
 	bless($self, $type);
 	$self->_init(@_);
 	return $self;
@@ -103,6 +105,48 @@ sub clone {
 
 ##########################################################################
 # public subs
+
+=item fire()
+
+Fire an event. Calls all event handlers that have registered themselves.
+
+=cut
+
+sub fire {
+	my ($self, $event, @args) = @_;
+	my $handlers = $self->{event_handlers}->{$event};
+	my @res;
+	return unless $handlers;
+	foreach (@$handlers) {
+		push @res, $_->(@args);
+	}
+	return wantarray ? @res : join ':', @res;
+}
+
+=item register_listener()
+
+Register the object provided as listener for the specified event.
+Example usage:
+
+	my $onGreet = sub {
+		system "xmessage 'Hello, world!'";
+	};
+	$obj->register_listener('greetWorld', $onGreet);
+	$obj->fire('greetWorld');
+
+=cut
+
+sub register_listener {
+	my ($self, $event, $listener) = @_;
+	return 0 unless (ref $listener eq "CODE");
+	my $handlers = $self->{event_handlers};
+	if (!exists $handlers->{$event}) {
+		$handlers->{$event} = [];
+	}
+	# do we want to push or unshift here?
+	push @{$handlers->{$event}}, $listener;
+	return 1;
+}
 
 ##########################################################################
 

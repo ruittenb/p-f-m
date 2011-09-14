@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.06.1
+# @(#) App::PFM::Application 2.06.2
 #
 # Name:			App::PFM::Application
-# Version:		2.06.1
+# Version:		2.06.2
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-06-15
+# Date:			2010-06-21
 #
 
 ##########################################################################

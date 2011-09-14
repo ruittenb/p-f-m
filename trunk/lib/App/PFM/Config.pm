@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 0.84
+# @(#) App::PFM::Config 0.87
 #
 # Name:			App::PFM::Config
-# Version:		0.84
+# Version:		0.87
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-06-18
+# Date:			2010-08-12
 #
 
 ##########################################################################
@@ -323,10 +323,13 @@ sub parse {
 	$self->{ducmd}				= $pfmrc->{ducmd} || $DUCMDS{$^O} || $DUCMDS{default};
 	$self->{ducmd}				=~ s/\$\{e\}/${e}/g;
 	$self->{sortcycle}			= $pfmrc->{sortcycle} || 'nNeEdDaAsStu';
+	$self->{force_minimum_size}	= $pfmrc->{force_minimum_size} || 'xterm';
+	$self->{force_minimum_size}	= ($self->{force_minimum_size} eq 'xterm' && isxterm($ENV{TERM}))
+								|| isyes($self->{force_minimum_size});
 	$self->{mouse_mode}			= $_pfm->browser->mouse_mode || $pfmrc->{defaultmousemode} || 'xterm';
 	$self->{mouse_mode}			= ($self->{mouse_mode} eq 'xterm' && isxterm($ENV{TERM}))
 								|| isyes($self->{mouse_mode});
-	$self->{altscreen_mode}		= $pfmrc->{altscreenmode}    || 'xterm';
+	$self->{altscreen_mode}		= $pfmrc->{altscreenmode} || 'xterm';
 	$self->{altscreen_mode}		= ($self->{altscreen_mode}  eq 'xterm' && isxterm($ENV{TERM}))
 								|| isyes($self->{altscreen_mode});
 	$self->{chdirautocmd}		= $pfmrc->{chdirautocmd};
@@ -341,6 +344,7 @@ sub parse {
 								or isyes($pfmrc->{showlock}) ) ? 'l' : 'S';
 	$self->{viewer}				= $pfmrc->{viewer} || 'xv';
 	$self->{editor}				= $ENV{VISUAL} || $ENV{EDITOR}   || $pfmrc->{editor} || 'vi';
+	$self->{fg_editor}			= $pfmrc->{fg_editor} || $self->{editor};
 	$self->{pager}				= $ENV{PAGER}  || $pfmrc->{pager} || ($^O =~ /linux/i ? 'less' : 'more');
 	# flags
 	if (isyes($pfmrc->{filetypeflags})) {
@@ -548,7 +552,7 @@ autoexitmultiple:yes
 autorcs:yes
 
 ## write bookmarks to file automatically upon exit
-autowritebookmarks:no
+autowritebookmarks:yes
 
 ## write history files automatically upon exit
 autowritehistory:no
@@ -572,6 +576,12 @@ clocktimeformat:%H:%M:%S
 ## whether you want to have the screen cleared when pfm exits.
 ## No effect if altscreenmode is set.
 clsonexit:no
+
+## In case the regular editor automatically forks in the background, you
+## may want to specify a foreground editor here. If defined, this editor
+## will be used for editing the config file, so that pfm will be able to
+## wait for the editor to finish before rereading the config file.
+#fg_editor:vim
 
 ## have pfm ask for confirmation when you press 'q'uit? (yes,no,marked)
 ## 'marked' = ask only if there are any marked files in the current directory
@@ -647,6 +657,12 @@ editor:vi
 ## display file type flags (yes, no, dirs)
 ## yes: 'ls -F' type, dirs: 'ls -p' type
 filetypeflags:yes
+
+## pfm does not support a terminal size of less than 80 columns or 24 rows.
+## this option will make pfm try to resize the terminal to the minimum
+## dimensions if it is resized too small.
+## valid options: yes,no,xterm.
+force_minimum_size:xterm
 
 ## convert $LS_COLORS into an additional colorset?
 importlscolors:yes
@@ -742,7 +758,8 @@ viewer:eog
 ## What to open when a directory is middle-clicked with the mouse?
 ## 'pfm'       : open directories with pfm in a terminal window.
 ##				 specify the terminal command with 'windowcmd'.
-## 'standalone': open directories in a new window with the 'windowcmd'.
+## 'standalone': open directories in a new window with the 'windowcmd'
+##               (e.g. nautilus).
 #windowtype:standalone
 windowtype:pfm
 
