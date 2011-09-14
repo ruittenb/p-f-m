@@ -21,7 +21,16 @@
 
 - in install.sh wordt ${pkgadd} niet geinterpoleerd
 
-- Update: give error if starting version too low
+- handlemousedown: if the current file is being marked, the mark is not shown
+  on screen.
+  Cause: handlemark() calls Listing->highlightline_off(), which uses
+  $browser->currentfile instead of $event->{currentfile}.
+  Possible solution: give highlightline_off($line, $file) arguments?
+
+- handlemousedown: if the current file is clicked for showing, it does not
+  show.
+  Cause: handleshow() calls Directory->apply(), which uses
+  $browser->currentfile instead of $event->{currentfile}.
 
 - call $pfm->checkupdates() in '@' (perlcommand) does not finish the job;
   call $pfm->checkupdates(); sleep 2; finishes it.
@@ -53,6 +62,8 @@
 - standardize the names of constants
   Config::READ_FIRST?
 
+- handlefind_incremental needs reviewing if we want to eliminate ->browser-> calls.
+
 - have objects (Directory) fire an event to indicate that the current position
   is to be saved ('save_cursor_position' -> position_at())
 
@@ -73,9 +84,6 @@
 - test Config::Update
 
 - implement 'after_create_entry'
-
-- TEST: have Browser determine on which file the mouse was clicked, and pass that
-  "current"file + "current"line to in the event to the CommandHandler
 
 ################################################################################
 # functional enhancements

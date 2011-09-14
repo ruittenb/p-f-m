@@ -211,7 +211,7 @@ sub _helppage {
                    Please read the file COPYING for details.
 
       You are encouraged to copy and share this program with other users.
-   Any bug, comment or suggestion is welcome in order to update this product.
+   Any bug, comment or suggestion is welcome in order to improve this product.
 
   $version_message http://sourceforge.net/projects/p-f-m/
 
@@ -458,7 +458,7 @@ sub _listbookmarks {
 			footer   => FOOTER_NONE,
 		});
 	# list bookmarks
-	foreach (@{$_pfm->BOOKMARKKEYS}) {
+	foreach (@{$_pfm->config->BOOKMARKKEYS}) {
 		last if ($printline > $_screen->BASELINE + $_screen->screenheight);
 		$dest    = $_pfm->state($_);
 		$spawned = ' ';
@@ -2599,8 +2599,8 @@ sub handlemoreconfig {
 	if (system $config_editor, $config->location()) {
 		$_screen->at(1,0)->display_error('Editor failed');
 	} else {
-		$config->read( $config->READ_AGAIN);
-		$config->parse($config->NO_COPYRIGHT);
+		$config->read($config->READ_AGAIN);
+		$config->parse();
 		$config->apply();
 		if ($olddotdot != $config->{dotdot_mode}) {
 			# there is no key to toggle dotdot mode, therefore
