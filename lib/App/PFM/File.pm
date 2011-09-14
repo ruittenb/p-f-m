@@ -186,6 +186,7 @@ sub stat_entry {
 		name		=> $entry,
 		uid			=> find_uid($uid),
 		gid			=> find_gid($gid),
+		mode_num	=> $mode,
 		mode		=> $self->mode2str($mode),
 		device		=> $device,
 		inode		=> $inode,

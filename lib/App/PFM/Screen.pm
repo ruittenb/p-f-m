@@ -634,8 +634,7 @@ sub pressanykey {
 		$self->getch();
 	};
 	# the output of the following command should start on a new line.
-	# does this work correctly in TERM_RAW mode?
-	$self->puts("\n");
+	$self->cooked_echo()->puts("\n")->raw_noecho();
 	$self->mouse_enable() if $_pfm->browser->{mouse_mode};
 	$self->alternate_on() if $self->{_config}->{altscreen_mode};
 	$self->handleresize() if $_wasresized;

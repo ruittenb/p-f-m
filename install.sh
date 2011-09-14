@@ -2,9 +2,9 @@
 ############################################################################
 #
 # Name:         install.sh
-# Version:      0.42
+# Version:      0.43
 # Authors:      Rene Uittenbogaard
-# Date:         2010-09-29
+# Date:         2010-10-16
 # Usage:        sh install.sh
 # Description:  Un*x-like systems can be very diverse.
 #		This script is meant as an example how pfm dependencies
@@ -388,7 +388,7 @@ download_and_install_perl_module_term_readline_gnu() {
 	done
 
 	if [ "x$install_opt" = xc ]; then
-		$sudo perl -MCPAN -e"install $packagename"
+		$sudo perl -MCPAN -e"install '$packagename'"
 #	elif [ "x$install_opt" = xm ]; then
 #		$sudo port install p5-term-readline-gnu
 #	elif [ "x$install_opt" = xf ]; then

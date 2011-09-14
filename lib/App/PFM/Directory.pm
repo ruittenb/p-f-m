@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Directory 0.93
+# @(#) App::PFM::Directory 0.94
 #
 # Name:			App::PFM::Directory
-# Version:		0.93
+# Version:		0.94
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-10-03
+# Date:			2010-10-18
 #
 
 ##########################################################################
@@ -846,36 +846,39 @@ sub checkrcsapplicable {
 	my $on_after_job_receive_data = sub {
 		my $event = shift;
 		my $job   = $event->{origin};
-		my ($flags, $file) = @{$event->{data}};
-		my ($topdir, $mapindex, $oldval);
 		my $count = 0;
+		my $data_line;
 		my %nameindexmap =
 			map { $_->{name}, $count++ } @{$self->{_showncontents}};
-		if (substr($file, 0, length($path)) eq $path) {
-			$file = substr($file, length($path)+1); # +1 for trailing /
-		}
-		# currentdir or subdir?
-		if ($file =~ m!/!) {
-		# change in subdirectory
-		($topdir = $file) =~ s!/.*!!;
-		$mapindex = $nameindexmap{$topdir};
-		# find highest prio marker
-		$oldval = $self->{_showncontents}[$mapindex]{rcs};
-		$self->{_showncontents}[$mapindex]{rcs} =
-			$job->rcsmax($oldval, $flags);
-#			# if there was a change in a subdir, then show M on currentdir
-#			$mapindex = $nameindexmap{'.'};
-#			# find highest prio marker
-#			$oldval = $self->{_showncontents}[$mapindex]{rcs};
-#			$self->{_showncontents}[$mapindex]{rcs} =
-#				$job->rcsmax($oldval, 'M');
-		} else {
-			# change file in current directory
-#			if (defined($mapindex = $nameindexmap{$file})) {
-				$mapindex = $nameindexmap{$file};
-				$self->{_showncontents}[$mapindex]{rcs} = $flags;
-#			}
-		}
+		foreach $data_line (@{$event->{data}}) {
+			my ($flags, $file) = @$data_line;
+			my ($topdir, $mapindex, $oldval);
+			if (substr($file, 0, length($path)) eq $path) {
+				$file = substr($file, length($path)+1); # +1 for trailing /
+			}
+			# currentdir or subdir?
+			if ($file =~ m!/!) {
+			# change in subdirectory
+			($topdir = $file) =~ s!/.*!!;
+			$mapindex = $nameindexmap{$topdir};
+			# find highest prio marker
+			$oldval = $self->{_showncontents}[$mapindex]{rcs};
+			$self->{_showncontents}[$mapindex]{rcs} =
+				$job->rcsmax($oldval, $flags);
+#				# if there was a change in a subdir, then show M on currentdir
+#				$mapindex = $nameindexmap{'.'};
+#				# find highest prio marker
+#				$oldval = $self->{_showncontents}[$mapindex]{rcs};
+#				$self->{_showncontents}[$mapindex]{rcs} =
+#					$job->rcsmax($oldval, 'M');
+			} else {
+				# change file in current directory
+#				if (defined($mapindex = $nameindexmap{$file})) {
+					$mapindex = $nameindexmap{$file};
+					$self->{_showncontents}[$mapindex]{rcs} = $flags;
+#				}
+			}
+		} # endfor $data_line ($event->data)
 		# TODO only show if this directory is on-screen (is_main).
 		$screen->listing->show();
 		$screen->listing->highlight_on();
