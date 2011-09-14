@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.09.6
+# @(#) App::PFM::Application 2.09.7
 #
 # Name:			App::PFM::Application
-# Version:		2.09.6
+# Version:		2.09.7
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-10-03
+# Date:			2010-10-10
 #
 
 ##########################################################################
@@ -180,23 +180,32 @@ if the application bootstraps correctly.
 
 sub _bootstrap_members {
 	my ($self, $silent) = @_;
-	my ($screen, $config, $history, $os, $jh, %bookmarks);
+	my ($screen, $config, $state, %bookmarks);
 
 	# hand over the application object to the other classes
 	# for easy access.
-	$screen                      = $self->{_screen};
-	$self->{_config}  = $config  = new App::PFM::Config(
-									$self, $screen, $self->{VERSION});
-	$self->{_history} = $history = new App::PFM::History(
-									$self, $screen, $config);
-	$self->{_os}         = $os   = new App::PFM::OS($config);
-	$self->{_jobhandler} = $jh   = new App::PFM::JobHandler();
-	$self->{_states}{S_MAIN}     = new App::PFM::State(
-									$self, $screen, $config, $os, $jh);
-	$self->{_commandhandler}     = new App::PFM::CommandHandler(
-									$self, $screen, $config, $os, $history);
-	$self->{_browser}            = new App::PFM::Browser(
-									$self, $screen, $config);
+	$screen					 = $self->{_screen};
+	$config					 =
+	$self->{_config}		 = new App::PFM::Config(
+								$self,
+								$screen,
+								$self->{VERSION});
+	$self->{_history}		 = new App::PFM::History(
+								$self,
+								@{$self}{qw(_screen _config)});
+	$self->{_os}			 = new App::PFM::OS(
+								$config);
+	$self->{_jobhandler}	 = new App::PFM::JobHandler();
+	$self->{_states}{S_MAIN} = $state
+							 = new App::PFM::State(
+								$self,
+								@{$self}{qw(_screen _config _os _jobhandler)});
+	$self->{_commandhandler} = new App::PFM::CommandHandler(
+								$self,
+								@{$self}{qw(_screen _config _os _history)});
+	$self->{_browser}		 = new App::PFM::Browser(
+								@{$self}{qw(_screen _config)},
+								$state);
 	
 	$self->_bootstrap_event_hub();
 

@@ -46,10 +46,7 @@
   provide a state->on_shutdown to write the info
 
 - make our() variables member variables (Get Rid of Slimy applicaSion object)
-- store $browser->{_screen, _config, _main_state}; remove _pfm
-
-- standardize the names of constants
-  Config::READ_FIRST?
+- notify Browser when the main state changes
 
 - handlefind_incremental needs reviewing if we want to eliminate ->browser-> calls.
 

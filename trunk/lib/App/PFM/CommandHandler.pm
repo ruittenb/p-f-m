@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.39
+# @(#) App::PFM::CommandHandler 1.40
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.39
+# Version:		1.40
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-10-08
+# Date:			2010-10-10
 #
 
 ##########################################################################
@@ -661,6 +661,7 @@ sub handleprev {
 	} else {
 		$self->{_screen}->set_deferred_refresh(R_MENU);
 	}
+	$browser->main_state($_pfm->state('S_MAIN'));
 }
 
 =item handleswap(App::PFM::Event $event)
@@ -768,6 +769,7 @@ sub handleswap {
 			$screen->set_deferred_refresh(R_CHDIR);
 		}
 	}
+	$browser->main_state($_pfm->state('S_MAIN'));
 }
 
 =item handlerefresh(App::PFM::Event $event)
@@ -2847,6 +2849,7 @@ sub handlemorego {
 #		$_pfm->state->{_baseindex} = $browser->baseindex;
 #		$_pfm->state($key, $_pfm->state->clone());
 	}
+	$browser->main_state($_pfm->state('S_MAIN'));
 }
 
 =item handlemorefifo(App::PFM::Event $event)

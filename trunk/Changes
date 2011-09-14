@@ -1,3 +1,7 @@
+2.09.7-alpha
+
+* restructured code
+
 2.09.6-alpha
 
 * added: default launch command for Makefiles is 'make'
