@@ -775,7 +775,7 @@ mouseturnoff:yes
 #mousewheeljumpsize:5
 mousewheeljumpsize:variable
 
-## if 'mousewheeljumpsize' is 'variable', the next two values are taken
+## if 'mousewheeljumpsize' is 'variable', the next three values are taken
 ## into account.
 ## 'mousewheeljumpratio' is used to calculate the number of lines that
 ## the cursor will jump, namely: the total number of enties in the

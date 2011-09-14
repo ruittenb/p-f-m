@@ -3,10 +3,10 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.09.7
+# Version:		2.09.8
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-10-10
+# Date:			2010-10-18
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				    [ -l, --layout <number> ] [ -o, --sort <mode> ]
 #				pfm { -v, --version | -h, --help }
@@ -24,14 +24,14 @@
 # version
 
 # for MakeMaker
-our $VERSION  = '2.09.7';
+our $VERSION  = '2.09.8';
 our $LASTYEAR = 2010;
 
 =pod
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.09.7
+.ds Vw @(#) pfm.pl 2.09.8
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -838,6 +838,8 @@ settings modifiable by key commands (like 'defaultsortmode') will not.
 
 You will be prompted for a filename, then your editor will
 be spawned.
+
+If a capital B<E> is pressed, the foreground editor is used ('fg_editor').
 
 =item B<make Fifo>
 

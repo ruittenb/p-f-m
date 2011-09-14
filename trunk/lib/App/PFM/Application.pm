@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.09.7
+# @(#) App::PFM::Application 2.09.8
 #
 # Name:			App::PFM::Application
-# Version:		2.09.7
+# Version:		2.09.8
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-10-10
+# Date:			2010-10-18
 #
 
 ##########################################################################
@@ -439,9 +439,12 @@ sub checkupdates {
 	my $on_after_job_receive_data = sub {
 		my ($event) = @_;
 		my $job     = $event->{origin};
-		if ($event->{data} gt $self->{VERSION}) {
-			$self->{NEWER_VERSION}	= $event->{data};
-			$self->{PFM_URL}		= $job->PFM_URL;
+		my $jobdata = $event->{data};
+		if (ref $jobdata eq 'ARRAY') {
+			if ($jobdata->[0] gt $self->{VERSION}) {
+				$self->{NEWER_VERSION}	= $jobdata->[0];
+				$self->{PFM_URL}		= $job->PFM_URL;
+			}
 		}
 	};
 	$self->{_jobhandler}->start('CheckUpdates', {

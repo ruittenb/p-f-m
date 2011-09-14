@@ -342,14 +342,15 @@ using df(1).
 =cut
 
 # aix     => requires parsing
+# irix    => requires parsing
+# hpux    => uses 'bdf'
+# sco     => uses 'dfspace'
 # freebsd => can use the default unless proven otherwise
 # netbsd  => can use the default unless proven otherwise
 # dec_osf => can use the default unless proven otherwise
-# beos    => can use the default unless proven otherwise
-# hpux    => uses 'bdf'
-# irix    => requires parsing
-# sco     => uses 'dfspace'
 # darwin  => can use the default unless proven otherwise
+# beos    => requires parsing
+# haiku   => requires parsing
 # MSWin32, os390 etc. not supported
 
 sub df {

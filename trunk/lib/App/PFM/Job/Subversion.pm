@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::Subversion 0.31
+# @(#) App::PFM::Job::Subversion 0.32
 #
 # Name:			App::PFM::Job::Subversion
-# Version:		0.31
+# Version:		0.32
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-24
+# Date:			2010-10-18
 #
 
 ##########################################################################
@@ -50,6 +50,7 @@ Initializes new instances. Called from the constructor.
 sub _init {
 	my ($self, @args) = @_;
 	$self->{_COMMAND} = 'svn status %s';
+#	$self->{_COMMAND} = 'svn status --no-ignore %s';
 	$self->SUPER::_init(@args);
 }
 

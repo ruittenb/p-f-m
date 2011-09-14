@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::OS 0.12
+# @(#) App::PFM::OS 0.13
 #
 # Name:			App::PFM::OS
-# Version:		0.12
+# Version:		0.13
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-20
 # Date:			2010-09-18
@@ -37,9 +37,11 @@ use base 'App::PFM::Abstract';
 
 use App::PFM::OS::Abstract;
 use App::PFM::OS::Aix;
+use App::PFM::OS::Beos;
 use App::PFM::OS::Darwin;
 use App::PFM::OS::Dec_osf;
 use App::PFM::OS::Freebsd;
+use App::PFM::OS::Haiku;
 use App::PFM::OS::Hpux;
 use App::PFM::OS::Irix;
 use App::PFM::OS::Linux;

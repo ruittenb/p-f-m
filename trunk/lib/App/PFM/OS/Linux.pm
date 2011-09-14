@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::OS::Linux 0.05
+# @(#) App::PFM::OS::Linux 0.06
 #
 # Name:			App::PFM::OS::Linux
-# Version:		0.05
+# Version:		0.06
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-20
-# Date:			2010-08-25
+# Date:			2010-10-18
 #
 
 ##########################################################################
@@ -69,6 +69,35 @@ sub du {
 	my ($self, $file) = @_;
 	my $line = $self->backtick(qw{du -sb}, $file);
 	return $line;
+}
+
+=item df
+
+Translates the filesystems 'none' to their filesystem types.
+
+=cut
+
+sub df {
+	my ($self, $file) = @_;
+	my ($mount, @fields);
+	my $fstype = '';
+	my @res = $self->SUPER::df($file);
+	return @res unless $res[1] =~ /^none\b/o;
+	my $mountpt = (split /[\s\n]+/, $res[1])[5];
+	if (open MOUNTS, '/proc/mounts') {
+		foreach $mount (<MOUNTS>) {
+			@fields = split /\s+/, $mount;
+			if ($fields[1] eq $file) {
+				$fstype = $fields[2];
+				last;
+			}
+		}
+		close MOUNTS;
+		if ($fstype ne '') {
+			$res[1] =~ s/^none\b/$fstype/;
+		}
+	}
+	return @res;
 }
 
 =item aclget(string $path)

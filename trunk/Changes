@@ -1,3 +1,10 @@
+2.09.8-beta
+
+* fixed: using the '=8' escape multiple times in one command is now possible
+* added: support for Haiku and BeOS
+* added: on Linux: if the mounted filesystem is 'none', then indicate its type
+* changed: performance gain when displaying rcs status data
+
 2.09.7-alpha
 
 * restructured code

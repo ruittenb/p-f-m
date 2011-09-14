@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.40
+# @(#) App::PFM::CommandHandler 1.41
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.40
+# Version:		1.41
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-10-10
+# Date:			2010-10-11
 #
 
 ##########################################################################
@@ -230,7 +230,7 @@ sub _markednames {
 	my ($self, $qif) = @_;
 	my $directory = $_pfm->state->directory;
 	my @res =	map  {
-					$directory->exclude($_, M_OLDMARK);
+#					$directory->exclude($_, M_OLDMARK);
 					condquotemeta($qif, $_->{name});
 				}
 				grep { $_->{mark} eq M_MARK }
@@ -239,7 +239,7 @@ sub _markednames {
 }
 
 =item _expand_replace(bool $do_quote, char $escapechar [, string
-$name_no_extension, string $name, string $extension ] )
+$name_no_extension, string $name, string $extension, ref $eightset ] )
 
 Does the actual escape expansion in commands and filenames
 for one occurrence of an escape sequence.
@@ -251,7 +251,8 @@ these escapes.
 =cut
 
 sub _expand_replace {
-	my ($self, $qif, $category, $name_no_extension, $name, $extension) = @_;
+	my ($self, $qif, $category, $name_no_extension, $name, $extension,
+		$eightset) = @_;
 	for ($category) {
 		/1/ and return condquotemeta($qif, $name_no_extension);
 		/2/ and return condquotemeta($qif, $name);
@@ -263,7 +264,10 @@ sub _expand_replace {
 		/6/ and return condquotemeta($qif,
                                     basename($_pfm->state->directory->path));
 		/7/ and return condquotemeta($qif, $extension);
-		/8/ and return join (' ', $self->_markednames($qif));
+		/8/ and do {
+			$$eightset = 1 if $eightset;
+			return join (' ', $self->_markednames($qif));
+		};
 		/e/ and return condquotemeta($qif, $self->{_config}{editor});
 		/E/ and return condquotemeta($qif, $self->{_config}{fg_editor});
 		/p/ and return condquotemeta($qif, $self->{_config}{pager});
@@ -303,7 +307,7 @@ sub _expand_escapes { # quoteif, command, \%currentfile
 #	local *command = \$_[2];
 	my $name       = $currentfile->{name};
 	my $qe         = quotemeta $self->{_config}{e};
-	my ($name_no_extension, $extension);
+	my ($name_no_extension, $extension, $eightset);
 	# include '.' in =7
 	if ($name =~ /^(.*)(\.[^\.]+)$/) {
 		$name_no_extension = $1;
@@ -319,8 +323,17 @@ sub _expand_escapes { # quoteif, command, \%currentfile
 	$$command =~ s/^~([^:\/]+)/(getpwnam $1)[7] || "~$1"/e;
 	# the next generation in quoting
 	$$command =~ s/$qe(.)/
-		_expand_replace($self, $qif, $1, $name_no_extension, $name, $extension)
+		_expand_replace(
+			$self, $qif, $1, $name_no_extension, $name, $extension, \$eightset)
 	/ge;
+	# unmark all files (only for =8)
+	if ($eightset) {
+		foreach (@{$_pfm->state->directory->showncontents}) {
+			if ($_->{mark} eq M_MARK) {
+				$_pfm->state->directory->exclude($_, M_OLDMARK);
+			}
+		}
+	}
 }
 
 =item _multi_to_single(string $filename)
@@ -2546,7 +2559,7 @@ sub handlemore {
 		for ($key) {
 			/^s$/io		and $self->handlemoreshow($event),		  last MORE_PAN;
 			/^g$/io		and $self->handlemorego($event),		  last MORE_PAN;
-			/^e$/io		and $self->handlemoreedit($event),		  last MORE_PAN;
+			/^e$/io		and $self->handlemoreedit($event, $key),  last MORE_PAN;
 			/^h$/io		and $self->handlemoreshell(),			  last MORE_PAN;
 			/^k5$/o		and $self->handlemoresmartrefresh($event),last MORE_PAN;
 			/^m$/io		and $self->handlemoremake($event),		  last MORE_PAN;
@@ -2672,14 +2685,17 @@ sub handlemoreconfig {
 	}
 }
 
-=item handlemoreedit(App::PFM::Event $event)
+=item handlemoreedit(App::PFM::Event $event, char $key)
 
 Opens any file in the configured editor (B<M>ore - B<E>dit).
 
 =cut
 
 sub handlemoreedit {
-	my ($self, $event) = @_;
+	my ($self, $event, $key) = @_;
+	my $editor = $key eq 'E'
+		? $self->{_config}{fg_editor}
+		: $self->{_config}{editor};
 	my $newname;
 	$self->{_screen}->show_frame({
 		footer => FOOTER_NONE,
@@ -2691,7 +2707,7 @@ sub handlemoreedit {
 		prompt  => 'Filename to edit: ',
 	});
 	$self->_expand_escapes(QUOTE_OFF, \$newname, $event->{currentfile});
-	if (system $self->{_config}{editor}." \Q$newname\E") {
+	if (system $editor." \Q$newname\E") {
 		$self->{_screen}->display_error('Editor failed');
 	}
 	$self->{_screen}->raw_noecho();
