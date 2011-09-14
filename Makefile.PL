@@ -29,7 +29,7 @@ WriteMakefile(
 	PREREQ_PM		=> {
 		'File::stat'		=> 0,
 		'File::Stat::Bits'	=> 0.19,  # maybe less
-		'File::Temp'		=> 0,22,
+		'File::Temp'		=> 0.22,
 		'Term::Cap'		=> 0,
 		'Term::Screen'		=> 1.03,  # for Solaris; others 1.02
 		'Term::ScreenColor'	=> 1.13,  # no less than 1.13!
