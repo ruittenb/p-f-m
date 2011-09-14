@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.07.8
+# @(#) App::PFM::Application 2.07.9
 #
 # Name:			App::PFM::Application
-# Version:		2.07.8
+# Version:		2.07.9
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-30
+# Date:			2010-08-31
 #
 
 ##########################################################################
@@ -20,7 +20,9 @@ App::PFM::Application
 
 =head1 DESCRIPTION
 
-This is the PFM application class that holds all pfm elements together.
+This is the PFM application class that holds the elements together that
+make up the application: Screen, Browser, CommandHandler, JobHandler,
+History, Config, OS and the State array.
 
 =head1 METHODS
 
@@ -56,9 +58,6 @@ use constant BOOKMARKKEYS => [qw(
 	A B C D E F G H I J K L M N O P Q R S T U V W X Y Z
 )];
 
-our ($_config, $_browser, $_screen, $_commandhandler, $_history,
-	$_jobhandler);
-
 ##########################################################################
 # private subs
 
@@ -74,7 +73,6 @@ sub _init {
 	$self->{NEWER_VERSION} = '';
 	$self->{_bootstrapped} = 0;
 	$self->{_states}       = {};
-	$self->{_os}           = new App::PFM::OS($self);
 }
 
 =item _findversionfromfile()
@@ -132,10 +130,11 @@ location of the F<.pfmrc> file.
 
 sub _usage {
 	my ($self) = @_;
-	$_screen->colorizable(1);
-	my $directory = $_screen->colored('underline', 'directory');
-	my $number    = $_screen->colored('underline', 'number');
-	my $config    = new App::PFM::Config($self);
+	my $screen = $self->{_screen};
+	$screen->colorizable(1);
+	my $directory  = $screen->colored('underline', 'directory');
+	my $number     = $screen->colored('underline', 'number');
+	my $configname = App::PFM::Config::give_location();
 	print "Usage: pfm [ -l, --layout $number ] ",
 		  "[ $directory ] [ -s, --swap $directory ]\n",
 		  "       pfm { -h, --help | -v, --version }\n\n",
@@ -144,7 +143,7 @@ sub _usage {
 		  "    -l, --layout $number  : startup with specified layout\n",
 		  "    -s, --swap $directory : specify swap directory\n",
 		  "    -v, --version        : print version information and exit\n\n",
-		  "Configuration options will be read from ", $config->give_location(), "\n",
+		  "Configuration options will be read from $configname\n",
 		  "(or override this with \$PFMRC)\n";
 }
 
@@ -171,14 +170,14 @@ sub _copyright {
 	# note that configured colors are not yet known
 	my $lastyear = $self->{LASTYEAR};
 	my $vers     = $self->{VERSION};
-	$self->screen
+	$self->{_screen}
 		->at(0,0)->clreol()->cyan()
 				 ->puts("PFM $vers for Unix and Unix-like operating systems.")
 		->at(1,0)->puts("Copyright (c) 1999-$lastyear Rene Uittenbogaard")
 		->at(2,0)->puts("This software comes with no warranty: " .
 						"see the file COPYING for details.")
 		->reset()->normal();
-	return $self->screen->key_pressed($delay || 0);
+	return $self->{_screen}->key_pressed($delay || 0);
 }
 
 =item _goodbye()
@@ -192,29 +191,31 @@ sub _goodbye {
 	my ($self) = @_;
 	my $bye    = 'Goodbye from your Personal File Manager!';
 	my $state  = $self->{_states}{S_MAIN};
-	$_screen->cooked_echo()
+	my $config = $self->{_config};
+	my $screen = $self->{_screen};
+	$screen->cooked_echo()
 		->mouse_disable()
 		->alternate_off();
-	system qw(tput cnorm) if $_config->{cursorveryvisible};
+	system qw(tput cnorm) if $config->{cursorveryvisible};
 	if ($state->{altscreen_mode}) {
 		print "\n";
 	} else {
-		if ($_config->{clsonexit}) {
-			$_screen->clrscr();
+		if ($config->{clsonexit}) {
+			$screen->clrscr();
 		} else {
-			$_screen->at(0,0)->putcentered($bye)->clreol()
-					->at($_screen->PATHLINE, 0);
+			$screen->at(0,0)->putcentered($bye)->clreol()
+					->at($screen->PATHLINE, 0);
 		}
 	}
-	$_history->write_dirs();
-	$_history->write()          if $_config->{autowritehistory};
-	$_config->write_bookmarks() if $_config->{autowritebookmarks};
-	if ($state->{altscreen_mode} or !$_config->{clsonexit}) {
-		$_screen->at($_screen->screenheight + $_screen->BASELINE + 1, 0)
+	$self->{_history}->write_dirs();
+	$self->{_history}->write() if $config->{autowritehistory};
+	$config->write_bookmarks() if $config->{autowritebookmarks};
+	if ($state->{altscreen_mode} or !$config->{clsonexit}) {
+		$screen->at($screen->screenheight + $screen->BASELINE + 1, 0)
 				->clreol();
 	}
 	if ($self->{NEWER_VERSION} and $self->{PFM_URL}) {
-		$_screen->putmessage(
+		$screen->putmessage(
 			"There is a newer version ($self->{NEWER_VERSION}) ",
 			"available at $self->{PFM_URL}\n");
 	}
@@ -263,23 +264,28 @@ refer to the main, swap and previous states.
 =cut
 
 sub browser {
-	return $_browser;
+	my ($self) = @_;
+	return $self->{_browser};
 }
 
 sub commandhandler {
-	return $_commandhandler;
+	my ($self) = @_;
+	return $self->{_commandhandler};
 }
 
 sub config {
-	return $_config;
+	my ($self) = @_;
+	return $self->{_config};
 }
 
 sub history {
-	return $_history;
+	my ($self) = @_;
+	return $self->{_history};
 }
 
 sub jobhandler {
-	return $_jobhandler;
+	my ($self) = @_;
+	return $self->{_jobhandler};
 }
 
 sub os {
@@ -288,7 +294,8 @@ sub os {
 }
 
 sub screen {
-	return $_screen;
+	my ($self) = @_;
+	return $self->{_screen};
 }
 
 sub state {
@@ -315,28 +322,6 @@ sub newer_version {
 
 ##########################################################################
 # public subs
-
-=item openwindow(App::PFM::File $file)
-
-Opens a new terminal window running pfm.
-
-=cut
-
-sub openwindow {
-	my ($self, $file) = @_;
-	if ($_config->{windowtype} eq 'pfm') {
-		# windowtype = pfm
-		if (ref $self->{_states}{S_SWAP}) {
-			system($_config->{windowcmd} . " 'pfm \Q$file->{name}\E -s " .
-				quotemeta($self->{_states}{S_SWAP}->{path}) . "' &");
-		} else {
-			system($_config->{windowcmd} . " 'pfm \Q$file->{name}\E' &");
-		}
-	} else {
-		# windowtype = standalone
-		system($_config->{windowcmd} . " \Q$file->{name}\E &");
-	}
-}
 
 =item swap_states(string $statename1, string $statename2)
 
@@ -366,7 +351,7 @@ sub checkupdates {
 			$self->{PFM_URL}		= $job->PFM_URL;
 		}
 	};
-	$_jobhandler->start('CheckUpdates', {
+	$self->{_jobhandler}->start('CheckUpdates', {
 		after_job_receive_data => $on_after_job_receive_data,
 	});
 }
@@ -384,13 +369,18 @@ sub bootstrap {
 	my ($self, $silent) = @_;
 	my ($startingdir, $swapstartdir, $startinglayout,
 		$currentdir, $opt_version, $opt_help,
-		%bookmarks, $invalid, $state);
+		%bookmarks, $invalid, $state, $config, $screen,
+		$on_after_parse_usecolor, $on_after_receive_non_motion_input);
 	
+	#------------------------------------------------------------
+	# phase 1: parse commandline arguments
+	#------------------------------------------------------------
 	# hand over the application object to the other classes
 	# for easy access.
 	$self->{_states}{S_MAIN} = new App::PFM::State($self);
-	$_screen				 = new App::PFM::Screen($self);
-	$_screen->at($_screen->rows(), 0)->cooked_echo();
+	$self->{_screen}		 = new App::PFM::Screen($self);
+	$screen					 = $self->{_screen};
+	$screen->at($screen->rows(), 0)->cooked_echo();
 	
 	Getopt::Long::Configure(qw'bundling permute');
 	GetOptions ('s|swap=s'   => \$swapstartdir,
@@ -402,43 +392,51 @@ sub bootstrap {
 	die "Invalid option\n"	if $invalid;
 	die "\n"				if $opt_help || $opt_version;
 	
+	#------------------------------------------------------------
+	# phase 2: instantiate member objects and parse config file
+	#------------------------------------------------------------
 	# hand over the application object to the other classes
 	# for easy access.
-	$_commandhandler = new App::PFM::CommandHandler($self);
-	$_history		 = new App::PFM::History($self);
-	$_browser		 = new App::PFM::Browser($self);
-	$_jobhandler	 = new App::PFM::JobHandler($self);
+	$self->{_commandhandler} = new App::PFM::CommandHandler($self);
+	$self->{_history}		 = new App::PFM::History($self);
+	$self->{_browser}		 = new App::PFM::Browser($self);
+	$self->{_jobhandler}	 = new App::PFM::JobHandler($self);
+	$self->{_os}			 = new App::PFM::OS($self);
+	$self->{_config}		 = new App::PFM::Config($self);
+	$config					 = $self->{_config};
 	
-	$_screen->clrscr()->raw_noecho();
-	$_screen->calculate_dimensions();
-
-	$_config = new App::PFM::Config($self);
-	my $on_after_parse_usecolor = sub {
-		$self->_copyright($self->config->pfmrc->{copyrightdelay});
+	$screen->clrscr()->raw_noecho();
+	$screen->calculate_dimensions();
+	
+	$on_after_parse_usecolor = sub {
+		$self->_copyright($config->pfmrc->{copyrightdelay});
 	};
 	if (!$silent) {
-		$_config->register_listener(
+		$config->register_listener(
 			'after_parse_usecolor', $on_after_parse_usecolor);
 	}
-	$_config->read($silent ? $_config->READ_AGAIN : $_config->READ_FIRST);
-	$_config->parse();
-	$_config->apply();
-	$_config->unregister_listener(
+	$config->read($silent ? $config->READ_AGAIN : $config->READ_FIRST);
+	$config->parse();
+	$config->apply();
+	$config->unregister_listener(
 			'after_parse_usecolor', $on_after_parse_usecolor);
-
-	%bookmarks = $_config->read_bookmarks();
+	
+	%bookmarks = $config->read_bookmarks();
 	@{$self->{_states}}{@{BOOKMARKKEYS()}} = ();
 	@{$self->{_states}}{keys %bookmarks} = values %bookmarks;
-	$_screen->listing->layout($startinglayout);
-	$_history->read();
+	$screen->listing->layout($startinglayout);
+	$self->{_history}->read();
 	$self->checkupdates();
-	my $on_after_receive_non_motion_input = sub {
+	$on_after_receive_non_motion_input = sub {
 		my $event = shift;
-		$_commandhandler->handle($event);
+		$self->{_commandhandler}->handle($event);
 	};
-	$_browser->register_listener(
+	$self->{_browser}->register_listener(
 		'after_receive_non_motion_input', $on_after_receive_non_motion_input);
 	
+	#------------------------------------------------------------
+	# phase 3: prepare the state objects
+	#------------------------------------------------------------
 	# current directory - MAIN for the time being
 	$currentdir = getcwd();
 	$self->{_states}{S_MAIN}->prepare($currentdir);
@@ -447,9 +445,9 @@ sub bootstrap {
 	if ($startingdir ne '') {
 		# if so, make it MAIN; currentdir becomes PREV
 		unless ($self->{_states}{S_MAIN}->directory->path($startingdir)) {
-			$_screen->at(0,0)->clreol();
-			$_screen->display_error("$startingdir: $! - using .");
-			$_screen->important_delay();
+			$screen->at(0,0)->clreol();
+			$screen->display_error("$startingdir: $! - using .");
+			$screen->important_delay();
 		}
 	} else {
 		# if not, clone MAIN to PREV
@@ -460,7 +458,7 @@ sub bootstrap {
 		$self->{_states}{S_SWAP} = new App::PFM::State($self, $swapstartdir);
 		$self->{_states}{S_SWAP}->prepare();
 	}
-	# flag done
+	# done
 	$self->{_bootstrapped} = 1;
 }
 
@@ -474,7 +472,7 @@ been done yet.
 sub run {
 	my ($self) = @_;
 	$self->bootstrap() if !$self->{_bootstrapped};
-	$_browser->browse();
+	$self->{_browser}->browse();
 	$self->_goodbye();
 }
 

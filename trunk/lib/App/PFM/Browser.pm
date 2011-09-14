@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Browser 0.41
+# @(#) App::PFM::Browser 0.42
 #
 # Name:			App::PFM::Browser
-# Version:		0.41
+# Version:		0.42
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-08-30
+# Date:			2010-08-31
 #
 
 ##########################################################################
@@ -347,7 +347,7 @@ sub position_cursor_fuzzy {
 =item find_best_find_match(string $seek, string $first, string $second )
 
 Decides which file out of two is the best match, I<e.g.> if there are
-two files C<Contractor.php> and C<Dealer.php>, and 'Coz' is given,
+two files C<Contractor.php> and C<Dealer.php>, and 'Coz' is searched,
 this method decides that C<Contractor.php> is the better match.
 
 Returns 0 (first match is better) or 1 (second is better).

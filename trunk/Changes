@@ -1,3 +1,8 @@
+2.07.9-alpha
+
+* fixed bug: don't crash on clicking the mouse in the diskinfo column
+* reorganized code
+
 2.07.8-alpha
 
 * fixed bug: handling time zones in (T)ime and

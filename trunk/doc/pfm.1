@@ -124,13 +124,13 @@
 .\" ========================================================================
 .\"
 .IX Title "PFM 1"
-.TH PFM 1 "2010-08-31" " " " "
+.TH PFM 1 "2010-08-23" " " " "
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
 .nh
 .ds Yr 2010
-.ds Vw @(#) pfm.pl 2.07.8
+.ds Vw @(#) pfm.pl 2.06.9
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -475,8 +475,8 @@ the editor specified with the 'editor' option in the config file
 .IP "\fB=f\fR" 4
 .IX Item "=f"
 the 'foreground' editor, specified with the 'fg_editor' option in the
-config file. This is expected to be defined as an editor that does not
-fork into the background, so that \f(CW\*(C`pfm\*(C'\fR can wait for its results.
+config file (this is supposed to be an editor that does not fork
+into the background)
 .IP "\fB=p\fR" 4
 .IX Item "=p"
 the pager specified with the 'pager' option in the config file
@@ -603,15 +603,6 @@ corrections that should be made.
 .SH "MORE COMMANDS"
 .IX Header "MORE COMMANDS"
 These commands are accessible through the main screen \fBM\fRore command.
-.IP "\fBAcl\fR" 4
-.IX Item "Acl"
-Edit the Access Control List for this file. Note:
-This feature has not yet been implemented for all Un*x variants.
-.Sp
-\&\s-1WARNING:\s0 This feature has not been well tested on all Unices.
-Use it at your own risk.
-.Sp
-Any help getting the commands right would be appreciated by the author.
 .IP "\fBBookmark\fR" 4
 .IX Item "Bookmark"
 Lists all the available bookmarks and asks the user in which slot the
@@ -1113,10 +1104,7 @@ The author once almost pressed \fB\s-1ENTER\s0\fR when logged in as root and wit
 the cursor on the file \fI/sbin/reboot\fR. You have been warned.
 .PP
 The smallest terminal size supported is 80x24. The display will be messed
-up if you resize your terminal window to a smaller size, unless you specify
-\&'force_minimum_size' in the config file and the terminal supports resizing;
-in that case \f(CW\*(C`pfm\*(C'\fR will resize the terminal to at least 80 columns and/or
-24 rows.
+up if you resize your terminal window to a smaller size.
 .SH "VERSION"
 .IX Header "VERSION"
 .PP \" display the 'pertains to'-macro
@@ -1155,5 +1143,3 @@ For developers: \fITerm::Screen\fR\|(3pm), \fITerm::ScreenColor\fR\|(3pm),
 \&\fIApp::PFM::Screen\fR\|(3pm), \fIApp::PFM::State\fR\|(3pm) and \fIApp::PFM::Util\fR\|(3pm).
 .PP
 The pfm project page: http://sourceforge.net/projects/p\-f\-m/
-.PP
-The pfm homepage: http://p\-f\-m.sourceforge.net/

@@ -3,9 +3,9 @@
 ############################################################################
 #
 # Name:         pfmrcupdate
-# Version:      2.07.8
+# Version:      2.07.9
 # Author:       Rene Uittenbogaard
-# Date:         2010-08-30
+# Date:         2010-08-31
 # Usage:        pfmrcupdate
 # Description:  Update an existing .pfmrc so that it can be used with
 #               newer versions of pfm.
@@ -25,7 +25,7 @@ our $ROFFVERSION = <<'=cut';
 
 =for roff
 .ds Yr 2010
-.ds Vw @(#) pfmrcupdate 2.07.8
+.ds Vw @(#) pfmrcupdate 2.07.9
 .de Vp
 This manual pertains to \f(CWpfmrcupdate\fP version \\$3.
 ..
@@ -77,7 +77,7 @@ sub sort_pfmrc {
 }
 
 sub by_pfmrc_rules {
-	my $modeline = qr/\bvim:\s+set\s.*\bfiletype=xdefaults\b/o;
+	my $modeline = qr/\bvi\w+:\s+set\s.*\bfiletype=xdefaults\b/o;
 	if ($a =~ /$modeline/) { return  1 }
 	if ($b =~ /$modeline/) { return -1 }
 	return 0;

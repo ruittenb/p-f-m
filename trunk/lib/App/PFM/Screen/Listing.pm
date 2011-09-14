@@ -150,7 +150,7 @@ sub _highlightline {
 							if ($linecolor =~ /under(line|score)/);
 	}
 	$_screen->putcolored($linecolor, $self->fileline($currentfile));
-	$self->applycolor($screenline, FILENAME_SHORT, $currentfile);
+	$self->applycolor($screenline, FILENAME_SHORT, $currentfile, TRUE);
 	$_screen->reset()->normal()->at($screenline, $self->{_cursorcol});
 }
 
@@ -384,15 +384,29 @@ sub show {
 =item applycolor(int $line, bool $usemax, App::PFM::File $file)
 
 Applies color to the provided file at the provided screenline.
-The I<usemax> parameter indicates if the coloring is to be applied
-for the entire name (true) or just the width of the filename field
-(false).
+The I<usemax> parameter indicates if the name should be shown
+entirely (true) or just the width of the filename field (false).
 
 =cut
 
+# [, bool $highlight ] )
+# The I<highlight> parameter indicates if the line is currently
+# highlighted.
+
 sub applycolor {
-	my ($self, $line, $usemax, $file) = @_;
+	my ($self, $line, $usemax, $file, $highlight) = @_;
+	my $linecolor;
 	my $maxlength = $usemax ? 255 : $self->{_maxfilenamelength} - 1;
+	# commented out because it requires the highlight to be removed as well
+#	if ($highlight) {
+#		$linecolor =
+#			$_pfm->config->{framecolors}{$_screen->color_mode}{highlight};
+#		$_screen->bold()		if ($linecolor =~ /bold/);
+#		$_screen->reverse()		if ($linecolor =~ /reverse/);
+##		$_screen->underline()	if ($linecolor =~ /under(line|score)/);
+#		$_screen->term()->Tputs('us', 1, *STDOUT)
+#							if ($linecolor =~ /under(line|score)/);
+#	}
 	$_screen->at($line, $self->{_filenamecol})
 		->putcolored(
 			$file->{color},
