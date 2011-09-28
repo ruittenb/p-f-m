@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::File 0.47
+# @(#) App::PFM::File 0.48
 #
 # Name:			App::PFM::File
-# Version:		0.47
+# Version:		0.48
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-09-05
+# Date:			2011-09-09
 #
 
 ##########################################################################
@@ -49,8 +49,8 @@ our ($_pfm);
 ##########################################################################
 # private subs
 
-=item _init(hashref { parent => string $parent_dir, entry => string
-$filename, white => char $iswhite, mark => char $marked_flag } )
+=item I<< _init(hashref { parent => string $parent_dir, entry => string >>
+I<< $filename, white => char $iswhite, mark => char $marked_flag } ) >>
 
 Initializes new instances. Called from the constructor.
 If I<entry> is defined, the method stat_entry() is called automatically.
@@ -68,7 +68,7 @@ sub _init {
 	return;
 }
 
-=item _decidecolor()
+=item I<_decidecolor()>
 
 Decides which color should be used on a particular file.
 
@@ -118,7 +118,7 @@ sub _decidecolor {
 ##########################################################################
 # constructor, getters and setters
 
-=item parent
+=item I<parent()>
 
 Getter for the path of the containing directory according to
 the bookkeeping of this file.
@@ -133,7 +133,7 @@ sub parent {
 ##########################################################################
 # public subs
 
-=item makefile(string $path)
+=item I<makefile(string $path)>
 
 Creates a App::PFM::File object for the given path.
 
@@ -156,7 +156,7 @@ sub makefile {
 	return $file;
 }
 
-=item mode2str(int $st_mode)
+=item I<mode2str(int $st_mode)>
 
 Converts a numeric I<st_mode> field (file type/permission bits) to a
 symbolic one (I<e.g.> C<drwxr-x--->).
@@ -176,7 +176,7 @@ sub mode2str {
 	return $strmode;
 }
 
-=item stamp2str(int $timestamp)
+=item I<stamp2str(int $timestamp)>
 
 Formats a timestamp for printing.
 
@@ -188,7 +188,7 @@ sub stamp2str {
 	return lstrftime($_pfm->config->{timestampformat}, localtime $time);
 }
 
-=item stat_entry(string $entry, char $iswhite, char $marked_flag)
+=item I<stat_entry(string $entry, char $iswhite, char $marked_flag)>
 
 Initializes the current file information by performing a stat() on it.
 
@@ -262,7 +262,7 @@ sub stat_entry {
 	return $self;
 }
 
-=item filetypeflag()
+=item I<filetypeflag()>
 
 Returns the correct flag for this file type.
 
@@ -278,7 +278,7 @@ sub filetypeflag {
 	}
 }
 
-=item format()
+=item I<format()>
 
 Formats the fields according to the current screen size.
 
@@ -306,7 +306,7 @@ sub format {
 	return;
 }
 
-=item apply(coderef $do_this, string $special_mode, array @args)
+=item I<apply(coderef $do_this, string $special_mode, array @args)>
 
 Applies the supplied function to the current file.
 The function will be called as C<< $do_this->($self, @args) >>
