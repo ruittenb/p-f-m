@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Util 0.59
+# @(#) App::PFM::Util 0.60
 #
 # Name:			App::PFM::Util
-# Version:		0.59
+# Version:		0.60
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-06-17
+# Date:			2011-09-09
 #
 
 ##########################################################################
@@ -75,9 +75,9 @@ sub new {
 ##########################################################################
 # public subs
 
-=item min(float $first, float $second [, float $third ...] )
+=item I<min(float $first, float $second [, float $third ...] )>
 
-=item max(float $first, float $second [, float $third ...] )
+=item I<max(float $first, float $second [, float $third ...] )>
 
 Determine the minimum or maximum numeric value out of several.
 
@@ -99,7 +99,7 @@ sub max {
 	return $max;
 }
 
-=item inhibit(bool $first, bool $second)
+=item I<inhibit(bool $first, bool $second)>
 
 Calculates the logical inhibition of two values,
 defined as ((not $a) and $b).
@@ -110,9 +110,9 @@ sub inhibit {
 	return !$_[0] && $_[1];
 }
 
-=item toggle(bool \$arg)
+=item I<toggle(bool ref $arg)>
 
-=item triggle(int \$arg)
+=item I<triggle(int ref $arg)>
 
 Determine the next value in a cyclic two/three-state system.
 
@@ -128,7 +128,7 @@ sub triggle {
 	return $_[0];
 }
 
-=item isxterm(string $termname)
+=item I<isxterm(string $termname)>
 
 Determines if a certain value for $ENV{TERM} is compatible with 'xterm'.
 
@@ -139,9 +139,9 @@ sub isxterm {
 	return $_[0] =~ $XTERMS;
 }
 
-=item isyes(string $yesno)
+=item I<isyes(string $yesno)>
 
-=item isno(string $yesno)
+=item I<isno(string $yesno)>
 
 Determine if a certain string value is equivalent to boolean false or true.
 
@@ -157,9 +157,9 @@ sub isno {
 	return $_[0] =~ /^(0|n|no|false|off|never)$/;
 }
 
-=item dirname(string $path)
+=item I<dirname(string $path)>
 
-=item basename(string $path)
+=item I<basename(string $path)>
 
 Determine the filename without directory (basename) or directoryname
 containing the file (dirname) for the specified path.
@@ -181,7 +181,7 @@ sub basename {
 #	return length($1) ? $1 : $_[0];
 }
 
-=item formatted( [ $field1 [, $field2 [, ... ] ] ] )
+=item I<formatted( [ $field1 [, $field2 [, ... ] ] ] )>
 
 Returns a line that has been formatted using Perl formatting algorithm.
 
@@ -195,7 +195,7 @@ sub formatted {
 	return $^A;
 }
 
-=item fit2limit(int $number, int $limit)
+=item I<fit2limit(int $number, int $limit)>
 
 Fits a file size into a certain number of characters by converting it
 to a number with kilo (mega, giga, ...) specification.
@@ -213,7 +213,7 @@ sub fit2limit {
 	return ($size_num, $size_power);
 }
 
-=item canonicalize_path(string $path [, bool $keeptrail ] )
+=item I<canonicalize_path(string $path [, bool $keeptrail ] )>
 
 Turns a directory path into a canonical path (like realpath()),
 but does not resolve symlinks.
@@ -278,7 +278,7 @@ sub canonicalize_path {
 	return $path;
 }
 
-=item reducepaths(string $firstpath, string $secondpath)
+=item I<reducepaths(string $firstpath, string $secondpath)>
 
 Removes an identical prefix from two paths.
 
@@ -298,7 +298,7 @@ sub reducepaths {
 	return $symlink_target_abs, $symlink_name_abs;
 }
 
-=item reversepath(string $symlink_target_abs, string $symlink_name_rel)
+=item I<reversepath(string $symlink_target_abs, string $symlink_name_rel)>
 
 Reverses the path from target to symlink, I<i.e.> returns the path
 from symlink to target.
@@ -335,7 +335,7 @@ sub reversepath {
 	return canonicalize_path($result);
 }
 
-=item isorphan(string $symlinkpath)
+=item I<isorphan(string $symlinkpath)>
 
 Returns true if a symlink is an orphan symlink.
 
@@ -345,7 +345,7 @@ sub isorphan {
 	return ! -e $_[0];
 }
 
-=item ifnotdefined(mixed $first, mixed $second)
+=item I<ifnotdefined(mixed $first, mixed $second)>
 
 Emulates the perl 5.10 C<//> operator (returns the first argument
 if it is defined, otherwise the second).
@@ -357,7 +357,7 @@ sub ifnotdefined {
 	return (defined($a) ? $a : $b);
 }
 
-=item setifnotdefined(mixed ref $var, mixed $value)
+=item I<setifnotdefined(mixed ref $var, mixed $value)>
 
 Emulates the perl 5.10 C<//=> operator (if the first argument
 is undefined, it is set to the value of the second).
@@ -370,7 +370,7 @@ sub setifnotdefined {
 	return $$var;
 }
 
-=item clearugidcache()
+=item I<clearugidcache()>
 
 Clears the username/groupname cache.
 
@@ -382,9 +382,9 @@ sub clearugidcache {
 	return;
 }
 
-=item find_uid(int $uid)
+=item I<find_uid(int $uid)>
 
-=item find_gid(int $gid)
+=item I<find_gid(int $gid)>
 
 Finds the username or group name corresponding to a uid or gid,
 and caches the result.
@@ -407,7 +407,7 @@ sub find_gid {
 			(defined($gid) ? getgrgid($gid) : '') || $gid);
 }
 
-=item condquotemeta(bool $do_quote, string $text)
+=item I<condquotemeta(bool $do_quote, string $text)>
 
 Conditionally quotemeta() a string.
 
@@ -417,7 +417,7 @@ sub condquotemeta {
 	return $_[0] ? quotemeta($_[1]) : $_[1];
 }
 
-=item touch2time(string $datetime)
+=item I<touch2time(string $datetime)>
 
 Parses a datetime string of the format [[CC]YY-]MM-DD hh:mm[.ss]
 and returns a datetime integer as created by mktime(3).
@@ -437,7 +437,7 @@ sub touch2time {
 
 }
 
-=item testdirempty(string $dirpath)
+=item I<testdirempty(string $dirpath)>
 
 Tests if a directory is empty.
 
@@ -457,7 +457,7 @@ sub testdirempty {
 	return !$third_entry;
 }
 
-=item fitpath(string $path, int $maxlength)
+=item I<fitpath(string $path, int $maxlength)>
 
 Fits a path string to a certain length by taking out directory components.
 
@@ -507,7 +507,7 @@ sub fitpath {
 		$r_ellipssize);
 }
 
-=item alphabetically()
+=item I<alphabetically()>
 
 Sorting routine: sorts strings alphabetically, case-insensitive.
 
@@ -518,7 +518,7 @@ sub alphabetically {
 	return uc($a) cmp uc($b) || $a cmp $b;
 }
 
-=item letters_then_numbers()
+=item I<letters_then_numbers()>
 
 Sorting routine: sorts strings alphabetically, case-insensitive,
 but numbers last.
@@ -537,7 +537,7 @@ sub letters_then_numbers {
 	return uc($a) cmp uc($b) || $a cmp $b;
 }
 
-=item by_name()
+=item I<by_name()>
 
 Sorting routine: sorts files by name.
 
@@ -548,7 +548,7 @@ sub by_name {
 	return $a->{name} cmp $b->{name};
 }
 
-=item lstrftime(string $format, array @datetime)
+=item I<lstrftime(string $format, array @datetime)>
 
 Formats a date/time string.
 
@@ -560,7 +560,7 @@ sub lstrftime {
 	return $result;
 }
 
-=item maxdatetimelen(string $format)
+=item I<maxdatetimelen(string $format)>
 
 =cut
 
