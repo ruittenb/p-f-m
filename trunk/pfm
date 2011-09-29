@@ -3,10 +3,10 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.11.9
+# Version:		2.12.0
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-09-08
+# Date:			2011-09-28
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				    [ -l, --layout <number> ] [ -o, --sort <mode> ]
 #					[ -c, --colorset <mode> ] [ --login ]
@@ -28,13 +28,13 @@
 # version
 
 # for MakeMaker only
-our $VERSION  = '2.11.9';
+our $VERSION  = '2.12.0';
 
 =pod
 
 =for roff
 .ds Yr 2011
-.ds Vw @(#) pfm.pl 2.11.9
+.ds Vw @(#) pfm.pl 2.12.0
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -965,17 +965,33 @@ The bookmarks are also written when C<pfm> exits and the
 
 See also B<M>ore-B<R>ead history/bookmarks.
 
+=item B<F2> Redescend
+
+If the previous directory was a descendant of the current directory,
+return one level down. I<e.g.> if the previous directory was
+F</home/rene/projects/pfm> and the current directory is F</home>,
+this command will subsequently descend into F</home/rene>,
+F</home/rene/projects> and F</home/rene/projects/pfm>.
+
+=item B<F4> Color
+
+Like B<F4>, but cycles backward.
+
 =item B<F5> Smart refresh
 
 Refreshes the directory like B<F5> (remove lost files from the listing,
 read the current directory again I<etc.>) but keeps the marks.
 
-=item B<F6> Multilevel Sort
+=item B<F6> Multilevel sort
 
 Allows the user to enter a string of sort mode characters which will be
 applied sequentially. Example: a string of B<sN> will sort by size
 ascending followed by name descending; the string B<tn> will sort
 directories before files, each sorted alphabetically.
+
+=item B<F9> Layout
+
+Like B<F9>, but cycles backward.
 
 =item B<@>
 
@@ -1047,35 +1063,35 @@ Display help. Identical to B<F1>.
 Allows the user to enter a perl command to be executed in the context
 of C<pfm>. Primarily used for debugging.
 
-=item B<F1>
+=item B<F1> Help
 
 Display help, version number and license information.
 
-=item B<F2>
+=item B<F2> Previous
 
 chdir() back to the previous directory. In shell commands,
 the previous directory path may be referred to as B<=9>.
 
-=item B<F3>
+=item B<F3> Redraw
 
 Fit the file list into the current window and refresh the display.
 
-=item B<F4>
+=item B<F4> Color
 
 Change the current colorset. Multiple colorsets may be defined,
 see the F<.pfmrc> file itself for details.
 
-=item B<F5>
+=item B<F5> Refresh
 
 Current directory will be reread. Use this when the contents of the
 directory have changed. This command will erase all marks.
 
-=item B<F6>
+=item B<F6> Sort
 
 Allows you to re-sort the directory listing. You will be presented
 a number of sort modes.
 
-=item B<F7>
+=item B<F7> Swap
 
 Alternates the display between two directories. When switching for the first
 time, you are prompted for a directory path to show. When you switch back by
@@ -1085,11 +1101,11 @@ the directory path from the alternate screen may be referred to as B<=5>.
 If the 'persistentswap' option has been set in the config file, then
 leaving the swap mode will store the main directory path as swap path again.
 
-=item B<F8>
+=item B<F8> In/Exclude
 
 Toggles the mark (include flag) on an individual file.
 
-=item B<F9>
+=item B<F9> Layout
 
 Toggle the column layout. Layouts are defined in your F<.pfmrc>,
 in the 'defaultlayout' and 'columnlayouts' options. See the config
@@ -1098,16 +1114,16 @@ file itself for information on changing the column layout.
 Note that a 'grand total' column in the layout will only be filled when
 the siB<Z>e command is issued, not when reading the directory contents.
 
-=item B<F10>
+=item B<F10> Multiple
 
 Switch between single-file and multiple-file mode.
 
-=item B<F11>
+=item B<F11> Restat
 
 Refresh (using lstat(2)) the displayed file data for the current file (or
 files, in multiple mode).
 
-=item B<F12>
+=item B<F12> Mouse
 
 Toggle mouse use. See below under L</MOUSE COMMANDS>.
 
@@ -1139,6 +1155,14 @@ If the I<suffix> matches a trailing portion of the value of the
 escape, then the result of the expansion is the expanded
 value of I<escape> with the shortest (B<%>) or longest (B<%%>)
 matching string deleted.
+
+=item B<={escape/needle/replacement}>
+
+=item B<={escape//needle/replacement}>
+
+Find occurrences of I<needle> in the string and replace them with
+I<replacement>.  For B</>, replace only the first
+occurrence; for B<//>, replace all occurrences.
 
 =item B<={escape^letters}>
 
@@ -1199,6 +1223,12 @@ Examples:
 </tr>
 <tr>
 	<td>={2%%t*}</td>		<td>Ac</td>
+</tr>
+<tr>
+	<td>={2/at/}</td>		<td>ActiveDebtor.php</td>
+</tr>
+<tr>
+	<td>={2//t/}</td>		<td>AcivaeDebor.php</td>
 </tr>
 <tr>
 	<td>={2,d}</td>			<td>Activatedebtor.php</td>

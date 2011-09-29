@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 1.27
+# @(#) App::PFM::Config 1.29
 #
 # Name:			App::PFM::Config
-# Version:		1.27
+# Version:		1.29
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-09-07
+# Date:			2011-09-14
 #
 
 ##########################################################################
@@ -86,8 +86,8 @@ our ($_pfm);
 ##########################################################################
 # private subs
 
-=item _init(App:PFM::Application $pfm, App::PFM::Screen $screen,
-string $pfm_version)
+=item I<_init(App:PFM::Application $pfm, App::PFM::Screen $screen,>
+I<string $pfm_version)>
 
 Initializes new instances. Called from the constructor.
 
@@ -104,7 +104,7 @@ sub _init {
 	return;
 }
 
-=item _parse_colorsets()
+=item I<_parse_colorsets()>
 
 Parses the colorsets defined in the F<.pfmrc>.
 
@@ -154,7 +154,7 @@ sub _parse_colorsets {
 	return;
 }
 
-=item _ask_to_backup(string $message)
+=item I<_ask_to_backup(string $message)>
 
 Prompts for confirmation to backup the current F<.pfmrc> and work on
 a new one.
@@ -178,7 +178,7 @@ sub _ask_to_backup {
 ##########################################################################
 # constructor, getters and setters
 
-=item configfilename( [ string $filename ] )
+=item I<configfilename( [ string $filename ] )>
 
 Getter/setter for the current filename of the F<.pfmrc> file.
 
@@ -190,7 +190,7 @@ sub configfilename {
 	return $self->{_configfilename};
 }
 
-=item pfmrc( [ hashref $pfmrc ] )
+=item I<pfmrc( [ hashref $pfmrc ] )>
 
 Getter/setter for the _pfmrc member variable holding the config options.
 
@@ -202,7 +202,7 @@ sub pfmrc {
 	return $self->{_pfmrc};
 }
 
-=item text( [ arrayref $lines ] )
+=item I<text( [ arrayref $lines ] )>
 
 Getter/setter for the member variable holding the unparsed text
 of the config file.
@@ -215,7 +215,7 @@ sub text {
 	return $self->{_text};
 }
 
-=item your_commands()
+=item I<your_commands()>
 
 Getter for the keys of the Your commands in the config file.
 
@@ -228,7 +228,7 @@ sub your_commands {
 	return @your;
 }
 
-=item your(char $key)
+=item I<your(char $key)>
 
 Getter for a specific Your command from the config file.
 
@@ -242,7 +242,7 @@ sub your {
 ##########################################################################
 # public subs
 
-=item location()
+=item I<location()>
 
 Returns a message string for the user indicating which F<.pfmrc>
 is currently being used.
@@ -254,7 +254,7 @@ sub location {
 	return ($ENV{PFMRC} ? $ENV{PFMRC} : CONFIGDIRNAME . "/" . CONFIGFILENAME);
 }
 
-=item read(bool $firstread)
+=item I<read(bool $firstread)>
 
 Reads in the F<.pfmrc> file. If none exists, a default F<.pfmrc> is written.
 The I<firstread> variable ensures that the message "Your config file may
@@ -333,7 +333,7 @@ sub read {
 	return;
 }
 
-=item parse()
+=item I<parse()>
 
 Processes the settings from the F<.pfmrc> file.
 Most options are fetched into member variables. Those that aren't,
@@ -456,7 +456,7 @@ sub parse {
 	return;
 }
 
-=item write_default()
+=item I<write_default()>
 
 Writes a default config file. Creates the default containing directory
 (F<~/.pfm>) if does not exist. An existing config file will be clobbered.
@@ -486,7 +486,7 @@ sub write_default {
 	return;
 }
 
-=item backup()
+=item I<backup()>
 
 Creates a backup of the current config file, I<e.g.>
 F<.pfmrc.20100901T231201>.
@@ -502,7 +502,7 @@ sub backup {
 	return !$result;
 }
 
-=item write_text()
+=item I<write_text()>
 
 Creates a new config file by writing the raw text to it.
 
@@ -516,7 +516,7 @@ sub write_text {
 	return 1;
 }
 
-=item read_bookmarks()
+=item I<read_bookmarks()>
 
 Reads the bookmarks file.
 Fails silently if the bookmarks file cannot be read.
@@ -539,7 +539,7 @@ sub read_bookmarks {
 	return %bookmarks;
 }
 
-=item write_bookmarks( [ bool $finishing [, bool $silent ] ] )
+=item I<write_bookmarks( [ bool $finishing [, bool $silent ] ] )>
 
 Writes the states to the bookmarks file.
 Reports an error if the bookmarks file cannot be written.
@@ -592,7 +592,7 @@ sub write_bookmarks {
 	return;
 }
 
-=item on_shutdown( [ bool $silent ] )
+=item I<on_shutdown( [ bool $silent ] )>
 
 Called when the application is shutting down. Writes the bookmarks
 to file if so indicated by the config.
@@ -789,7 +789,15 @@ importlscolors:yes
 ## or global ('keydef[*]')
 ## definitely look in the Term::Screen(3pm) manpage for details.
 ## also check 'kmous' from terminfo if your mouse is malfunctioning.
-keydef[*]:kmous=\e[M:pgdn=\e[62~:pgup=\e[63~:
+keydef[*]:kmous=\e[M:pgdn=\e[62~:pgup=\e[63~:\
+ks1=\eO1;2P:ks1=\e[1;2P:\
+ks2=\eO1;2Q:ks2=\e[1;2Q:\
+ks4=\eO1;2S:ks4=\e[26~:ks4=\e[1;2S:\
+ks9=\e[20;2~:ks9=\e[33~:
+# :ks1=\eO1;2P:ks1=\e[1;2P:             # shift-F1
+# :ks2=\eO1;2Q:ks2=\e[1;2Q:             # shift-F2
+# :ks4=\eO1;2S:ks4=\e[26~:ks4=\e[1;2S:  # shift-F4
+# :ks9=\e[20;2~:ks9=\e[33~:             # shift-F9
 ## gnome-terminal handles F1  itself. enable shift-F1 by adding:
 #k1=\eO1;2P:
 ## gnome-terminal handles F10 itself. enable shift-F10 by adding:

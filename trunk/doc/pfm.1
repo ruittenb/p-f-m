@@ -124,13 +124,13 @@
 .\" ========================================================================
 .\"
 .IX Title "PFM 1"
-.TH PFM 1 "2011-09-08" " " " "
+.TH PFM 1 "2011-09-28" " " " "
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
 .nh
 .ds Yr 2011
-.ds Vw @(#) pfm.pl 2.11.9
+.ds Vw @(#) pfm.pl 2.12.0
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -766,16 +766,29 @@ The bookmarks are also written when \f(CW\*(C`pfm\*(C'\fR exits and the
 \&'autowritebookmarks' option is set in \fI.pfmrc\fR.
 .Sp
 See also \fBM\fRore\-\fBR\fRead history/bookmarks.
+.IP "\fBF2\fR Redescend" 4
+.IX Item "F2 Redescend"
+If the previous directory was a descendant of the current directory,
+return one level down. \fIe.g.\fR if the previous directory was
+\&\fI/home/rene/projects/pfm\fR and the current directory is \fI/home\fR,
+this command will subsequently descend into \fI/home/rene\fR,
+\&\fI/home/rene/projects\fR and \fI/home/rene/projects/pfm\fR.
+.IP "\fBF4\fR Color" 4
+.IX Item "F4 Color"
+Like \fBF4\fR, but cycles backward.
 .IP "\fBF5\fR Smart refresh" 4
 .IX Item "F5 Smart refresh"
 Refreshes the directory like \fBF5\fR (remove lost files from the listing,
 read the current directory again \fIetc.\fR) but keeps the marks.
-.IP "\fBF6\fR Multilevel Sort" 4
-.IX Item "F6 Multilevel Sort"
+.IP "\fBF6\fR Multilevel sort" 4
+.IX Item "F6 Multilevel sort"
 Allows the user to enter a string of sort mode characters which will be
 applied sequentially. Example: a string of \fBsN\fR will sort by size
 ascending followed by name descending; the string \fBtn\fR will sort
 directories before files, each sorted alphabetically.
+.IP "\fBF9\fR Layout" 4
+.IX Item "F9 Layout"
+Like \fBF9\fR, but cycles backward.
 .IP "\fB@\fR" 4
 .IX Item "@"
 Starts a perl shell in the context of \f(CW\*(C`pfm\*(C'\fR. Primarily used for debugging.
@@ -828,30 +841,30 @@ Display help. Identical to \fBF1\fR.
 .IX Item "@"
 Allows the user to enter a perl command to be executed in the context
 of \f(CW\*(C`pfm\*(C'\fR. Primarily used for debugging.
-.IP "\fBF1\fR" 4
-.IX Item "F1"
+.IP "\fBF1\fR Help" 4
+.IX Item "F1 Help"
 Display help, version number and license information.
-.IP "\fBF2\fR" 4
-.IX Item "F2"
+.IP "\fBF2\fR Previous" 4
+.IX Item "F2 Previous"
 \&\fIchdir()\fR back to the previous directory. In shell commands,
 the previous directory path may be referred to as \fB=9\fR.
-.IP "\fBF3\fR" 4
-.IX Item "F3"
+.IP "\fBF3\fR Redraw" 4
+.IX Item "F3 Redraw"
 Fit the file list into the current window and refresh the display.
-.IP "\fBF4\fR" 4
-.IX Item "F4"
+.IP "\fBF4\fR Color" 4
+.IX Item "F4 Color"
 Change the current colorset. Multiple colorsets may be defined,
 see the \fI.pfmrc\fR file itself for details.
-.IP "\fBF5\fR" 4
-.IX Item "F5"
+.IP "\fBF5\fR Refresh" 4
+.IX Item "F5 Refresh"
 Current directory will be reread. Use this when the contents of the
 directory have changed. This command will erase all marks.
-.IP "\fBF6\fR" 4
-.IX Item "F6"
+.IP "\fBF6\fR Sort" 4
+.IX Item "F6 Sort"
 Allows you to re-sort the directory listing. You will be presented
 a number of sort modes.
-.IP "\fBF7\fR" 4
-.IX Item "F7"
+.IP "\fBF7\fR Swap" 4
+.IX Item "F7 Swap"
 Alternates the display between two directories. When switching for the first
 time, you are prompted for a directory path to show. When you switch back by
 pressing \fBF7\fR again, the contents of the alternate directory are displayed
@@ -859,26 +872,26 @@ unchanged. Menu text changes color when in swap screen. In shell commands,
 the directory path from the alternate screen may be referred to as \fB=5\fR.
 If the 'persistentswap' option has been set in the config file, then
 leaving the swap mode will store the main directory path as swap path again.
-.IP "\fBF8\fR" 4
-.IX Item "F8"
+.IP "\fBF8\fR In/Exclude" 4
+.IX Item "F8 In/Exclude"
 Toggles the mark (include flag) on an individual file.
-.IP "\fBF9\fR" 4
-.IX Item "F9"
+.IP "\fBF9\fR Layout" 4
+.IX Item "F9 Layout"
 Toggle the column layout. Layouts are defined in your \fI.pfmrc\fR,
 in the 'defaultlayout' and 'columnlayouts' options. See the config
 file itself for information on changing the column layout.
 .Sp
 Note that a 'grand total' column in the layout will only be filled when
 the si\fBZ\fRe command is issued, not when reading the directory contents.
-.IP "\fBF10\fR" 4
-.IX Item "F10"
+.IP "\fBF10\fR Multiple" 4
+.IX Item "F10 Multiple"
 Switch between single-file and multiple-file mode.
-.IP "\fBF11\fR" 4
-.IX Item "F11"
+.IP "\fBF11\fR Restat" 4
+.IX Item "F11 Restat"
 Refresh (using \fIlstat\fR\|(2)) the displayed file data for the current file (or
 files, in multiple mode).
-.IP "\fBF12\fR" 4
-.IX Item "F12"
+.IP "\fBF12\fR Mouse" 4
+.IX Item "F12 Mouse"
 Toggle mouse use. See below under \*(L"\s-1MOUSE\s0 \s-1COMMANDS\s0\*(R".
 .SH "ESCAPE MODIFIERS"
 .IX Header "ESCAPE MODIFIERS"
@@ -906,6 +919,15 @@ If the \fIsuffix\fR matches a trailing portion of the value of the
 escape, then the result of the expansion is the expanded
 value of \fIescape\fR with the shortest (\fB%\fR) or longest (\fB%%\fR)
 matching string deleted.
+.IP "\fB={escape/needle/replacement}\fR" 4
+.IX Item "={escape/needle/replacement}"
+.PD 0
+.IP "\fB={escape//needle/replacement}\fR" 4
+.IX Item "={escape//needle/replacement}"
+.PD
+Find occurrences of \fIneedle\fR in the string and replace them with
+\&\fIreplacement\fR.  If the operator is \fB/\fR, replace only the first
+occurrence; if \fB//\fR, replace all occurrences.
 .IP "\fB={escape^letters}\fR" 4
 .IX Item "={escape^letters}"
 .PD 0

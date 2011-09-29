@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.11.9
+# @(#) App::PFM::Application 2.12.0
 #
 # Name:			App::PFM::Application
-# Version:		2.11.9
+# Version:		2.12.0
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-09-05
+# Date:			2011-09-12
 #
 
 ##########################################################################
@@ -55,8 +55,9 @@ use Cwd;
 use locale;
 use strict;
 
-our $VERSION  = '2.11.9';
-our $LASTYEAR = 2011;
+our $VERSION     = '2.12.0';
+our $LASTYEAR    = 2011;
+our $CHILD_ERROR = 0; # filled by the CHLD signal handler
 
 ##########################################################################
 # private subs
@@ -365,6 +366,12 @@ sub _bootstrap_states {
 			$self->{_os},
 			$self->{_jobhandler},
 			$startingswapdir);
+		# we know that the config file has been read by now
+		$self->{_states}{S_SWAP}->on_after_parse_config(App::PFM::Event->new({
+			name   => 'after_parse_config', 
+			origin => $self, # The State will detect that this is not a $config
+			type   => 'soft'
+		}));
 		$self->{_states}{S_SWAP}->prepare(undef, $startingsort);
 	}
 	return;
