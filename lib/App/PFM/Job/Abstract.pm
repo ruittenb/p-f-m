@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::Abstract 1.02
+# @(#) App::PFM::Job::Abstract 1.04
 #
 # Name:			App::PFM::Job::Abstract
-# Version:		1.02
+# Version:		1.04
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-09-02
+# Date:			2011-09-29
 #
 
 ##########################################################################
@@ -75,13 +75,23 @@ sub _init {
 
 Cleans up finished child processes.
 
+perlvar(1) warns us that: "If you have installed a signal handler for
+SIGCHLD, the value of C<$?> will usually be wrong outside that handler."
+Therefore, the child's exit code is fetched and propagated via
+C<$App::PFM::Application::CHILD_ERROR>.
+
 =cut
 
 sub _catch_child {
 	my ($self) = @_;
+	# Fetch the child's exit code. This must be done *before* reaping it.
+	$App::PFM::Application::CHILD_ERROR = $?;
+	$App::PFM::Application::CHILD_ERROR = $?; # don't warn "Used only once"
 	my $pid = wait();
-	my $ret = ($pid == -1) ? 0 : $?;
-#	$? = 0;
+	# Reinstall the reaper.
+	$SIG{CHLD} = sub {
+		$self->_catch_child();
+	};
 	return;
 }
 

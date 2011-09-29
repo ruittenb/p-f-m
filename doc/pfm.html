@@ -831,19 +831,38 @@ to disk.</p>
 'autowritebookmarks' option is set in <em class="file">.pfmrc</em>.</p>
 <p>See also <strong>M</strong>ore-<strong>R</strong>ead history/bookmarks.</p>
 </dd>
+<dt><strong><a name="f2_redescend" class="item"><strong>F2</strong> Redescend</a></strong></dt>
+
+<dd>
+<p>If the previous directory was a descendant of the current directory,
+return one level down. <em>e.g.</em> if the previous directory was
+<em class="file">/home/rene/projects/pfm</em> and the current directory is <em class="file">/home</em>,
+this command will subsequently descend into <em class="file">/home/rene</em>,
+<em class="file">/home/rene/projects</em> and <em class="file">/home/rene/projects/pfm</em>.</p>
+</dd>
+<dt><strong><a name="f4_color" class="item"><strong>F4</strong> Color</a></strong></dt>
+
+<dd>
+<p>Like <strong>F4</strong>, but cycles backward.</p>
+</dd>
 <dt><strong><a name="f5_smart_refresh" class="item"><strong>F5</strong> Smart refresh</a></strong></dt>
 
 <dd>
 <p>Refreshes the directory like <strong>F5</strong> (remove lost files from the listing,
 read the current directory again <em>etc.</em>) but keeps the marks.</p>
 </dd>
-<dt><strong><a name="f6_multilevel_sort" class="item"><strong>F6</strong> Multilevel Sort</a></strong></dt>
+<dt><strong><a name="f6_multilevel_sort" class="item"><strong>F6</strong> Multilevel sort</a></strong></dt>
 
 <dd>
 <p>Allows the user to enter a string of sort mode characters which will be
 applied sequentially. Example: a string of <strong>sN</strong> will sort by size
 ascending followed by name descending; the string <strong>tn</strong> will sort
 directories before files, each sorted alphabetically.</p>
+</dd>
+<dt><strong><a name="f9_layout" class="item"><strong>F9</strong> Layout</a></strong></dt>
+
+<dd>
+<p>Like <strong>F9</strong>, but cycles backward.</p>
 </dd>
 <dt><strong><a name="_" class="item"><strong>@</strong></a></strong></dt>
 
@@ -929,41 +948,41 @@ and/or ttyname.</p>
 <p>Allows the user to enter a perl command to be executed in the context
 of <code>pfm</code>. Primarily used for debugging.</p>
 </dd>
-<dt><strong><a name="f1" class="item"><strong>F1</strong></a></strong></dt>
+<dt><strong><a name="f1_help" class="item"><strong>F1</strong> Help</a></strong></dt>
 
 <dd>
 <p>Display help, version number and license information.</p>
 </dd>
-<dt><strong><a name="f2" class="item"><strong>F2</strong></a></strong></dt>
+<dt><strong><a name="f2_previous" class="item"><strong>F2</strong> Previous</a></strong></dt>
 
 <dd>
 <p><code>chdir()</code> back to the previous directory. In shell commands,
 the previous directory path may be referred to as <strong>=9</strong>.</p>
 </dd>
-<dt><strong><a name="f3" class="item"><strong>F3</strong></a></strong></dt>
+<dt><strong><a name="f3_redraw" class="item"><strong>F3</strong> Redraw</a></strong></dt>
 
 <dd>
 <p>Fit the file list into the current window and refresh the display.</p>
 </dd>
-<dt><strong><a name="f4" class="item"><strong>F4</strong></a></strong></dt>
+<dt><strong><a name="f4_color2" class="item"><strong>F4</strong> Color</a></strong></dt>
 
 <dd>
 <p>Change the current colorset. Multiple colorsets may be defined,
 see the <em class="file">.pfmrc</em> file itself for details.</p>
 </dd>
-<dt><strong><a name="f5" class="item"><strong>F5</strong></a></strong></dt>
+<dt><strong><a name="f5_refresh" class="item"><strong>F5</strong> Refresh</a></strong></dt>
 
 <dd>
 <p>Current directory will be reread. Use this when the contents of the
 directory have changed. This command will erase all marks.</p>
 </dd>
-<dt><strong><a name="f6" class="item"><strong>F6</strong></a></strong></dt>
+<dt><strong><a name="f6_sort" class="item"><strong>F6</strong> Sort</a></strong></dt>
 
 <dd>
 <p>Allows you to re-sort the directory listing. You will be presented
 a number of sort modes.</p>
 </dd>
-<dt><strong><a name="f7" class="item"><strong>F7</strong></a></strong></dt>
+<dt><strong><a name="f7_swap" class="item"><strong>F7</strong> Swap</a></strong></dt>
 
 <dd>
 <p>Alternates the display between two directories. When switching for the first
@@ -974,12 +993,12 @@ the directory path from the alternate screen may be referred to as <strong>=5</s
 If the 'persistentswap' option has been set in the config file, then
 leaving the swap mode will store the main directory path as swap path again.</p>
 </dd>
-<dt><strong><a name="f8" class="item"><strong>F8</strong></a></strong></dt>
+<dt><strong><a name="f8_in_exclude" class="item"><strong>F8</strong> In/Exclude</a></strong></dt>
 
 <dd>
 <p>Toggles the mark (include flag) on an individual file.</p>
 </dd>
-<dt><strong><a name="f9" class="item"><strong>F9</strong></a></strong></dt>
+<dt><strong><a name="f9_layout2" class="item"><strong>F9</strong> Layout</a></strong></dt>
 
 <dd>
 <p>Toggle the column layout. Layouts are defined in your <em class="file">.pfmrc</em>,
@@ -988,18 +1007,18 @@ file itself for information on changing the column layout.</p>
 <p>Note that a 'grand total' column in the layout will only be filled when
 the si<strong>Z</strong>e command is issued, not when reading the directory contents.</p>
 </dd>
-<dt><strong><a name="f10" class="item"><strong>F10</strong></a></strong></dt>
+<dt><strong><a name="f10_multiple" class="item"><strong>F10</strong> Multiple</a></strong></dt>
 
 <dd>
 <p>Switch between single-file and multiple-file mode.</p>
 </dd>
-<dt><strong><a name="f11" class="item"><strong>F11</strong></a></strong></dt>
+<dt><strong><a name="f11_restat" class="item"><strong>F11</strong> Restat</a></strong></dt>
 
 <dd>
 <p>Refresh (using lstat(2)) the displayed file data for the current file (or
 files, in multiple mode).</p>
 </dd>
-<dt><strong><a name="f12" class="item"><strong>F12</strong></a></strong></dt>
+<dt><strong><a name="f12_mouse" class="item"><strong>F12</strong> Mouse</a></strong></dt>
 
 <dd>
 <p>Toggle mouse use. See below under <a href="#mouse_commands">MOUSE COMMANDS</a>.</p>
@@ -1033,6 +1052,15 @@ If the <em>suffix</em> matches a trailing portion of the value of the
 escape, then the result of the expansion is the expanded
 value of <em>escape</em> with the shortest (<strong>%</strong>) or longest (<strong>%%</strong>)
 matching string deleted.</p>
+</dd>
+<dt><strong><a name="escape_needle_replacement" class="item"><strong>={escape/needle/replacement}</strong></a></strong></dt>
+
+<dt><strong><a name="escape_needle_replacement2" class="item"><strong>={escape//needle/replacement}</strong></a></strong></dt>
+
+<dd>
+<p>Find occurrences of <em>needle</em> in the string and replace them with
+<em>replacement</em>.  If the operator is <strong>/</strong>, replace only the first
+occurrence; if <strong>//</strong>, replace all occurrences.</p>
 </dd>
 <dt><strong><a name="escape_letters" class="item"><strong>={escape^letters}</strong></a></strong></dt>
 
@@ -1089,6 +1117,12 @@ a <strong>?</strong>, which matches every letter.</p>
 </tr>
 <tr>
 	<td>={2%%t*}</td>		<td>Ac</td>
+</tr>
+<tr>
+	<td>={2/at/}</td>		<td>ActiveDebtor.php</td>
+</tr>
+<tr>
+	<td>={2//t/}</td>		<td>AcivaeDebor.php</td>
 </tr>
 <tr>
 	<td>={2,d}</td>			<td>Activatedebtor.php</td>

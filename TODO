@@ -21,11 +21,6 @@
 - if =5 is requested but there is no swap state, what to do?
 - in general, if an escape is invalid, what to do?
 
-- fix the unnecessary delay after:
-  ^Cmake: *** [data] Interrupt
-  Command failed  [delay]
-  *** Hit any key to continue ***
-
 - cursor on /. (L)ink (R)elative /tmp/b/rootdir creates
   /tmp/b/rootdir -> ../../..
 - test if all move/copy/rename/link(h,a,r) and (M)ore - fo(L)low are well with
@@ -50,9 +45,18 @@
 
 - BUG: c(O)mmand -> 'cd $YODA/tags' does not work
 
+- Every second time on (M)ore - (R)ead bookmarks:
+Can't use string ("") as a subroutine ref while "strict refs" in use at /usr/local/share/perl/devel/lib/App/PFM/Abstract.pm line 196.
+
+- BUG: when F5 discovers that the current directory is gone, it creates a '.' and '..' entry with nlink == 0. These can be deleted using (D), crashing pfm.
+
 - BUG: when returning (M)(G) to an instantiated bookmark, the cursor is not positioned correctly.
 
+- (M)ore - <F7>: swap to bookmark
+
 - remove date/time warning in Config
+
+- when install.sh is run as root (sudo), then test.sh will create directory ~/.pfm with ownership root:root
 
 - svn status output:
 $ svn st
@@ -82,8 +86,6 @@ A  +    doc/pfm.pdf
 
 - restructure chdir(), handleswap()/handlemoreshow()/handlemorego() etc.
 - check function of $swapping flag behavior
-- "Setting the current directory with App::PFM::Directory::path is identical to
-  calling App::PFM::Directory::chdir()" -> maybe uncouple these two?
 
 - add an 'is_main' flag to directories so that they know if a job event may
   trigger a screen update
@@ -122,9 +124,12 @@ A  +    doc/pfm.pdf
 
 - introduce SIGQUIT for interrupt multi?
 
-- figure out and display if an ACL is applicable for a file
+- make the coreutils' hasacl work.
 
-- accept mouse clicks on menu in (M)ore
+- display counter on "Please Wait"
+
+- accept mouse clicks on menu in (M)ore;
+- in general, accept more mouse clicks 
 
 - make si(Z)e a job in the background just like (V)ersion
 
@@ -135,14 +140,14 @@ A  +    doc/pfm.pdf
 
 - manpages: use I<...> in =items
 
-  DONE: Application Abstract
+  DONE: Application Abstract Config Event File History JobHandler Screen State
+	Util
 
-  TODO: Browser CommandHandler Config Directory
+  TODO: Browser CommandHandler Directory
 	Browser/Chooser Browser/Files Browser/YourCommands Browser/Bookmarks
-	Event File History State Util
 	OS OS/Abstract OS/Linux OS/Aix OS/Hpux OS/Sco OS/Solaris
-	Screen Screen/Frame Screen/Diskinfo Screen/Listing
-	JobHandler Job/CheckUpdates Job/Mercurial
+	Screen/Frame Screen/Diskinfo Screen/Listing
+	Job/CheckUpdates Job/Mercurial
 	Job/Abstract Job/RCS Job/Bazaar Job/Cvs Job/Git Job/Subversion
 
 
