@@ -15,9 +15,9 @@ TERM_SCRCOL_VER    = 1.20
 TERM_SCRCOL        = Term-ScreenColor-$(TERM_SCRCOL_VER)
 TERM_RL_GNU_VER    = 1.20
 TERM_RL_GNU        = Term-ReadLine-Gnu-$(TERM_RL_GNU_VER)
-ENCODE_VER         = 2.42
+ENCODE_VER         = 2.44
 ENCODE             = Encode-$(ENCODE_VER)
-ENCODE_LOCALE_VER  = 1.01
+ENCODE_LOCALE_VER  = 1.02
 ENCODE_LOCALE      = Encode-Locale-$(ENCODE_LOCALE_VER)
 
 DARWINOPTS = --includedir=/opt/local/include --libdir=/opt/local/lib
