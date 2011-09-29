@@ -33,6 +33,9 @@ PFM Class for executing user commands.
 
 package App::PFM::CommandHandler;
 
+# for development
+use lib '/usr/local/share/perl/devel/lib';
+
 use base 'App::PFM::Abstract';
 
 use App::PFM::Util			qw(:all);
