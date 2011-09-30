@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::Mercurial 0.06
+# @(#) App::PFM::Job::Mercurial 0.07
 #
 # Name:			App::PFM::Job::Mercurial
-# Version:		0.06
+# Version:		0.07
 # Author:		Rene Uittenbogaard
 # Created:		2011-03-07
-# Date:			2011-03-07
+# Date:			2011-09-30
 #
 
 ##########################################################################
@@ -41,8 +41,8 @@ use locale;
 ##########################################################################
 # private subs
 
-=item _init(hashref { $eventname1 => coderef $handler1 [, ...] },
-hashref { path => string $path, noignore => bool $noignore })
+=item I<< _init(hashref { $eventname1 => coderef $handler1 [, ...] }, >>
+I<< hashref { path => string $path, noignore => bool $noignore }) >>
 
 Initializes new instances. Called from the constructor.
 
@@ -57,7 +57,7 @@ sub _init {
 	return;
 }
 
-=item _preprocess(string $data)
+=item I<_preprocess(string $data)>
 
 Split the status output in a filename- and a status-field.
 
@@ -77,11 +77,11 @@ sub _preprocess {
 	return [ substr($data, 0, 1), substr($data, 2) ];
 }
 
-=item _hgmaxchar(char $a, char $b)
+=item I<_hgmaxchar(char $a, char $b)>
 
 Sorting routine for mercurial status characters.
 
-=item rcsmax(string $old, string $new)
+=item I<rcsmax(string $old, string $new)>
 
 Determines which mercurial status character should be displayed on
 a directory that holds files with different status characters.
@@ -122,7 +122,7 @@ sub rcsmax {
 ##########################################################################
 # public subs
 
-=item isapplicable(string $path)
+=item I<isapplicable(string $path)>
 
 Checks if there is a F<.hg> directory in this or any parent directory,
 in which case Mercurial commands would be applicable.
