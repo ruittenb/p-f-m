@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::RCS 0.36
+# @(#) App::PFM::Job::RCS 0.37
 #
 # Name:			App::PFM::Job::RCS
-# Version:		0.36
+# Version:		0.37
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-23
+# Date:			2011-09-30
 #
 
 ##########################################################################
@@ -41,8 +41,8 @@ use locale;
 ##########################################################################
 # private subs
 
-=item _init(hashref { $eventname1 => coderef $handler1 [, ...] },
-hashref { path => string $path })
+=item I<< _init(hashref { $eventname1 => coderef $handler1 [, ...] }, >>
+I<< hashref { path => string $path }) >>
 
 Initializes new instances. Called from the constructor.
 
@@ -55,7 +55,7 @@ sub _init {
 	return;
 }
 
-=item _start_child()
+=item I<_start_child()>
 
 Starts the actual job.
 
@@ -70,7 +70,7 @@ sub _start_child {
 ##########################################################################
 # constructor, getters and setters
 
-=item command()
+=item I<command()>
 
 Getter for the command.
 
