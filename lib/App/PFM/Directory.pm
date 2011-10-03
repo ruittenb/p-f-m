@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Directory 1.07
+# @(#) App::PFM::Directory 1.08
 #
 # Name:			App::PFM::Directory
-# Version:		1.07
+# Version:		1.08
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-09-09
+# Date:			2011-10-03
 #
 
 ##########################################################################
@@ -358,7 +358,7 @@ is refreshed but the marks are retained.
 
 sub _readcontents {
 	my ($self, $smart) = @_;
-	my ($file, %namemarkmap);
+	my ($file, %namemarkmap, $counter);
 	my @allentries    = ();
 	my @white_entries = ();
 	my $screen        = $self->{_screen};
@@ -385,6 +385,7 @@ sub _readcontents {
 	if ($#allentries > SLOWENTRIES) {
 		$screen->at(0,0)->clreol()->putmessage('Please Wait');
 	}
+	$counter = $#allentries + 1; # Add 1 to prevent "0" from being printed
 	foreach my $entry (@allentries) {
 		# have the mark cleared on first stat with ' '
 		$self->add({
@@ -392,6 +393,10 @@ sub _readcontents {
 			white => '',
 			mark  => $smart ? $namemarkmap{$entry} : ' '
 		});
+		unless (--$counter % SLOWENTRIES) {
+			$screen->at(0,0)->putmessage(
+				sprintf('Please Wait: [%d]', $counter / SLOWENTRIES))->clreol();
+		}
 	}
 	foreach my $entry (@white_entries) {
 		chop $entry;
