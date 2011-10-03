@@ -6,6 +6,8 @@
   an initial swap state (started with the -s option).
 * fixed: unnecessary delay when a Unix c(O)mmand fails.
 * added: substitution modifier ={2/foo/bar}
+* added: display countdown on "Please Wait" when a directory with a lot of
+  entries is being read
 * added: (M)ore - <F2> (Redescend): return to a previous child directory.
 * added shift-F2 as alternative for (M)ore - <F2>.
 * added: (M)ore - <F4> (Color) and (M)ore - <F9> (Layout) as alternatives for

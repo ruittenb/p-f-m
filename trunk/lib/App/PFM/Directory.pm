@@ -385,7 +385,7 @@ sub _readcontents {
 	if ($#allentries > SLOWENTRIES) {
 		$screen->at(0,0)->clreol()->putmessage('Please Wait');
 	}
-	$counter = $#allentries + 1; # Add 1 to prevent "0" from being printed
+	$counter = $#allentries + SLOWENTRIES; # Prevent "0" from being printed
 	foreach my $entry (@allentries) {
 		# have the mark cleared on first stat with ' '
 		$self->add({
@@ -395,7 +395,7 @@ sub _readcontents {
 		});
 		unless (--$counter % SLOWENTRIES) {
 			$screen->at(0,0)->putmessage(
-				sprintf('Please Wait: [%d]', $counter / SLOWENTRIES))->clreol();
+				sprintf('Please Wait [%d]', $counter / SLOWENTRIES))->clreol();
 		}
 	}
 	foreach my $entry (@white_entries) {
