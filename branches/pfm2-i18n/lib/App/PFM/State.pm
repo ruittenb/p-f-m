@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::State 0.23
+# @(#) App::PFM::State 0.24
 #
 # Name:			App::PFM::State
-# Version:		0.23
+# Version:		0.24
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-02-10
+# Date:			2011-09-09
 #
 
 ##########################################################################
@@ -71,9 +71,9 @@ use constant NUMFORMATS => {
 ##########################################################################
 # private subs
 
-=item _init(App::PFM::Application $pfm, App::PFM::Screen $screen,
-App::PFM::Config $config, App::PFM::OS $os, App::PFM::JobHandler $jobhandler,
-string $path)
+=item I<_init(App::PFM::Application $pfm, App::PFM::Screen $screen,>
+I<App::PFM::Config $config, App::PFM::OS $os, App::PFM::JobHandler>
+I<$jobhandler, string $path)>
 
 Initializes new instances. Called from the constructor.
 Instantiates a App::PFM::Directory object.
@@ -106,7 +106,7 @@ sub _init {
 	return;
 }
 
-=item _clone( [ array @args ] )
+=item I<_clone( [ array @args ] )>
 
 Performs one phase of the cloning process by cloning an existing
 App::PFM::Directory instance.
@@ -121,7 +121,7 @@ sub _clone {
 	return;
 }
 
-=item DESTROY()
+=item I<DESTROY()>
 
 Signals the Directory object to unregister itself with the Screen::Listing
 object.
@@ -139,7 +139,7 @@ sub DESTROY {
 ##########################################################################
 # constructor, getters and setters
 
-=item directory( [ App::PFM::Directory $directory ] )
+=item I<directory( [ App::PFM::Directory $directory ] )>
 
 Getter/setter for the App::PFM::Directory object.
 
@@ -151,7 +151,7 @@ sub directory {
 	return $self->{_directory};
 }
 
-=item sort_mode( [ string $sort_mode ] )
+=item I<sort_mode( [ string $sort_mode ] )>
 
 Getter/setter for the sort mode. The sort mode must be a string consisting
 of valid sortmode characters as defined by the SORTMODES constant above.
@@ -176,7 +176,7 @@ sub sort_mode {
 	return $self->{_sort_mode};
 }
 
-=item radix_mode( [ string $radix_mode ] )
+=item I<radix_mode( [ string $radix_mode ] )>
 
 Getter/setter for the radix mode. The radix mode must be one of the values
 defined in NUMFORMATS.
@@ -194,7 +194,7 @@ sub radix_mode {
 ##########################################################################
 # public subs
 
-=item prepare(string $path [, string $sort_mode ] )
+=item I<prepare(string $path [, string $sort_mode ] )>
 
 Prepares the contents of this state object. Called in case this state
 is not to be displayed on-screen right away.
@@ -213,17 +213,22 @@ sub prepare {
 	return;
 }
 
-=item on_after_parse_config(App::PFM::Event $event)
+=item I<on_after_parse_config(App::PFM::Event $event)>
 
 Applies the config settings when the config file has been read and parsed.
+Is also called directly from App::PFM::Application::_bootstrap_states()
+when a swap state is instantiated.
 
 =cut
 
 sub on_after_parse_config {
 	my ($self, $event) = @_;
-	# store config
-#	my $pfmrc        = $event->{data};
-	$self->{_config} = $event->{origin};
+	# Store config. Since this function is also called directly by
+	# App::PFM::Application, the event's origin should be checked.
+	if (ref $event->{origin} eq 'App::PFM::Config') {
+		setifnotdefined \$self->{_config},    $event->{origin};
+#		my $pfmrc = $event->{data};
+	}
 
 	# Don't change settings back to the defaults if they may have
 	# been modified by key commands.
@@ -250,7 +255,7 @@ sub on_after_parse_config {
 
 =head1 SEE ALSO
 
-pfm(1).
+pfm(1), App::PFM::Application(3pm), App::PFM::Directory(3pm).
 
 =cut
 

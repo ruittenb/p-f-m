@@ -1,3 +1,22 @@
+2.12.0E
+
+* merged changes from 2.12.0 into 2.11.9E.
+
+2.12.0
+
+* fixed: the si(Z)e command now can correctly figure out the exit status
+  of the du(1) command.
+* fixed: the radix for the (N)ame command was not correctly initialized in
+  an initial swap state (started with the -s option).
+* fixed: unnecessary delay when a Unix c(O)mmand fails.
+* added: substitution modifier ={2/foo/bar}
+* added: display countdown on "Please Wait" when a directory with a lot of
+  entries is being read
+* added: (M)ore - <F2> (Redescend): return to a previous child directory.
+* added shift-F2 as alternative for (M)ore - <F2>.
+* added: (M)ore - <F4> (Color) and (M)ore - <F9> (Layout) as alternatives for
+  shift-F4 and shift-F9.
+
 2.11.9E
 
 * merged changes from 2.11.9 into 2.11.8E.
@@ -47,7 +66,7 @@
 * added: Directory keeps track of logical pathname so that the " command
   can switch back from physical to logical pathname
 * added support for terminal keys 'ks4' (shift-F4) and 'ks9' (shift-F9)
-  which cycle backwards through colorsets and layouts, respectively.
+  which cycle backward through colorsets and layouts, respectively.
 * fixed problem where a newly created file in the current directory is not
   added if the current directory is not known by its canonical name
 

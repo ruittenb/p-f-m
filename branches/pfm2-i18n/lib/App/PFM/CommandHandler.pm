@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.72
+# @(#) App::PFM::CommandHandler 1.80
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.72
+# Version:		1.80
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-09-07
+# Date:			2011-10-05
 #
 
 ##########################################################################
@@ -33,6 +33,9 @@ PFM Class for executing user commands.
 
 package App::PFM::CommandHandler;
 
+# for development
+use lib '/usr/local/share/perl/devel/lib';
+
 use base 'App::PFM::Abstract';
 
 use App::PFM::Util			qw(:all);
@@ -43,7 +46,7 @@ use App::PFM::Screen::Frame qw(:constants); # MENU_*, HEADING_*, and FOOTER_*
 use App::PFM::Browser::Bookmarks;
 use App::PFM::Browser::YourCommands;
 
-use POSIX qw(mktime getcwd);
+use POSIX qw(mktime getcwd :sys_wait_h);
 use Config;
 
 use strict;
@@ -92,6 +95,7 @@ use constant CMDESCAPES      => [
 #	'',
 #	'{#prefix}',
 #	'{%suffix}',
+#	'{/find/repl}',
 #	'{^} toupper',
 #	'{,} tolower',
 ];
@@ -178,23 +182,23 @@ sub _helppage {
 --------------------------------------------------------------------------------
                              DISPLAY and MODE KEYS                         [$pp]
 --------------------------------------------------------------------------------
-  F1, ? help                          .   filter dotfiles                       
-  F2    go to previous directory      %   filter whiteouts                      
-  F3    redraw screen                 !   toggle clobber mode                   
-  F4    cycle colorsets               "   toggle pathmode                       
-  S-F4  cycle colorsets backward      ;   toggle show svn ignored               
-  F5    refresh directory listing     =   cycle identities                      
-  m F5  smart refresh listing         <   pan commands menu left                
-  F6    sort directory listing        >   pan commands menu right               
-  m F6  multilevel sort listing       @   perl command (for debugging)          
-  F7    toggle swap mode                                                        
-  F8    mark file                   --------------------------------------------
-  F9    cycle layouts                SORT MODES                                 
-  S-F9  cycle layouts backward                
-  F10   toggle multiple mode          n  Name          t  type    *  mark type  
-  F11   restat file                   m   ignorecase   p  mode                  
-  F12   toggle mouse mode             e  Extension     u  user    s  Size       
-                                      f   ignorecase   w  uid     z  siZe total 
+ ?, F1  help                          .   filter dotfiles                       
+    F2  go to previous directory      %   filter whiteouts                      
+  m F2  descend once into prev dir    !   toggle clobber mode                   
+    F3  redraw screen                 "   toggle pathmode                       
+    F4  cycle colorsets               ;   toggle show svn ignored               
+  m F4  cycle colorsets backward      =   cycle identities                      
+    F5  refresh directory listing     <   pan commands menu left                
+  m F5  smart refresh listing         >   pan commands menu right               
+    F6  sort directory listing        @   perl command (for debugging)          
+  m F6  multilevel sort listing                                                 
+    F7  toggle swap mode            --------------------------------------------
+    F8  mark file                    SORT MODES                                 
+    F9  cycle layouts                                                           
+  m F9  cycle layouts backward        n  Name          t  type    *  mark type  
+   F10  toggle multiple mode          m   ignorecase   p  mode    s  Size       
+   F11  restat file                   e  Extension     u  user    z  siZe total 
+   F12  toggle mouse mode             f   ignorecase   w  uid     i  Inode      
                                       d  Date/mtime    g  group   l  link count 
                                       a  date/Atime    h  gid     v  version    
 --------------------------------------------------------------------------------
@@ -219,7 +223,7 @@ sub _helppage {
  p       Print                                   g   Greater than size          
  q       Quit                                    s   Smaller than size          
  Q       Quick quit                              u   Current User only          
- r       Rename/move                             f   Regular Files (wildcards)  
+ r       Rename / move                           f   Regular Files (wildcards)  
  s       Show file or directory                  d   Directories (but not ./..) 
  t       change Timestamp                        .   Dotfiles    (but not ./..) 
  u       change User/group (chown)               i   Invert selection           
@@ -300,6 +304,39 @@ sub _markednames {
 				grep { $_->{mark} eq M_MARK }
 				@{$directory->showncontents};
 	return @res;
+}
+
+=item I<_expand_environment_vars(stringref $command)>
+
+Expands C<$>I<variable> by replacing them with the value of the
+corresponding environment variable. Names are supposed to contain
+just letters, digits and underscores.
+
+=cut
+
+sub _expand_environment_vars {
+	my ($self, $command) = @_;
+	$$command =~ s/^
+	(
+	(?:
+		(?:				# if there are quotes, there must be an even nr.
+			[^'\\]*		# any number of no-quote, no-backslash chars
+			(?:			# if there are backslashes, there must be an even nr.
+				\\\\	# two backslashes
+			)*			#
+			'			# a quote preceded by an even number of backslashes
+		){2}			#
+	)*					# leave an even number of quotes behind us
+		(?:
+			[^'\\]*		# again
+			(?:			#
+				\\\\	# two backslashes
+			)*			#
+		)*				# leave an even number of backslashes behind us
+	)*					#
+	\$(\w+)				# followed by $NAME (i.e. not quoted)
+	/$1$ENV{$2}/gx;		# replace by environment var
+	return;
 }
 
 =item _expand_tildes(stringref $command)
@@ -398,7 +435,7 @@ sub _expand_8_escapes {
 			)
 		/ge;
 	$number_of_substitutes +=
-		$$command =~ s/$qe\{8([#%^,]?)(\1?)([^}]*)\}/
+		$$command =~ s!$qe\{8([#%^,/]?)(\1?)([^}]*)\}!
 			join(' ',
 				map {
 					quotemeta(
@@ -406,7 +443,7 @@ sub _expand_8_escapes {
 				}
 				$self->_markednames(QUOTE_OFF)
 			)
-		/ge;
+		!ge;
 	return $number_of_substitutes;
 }
 
@@ -437,18 +474,19 @@ sub _expand_escapes {
 		$self->_expand_replace(
 			$qif, $1, $name_no_extension, $name, $extension)
 	/ge;
-	$$command =~ s/$qe\{([^8])([#%^,]?)(\2?)([^}]*)\}/
+	$$command =~ s!$qe\{([^8])([#%^,/]?)(\2?)([^}]*)\}!
 		condquotemeta($qif,
 			$self->_expansion_modifier(
 				$self->_expand_replace(
 					QUOTE_OFF, $1, $name_no_extension, $name, $extension
 				), $2, $3, $4)
 		)
-	/ge;
+	!ge;
 	return;
 }
 
-=item _expansion_modifier(string $name, string $mode, string $pattern)
+=item _expansion_modifier(string $name, string $mode, string $greedy,
+string $pattern)
 
 Performs modifications (I<e.g.> B<={2#App::}>) on an expanded string,
 like bash(1) does.  See L<pfm/"ESCAPE MODIFIERS">.
@@ -458,8 +496,8 @@ like bash(1) does.  See L<pfm/"ESCAPE MODIFIERS">.
 sub _expansion_modifier {
 	my ($self, $name, $mode, $greedy, $pattern) = @_;
 	return $name unless $mode;
-	my ($translate, $regexp, $ungreedy);
-	if ($mode eq '#' or $mode eq '%') {
+	my ($translate, $regexp, $ungreedy, $replacement, $pos);
+	if ($mode eq '#' or $mode eq '%') {	# elimination: ={2%.php}
 		$ungreedy = $greedy ? '.*?' : '.*';
 		$greedy   = $greedy ? '.*' : '.*?';
 		$regexp = $pattern;
@@ -470,7 +508,25 @@ sub _expansion_modifier {
 		} else {			# %% or %
 			$name =~ s/^($ungreedy)$regexp$/$1/;
 		}
-	} else {
+	} elsif ($mode eq '/') {			# substitution: ={2/foo/bar}
+		if (($pos = index($pattern, '/')) >= 0) {
+			$replacement = substr($pattern, $pos + 1);
+			$pattern     = substr($pattern, 0, $pos);
+		} else {
+			$replacement = '';
+		}
+		if ($greedy eq '/') {
+			$pos = 0;
+			while (($pos = index($name, $pattern, $pos)) >= 0) {
+				substr($name, $pos, length($pattern), $replacement);
+				$pos += length($replacement) - length($pattern);
+			}
+		} else {
+			if (($pos = index($name, $pattern)) >= 0) {
+				substr($name, $pos, length($pattern), $replacement);
+			}
+		}
+	} else {							# translation: ={2,,t}
 		if ($pattern eq '' or $pattern =~ /\?/) {
 			$regexp = '(.)';
 		} else {
@@ -817,7 +873,7 @@ sub handle {
 	my ($self, $event) = @_;
 	my $handled = 1; # assume the event was handled
 	for ($event->{data}) {
-		# order is determined by (supposed) frequency of use
+		# The order here is determined by (supposed) frequency of use.
 		/^(?:kr|kl|[h\e\cH])$/io
 							and $self->handleentry($event),				  last;
 		/^l$/o				and $self->handlekeyell($event),			  last;
@@ -847,6 +903,7 @@ sub handle {
 		/^k6$/o				and $self->handlesinglesort($event),		  last;
 		/^(?:k1|\?)$/o		and $self->handlehelp($event),				  last;
 		/^k2$/o				and $self->handleprev($event),				  last;
+		/^ks2$/o			and $self->handlemoreredescend($event),		  last;
 		/^\.$/o				and $self->handledot($event),				  last;
 		/^(k9|ks9)$/o		and $self->handlelayouts($event),			  last;
 		/^(k4|ks4)$/o		and $self->handlecolor($event),				  last;
@@ -968,6 +1025,7 @@ sub handleswap {
 		if ($success = chdir $nextdir) {
 			if ($nextdir ne $prevdir) {
 				# store the previous main state into S_PREV
+				# TODO move this to the Application?
 				$_pfm->state('S_PREV', $prevstate);
 			}
 			# restore the cursor position
@@ -1010,8 +1068,8 @@ sub handleswap {
 		$browser->swap_mode(!$browser->swap_mode);
 		# fix destination
 		$self->_expand_escapes(QUOTE_OFF, \$nextdir, $event->{currentfile});
-		# go there using the directory's chdir() (TODO $swapping flag behavior?)
-		if ($_pfm->state->directory->chdir($nextdir, 0)) {
+		# go there using the directory's chdir()
+		if ($_pfm->state->directory->chdir($nextdir)) {
 			# set the cursor position
 			$browser->baseindex(0);
 			$_pfm->state->{multiple_mode} = 0;
@@ -1087,17 +1145,20 @@ sub handledot {
 	return;
 }
 
-=item handlecolor(App::PFM::Event $event)
+=item handlecolor(App::PFM::Event $event, bool $backward)
 
-Cycles through color modes (B<F4>).
+Cycles through color modes (B<F4>), the flag indicates
+forward/backward direction.
+
+Backward cycling is also possible by using Shift-B<F4>.
 
 =cut
 
 sub handlecolor {
-	my ($self, $event) = @_;
+	my ($self, $event, $backward) = @_;
 	# F4 forward, shift-F4 backward
-	my $direction = $event->{data} eq 'k4';
-	$self->{_screen}->select_next_color($direction);
+	$backward ||= $event->{data} eq 'ks4';
+	$self->{_screen}->select_next_color(!$backward);
 	return;
 }
 
@@ -1114,17 +1175,20 @@ sub handlemousemode {
 	return;
 }
 
-=item handlelayouts(App::PFM::Event $event)
+=item handlelayouts(App::PFM::Event $event, bool $backward)
 
-Handles moving on to the next configured layout (B<F9>).
+Cycles through configured layouts (B<F9>), the flag indicates
+forward/backward direction.
+
+Backward cycling is also possible by using Shift-B<F9>.
 
 =cut
 
 sub handlelayouts {
-	my ($self, $event) = @_;
+	my ($self, $event, $backward) = @_;
 	# F9 forward, shift-F9 backward
-	my $direction = $event->{data} eq 'k9';
-	$self->{_screen}->listing->select_next_layout($direction);
+	$backward ||= $event->{data} eq 'ks9';
+	$self->{_screen}->listing->select_next_layout(!$backward);
 	return;
 }
 
@@ -1340,7 +1404,7 @@ sub handleentry {
 	return if ($nextdir    eq '.');
 	return if ($currentdir eq '/' && $direction eq 'up');
 	return if !$self->{_screen}->ok_to_remove_marks();
-	$success = $_pfm->state->directory->chdir($nextdir, 0, $direction);
+	$success = $_pfm->state->directory->chdir($nextdir, $direction);
 	unless ($success) {
 		$message = "$!";
 		if ($message eq 'Not a directory') {
@@ -2179,12 +2243,14 @@ sub handlesize {
 	}
 	$do_this = sub {
 		my $file = shift;
-		my ($recursivesize, $command, $tempfile, $res);
+		my ($recursivesize, $command, $tempfile, $res, $error);
 		$recursivesize = $self->{_os}->du($file->{name});
 		$recursivesize =~ s/^\D*(\d+).*/$1/;
 		chomp $recursivesize;
-		# if a CHLD signal handler is installed, $? is not always reliable.
-		if ($?) {
+		# The CHLD signal handler has stored $? in the Application object.
+		$error = $App::PFM::Application::CHILD_ERROR;
+		$error = $App::PFM::Application::CHILD_ERROR; # no warn "Used only once"
+		if (WIFEXITED($error) && WEXITSTATUS($error)) {
 			$screen->at(0,0)->clreol()
 				->putmessage('Could not read all directories')
 				->set_deferred_refresh(R_SCREEN);
@@ -2346,8 +2412,9 @@ sub handlecommand { # Y or O
 		$screen->diskinfo->clearcolumn();
 	}
 	# chdir special case
-	if ($command =~ /^\s*cd\s(.*)$/) {
-		$newdir = $1;
+	if ($command =~ /^\s*cd\s+(.*)$/) {
+		$self->_expand_environment_vars(\$command); # TODO this might introduce =1 etc.
+		($newdir = $command) =~ s/^\s*cd\s+//;
 		$self->_expand_escapes(QUOTE_OFF, \$newdir, $event->{currentfile});
 		$screen->raw_noecho();
 		if (!$screen->ok_to_remove_marks()) {
@@ -2374,7 +2441,7 @@ sub handlecommand { # Y or O
 		$self->_expand_escapes(QUOTE_ON, \$do_command, $file);
 		$screen->puts("\n$do_command\n");
 		system $do_command
-			and $screen->display_error("External command failed\n");
+			and $screen->putmessage("External command failed\n");
 	};
 	$event->{lunchbox}{applyflags} = 'nofeedback';
 	$_pfm->state->directory->apply($do_this, $event);
@@ -2470,7 +2537,7 @@ sub handledelete {
 		if ($file->{name} eq '.') {
 			# don't allow people to delete '.'; normally, this could be allowed
 			# if it is empty, but if that leaves the parent directory empty,
-			# then it can also be removed, which causes a fatal pfm error.
+			# then it can also be removed, which causes pfm to crash.
 			$msg = 'Deleting current directory not allowed';
 			$success = 0;
 		} elsif ($file->{nlink} == 0 and $file->{type} ne 'w') {
@@ -2859,6 +2926,7 @@ sub handlemore {
 		$key = $self->{_screen}->at(0, $menulength + 1)->getch();
 		$self->{_screen}->bracketed_paste_off();
 		for ($key) {
+			# The order here is determined by (supposed) frequency of use.
 			/^s$/io    and $self->handlemoreshow($event),		 last MORE_PAN;
 			/^g$/io    and $self->handlemorego($event),			 last MORE_PAN;
 			/^e$/io    and $self->handlemoreedit($event, $key),  last MORE_PAN;
@@ -2869,11 +2937,14 @@ sub handlemore {
 			/^a$/io    and $self->handlemoreacl($event),		 last MORE_PAN;
 			/^b$/io    and $self->handlemorebookmark($event),	 last MORE_PAN;
 			/^l$/io    and $self->handlemorefollow($event),		 last MORE_PAN;
+			/^k2$/io   and $self->handlemoreredescend($event),	 last MORE_PAN;
 			/^f$/io    and $self->handlemorefifo($event),		 last MORE_PAN;
 			/^w$/io    and $self->handlemorewritehistbookmarks(),last MORE_PAN;
 			/^t$/io    and $self->handlemorealtscreen(),		 last MORE_PAN;
 			/^p$/io    and $self->handlemorephyspath(),			 last MORE_PAN;
 			/^v$/io    and $self->handlemoreversion(),			 last MORE_PAN;
+			/^k9$/o    and $self->handlelayouts($event, 1),		 last MORE_PAN;
+			/^k4$/o    and $self->handlecolor($event, 1),		 last MORE_PAN;
 			/^r$/io    and $self->handlemorereadhistbookmarks(), last MORE_PAN;
 			/^o$/io    and $self->handlemoreopenwindow($event),  last MORE_PAN;
 			/^k6$/o    and $self->handlemoremultisort($event),	 last MORE_PAN;
@@ -3229,6 +3300,50 @@ sub handlemorego {
 #		$_pfm->state($key, $_pfm->state->clone());
 	}
 	$browser->main_state($_pfm->state('S_MAIN'));
+	return;
+}
+
+=item handlemoreredescend(App::PFM::Event $event)
+
+Handles returning one directory level downward through the directory
+tree (B<M>ore - B<F2>).
+
+=cut
+
+sub handlemoreredescend {
+	my ($self, $event) = @_;
+	my ($nextpath, $no_save_prev, $count);
+	my $screen     = $self->{_screen};
+	my $currentdir = $_pfm->state->directory;
+	my $currpath   = $currentdir->path;
+	my $prevpath   = $_pfm->state('S_PREV')->directory->path;
+	my $currlen    = length($currpath);
+	my $prevlen    = length($prevpath);
+	if ($currpath eq $prevpath) {
+		$screen->at(0,0)->clreol()->set_deferred_refresh(R_MENU)
+			->display_error('Already back at previous directory');
+		return;
+	}
+	if ($currlen > $prevlen || # Not a subdir.
+		substr($prevpath, 0, $currlen) ne $currpath || # Not a subdir.
+		# If  the currpath = /home/ruitten/bin
+		# and the prevpath = /home/ruitten/binaries,
+		# then requiring a slash will make sure it is not seen as a subdir.
+		($currlen < $prevlen && substr($prevpath, $currlen, 1) ne '/'
+		# Note, however, that the root directory is not followed by a slash.
+			&& $currlen > 1)
+	) {
+		$screen->at(0,0)->clreol()->set_deferred_refresh(R_MENU)
+			->display_error(
+				'Previous directory is not a descendant of current one');
+		return;
+	}
+	# Find the next directory (one level down).
+	$count = ($currlen != 1 ? $currlen : 0);
+	($nextpath = $prevpath) =~ s"^(.{$count}/[^/]+).*"$1";
+	# Descend one level. Note: don't save S_MAIN to S_PREV here.
+	$no_save_prev = 1;
+	$currentdir->chdir($nextpath, 'down', $no_save_prev);
 	return;
 }
 

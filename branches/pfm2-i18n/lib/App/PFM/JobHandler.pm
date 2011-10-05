@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::JobHandler 0.14
+# @(#) App::PFM::JobHandler 0.15
 #
 # Name:			App::PFM::JobHandler
-# Version:		0.14
+# Version:		0.15
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-03-07
+# Date:			2011-09-09
 #
 
 ##########################################################################
@@ -51,7 +51,7 @@ use locale;
 ##########################################################################
 # private subs
 
-=item _init()
+=item I<_init()>
 
 Initializes new instances. Called from the constructor.
 
@@ -66,7 +66,7 @@ sub _init {
 ##########################################################################
 # constructor, getters and setters
 
-=item job( [ int $index [, App::PFM::Job::Abstract $job ] ] )
+=item I<job( [ int $index [, App::PFM::Job::Abstract $job ] ] )>
 
 Getter/setter for the job with the specified jobnumber.
 
@@ -84,7 +84,7 @@ sub job {
 ##########################################################################
 # public subs
 
-=item start(string $subclass [, array @args ] )
+=item I<start(string $subclass [, array @args ] )>
 
 Starts one job of the type specified. Adds the job to the internal
 job stack. Returns the jobnumber.
@@ -103,7 +103,7 @@ sub start {
 	return $#{$self->{_jobs}};
 }
 
-=item stop(int $jobno)
+=item I<stop(int $jobno)>
 
 Stops the job with the provided jobnumber.
 
@@ -117,7 +117,7 @@ sub stop {
 	return $ret;
 }
 
-=item stopall(int $jobno)
+=item I<stopall(int $jobno)>
 
 Stops all jobs.
 
@@ -133,7 +133,7 @@ sub stopall {
 	return 1;
 }
 
-=item poll(int $jobno)
+=item I<poll(int $jobno)>
 
 Polls the job with the number provided. If it is done, the job is
 removed from the stack. Returns a boolean indicating if the job is
@@ -154,7 +154,7 @@ sub poll {
 	return $ret;
 }
 
-=item pollall()
+=item I<pollall()>
 
 Polls all jobs on the stack for output. If they are done, they are
 removed from the stack. It is the job's responsibility to return data
@@ -177,7 +177,7 @@ sub pollall {
 	return;
 }
 
-=item count()
+=item I<count()>
 
 Counts the number of running jobs.
 

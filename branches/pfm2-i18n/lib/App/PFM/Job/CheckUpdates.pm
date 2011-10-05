@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::CheckUpdates 0.16
+# @(#) App::PFM::Job::CheckUpdates 0.17
 #
 # Name:			App::PFM::Job::CheckUpdates
-# Version:		0.16
+# Version:		0.17
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-09-08
+# Date:			2011-09-30
 #
 
 ##########################################################################
@@ -43,7 +43,7 @@ use constant PFM_URL => 'http://p-f-m.sourceforge.net/';
 ##########################################################################
 # private subs
 
-=item _init(hashref { $eventname1 => coderef $handler1 [, ...] })
+=item I<< _init(hashref { $eventname1 => coderef $handler1 [, ...] }) >>
 
 Initializes new instances. Called from the constructor.
 
@@ -69,7 +69,7 @@ sub _init {
 	return;
 }
 
-=item _start_child()
+=item I<_start_child()>
 
 Starts the actual job.
 
@@ -102,7 +102,7 @@ sub _start_child {
 ##########################################################################
 # constructor, getters and setters
 
-=item command()
+=item I<command()>
 
 Getter for the command.
 
