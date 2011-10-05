@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen 0.59
+# @(#) App::PFM::Screen 0.60E
 #
 # Name:			App::PFM::Screen
-# Version:		0.59
+# Version:		0.60E
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-09-08
+# Date:			2011-09-09
 # Requires:		Term::ScreenColor
 #
 
@@ -134,7 +134,7 @@ our ($_pfm);
 ##########################################################################
 # private subs
 
-=item _init(App::PFM::Application $pfm [, App::PFM::Config $config ] )
+=item I<_init(App::PFM::Application $pfm [, App::PFM::Config $config ] )>
 
 Called from the constructor. Initializes new instances. Stores the
 application object for later use and instantiates a App::PFM::Screen::Frame
@@ -147,11 +147,11 @@ not yet been read.
 
 sub _init {
 	my ($self, $pfm, $config) = @_;
-	$_pfm               = $pfm;
-	$self->{_config}    = $config; # undefined, see on_after_parse_config
-	$self->{_frame}     = App::PFM::Screen::Frame->new(   $pfm, $self, $config);
-	$self->{_listing}   = App::PFM::Screen::Listing->new( $pfm, $self, $config);
-	$self->{_diskinfo}  = App::PFM::Screen::Diskinfo->new($pfm, $self, $config);
+	$_pfm              = $pfm;
+	$self->{_config}   = $config; # undefined, see on_after_parse_config
+	$self->{_frame}    = App::PFM::Screen::Frame->new(   $pfm, $self, $config);
+	$self->{_listing}  = App::PFM::Screen::Listing->new( $pfm, $self, $config);
+	$self->{_diskinfo} = App::PFM::Screen::Diskinfo->new($pfm, $self, $config);
 	$self->{_winheight}        = 0;
 	$self->{_winwidth}         = 0;
 	$self->{_screenheight}     = 0;
@@ -171,7 +171,7 @@ sub _init {
 	return;
 }
 
-=item _catch_resize()
+=item I<_catch_resize()>
 
 Catches window resize signals (WINCH).
 
@@ -187,7 +187,7 @@ sub _catch_resize {
 ##########################################################################
 # constructor, getters and setters
 
-=item new(array @args)
+=item I<new(array @args)>
 
 Specific constructor for App::PFM::Screen. Constructs an object based on
 Term::ScreenColor.
@@ -204,9 +204,9 @@ sub new {
 	return $self;
 }
 
-=item screenwidth( [ int $screenwidth ] )
+=item I<screenwidth( [ int $screenwidth ] )>
 
-=item screenheight( [ int $screenheight ] )
+=item I<screenheight( [ int $screenheight ] )>
 
 Getters/setters for the dimensions of the screen.
 
@@ -224,11 +224,11 @@ sub screenheight {
 	return $self->{_screenheight};
 }
 
-=item frame()
+=item I<frame()>
 
-=item listing()
+=item I<listing()>
 
-=item diskinfo()
+=item I<diskinfo()>
 
 Getters for the App::PFM::Screen::Frame, App::PFM::Screen::Listing
 and App::PFM::Screen::Diskinfo objects.
@@ -250,7 +250,7 @@ sub diskinfo {
 	return $self->{_diskinfo};
 }
 
-=item wasresized( [ bool $wasresized ] )
+=item I<wasresized( [ bool $wasresized ] )>
 
 Getter/setter for the flag that indicates that the window was resized
 and needs to be updated.
@@ -263,7 +263,7 @@ sub wasresized {
 	return $self->{_wasresized};
 }
 
-=item color_mode( [ string $colormodename ] )
+=item I<color_mode( [ string $colormodename ] )>
 
 Getter/setter for the choice of color mode (I<e.g.> 'dark', 'light',
 'ls_colors'). Schedules a screen refresh if the color mode is set.
@@ -279,7 +279,7 @@ sub color_mode {
 	return $self->{_color_mode};
 }
 
-=item chooser( [ App:PFM::Browser $chooser ] )
+=item I<chooser( [ App:PFM::Browser $chooser ] )>
 
 Getter/setter for a I<chooser> object for which this screen object
 should perform refreshes. This alters the behavior of the refresh()
@@ -302,9 +302,9 @@ sub chooser {
 ##########################################################################
 # public subs
 
-=item raw_noecho()
+=item I<raw_noecho()>
 
-=item cooked_echo()
+=item I<cooked_echo()>
 
 Sets the terminal to I<raw> or I<cooked> mode.
 
@@ -322,9 +322,9 @@ sub cooked_echo {
 	return $self;
 }
 
-=item mouse_enable()
+=item I<mouse_enable()>
 
-=item mouse_disable()
+=item I<mouse_disable()>
 
 Tells the terminal to start/stop receiving information about the mouse.
 
@@ -348,9 +348,9 @@ sub mouse_disable {
 	return $self;
 }
 
-=item bracketed_paste_on()
+=item I<bracketed_paste_on()>
 
-=item bracketed_paste_off()
+=item I<bracketed_paste_off()>
 
 Switches bracketed paste mode on and off. Bracketed paste mode is used
 to intercept paste actions when C<pfm> is expecting a single command key.
@@ -369,9 +369,9 @@ sub bracketed_paste_off {
 	return $self;
 }
 
-=item alternate_on()
+=item I<alternate_on()>
 
-=item alternate_off()
+=item I<alternate_off()>
 
 Switches to alternate terminal screen and back.
 
@@ -389,7 +389,7 @@ sub alternate_off {
 	return $self;
 }
 
-=item getch()
+=item I<getch()>
 
 Overrides the Term::ScreenColor version of getch().
 If a bracketed paste is received, it is returned as one unit.
@@ -412,7 +412,7 @@ sub getch {
 	return wantarray ? ($key, $buffer) : $key;
 }
 
-=item calculate_dimensions()
+=item I<calculate_dimensions()>
 
 Calculates the height and width of the screen.
 
@@ -433,7 +433,7 @@ sub calculate_dimensions {
 	return $self;
 }
 
-=item check_minimum_size()
+=item I<check_minimum_size()>
 
 Tests whether the terminal size is smaller than the minimum supported
 24 rows or 80 columns.  If so, sends an escape sequence to adjust the
@@ -454,7 +454,7 @@ sub check_minimum_size {
 	return 0;
 }
 
-=item fit()
+=item I<fit()>
 
 Recalculates the screen size and adjust the layouts.
 
@@ -481,7 +481,7 @@ sub fit {
 	return $self;
 }
 
-=item handleresize()
+=item I<handleresize()>
 
 Makes the contents fit on the screen again after a resize. Validates
 the cursor position.
@@ -495,7 +495,7 @@ sub handleresize {
 	return $self;
 }
 
-=item pending_input(float $delay)
+=item I<pending_input(float $delay)>
 
 Returns a boolean indicating that there is input ready to be processed.
 The delay indicates how long should be waited for input.
@@ -513,7 +513,7 @@ sub pending_input {
 	return $input_ready;
 }
 
-=item get_event()
+=item I<get_event()>
 
 Returns an App::PFM::Event object of type B<mouse>, B<key> or B<resize>,
 containing the event that was currently pending (as determined by
@@ -567,8 +567,9 @@ sub get_event {
 	return $event;
 }
 
-=item show_frame(hashref { menu => int $menu_mode, footer => int $footer_mode,
-headings => int $heading_mode, prompt => string $prompt } )
+=item I<< show_frame(hashref { menu => int $menu_mode, >>
+I<< footer => int $footer_mode, headings => int $heading_mode, >>
+I<< prompt => string $prompt } ) >>
 
 Uses the App::PFM::Screen::Frame object to redisplay the frame.
 
@@ -580,7 +581,7 @@ sub show_frame {
 	return $self;
 }
 
-=item clear_footer()
+=item I<clear_footer()>
 
 Calls App::PFM::Screen::Frame::clear_footer() and schedules a refresh
 for the footer.
@@ -594,7 +595,7 @@ sub clear_footer {
 	return $self;
 }
 
-=item select_next_color(bool $direction)
+=item I<select_next_color(bool $direction)>
 
 Finds the next colorset to use. If I<direction> is true, cycle forward;
 else backward.
@@ -625,7 +626,7 @@ sub select_next_color {
 	return $self;
 }
 
-=item putcentered(string $message)
+=item I<putcentered(string $message)>
 
 Displays a message on the current screen line, horizontally centered.
 
@@ -637,7 +638,7 @@ sub putcentered {
 	return $self;
 }
 
-=item putmessage(string $message_part1 [, string $message_part2 ... ] )
+=item I<putmessage(string $message_part1 [, string $message_part2 ... ] )>
 
 Displays a message in the configured message color.
 Accepts an array with message fragments.
@@ -657,7 +658,7 @@ sub putmessage {
 	return $self;
 }
 
-=item pressanykey()
+=item I<pressanykey()>
 
 Displays a message and waits for a key to be pressed.
 
@@ -687,7 +688,7 @@ sub pressanykey {
 	return $self;
 }
 
-=item ok_to_remove_marks()
+=item I<ok_to_remove_marks()>
 
 Prompts the user for confirmation since they are about to lose
 their marks in the current directory.
@@ -711,7 +712,7 @@ sub ok_to_remove_marks {
 	return ($sure =~ /y/i);
 }
 
-=item display_error(string $message_part1 [, string $message_part2 ... ] )
+=item I<display_error(string $message_part1 [, string $message_part2 ... ] )>
 
 Displays an error which may be passed as an array with message
 fragments. Waits for a key to be pressed and returns the keypress.
@@ -724,7 +725,7 @@ sub display_error {
 	return $self->error_delay();
 }
 
-=item neat_error(string $message_part1 [, string $message_part2 ... ] )
+=item I<neat_error(string $message_part1 [, string $message_part2 ... ] )>
 
 Displays an error which may be passed as an array with message
 fragments. Waits for a key to be pressed and returns the keypress.
@@ -743,9 +744,9 @@ sub neat_error {
 	return $self;
 }
 
-=item error_delay()
+=item I<error_delay()>
 
-=item important_delay()
+=item I<important_delay()>
 
 Waits for a key to be pressed. Returns the keypress.
 
@@ -759,7 +760,7 @@ sub important_delay {
 	return $_[0]->key_pressed(IMPORTANTDELAY);
 }
 
-=item set_deferred_refresh(int $elements)
+=item I<set_deferred_refresh(int $elements)>
 
 Flags screen elements as 'need to be redrawn'. The B<R_*> constants
 (see below) may be used to indicate which elements should be redrawn.
@@ -772,7 +773,7 @@ sub set_deferred_refresh {
 	return $self;
 }
 
-=item unset_deferred_refresh(int $elements)
+=item I<unset_deferred_refresh(int $elements)>
 
 Flags screen elements as 'do not need to be redrawn'. The B<R_*>
 constants (see below) may be used here.
@@ -785,7 +786,7 @@ sub unset_deferred_refresh {
 	return $self;
 }
 
-=item refresh_headings()
+=item I<refresh_headings()>
 
 Redisplays the headings if they have been flagged as 'needs to be redrawn'.
 
@@ -805,7 +806,7 @@ sub refresh_headings {
 	return $self;
 }
 
-=item refresh()
+=item I<refresh()>
 
 Redisplays all screen elements that have been flagged as 'need to be redrawn'.
 
@@ -895,7 +896,7 @@ sub refresh {
 	return $self;
 }
 
-=item path_info(bool $physical)
+=item I<path_info(bool $physical)>
 
 Redisplays information about the current directory path and the current
 filesystem. If the argument flag I<physical> is set, the physical
@@ -912,7 +913,7 @@ sub path_info {
 	 return $self;
 }
 
-=item pathline(string $path, string $device [, ref $baselen, ref $ellipssize ] )
+=item I<pathline(string $path, string $device [, ref $baselen, ref $ellipssize ] )>
 
 Formats the information about the current directory path and the current
 filesystem.  The reference arguments are used by the CommandHandler for
@@ -940,7 +941,7 @@ sub pathline {
 		. DEVICE_SPEC_START . $dev . DEVICE_SPEC_END;
 }
 
-=item on_after_parse_usecolor(App::PFM::Event $event)
+=item I<on_after_parse_usecolor(App::PFM::Event $event)>
 
 Applies the 'usecolor' config option to the Term::ScreenColor(3pm) object.
 
@@ -952,7 +953,7 @@ sub on_after_parse_usecolor {
 	return $self;
 }
 
-=item on_after_parse_config(App::PFM::Event $event)
+=item I<on_after_parse_config(App::PFM::Event $event)>
 
 Applies the config settings when the config file has been read and parsed.
 
@@ -1010,7 +1011,7 @@ sub on_after_parse_config {
 	return $self;
 }
 
-=item on_shutdown(bool $altscreen_mode [, bool $silent ] )
+=item I<on_shutdown(bool $altscreen_mode [, bool $silent ] )>
 
 Called when the application is shutting down. I<altscreen_mode>
 indicates if the State has used the alternate screen buffer.

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::Bazaar 0.35
+# @(#) App::PFM::Job::Bazaar 0.36
 #
 # Name:			App::PFM::Job::Bazaar
-# Version:		0.35
+# Version:		0.36
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-22
+# Date:			2011-09-30
 #
 
 ##########################################################################
@@ -41,8 +41,8 @@ use locale;
 ##########################################################################
 # private subs
 
-=item _init(hashref { $eventname1 => coderef $handler1 [, ...] },
-hashref $options)
+=item I<< _init(hashref { $eventname1 => coderef $handler1 [, ...] }, >>
+I<< hashref $options) >>
 
 Initializes new instances. Called from the constructor.
 
@@ -56,7 +56,7 @@ sub _init {
 	return;
 }
 
-=item _preprocess(string $data)
+=item I<_preprocess(string $data)>
 
 Split the status output in a filename- and a status-field.
 
@@ -74,11 +74,11 @@ sub _preprocess {
 	];
 }
 
-=item _bzrmaxchar(char $a, char $b)
+=item I<_bzrmaxchar(char $a, char $b)>
 
 Sorting routine for Bazaar status characters.
 
-=item rcsmax(string $old, string $new)
+=item I<rcsmax(string $old, string $new)>
 
 Determine which status character should be displayed on
 a directory that holds files with different status characters.
@@ -120,7 +120,7 @@ sub rcsmax {
 ##########################################################################
 # public subs
 
-=item isapplicable(string $path)
+=item I<isapplicable(string $path)>
 
 Checks if there is a F<.bzr> directory in this or any parent directory,
 in which case Bazaar commands would be applicable.

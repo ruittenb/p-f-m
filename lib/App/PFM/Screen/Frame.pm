@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Frame 0.51
+# @(#) App::PFM::Screen::Frame 0.54
 #
 # Name:			App::PFM::Screen::Frame
-# Version:		0.51
+# Version:		0.54
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-09-05
+# Date:			2011-09-09
 #
 
 ##########################################################################
@@ -199,13 +199,11 @@ sub _getmenu {
 	} elsif ($mode == MENU_MORE) {
 		return	'Acl Bookmark Config Edit-any mkFifo Go sHell foLlow Mkdir '
 		.		'Open-window Physical-path Read-history/bookmarks Show-dir '
-		.       'alTscreen Version Write-history/bookmarks';
-	} elsif ($mode == MENU_EXCLUDE) {
-		return	"Exclude? Every, Old-/Newmarks, After/Before, "
-		.		"Greater/Smaller, User, Files only:";
-	} elsif ($mode == MENU_INCLUDE) {
-		return	"Include? Every, Old-/Newmarks, After/Before, "
-		.		"Greater/Smaller, User, Files only:";
+		.		'alTscreen Version Write-history/bookmarks';
+	} elsif ($mode == MENU_EXCLUDE || $mode == MENU_INCLUDE) {
+		return +($mode == MENU_INCLUDE ? 'Include' : 'Exclude')
+		.		'? Every, Old-/Newmarks, After/Before, '
+		.		'Greater/Smaller, User, Files/Dirs:';
 	} elsif ($mode == MENU_LNKTYPE) {
 		return	'Absolute, Relative symlink or Hard link:';
 	} elsif ($mode == MENU_NAME) {
@@ -222,6 +220,7 @@ sub _getmenu {
 		.		' cOmmand Print Quit Rename Show Time User Version unWhiteout'
 		.		' eXclude Your-command siZe';
 	}
+	return '';
 }
 
 =item _getheadings( [ int $heading_mode ] )
@@ -290,7 +289,10 @@ sub _getfooter {
 	my $pfm   = $self->{_pfm};
 	my %state = %{$pfm->state};
 	if ($footer_mode == FOOTER_MORE) {
-		$f = "F5-Smart-refresh F6-Multilevel-sort";
+		$f = "F2-Redescend"
+		.	" F4-Color[" . $self->{_screen}->color_mode . "] F5-Smart-refresh"
+		.	" F6-Multilevel-sort"
+		.	" F9-Layout[" . $self->{_screen}->listing->layout . "]";
 	} elsif ($footer_mode == FOOTER_SINGLE or $footer_mode == FOOTER_MULTI) {
 		$f =	"F1-Help F2-Previous F3-Redraw"
 		.		" F4-Color[" . $self->{_screen}->color_mode . "] F5-Refresh"

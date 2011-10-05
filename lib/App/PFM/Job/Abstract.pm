@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::Abstract 1.02
+# @(#) App::PFM::Job::Abstract 1.05
 #
 # Name:			App::PFM::Job::Abstract
-# Version:		1.02
+# Version:		1.05
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-09-02
+# Date:			2011-09-30
 #
 
 ##########################################################################
@@ -48,8 +48,8 @@ use constant KILL_DELAY => 0.100;
 ##########################################################################
 # private subs
 
-=item _init(hashref { $eventname1 => coderef $handler1 [, ...] }
-[, hashref $options ] )
+=item I<< _init(hashref { $eventname1 => coderef $handler1 [, ...] } >>
+I<< [, hashref $options ] ) >>
 
 Initializes the 'running' flag ('childpid'), and registers the
 provided event handlers.
@@ -71,21 +71,31 @@ sub _init {
 	return;
 }
 
-=item _catch_child()
+=item I<_catch_child()>
 
 Cleans up finished child processes.
+
+perlvar(1) warns us that: "If you have installed a signal handler for
+SIGCHLD, the value of C<$?> will usually be wrong outside that handler."
+Therefore, the child's exit code is fetched and propagated via
+C<$App::PFM::Application::CHILD_ERROR>.
 
 =cut
 
 sub _catch_child {
 	my ($self) = @_;
+	# Fetch the child's exit code. This must be done *before* reaping it.
+	$App::PFM::Application::CHILD_ERROR = $?;
+	$App::PFM::Application::CHILD_ERROR = $?; # don't warn "Used only once"
 	my $pid = wait();
-	my $ret = ($pid == -1) ? 0 : $?;
-#	$? = 0;
+	# Reinstall the reaper.
+	$SIG{CHLD} = sub {
+		$self->_catch_child();
+	};
 	return;
 }
 
-=item _start_child()
+=item I<_start_child()>
 
 Stub routine for starting the actual job.
 
@@ -95,7 +105,7 @@ sub _start_child {
 	# my ($self) = @_;
 }
 
-=item _stop_child()
+=item I<_stop_child()>
 
 Routine for stopping the job. Send TERM, INT and QUIT signals.
 Returns whether the job was stopped correctly.
@@ -122,7 +132,7 @@ sub _stop_child {
 	return !$alive;
 }
 
-=item _poll_data()
+=item I<_poll_data()>
 
 Checks if there is data available on the pipe, and if so, reads it and
 sends it to the preprocessor.  If the preprocessor returns a defined value,
@@ -170,7 +180,7 @@ sub _poll_data {
 	return $self->{_childpid};
 }
 
-=item _preprocess(string $data)
+=item I<_preprocess(string $data)>
 
 Stub routine for preprocessing job output.
 This routine is used for "massaging" the command output
@@ -189,7 +199,7 @@ sub _preprocess {
 ##########################################################################
 # public subs
 
-=item isapplicable()
+=item I<isapplicable()>
 
 Stub routine for telling if the job is applicable.
 
@@ -200,7 +210,7 @@ sub isapplicable {
 	return 0;
 }
 
-=item start()
+=item I<start()>
 
 Fires the I<before_job_start> event. If this returns true, it sets
 the 'running' flag, opens a pipe, starts the job and fires the
@@ -237,7 +247,7 @@ sub start {
 	return 1;
 }
 
-=item poll()
+=item I<poll()>
 
 Calls _poll_data() to accumulate job data into a poll buffer.  When done
 and if data is available, the I<after_job_receive_data> event is fired.
@@ -261,7 +271,7 @@ sub poll {
 	return $returnvalue;
 }
 
-=item stop()
+=item I<stop()>
 
 Resets the 'running' flag, stops the job, closes the pipe and fires the
 I<after_job_finish> event.

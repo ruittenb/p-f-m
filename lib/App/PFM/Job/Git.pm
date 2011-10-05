@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::Git 0.36
+# @(#) App::PFM::Job::Git 0.37
 #
 # Name:			App::PFM::Job::Git
-# Version:		0.36
+# Version:		0.37
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2010-11-23
+# Date:			2011-09-30
 #
 
 ##########################################################################
@@ -41,8 +41,8 @@ use locale;
 ##########################################################################
 # private subs
 
-=item _init(hashref { $eventname1 => coderef $handler1 [, ...] },
-hashref $options)
+=item I<< _init(hashref { $eventname1 => coderef $handler1 [, ...] }, >>
+I<< hashref $options) >>
 
 Initializes new instances. Called from the constructor.
 
@@ -55,7 +55,7 @@ sub _init {
 	return;
 }
 
-=item _preprocess(string $data)
+=item I<_preprocess(string $data)>
 
 Split the status output in a filename- and a status-field.
 
@@ -124,11 +124,11 @@ sub _preprocess {
 	return [ $flags, $file ];
 }
 
-=item _gitmaxchar(char $a, char $b)
+=item I<_gitmaxchar(char $a, char $b)>
 
 Sorting routine for Git status characters.
 
-=item rcsmax(string $old, string $new)
+=item I<rcsmax(string $old, string $new)>
 
 Determine which status character should be displayed on
 a directory that holds files with different status characters.
@@ -173,7 +173,7 @@ sub rcsmax {
 ##########################################################################
 # public subs
 
-=item isapplicable(string $path)
+=item I<isapplicable(string $path)>
 
 Checks if there is a F<.git> directory, in which case Git commands
 would be applicable.

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::History 0.37
+# @(#) App::PFM::History 0.38
 #
 # Name:			App::PFM::History
-# Version:		0.37
+# Version:		0.38
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-09-05
+# Date:			2011-09-09
 #
 
 ##########################################################################
@@ -110,8 +110,8 @@ our ($_pfm);
 ##########################################################################
 # private subs
 
-=item _init(App::PFM::Application $pfm, App::PFM::Screen $screen,
-App::PFM::Config $config)
+=item I<_init(App::PFM::Application $pfm, App::PFM::Screen $screen,>
+I<App::PFM::Config $config)>
 
 Initializes this instance by instantiating a Term::ReadLine object.
 Called from the constructor.
@@ -163,7 +163,7 @@ sub _init {
 	return;
 }
 
-=item _set_term_history(array @histlines)
+=item I<_set_term_history(array @histlines)>
 
 Uses the history list to initialize the input history in Term::ReadLine.
 This fails silently if our current variant of Term::ReadLine doesn't
@@ -179,7 +179,7 @@ sub _set_term_history {
 	return $self->{_terminal};
 }
 
-=item _set_input_mode(string $history)
+=item I<_set_input_mode(string $history)>
 
 Applies specific ReadLine library settings, based on the selection
 of I<history>, which is one of the B<H_*> constants as defined by
@@ -241,7 +241,7 @@ sub _set_input_mode {
 	return;
 }
 
-=item _h_path_completion(string $text, string $line, int $start, int $end)
+=item I<_h_path_completion(string $text, string $line, int $start, int $end)>
 
 Attempts to complete the path that the user is entering.
 Any B<~> character at the beginning is a candidate for username completion.
@@ -271,7 +271,8 @@ sub _h_path_completion {
 	return;
 }
 
-=item _h_command_completion(string $text, string $line, int $start, int $end)
+=item I<_h_command_completion(string $text, string $line, int $start,>
+I<int $end)>
 
 Attempts to complete the command that the user is entering.
 
@@ -308,7 +309,8 @@ sub _h_command_completion {
 	return;
 }
 
-=item _h_usergroup_completion(string $text, string $line, int $start, int $end)
+=item I<_h_usergroup_completion(string $text, string $line, int $start,>
+I<int $end)>
 
 Attempts to complete the command that the user is entering.
 
@@ -340,7 +342,7 @@ sub _h_usergroup_completion {
 	return;
 }
 
-=item _user_completion(string $text, int $rlstate, bool $tilde)
+=item I<_user_completion(string $text, int $rlstate, bool $tilde)>
 
 Returns one entry of the list of usernames that match the given partial
 username. The flag I<tilde> indicates if we are doing path expansion
@@ -362,7 +364,7 @@ sub _user_completion {
 	return pop @{$self->{_user_possibilities}};
 }
 
-=item _get_user_possibilities(string $partial_user, int $rlstate)
+=item I<_get_user_possibilities(string $partial_user, int $rlstate)>
 
 Finds the list of usernames that match the given partial username.
 
@@ -382,7 +384,7 @@ sub _get_user_possibilities {
 	return @possibilities;
 }
 
-=item _group_completion(string $text, int $rlstate)
+=item I<_group_completion(string $text, int $rlstate)>
 
 Returns one entry of the list of groupnames that match the given partial
 groupname.
@@ -403,7 +405,7 @@ sub _group_completion {
 	return pop @{$self->{_group_possibilities}};
 }
 
-=item _get_group_possibilities(string $partial_group, int $rlstate)
+=item I<_get_group_possibilities(string $partial_group, int $rlstate)>
 
 Finds the list of groupnames that match the given partial groupname.
 
@@ -423,7 +425,7 @@ sub _get_group_possibilities {
 	return @possibilities;
 }
 
-=item _command_completion(string $partial_command, int $rlstate)
+=item I<_command_completion(string $partial_command, int $rlstate)>
 
 Returns one entry of the list of commands that match the given partial
 command.
@@ -441,7 +443,7 @@ sub _command_completion {
 	return pop @{$self->{_command_possibilities}};
 }
 
-=item _get_command_possibilities(string $text, int $rlstate)
+=item I<_get_command_possibilities(string $text, int $rlstate)>
 
 Finds the list of commands that match the given partial command.
 
@@ -464,7 +466,7 @@ sub _get_command_possibilities {
 	return @possibilities;
 }
 
-=item _directory_expander(string $path)
+=item I<_directory_expander(string $path)>
 
 Replaces B<=5/> and B<=9/> at the beginning of a path string with the
 actual swap path or previous path.
@@ -499,7 +501,7 @@ sub _directory_expander {
 ##########################################################################
 # constructor, getters and setters
 
-=item terminal()
+=item I<terminal()>
 
 Getter for the Term::ReadLine object.
 
@@ -510,7 +512,7 @@ sub terminal {
 	return $self->{_terminal};
 }
 
-=item features()
+=item I<features()>
 
 Getter for the ReadLine list of features.
 
@@ -524,7 +526,7 @@ sub features {
 ##########################################################################
 # public subs
 
-=item read()
+=item I<read()>
 
 Reads the histories from the files in the config directory.
 
@@ -543,7 +545,7 @@ sub read {
 	return;
 }
 
-=item write( [ bool $finishing ] )
+=item I<write( [ bool $finishing ] )>
 
 Writes the histories to files in the config directory. The argument
 I<finishing> is used when shutting down pfm and indicates that the
@@ -578,7 +580,7 @@ sub write {
 	return;
 }
 
-=item write_dirs()
+=item I<write_dirs()>
 
 Writes the current directory and swap directory to files in
 the config directory.
@@ -609,9 +611,10 @@ sub write_dirs {
 	return;
 }
 
-=item input(hashref { history => string $history [, prompt => string $prompt ]
-[, default_input => string $default_input ] [, history_input => string
-$history_input ] [, pushfilter => string $pushfilter ] } )
+=item I<< input(hashref { history => string $history [, prompt => >>
+I<< string $prompt ] [, default_input => string $default_input ] >>
+I<< [, history_input => string $history_input ] [, pushfilter => >>
+I<< string $pushfilter ] } ) >>
 
 Displays I<prompt> and prompts for input from the keyboard. The parameter
 I<history> selects the history list to use and may use the B<H_*> constants
@@ -648,7 +651,7 @@ sub input {
 	return $input;
 }
 
-=item setornaments(string $colorstring)
+=item I<setornaments(string $colorstring)>
 
 Determines from the config file settings which ornaments (bold, italic,
 underline) should be used for the command prompt, then instructs
@@ -673,7 +676,7 @@ sub setornaments {
 	return;
 }
 
-=item handleresize()
+=item I<handleresize()>
 
 Tells the readline library that the screen size has changed.
 
@@ -685,7 +688,7 @@ sub handleresize {
 	return;
 }
 
-=item on_after_parse_config(App::PFM::Event $event)
+=item I<on_after_parse_config(App::PFM::Event $event)>
 
 Applies the config settings when the config file has been read and parsed.
 
@@ -712,7 +715,7 @@ sub on_after_parse_config {
 	return;
 }
 
-=item on_shutdown()
+=item I<on_shutdown()>
 
 Called when the application is shutting down. Writes history and directories
 to files under F<~/.pfm>.

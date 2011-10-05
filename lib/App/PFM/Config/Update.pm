@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config::Update 2.11.9E
+# @(#) App::PFM::Config::Update 2.12.0E
 #
 # Name:			App::PFM::Config::Update
-# Version:		2.11.9E
+# Version:		2.12.0E
 # Author:		Rene Uittenbogaard
 # Created:		2010-05-28
-# Date:			2011-09-05
+# Date:			2011-09-14
 #
 
 ##########################################################################
@@ -1203,7 +1203,7 @@ use constant UPDATES => {
 			],
 		}, {
 			ifnotpresent => qr/:ks4=.eO1;2S:  # shift-F4/,
-			before => qr/# gnome-terminal handles F1 itself/,
+			before => qr/# gnome-terminal handles\s+F1\s+itself/,
 			batch => [
 				"# :ks4=\\eO1;2S:  # shift-F4\n",
 				"# :ks9=\\e[20;2~: # shift-F9\n",
@@ -1284,6 +1284,17 @@ use constant UPDATES => {
 			batch => [
 				"extension[*.h]    : text/plain\n",
 				"extension[*.hh]   : text/plain\n",
+			],
+		}],
+	},
+	# ----- 2.12.0 ---------------------------------------------------------
+	'2.12.0' => {
+		additions => [{
+			ifnotpresent => qr/:ks2=.*?:\s*# shift-F2/,
+			before => qr/^# gnome-terminal handles\s+F1\s+itself/,
+			batch => [
+				"# :ks1=\\eO1;2P:ks1=\\e[1;2P: # shift-F1\n",
+				"# :ks2=\\eO1;2Q:ks2=\\e[1;2Q: # shift-F2\n",
 			],
 		}],
 	},

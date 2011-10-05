@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Event 0.17
+# @(#) App::PFM::Event 0.18
 #
 # Name:			App::PFM::Event
-# Version:		0.17
+# Version:		0.18
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-30
-# Date:			2011-09-05
+# Date:			2011-09-09
 #
 
 ##########################################################################
@@ -78,7 +78,7 @@ use constant KNOWN_EVENTS => {
 ##########################################################################
 # constructor, getters and setters
 
-=item new(hashref $args)
+=item I<new(hashref $args)>
 
 Initializes new instances. Called from the constructor.
 Copies known object properties from the options to the new object.
@@ -108,7 +108,7 @@ sub new {
 ##########################################################################
 # public subs
 
-=item clone()
+=item I<clone()>
 
 Clone the Event object. References inside the event are conserved, I<i.e.>
 objects contained inside the event are not cloned.
@@ -127,7 +127,7 @@ sub clone {
 	return $clone;
 }
 
-=item to_string()
+=item I<to_string()>
 
 =cut
 

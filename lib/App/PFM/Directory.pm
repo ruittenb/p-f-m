@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Directory 1.06
+# @(#) App::PFM::Directory 1.08
 #
 # Name:			App::PFM::Directory
-# Version:		1.06
+# Version:		1.08
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-09-05
+# Date:			2011-10-03
 #
 
 ##########################################################################
@@ -358,11 +358,11 @@ is refreshed but the marks are retained.
 
 sub _readcontents {
 	my ($self, $smart) = @_;
-	my ($file, %namemarkmap);
+	my ($file, %namemarkmap, $counter);
 	my @allentries    = ();
 	my @white_entries = ();
 	my $screen        = $self->{_screen};
-	# TODO stop jobs here
+	# TODO stop jobs here?
 	clearugidcache();
 	$self->_init_dircount();
 	%namemarkmap = map { $_->{name}, $_->{mark}; } @{$self->{_dircontents}};
@@ -385,6 +385,7 @@ sub _readcontents {
 	if ($#allentries > SLOWENTRIES) {
 		$screen->at(0,0)->clreol()->putmessage('Please Wait');
 	}
+	$counter = $#allentries + SLOWENTRIES; # Prevent "0" from being printed
 	foreach my $entry (@allentries) {
 		# have the mark cleared on first stat with ' '
 		$self->add({
@@ -392,6 +393,10 @@ sub _readcontents {
 			white => '',
 			mark  => $smart ? $namemarkmap{$entry} : ' '
 		});
+		unless (--$counter % SLOWENTRIES) {
+			$screen->at(0,0)->putmessage(
+				sprintf('Please Wait [%d]', $counter / SLOWENTRIES))->clreol();
+		}
 	}
 	foreach my $entry (@white_entries) {
 		chop $entry;
@@ -635,14 +640,11 @@ sub prepare {
 	return;
 }
 
-=item chdir(string $nextdir [, bool $swapping [, string $direction ] ] )
+=item chdir(string $nextdir [, string $direction [, bool $no_save_prev ] ] )
 
 Tries to change the current working directory, if necessary using B<CDPATH>.
 If successful, it stores the previous state in App::PFM::Application->_states
 and executes the 'chdirautocmd' from the F<.pfmrc> file.
-
-The I<swapping> argument can be passed as true to prevent undesired pathname
-parsing during pfm's B<F7> command.
 
 The I<direction> argument can be 'up' (when changing to a parent directory),
 'down' (when descending into a directory) or empty (when making a jump) and
@@ -650,10 +652,13 @@ will determine where the cursor will be positioned in the new directory (at
 the previous directory when moving up, at '..' when descending, and at '.'
 when making a jump).
 
+The I<no_save_prev> argument can be used to indicate that the current
+state should not be saved to the "previous" state (B<F2> command).
+
 =cut
 
 sub chdir {
-	my ($self, $nextdir, $swapping, $direction) = @_;
+	my ($self, $nextdir, $direction, $no_save_prev) = @_;
 	my ($success, $chdirautocmd, $nextpos);
 	my $screen = $self->{_screen};
 	my $prevdir = $self->{_path};
@@ -676,12 +681,14 @@ sub chdir {
 	$self->fire(App::PFM::Event->new({
 		name => 'before_change_directory',
 		type => 'soft',
+		# TODO use this event to flag to Application that the S_MAIN is to be
+		# saved in S_PREV.
 	}));
 	if ($success = chdir $nextdir and $nextdir ne $prevdir) {
 		# store the cursor position in the state
 		$_pfm->state->{_position}  = $_pfm->browser->currentfile->{name};
 		$_pfm->state->{_baseindex} = $_pfm->browser->baseindex;
-		unless ($swapping) {
+		unless ($no_save_prev) { # TODO move this to Application?
 			# Note that the clone does not inherit the rcs job number.
 			$_pfm->state('S_PREV', $_pfm->state->clone());
 		}
@@ -695,11 +702,11 @@ sub chdir {
 		}
 		$self->{_logicalpath} = $self->{_path};
 		# restore the cursor position
-		if ($swapping) {
-			$_pfm->browser->position_at($_pfm->state->{_position});
-			$_pfm->browser->baseindex(  $_pfm->state->{_baseindex});
-			$screen->set_deferred_refresh(R_SCREEN);
-		} else {
+#		if ($swapping) {
+#			$_pfm->browser->position_at($_pfm->state->{_position});
+#			$_pfm->browser->baseindex(  $_pfm->state->{_baseindex});
+#			$screen->set_deferred_refresh(R_SCREEN);
+#		} else {
 			$nextpos = $direction eq 'up'
 				? basename($prevdir)
 				: $direction eq 'down' ? '..' : '.';
@@ -707,7 +714,7 @@ sub chdir {
 			$_pfm->browser->baseindex(0);
 			$screen->set_deferred_refresh(R_CHDIR);
 			$self->set_dirty(D_ALL);
-		}
+#		}
 		$chdirautocmd = $self->{_config}{chdirautocmd};
 		system("$chdirautocmd") if length($chdirautocmd);
 	}
