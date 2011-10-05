@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.78
+# @(#) App::PFM::CommandHandler 1.80
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.78
+# Version:		1.80
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-09-28
+# Date:			2011-10-05
 #
 
 ##########################################################################
@@ -509,7 +509,7 @@ sub _expansion_modifier {
 			$name =~ s/^($ungreedy)$regexp$/$1/;
 		}
 	} elsif ($mode eq '/') {			# substitution: ={2/foo/bar}
-		if ($pos = index($pattern, '/') and $pos >= 0) {
+		if (($pos = index($pattern, '/')) >= 0) {
 			$replacement = substr($pattern, $pos + 1);
 			$pattern     = substr($pattern, 0, $pos);
 		} else {
@@ -517,12 +517,12 @@ sub _expansion_modifier {
 		}
 		if ($greedy eq '/') {
 			$pos = 0;
-			while ($pos = index($name, $pattern, $pos) and $pos >= 0) {
+			while (($pos = index($name, $pattern, $pos)) >= 0) {
 				substr($name, $pos, length($pattern), $replacement);
 				$pos += length($replacement) - length($pattern);
 			}
 		} else {
-			if ($pos = index($name, $pattern) and $pos >= 0) {
+			if (($pos = index($name, $pattern)) >= 0) {
 				substr($name, $pos, length($pattern), $replacement);
 			}
 		}
@@ -2413,12 +2413,9 @@ sub handlecommand { # Y or O
 	}
 	# chdir special case
 	if ($command =~ /^\s*cd\s+(.*)$/) {
-	 	$newdir = $1;
-#TODO 	$self->_expand_environment_vars(\$command); # TODO this might introduce =1 etc.
-#TODO 	($newdir = $command) =~ s/^\s*cd\s+//;
+		$self->_expand_environment_vars(\$command); # TODO this might introduce =1 etc.
+		($newdir = $command) =~ s/^\s*cd\s+//;
 		$self->_expand_escapes(QUOTE_OFF, \$newdir, $event->{currentfile});
-		$newdir = `echo $newdir`; # TODO new
-		chop $newdir;
 		$screen->raw_noecho();
 		if (!$screen->ok_to_remove_marks()) {
 			$screen->set_deferred_refresh(R_MENU); # R_SCREEN?
