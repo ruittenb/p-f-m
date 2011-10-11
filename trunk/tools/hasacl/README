@@ -6,3 +6,5 @@ have the feature turned on.
 
 If you don't use ACLs, you can skip the installation of hasacl.
 
+Currently, this version is Linux-specific.
+
