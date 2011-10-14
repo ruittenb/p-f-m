@@ -1156,11 +1156,11 @@ escape, then the result of the expansion is the expanded
 value of I<escape> with the shortest (B<%>) or longest (B<%%>)
 matching string deleted.
 
-=item B<={escape/needle/replacement}>
+=item B<={escape/string/replacement}>
 
-=item B<={escape//needle/replacement}>
+=item B<={escape//string/replacement}>
 
-Find occurrences of I<needle> in the string and replace them with
+Find occurrences of I<string> in the string and replace them with
 I<replacement>.  For B</>, replace only the first
 occurrence; for B<//>, replace all occurrences.
 
