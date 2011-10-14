@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::File 0.49
+# @(#) App::PFM::File 0.50
 #
 # Name:			App::PFM::File
-# Version:		0.49
+# Version:		0.50
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-10-06
+# Date:			2011-10-14
 #
 
 ##########################################################################
@@ -64,7 +64,7 @@ sub _init {
 	}
 	if (defined $opt->{entry}) {
 		if ($opt->{skip_stat}) {
-			$self->dummy_entry($opt->{entry});
+			$self->dummy_entry($opt->{entry}, $opt->{mark});
 		} else {
 			$self->stat_entry($opt->{entry}, $opt->{white}, $opt->{mark});
 		}
@@ -199,7 +199,7 @@ Initializes the current file information as a dummy entry.
 =cut
 
 sub dummy_entry {
-	my ($self, $entry) = @_;
+	my ($self, $entry, $marked_flag) = @_;
 	my ($ptr);
 	my $name = $entry;
 	$ptr  = {
@@ -218,7 +218,7 @@ sub dummy_entry {
 		inode		=> 0,
 		nlink		=> 0,
 		rdev		=> 0,
-		mark		=> '',
+		mark		=> $marked_flag,
 		atime		=> 0,
 		mtime		=> 0,
 		ctime		=> 0,
