@@ -7,7 +7,7 @@
 # Version:		2.12.1
 # Author:		Rene Uittenbogaard
 # Created:		2010-05-28
-# Date:			2011-09-14
+# Date:			2011-10-17
 #
 
 ##########################################################################
@@ -1295,6 +1295,35 @@ use constant UPDATES => {
 			batch => [
 				"# :ks1=\\eO1;2P:ks1=\\e[1;2P: # shift-F1\n",
 				"# :ks2=\\eO1;2Q:ks2=\\e[1;2Q: # shift-F2\n",
+			],
+		}],
+	},
+	# ----- 2.12.1 ---------------------------------------------------------
+	'2.12.1' => {
+		additions => [{
+			ifnotpresent => qr/(?:^|:)\*\.xz=[^:]*:/,
+			before => qr/(?:^|:)\*\.gz=[^:]*:/,
+			batch => [
+				"*.xz=bold red:*.txz=bold red:\\\n",
+			],
+		}, {
+			ifnotpresent => qr/extension\[\*\.txz\]/,
+			after => qr/extension\[\*\.txt\]/,
+			batch => [
+				"extension[*.txz]  : application/x-tar-xz\n",
+			],
+		}, {
+			ifnotpresent => qr/extension\[\*\.xz\]/,
+			after => qr/extension\[\*\.xpm\]/,
+			batch => [
+				"extension[*.xz]   : application/x-xz\n",
+			],
+		}, {
+			ifnotpresent => qr/launch\[application.x-tar-xz\]/,
+			after => qr/launch\[application.x-uuencoded\]/,
+			batch => [
+				"launch[application/x-tar-xz]: xz -dc =2 | tar xvf -\n",
+				"launch[application/x-xz]    : xz -d =2\n",
 			],
 		}],
 	},
