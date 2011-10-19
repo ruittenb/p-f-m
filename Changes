@@ -1,5 +1,7 @@
 2.12.1
 
+* added: MIME types for .xz and .txz.
+
 2.12.0
 
 * fixed: the si(Z)e command now can correctly figure out the exit status
