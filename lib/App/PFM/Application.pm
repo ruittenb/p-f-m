@@ -62,7 +62,7 @@ our $CHILD_ERROR = 0; # filled by the CHLD signal handler
 ##########################################################################
 # private subs
 
-=item I<_init(string $argvnull, arrayref $argv)>
+=item I<_init(string $argvzero, arrayref $argv)>
 
 Initializes new instances. Called from the constructor.
 The arguments pass the I<argv> array, to be used at bootstrap time.
@@ -70,14 +70,14 @@ The arguments pass the I<argv> array, to be used at bootstrap time.
 =cut
 
 sub _init {
-	my ($self, $argvnull, $argv) = @_;
+	my ($self, $argvzero, $argv) = @_;
 	$self->{VERSION}        = $VERSION;
 	$self->{LASTYEAR}       = $LASTYEAR;
 	$self->{LATEST_VERSION} = '';
 	$self->{_bootstrapped}  = 0;
 	$self->{_options}       = {};
 	$self->{_states}        = {};
-	$self->{_argvnull}      = $argvnull || 'pfm';
+	$self->{_argvzero}      = $argvzero || 'pfm';
 	$self->{_argv}          = $argv || [];
 	return;
 }
@@ -126,7 +126,7 @@ changes the program name to C<-pfm>).
 sub _setlogin {
 	my ($self) = @_;
 	setsid();
-	$0 = $self->{_argvnull} = '-pfm';
+	$0 = $self->{_argvzero} = '-pfm';
 	return;
 }
 
@@ -175,7 +175,7 @@ sub _bootstrap_commandline {
 	my @options = @{$self->{_argv}};
 	my ($screen, $invalid, $opt_help, $opt_login, $opt_usage, $opt_version,
 		$startingswapdir, $startingsort, $startingcolorset, $startinglayout);
-	$opt_login = $self->{_argvnull} =~ /^-/;
+	$opt_login = $self->{_argvzero} =~ /^-/;
 	# hand over the application object to the other classes
 	# for easy access.
 	$self->{_screen} = App::PFM::Screen->new($self);
