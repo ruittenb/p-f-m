@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 1.29
+# @(#) App::PFM::Config 1.30
 #
 # Name:			App::PFM::Config
-# Version:		1.29
+# Version:		1.30
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-09-14
+# Date:			2011-11-11
 #
 
 ##########################################################################
@@ -793,10 +793,12 @@ keydef[*]:kmous=\e[M:pgdn=\e[62~:pgup=\e[63~:\
 ks1=\eO1;2P:ks1=\e[1;2P:\
 ks2=\eO1;2Q:ks2=\e[1;2Q:\
 ks4=\eO1;2S:ks4=\e[26~:ks4=\e[1;2S:\
+ks8=\e[19;2~:\
 ks9=\e[20;2~:ks9=\e[33~:
 # :ks1=\eO1;2P:ks1=\e[1;2P:             # shift-F1
 # :ks2=\eO1;2Q:ks2=\e[1;2Q:             # shift-F2
 # :ks4=\eO1;2S:ks4=\e[26~:ks4=\e[1;2S:  # shift-F4
+# :ks8=\e[19;2~:                        # shift-F8
 # :ks9=\e[20;2~:ks9=\e[33~:             # shift-F9
 ## gnome-terminal handles F1  itself. enable shift-F1 by adding:
 #k1=\eO1;2P:
