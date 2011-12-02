@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 1.29
+# @(#) App::PFM::Config 1.30
 #
 # Name:			App::PFM::Config
-# Version:		1.29
+# Version:		1.30
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-09-14
+# Date:			2011-11-11
 #
 
 ##########################################################################
@@ -793,10 +793,12 @@ keydef[*]:kmous=\e[M:pgdn=\e[62~:pgup=\e[63~:\
 ks1=\eO1;2P:ks1=\e[1;2P:\
 ks2=\eO1;2Q:ks2=\e[1;2Q:\
 ks4=\eO1;2S:ks4=\e[26~:ks4=\e[1;2S:\
+ks8=\e[19;2~:\
 ks9=\e[20;2~:ks9=\e[33~:
 # :ks1=\eO1;2P:ks1=\e[1;2P:             # shift-F1
 # :ks2=\eO1;2Q:ks2=\e[1;2Q:             # shift-F2
 # :ks4=\eO1;2S:ks4=\e[26~:ks4=\e[1;2S:  # shift-F4
+# :ks8=\e[19;2~:                        # shift-F8
 # :ks9=\e[20;2~:ks9=\e[33~:             # shift-F9
 ## gnome-terminal handles F1  itself. enable shift-F1 by adding:
 #k1=\eO1;2P:
@@ -979,6 +981,7 @@ ca=black on red:\
 *.xls=cyan:*.xlsx=cyan:*.ods=cyan:\
 *.tar=bold red:*.tgz=bold red:*.arj=bold red:*.taz=bold red:*.lzh=bold red:\
 *.lzma=bold red:*.zip=bold red:*.rar=bold red:*.z=bold red:*.Z=bold red:\
+*.xz=bold red:*.txz=bold red:\
 *.gz=bold red:*.bz2=bold red:*.dz=bold red:*.bz=bold red:*.tbz2=bold red:\
 *.tz=bold red:*.ace=bold red:*.zoo=bold red:*.7z=bold red:*.rz=bold red:\
 *.deb=red:*.rpm=red:*.cpio=red:*.jar=red:*.pkg=red:\
@@ -1022,6 +1025,7 @@ ca=black on red:\
 *.xls=black on cyan:*.xlsx=black on cyan:*.ods=black on cyan:\
 *.tar=bold red:*.tgz=bold red:*.arj=bold red:*.taz=bold red:*.lzh=bold red:\
 *.zip=bold red:*.rar=bold red:\
+*.xz=bold red:*.txz=bold red:\
 *.z=bold red:*.Z=bold red:*.gz=bold red:*.bz2=bold red:*.deb=red:*.rpm=red:\
 *.pkg=red:*.jpg=bold magenta:*.gif=bold magenta:*.bmp=bold magenta:\
 *.xbm=bold magenta:*.xpm=bold magenta:*.png=bold magenta:\
@@ -1292,6 +1296,7 @@ extension[*.tif]  : image/tiff
 extension[*.tiff] : image/tiff
 extension[*.tcsh] : application/x-tcsh
 extension[*.txt]  : text/plain
+extension[*.txz]  : application/x-tar-xz
 extension[*.uue]  : application/x-uuencoded
 extension[*.viv]  : video/vnd.vivo
 extension[*.vivo] : video/vnd.vivo
@@ -1310,6 +1315,7 @@ extension[*.xlt]  : application/vnd.ms-excel
 extension[*.xlw]  : application/vnd.ms-excel
 extension[*.xml]  : application/xml
 extension[*.xpm]  : image/x-xpixmap
+extension[*.xz]   : application/x-xz
 extension[*.xwd]  : image/x-xwindowdump
 extension[*.ync]  : application/x-yencoded
 extension[*.yml]  : application/x-yaml
@@ -1392,6 +1398,8 @@ launch[application/x-tar-gzip]    : gunzip < =2 | tar tvf -
 #launch[application/x-tar]         : tar xvf =2
 launch[application/x-tar]         : tar tvf =2
 launch[application/x-uuencoded]   : uudecode =2
+launch[application/x-tar-xz]      : xz -dc =2 | tar xvf -
+launch[application/x-xz]          : xz -d =2
 launch[application/x-yaml]        : =e =2
 launch[application/x-yencoded]    : ydecode =2
 launch[application/xml]           : firefox =2 &

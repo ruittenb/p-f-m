@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config::Update 2.12.0E
+# @(#) App::PFM::Config::Update 2.12.1E
 #
 # Name:			App::PFM::Config::Update
-# Version:		2.12.0E
+# Version:		2.12.1E
 # Author:		Rene Uittenbogaard
 # Created:		2010-05-28
-# Date:			2011-09-14
+# Date:			2011-11-11
 #
 
 ##########################################################################
@@ -1295,6 +1295,41 @@ use constant UPDATES => {
 			batch => [
 				"# :ks1=\\eO1;2P:ks1=\\e[1;2P: # shift-F1\n",
 				"# :ks2=\\eO1;2Q:ks2=\\e[1;2Q: # shift-F2\n",
+			],
+		}],
+	},
+	# ----- 2.12.1 ---------------------------------------------------------
+	'2.12.1' => {
+		additions => [{
+			ifnotpresent => qr/:ks8=.*?:\s*# shift-F8/,
+			before => qr/^# gnome-terminal handles\s+F1\s+itself/,
+			batch => [
+				"# :ks8=\\e[19;2~:             # shift-F8\n",
+			],
+		}, {
+			ifnotpresent => qr/(?:^|:)\*\.xz=[^:]*:/,
+			before => qr/(?:^|:)\*\.gz=[^:]*:/,
+			batch => [
+				"*.xz=bold red:*.txz=bold red:\\\n",
+			],
+		}, {
+			ifnotpresent => qr/extension\[\*\.txz\]/,
+			after => qr/extension\[\*\.txt\]/,
+			batch => [
+				"extension[*.txz]  : application/x-tar-xz\n",
+			],
+		}, {
+			ifnotpresent => qr/extension\[\*\.xz\]/,
+			after => qr/extension\[\*\.xpm\]/,
+			batch => [
+				"extension[*.xz]   : application/x-xz\n",
+			],
+		}, {
+			ifnotpresent => qr/launch\[application.x-tar-xz\]/,
+			after => qr/launch\[application.x-uuencoded\]/,
+			batch => [
+				"launch[application/x-tar-xz]: xz -dc =2 | tar xvf -\n",
+				"launch[application/x-xz]    : xz -d =2\n",
 			],
 		}],
 	},

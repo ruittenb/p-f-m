@@ -1,6 +1,11 @@
+2.12.1
+
+* added: MIME types for .xz and .txz.
+* added: shift-F8 for easy removal of oldmarks and newmarks.
+
 2.12.0E
 
-* merged changes from 2.12.0 into 2.11.9E.
+* merged changes from 2.12.0 into 2.12.0E.
 
 2.12.0
 
@@ -9,6 +14,8 @@
 * fixed: the radix for the (N)ame command was not correctly initialized in
   an initial swap state (started with the -s option).
 * fixed: unnecessary delay when a Unix c(O)mmand fails.
+* changed: the "Please Wait" message when reading a directory with many entries
+  is now interruptible by pressing ESC.
 * added: substitution modifier ={2/foo/bar}
 * added: display countdown on "Please Wait" when a directory with a lot of
   entries is being read

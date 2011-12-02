@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::File 0.48E
+# @(#) App::PFM::File 0.50E
 #
 # Name:			App::PFM::File
-# Version:		0.48E
+# Version:		0.50E
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-09-09
+# Date:			2011-10-14
 #
 
 ##########################################################################
@@ -65,7 +65,11 @@ sub _init {
 		$self->{_parent} = $opt->{parent};
 	}
 	if (defined $opt->{entry}) {
-		$self->stat_entry($opt->{entry}, $opt->{white}, $opt->{mark});
+		if ($opt->{skip_stat}) {
+			$self->dummy_entry($opt->{entry}, $opt->{mark});
+		} else {
+			$self->stat_entry($opt->{entry}, $opt->{white}, $opt->{mark});
+		}
 	}
 	return;
 }
@@ -190,6 +194,49 @@ sub stamp2str {
 	return lstrftime($_pfm->config->{timestampformat}, localtime $time);
 }
 
+=item I<dummy_entry(string $entry)>
+
+Initializes the current file information as a dummy entry.
+
+=cut
+
+sub dummy_entry {
+	my ($self, $entry, $marked_flag) = @_;
+	my ($ptr);
+	my $name = $entry;
+	$ptr  = {
+		name		=> $name,
+		display		=> $name,
+		bytename	=> $entry,
+		uid			=> undef,
+		gid			=> undef,
+		user		=> '',
+		group		=> '',
+		mode_num	=> 0,
+		mode		=> '---------- ',
+		type		=> '-',
+		has_acl		=> '',
+		device		=> '',
+		inode		=> 0,
+		nlink		=> 0,
+		rdev		=> 0,
+		mark		=> $marked_flag,
+		atime		=> 0,
+		mtime		=> 0,
+		ctime		=> 0,
+		grand		=> '',
+		grand_power	=> ' ',
+		size		=> 0,
+		blocks		=> 0,
+		blksize		=> 0,
+		rcs			=> '-',
+		gap			=> '',
+	};
+	@{$self}{keys %$ptr} = values %$ptr;
+	$self->format();
+	return $self;
+}
+
 =item I<stat_entry(string $entry, char $iswhite, char $marked_flag)>
 
 Initializes the current file information by performing a stat() on it.
@@ -237,7 +284,7 @@ sub stat_entry {
 		group		=> find_gid($gid),
 		mode_num	=> sprintf('%lo', $mode),
 		mode		=> $self->mode2str($mode),
-		has_acl     => $_pfm->os->hasacl("$self->{_parent}/$entry"),
+		has_acl		=> $_pfm->os->hasacl("$self->{_parent}/$entry"),
 		device		=> $device,
 		inode		=> $inode,
 		nlink		=> $nlink,

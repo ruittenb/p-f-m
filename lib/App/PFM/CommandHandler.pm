@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.80
+# @(#) App::PFM::CommandHandler 1.81
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.80
+# Version:		1.81
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-10-05
+# Date:			2011-11-11
 #
 
 ##########################################################################
@@ -892,7 +892,7 @@ sub handle {
 		/^p$/io				and $self->handleprint($event),				  last;
 		/^L$/o				and $self->handlelink($event),				  last;
 		/^n$/io				and $self->handlename($event),				  last;
-		/^(k8| )$/o			and $self->handlemark($event),				  last;
+		/^(k8|ks8| )$/o		and $self->handlemark($event),				  last;
 		/^k11$/o			and $self->handlerestat($event),			  last;
 		/^[\/f]$/io			and $self->handlefind($event),				  last;
 		/^[<>]$/io			and $self->handlepan($event, MENU_SINGLE),	  last;
@@ -1418,8 +1418,14 @@ sub handleentry {
 
 =item handlemark(App::PFM::Event $event)
 
-Handles marking (including or excluding) a file (key B<SPACE>
-or B<F8>).
+Handles marking (including or excluding) a file (key B<SPACE>, B<F8>
+or Shift-B<F8>).
+
+Space and B<F8> will mark the file, unless it was already marked
+(oldmarks and newmarks will be turned into marks).
+
+Shift-B<F8> will unmark the file, unless it was marked (oldmarks and
+newmarks will be removed).
 
 =cut
 
@@ -1427,9 +1433,25 @@ sub handlemark {
 	my ($self, $event) = @_;
 	my $currentline  = $event->{lunchbox}{currentline};
 	my $currentfile  = $event->{currentfile};
-	if ($currentfile->{mark} eq M_MARK) {
+	if ($currentfile->{mark} eq M_MARK)
+	{
+		# Marked file. Always remove the mark.
 		$_pfm->state->directory->exclude($currentfile, ' ');
-	} else {
+	}
+	elsif ($currentfile->{mark} ne M_OLDMARK and
+		$currentfile->{mark} ne M_NEWMARK)
+	{
+		# Unmarked file. Always mark it.
+		$_pfm->state->directory->include($currentfile);
+	}
+	elsif ($event->{data} eq 'ks8')
+	{
+		# Old-/newmarked file. Remove the mark.
+		$_pfm->state->directory->exclude($currentfile, ' ');
+	}
+	else
+	{
+		# Old-/newmarked file. Mark it.
 		$_pfm->state->directory->include($currentfile);
 	}
 	# redraw the line now, because we could be moving on

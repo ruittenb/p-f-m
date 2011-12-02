@@ -1053,14 +1053,14 @@ escape, then the result of the expansion is the expanded
 value of <em>escape</em> with the shortest (<strong>%</strong>) or longest (<strong>%%</strong>)
 matching string deleted.</p>
 </dd>
-<dt><strong><a name="escape_needle_replacement" class="item"><strong>={escape/needle/replacement}</strong></a></strong></dt>
+<dt><strong><a name="escape_string_replacement" class="item"><strong>={escape/string/replacement}</strong></a></strong></dt>
 
-<dt><strong><a name="escape_needle_replacement2" class="item"><strong>={escape//needle/replacement}</strong></a></strong></dt>
+<dt><strong><a name="escape_string_replacement2" class="item"><strong>={escape//string/replacement}</strong></a></strong></dt>
 
 <dd>
-<p>Find occurrences of <em>needle</em> in the string and replace them with
-<em>replacement</em>.  If the operator is <strong>/</strong>, replace only the first
-occurrence; if <strong>//</strong>, replace all occurrences.</p>
+<p>Find occurrences of <em>string</em> in the expanded value of <em>escape</em>
+and replace them with <em>replacement</em>.  For <strong>/</strong>, replace only the
+first occurrence; for <strong>//</strong>, replace all occurrences.</p>
 </dd>
 <dt><strong><a name="escape_letters" class="item"><strong>={escape^letters}</strong></a></strong></dt>
 

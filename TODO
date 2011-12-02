@@ -93,6 +93,10 @@ A  +    doc/pfm.pdf
 - add an 'is_main' flag to directories so that they know if a job event may
   trigger a screen update
 
+- stat all files in the background?
+
+- add a (M)ore - s(U)do command (CPAN: use Sudo;)
+
 - change Config->{_text} to slurp reading: my $code = do { local $/; <$in> };
 - change Config::Update to /\A...\z/mso
 
@@ -127,6 +131,8 @@ A  +    doc/pfm.pdf
 
 - introduce SIGQUIT for interrupt multi?
 
+- introduce 'scrolloffset' as in vim?
+
 - maybe allow for file sizes to be displayed with thousands separator,
   e.g. 51_130_240.
 
@@ -141,6 +147,9 @@ A  +    doc/pfm.pdf
 
 ################################################################################
 # documentation enhancements
+
+- UML: File::dummy_entry
+  Replace _argvnull with _argvzero
 
 - manpages: use I<...> in =items
 
