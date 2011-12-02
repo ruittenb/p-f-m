@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Directory 1.08
+# @(#) App::PFM::Directory 1.09
 #
 # Name:			App::PFM::Directory
-# Version:		1.08
+# Version:		1.09
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-10-03
+# Date:			2011-10-14
 #
 
 ##########################################################################
@@ -358,7 +358,7 @@ is refreshed but the marks are retained.
 
 sub _readcontents {
 	my ($self, $smart) = @_;
-	my ($file, %namemarkmap, $counter);
+	my ($file, %namemarkmap, $counter, $interrupted, $interrupt_key);
 	my @allentries    = ();
 	my @white_entries = ();
 	my $screen        = $self->{_screen};
@@ -385,17 +385,29 @@ sub _readcontents {
 	if ($#allentries > SLOWENTRIES) {
 		$screen->at(0,0)->clreol()->putmessage('Please Wait');
 	}
-	$counter = $#allentries + SLOWENTRIES; # Prevent "0" from being printed
-	foreach my $entry (@allentries) {
+	$counter = $#allentries + SLOWENTRIES/2; # Prevent "0" from being printed
+	STAT_ENTRIES: foreach my $entry (@allentries) {
 		# have the mark cleared on first stat with ' '
 		$self->add({
-			entry => $entry,
-			white => '',
-			mark  => $smart ? $namemarkmap{$entry} : ' '
+			entry     => $entry,
+			skip_stat => $interrupted,
+			white     => '',
+			mark      => $smart ? $namemarkmap{$entry} : ' '
 		});
 		unless (--$counter % SLOWENTRIES) {
 			$screen->at(0,0)->putmessage(
 				sprintf('Please Wait [%d]', $counter / SLOWENTRIES))->clreol();
+		}
+		# See if a new key was pressed.
+		if (!defined($interrupt_key) and $screen->pending_input()) {
+			# See if it was "Escape".
+			if (($interrupt_key = $screen->getch()) eq "\e") {
+				# It was. Flag "interrupted" for the rest of the loop.
+				$interrupted = 1;
+			} else {
+				# It was not. Put it back on the input queue.
+				$screen->stuff_input($interrupt_key);
+			}
 		}
 	}
 	foreach my $entry (@white_entries) {

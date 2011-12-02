@@ -2,15 +2,6 @@
 
 shopt -s extglob
 
-currentdir=$(basename $(pwd -P)) # pfm-2.07.2-alpha
-currentvrc=${currentdir##pfm-}
-currentver=${currentvrc%-@(broken|alpha|beta|stable|dist)}
-
-if [ -z "$currentver" ]; then
-	echo "Cannot determine current version, exiting"
-	exit 1
-fi
-
 previous_vw="$(grep 'ds Vw .... pfm.pl [0-9]\.[0-9][0-9]\.[0-9]' pfm)"
 previousver="${previous_vw##*pfm.pl }"
 
@@ -19,28 +10,30 @@ if [ -z "$previousver" ]; then
 	exit 1
 fi
 
-echo "Previous version: '$previousver'"
-echo "Current  version: '$currentver'"
+newver=$(perl -le '
+	($previousver = "'"$previousver"'") =~ tr/.//d;
+	($newver = ++$previousver) =~ s/^(\d)(\d\d)(\d)$/$1\.$2\.$3/;
+	print $newver;
+')
 
-if [ "$previousver" = "$currentver" ]; then
+echo "Previous version: '$previousver'"
+echo "Current  version: '$newver'"
+
+if [ "$previousver" = "$newver" ]; then
 	echo "Nothing to do, exiting"
 	exit 1
 fi
 
-
-treesed "$previousver" "$currentver"	\
+treesed "$previousver" "$newver"	\
 	-files README pfm pfmrcupdate lib/App/PFM/Application.pm
 
 treesed "# @.#. App::PFM::Config::Update $previousver"	\
-	"# @(#) App::PFM::Config::Update $currentver"	\
+	"# @(#) App::PFM::Config::Update $newver"	\
 	-files lib/App/PFM/Config/Update.pm
 
 
 treesed	"# Version:		$previousver"	\
-	"# Version:		$currentver"	\
+	"# Version:		$newver"	\
 	-files lib/App/PFM/Config/Update.pm
-
-# no workie
-#perl -i -ple 'BEGIN { print '\'$currentver\''; print "\n\n"; }' Changes
 	
 
