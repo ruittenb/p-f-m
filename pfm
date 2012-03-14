@@ -33,7 +33,7 @@ our $VERSION  = '2.12.1';
 =pod
 
 =for roff
-.ds Yr 2011
+.ds Yr 2012
 .ds Vw @(#) pfm.pl 2.12.1
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
@@ -56,9 +56,8 @@ use locale;
 my $pfm;
 
 END {
-	# In case of emergency: make sure that the alternate screen
-	# is off, mouse mode is off, bracketed paste mode is off
-	# and that the terminal is in 'cooked' mode.
+	# In case of emergency: try to turn mouse mode off, bracketed paste mode
+	# off, the alternate screen off, and set the terminal to 'cooked' mode.
 	print "\e[?47l\e[?9l\e[?2004l";
 	system qw(stty -raw echo);
 }
