@@ -124,13 +124,13 @@
 .\" ========================================================================
 .\"
 .IX Title "PFM 1"
-.TH PFM 1 "2011-10-14" " " " "
+.TH PFM 1 "2012-03-20" " " " "
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
 .nh
-.ds Yr 2011
-.ds Vw @(#) pfm.pl 2.12.0
+.ds Yr 2012
+.ds Vw @(#) pfm.pl 2.12.1
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
@@ -279,7 +279,7 @@ Directories will be copied recursively with all underlying files.
 .Sp
 In multiple-file mode, it is not allowed to specify a single non-directory
 filename as a destination. Instead, the destination name must be a
-directory or a name containing a \fB=1\fR, \fB=2\fR or \fB=7\fR escape (see below
+directory or a name containing a \fB=1\fR or \fB=2\fR escape (see below
 under c\fBO\fRmmand).
 .Sp
 If clobber mode is off (see below under the \fB!\fR command), existing files
@@ -316,6 +316,9 @@ filename. The cursor is then positioned on that file.
 .IX Item "tarGet"
 Allows you to change the target that a symbolic link points to. You must
 have permission to remove the current symbolic link.
+.Sp
+The new name may use the \fB=0\fR escape to modify the existing target
+(see below under c\fBO\fRmmand).
 .IP "\fBInclude\fR" 4
 .IX Item "Include"
 Allows you to mark a group of files which meet a certain criterion:
@@ -406,7 +409,7 @@ which is to create the new link inside that directory.
 .Sp
 In multiple-file mode, it is not allowed to specify a single non-directory
 filename as a new name. Instead, the new name must be a directory or a
-name containing a \fB=1\fR, \fB=2\fR or \fB=7\fR escape (see below under c\fBO\fRmmand).
+name containing a \fB=1\fR or \fB=2\fR escape (see below under c\fBO\fRmmand).
 .Sp
 If clobber mode is off (see below under the \fB!\fR command), existing files
 will not be overwritten.
@@ -501,6 +504,9 @@ a space-separated list of all marked filenames
 .IP "\fB=9\fR" 4
 .IX Item "=9"
 the full previous directory path (see \fBF2\fR command)
+.IP "\fB=0\fR" 4
+.IX Item "=0"
+the symlink target if the current file is a symlink
 .IP "\fB==\fR" 4
 .IX Item "=="
 a single literal \fB=\fR
@@ -615,7 +621,7 @@ Like c\fBO\fRmmand (see above), except that it uses preconfigured commands
 from the \fI.pfmrc\fR file.  These commands are identified by a single
 letter (case-sensitive) or digit.
 .Sp
-\&\fBY\fRour command definitions may use \fB=1\fR up to \fB=9\fR and \fB=e\fR,
+\&\fBY\fRour command definitions may use \fB=0\fR up to \fB=9\fR and \fB=e\fR,
 \&\fB=E\fR, \fB=p\fR and \fB=v\fR escapes just as in c\fBO\fRmmand, \fIe.g.\fR:
 .Sp
 .Vb 4
@@ -895,7 +901,7 @@ files, in multiple mode).
 Toggle mouse use. See below under \*(L"\s-1MOUSE\s0 \s-1COMMANDS\s0\*(R".
 .SH "ESCAPE MODIFIERS"
 .IX Header "ESCAPE MODIFIERS"
-The above mentioned escapes \fB=1\fR to \fB=9\fR and \fB=e\fR, \fB=E\fR, \fB=p\fR
+The above mentioned escapes \fB=0\fR to \fB=9\fR and \fB=e\fR, \fB=E\fR, \fB=p\fR
 and \fB=v\fR can make use of the following modifiers:
 .IP "\fB={escape#prefix}\fR" 4
 .IX Item "={escape#prefix}"
@@ -1085,10 +1091,10 @@ The input is taken literally.
 .IX Item "a filename (e.g. in Copy or tarGet)."
 First of all, tilde expansion is performed.
 .Sp
-Next, any \f(CW\*(C`=[1\-9eEpv]\*(C'\fR character sequence is expanded to the corresponding
+Next, any \f(CW\*(C`=[0\-9eEpv]\*(C'\fR character sequence is expanded to the corresponding
 value.
 .Sp
-At the same time, any \f(CW\*(C`=[^1\-9eEpv]\*(C'\fR character sequence is just replaced
+At the same time, any \f(CW\*(C`=[^0\-9eEpv]\*(C'\fR character sequence is just replaced
 with the character itself.
 .Sp
 Finally, if the filename is to be processed by \f(CW\*(C`pfm\*(C'\fR, it is taken literally;
@@ -1098,10 +1104,10 @@ if it is to be handed over to a shell, all metacharacters are replaced
 .IX Item "a shell command (e.g. in cOmmand or Print)"
 First of all, tilde expansion is performed.
 .Sp
-Next, any \f(CW\*(C`=[1\-9eEpv]\*(C'\fR character sequence is expanded to the corresponding
+Next, any \f(CW\*(C`=[0\-9eEpv]\*(C'\fR character sequence is expanded to the corresponding
 value, \fIwith shell metacharacters escaped\fR.
 .Sp
-At the same time, any \f(CW\*(C`=[^1\-9eEpv]\*(C'\fR character sequence is just replaced
+At the same time, any \f(CW\*(C`=[^0\-9eEpv]\*(C'\fR character sequence is just replaced
 with the character itself.
 .PP
 In short:
