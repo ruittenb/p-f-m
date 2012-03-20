@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.81
+# @(#) App::PFM::CommandHandler 1.82
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.81
+# Version:		1.82
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-11-11
+# Date:			2012-03-19
 #
 
 ##########################################################################
@@ -75,7 +75,7 @@ use constant INC_CRITERIA => [
 	'i' => 'Invert',
 ];
 
-use constant CMDESCAPE_BREAK => 9;
+use constant CMDESCAPE_BREAK => 10;
 use constant CMDESCAPES      => [
 	'1 name',
 	'2 name.ext',
@@ -86,6 +86,7 @@ use constant CMDESCAPES      => [
 	'7 extension',
 	'8 selection',
 	'9 prev path',
+	'0 ln target',
 	'',
 	'',
 	'e editor',
@@ -356,19 +357,20 @@ sub _expand_tildes {
 }
 
 =item _expand_replace(bool $do_quote, char $escapechar [, string
-$name_no_extension, string $name, string $extension ] )
+$name_no_extension, string $name, string $extension, string $target ] )
 
 Does the actual escape expansion in commands and filenames
 for one occurrence of an escape sequence.
 
-All escape types B<=1> .. B<=9> escapes plus B<=e>, B<=E>, B<=p> and B<=v>
+All escape types B<=0> .. B<=9> escapes plus B<=e>, B<=E>, B<=p> and B<=v>
 are recognized.  See pfm(1) for more information about the meaning of
 these escapes.
 
 =cut
 
 sub _expand_replace {
-	my ($self, $qif, $category, $name_no_extension, $name, $extension) = @_;
+	my ($self, $qif, $category, $name_no_extension, $name, $extension,
+		$target) = @_;
 	for ($category) {
 		/1/o and return condquotemeta($qif, $name_no_extension);
 		/2/o and return condquotemeta($qif, $name);
@@ -384,6 +386,7 @@ sub _expand_replace {
 		/9/o and $_pfm->state('S_PREV')
 			 and return condquotemeta($qif,
                                   $_pfm->state('S_PREV')->directory->path);
+		/0/o and return condquotemeta($qif, $target);
 		/e/o and return $self->{_config}{editor};
 		/E/o and return $self->{_config}{fg_editor};
 		/p/o and return $self->{_config}{pager};
@@ -407,7 +410,7 @@ sub _expand_34569_escapes {
 	# replace tildes
 	$self->_expand_tildes($command);
 	# replace the escapes
-#	$$command =~ s/$qe([^1278])/$self->_expand_replace($qif, $1)/ge;
+#	$$command =~ s/$qe([^12780])/$self->_expand_replace($qif, $1)/ge;
 	$$command =~ s/$qe([34569eEpv])/$self->_expand_replace($qif, $1)/ge;
 	return;
 }
@@ -457,6 +460,7 @@ Expands tildes and all occurrences of all types of escapes except B<=8>.
 sub _expand_escapes {
 	my ($self, $qif, $command, $currentfile) = @_;
 	my $name       = $currentfile->{name};
+	my $target     = $currentfile->{target};
 	my $qe         = quotemeta $self->{_config}{e};
 	my ($name_no_extension, $extension);
 	# include '.' in =7
@@ -472,13 +476,13 @@ sub _expand_escapes {
 	# replace the escapes
 	$$command =~ s/$qe([^{8])/
 		$self->_expand_replace(
-			$qif, $1, $name_no_extension, $name, $extension)
+			$qif, $1, $name_no_extension, $name, $extension, $target)
 	/ge;
 	$$command =~ s!$qe\{([^8])([#%^,/]?)(\2?)([^}]*)\}!
 		condquotemeta($qif,
 			$self->_expansion_modifier(
 				$self->_expand_replace(
-					QUOTE_OFF, $1, $name_no_extension, $name, $extension
+					QUOTE_OFF, $1, $name_no_extension, $name, $extension, $target
 				), $2, $3, $4)
 		)
 	!ge;
@@ -563,6 +567,9 @@ sub _unmark_eightset {
 Checks if the destination of a multifile operation is a single file
 (not allowed).
 
+The destination is considered not to be a single file if it contains
+a B<=1> or B<=2> escape.
+
 =cut
 
 sub _multi_to_single {
@@ -570,9 +577,13 @@ sub _multi_to_single {
 	my $e  = $self->{_config}{e};
 	my $qe = quotemeta $e;
 	$self->{_screen}->set_deferred_refresh(R_PATHINFO);
+	# The =0 escape is not included in the next set. The reasoning behind this
+	# is that there may not be enough variation in the symlink targets, so the
+	# presence of an =0 in the destination may not be enough to prevent a
+	# multi-to-single situation.
 	if ($_pfm->state->{multiple_mode} and
-		$testname !~ /(?<!$qe)(?:$qe$qe)*$qe[127]/ and
-		$testname !~ /(?<!$qe)(?:$qe$qe)*$qe\{[127][#%^,]{1,2}[^}]*\}/ and
+		$testname !~ /(?<!$qe)(?:$qe$qe)*${qe}[12]/ and
+		$testname !~ /(?<!$qe)(?:$qe$qe)*${qe}\{[12][#%^,]{1,2}[^}]*\}/ and
 		!-d $testname)
 	{
 		$self->{_screen}->at(0,0)->putmessage(
@@ -2407,7 +2418,7 @@ sub handlecommand { # Y or O
 		$screen->diskinfo->clearcolumn();
 	} else { # cOmmand
 		$prompt =
-			"Enter Unix command ($e"."[1-9] or $e"."[eEpv] escapes see below):";
+			"Enter Unix command ($e"."[0-9] or $e"."[eEpv] escapes see below):";
 		my @cmdescapes = @{CMDESCAPES()};
 		foreach (@cmdescapes[0 .. CMDESCAPE_BREAK],
 			"$e literal $e",
