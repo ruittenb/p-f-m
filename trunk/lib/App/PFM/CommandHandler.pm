@@ -4,10 +4,10 @@
 # @(#) App::PFM::CommandHandler 1.82
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.82
+# Version:		1.83
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2012-03-19
+# Date:			2012-03-21
 #
 
 ##########################################################################
@@ -577,10 +577,10 @@ sub _multi_to_single {
 	my $e  = $self->{_config}{e};
 	my $qe = quotemeta $e;
 	$self->{_screen}->set_deferred_refresh(R_PATHINFO);
-	# The =0 escape is not included in the next set. The reasoning behind this
-	# is that there may not be enough variation in the symlink targets, so the
-	# presence of an =0 in the destination may not be enough to prevent a
-	# multi-to-single situation.
+	# The =0 and =7 escapes are not included in the next set. The reasoning
+	# behind this is that there may not be enough variation in the symlink
+	# targets and filename extensions, so the presence of an =0 or =7 in the
+	# destination may not be enough to prevent a multi-to-single situation.
 	if ($_pfm->state->{multiple_mode} and
 		$testname !~ /(?<!$qe)(?:$qe$qe)*${qe}[12]/ and
 		$testname !~ /(?<!$qe)(?:$qe$qe)*${qe}\{[12][#%^,]{1,2}[^}]*\}/ and
@@ -1435,8 +1435,8 @@ or Shift-B<F8>).
 Space and B<F8> will mark the file, unless it was already marked
 (oldmarks and newmarks will be turned into marks).
 
-Shift-B<F8> will unmark the file, unless it was marked (oldmarks and
-newmarks will be removed).
+Shift-B<F8> will unmark the file, unless it wasn't marked (oldmarks
+and newmarks will be removed).
 
 =cut
 
@@ -2069,6 +2069,7 @@ Handles displaying the contents of a file (B<S>how command).
 sub handleshow {
 	my ($self, $event) = @_;
 	my ($do_this);
+#	local $SIG{CHLD} = 'DEFAULT';
 	if ($self->_followmode($event->{currentfile}) =~ /^d/) {
 		goto &handleentry;
 	}
