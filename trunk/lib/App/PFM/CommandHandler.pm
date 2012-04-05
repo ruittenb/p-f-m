@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.82
+# @(#) App::PFM::CommandHandler 1.84
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.83
+# Version:		1.84
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2012-03-21
+# Date:			2012-04-05
 #
 
 ##########################################################################
@@ -582,8 +582,10 @@ sub _multi_to_single {
 	# targets and filename extensions, so the presence of an =0 or =7 in the
 	# destination may not be enough to prevent a multi-to-single situation.
 	if ($_pfm->state->{multiple_mode} and
+		# ... if no match with =1 and =2 ...
 		$testname !~ /(?<!$qe)(?:$qe$qe)*${qe}[12]/ and
-		$testname !~ /(?<!$qe)(?:$qe$qe)*${qe}\{[12][#%^,]{1,2}[^}]*\}/ and
+		# ... and if no match with ={2%.jpg} or ={2/5.6/5.7} ...
+		$testname !~ /(?<!$qe)(?:$qe$qe)*${qe}\{[12]([#%^,]{1,2}|\/[^\/}]*\/)[^}]*\}/ and
 		!-d $testname)
 	{
 		$self->{_screen}->at(0,0)->putmessage(
