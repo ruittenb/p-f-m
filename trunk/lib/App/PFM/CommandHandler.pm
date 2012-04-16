@@ -586,6 +586,8 @@ sub _multi_to_single {
 		$testname !~ /(?<!$qe)(?:$qe$qe)*${qe}[12]/ and
 		# ... and if no match with ={2%.jpg} or ={2/5.6/5.7} ...
 		$testname !~ /(?<!$qe)(?:$qe$qe)*${qe}\{[12]([#%^,]{1,2}|\/[^\/}]*\/)[^}]*\}/ and
+		# TODO: the presence of a =3 or =9 may be enough to resolve this.
+		# We really want to do an expand_39_escape() here.
 		!-d $testname)
 	{
 		$self->{_screen}->at(0,0)->putmessage(
