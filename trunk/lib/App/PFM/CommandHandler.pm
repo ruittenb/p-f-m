@@ -2536,6 +2536,10 @@ sub handleprint {
 	$self->_unmark_eightset() if $eightset;
 	#$screen->pressanykey();
 	#$screen->alternate_on() if $self->{_config}{altscreen_mode};
+	# Is the next line needed? Sometimes when a 'P' command is started, but a
+	# command is entered that yields terminal output, the terminal is
+	# apparently left in 'cooked' state.
+#	$screen->raw_noecho();
 	$screen->set_deferred_refresh(R_SCREEN);
 	return;
 }
