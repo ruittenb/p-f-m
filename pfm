@@ -626,9 +626,9 @@ the extension of the current filename (see below)
 
 =item B<=8>
 
-a space-separated list of all marked filenames. If the B<=8> escape is
-directly followed by another string, then the string is appended to
-each of the names
+a space-separated list of all marked filenames. If the B<=8> escape takes
+the form I<prefix>B<=8>I<suffix>, then the I<prefix> and I<suffix> strings
+are applied to each of the names.
 
 =item B<=9>
 
@@ -1260,19 +1260,22 @@ Examples:
 	<td>={2^^}</td>			<td>ACTIVATEDEBTOR.PHP</td>
 </tr>
 <tr>
-	<td>=8</td>				<td>UserName.php UserId.php</td>
+	<td>=8</td>				<td>UserId.php UserName.php</td>
 </tr>
 <tr>
-	<td>={8,}</td>			<td>userName.php userId.php</td>
+	<td>={8,}</td>			<td>userId.php userName.php</td>
 </tr>
 <tr>
-	<td>={8#User}</td>		<td>Name.php Id.php</td>
+	<td>={8#User}</td>		<td>Id.php Name.php</td>
 </tr>
 <tr>
-	<td>=8.old</td>			<td>UserName.php.old UserId.php.old</td>
+	<td>=8.old</td>			<td>UserId.php.old UserName.php.old</td>
 </tr>
 <tr>
-	<td>={8#User}.bak</td>			<td>Name.php.old Id.php.old</td>
+	<td>={8#User}.bak</td>	<td>Id.php.bak Name.php.bak</td>
+</tr>
+<tr>
+	<td>Local={8/.php/}</td>		<td>LocalUserId LocalUserName</td>
 </tr>
 <tr><td colspan="2"><hr /></td></tr>
 </table>
@@ -1305,11 +1308,12 @@ _
 ={2^^t}	AcTivaTeDebTor.php
 ={2,,}	activatedebtor.php
 ={2^^}	ACTIVATEDEBTOR.PHP
-=8	UserName.php UserId.php
-={8,}	userName.php userId.php
-={8#User}	Name.php Id.php
-=8.old	UserName.php.old UserId.php.old
-={8#User}.bak	Name.php.bak Id.php.bak
+=8	UserId.php UserName.php
+={8,}	userId.php userName.php
+={8#User}	Id.php Name.php
+=8.old	UserId.php.old UserName.php.old
+={8#User}.bak	Id.php.bak Name.php.bak
+Local={8/.php/}	LocalUserId LocalUserName
 _
 .TE
 .in -4n

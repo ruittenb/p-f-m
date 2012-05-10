@@ -500,9 +500,9 @@ the basename of the current directory
 the extension of the current filename (see below)
 .IP "\fB=8\fR" 4
 .IX Item "=8"
-a space-separated list of all marked filenames. If the \fB=8\fR escape is
-directly followed by another string, then the string is appended to
-each of the names
+a space-separated list of all marked filenames. If the \fB=8\fR escape takes
+the form \fIprefix\fR\fB=8\fR\fIsuffix\fR, then the \fIprefix\fR and \fIsuffix\fR strings
+are applied to each of the names.
 .IP "\fB=9\fR" 4
 .IX Item "=9"
 the full previous directory path (see \fBF2\fR command)
@@ -981,11 +981,12 @@ _
 ={2^^t}	AcTivaTeDebTor.php
 ={2,,}	activatedebtor.php
 ={2^^}	ACTIVATEDEBTOR.PHP
-=8	UserName.php UserId.php
-={8,}	userName.php userId.php
-={8#User}	Name.php Id.php
-=8.old	UserName.php.old UserId.php.old
-={8#User}.bak	Name.php.bak Id.php.bak
+=8	UserId.php UserName.php
+={8,}	userId.php userName.php
+={8#User}	Id.php Name.php
+=8.old	UserId.php.old UserName.php.old
+={8#User}.bak	Id.php.bak Name.php.bak
+Local={8/.php/}	LocalUserId LocalUserName
 _
 .TE
 .in -4n

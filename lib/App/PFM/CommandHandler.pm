@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.86
+# @(#) App::PFM::CommandHandler 1.87
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.86
+# Version:		1.87
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2012-05-10
@@ -401,22 +401,22 @@ sub _expand_8_escapes {
 	my $qe = quotemeta $self->{_config}{e};
 	# replace the escapes
 	my $number_of_substitutes =
-		$$command =~ s/(?<!$qe)((?:$qe$qe)*)$qe(?:8)(\S*)/
-			$1 . join(' ',
-				map { "$_$2" } $self->_markednames(QUOTE_ON)
+		$$command =~ s/(\S*)(?<!$qe)((?:$qe$qe)*)${qe}(?:8)(\S*)/
+			join(' ',
+				map { "$1$2$_$3" } $self->_markednames(QUOTE_ON)
 			)
 		/ge;
 	$number_of_substitutes +=
-		$$command =~ s!$qe\{8([#%^,/]?)(\1?)([^}]*)\}(\S*)!
+		$$command =~ s/(\S*)(?<!$qe)((?:$qe$qe)*)${qe}\{8([#%^,\/]?)(\3?)([^}]*)\}(\S*)/
 			join(' ',
 				map {
-					quotemeta(
-						$self->_expansion_modifier($_, $1, $2, $3)
-					) . $4
+					$1 . $2 . quotemeta(
+						$self->_expansion_modifier($_, $3, $4, $5)
+					) . $6
 				}
 				$self->_markednames(QUOTE_OFF)
 			)
-		!ge;
+		/ge;
 	return $number_of_substitutes;
 }
 
@@ -504,7 +504,7 @@ sub _expansion_modifier {
 		if ($pattern eq '' or $pattern =~ /\?/) {
 			$regexp = '(.)';
 		} else {
-			$regexp = $mode eq '^' ? "([\L$pattern])" : "([\U$pattern])";
+			$regexp = $mode eq '^' ? "([\L${pattern}])" : "([\U${pattern}])";
 		}
 		if ($greedy) {		# ^^ or ,,
 			$name =~ s/$regexp/$mode eq '^' ? uc($1) : lc($1)/eg;
