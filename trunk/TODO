@@ -140,8 +140,6 @@ A  +    doc/pfm.pdf
   =+a ?
   ={+a/1b-drop7/2rc1} ?
 
-- display esc legend also when in (C)opy, (R)ename, (L)ink and tar(G)et?
-
 - make the coreutils' hasacl work.
 
 - accept mouse clicks on menu in (M)ore;
@@ -156,6 +154,9 @@ A  +    doc/pfm.pdf
 
 - UML: File::dummy_entry
   Replace _argvnull with _argvzero
+  Move CMDESCAPES from CommandHandler to Screen
+  Move CMDESCAPE_BREAK from CommandHandler to Screen
+  Added list_escapes to Screen, after pathline
 
 - manpages: use I<...> in =items
 

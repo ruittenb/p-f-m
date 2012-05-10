@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.85
+# @(#) App::PFM::CommandHandler 1.86
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.85
+# Version:		1.86
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2012-05-10
@@ -73,32 +73,6 @@ use constant INC_CRITERIA => [
 	'd' => 'Dirs only',
 	'.' => 'Dotfiles',
 	'i' => 'Invert',
-];
-
-use constant CMDESCAPE_BREAK => 10;
-use constant CMDESCAPES      => [
-	'1 name',
-	'2 name.ext',
-	'3 curr path',
-	'4 mountpoint',
-	'5 swap path',
-	'6 base path',
-	'7 extension',
-	'8 selection',
-	'9 prev path',
-	'0 ln target',
-	'',
-	'',
-	'e editor',
-	'E fg editor',
-	'p pager',
-	'v viewer',
-#	'',
-#	'{#prefix}',
-#	'{%suffix}',
-#	'{/find/repl}',
-#	'{^} toupper',
-#	'{,} tolower',
 ];
 
 use constant FIELDS_TO_SORTMODE => [
@@ -1572,27 +1546,34 @@ sub handlelink {
 	my @lncmd      = $self->{_clobber_mode} ? qw(ln -f) : qw(ln);
 	my $state      = $_pfm->state;
 	my $currentdir = $state->directory->path;
+	my $screen     = $self->{_screen};
 	
 	if ($_pfm->state->{multiple_mode}) {
-		$self->{_screen}->set_deferred_refresh(R_SCREEN);
+		$screen->set_deferred_refresh(R_SCREEN);
 	} else {
-		$self->{_screen}->set_deferred_refresh(R_FRAME);
-		$self->{_screen}->listing->markcurrentline('L');
+		$screen->set_deferred_refresh(R_FRAME);
+		$screen->listing->markcurrentline('L');
 		$histpush = $event->{currentfile}{name};
 	}
 	
-#	$menulength = $self->{_screen}->show_frame({
+#	$menulength = $screen->show_frame({
 #		menu => MENU_LNKTYPE,
 #	});
-#	$absrel = lc $self->{_screen}->at(0, $menulength+1)->getch();
+#	$absrel = lc $screen->at(0, $menulength+1)->getch();
 
-	$self->{_screen}->at(0,0)->clreol()->putmessage(
+	$screen->clear_footer()->at(0,0)->clreol()->putmessage(
 		'Absolute, Relative symlink or Hard link? ');
-	$absrel = lc $self->{_screen}->getch();
+	$absrel = lc $screen->getch();
 	return unless $absrel =~ /^[arh]$/;
 	push @lncmd, '-s' unless $absrel eq 'h';
 	
-	$self->{_screen}->at(0,0)->clreol()->cooked_echo();
+	$screen->list_escapes();
+	$screen->show_frame({
+		menu     => MENU_NONE,
+		footer   => FOOTER_NONE,
+		headings => HEADING_ESCAPE,
+	});
+	$screen->at(0,0)->clreol()->cooked_echo();
 	my $prompt = 'Name of new '.
 		( $absrel eq 'r' ? 'relative symbolic'
 		: $absrel eq 'a' ? 'absolute symbolic' : 'hard') . ' link: ';
@@ -1602,7 +1583,7 @@ sub handlelink {
 		prompt        => $prompt,
 		history_input => $histpush,
 	}));
-	$self->{_screen}->raw_noecho();
+	$screen->raw_noecho();
 	return if ($newname eq '');
 	$newname = canonicalize_path($newname);
 	# expand =[34569] at this point as a test, but not =[1278]
@@ -1646,7 +1627,7 @@ sub handlelink {
 		}
 		$to_dir = -d $newnameexpanded;
 		if (system @lncmd, $targetstring, $newnameexpanded) {
-			$self->{_screen}->neat_error('Linking failed');
+			$screen->neat_error('Linking failed');
 		} else {
 			$self->_chase_processed_file(
 				$file->{name}, $orignewnameexpanded, $to_dir);
@@ -2339,7 +2320,13 @@ sub handletarget {
 		$screen->at(0,0)->clreol()->display_error($nosymlinkerror);
 		return;
 	}
-	$screen->clear_footer()->at(0,0)->clreol()->cooked_echo();
+	$screen->list_escapes();
+	$screen->show_frame({
+		menu     => MENU_NONE,
+		footer   => FOOTER_NONE,
+		headings => HEADING_ESCAPE,
+	});
+	$screen->at(0,0)->clreol()->cooked_echo();
 	chomp($newtarget = $self->{_history}->input({
 		history       => H_PATH,
 		prompt        => 'New symlink target: ',
@@ -2384,9 +2371,6 @@ sub handlecommand { # Y or O
 	my ($self, $event) = @_;
 	my $screen     = $self->{_screen};
 	my $browser    = $_pfm->browser;
-	my $printline  = $screen->BASELINE;
-	my $infocol    = $screen->diskinfo->infocol;
-	my $infolength = $screen->diskinfo->infolength;
 	my $e          = $self->{_config}{e};
 	my $key        = uc $event->{data};
 	my $on_browser_idle = sub {
@@ -2416,26 +2400,15 @@ sub handlecommand { # Y or O
 		# next line contains an assignment on purpose
 		return unless $command = $self->{_config}->your($key);
 		$screen->cooked_echo();
-		$screen->diskinfo->clearcolumn();
 	} else { # cOmmand
 		$prompt =
 			"Enter Unix command ($e"."[0-9] or $e"."[eEpv] escapes see below):";
-		my @cmdescapes = @{CMDESCAPES()};
-		foreach (@cmdescapes[0 .. CMDESCAPE_BREAK],
-			"$e literal $e",
-			@cmdescapes[CMDESCAPE_BREAK+1 .. $#cmdescapes])
-		{
-			if ($printline <= $screen->BASELINE + $screen->screenheight) {
-				$screen->at($printline++, $infocol)
-					->puts(sprintf(' %s', ((length) ? $e . $_ : $_)));
-			}
-		}
+		$screen->list_escapes();
 		$screen->show_frame({
 			menu     => MENU_NONE,
 			footer   => FOOTER_NONE,
 			headings => HEADING_ESCAPE,
 		});
-		$screen->set_deferred_refresh(R_DISKINFO);
 		$screen->at(0,0)->clreol()->putmessage($prompt)
 			->at($screen->PATHLINE,0)->clreol()
 			->cooked_echo();
@@ -2443,8 +2416,8 @@ sub handlecommand { # Y or O
 			history => H_COMMAND,
 			prompt  => ''
 		});
-		$screen->diskinfo->clearcolumn();
 	}
+	$screen->diskinfo->clearcolumn();
 	# chdir special case
 	if ($command =~ /^\s*cd\s+(.*)$/) {
 		$self->_expand_environment_vars(\$command); # TODO this might introduce =1 etc.
@@ -2646,7 +2619,13 @@ sub handlecopyrename {
 		$screen->set_deferred_refresh(R_MENU | R_FOOTER);
 		$screen->listing->markcurrentline($key);
 	}
-	$screen->clear_footer()->at(0,0)->clreol()->cooked_echo();
+	$screen->list_escapes();
+	$screen->show_frame({
+		menu     => MENU_NONE,
+		footer   => FOOTER_NONE,
+		headings => HEADING_ESCAPE,
+	});
+	$screen->at(0,0)->clreol()->cooked_echo();
 	my $history_input =
 		$state->{multiple_mode} ? undef : $event->{currentfile}{name};
 	$newname = $self->{_history}->input({

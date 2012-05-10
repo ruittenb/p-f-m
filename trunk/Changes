@@ -1,7 +1,9 @@
 2.12.1
 
 * added: MIME types for .xz and .txz.
+* added: display list of escapes in (C)opy, (R)ename, (L)ink and tar(G)et
 * added: shift-F8 for easy removal of oldmarks and newmarks.
+* added: =0 escape (ln target path)
 * added: expand =8<suffix> to each of the marked filenames with the suffix
   appended.
 
