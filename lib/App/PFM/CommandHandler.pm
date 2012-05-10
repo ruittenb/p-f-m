@@ -2473,9 +2473,11 @@ sub handleprint {
 	if (!$_pfm->state->{multiple_mode}) {
 		$screen->listing->markcurrentline('P');
 	}
+	$screen->list_escapes();
 	$screen->show_frame({
-		footer => FOOTER_NONE,
-		prompt => 'Enter print command: ',
+		headings => HEADING_ESCAPE,
+		footer   => FOOTER_NONE,
+		prompt   => 'Enter print command: ',
 	});
 	$screen->at($screen->PATHLINE, 0)->clreol()
 		->cooked_echo();
