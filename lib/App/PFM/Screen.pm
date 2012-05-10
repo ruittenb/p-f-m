@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen 0.61
+# @(#) App::PFM::Screen 0.62
 #
 # Name:			App::PFM::Screen
-# Version:		0.61
+# Version:		0.62
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2012-05-10
@@ -97,27 +97,30 @@ use constant R_CHDIR  => R_NEWDIR | R_SCREEN | R_STRIDE;
 use constant MOUSE_MODIFIER_ANY =>
 		MOUSE_MODIFIER_SHIFT | MOUSE_MODIFIER_META | MOUSE_MODIFIER_CONTROL;
 
-use constant CMDESCAPE_BREAK => 10;
-use constant CMDESCAPES      => [
-	'1 name',
-	'2 name.ext',
-	'3 curr path',
-	'4 mountpoint',
-	'5 swap path',
-	'6 base path',
-	'7 extension',
-	'8 selection',
-	'9 prev path',
-	'0 ln target',
+use constant PATHESCAPES => [
+	'%s1 name',
+	'%s2 name.ext',
+	'%s3 curr path',
+	'%s4 mountpoint',
+	'%s5 swap path',
+	'%s6 base path',
+	'%s7 extension',
+	'%s8 selection',
+	'%s9 prev path',
+	'%s0 ln target',
 	'',
+	'%s%s literal %s',
 	'',
-	'e editor',
-	'E fg editor',
-	'p pager',
-	'v viewer',
+];
+
+use constant CMDESCAPES  => [
+	'%se editor',
+	'%sE fg editor',
+	'%sp pager',
+	'%sv viewer',
 #	'',
-#	'{#prefix}',
-#	'{%suffix}',
+#	'{#start}',
+#	'{%end}',
 #	'{/find/repl}',
 #	'{^} toupper',
 #	'{,} tolower',
@@ -965,27 +968,32 @@ sub pathline {
 		. DEVICE_SPEC_START . $dev . DEVICE_SPEC_END;
 }
 
-=item I<list_escapes()>
+=item I<list_escapes(bool $all)>
 
-List the user-available recognized escapes.
+List the available escapes; path escapes (B<=1>, B<=2>, I<etc.>)
+and if the I<$all> flag is set, also command escapes (B<=e>, B<=p>,
+B<=v>, I<etc.>).
 
 =cut
 
 sub list_escapes
 {
-	my ($self) = @_;
-	my $printline  = $self->BASELINE;
-	my $infocol    = $self->diskinfo->infocol;
-	my $e          = $self->{_config}{e};
-	my @cmdescapes = @{CMDESCAPES()};
+	my ($self, $all) = @_;
+	my $printline    = $self->BASELINE;
+	my $infocol      = $self->diskinfo->infocol;
+	my $e            = $self->{_config}{e};
+	my @escapes      = @{PATHESCAPES()};
+	my @set;
+	if ($all) {
+		@escapes = (@escapes, @{CMDESCAPES()});
+	}
 	$self->diskinfo->clearcolumn()->set_deferred_refresh(R_DISKINFO);
-	foreach (@cmdescapes[0 .. CMDESCAPE_BREAK],
-		"$e literal $e",
-		@cmdescapes[CMDESCAPE_BREAK+1 .. $#cmdescapes])
+	foreach (@escapes)
 	{
+		@set = ($e) x tr/%//;
 		if ($printline <= $self->BASELINE + $self->screenheight) {
 			$self->at($printline++, $infocol)
-				->puts(sprintf(' %s', ((length) ? $e . $_ : $_)));
+				->puts(' ' . sprintf($_, @set));
 		}
 	}
 	return;
