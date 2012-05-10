@@ -515,9 +515,9 @@ are using <strong>=</strong> as 'escapechar').</p>
 <dt><strong><a name="8" class="item"><strong>=8</strong></a></strong></dt>
 
 <dd>
-<p>a space-separated list of all marked filenames. If the <strong>=8</strong> escape is
-directly followed by another string, then the string is appended to
-each of the names</p>
+<p>a space-separated list of all marked filenames. If the <strong>=8</strong> escape takes
+the form <em>prefix</em><strong>=8</strong><em>suffix</em>, then the <em>prefix</em> and <em>suffix</em> strings
+are applied to each of the names.</p>
 </dd>
 <dt><strong><a name="9" class="item"><strong>=9</strong></a></strong></dt>
 
@@ -1155,19 +1155,22 @@ a <strong>?</strong>, which matches every letter.</p>
 	<td>={2^^}</td>			<td>ACTIVATEDEBTOR.PHP</td>
 </tr>
 <tr>
-	<td>=8</td>				<td>UserName.php UserId.php</td>
+	<td>=8</td>				<td>UserId.php UserName.php</td>
 </tr>
 <tr>
-	<td>={8,}</td>			<td>userName.php userId.php</td>
+	<td>={8,}</td>			<td>userId.php userName.php</td>
 </tr>
 <tr>
-	<td>={8#User}</td>		<td>Name.php Id.php</td>
+	<td>={8#User}</td>		<td>Id.php Name.php</td>
 </tr>
 <tr>
-	<td>=8.old</td>			<td>UserName.php.old UserId.php.old</td>
+	<td>=8.old</td>			<td>UserId.php.old UserName.php.old</td>
 </tr>
 <tr>
-	<td>={8#User}.bak</td>			<td>Name.php.old Id.php.old</td>
+	<td>={8#User}.bak</td>	<td>Id.php.bak Name.php.bak</td>
+</tr>
+<tr>
+	<td>Local={8/.php/}</td>		<td>LocalUserId LocalUserName</td>
 </tr>
 <tr><td colspan="2"><hr /></td></tr>
 </table><p>
