@@ -1,10 +1,10 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.87
+# @(#) App::PFM::CommandHandler 1.88
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.87
+# Version:		1.88
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
 # Date:			2012-05-10
@@ -2403,7 +2403,7 @@ sub handlecommand { # Y or O
 	} else { # cOmmand
 		$prompt =
 			"Enter Unix command ($e"."[0-9] or $e"."[eEpv] escapes see below):";
-		$screen->list_escapes();
+		$screen->list_escapes(TRUE);
 		$screen->show_frame({
 			menu     => MENU_NONE,
 			footer   => FOOTER_NONE,
