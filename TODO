@@ -42,6 +42,11 @@
 
 - BUG: c(O)mmand -> 'cd $YODA/tags' does not work
 
+- TODO: multi_to_single():
+  the presence of a =3 or =9 may be enough to resolve this.
+  Maybe we really want to do an expand_39_escape() here.
+
+
 - Every second time on (M)ore - (R)ead bookmarks:
 Can't use string ("") as a subroutine ref while "strict refs" in use at /usr/local/share/perl/devel/lib/App/PFM/Abstract.pm line 196.
 
@@ -129,6 +134,13 @@ A  +    doc/pfm.pdf
 
 - maybe allow for file sizes to be displayed with thousands separator,
   e.g. 51_130_240.
+
+- add escapes for bookmark targets?
+  ={+a} ?
+  =+a ?
+  ={+a/1b-drop7/2rc1} ?
+
+- display esc legend also when in (C)opy, (R)ename, (L)ink and tar(G)et?
 
 - make the coreutils' hasacl work.
 
