@@ -6,7 +6,7 @@
 # Version:		2.12.1
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2012-03-20
+# Date:			2012-05-10
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				    [ -l, --layout <number> ] [ -o, --sort <mode> ]
 #					[ -c, --colorset <mode> ] [ --login ]
@@ -626,7 +626,9 @@ the extension of the current filename (see below)
 
 =item B<=8>
 
-a space-separated list of all marked filenames
+a space-separated list of all marked filenames. If the B<=8> escape is
+directly followed by another string, then the string is appended to
+each of the names
 
 =item B<=9>
 
@@ -1266,6 +1268,12 @@ Examples:
 <tr>
 	<td>={8#User}</td>		<td>Name.php Id.php</td>
 </tr>
+<tr>
+	<td>=8.old</td>			<td>UserName.php.old UserId.php.old</td>
+</tr>
+<tr>
+	<td>={8#User}.bak</td>			<td>Name.php.old Id.php.old</td>
+</tr>
 <tr><td colspan="2"><hr /></td></tr>
 </table>
 
@@ -1300,6 +1308,8 @@ _
 =8	UserName.php UserId.php
 ={8,}	userName.php userId.php
 ={8#User}	Name.php Id.php
+=8.old	UserName.php.old UserId.php.old
+={8#User}.bak	Name.php.bak Id.php.bak
 _
 .TE
 .in -4n

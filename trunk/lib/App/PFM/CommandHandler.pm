@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.84
+# @(#) App::PFM::CommandHandler 1.85
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.84
+# Version:		1.85
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2012-04-05
+# Date:			2012-05-10
 #
 
 ##########################################################################
@@ -427,22 +427,18 @@ sub _expand_8_escapes {
 	my $qe = quotemeta $self->{_config}{e};
 	# replace the escapes
 	my $number_of_substitutes =
-#		$$command =~ s/$qe(?:8)/
-#			join(' ',
-#				$self->_markednames(QUOTE_ON)
-#			)
-#		/ge;
-		$$command =~ s/(?<!$qe)((?:$qe$qe)*)$qe(?:8)/
+		$$command =~ s/(?<!$qe)((?:$qe$qe)*)$qe(?:8)(\S*)/
 			$1 . join(' ',
-				$self->_markednames(QUOTE_ON)
+				map { "$_$2" } $self->_markednames(QUOTE_ON)
 			)
 		/ge;
 	$number_of_substitutes +=
-		$$command =~ s!$qe\{8([#%^,/]?)(\1?)([^}]*)\}!
+		$$command =~ s!$qe\{8([#%^,/]?)(\1?)([^}]*)\}(\S*)!
 			join(' ',
 				map {
 					quotemeta(
-						$self->_expansion_modifier($_, $1, $2, $3))
+						$self->_expansion_modifier($_, $1, $2, $3)
+					) . $4
 				}
 				$self->_markednames(QUOTE_OFF)
 			)

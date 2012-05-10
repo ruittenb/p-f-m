@@ -2,6 +2,8 @@
 
 * added: MIME types for .xz and .txz.
 * added: shift-F8 for easy removal of oldmarks and newmarks.
+* added: expand =8<suffix> to each of the marked filenames with the suffix
+  appended.
 
 2.12.0E
 
