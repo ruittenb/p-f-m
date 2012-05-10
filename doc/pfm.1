@@ -124,7 +124,7 @@
 .\" ========================================================================
 .\"
 .IX Title "PFM 1"
-.TH PFM 1 "2012-03-20" " " " "
+.TH PFM 1 "2012-05-10" " " " "
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -500,13 +500,15 @@ the basename of the current directory
 the extension of the current filename (see below)
 .IP "\fB=8\fR" 4
 .IX Item "=8"
-a space-separated list of all marked filenames
+a space-separated list of all marked filenames. If the \fB=8\fR escape is
+directly followed by another string, then the string is appended to
+each of the names
 .IP "\fB=9\fR" 4
 .IX Item "=9"
 the full previous directory path (see \fBF2\fR command)
 .IP "\fB=0\fR" 4
 .IX Item "=0"
-the symlink target if the current file is a symlink
+the symlink target if the current file is a symlink; otherwise an empty string
 .IP "\fB==\fR" 4
 .IX Item "=="
 a single literal \fB=\fR
@@ -982,6 +984,8 @@ _
 =8	UserName.php UserId.php
 ={8,}	userName.php userId.php
 ={8#User}	Name.php Id.php
+=8.old	UserName.php.old UserId.php.old
+={8#User}.bak	Name.php.bak Id.php.bak
 _
 .TE
 .in -4n
