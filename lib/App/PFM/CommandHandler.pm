@@ -209,7 +209,7 @@ sub _helppage {
 --------------------------------------------------------------------------------
                      MORE COMMAND KEYS and COMMAND ESCAPES                 [$pp]
 --------------------------------------------------------------------------------
- ma  edit ACL                             =1  name                              
+ ma  edit ACL                             =1  name (without extension)          
  mb  make Bookmark                        =2  name.extension                    
  mc  Configure pfm                        =3  current path                      
  me  Edit any file                        =4  mountpoint                        
@@ -218,12 +218,12 @@ sub _helppage {
  mg  Go to bookmark                       =7  extension                         
  mh  spawn sHell                          =8  names of all selected files       
  ml  foLlow symlink to target             =9  previous path (F2)                
- mm  Make new directory                   ==  literal =                         
- mo  Open new window                      =e  editor                            
- mp  show Physical path                   =E  foreground editor                 
- mr  Read history and/or bookmarks        =p  pager                             
- ms  Show directory (chdir)               =v  viewer                            
- mt  show alTernate screen                                                      
+ mm  Make new directory                   =0  symlink target                    
+ mo  Open new window                      ==  literal =                         
+ mp  show Physical path                   =e  editor                            
+ mr  Read history and/or bookmarks        =E  foreground editor                 
+ ms  Show directory (chdir)               =p  pager                             
+ mt  show alTernate screen                =v  viewer                            
  mv  Version status all files                                                   
  mw  Write history and/or bookmarks                                             
  m@  perl shell (for debugging)                                                 
