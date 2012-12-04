@@ -35,16 +35,10 @@
   has been commented out.
 
 - fix encodings with wide characters.
-- fix filenames in russian addressed in LC_ALL=fr_FR.utf8;
+- fix filenames in russian addressed in LC_ALL=fr_FR.utf8; (try/catch)
   do we need a $file->{bytename} ?
 - read/save config file in '<:encoding(locale)'
 - check the luit(1) program
-
-
-- fix encodings with wide characters.
-- fix filenames in russian addressed in LC_ALL=fr_FR.utf8;
-  do we need a $file->{bytename} ?
-- read/save config file in '<:encoding(locale)'
 
 - BUG: c(O)mmand -> 'cd $YODA/tags' does not work
 
