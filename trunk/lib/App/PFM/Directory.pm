@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Directory 1.09
+# @(#) App::PFM::Directory 1.11
 #
 # Name:			App::PFM::Directory
-# Version:		1.09
+# Version:		1.11
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-10-14
+# Date:			2013-03-04
 #
 
 ##########################################################################
@@ -305,12 +305,28 @@ Determines the current filesystem usage and stores it in an internal hash.
 
 sub _init_filesystem_info {
 	my ($self) = @_;
-	my @dflist;
+	my (@dflist, @mountlist, $mountpoint, @mountinfo, $fstype, $layers, @layers);
+
 	chop (@dflist = $self->{_os}->df($self->{_path}));
 	shift @dflist; # skip header
 	@{$self->{_disk}}{qw/device total used avail/} = split (/\s+/, $dflist[0]);
 	$dflist[0] =~ /(\S*)$/;
-	$self->{_disk}{mountpoint} = $1;
+	$mountpoint = $1;
+	$self->{_disk}{mountpoint} = $mountpoint;
+
+	chop (@mountlist = $self->{_os}->backtick('mount'));
+	# "none on /dev/pts type devpts (rw,noexec,nosuid,gid=5,mode=0620)"
+	@mountinfo = grep { /^\S+\s+on\s+(\Q$mountpoint\E)\s+/ } @mountlist;
+
+	# For aufs. TODO move this to App::PFM::Filesystem
+	# "none on /mnt/overlay type aufs (rw,br:/mnt/upper:/mnt/intermediate:/mnt/lower)"
+	($fstype) = $mountinfo[0] =~ /\Q$mountpoint\E\s+type\s+(\S+)/;
+	($layers) = $mountinfo[0] =~ /[\(,]br:([^\)]+)/;
+	@layers = split(/:/, $layers);
+#	$self->{_disk}{mountinfo} = $mountinfo[0];
+	$self->{_disk}{fstype} = $fstype;
+	$self->{_disk}{layers} = [ @layers ];
+
 	return $self->{_disk};
 }
 
@@ -358,10 +374,12 @@ is refreshed but the marks are retained.
 
 sub _readcontents {
 	my ($self, $smart) = @_;
-	my ($file, %namemarkmap, $counter, $interrupted, $interrupt_key);
-	my @allentries    = ();
-	my @white_entries = ();
-	my $screen        = $self->{_screen};
+	my ($file, %namemarkmap, $counter, $interrupted, $interrupt_key, $layer);
+	my @allentries        = ();
+	my @white_entries     = ();
+	my %white_entries     = ();
+	my @new_white_entries = ();
+	my $screen            = $self->{_screen};
 	# TODO stop jobs here?
 	clearugidcache();
 	$self->_init_dircount();
@@ -373,7 +391,22 @@ sub _readcontents {
 	if (opendir my $CURRENT, $self->{_path}) {
 		@allentries = readdir $CURRENT;
 		closedir $CURRENT;
-		@white_entries = $self->{_os}->listwhite($self->{_path});
+		# should be something like $self->{_filesystem}->listwhite()
+		if ($self->{_disk}{fstype} eq 'aufs') {
+			foreach $layer (@{$self->{_disk}{layers}}) {
+				@new_white_entries =
+					grep { !/^\.wh\./ }
+					map { s!\Q$layer\E/\.wh\.!!; $_ }
+					glob("$layer/.wh.*");
+				push @white_entries, @new_white_entries;
+			}
+			# remove duplicates (we may have whiteout entries in multiple layers)
+			@white_entries{@white_entries} = ();
+			@white_entries = keys %white_entries;
+		} else {
+			# chop newlines
+			@white_entries = map { chop; $_ } $self->{_os}->listwhite($self->{_path});
+		}
 	} else {
 		$screen->at(0,0)->clreol()->display_error("Cannot read . : $!");
 	}
@@ -411,7 +444,6 @@ sub _readcontents {
 		}
 	}
 	foreach my $entry (@white_entries) {
-		chop $entry;
 		$self->add({
 			entry => $entry,
 			white => 'w',
