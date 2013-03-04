@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.88
+# @(#) App::PFM::CommandHandler 1.89
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.88
+# Version:		1.89
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2012-05-10
+# Date:			2013-03-04
 #
 
 ##########################################################################
@@ -2586,7 +2586,7 @@ sub handledelete {
 	$directory->apply($do_this, $event);
 	if ($_pfm->state->{multiple_mode}) {
 		# %nameindexmap may be completely invalid at this point. use dirlookup()
-		if (dirlookup($oldpos, @{$directory->showncontents}) > 0) {
+		if ($directory->dirlookup($oldpos, @{$directory->showncontents}) > 0) {
 			$browser->position_at($oldpos);
 		}
 	} elsif ($browser->position_at eq '') {
