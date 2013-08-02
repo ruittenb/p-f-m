@@ -223,7 +223,7 @@ A container for miscellaneous data.
 
 =head1 SEE ALSO
 
-pfm(1), App::PFM::Abstract.
+pfm(1), App::PFM::Abstract(3pm).
 
 =cut
 
