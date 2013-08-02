@@ -30,8 +30,8 @@
 .    if (\n(.H=4u)&(1m=20u) .ds -- \(*W\h'-12u'\(*W\h'-8u'-\"  diablo 12 pitch
 .    ds L" ""
 .    ds R" ""
-.\"    ds C` ""
-.\"    ds C' ""
+.    ds C`
+.    ds C'
 'br\}
 .el\{\
 .    ds -- \|\(em\|
@@ -124,12 +124,12 @@
 .\" ========================================================================
 .\"
 .IX Title "PFM 1"
-.TH PFM 1 "2012-05-10" " " " "
+.TH PFM 1 "2013-07-01" " " " "
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
 .nh
-.ds Yr 2012
+.ds Yr 2013
 .ds Vw @(#) pfm.pl 2.12.1
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
@@ -848,7 +848,12 @@ Display help. Identical to \fBF1\fR.
 .IP "\fB@\fR" 4
 .IX Item "@"
 Allows the user to enter a perl command to be executed in the context
-of \f(CW\*(C`pfm\*(C'\fR. Primarily used for debugging.
+of \f(CW\*(C`pfm\*(C'\fR. Primarily used for debugging, but may for example be used
+for setting environment variables, \fIe.g.\fR:
+.Sp
+.Vb 1
+\&    $ENV{LC_ALL} = \*(AqC\*(Aq
+.Ve
 .IP "\fBF1\fR Help" 4
 .IX Item "F1 Help"
 Display help, version number and license information.
