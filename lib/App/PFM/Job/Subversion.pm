@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::Subversion 0.39
+# @(#) App::PFM::Job::Subversion 0.40
 #
 # Name:			App::PFM::Job::Subversion
-# Version:		0.39
+# Version:		0.40
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-09-30
+# Date:			2013-10-17
 #
 
 ##########################################################################
@@ -146,11 +146,11 @@ sub rcsmax {
 
 =item I<isapplicable(string $path [, string $entry ] )>
 
-Checks if there is a F<.svn> directory, in which case Subversion commands
-would be applicable.
+Checks if there is a F<.svn> directory in this or any parent directory,
+in which case Subversion commands would be applicable.
 
-Also checks if the I<entry> parameter equals '.svn', in which case
-Subversion commands would not be applicable.
+Known problems: if there is an unversioned directory under a svnroot,
+pressing <F11> will trigger an svn warning.
 
 =cut
 
@@ -160,10 +160,13 @@ sub isapplicable {
 		# Directory file
 		return 0 if $entry eq '.svn';
 		return 1 if -d "$path/$entry/.svn";
-	} else {
-		# Non-directory file
-		return 1 if -d "$path/.svn";
 	}
+    while ($path and $path =~ m!/! and $path !~ m{/\.svn$}) {
+        if (-d "$path/.svn") {
+            return $path;
+        }
+        $path =~ s{/[^/]*$}{};
+    }
 	return 0;
 }
 
