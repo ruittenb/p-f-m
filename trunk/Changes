@@ -2,6 +2,7 @@
 
 * fixed: 'Use of uninitialized value in subroutine entry at Term/ReadLine/Gnu.pm'
   after upgrade of Term::ReadLine::Gnu from 1.20 to 1.24
+* fixed: handling a cd command that uses environment variables in c(O)mmand
 
 2.12.1
 
