@@ -1,0 +1,78 @@
+#!/usr/bin/env perl
+#
+##########################################################################
+# @(#) App::PFM::Filesystem 0.01
+#
+# Name:			App::PFM::Filesystem
+# Version:		0.01
+# Author:		Rene Uittenbogaard
+# Created:		2013-03-07
+# Date:			2013-03-07
+#
+
+##########################################################################
+
+=pod
+
+=head1 NAME
+
+App::PFM::Filesystem
+
+=head1 DESCRIPTION
+
+PFM Filesystem class, containing filesystem stats.
+
+=head1 METHODS
+
+=over
+
+=cut
+
+##########################################################################
+# declarations
+
+package App::PFM::Filesystem;
+
+use base 'App::PFM::Abstract';
+
+use strict;
+use locale;
+
+our ($_pfm);
+
+##########################################################################
+# private subs
+
+=item _init(App::PFM::Application $pfm, App::PFM::Directory $directory)
+
+Initializes new instances. Called from the constructor.
+
+=cut
+
+sub _init {
+	my ($self, $pfm, $directory) = @_;
+	$_pfm               = $pfm;
+	$self->{_directory} = $directory;
+	return;
+}
+
+##########################################################################
+# constructor, getters and setters
+
+##########################################################################
+# public subs
+
+
+##########################################################################
+
+=back
+
+=head1 SEE ALSO
+
+pfm(1), App::PFM::Directory(3pm).
+
+=cut
+
+1;
+
+# vim: set tabstop=4 shiftwidth=4:
