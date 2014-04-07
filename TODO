@@ -40,8 +40,6 @@
 - read/save config file in '<:encoding(locale)'
 - check the luit(1) program
 
-- BUG: c(O)mmand -> 'cd $YODA/tags' does not work
-
 - TODO: multi_to_single():
   the presence of a =3 or =9 may be enough to resolve this.
   Maybe we really want to do an expand_39_escape() here.
