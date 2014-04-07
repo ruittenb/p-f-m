@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Directory 1.11
+# @(#) App::PFM::Directory 1.12
 #
 # Name:			App::PFM::Directory
-# Version:		1.11
+# Version:		1.12
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2013-03-04
+# Date:			2014-04-08
 #
 
 ##########################################################################
@@ -322,7 +322,7 @@ sub _init_filesystem_info {
 	# "none on /mnt/overlay type aufs (rw,br:/mnt/upper:/mnt/intermediate:/mnt/lower)"
 	($fstype) = $mountinfo[0] =~ /\Q$mountpoint\E\s+type\s+(\S+)/;
 	($layers) = $mountinfo[0] =~ /[\(,]br:([^\)]+)/;
-	@layers = split(/:/, $layers);
+	@layers = split(/:/, $layers) if defined $layers;
 #	$self->{_disk}{mountinfo} = $mountinfo[0];
 	$self->{_disk}{fstype} = $fstype;
 	$self->{_disk}{layers} = [ @layers ];
