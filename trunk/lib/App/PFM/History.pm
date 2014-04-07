@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::History 0.39
+# @(#) App::PFM::History 0.40
 #
 # Name:			App::PFM::History
-# Version:		0.39
+# Version:		0.40
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2014-04-07
+# Date:			2014-04-08
 #
 
 ##########################################################################
@@ -46,15 +46,15 @@ use constant PERL_COMMANDS => [qw(
 	accept alarm bind binmode bless break carp case chdir chmod chop chown
 	chroot close closedir cluck confess connect continue croak dbmclose
 	dbmopen delete die do dump endgrent endhostent endnetent endprotoent
-	endpwent endservent eval exec exit fcntl flock fork format goto import
-	ioctl kill last link listen local localtime lock lstat mkdir msgctl msgrcv
-	msgsnd my next no open opendir our package pipe pop print printf push read
-	recv redo rename require reset return rewinddir rmdir say seek seekdir
-	select semctl semop send setgrent sethostent setnetent setpgrp setpriority
-	setprotoent setpwent setservent setsockopt shift shmctl shmread shmwrite
-	shutdown sleep socket socketpair splice srand stat state study sub switch
-	symlink syscall sysread sysseek system syswrite tie tr truncate umask undef
-	unlink unpack unshift untie use utime warn write 
+	endpwent endservent eval exec exit fcntl flock fork format given goto
+	import ioctl kill last link listen local localtime lock lstat mkdir msgctl
+	msgrcv msgsnd my next no open opendir our package pipe pop print printf
+	push read recv redo rename require reset return rewinddir rmdir say seek
+	seekdir select semctl semop send setgrent sethostent setnetent setpgrp
+	setpriority setprotoent setpwent setservent setsockopt shift shmctl shmread
+	shmwrite shutdown sleep socket socketpair splice srand stat state study sub
+	switch symlink syscall sysread sysseek system syswrite tie tr truncate
+	umask undef unlink unpack unshift untie use utime warn when write 
 )];
 
 # for readline completion.
@@ -630,6 +630,8 @@ sub input {
 	my ($history, $input);
 	$history = $self->{_histories}{$options->{history}};
 	local $SIG{INT} = 'IGNORE'; # do not interrupt pfm
+	# provide default prompt. Safest way, backwards compatible.
+	$options->{prompt} = '' unless defined($options->{prompt});
 	if (length $options->{history_input} and 
 		(@$history == 0 or
 		(@$history > 0 && $options->{history_input} ne ${$history}[-1])))
