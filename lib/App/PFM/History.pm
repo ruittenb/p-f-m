@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::History 0.38
+# @(#) App::PFM::History 0.39
 #
 # Name:			App::PFM::History
-# Version:		0.38
+# Version:		0.39
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-09-09
+# Date:			2014-04-07
 #
 
 ##########################################################################
@@ -192,7 +192,7 @@ sub _set_input_mode {
 	return unless $self->{_features}{attribs};
 	my $attribs = $self->{_terminal}->Attribs;
 	if ($history eq H_COMMAND) {
-		$attribs->{inhibit_completion}              = undef;
+		$attribs->{inhibit_completion}              = 0;
 		$attribs->{expand_tilde}                    = 1;
 		# removed pfm escape char '='
 		$attribs->{completer_word_break_characters} = " \t\n\"\\\$'`@><;|&{(";
@@ -204,7 +204,7 @@ sub _set_input_mode {
 			return $self->_h_command_completion(@_);
 		};
 	} elsif ($history eq H_PATH) {
-		$attribs->{inhibit_completion}              = undef;
+		$attribs->{inhibit_completion}              = 0;
 		$attribs->{expand_tilde}                    = 1;
 		# removed pfm escape char '='
 		$attribs->{completer_word_break_characters} = " \t\n\"\\\$'`@><;|&{(";
@@ -216,8 +216,8 @@ sub _set_input_mode {
 			return $self->_h_path_completion(@_);
 		};
 	} elsif ($history eq H_USERGROUP) {
-		$attribs->{inhibit_completion}              = undef;
-		$attribs->{expand_tilde}                    = undef;
+		$attribs->{inhibit_completion}              = 0;
+		$attribs->{expand_tilde}                    = 0;
 		# added ':' char
 		$attribs->{completer_word_break_characters} = " \t\n\"\\\$'`@><=:;|&{(";
 		$attribs->{completion_entry_function}       = undef;
@@ -225,8 +225,8 @@ sub _set_input_mode {
 			return $self->_h_usergroup_completion(@_);
 		};
 	} elsif ($history eq H_PERLCMD) {
-		$attribs->{inhibit_completion}              = undef;
-		$attribs->{expand_tilde}                    = undef;
+		$attribs->{inhibit_completion}              = 0;
+		$attribs->{expand_tilde}                    = 0;
 		# removed perl variable sigil '$'
 		$attribs->{completer_word_break_characters} = " \t\n\"\\'`@><=;|&{(";
 		$attribs->{completion_entry_function}       =
