@@ -99,6 +99,8 @@ A  +    doc/pfm.pdf
 - change Config->{_text} to slurp reading: my $code = do { local $/; <$in> };
 - change Config::Update to /\A...\z/mso
 
+- reading bookmarks (M)ore (R)ead (N)o (Y)es -> crash (maybe because of instantiated bookmark?)
+
 - make our() variables member variables (Get Rid of Slimy applicaSion object)
 
 - have File notify the directory through events
@@ -150,6 +152,37 @@ A  +    doc/pfm.pdf
 - make si(Z)e a job in the background just like (V)ersion
 
 - nice to have: implement an 'after_job_receive_no_data' event
+
+- Filesystem - Filesys/POSIX/Mount.pm
+
+################################################################################
+# overlay filesystems
+
+
+root@visnet:/mnt# mount -t aufs -o br:/mnt/upper:/mnt/lower none /mnt/overlay
+
+root@visnet:/mnt# df
+Filesystem           1K-blocks      Used Available Use% Mounted on
+/dev/sda5            107890108  13536144  88873392  14% /
+none                   1672432       300   1672132   1% /dev
+none                   1676676       420   1676256   1% /dev/shm
+none                   1676676       272   1676404   1% /var/run
+none                   1676676         0   1676676   0% /var/lock
+none                   1676676         0   1676676   0% /lib/init/rw
+none                 107890108  13536144  88873392  14% /var/lib/ureadahead/debugfs
+/dev/sda1             41286796  12420684  26768828  32% /home
+none                 107890108  13536144  88873392  14% /mnt/overlay
+
+root@visnet:/mnt# mount
+...etc...
+none on /mnt/overlay type aufs (rw,br:/mnt/upper:/mnt/lower)
+
+
+root@visnet:/mnt# mount -t aufs -o br:/mnt/upper:/mnt/intermediate:/mnt/lower none /mnt/overlay
+root@visnet:/mnt# mount 
+...etc...
+none on /mnt/overlay type aufs (rw,br:/mnt/upper:/mnt/intermediate:/mnt/lower)
+
 
 ################################################################################
 # documentation enhancements
