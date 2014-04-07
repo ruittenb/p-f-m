@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::Abstract 1.05
+# @(#) App::PFM::Job::Abstract 1.07
 #
 # Name:			App::PFM::Job::Abstract
-# Version:		1.05
+# Version:		1.07
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-09-30
+# Date:			2014-04-07
 #
 
 ##########################################################################
@@ -86,8 +86,12 @@ sub _catch_child {
 	my ($self) = @_;
 	# Fetch the child's exit code. This must be done *before* reaping it.
 	$App::PFM::Application::CHILD_ERROR = $?;
-	$App::PFM::Application::CHILD_ERROR = $?; # don't warn "Used only once"
 	my $pid = wait();
+	if ($pid == -1) {
+		# The child was probably automatically reaped (see perlfunc(1)).
+		# Reset CHILD_ERROR.
+		$App::PFM::Application::CHILD_ERROR = 0;
+	}
 	# Reinstall the reaper.
 	$SIG{CHLD} = sub {
 		$self->_catch_child();
@@ -154,7 +158,7 @@ sub _poll_data {
 	}
 	# Check if there is data ready on the filehandle. Make sure we return
 	# true, because we want poll() to know we're still running.
-	return $self->{_childpid} if ($self->{_selector}->can_read(0) <= 0);
+	return $self->{_childpid} if ($self->{_selector}->can_read(0.001) <= 0);
 	# the filehandle is ready
 	if ($self->{_pipe}->sysread($input, 10000) > 0 or
 		length $self->{_line_buffer})
