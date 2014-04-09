@@ -3,9 +3,9 @@
 ##########################################################################
 #
 # Name:         test.pl
-# Version:      0.20
+# Version:      0.21
 # Author:       Rene Uittenbogaard
-# Date:         2011-03-09
+# Date:         2014-04-09
 # Usage:        test.pl
 # Description:  Test the pfm script and the associated libraries for
 #		syntax errors (using perl -cw).
@@ -55,7 +55,7 @@ sub produce_output {
 
 	system "perl -I $libdir -cw pfm";
 
-	my $pfm = new App::PFM::Application();
+	my $pfm = App::PFM::Application->new();
 	$pfm->bootstrap($silent);
 	# terminal is in raw mode here
 	printf "pfm bootstrap %s", $pfm->{_bootstrapped} ? 'OK' : 'not OK';
