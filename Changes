@@ -1,3 +1,8 @@
+2.12.3
+
+* fixed: bug in counting the number of running jobs
+* workaround: bug with CHLD signal handler on Darwin
+
 2.12.2
 
 * fixed: 'Use of uninitialized value in subroutine entry at Term/ReadLine/Gnu.pm'
