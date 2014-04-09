@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::Abstract 1.07
+# @(#) App::PFM::Job::Abstract 1.10
 #
 # Name:			App::PFM::Job::Abstract
-# Version:		1.07
+# Version:		1.10
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2014-04-07
+# Date:			2014-04-09
 #
 
 ##########################################################################
@@ -83,17 +83,19 @@ C<$App::PFM::Application::CHILD_ERROR>.
 =cut
 
 sub _catch_child {
+	local ($!, $?);
 	my ($self) = @_;
-	# Fetch the child's exit code. This must be done *before* reaping it.
-	$App::PFM::Application::CHILD_ERROR = $?;
+	# Reap.
 	my $pid = wait();
 	if ($pid == -1) {
-		# The child was probably automatically reaped (see perlfunc(1)).
-		# Reset CHILD_ERROR.
+		# There was no child to receive an exit status from (maybe it was
+		# automatically reaped (see perlfunc(1)). Reset CHILD_ERROR.
 		$App::PFM::Application::CHILD_ERROR = 0;
 	}
 	# Reinstall the reaper.
 	$SIG{CHLD} = sub {
+		# Fetch the child's exit code. This must be done *before* reaping it.
+		$App::PFM::Application::CHILD_ERROR = $?;
 		$self->_catch_child();
 	};
 	return;
@@ -205,7 +207,9 @@ sub _preprocess {
 
 =item I<isapplicable()>
 
-Stub routine for telling if the job is applicable.
+Stub routine for telling if the job is applicable. The job may not be
+applicable if e.g. the current directory does not belong to the type of
+RCS repository handled by the job.
 
 =cut
 
@@ -233,9 +237,16 @@ sub start {
 		origin => $self,  # not used ATM
 		type   => 'soft', # not used ATM
 	}));
-	$SIG{CHLD} = sub {
-		$self->_catch_child();
-	};
+	# The reaper causes problems in combination with system() on Darwin.
+	# As a workaround, don't install it in that case. Note that this may
+	# break si(Z)e.
+	if ($^O ne 'darwin') {
+		$SIG{CHLD} = sub {
+			# Fetch the child's exit code. This must be done *before* reaping it.
+			$App::PFM::Application::CHILD_ERROR = $?;
+			$self->_catch_child();
+		};
+	}
 	$self->{_stop_next_iteration} = 0;
 	$self->{_line_buffer} = '';
 	$self->{_pipe}        = IO::Pipe->new();
@@ -308,20 +319,20 @@ This package implements the following events:
 
 =over 2
 
-=item before_start
+=item before_job_start
 
 Called before starting the job. If the handler returns false,
 starting the job is aborted.
 
-=item after_start
+=item after_job_start
 
 Called when the job has started.
 
-=item after_receive_data
+=item after_job_receive_data
 
 Called when data has been received from the job.
 
-=item after_finish
+=item after_job_finish
 
 Called when the job has finished.
 
