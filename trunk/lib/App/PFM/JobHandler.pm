@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::JobHandler 0.15
+# @(#) App::PFM::JobHandler 0.17
 #
 # Name:			App::PFM::JobHandler
-# Version:		0.15
+# Version:		0.17
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-09-09
+# Date:			2014-04-09
 #
 
 ##########################################################################
@@ -63,6 +63,21 @@ sub _init {
 	return;
 }
 
+=item I<_check_reaper_necessity()>
+
+Finds out how many jobs are still running. Unregisters the reaper
+if possible.
+
+=cut
+
+sub _check_reaper_necessity {
+	my ($self) = @_;
+	if ($self->count() <= 0) {
+		$SIG{CHLD} = 'DEFAULT';
+	}
+	return;
+}
+
 ##########################################################################
 # constructor, getters and setters
 
@@ -99,6 +114,9 @@ sub start {
 	$class = "App::PFM::Job::$class";
 	my $job = $class->new(@args);
 	push @{$self->{_jobs}}, $job;
+	$job->register_listener('after_job_finish', sub {
+		$self->_check_reaper_necessity();
+	});
 	$job->start();
 	return $#{$self->{_jobs}};
 }
@@ -171,28 +189,19 @@ sub pollall {
 	# we hoped that this would eliminate the need for a signal handler,
 	# but it doesn't.
 #	1 while waitpid(-1, WNOHANG) > 0;
-
-	# We could return the number of running jobs if count() wasn't unstable.
-	# (see below)
-	return;
+	return $self->count();
 }
 
 =item I<count()>
 
 Counts the number of running jobs.
 
-NOTE: This sub is unstable and should not be used because it sometimes causes
-a crash with the message: 'Modification of a read-only value attempted at
-JobHandler.pm line 169.'  The reason for this message is unknown.
-
 =cut
 
 sub count {
-	my ($self) = @_;
-	# this sometimes causes pfm to crash with:
-	# 'Modification of a read-only value attempted at JobHandler.pm line 169.'
-	# why?
-	my @runningjobs = grep { $_->{_childpid} } @{$self->{_jobs}};
+	my ($self)      = @_;
+	my @jobs        = @{$self->{_jobs}};
+	my @runningjobs = grep { $_->{_childpid} } @jobs;
 	return scalar @runningjobs;
 }
 
