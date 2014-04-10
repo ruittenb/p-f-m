@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Directory 1.12
+# @(#) App::PFM::Directory 1.13
 #
 # Name:			App::PFM::Directory
-# Version:		1.12
+# Version:		1.13
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2014-04-08
+# Date:			2014-04-10
 #
 
 ##########################################################################
@@ -319,8 +319,11 @@ sub _init_filesystem_info {
 	@mountinfo = grep { /^\S+\s+on\s+(\Q$mountpoint\E)\s+/ } @mountlist;
 
 	# For aufs. TODO move this to App::PFM::Filesystem
-	# "none on /mnt/overlay type aufs (rw,br:/mnt/upper:/mnt/intermediate:/mnt/lower)"
-	($fstype) = $mountinfo[0] =~ /\Q$mountpoint\E\s+type\s+(\S+)/;
+	# Linux:
+	#    "none on /mnt/overlay type aufs (rw,br:/mnt/upper:/mnt/intermediate:/mnt/lower)"
+	# Darwin:
+	#    "/dev/disk0s3 on / (hfs, local, journaled)"
+	($fstype) = $mountinfo[0] =~ /\Q$mountpoint\E\s+(type\s+|\()(\S+)/;
 	($layers) = $mountinfo[0] =~ /[\(,]br:([^\)]+)/;
 	@layers = split(/:/, $layers) if defined $layers;
 #	$self->{_disk}{mountinfo} = $mountinfo[0];
