@@ -323,7 +323,7 @@ sub _init_filesystem_info {
 	#    "none on /mnt/overlay type aufs (rw,br:/mnt/upper:/mnt/intermediate:/mnt/lower)"
 	# Darwin:
 	#    "/dev/disk0s3 on / (hfs, local, journaled)"
-	($fstype) = $mountinfo[0] =~ /\Q$mountpoint\E\s+(type\s+|\()(\S+)/;
+	($fstype) = $mountinfo[0] =~ /\Q$mountpoint\E\s+(?:type\s+|\()(\S+)/;
 	($layers) = $mountinfo[0] =~ /[\(,]br:([^\)]+)/;
 	@layers = split(/:/, $layers) if defined $layers;
 #	$self->{_disk}{mountinfo} = $mountinfo[0];
