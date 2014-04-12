@@ -636,7 +636,8 @@ sub _comparefiles {
 	$screen->at($printline++, 0)->puts(sprintf(
 		'  mtime : %-30.30s    mtime : %-30.30s', $mtime1, $mtime2))->clreol();
 	$screen->at($printline++, 0)->clreol()
-		->set_deferred_refresh(R_SCREEN);
+			->at($printline++, 0)->clreol()
+			->at($printline-2, 0)->set_deferred_refresh(R_SCREEN);
 }
 
 =item _chase_processed_file(string $oldfilename, string $newfilename,
