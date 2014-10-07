@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::Git 0.37
+# @(#) App::PFM::Job::Git 0.38
 #
 # Name:			App::PFM::Job::Git
-# Version:		0.37
+# Version:		0.38
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-09-30
+# Date:			2014-10-07
 #
 
 ##########################################################################
@@ -50,7 +50,7 @@ Initializes new instances. Called from the constructor.
 
 sub _init {
 	my ($self, $handlers, $options) = @_;
-	$self->{_COMMAND} = 'git status --porcelain %s';
+	$self->{_COMMAND} = 'git status --porcelain --short %s';
 	$self->SUPER::_init($handlers, $options);
 	return;
 }
@@ -110,13 +110,15 @@ Split the status output in a filename- and a status-field.
 # U           U    unmerged, both modified
 # -------------------------------------------------
 # ?           ?    untracked
+# !           !    ignored
 # -------------------------------------------------
 
 sub _preprocess {
 	my ($self, $data) = @_;
-	return if $data !~ /^([UMCRAD\? ]{2}) (?:.+ -> )?(.+)/o;
+	return if $data !~ /^([UMCRAD\? ]{2}) (?:(?:\S+|".+") -> )?("?)(.+)\2$/o;
 	my $flags = $1;
-	my $file  = $2;
+	#  $quote = $2;
+	my $file  = $3; # oldfilename
 	if ($file =~ /^"(.*)"$/) {
 		$file = $1;
 		$file =~ s/\\(.)/$1/;
@@ -181,8 +183,19 @@ would be applicable.
 =cut
 
 sub isapplicable {
-	my ($self, $path) = @_;
-	return -d "$path/.git";
+	my ($self, $path, $entry) = @_;
+	if (-d "$path/$entry") {
+		# Directory file
+		return 0 if $entry eq '.git';
+		return 1 if -d "$path/$entry/.git";
+	}
+    while ($path and $path =~ m!/! and $path !~ m{/\.git$}) {
+        if (-d "$path/.git") {
+            return $path;
+        }
+        $path =~ s{/[^/]*$}{};
+    }
+	return 0;
 }
 
 ##########################################################################
