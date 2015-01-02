@@ -474,15 +474,16 @@ sub _sortcontents {
 =item _filtercontents()
 
 Filters the directory contents according to the filter modes
-(displays or hides dotfiles and whiteouts).
+(displays or hides dotfiles and whiteouts; custom filename filter).
 
 =cut
 
 sub _filtercontents {
 	my ($self) = @_;
 	@{$self->{_showncontents}} = grep {
-		$_pfm->state->{dot_mode}   || $_->{name} =~ /^(\.\.?|[^\.].*)$/ and
-		$_pfm->state->{white_mode} || $_->{type} ne 'w'
+		$_pfm->state->{dot_mode}         || $_->{name} =~ /^(\.\.?|[^\.].*)$/ and
+		$_pfm->state->{white_mode}       || $_->{type} ne 'w' and
+		$_pfm->state->{file_filter_mode} || !exists($_pfm->config->{file_filter}{$_->{name}})
 	} @{$self->{_dircontents}};
 	return;
 }

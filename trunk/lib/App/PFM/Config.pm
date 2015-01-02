@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 1.30
+# @(#) App::PFM::Config 1.31
 #
 # Name:			App::PFM::Config
-# Version:		1.30
+# Version:		1.31
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-11-11
+# Date:			2014-05-05
 #
 
 ##########################################################################
@@ -446,7 +446,22 @@ sub parse {
 			? split(/:/, $pfmrc->{columnlayouts})
 			: DEFAULTFORMAT
 	];
+	# default sort modes
+#	$self->{directory_specific_sortmodes} =
+#		$pfmrc->{directory_specific_sortmodes} ? [
+#			map { [ split /=/ ] } split(
+#				/:/, $pfmrc->{directory_specific_sortmodes})
+#	] : [];
+	# file filter
+	$self->{file_filter} = {};
+	@{$self->{file_filter}}{
+		$pfmrc->{file_filter}
+			? grep length, split(/:/, $pfmrc->{file_filter})
+			: undef
+	} = ();
+	# colorsets
 	$self->_parse_colorsets();
+	# signal observers.
 	$self->fire(App::PFM::Event->new({
 		name   => 'after_parse_config',
 		origin => $self,
