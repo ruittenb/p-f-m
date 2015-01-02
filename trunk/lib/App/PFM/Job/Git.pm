@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Job::Git 0.38
+# @(#) App::PFM::Job::Git 0.40
 #
 # Name:			App::PFM::Job::Git
-# Version:		0.38
+# Version:		0.40
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2014-10-07
+# Date:			2014-12-12
 #
 
 ##########################################################################
@@ -50,7 +50,9 @@ Initializes new instances. Called from the constructor.
 
 sub _init {
 	my ($self, $handlers, $options) = @_;
-	$self->{_COMMAND} = 'git status --porcelain --short %s';
+	$self->{_COMMAND} = $options->{noignore}
+		? 'git status --porcelain --short --ignored %s'
+		: 'git status --porcelain --short %s';
 	$self->SUPER::_init($handlers, $options);
 	return;
 }
@@ -115,7 +117,7 @@ Split the status output in a filename- and a status-field.
 
 sub _preprocess {
 	my ($self, $data) = @_;
-	return if $data !~ /^([UMCRAD\? ]{2}) (?:(?:\S+|".+") -> )?("?)(.+)\2$/o;
+	return if $data !~ /^([UMCRAD\?\! ]{2}) (?:(?:\S+|".+") -> )?("?)(.+)\2$/o;
 	my $flags = $1;
 	#  $quote = $2;
 	my $file  = $3; # oldfilename
