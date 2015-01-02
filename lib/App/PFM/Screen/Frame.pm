@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Frame 0.54
+# @(#) App::PFM::Screen::Frame 0.55
 #
 # Name:			App::PFM::Screen::Frame
-# Version:		0.54
+# Version:		0.55
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-09-09
+# Date:			2015-05-05
 #
 
 ##########################################################################
@@ -306,6 +306,7 @@ sub _getfooter {
 		.		" %-Whiteouts[$ONOFF{$state{white_mode}}]"
 		.		" \"-Pathnames[" . $pfm->state->directory->path_mode . "]"
 		.		" ;-Ignored[$ONOFF{$pfm->state->directory->ignore_mode}]"
+		.		" '-FileFilter[$ONOFF{$state{file_filter_mode}}]"
 #		.		" *-Radix[$state{radix_mode}]"
 #		.		" SP-Spaces[$state{trspace}]"
 #		.		" =-Ident[$state{ident_mode}]"
@@ -509,7 +510,7 @@ sub show_footer {
 						$framecolors->{$screen->color_mode}{footer});
 	my $keycolor    = $screen->color2esc('normal ' .
 						$framecolors->{$screen->color_mode}{footerkeys});
-	$footer =~ s{(F\d+(?=-)|[!\.%";=@](?=-)|[<>])}{$keycolor$1$footercolor}g;
+	$footer =~ s{(F\d+(?=-)|[!\.%"';=@](?=-)|[<>])}{$keycolor$1$footercolor}g;
 	$screen->at($screen->BASELINE + $screen->screenheight + 1, 0)
 		->puts($footercolor . $footer . $padding)
 		->reset()->normal();
@@ -525,8 +526,9 @@ Updates the column headings in case of a mode change.
 sub update_headings {
 	my ($self) = @_;
 	my $state = $self->{_pfm}->state;
-	my $filters = ($state->{white_mode} ? '' : '%')
-				. ($state->{dot_mode}   ? '' : '.');
+	my $filters = ($state->{white_mode}       ? '' : '%')
+				. ($state->{file_filter_mode} ? '' : "'")
+				. ($state->{dot_mode}         ? '' : '.');
 	$_fieldheadings{display} = $_fieldheadings{name} .
 		($filters ? " (filtered)" : '');
 	if ($self->{_rcsrunning} or $state->directory->{_rcsjob}) {

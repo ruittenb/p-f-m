@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config::Update 2.12.1
+# @(#) App::PFM::Config::Update 2.12.4
 #
 # Name:			App::PFM::Config::Update
-# Version:		2.12.1
+# Version:		2.12.4
 # Author:		Rene Uittenbogaard
 # Created:		2010-05-28
-# Date:			2011-11-11
+# Date:			2014-05-05
 #
 
 ##########################################################################
@@ -1330,6 +1330,19 @@ use constant UPDATES => {
 			batch => [
 				"launch[application/x-tar-xz]: xz -dc =2 | tar xvf -\n",
 				"launch[application/x-xz]    : xz -d =2\n",
+			],
+		}],
+	},
+	# ----- 2.12.4 ---------------------------------------------------------
+	'2.12.4' => {
+		additions => [{
+			ifnotpresent => qr/file_filter:/,
+			before => qr/## display file type flags/,
+			batch => [
+				"## file filter. Always filter out the following files. ",
+					"(colon-separated)\n",
+				"#file_filter:.DS_Store:desktop.ini\n",
+				"file_filter:.DS_Store\n\n",
 			],
 		}],
 	},

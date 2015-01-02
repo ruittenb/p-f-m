@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.89
+# @(#) App::PFM::CommandHandler 1.90
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.89
+# Version:		1.90
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2013-03-04
+# Date:			2014-05-05
 #
 
 ##########################################################################
@@ -159,14 +159,14 @@ sub _helppage {
 --------------------------------------------------------------------------------
  ?, F1  help                          .   filter dotfiles                       
     F2  go to previous directory      %   filter whiteouts                      
-  m F2  descend once into prev dir    !   toggle clobber mode                   
-    F3  redraw screen                 "   toggle pathmode                       
-    F4  cycle colorsets               ;   toggle show svn ignored               
-  m F4  cycle colorsets backward      =   cycle identities                      
-    F5  refresh directory listing     <   pan commands menu left                
-  m F5  smart refresh listing         >   pan commands menu right               
-    F6  sort directory listing        @   perl command (for debugging)          
-  m F6  multilevel sort listing                                                 
+  m F2  descend once into prev dir    '   filter custom list of files           
+    F3  redraw screen                 !   toggle clobber mode                   
+    F4  cycle colorsets               "   toggle pathmode                       
+  m F4  cycle colorsets backward      ;   toggle show svn ignored               
+    F5  refresh directory listing     =   cycle identities                      
+  m F5  smart refresh listing         <   pan commands menu left                
+    F6  sort directory listing        >   pan commands menu right               
+  m F6  multilevel sort listing       @   perl command (for debugging)          
     F7  toggle swap mode            --------------------------------------------
     F8  mark file                    SORT MODES                                 
     F9  cycle layouts                                                           
@@ -905,6 +905,7 @@ sub handle {
 		/^;$/o				and $self->handleignoremode($event),		  last;
 		/^w$/io				and $self->handleunwo($event),				  last;
 		/^%$/o				and $self->handlewhiteout($event),			  last;
+		/^'$/o				and $self->handlefilefilter($event),		  last;
 		$handled = 0;
 		$self->{_screen}->flash();
 	}
@@ -1111,6 +1112,23 @@ sub handlemultiple {
 	my ($self, $event) = @_;
 	toggle($_pfm->state->{multiple_mode});
 	$self->{_screen}->set_deferred_refresh(R_MENU);
+	return;
+}
+
+=item handlefilefilter(App::PFM::Event $event)
+
+Toggles the filtering of configured files (config option file_filter).
+
+=cut
+
+sub handlefilefilter {
+	my ($self, $event) = @_;
+	toggle($_pfm->state->{file_filter_mode});
+	# the directory object schedules a position_at when
+	# $d->refresh() is called and the directory is dirty.
+	$self->{_screen}->frame->show_footer();
+	$self->{_screen}->set_deferred_refresh(R_SCREEN);
+	$_pfm->state->directory->set_dirty(D_FILTER);
 	return;
 }
 

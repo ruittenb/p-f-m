@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::State 0.24
+# @(#) App::PFM::State 0.26
 #
 # Name:			App::PFM::State
-# Version:		0.24
+# Version:		0.26
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-09-09
+# Date:			2014-05-05
 #
 
 ##########################################################################
@@ -82,21 +82,22 @@ Instantiates a App::PFM::Directory object.
 
 sub _init {
 	my ($self, $pfm, $screen, $config, $os, $jobhandler, $path) = @_;
-	$self->{_screen}        = $screen;
-	$self->{_config}        = $config;
-	$self->{_os}            = $os;
-	$self->{_directory}		= App::PFM::Directory->new(
+	$self->{_screen}           = $screen;
+	$self->{_config}           = $config;
+	$self->{_os}               = $os;
+	$self->{_directory}		   = App::PFM::Directory->new(
 		$pfm, $screen, $config, $os, $jobhandler, $path);
 	# We might not have useful values for these yet since the config file
 	# might not have been read yet.
-	$self->{_position}		= undef;
-	$self->{_baseindex}		= undef;
-	$self->{multiple_mode}	= 0;
-	$self->{dot_mode}		= undef;
-	$self->{white_mode}		= undef;
-	$self->{trspace}		= undef;
-	$self->{_radix_mode}	= undef;
-	$self->{_sort_mode}		= undef;
+	$self->{_position}		   = undef;
+	$self->{_baseindex}		   = undef;
+	$self->{trspace}		   = undef;
+	$self->{multiple_mode}	   = 0;
+	$self->{dot_mode}		   = undef;
+	$self->{white_mode}		   = undef;
+	$self->{file_filter_mode}  = undef;
+	$self->{_radix_mode}	   = undef;
+	$self->{_sort_mode}		   = undef;
 	# path_mode    sits in App::PFM::Directory
 	# color_mode   sits in App::PFM::Screen
 	# ident_mode   sits in App::PFM::Screen::Diskinfo
@@ -175,6 +176,19 @@ sub sort_mode {
 	}
 	return $self->{_sort_mode};
 }
+
+#=item I<file_filter_mode( [ string $file_filter_mode ] )>
+#
+#Getter/setter for the filter mode for a custom list of files
+#(F<.pfmrc> option: file_filter).
+#
+#=cut
+#
+#sub file_filter_mode {
+#	my ($self, $value) = @_;
+#	$self->{_file_filter_mode} = $value if defined $value;
+#	return $self->{_file_filter_mode};
+#}
 
 =item I<radix_mode( [ string $radix_mode ] )>
 
