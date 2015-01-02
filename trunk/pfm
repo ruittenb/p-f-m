@@ -3,10 +3,10 @@
 ##########################################################################
 #
 # Name:			pfm
-# Version:		2.12.3
+# Version:		2.12.4
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2014-04-09
+# Date:			2015-01-02
 # Usage:		pfm [ <directory> ] [ -s, --swap <directory> ]
 #				    [ -l, --layout <number> ] [ -o, --sort <mode> ]
 #					[ -c, --colorset <mode> ] [ --login ]
@@ -28,13 +28,13 @@
 # version
 
 # for MakeMaker only
-our $VERSION  = '2.12.3';
+our $VERSION  = '2.12.4';
 
 =pod
 
 =for roff
-.ds Yr 2014
-.ds Vw @(#) pfm.pl 2.12.3
+.ds Yr 2015
+.ds Vw @(#) pfm.pl 2.12.4
 .de Vp
 This manual pertains to \f(CWpfm\fP version \\$3.
 ..
