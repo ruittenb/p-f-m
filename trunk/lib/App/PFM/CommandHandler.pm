@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.90
+# @(#) App::PFM::CommandHandler 1.91
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.90
+# Version:		1.91
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2014-05-05
+# Date:			2016-04-06
 #
 
 ##########################################################################
@@ -1850,7 +1850,8 @@ sub handlefind {
 
 sub handlefind_incremental {
 	my ($self) = @_;
-	my ($findme, $key, $screenline);
+	my ($key, $screenline);
+	my $findme = '';
 	my $screen = $self->{_screen};
 	my $prompt = 'File to find: ';
 	my $cursorjumptime = $self->{_config}{cursorjumptime};
