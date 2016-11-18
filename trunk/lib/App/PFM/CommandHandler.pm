@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.91
+# @(#) App::PFM::CommandHandler 1.92
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.91
+# Version:		1.92
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2016-04-06
+# Date:			2016-04-15
 #
 
 ##########################################################################
@@ -162,7 +162,7 @@ sub _helppage {
   m F2  descend once into prev dir    '   filter custom list of files           
     F3  redraw screen                 !   toggle clobber mode                   
     F4  cycle colorsets               "   toggle pathmode                       
-  m F4  cycle colorsets backward      ;   toggle show svn ignored               
+  m F4  cycle colorsets backward      ;   toggle show RCS ignored               
     F5  refresh directory listing     =   cycle identities                      
   m F5  smart refresh listing         <   pan commands menu left                
     F6  sort directory listing        >   pan commands menu right               
