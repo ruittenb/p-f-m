@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 1.31
+# @(#) App::PFM::Config 1.33
 #
 # Name:			App::PFM::Config
-# Version:		1.31
+# Version:		1.33
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2014-05-05
+# Date:			2016-12-21
 #
 
 ##########################################################################
@@ -583,7 +583,7 @@ sub write_bookmarks {
 		next if /^S_/; # skip S_MAIN, S_PREV, S_SWAP
 		$state = $_pfm->state($_);
 		if (ref $state) {
-			$path = $state->directory->path;
+			$path = $state->directory->path || '';
 			if ($state->{_position}) {
 				$path .= '/' . $state->{_position};
 			}
@@ -1279,6 +1279,7 @@ extension[*.pgm]  : image/x-portable-graymap
 extension[*.pnm]  : image/x-portable-anymap
 extension[*.ppm]  : image/x-portable-pixmap
 extension[*.ps]   : application/postscript
+extension[*.py]   : application/x-python
 extension[*.qt]   : video/quicktime
 extension[*.ra]   : audio/x-realaudio
 extension[*.ram]  : audio/x-pn-realaudio
@@ -1370,6 +1371,7 @@ magic[bzip2 compressed data]: application/x-bzip2
 magic[compress.d data]      : application/x-compress
 magic[gzip compressed data] : application/x-gzip
 magic[perl script]          : application/x-perl
+magic[Python script]        : application/x-python
 magic[tar archive]          : application/x-tar
 
 ## launchby extension or magic
@@ -1402,6 +1404,7 @@ launch[application/x-nroff-man]	  : nroff -p -t -e -man =2 | =p
 launch[application/x-pascal]      : =e =2
 launch[application/x-perl-module] : =e =2
 launch[application/x-perl]        : ./=2
+launch[application/x-python]      : ./=2
 launch[application/x-rar]         : unrar x =2
 #launch[application/x-rpm]         : rpm -Uvh =2
 launch[application/x-rpm]         : rpm -qpl =2
