@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen 0.62
+# @(#) App::PFM::Screen 0.63
 #
 # Name:			App::PFM::Screen
-# Version:		0.62
+# Version:		0.63
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2012-05-10
+# Date:			2017-03-03
 # Requires:		Term::ScreenColor
 #
 
@@ -357,21 +357,35 @@ sub cooked_echo {
 
 Tells the terminal to start/stop receiving information about the mouse.
 
+This uses the F<.pfmrc> option B<term_mouse_mode>.
+
 =cut
 
 sub mouse_enable {
 	my ($self) = @_;
-#	print "\e[?1002h"; # cell motion tracking: mouse-down, mouse-up and motion
-#	print "\e[?1000h"; # normal tracking     : mouse-down, mouse-up
-	print "\e[?9h";    # X10 compatibility   : mouse-down only
+	my $term_mouse_mode = $self->{_config}->{term_mouse_mode}; # x10|normal|motion
+	if ($term_mouse_mode eq 'x10') {
+		print "\e[?9h";    # X10 compatibility : mouse-down only
+	} elsif ($term_mouse_mode ne 'motion') {
+		print "\e[?1000h"; # normal tracking   : mouse-down, mouse-up
+	} else {
+		# unsupported
+#		print "\e[?1002h"; # motion tracking   : mouse-down, mouse-up and motion
+	}
 	return $self;
 }
 
 sub mouse_disable {
 	my ($self) = @_;
-#	print "\e[?1002l";
-#	print "\e[?1000l";
-	print "\e[?9l";
+	my $term_mouse_mode = $self->{_config}->{term_mouse_mode}; # x10|normal|motion
+	if ($term_mouse_mode eq 'x10') {
+		print "\e[?9l";    # X10 compatibility : mouse-down only
+	} elsif ($term_mouse_mode ne 'motion') {
+		print "\e[?1000l"; # normal tracking   : mouse-down, mouse-up
+	} else {
+		# unsupported
+#		print "\e[?1002l"; # motion tracking   : mouse-down, mouse-up and motion
+	}
 	return $self;
 }
 

@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config::Update 2.12.4
+# @(#) App::PFM::Config::Update 2.12.5
 #
 # Name:			App::PFM::Config::Update
-# Version:		2.12.4
+# Version:		2.12.5
 # Author:		Rene Uittenbogaard
 # Created:		2010-05-28
-# Date:			2014-05-05
+# Date:			2017-03-20
 #
 
 ##########################################################################
@@ -1343,6 +1343,16 @@ use constant UPDATES => {
 					"(colon-separated)\n",
 				"#file_filter:.DS_Store:desktop.ini\n",
 				"file_filter:.DS_Store\n\n",
+			],
+		}, {
+			ifnotpresent => qr/termmousemode/,
+			after => qr/^#?sortcycle:/,
+			batch => [
+				"\n",
+				"## terminal mouse mode. Usually 'x10' is sufficient, but Darwin's Terminal\n",
+				"## requires 'normal'. This is also the default.\n",
+				"#termmousemode:x10\n",
+				"#termmousemode:normal\n",
 			],
 		}],
 	},

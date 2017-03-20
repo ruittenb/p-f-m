@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 1.33
+# @(#) App::PFM::Config 1.34
 #
 # Name:			App::PFM::Config
-# Version:		1.33
+# Version:		1.34
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2016-12-21
+# Date:			2017-03-20
 #
 
 ##########################################################################
@@ -417,6 +417,8 @@ sub parse {
 	$self->{mouse_mode}			 = $_pfm->browser->mouse_mode || $pfmrc->{defaultmousemode} || 'xterm';
 	$self->{mouse_mode}			 = ($self->{mouse_mode} eq 'xterm' && isxterm($ENV{TERM}))
 								 || isyes($self->{mouse_mode});
+	$self->{term_mouse_mode}	 = $pfmrc->{termmousemode} ||
+									($^O eq 'darwin' ? 'normal' : 'x10');
 	$self->{altscreen_mode}		 = $ENV{PFMDEBUG} ? 'no' : $pfmrc->{altscreenmode} || 'xterm';
 	$self->{altscreen_mode}		 = ($self->{altscreen_mode} eq 'xterm' && isxterm($ENV{TERM}))
 								 || isyes($self->{altscreen_mode});
@@ -872,6 +874,11 @@ paste_protection:xterm
 ## sort modes to cycle through when clicking 'Sort' in the footer.
 ## default: n,en,dn,Dn,sn,Sn,tn,un
 sortcycle:n,dn,Dn,sn,Sn,tn,un
+
+## terminal mouse mode. Usually 'x10' is sufficient, but Darwin requires
+## 'normal'. The default on Darwin is 'normal', on other systems 'x10'.
+#termmousemode:x10
+#termmousemode:normal
 
 ## format for displaying timestamps: see strftime(3).
 ## take care that the time fields (a, c and m) in the layouts defined below
