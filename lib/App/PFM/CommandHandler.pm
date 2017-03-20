@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.92
+# @(#) App::PFM::CommandHandler 1.93
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.92
+# Version:		1.93
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2016-04-15
+# Date:			2017-03-20
 #
 
 ##########################################################################
@@ -3151,6 +3151,7 @@ sub handlemoreshell {
 	system ($ENV{SHELL} ? $ENV{SHELL} : 'sh'); # most portable
 	$self->{_screen}->pressanykey(); # will also put the screen back in raw mode
 	$self->{_screen}->alternate_on() if $self->{_config}{altscreen_mode};
+	$self->{_screen}->handleresize();
 	system("$chdirautocmd") if length($chdirautocmd);
 	return;
 }
