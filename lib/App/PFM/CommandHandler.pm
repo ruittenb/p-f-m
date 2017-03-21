@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.93
+# @(#) App::PFM::CommandHandler 1.94
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.93
+# Version:		1.94
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2017-03-20
+# Date:			2017-03-21
 #
 
 ##########################################################################
@@ -3547,7 +3547,7 @@ sub handlemoreopenwindow {
 		->show_frame({
 			footer => FOOTER_NONE,
 		});
-	unless ($ENV{DISPLAY}) {
+	if ($^O ne 'darwin' and !$ENV{DISPLAY}) {
 		$self->{_screen}->at(0,0)->clreol()
 			->display_error('DISPLAY has not been set');
 		return;
