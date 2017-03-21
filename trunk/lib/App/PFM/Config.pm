@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Config 1.34
+# @(#) App::PFM::Config 1.35
 #
 # Name:			App::PFM::Config
-# Version:		1.34
+# Version:		1.35
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2017-03-20
+# Date:			2017-03-21
 #
 
 ##########################################################################
@@ -426,8 +426,8 @@ sub parse {
 	$self->{windowtype}			 = $pfmrc->{windowtype} eq 'standalone' ? 'standalone' : 'pfm';
 	$self->{windowcmd}			 = $pfmrc->{windowcmd}
 								 || ($pfmrc->{windowtype} eq 'standalone'
-									? 'nautilus'
-									: $^O eq 'linux' ? 'gnome-terminal -e' : 'xterm -e');
+									? ($^O eq 'darwin' ? 'open' : 'nautilus')
+									: ($^O eq 'linux' ? 'gnome-terminal -e' : 'xterm -e'));
 	$self->{printcmd}			 = $pfmrc->{printcmd}
 								 || ($ENV{PRINTER} ? "lpr -P$ENV{PRINTER} ${e}2" : "lpr ${e}2");
 	$self->{viewer}				 = $pfmrc->{viewer} || 'xv';
