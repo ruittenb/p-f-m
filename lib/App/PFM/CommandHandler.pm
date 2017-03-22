@@ -7,7 +7,7 @@
 # Version:		1.94
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2017-03-21
+# Date:			2017-03-22
 #
 
 ##########################################################################
@@ -3651,7 +3651,7 @@ sub handlemoreperlshell {
 			});
 		}
 		$screen->handleresize() if $screen->wasresized();
-		last if $perlcmd =~ /^(\cD|exit|quit)$/o;
+		last if $perlcmd =~ /^\s*(\cD|exit|quit);*\s*$/o;
 		$_ =''; # prevent commands like 'print' to print junk
 		{
 			no strict;
