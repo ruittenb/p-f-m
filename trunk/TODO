@@ -13,6 +13,15 @@
 - handlecopyrename: if "overwrite?" is answered with "no", then the
   cursor is repositioned anyway.
 
+- MacOS filesystem is case-preserving, but not case-sensitive. How to handle that?
+  - 'mv -i BSON bson' prompts whether to overwrite a file that it thinks exists. (OS does the same)
+  - whether or not a 'mv -i BSON bson' was answered with 'y' or 'n', pfm stat()s both files
+    and finds that they both exist.
+  - test filesystem case-sensitivity? From the filesystem object?
+    - prompt# diskutil info /
+      File System Personality:  Journaled HFS+
+      File System Personality:  Case-sensitive Journaled HFS+.
+
 - (M)ore (S)how same dir: doesn't remove marks
   -> is this due to the fact that Directory::_clone() does not clone the files?
   -> handleswap() has different conditions for executing its blocks
