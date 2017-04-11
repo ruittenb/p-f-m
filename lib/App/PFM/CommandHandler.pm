@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.94
+# @(#) App::PFM::CommandHandler 1.95
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.94
+# Version:		1.95
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2017-03-22
+# Date:			2017-04-11
 #
 
 ##########################################################################
@@ -2556,8 +2556,8 @@ sub handledelete {
 				footer => FOOTER_NONE,
 				prompt => 'Are you sure you want to delete [Y/N]? ',
 			});
-		$sure = $screen->getch();
-		return if $sure !~ /y/i;
+		$sure = lc $screen->getch();
+		return if $sure ne 'y';
 	}
 	$screen->at($screen->PATHLINE, 0)
 		->set_deferred_refresh(R_SCREEN);
@@ -2580,12 +2580,14 @@ sub handledelete {
 			if (testdirempty($file->{name})) {
 				$success = rmdir $file->{name};
 			} else {
-				$screen->at(0,0)->clreol()->putmessage(
-					'Recursively delete a non-empty directory ',
-					'[Affirmative/Negative]? ');
-				$sure = lc $screen->getch();
+				if ($sure ne 'l') {
+					$screen->at(0,0)->clreol()->putmessage(
+						'Recursively delete a non-empty directory ',
+						'[Affirmative/Negative/affirmative aLl]? ');
+					$sure = lc $screen->getch();
+				}
 				$screen->at(0,0);
-				if ($sure eq 'a') {
+				if ($sure eq 'a' or $sure eq 'l') {
 					$success = !system('rm', '-rf', $file->{name});
 				} else {
 					$msg = 'Deletion cancelled. Directory not empty';
