@@ -7,7 +7,7 @@
 # Version:		2.12.5
 # Author:		Rene Uittenbogaard
 # Created:		2010-05-28
-# Date:			2017-03-20
+# Date:			2017-03-24
 #
 
 ##########################################################################
@@ -1355,6 +1355,17 @@ use constant UPDATES => {
 				"#termmousemode:normal\n",
 			],
 		}],
+	},
+	# ----- 2.12.5 ---------------------------------------------------------
+	'2.12.5' => {
+		additions => [{
+			ifnotpresent => qr/MacOS users may want to choose a non-ascii character such/,
+			after => qr/Previous versions used . but this leads to confusing results/,
+			batch => [
+				"## MacOS users may want to choose a non-ascii character such as § (U+00A7).\n",
+				"#escapechar:§\n"
+			],
+		}]
 	},
 };
 
