@@ -33,7 +33,8 @@ use diagnostics;
 sub produce_output {
 	# child process: perform tests
 	my $silent = 1;
-	my $libdir = POSIX::getcwd() . '/lib';
+	my $libdir    = POSIX::getcwd() . '/../lib';
+	my $scriptdir = POSIX::getcwd() . '/..';
 	my $critic;
 	eval {
 		load 'Perl::Critic';
@@ -42,18 +43,18 @@ sub produce_output {
 			-severity => 'stern');
 	};
 
-	foreach (glob('lib/App/PFM/*.pm'),
-		 glob('lib/App/PFM/Browser/*.pm'),
-		 glob('lib/App/PFM/Config/*.pm'),
-		 glob('lib/App/PFM/Job/*.pm'),
-		 glob('lib/App/PFM/OS/*.pm'),
-		 glob('lib/App/PFM/Screen/*.pm'))
+	foreach (glob("$libdir/App/PFM/*.pm"),
+		 glob("$libdir/App/PFM/Browser/*.pm"),
+		 glob("$libdir/App/PFM/Config/*.pm"),
+		 glob("$libdir/App/PFM/Job/*.pm"),
+		 glob("$libdir/App/PFM/OS/*.pm"),
+		 glob("$libdir/App/PFM/Screen/*.pm"))
 	{
 #		print $critic->critique($_) if defined $critic;
 		system "perl -I $libdir -cw $_";
 	}
 
-	system "perl -I $libdir -cw pfm";
+	system "perl -I $libdir -cw $scriptdir/pfm";
 
 	my $pfm = App::PFM::Application->new();
 	$pfm->bootstrap($silent);
