@@ -59,8 +59,9 @@ END {
 	# In case of emergency: try to turn mouse mode off, bracketed paste mode
 	# off, the alternate screen off, and set the terminal to 'cooked' mode.
 	print "\e[?47l\e[?9l\e[?1000l\e[?2004l";
+	system qw(stty -raw echo);
 	# 'cooked' should imply 'isig', but doesn't always do so on Darwin.
-	system qw(stty -raw echo isig);
+	system qw(stty isig);
 }
 
 ##########################################################################
