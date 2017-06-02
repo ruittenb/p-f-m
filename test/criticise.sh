@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-perlcritic --stern . \
+perlcritic --stern ../lib/App/PFM \
 	| grep -v 'Comma used to separate statements'		\
 	| grep -v 'Pragma "constant" used'			\
 	| grep -v 'Code before warnings are enabled'		\
