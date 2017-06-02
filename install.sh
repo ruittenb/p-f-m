@@ -2,9 +2,9 @@
 ############################################################################
 #
 # Name:         install.sh
-# Version:      0.54
+# Version:      0.55
 # Authors:      Rene Uittenbogaard
-# Date:         2011-09-08
+# Date:         2017-06-03
 # Usage:        sh install.sh
 # Description:  Un*x-like systems can be very diverse.
 #		This script is meant as an example how pfm dependencies
@@ -78,6 +78,10 @@ init_package_commands() {
 			packagelistcmd='port installed'
 			packageinstallcmd='port install ${packagename}'
 			packageurls='http://www.macports.org/'
+		elif brew --version >/dev/null 2>&1; then
+			packagelistcmd='brew list'
+			packageinstallcmd='brew install ${packagename}'
+			packageurls='http://braumeister.org/'
 		else
 			packagelistcmd='dpkg -l'
 			packageinstallcmd='apt-get install ${packagename}'
@@ -517,7 +521,7 @@ check_download_and_install_perl_module File::Temp        0.22
 check_download_and_install_perl_module File::Stat::Bits  0.19
 check_download_and_install_perl_module LWP               5.827
 check_download_and_install_perl_module Module::Load      0.16
-check_download_and_install_perl_module Term::Screen      1.03
+check_download_and_install_perl_module Term::Screen      1.06
 check_download_and_install_perl_module Term::ScreenColor 1.20
 check_download_and_install_perl_module_term_readline_gnu 1.09
 
