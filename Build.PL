@@ -8,12 +8,16 @@ Module::Build->new(
 	dist_version_from	=> 'pfm',
 	license			=> 'GPL',
 	requires		=> {
+		'File::stat'		=> 0,
+		'File::Stat::Bits'	=> 0.19,   # maybe less
+		'File::Temp'		=> 0.2304, # at least 0.22
 		'Term::Cap'		=> 0,
-		'Term::Screen'		=> 1.03,  # for Solaris; others 1.02
-		'Term::ScreenColor'	=> 1.13,  # no less than 1.13!
-		'Term::ReadLine::Gnu'	=> 1.16,  # maybe as little as 1.09
-		'HTML::Parser'		=> 3.59,  # LWP needs it. maybe less, but 3.36 is too low
-		'LWP'			=> 5.827, # maybe less
+		'Term::Screen'		=> 1.06,
+		'Term::ScreenColor'	=> 1.20,
+		'Term::ReadLine::Gnu'	=> 1.35,   # at least 1.16
+		'HTML::Parser'		=> 3.72,   # at least 3.59
+		'LWP'			=> 6.26,   # at least 5.827
+		'Module::Load'          => 0.32,   # at least 0.16
 	},
 	create_makefile_pl	=> 'passthrough',
 	script_files		=> [ 'pfm' ],
