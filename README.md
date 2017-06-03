@@ -1,11 +1,12 @@
 
-Package: Personal File Manager
+# Personal File Manager
 
 
-* This package is available from https://github.com/ruittenb/p-f-m
+- This package is available from https://github.com/ruittenb/p-f-m
 
-* Prerequisites for this package, in dependency order:
+- Prerequisites for this package, in dependency order:
 
+```
                            at least      preferred
   perl                     5.8           5.14
     File::stat             1.00          1.05
@@ -19,12 +20,12 @@ Package: Personal File Manager
   ncurses                  ?             5
     Term-Screen            1.06          1.06
       Term-ScreenColor     1.20          1.20
+```
 
-
-* Confusingly, the package File-Stat-Bits-1.01.tar.gz provides
+- Confusingly, the package File-Stat-Bits-1.01.tar.gz provides
   version 0.19 of the module File::Stat::Bits.
 
-* If you are not sure if you have all the dependencies, you can run
+- If you are not sure if you have all the dependencies, you can run
   the 'install.sh' shell script. Otherwise, you can go straight to the
   'perl Makefile.PL; make; make test; sudo make install' phase.
 
