@@ -3,9 +3,9 @@
 ##########################################################################
 #
 # Name:         test.pl
-# Version:      0.21
+# Version:      0.22
 # Author:       Rene Uittenbogaard
-# Date:         2014-04-09
+# Date:         2017-06-03
 # Usage:        test.pl
 # Description:  Test the pfm script and the associated libraries for
 #		syntax errors (using perl -cw).
@@ -32,9 +32,11 @@ use diagnostics;
 
 sub produce_output {
 	# child process: perform tests
-	my $silent = 1;
-	my $libdir    = POSIX::getcwd() . '/../lib';
-	my $scriptdir = POSIX::getcwd() . '/..';
+	my $gitroot   = qx(git rev-parse --show-toplevel);
+	chomp($gitroot);
+	my $libdir    = "$gitroot/lib";
+	my $scriptdir = "$gitroot";
+	my $silent    = 1;
 	my $critic;
 	eval {
 		load 'Perl::Critic';

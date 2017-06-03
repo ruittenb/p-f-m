@@ -1,3 +1,5 @@
 #!/usr/bin/env sh
 
-PFMDEBUG=1 perl -d -I../lib ../pfm "$@"
+GITROOT=$(git rev-parse --show-toplevel)
+
+PFMDEBUG=1 perl -d -I$GITROOT/lib $GITROOT/pfm "$@"

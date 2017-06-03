@@ -2,6 +2,9 @@
 
 shopt -s extglob
 
+GITROOT=$(git rev-parse --show-toplevel)
+cd $GITROOT
+
 previous_vw="$(grep 'ds Vw .... pfm.pl [0-9]\.[0-9][0-9]\.[0-9]' pfm)"
 previousver="${previous_vw##*pfm.pl }"
 
@@ -23,6 +26,8 @@ if [ "$previousver" = "$newver" ]; then
 	echo "Nothing to do, exiting"
 	exit 1
 fi
+
+# https://github.com/metaperl/binn/blob/master/treesed.pl
 
 treesed "$previousver" "$newver"	\
 	-files README pfm pfmrcupdate lib/App/PFM/Application.pm
