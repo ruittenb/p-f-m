@@ -57,6 +57,7 @@ use locale;
 use strict;
 
 our $VERSION     = '2.12.5';
+our $VARIANT     = '-i18n';
 our $LASTYEAR    = 2017;
 our $CHILD_ERROR = 0; # filled by the CHLD signal handler
 
@@ -72,7 +73,7 @@ The arguments pass the I<argv> array, to be used at bootstrap time.
 
 sub _init {
 	my ($self, $argvzero, $argv) = @_;
-	$self->{VERSION}        = $VERSION;
+	$self->{VERSION}        = $VERSION . $VARIANT;
 	$self->{LASTYEAR}       = $LASTYEAR;
 	$self->{LATEST_VERSION} = '';
 	$self->{_bootstrapped}  = 0;
