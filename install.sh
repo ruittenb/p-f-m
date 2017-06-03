@@ -471,7 +471,7 @@ check_listwhite() {
 	fi
 	echo
 	echo "Proceeding with installation of listwhite..."
-	cd tools/listwhite
+	cd helpers/listwhite
 	./configure
 	make all test
 	$sudo make install
@@ -491,14 +491,14 @@ check_hasacl() {
 	check_package acl
 	echo
 	echo "Proceeding with installation of hasacl..."
-	cd tools/hasacl
+	cd helpers/hasacl
 	./configure
 	make all test
 	$sudo make install
 	cd -
 }
 
-check_tools() {
+check_helpers() {
 	check_listwhite
 	check_hasacl
 }
@@ -528,8 +528,8 @@ check_download_and_install_perl_module_term_readline_gnu 1.09
 # install the application
 install_pfm
 
-# check the need for tools
-check_tools
+# check the need for helpers
+check_helpers
 
 echo
 echo "Installation done."
