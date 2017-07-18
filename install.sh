@@ -2,9 +2,9 @@
 ############################################################################
 #
 # Name:         install.sh
-# Version:      0.55
+# Version:      0.56
 # Authors:      Rene Uittenbogaard
-# Date:         2017-06-03
+# Date:         2017-07-17
 # Usage:        sh install.sh
 # Description:  Un*x-like systems can be very diverse.
 #		This script is meant as an example how pfm dependencies
@@ -55,7 +55,6 @@ init_package_commands() {
 		packageurls='http://hpux.connect.org.uk/'
 		ncursessuggestion='http://hpux.connect.org.uk/ftp/hpux/Sysadmin/ncurses-5.7/ncurses-5.7-hppa-11.23.depot.gz'
 		readlinesuggestion='http://hpux.connect.org.uk/hppd/hpux/Gnu/readline-6.0.004/'
-		break
 		;;
 	sunos|solaris)
 		packagelistcmd=pkginfo
@@ -63,7 +62,6 @@ init_package_commands() {
 		packageurls='ftp://ftp.sunfreeware.com/'
 		ncursessuggestion='ftp://ftp.sunfreeware.com/pub/freeware/sparc/10/ncurses-5.7-sol10-sparc-local.gz'
 		readlinesuggestion='ftp://ftp.sunfreeware.com/pub/freeware/sparc/10/readline-5.2-sol10-sparc-local.gz'
-		break
 		;;
 	aix)
 		packagelistcmd='lslpp -L'
@@ -71,7 +69,6 @@ init_package_commands() {
 		packageurls='http://www.bullfreeware.com/'
 		ncursessuggestion=
 		readlinesuggestion='http://www.bullfreeware.com/download/aix43/gnu.readline-4.1.0.1.exe'
-		break
 		;;
 	darwin)
 		if port version >/dev/null 2>&1; then
@@ -87,43 +84,36 @@ init_package_commands() {
 			packageinstallcmd='apt-get install ${packagename}'
 			packageurls='http://www.finkproject.org/'
 		fi
-		break
 		;;
 	*bsd)
 		packagelistcmd=pkg_info
 		packageinstallcmd='pkg_add ${packagename}'
 		packageurls='http://www.freebsd.org/ports/,ftp://ftp.openbsd.org/pub/OpenBSD/'
-		break
 		;;
 	rpm)
 		packagelistcmd='rpm -qa'
 		packageinstallcmd='rpm -ivh ${packagename}\*.rpm'
 		packageurls='http://www.rpmfind.net/,http://www.rpm.org/'
-		break
 		;;
 	deb)
 		packagelistcmd='dpkg -l'
 		packageinstallcmd='apt-get install ${packagename}'
 		packageurls='http://packages.ubuntu.com/,http://packages.debian.org/'
-		break
 		;;
 	slackware)
 		packagelistcmd='ls -1 /var/log/packages'
 		packageinstallcmd='installpkg ${packagename}'
 		packageurls='http://packages.slackware.it/'
-		break
 		;;
 	gentoo)
 		packagelistcmd='emerge -s'
 		packageinstallcmd='emerge ${packagename}'
 		packageurls='http://www.gentoo.org/main/en/mirrors2.xml'
-		break
 		;;
 	*)
 		packagelistcmd=
 		packageinstallcmd=
 		packageurls=
-		break
 		;;
 	esac
 }
