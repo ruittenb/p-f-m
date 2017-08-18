@@ -2,6 +2,8 @@
 ################################################################################
 # issues
 
+- VARIANT / VERSION split needs to be fixed
+
 - from the manual of File::Spec:
   File::Spec->canonpath($path) does *not* collapse x/../y sections into y.
   This is by design. If /foo on your system is a symlink to /bar/baz, then

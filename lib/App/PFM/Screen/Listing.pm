@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Listing 1.16
+# @(#) App::PFM::Screen::Listing 1.17
 #
 # Name:			App::PFM::Screen::Listing
-# Version:		1.16
+# Version:		1.17
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-05-27
+# Date:			2017-08-18
 #
 
 ##########################################################################
@@ -72,13 +72,12 @@ use constant LAYOUTFIELDS => {
 	'_' => 'gap',
 };
 
-our ($_pfm);
+my ($_pfm);
 
 ##########################################################################
 # private subs
 
-=item _init(App::PFM::Application $pfm, App::PFM::Screen $screen
-[, App::PFM::Config $config ] )
+=item _init(App::PFM::Application $pfm, App::PFM::Screen $screen [, App::PFM::Config $config ] )
 
 Initializes new instances. Called from the constructor.
 

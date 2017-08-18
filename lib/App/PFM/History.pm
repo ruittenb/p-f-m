@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::History 0.40
+# @(#) App::PFM::History 0.41
 #
 # Name:			App::PFM::History
-# Version:		0.40
+# Version:		0.41
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2014-04-08
+# Date:			2017-08-18
 #
 
 ##########################################################################
@@ -105,7 +105,7 @@ our %EXPORT_TAGS = (
 
 our @EXPORT_OK = @{$EXPORT_TAGS{constants}};
 
-our ($_pfm);
+my ($_pfm); # file scope
 
 ##########################################################################
 # private subs

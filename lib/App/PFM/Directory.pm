@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Directory 1.13
+# @(#) App::PFM::Directory 1.14
 #
 # Name:			App::PFM::Directory
-# Version:		1.13
+# Version:		1.14
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2014-04-10
+# Date:			2017-08-18
 #
 
 ##########################################################################
@@ -95,7 +95,7 @@ our %EXPORT_TAGS = (
 
 our @EXPORT_OK = @{$EXPORT_TAGS{constants}};
 
-our ($_pfm);
+my ($_pfm); # file scope
 
 ##########################################################################
 # private subs
@@ -110,7 +110,7 @@ Initializes new instances. Called from the constructor.
 
 sub _init {
 	my ($self, $pfm, $screen, $config, $os, $jobhandler, $path) = @_;
-	$App::PFM::File::_pfm    = $pfm;
+	App::PFM::File::set_app($pfm);
 	$_pfm					 = $pfm;
 	$self->{_screen}         = $screen;
 	$self->{_config}         = $config;

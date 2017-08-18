@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::File 0.50
+# @(#) App::PFM::File 0.51
 #
 # Name:			App::PFM::File
-# Version:		0.50
+# Version:		0.51
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-10-14
+# Date:			2017-08-18
 #
 
 ##########################################################################
@@ -44,7 +44,7 @@ use locale;
 use constant MAJORMINORTEMPLATE => '%d,%d';
 use constant LOSTMSG            => ''; # was ' (lost)'
 
-our ($_pfm);
+my ($_pfm); # file scope
 
 ##########################################################################
 # private subs
@@ -69,6 +69,19 @@ sub _init {
 			$self->stat_entry($opt->{entry}, $opt->{white}, $opt->{mark});
 		}
 	}
+	return;
+}
+
+=item I<set_app(App::PFM:Application $pfm)>
+
+Static method. Setter for the application object as a static value.
+Should ideally be called once.
+
+=cut
+
+sub set_app {
+	my ($pfm) = @_;
+	$_pfm = $pfm;
 	return;
 }
 

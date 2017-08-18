@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen 0.63
+# @(#) App::PFM::Screen 0.64
 #
 # Name:			App::PFM::Screen
-# Version:		0.63
+# Version:		0.64
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2017-03-03
+# Date:			2017-08-18
 # Requires:		Term::ScreenColor
 #
 
@@ -158,7 +158,7 @@ our %EXPORT_TAGS = (
 
 our @EXPORT_OK = @{$EXPORT_TAGS{constants}};
 
-our ($_pfm);
+my ($_pfm);
 
 ##########################################################################
 # private subs

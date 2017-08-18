@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Screen::Diskinfo 0.19
+# @(#) App::PFM::Screen::Diskinfo 0.20
 #
 # Name:			App::PFM::Screen::Diskinfo
-# Version:		0.19
+# Version:		0.20
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2011-03-21
+# Date:			2017-08-18
 #
 
 ##########################################################################
@@ -79,13 +79,12 @@ our %EXPORT_TAGS = (
 
 our @EXPORT_OK = @{$EXPORT_TAGS{constants}};
 
-our ($_pfm);
+my ($_pfm);
 
 ##########################################################################
 # private subs
 
-=item _init(App::PFM::Application $pfm, App::PFM::Screen $screen
-[, App::PFM::Config $config ] )
+=item _init(App::PFM::Application $pfm, App::PFM::Screen $screen [, App::PFM::Config $config ] )
 
 Initializes new instances. Called from the constructor.
 

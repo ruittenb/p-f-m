@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Filesystem 0.01
+# @(#) App::PFM::Filesystem 0.02
 #
 # Name:			App::PFM::Filesystem
-# Version:		0.01
+# Version:		0.02
 # Author:		Rene Uittenbogaard
 # Created:		2013-03-07
-# Date:			2013-03-07
+# Date:			2017-08-18
 #
 
 ##########################################################################
@@ -38,7 +38,7 @@ use base 'App::PFM::Abstract';
 use strict;
 use locale;
 
-our ($_pfm);
+my ($_pfm);
 
 ##########################################################################
 # private subs

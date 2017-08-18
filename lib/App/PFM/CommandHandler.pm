@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.95
+# @(#) App::PFM::CommandHandler 1.96
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.95
+# Version:		1.96
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2017-04-11
+# Date:			2017-08-18
 #
 
 ##########################################################################
@@ -92,7 +92,7 @@ use constant FIELDS_TO_SORTMODE => [
 	'*'=> '*', # mark
 ];
 
-our ($_pfm);
+my ($_pfm); # file scope
 
 ##########################################################################
 # private subs
