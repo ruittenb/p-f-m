@@ -65,7 +65,7 @@ Called from the constructor.
 sub _init {
 	my ($self, $config) = @_;
 	$self->{_config}  = $config;
-    $self->{_aclfile} = undef;
+	$self->{_aclfile} = undef;
 	$self->_init_tool_commands();
 	return;
 }
