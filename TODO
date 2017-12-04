@@ -28,6 +28,8 @@
   -> is this due to the fact that Directory::_clone() does not clone the files?
   -> handleswap() has different conditions for executing its blocks
 
+- App::PFM::OS::Abstract: same type for tools _hasacl_cmd etc.
+
 - bug: a file can be (R)enamed to '=e'
 - if =5 is requested but there is no swap state, what to do?
 - in general, if an escape is invalid, what to do?
@@ -55,6 +57,35 @@
   the presence of a =3 or =9 may be enough to resolve this.
   Maybe we really want to do an expand_39_escape() here.
 
+- MacOS: ACLs:
+  % mkdir New2
+  % /bin/chmod +a "admin allow read,readattr,readextattr,readsecurity" New2
+  % /bin/ls -le
+  total 288
+  drwxr-xr-x+ 2 vdanen  staff     68 Mar 11 23:06 New2
+   0: group:admin allow list,readattr,readextattr,readsecurity
+  % /bin/chmod +a "admin allow search" New2
+  % /bin/ls -le
+  - http://www.techrepublic.com/blog/apple-in-the-enterprise/introduction-to-os-x-access-control-lists-acls/
+
+- Feature: Show extended attributes:
+  ls:
+  drwxr-xr-x  15 ruittenb  staff     510 Apr 23 14:17 week3-nodejs-driver
+  drwxr-xr-x@  3 ruittenb  staff     102 Apr 11 23:27 week4-schema-design
+  pfm:
+  week3-nodejs-driver/             510  -    2017 Apr 23 14:17 drwxr-xr-x@  Marked files
+  week4-schema-design/             102  -    2017 Apr 11 23:27 drwxr-xr-x@       0 bytes
+  week5-indexes-and-performance/   272  -    2017 Apr 24 22:22 drwx------        0 files
+  week6-aggregation-framework/     578  -    2017 May 02 11:54 drwxr-xr-x        0 dirs
+  MacOS command: test -n "$(xattr -s $filename)"
+
+
+- Feature: allow a custom command to provide status info (like branch name) and display it onscreen?
+  e.g. in the space where username/hostname/terminal are listed?
+     ruittenb  ->    master
+      ttys006       ttys006
+  2017 Sep 07   2017 Sep 07
+     09:52:20      09:52:20
 
 - Every second time on (M)ore - (R)ead bookmarks:
 Can't use string ("") as a subroutine ref while "strict refs" in use at /usr/local/share/perl/devel/lib/App/PFM/Abstract.pm line 196.
@@ -62,6 +93,8 @@ Can't use string ("") as a subroutine ref while "strict refs" in use at /usr/loc
 - BUG: when F5 discovers that the current directory is gone, it creates a '.' and '..' entry with nlink == 0. These can be deleted using (D), crashing pfm.
 
 - BUG: when returning (M)(G) to an instantiated bookmark, the cursor is not positioned correctly.
+
+- Shift-F7: new swap directory?
 
 - (M)ore - <F7>: swap to bookmark
 
@@ -163,6 +196,14 @@ A  +    doc/pfm.pdf
 - nice to have: implement an 'after_job_receive_no_data' event
 
 - Filesystem - Filesys/POSIX/Mount.pm
+
+- display symlink path components in symlink color?
+
+Attribute Copy Delete Edit Find tarGet Include Link More Name cOmmand Print Quit Rename Show >
+/Users/ruittenb/Desktop/working/magento/ticket-MS-594-BTW/btw-invalid               [/dev/disk0s2]
+                                                          ^^^^^^^^^^^
+  filename (filtered)                       size  rcs  date/mtime        mode            disk info
+
 
 ################################################################################
 # overlay filesystems

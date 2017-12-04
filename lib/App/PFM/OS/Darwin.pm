@@ -69,20 +69,14 @@ Returns a boolean value indicating if the current file has an acl.
 
 sub hasacl {
 	my ($self, $file) = @_;
+	# too slow. needs work.
+	# return 0;
+	my @res = $self->backtick(qw{ls -lda}, $file);
+	return substr($res[0], 10, 1) eq '+';
 	my @res = $self->backtick(qw{ls -lde}, $file);
 	return @res > 1;
 }
 
-=item aclget(string $path)
-
-Gets a file's Access Control List.
-
-=cut
-
-sub aclget {
-	my ($self, $path) = @_;
-	return $self->backtick('ls -lde | tail +2', $path);
-}
 
 ##########################################################################
 
