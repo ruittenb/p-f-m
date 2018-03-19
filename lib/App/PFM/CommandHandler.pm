@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.96
+# @(#) App::PFM::CommandHandler 1.97
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.96
+# Version:		1.97
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2017-08-18
+# Date:			2018-03-19
 #
 
 ##########################################################################
@@ -2580,10 +2580,10 @@ sub handledelete {
 			if (testdirempty($file->{name})) {
 				$success = rmdir $file->{name};
 			} else {
-				if ($sure ne 'l') {
+				if ($sure ne 'l' and $sure ne 'g') {
 					$screen->at(0,0)->clreol()->putmessage(
 						'Recursively delete a non-empty directory ',
-						'[Affirmative/Negative/affirmative aLl]? ');
+						'[Affirm/Negative/affirm aLl/neG all]? ');
 					$sure = lc $screen->getch();
 				}
 				$screen->at(0,0);
