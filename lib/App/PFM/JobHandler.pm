@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::JobHandler 0.17
+# @(#) App::PFM::JobHandler 0.18
 #
 # Name:			App::PFM::JobHandler
-# Version:		0.17
+# Version:		0.18
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2014-04-09
+# Date:			2018-03-28
 #
 
 ##########################################################################
@@ -135,7 +135,7 @@ sub stop {
 	return $ret;
 }
 
-=item I<stopall(int $jobno)>
+=item I<stopall()>
 
 Stops all jobs.
 
