@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.97
+# @(#) App::PFM::CommandHandler 1.98
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.97
+# Version:		1.98
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2018-03-19
+# Date:			2019-06-19
 #
 
 ##########################################################################
@@ -35,6 +35,8 @@ package App::PFM::CommandHandler;
 
 # for development
 use lib '/usr/local/share/perl/devel/lib';
+
+our $VERSION = '1.98';
 
 use base 'App::PFM::Abstract';
 
@@ -2689,7 +2691,7 @@ sub handlecopyrename {
 		) {
 			$self->_comparefiles($file, $newfilenameexpanded);
 		}
-		if (system @command, $file->{name}, $newnameexpanded) {
+		if (system @command, '--', $file->{name}, $newnameexpanded) {
 			$screen->neat_error($key eq 'C' ? 'Copy failed' : 'Rename failed');
 		} else {
 			$self->_chase_processed_file(
