@@ -785,7 +785,7 @@ followed.
 Updates the current file with status information of the applicable
 versioning system. C<pfm> will examine the current directory to figure
 out which versioning system is used. Supported versioning systems are:
-Subversion, CVS, Bazaar and Git.  See also B<M>ore - reB<V>ision.
+Subversion, CVS, Bazaar and Git.  See also B<M>ore - B<V>ersion.
 
 =item B<unWhiteout>
 
