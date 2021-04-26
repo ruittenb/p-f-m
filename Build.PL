@@ -26,7 +26,7 @@ Module::Build->new(
 #WriteMakefile(
 #	NAME		=> 'pfm',
 #	ABSTRACT	=> 'Personal File Manager for Unix/Linux',
-#	MIN_PERL_VERSION => 5.008,
+#	MIN_PERL_VERSION => 5.010,
 #	DIR		=> ['listwhite'],
 #);
 

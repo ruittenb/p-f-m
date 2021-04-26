@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::CommandHandler 1.98
+# @(#) App::PFM::CommandHandler 1.99
 #
 # Name:			App::PFM::CommandHandler
-# Version:		1.98
+# Version:		1.99
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2019-06-19
+# Date:			2020-10-15
 #
 
 ##########################################################################
@@ -33,10 +33,12 @@ PFM Class for executing user commands.
 
 package App::PFM::CommandHandler;
 
+use v5.10;
+
 # for development
 use lib '/usr/local/share/perl/devel/lib';
 
-our $VERSION = '1.98';
+our $VERSION = '1.99';
 
 use base 'App::PFM::Abstract';
 
@@ -3630,10 +3632,6 @@ sub handlemoreperlshell {
 	my $currentfile    = $event->{currentfile};
 	local $_;
 
-	# debugging helper functions
-	unless (eval 'say') {
-		sub say { print @_, "\n"; return; }
-	}
 	sub echo { $_pfm->screen->cooked_echo(); return; }
 
 	my $prompt = $> ? 'pfm$ ' : 'pfm# ';

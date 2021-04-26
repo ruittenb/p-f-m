@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::OS::Darwin 0.03
+# @(#) App::PFM::OS::Darwin 0.04
 #
 # Name:			App::PFM::OS::Darwin
-# Version:		0.03
+# Version:		0.04
 # Author:		Rene Uittenbogaard
 # Created:		2010-08-20
-# Date:			2017-09-27
+# Date:			2020-10-15
 #
 
 ##########################################################################
@@ -69,14 +69,10 @@ Returns a boolean value indicating if the current file has an acl.
 
 sub hasacl {
 	my ($self, $file) = @_;
-	# too slow. needs work.
-	# return 0;
+	return 0 unless -e $file;
 	my @res = $self->backtick(qw{ls -lda}, $file);
 	return substr($res[0], 10, 1) eq '+';
-	my @res = $self->backtick(qw{ls -lde}, $file);
-	return @res > 1;
 }
-
 
 ##########################################################################
 

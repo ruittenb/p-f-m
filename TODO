@@ -136,8 +136,6 @@ A  +    doc/pfm.pdf
 
 - stat all files in the background?
 
-- add a (M)ore - s(U)do command (CPAN: use Sudo;)
-
 - change Config->{_text} to slurp reading: my $code = do { local $/; <$in> };
 - change Config::Update to /\A...\z/mso
 
@@ -175,6 +173,10 @@ A  +    doc/pfm.pdf
 - introduce SIGQUIT for interrupt multi?
 
 - introduce 'scrolloffset' as in vim?
+
+- add a (M)ore - s(U)do command (CPAN: use Sudo;)
+
+- add a (M)ore - (N)ewgroup command (maybe POSIX::setgid())
 
 - maybe allow for file sizes to be displayed with thousands separator,
   e.g. 51_130_240.

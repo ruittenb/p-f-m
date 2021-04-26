@@ -25,7 +25,7 @@ WriteMakefile(
 	VERSION_FROM		=> 'pfm',
 	ABSTRACT		=> 'Personal File Manager for Unix/Linux',
 	LICENSE			=> 'gpl',
-	MIN_PERL_VERSION	=> 5.008,
+	MIN_PERL_VERSION	=> 5.010,
 	PREREQ_PM		=> {
 		'File::stat'		=> 0,
 		'File::Stat::Bits'	=> 0.19,   # maybe less

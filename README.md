@@ -8,7 +8,7 @@
 
 ```
                            at least      preferred
-  perl                     5.8           5.14
+  perl                     5.10          5.14
     File::stat             1.00          1.05
       File::Stat::Bits     0.19          0.19 (*)
     File::Temp             0.22 ?        0.2304
