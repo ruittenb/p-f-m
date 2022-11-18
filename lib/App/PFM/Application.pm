@@ -1,13 +1,13 @@
 #!/usr/bin/env perl
 #
 ##########################################################################
-# @(#) App::PFM::Application 2.12.5
+# @(#) App::PFM::Application 2.12.6
 #
 # Name:			App::PFM::Application
-# Version:		2.12.5
+# Version:		2.12.6
 # Author:		Rene Uittenbogaard
 # Created:		1999-03-14
-# Date:			2017-03-20
+# Date:			2021-04-26
 #
 
 ##########################################################################
@@ -55,9 +55,9 @@ use Cwd;
 use locale;
 use strict;
 
-our $VERSION     = '2.12.5';
+our $VERSION     = '2.12.6';
 our $VARIANT     = '';
-our $LASTYEAR    = 2017;
+our $LASTYEAR    = 2021;
 our $CHILD_ERROR = 0; # filled by the CHLD signal handler
 
 ##########################################################################
