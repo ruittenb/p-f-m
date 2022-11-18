@@ -1,8 +1,11 @@
 
 # Personal File Manager
 
-
 - This package is available from https://github.com/ruittenb/p-f-m
+
+- The homepage for this project: https://ruittenb.github.io/p-f-m
+
+## Dependencies
 
 - Prerequisites for this package, in dependency order:
 
@@ -25,7 +28,19 @@
 - Confusingly, the package File-Stat-Bits-1.01.tar.gz provides
   version 0.19 of the module File::Stat::Bits.
 
-- If you are not sure if you have all the dependencies, you can run
-  the 'install.sh' shell script. Otherwise, you can go straight to the
-  'perl Makefile.PL; make; make test; sudo make install' phase.
+## Installation
 
+- If you are not sure if you have all the dependencies, run:
+
+```
+  $ ./install.sh
+```
+
+- Then install pfm itself:
+
+```
+  $ perl Makefile.PL
+  $ make
+  $ make test
+  $ sudo make install
+```
