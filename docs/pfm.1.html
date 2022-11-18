@@ -1,0 +1,1679 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>pfm - Personal File Manager for Linux/Unix</title>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link type="text/css" rel="stylesheet"	href="styles.css" />
+</head>
+
+<body>
+
+
+<!-- INDEX BEGIN -->
+<div name="index">
+<p><a name="__index__"></a></p>
+
+<ul>
+
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#options">OPTIONS</a></li>
+	<li><a href="#navigation">NAVIGATION</a></li>
+	<li><a href="#commands">COMMANDS</a></li>
+	<li><a href="#more_commands">MORE COMMANDS</a></li>
+	<li><a href="#miscellaneous_and_function_keys">MISCELLANEOUS and FUNCTION KEYS</a></li>
+	<li><a href="#escape_modifiers">ESCAPE MODIFIERS</a></li>
+	<li><a href="#launching_files">LAUNCHING FILES</a></li>
+	<li><a href="#quoting_rules">QUOTING RULES</a></li>
+	<li><a href="#mouse_commands">MOUSE COMMANDS</a></li>
+	<li><a href="#working_directory_inheritance">WORKING DIRECTORY INHERITANCE</a></li>
+	<li><a href="#environment">ENVIRONMENT</a></li>
+	<li><a href="#files">FILES</a></li>
+	<li><a href="#exit_status">EXIT STATUS</a></li>
+	<li><a href="#diagnosis">DIAGNOSIS</a></li>
+	<li><a href="#bugs_and_warnings">BUGS and WARNINGS</a></li>
+	<li><a href="#version">VERSION</a></li>
+	<li><a href="#author_and_copyright">AUTHOR and COPYRIGHT</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+</ul>
+
+<hr name="index" />
+</div>
+<!-- INDEX END -->
+
+<p>
+</p>
+<hr />
+<h1><a name="name">NAME</a></h1>
+<p><code>pfm</code> - Personal File Manager for Linux/Unix</p>
+<p>
+</p>
+<hr />
+<h1><a name="synopsis">SYNOPSIS</a></h1>
+<p><code>pfm [</code>&nbsp;<em>directory</em>&nbsp;<code>] [</code>&nbsp;<code>-s, --swap </code><em>directory</em>&nbsp;<code>]</code>
+<code> [</code>&nbsp;<code>-c, --colorset </code><em>string</em>&nbsp;<code>]</code>
+<code> [</code>&nbsp;<code>-l, --layout </code><em>number</em>&nbsp;<code>] [</code>&nbsp;<a href="#login"><code>--login</code></a>&nbsp;<code>]</code>
+<code> [</code>&nbsp;<code>-o, --sort </code><em>mode</em>&nbsp;<code>]</code></p>
+<p><code>pfm { --help | --usage | --version }</code></p>
+<p>
+</p>
+<hr />
+<h1><a name="description">DESCRIPTION</a></h1>
+<p><code>pfm</code> is a terminal-based file manager, based on PFM.COM for MS-DOS.</p>
+<p>All <code>pfm</code> commands are accessible through one or two keystrokes, and a few
+are accessible with the mouse. Most command keys are case-insensitive. <code>pfm</code>
+can operate in single-file mode or multiple-file mode. In single-file mode,
+the command corresponding to the keystroke will be performed on the current
+(highlighted) file only. In multiple-file mode, the command will apply to
+a selection of files.</p>
+<p>Note that throughout this manual page, <em>file</em> can mean any type of file,
+not just plain regular files. These will be referred to as <em>regular files</em>.</p>
+<p>
+This manual pertains to version 2.12.3.
+</p>
+<hr />
+<h1><a name="options">OPTIONS</a></h1>
+<p>Most of <code>pfm</code>'s configuration is read from a config file. The default
+location for this file is <em class="file">$HOME/.pfm/.pfmrc</em>, but an alternative location
+may be specified using the environment variable PFMRC. If there is no
+config file present at startup, one will be created. The file contains
+many comments on the available options, and is therefore supposed to be
+self-explanatory. <code>pfm</code> will issue a warning if the version number of an
+existing config file is less than the version of <code>pfm</code> you are running, and
+will offer to update it to its own version.  Alternatively, you could let
+<code>pfm</code> create a new default config file and compare the changes with your
+own settings, so that you can configure the new options right away. See
+also the <strong>C</strong>onfig command under <a href="#more_commands">MORE COMMANDS</a> below, and <a href="#diagnosis">DIAGNOSIS</a>.</p>
+<p>There are two commandline options that specify starting directories.
+The CDPATH environment variable is taken into account when <code>pfm</code>
+tries to find these directories.</p>
+<dl>
+<dt><strong><a name="directory" class="item"><em>directory</em></a></strong></dt>
+
+<dd>
+<p>The directory that <code>pfm</code> should initially use as its main directory. If
+unspecified, the current directory is used.</p>
+</dd>
+<dt><strong><a name="help" class="item">--help</a></strong></dt>
+
+<dd>
+<p>Print extended usage information, then exit.</p>
+</dd>
+<dt><strong><a name="c_colorset_string" class="item">-c, --colorset <em>string</em></a></strong></dt>
+
+<dd>
+<p>Start <code>pfm</code> using the specified colorset (as defined in the <em class="file">.pfmrc</em>).</p>
+</dd>
+<dt><strong><a name="l_layout_number" class="item">-l, --layout <em>number</em></a></strong></dt>
+
+<dd>
+<p>Start <code>pfm</code> using the specified column layout (as defined in the <em class="file">.pfmrc</em>).</p>
+</dd>
+<dt><strong><a name="login" class="item">--login</a></strong></dt>
+
+<dd>
+<p>Start <code>pfm</code> as a login shell. <code>pfm</code> will change its name to <code>-pfm</code>
+and start a new session using <code>setsid()</code>.</p>
+</dd>
+<dt><strong><a name="o_sort_mode" class="item">-o, --sort <em>mode</em></a></strong></dt>
+
+<dd>
+<p>Start <code>pfm</code> using the specified sort mode (as shown by the <strong>F6</strong> command).</p>
+</dd>
+<dt><strong><a name="s_swap_directory" class="item">-s, --swap <em>directory</em></a></strong></dt>
+
+<dd>
+<p>The directory that <code>pfm</code> should initially use as swap directory. (See
+also below, under the <strong>F7</strong> command).</p>
+<p>There would be no point in setting the swap directory and subsequently
+returning to the main directory if 'persistentswap' is turned off in your
+config file. Therefore, <code>pfm</code> will swap back to the main directory <em>only</em>
+if 'persistentswap' is turned on.</p>
+</dd>
+<dt><strong><a name="usage" class="item">--usage</a></strong></dt>
+
+<dd>
+<p>Print concise usage information, then exit.</p>
+</dd>
+<dt><strong><a name="version" class="item">--version</a></strong></dt>
+
+<dd>
+<p>Print current version, then exit.</p>
+</dd>
+</dl>
+<p>
+</p>
+<hr />
+<h1><a name="navigation">NAVIGATION</a></h1>
+<p>Navigation through directories is essentially done using the arrow keys
+and the <code>vi(1)</code> cursor keys (<strong>hjkl</strong>). The following additional navigation
+keys are available:</p>
+<p>Movement inside a directory:</p>
+<table border="0" cellspacing="4" align="center" width="80%">
+<tr><td colspan="2"><hr /></td></tr>
+<tr>
+	<td width="30%"><i>up arrow</i>, <i>down arrow</i></td>
+	<td>move the cursor by one line</td>
+</tr>
+<tr>
+	<td><b>k</b>, <b>j</b></td>
+	<td>move the cursor by one line</td>
+</tr>
+<tr>
+	<td><b>-</b>, <b>+</b></td>
+	<td>move the cursor by ten lines</td>
+</tr>
+<tr>
+	<td><b>CTRL-E</b>, <b>CTRL-Y</b></td>
+	<td>scroll the screen by one line</td>
+</tr>
+<tr>
+	<td><b>CTRL-U</b>, <b>CTRL-D</b></td>
+	<td>move the cursor by half a page</td>
+</tr>
+<tr>
+	<td><b>CTRL-B</b>, <b>CTRL-F</b></td>
+	<td>move the cursor by a full page</td>
+</tr>
+<tr>
+	<td><b>PgUp</b>, <b>PgDn</b></td>
+	<td>move the cursor by a full page</td>
+</tr>
+<tr>
+	<td><b>HOME</b>, <b>END</b></td>
+	<td>move the cursor to the top or bottom line</td>
+</tr>
+<tr>
+	<td><b>SPACE</b></td>
+	<td>mark the current file, then move the cursor one line down</td>
+</tr>
+</tr>
+<tr><td colspan="2"><hr /></td></tr>
+</table><p>Movement between directories:</p>
+<table border="0" cellspacing="4" align="center" width="80%">
+<tr><td colspan="2"><hr /></td></tr>
+<tr>
+	<td width="30%"><b>l</b>, <i>right arrow</i></td>
+	<td><i>chdir()</i> to a subdirectory</td>
+</tr>
+<tr>
+	<td><b>h</b>, <i>left arrow</i></td>
+	<td><i>chdir()</i> to the parent directory</td>
+</tr>
+<tr>
+	<td><b>ENTER</b></td>
+	<td><i>chdir()</i> to a subdirectory</td>
+</tr>
+<tr>
+	<td><b>ESC</b>, <b>BS</b></td>
+	<td><i>chdir()</i> to the parent directory</td>
+</tr>
+<tr><td colspan="2"><hr /></td></tr>
+</table><p>If the option 'chdirautocmd' has been specified in the <em class="file">.pfmrc</em> file,
+pfm will execute that command after every <code>chdir()</code>. This can be used
+<em>e.g.</em> to set the title of an xterm window.</p>
+<p>Note: the <strong>l</strong> and <strong>ENTER</strong> keys function differently when the cursor
+is on a non-directory file (see below under <strong>L</strong>ink and
+<a href="#launching_files">LAUNCHING FILES</a> respectively).</p>
+<p>
+</p>
+<hr />
+<h1><a name="commands">COMMANDS</a></h1>
+<dl>
+<dt><strong><a name="attribute" class="item"><strong>Attribute</strong></a></strong></dt>
+
+<dd>
+<p>Changes the mode of the file if you are the owner. The mode may be specified
+either symbolically or numerically, see <code>chmod(1)</code> for more details.</p>
+<p>Note 1: the mode on a symbolic link cannot be set. See <code>chmod(1)</code> for more
+details.</p>
+<p>Note 2: the name <strong>Attribute</strong> for this command is a reminiscence of the DOS
+version.</p>
+</dd>
+<dt><strong><a name="copy" class="item"><strong>Copy</strong></a></strong></dt>
+
+<dd>
+<p>Copy current file. You will be prompted for the destination filename.
+Directories will be copied recursively with all underlying files.</p>
+<p>In multiple-file mode, it is not allowed to specify a single non-directory
+filename as a destination. Instead, the destination name must be a
+directory or a name containing a <strong>=1</strong> or <strong>=2</strong> escape (see below
+under c<strong>O</strong>mmand).</p>
+<p>If clobber mode is off (see below under the <strong>!</strong> command), existing files
+will not be overwritten unless the action is confirmed by the user.</p>
+<p>Whether <strong>C</strong>opy follows symlinks or copies them is OS-specific; you can
+change the default behavior by setting the 'copyoptions' option in your
+<em class="file">.pfmrc</em>. See <code>cp(1)</code>.</p>
+</dd>
+<dt><strong><a name="delete" class="item"><strong>Delete</strong></a></strong></dt>
+
+<dd>
+<p>Delete a file or directory. You must confirm this command with <strong>Y</strong>
+to actually delete the file. If the current file is a directory which
+contains files, and you want to delete it recursively, you must respond with
+<strong>A</strong>ffirmative to the additional prompt. Lost files (files on the screen
+but not actually present on disk) can be deleted from the screen listing
+without confirmation. Whiteouts cannot be deleted; use un<strong>W</strong>hiteout for
+this purpose.</p>
+</dd>
+<dt><strong><a name="edit" class="item"><strong>Edit</strong></a></strong></dt>
+
+<dd>
+<p>Edit a file with your external editor. You can specify an editor with the
+environment variable VISUAL or EDITOR or with the 'editor' option
+in the <em class="file">.pfmrc</em> file. Otherwise <code>vi(1)</code> is used.</p>
+<p>If a capital <strong>E</strong> is pressed, the foreground editor is used ('fg_editor').</p>
+</dd>
+<dt><strong><a name="find" class="item"><strong>Find</strong></a></strong></dt>
+
+<dd>
+<p>If the current sort mode is by filename, you are prompted for a (partial)
+filename. While you type, the cursor is positioned on the best match.
+Type <strong>ENTER</strong> to end typing.</p>
+<p>If the current sort mode is not by filename, then you are prompted for a
+filename. The cursor is then positioned on that file.</p>
+</dd>
+<dt><strong><a name="target" class="item"><strong>tarGet</strong></a></strong></dt>
+
+<dd>
+<p>Allows you to change the target that a symbolic link points to. You must
+have permission to remove the current symbolic link.</p>
+<p>The new name may use the <strong>=0</strong> escape to modify the existing target
+(see below under c<strong>O</strong>mmand).</p>
+</dd>
+<dt><strong><a name="include" class="item"><strong>Include</strong></a></strong></dt>
+
+<dd>
+<p>Allows you to mark a group of files which meet a certain criterion:</p>
+<dl>
+<dt><strong><a name="after_before" class="item"><strong>A</strong>fter / <strong>B</strong>efore</a></strong></dt>
+
+<dd>
+<p>files newer/older than a specified date and time</p>
+</dd>
+<dt><strong><a name="every_file" class="item"><strong>E</strong>very file</a></strong></dt>
+
+<dd>
+<p>all files, including dotfiles (but not the <em class="file">.</em> and <em class="file">..</em> entries)</p>
+</dd>
+<dt><strong><a name="files_only" class="item"><strong>F</strong>iles only</a></strong></dt>
+
+<dd>
+<p>regular files of which the filenames match a specified regular expression
+(not a glob pattern!)</p>
+</dd>
+<dt><strong><a name="directories_only" class="item"><strong>D</strong>irectories only</a></strong></dt>
+
+<dd>
+<p>all directories (but not the <em class="file">.</em> and <em class="file">..</em> entries)</p>
+</dd>
+<dt><strong><a name="greater_smaller" class="item"><strong>G</strong>reater / <strong>S</strong>maller</a></strong></dt>
+
+<dd>
+<p>files that are bigger or smaller than the provided size in bytes.</p>
+</dd>
+<dt><strong><a name="newmarks" class="item"><strong>N</strong>ewmarks</a></strong></dt>
+
+<dd>
+<p>files which were created during a previous multiple command and are now
+denoted with a <em>newmark</em> (<strong>~</strong>)</p>
+</dd>
+<dt><strong><a name="oldmarks" class="item"><strong>O</strong>ldmarks</a></strong></dt>
+
+<dd>
+<p>files which were marked (<strong>*</strong>) before a previous multiple command and are
+now denoted with an <em>oldmark</em> (<strong>.</strong>)</p>
+</dd>
+<dt><strong><a name="user" class="item"><strong>U</strong>ser</a></strong></dt>
+
+<dd>
+<p>files owned by the current user</p>
+</dd>
+<dt><strong><a name="_" class="item"><strong>.</strong></a></strong></dt>
+
+<dd>
+<p>all dotfiles (but not the <em class="file">.</em> and <em class="file">..</em> entries).</p>
+</dd>
+</dl>
+<p>Oldmarks and newmarks may be used to perform more than one command on the
+same group of files.</p>
+<p>Note that the <em class="file">.</em> and <em class="file">..</em> entries will never automatically become marked.</p>
+<p>There is also the option:</p>
+<dl>
+<dt><strong><a name="invert" class="item"><strong>I</strong>nvert</a></strong></dt>
+
+<dd>
+<p>Inverts the selection, except for the <em class="file">.</em> and <em class="file">..</em> entries, which become
+unmarked.</p>
+</dd>
+</dl>
+</dd>
+<dt><strong><a name="link" class="item"><strong>Link</strong></a></strong></dt>
+
+<dd>
+<p>Prompts to create either:</p>
+<dl>
+<dt><strong><a name="an_absolute_symlink" class="item">an <strong>A</strong>bsolute symlink</a></strong></dt>
+
+<dd>
+<p>This will create a symlink containing an absolute path to the target,
+irrespective of whether you enter a relative or an absolute symlink name.</p>
+<p>Example: when the cursor is on the file <em class="file">/home/rene/incoming/.plan</em>,
+and you request an absolute symlink to be made with either the name
+<em class="file">../.plan</em> or <em class="file">/home/rene/.plan</em>, the actual symlink will become:</p>
+<pre>
+    /home/rene/.plan -&gt; /home/rene/incoming/.plan</pre>
+</dd>
+<dt><strong><a name="a_hard_link" class="item">a <strong>H</strong>ard link</a></strong></dt>
+
+<dd>
+<p>This will create an additional hard link to the current file with the
+specified name, which must be on the same filesystem (see ln(1)).</p>
+</dd>
+<dt><strong><a name="a_relative_symlink" class="item">a <strong>R</strong>elative symlink</a></strong></dt>
+
+<dd>
+<p>This will create a symlink containing a relative path to the target,
+irrespective of whether you enter a relative or an absolute symlink name.</p>
+<p>Example: when the cursor is on the file <em class="file">/home/rene/incoming/.plan</em>,
+and you request a relative symlink to be made with either the name
+<em class="file">../.plan</em> or <em class="file">/home/rene/.plan</em>, the actual symlink will become:</p>
+<pre>
+    /home/rene/.plan -&gt; incoming/.plan</pre>
+</dd>
+</dl>
+<p>If a directory is specified, <code>pfm</code> will follow the behavior of <code>ln(1)</code>,
+which is to create the new link inside that directory.</p>
+<p>In multiple-file mode, it is not allowed to specify a single non-directory
+filename as a new name. Instead, the new name must be a directory or a
+name containing a <strong>=1</strong> or <strong>=2</strong> escape (see below under c<strong>O</strong>mmand).</p>
+<p>If clobber mode is off (see below under the <strong>!</strong> command), existing files
+will not be overwritten.</p>
+<p>Note that if the current file is a directory, the <strong>l</strong> key, being one of
+the <code>vi(1)</code> cursor keys, will <code>chdir()</code> you into the directory. The capital <strong>L</strong>
+command will <em>always</em> try to make a link.</p>
+</dd>
+<dt><strong><a name="more" class="item"><strong>More</strong></a></strong></dt>
+
+<dd>
+<p>Presents you with a choice of operations not related to the current
+file. Use this <em>e.g.</em> to configure <code>pfm</code>, edit a new file, make a
+new directory, show a different directory, or write the history files to
+disk. See below under <a href="#more_commands">MORE COMMANDS</a>. Pressing <strong>ESC</strong> or <strong>ENTER</strong> will
+take you back to the main menu.</p>
+</dd>
+<dt><strong><a name="name" class="item"><strong>Name</strong></a></strong></dt>
+
+<dd>
+<p>Shows the complete long filename. For a symbolic link, this command
+will also show the complete target of the symbolic link. This is useful
+in case the terminal is not wide enough to display the entire name, or
+if the name contains non-printable characters. Non-ASCII characters and
+control characters will be displayed as their octal, decimal (html
+entity-like) or hexadecimal equivalents like the examples in the following
+table.</p>
+<p>The 'defaultradix' config file option specifies the radix that will
+initially be used.  The 'defaulttranslatespace' config file option
+controls whether spaces will initially be converted as well.</p>
+<p>When the name is shown in its converted form, pressing <strong>N</strong> will change
+the radix, and pressing <strong>SPACE</strong> will toggle the translation of spaces.
+Any other key will exit the <strong>N</strong> command.</p>
+<p>Examples:</p>
+<table border="0" cellspacing="4" align="center" width="50%">
+<tr><td colspan="4"><hr /></td></tr>
+<tr>
+	<td rowspan="3">character</td>
+	<td colspan="3">representation in radix</td>
+</tr>
+<tr>
+	<td colspan="3"><hr /></td>
+</tr>
+<tr>
+	<td>octal</td>
+	<td>hexadecimal</td>
+	<td>decimal</td>
+</tr>
+<tr><td colspan="4"><hr /></td></tr>
+<tr>
+	<td>CTRL-A</td>
+	<td>\001</td>
+	<td>\0x01</td>
+	<td>&amp;#1;</td>
+</tr>
+<tr>
+	<td>space</td>
+	<td>\040</td>
+	<td>\0x20</td>
+	<td>&amp;#32;</td>
+</tr>
+<tr>
+	<td>c cedilla (<b>&ccedil;</b>)</td>
+	<td>\347</td>
+	<td>\0xe7</td>
+	<td>&amp;#231;</td>
+</tr>
+<tr>
+	<td>backslash (<b>\</b>)</td>
+	<td>\\</td>
+	<td>\\</td>
+	<td>\\</td>
+</tr>
+<tr><td colspan="4"><hr /></td></tr>
+</table></dd>
+<dt><strong><a name="command" class="item"><strong>cOmmand</strong></a></strong></dt>
+
+<dd>
+<p>Allows execution of a shell command. After the command completes, <code>pfm</code>
+will resume. If the command is <code>cd</code>, <code>pfm</code> itself will change to
+that directory.</p>
+<p>On the commandline, you may use several special abbreviations, which
+<code>pfm</code> will replace with the current filename, directoryname etc. (see
+below). These abbreviations start with an escape character. This escape
+character is defined with the option 'escapechar' in your <em class="file">.pfmrc</em>
+file. By default it is <strong>=</strong>. (Previous versions of <code>pfm</code> used <strong>\</strong>, but
+this was deemed too confusing because backslashes are parsed by the shell
+as well. This manual page (and the default config file) will assume you
+are using <strong>=</strong> as 'escapechar').</p>
+<p>The following abbreviations are available:</p>
+<dl>
+<dt><strong><a name="1" class="item"><strong>=1</strong></a></strong></dt>
+
+<dd>
+<p>the current filename without extension (see below)</p>
+</dd>
+<dt><strong><a name="2" class="item"><strong>=2</strong></a></strong></dt>
+
+<dd>
+<p>the current filename, complete</p>
+</dd>
+<dt><strong><a name="3" class="item"><strong>=3</strong></a></strong></dt>
+
+<dd>
+<p>the full current directory path</p>
+</dd>
+<dt><strong><a name="4" class="item"><strong>=4</strong></a></strong></dt>
+
+<dd>
+<p>the mountpoint of the current filesystem</p>
+</dd>
+<dt><strong><a name="5" class="item"><strong>=5</strong></a></strong></dt>
+
+<dd>
+<p>the full swap directory path (see <strong>F7</strong> command)</p>
+</dd>
+<dt><strong><a name="6" class="item"><strong>=6</strong></a></strong></dt>
+
+<dd>
+<p>the basename of the current directory</p>
+</dd>
+<dt><strong><a name="7" class="item"><strong>=7</strong></a></strong></dt>
+
+<dd>
+<p>the extension of the current filename (see below)</p>
+</dd>
+<dt><strong><a name="8" class="item"><strong>=8</strong></a></strong></dt>
+
+<dd>
+<p>a space-separated list of all marked filenames. If the <strong>=8</strong> escape takes
+the form <em>prefix</em><strong>=8</strong><em>suffix</em>, then the <em>prefix</em> and <em>suffix</em> strings
+are applied to each of the names.</p>
+</dd>
+<dt><strong><a name="9" class="item"><strong>=9</strong></a></strong></dt>
+
+<dd>
+<p>the full previous directory path (see <strong>F2</strong> command)</p>
+</dd>
+<dt><strong><a name="_0" class="item"><strong>=0</strong></a></strong></dt>
+
+<dd>
+<p>the symlink target if the current file is a symlink; otherwise an empty string</p>
+</dd>
+<dt><strong><a name="__" class="item"><strong>==</strong></a></strong></dt>
+
+<dd>
+<p>a single literal <strong>=</strong></p>
+</dd>
+<dt><strong><a name="e" class="item"><strong>=e</strong></a></strong></dt>
+
+<dd>
+<p>the editor specified with the 'editor' option in the config file</p>
+</dd>
+<dt><strong><a name="e" class="item"><strong>=E</strong></a></strong></dt>
+
+<dd>
+<p>the 'foreground' editor, specified with the 'fg_editor' option in the
+config file. This is expected to be defined as an editor that does not
+fork into the background. <code>pfm</code> uses this editor in a few cases so
+that it can wait for its results.</p>
+</dd>
+<dt><strong><a name="p" class="item"><strong>=p</strong></a></strong></dt>
+
+<dd>
+<p>the pager specified with the 'pager' option in the config file</p>
+</dd>
+<dt><strong><a name="v" class="item"><strong>=v</strong></a></strong></dt>
+
+<dd>
+<p>the image viewer specified with the 'viewer' option in the config file</p>
+</dd>
+</dl>
+<p>The <em>extension</em> of the filename is defined as follows:</p>
+<p>If the filename does not contain a period at all (<em>e.g.</em> <em>hosts</em>) or only
+has an initial period (<em>e.g.</em> <em>.profile</em>), then the file has no extension
+(<strong>=7</strong> is empty) and its whole name is regarded as <strong>=1</strong>.</p>
+<p>If the filename does contain a non-initial period (<em>e.g.</em> <em>mail.log</em>
+or <em>.profile.old</em>), the extension <strong>=7</strong> is defined as the final
+part of the filename, starting at the last period in the name. The
+filename <strong>=1</strong> is the part before the last period.</p>
+<p>In all cases, the concatenation of <strong>=1</strong> and <strong>=7</strong> is equal to <strong>=2</strong>.</p>
+<p>Examples:</p>
+<table border="0" cellspacing="4" align="center" width="50%">
+<tr><td colspan="3"><hr /></td></tr>
+<tr>
+	<td><b>=2</b></td>		<td><b>=1</b></td>		<td><b>=7</b></td>
+</tr>
+<tr><td	colspan="3"><hr	/></td></tr>
+<tr>
+	<td>track01.wav</td>	<td>track01</td>		<td>.wav</td>
+</tr>
+<tr>
+	<td>garden.jpg</td>		<td>garden</td>			<td>.jpg</td>
+</tr>
+<tr>
+	<td>end.</td>			<td>end</td>			<td>.</td>
+</tr>
+<tr>
+	<td>hosts</td>			<td>hosts</td>			<td><i>empty</i></td>
+</tr>
+<tr>
+	<td>.profile</td>		<td>.profile</td>		<td><i>empty</i></td>
+</tr>
+<tr>
+	<td>.profile.old</td>	<td>.profile</td>		<td>.old</td>
+</tr>
+<tr><td colspan="3"><hr /></td></tr>
+</table><p>See also below under <a href="#escape_modifiers">ESCAPE MODIFIERS</a> and <a href="#quoting_rules">QUOTING RULES</a>.</p>
+</dd>
+<dt><strong><a name="print" class="item"><strong>Print</strong></a></strong></dt>
+
+<dd>
+<p>Will prompt for a print command (default <code>lpr -P$PRINTER =2</code>, or <code>lpr =2</code>
+if PRINTER is unset) and will run it. No formatting is done. You may
+specify a print command with the 'printcmd' option in the <em class="file">.pfmrc</em> file.</p>
+</dd>
+<dt><strong><a name="quit" class="item"><strong>Quit</strong></a></strong></dt>
+
+<dd>
+<p>Exit <code>pfm</code>. The option 'confirmquit' in the <em class="file">.pfmrc</em> file specifies
+whether <code>pfm</code> should ask for confirmation. Note that by pressing a capital
+<strong>Q</strong> (quick quit), you will <em>never</em> be asked for confirmation.</p>
+</dd>
+<dt><strong><a name="rename" class="item"><strong>Rename</strong></a></strong></dt>
+
+<dd>
+<p>Change the name of the file and/or move it into another directory. You will
+be prompted for the new filename. Depending on your Unix implementation,
+a pathname on another filesystem may or may not be allowed.</p>
+<p>In multiple-file mode, it is not allowed to specify a single non-directory
+filename as a new name. Instead, the new name must be a directory or a
+name containing a <strong>=1</strong> or <strong>=2</strong> escape (see above under c<strong>O</strong>mmand).</p>
+<p>If clobber mode is off (see below under the <strong>!</strong> command), existing files
+will not be overwritten unless the action is confirmed by the user.</p>
+</dd>
+<dt><strong><a name="show" class="item"><strong>Show</strong></a></strong></dt>
+
+<dd>
+<p>Displays the contents of the current file or directory on screen.
+You can choose which pager to use for file viewing with the environment
+variable PAGER, or with the 'pager' option in the <em class="file">.pfmrc</em> file.</p>
+</dd>
+<dt><strong><a name="time" class="item"><strong>Time</strong></a></strong></dt>
+
+<dd>
+<p>Changes mtime (modification date/time) of the file. The time may be
+entered either with or without clarifying interpunction (<em>e.g.</em>
+2008-12-04 08:42.12).  Enter <strong>.</strong> to set the mtime to the current
+date and time.  If the current file does not exist in the directory
+(lost file or whiteout), it is touch(1)ed first.</p>
+</dd>
+<dt><strong><a name="user2" class="item"><strong>User</strong></a></strong></dt>
+
+<dd>
+<p>Changes ownership of a file. Note that many Unix variants do not allow
+normal (non-<code>root</code>) users to change ownership. Symbolic links will be
+followed.</p>
+</dd>
+<dt><strong><a name="version" class="item"><strong>Version</strong></a></strong></dt>
+
+<dd>
+<p>Updates the current file with status information of the applicable
+versioning system. <code>pfm</code> will examine the current directory to figure
+out which versioning system is used. Supported versioning systems are:
+Subversion, CVS, Bazaar and Git.  See also <strong>M</strong>ore - re<strong>V</strong>ision.</p>
+</dd>
+<dt><strong><a name="unwhiteout" class="item"><strong>unWhiteout</strong></a></strong></dt>
+
+<dd>
+<p>(Only on platforms that support whiteout files). Provides the option to
+remove the whiteout entry in the top layer of a stacked/overlay filesystem,
+thereby restoring access to the corresponding file in the lower layer.</p>
+</dd>
+<dt><strong><a name="exclude" class="item"><strong>eXclude</strong></a></strong></dt>
+
+<dd>
+<p>Allows you to erase marks on a group of files which meet a certain
+criterion. See <strong>I</strong>nclude for details.</p>
+</dd>
+<dt><strong><a name="your_command" class="item"><strong>Your command</strong></a></strong></dt>
+
+<dd>
+<p>Like c<strong>O</strong>mmand (see above), except that it uses preconfigured commands
+from the <em class="file">.pfmrc</em> file.  These commands are identified by a single
+letter (case-sensitive) or digit.</p>
+<p><strong>Y</strong>our command definitions may use <strong>=0</strong> up to <strong>=9</strong> and <strong>=e</strong>,
+<strong>=E</strong>, <strong>=p</strong> and <strong>=v</strong> escapes just as in c<strong>O</strong>mmand, <em>e.g.</em>:</p>
+<pre>
+    your[A]:svn add =8
+    your[c]:tar cvf - =2 | gzip &gt; =2.tar.gz
+    your[t]:tar tvf =2 | =p
+    your[1]:vimdiff =2*</pre>
+<p>Navigation through the available commands works in the same way as
+for directories (see above under <a href="#navigation">NAVIGATION</a>), except that <strong>ENTER</strong>
+selects the highlighted command, and <strong>j</strong> and <strong>k</strong> select their own
+command (as do the other letters and digits).</p>
+</dd>
+<dt><strong><a name="size" class="item"><strong>siZe</strong></a></strong></dt>
+
+<dd>
+<p>For directories, reports the grand total (in bytes) of the directory
+and its contents.</p>
+<p>For other file types, reports the total number of bytes in allocated
+data blocks. For regular files, this is often more than the reported
+file size. For special files and <em>fast symbolic links</em>, the number is
+zero, as no data blocks are allocated for these file types.</p>
+<p>If the screen layout (selected with <strong>F9</strong>) does not contain the
+'grand total' column, then the 'filesize' column will temporarily be
+used instead. A 'grand total' column in the layout will never be
+filled in when entering the directory.</p>
+<p>Note: since <code>du(1)</code> commands are not portable, <code>pfm</code> guesses how it can
+calculate the size according to the Unix variant that it runs on. If
+<code>pfm</code> makes an incorrect guess, please notify the author of any
+corrections that should be made.</p>
+</dd>
+</dl>
+<p>
+</p>
+<hr />
+<h1><a name="more_commands">MORE COMMANDS</a></h1>
+<p>These commands are accessible through the main screen <strong>M</strong>ore command.</p>
+<dl>
+<dt><strong><a name="acl" class="item"><strong>Acl</strong></a></strong></dt>
+
+<dd>
+<p>Edit the Access Control List for this file. Note:
+This feature has not yet been implemented for all Un*x variants.</p>
+<p>WARNING: This feature has not been well tested on all Unices.
+Use it at your own risk.</p>
+<p>Any help getting the commands right would be appreciated by the author.</p>
+</dd>
+<dt><strong><a name="bookmark" class="item"><strong>Bookmark</strong></a></strong></dt>
+
+<dd>
+<p>Lists all the available bookmarks and asks the user in which slot the
+current directory should be bookmarked.  If the input is valid, a new
+bookmark is created in the bookmark list.</p>
+<p>Navigation through the bookmark list works in the same way as for
+directories (see above under <a href="#navigation">NAVIGATION</a>), except that <strong>ENTER</strong>
+selects the highlighted slot, and <strong>j</strong> and <strong>k</strong> select their own
+slot (as do the other letters and digits).</p>
+</dd>
+<dt><strong><a name="config_pfm" class="item"><strong>Config pfm</strong></a></strong></dt>
+
+<dd>
+<p>This command will open the <em class="file">.pfmrc</em> config file with the configured
+editor. The file will be re-read by <code>pfm</code> after you exit your editor.
+Options that are only modifiable through the config file (like
+'columnlayouts') will be reinitialized immediately, options that affect
+settings modifiable by key commands (like 'defaultsortmode') will not.</p>
+</dd>
+<dt><strong><a name="edit_any_file" class="item"><strong>Edit any file</strong></a></strong></dt>
+
+<dd>
+<p>You will be prompted for a filename, then your editor will
+be spawned.</p>
+<p>If a capital <strong>E</strong> is pressed, the foreground editor is used ('fg_editor').</p>
+</dd>
+<dt><strong><a name="make_fifo" class="item"><strong>make Fifo</strong></a></strong></dt>
+
+<dd>
+<p>Prompts for a name, then creates a FIFO file (named pipe) with that
+name. See also <code>fifo(4)</code> and <code>mkfifo(1)</code>.</p>
+</dd>
+<dt><strong><a name="go_to_bookmark" class="item"><strong>Go to bookmark</strong></a></strong></dt>
+
+<dd>
+<p>Lists all the available bookmarks and asks the user which bookmark should
+be loaded to the current directory (and file).  If the input is valid,
+the bookmark is loaded and a <code>chdir()</code> is done to the directory.</p>
+<p>Navigation through the bookmark list works as noted above, under <strong>Bookmark</strong>.</p>
+</dd>
+<dt><strong><a name="shell" class="item"><strong>sHell</strong></a></strong></dt>
+
+<dd>
+<p>Spawns your default login shell. When you exit from it, <code>pfm</code> will resume.</p>
+</dd>
+<dt><strong><a name="follow" class="item"><strong>foLlow</strong></a></strong></dt>
+
+<dd>
+<p>If the current file is a symlink, it is followed and the cursor positioned
+at the target file.</p>
+</dd>
+<dt><strong><a name="make_new_directory" class="item"><strong>Make new directory</strong></a></strong></dt>
+
+<dd>
+<p>Specify a new directory name and <code>pfm</code> will create it for you. Furthermore,
+if you don't have any files marked, your current directory will be set to
+the newly created directory.</p>
+</dd>
+<dt><strong><a name="open_window" class="item"><strong>Open window</strong></a></strong></dt>
+
+<dd>
+<p>Opens a new (file manager) window on the current directory, as configured
+with 'windowtype' and 'windowcmd' in the <em class="file">.pfmrc</em>. Some examples:</p>
+<p>If 'windowtype' is &quot;pfm&quot; and 'windowcmd' is something like &quot;xterm&nbsp;-e&quot;,
+then a new terminal window running <code>pfm</code> will be opened.</p>
+<p>If 'windowtype' is &quot;standalone&quot; and 'windowcmd' is something like
+&quot;nautilus&quot;, then a new <code>nautilus</code> window will be opened.</p>
+</dd>
+<dt><strong><a name="physical_path" class="item"><strong>Physical path</strong></a></strong></dt>
+
+<dd>
+<p>Shows the physical pathname of the current directory until a key is pressed.</p>
+</dd>
+<dt><strong><a name="read_history_bookmarks" class="item"><strong>Read history/bookmarks</strong></a></strong></dt>
+
+<dd>
+<p>Offers the user the choice to read the input history and/or bookmarks
+from disk.</p>
+<p>The input history is the history of Unix commands, pathnames, regular
+expressions, modification times, and file modes that the user enters.
+<code>pfm</code> uses the readline library to manage these.</p>
+<p>The input history is also read in when <code>pfm</code> starts, from individual files in
+<em class="file">$HOME/.pfm/</em>.</p>
+<p>The bookmarks are also read in when <code>pfm</code> starts, from <em class="file">$HOME/.pfm/bookmarks</em>.</p>
+<p>See also <strong>M</strong>ore-<strong>W</strong>rite history/bookmarks.</p>
+</dd>
+<dt><strong><a name="show_directory" class="item"><strong>Show directory</strong></a></strong></dt>
+
+<dd>
+<p>You will be asked for the directory you want to view. Note that this
+command is different from <strong>F7</strong> because this will not change your current
+swap directory status.</p>
+</dd>
+<dt><strong><a name="alternate_screen" class="item"><strong>alTernate screen</strong></a></strong></dt>
+
+<dd>
+<p>If the terminal has an alternate screen (like <strong>xterm</strong>), and <code>pfm</code> has been
+configured to use it (through the 'altscreenmode' option in the <em class="file">.pfmrc</em>),
+then this command shows the alternate screen until a key is pressed.
+This is useful for reading error messages of shell commands and so on.</p>
+</dd>
+<dt><strong><a name="version2" class="item"><strong>Version</strong></a></strong></dt>
+
+<dd>
+<p>Updates the current directory with status information of the applicable
+versioning system. <code>pfm</code> will examine the current directory to figure
+out which versioning system is used. Supported versioning systems are:
+Subversion, CVS, Bazaar and Git.</p>
+<p>If you set the 'autorcs' option in your <em class="file">.pfmrc</em>, this will automatically
+be done every time <code>pfm</code> shows directory contents.</p>
+</dd>
+<dt><strong><a name="write_history_bookmarks" class="item"><strong>Write history/bookmarks</strong></a></strong></dt>
+
+<dd>
+<p>Offers the user the choice to write the input history and/or bookmarks
+to disk.</p>
+<p>The input history is also written when <code>pfm</code> exits and the
+'autowritehistory' option is set in <em class="file">.pfmrc</em>.</p>
+<p>The bookmarks are also written when <code>pfm</code> exits and the
+'autowritebookmarks' option is set in <em class="file">.pfmrc</em>.</p>
+<p>See also <strong>M</strong>ore-<strong>R</strong>ead history/bookmarks.</p>
+</dd>
+<dt><strong><a name="f2_redescend" class="item"><strong>F2</strong> Redescend</a></strong></dt>
+
+<dd>
+<p>If the previous directory was a descendant of the current directory,
+return one level down. <em>e.g.</em> if the previous directory was
+<em class="file">/home/rene/projects/pfm</em> and the current directory is <em class="file">/home</em>,
+this command will subsequently descend into <em class="file">/home/rene</em>,
+<em class="file">/home/rene/projects</em> and <em class="file">/home/rene/projects/pfm</em>.</p>
+</dd>
+<dt><strong><a name="f4_color" class="item"><strong>F4</strong> Color</a></strong></dt>
+
+<dd>
+<p>Like <strong>F4</strong>, but cycles backward.</p>
+</dd>
+<dt><strong><a name="f5_smart_refresh" class="item"><strong>F5</strong> Smart refresh</a></strong></dt>
+
+<dd>
+<p>Refreshes the directory like <strong>F5</strong> (remove lost files from the listing,
+read the current directory again <em>etc.</em>) but keeps the marks.</p>
+</dd>
+<dt><strong><a name="f6_multilevel_sort" class="item"><strong>F6</strong> Multilevel sort</a></strong></dt>
+
+<dd>
+<p>Allows the user to enter a string of sort mode characters which will be
+applied sequentially. Example: a string of <strong>sN</strong> will sort by size
+ascending followed by name descending; the string <strong>tn</strong> will sort
+directories before files, each sorted alphabetically.</p>
+</dd>
+<dt><strong><a name="f9_layout" class="item"><strong>F9</strong> Layout</a></strong></dt>
+
+<dd>
+<p>Like <strong>F9</strong>, but cycles backward.</p>
+</dd>
+<dt><strong><a name="_" class="item"><strong>@</strong></a></strong></dt>
+
+<dd>
+<p>Starts a perl shell in the context of <code>pfm</code>. Primarily used for debugging.</p>
+</dd>
+</dl>
+<p>
+</p>
+<hr />
+<h1><a name="miscellaneous_and_function_keys">MISCELLANEOUS and FUNCTION KEYS</a></h1>
+<dl>
+<dt><strong><a name="enter" class="item"><strong>ENTER</strong></a></strong></dt>
+
+<dd>
+<p>If the current file is a directory, <code>pfm</code> will <code>chdir()</code> to that directory.
+Otherwise, <code>pfm</code> will attempt to <em>launch</em> the file. See
+below under <a href="#launching_files">LAUNCHING FILES</a>.</p>
+</dd>
+<dt><strong><a name="del" class="item"><strong>DEL</strong></a></strong></dt>
+
+<dd>
+<p>Identical to the <strong>D</strong>elete command (see above).</p>
+</dd>
+<dt><strong><a name="_" class="item"><strong>!</strong></a></strong></dt>
+
+<dd>
+<p>Toggle clobber mode. This controls whether a file should be overwritten when
+its name is reused in <strong>C</strong>opy, <strong>L</strong>ink or <strong>R</strong>ename.</p>
+</dd>
+<dt><strong><a name="" class="item"><strong>&quot;</strong></a></strong></dt>
+
+<dd>
+<p>Toggle pathname handling. In <strong>physical</strong> mode, the current directory path
+will always be transformed to its canonical form (the simplest form, with
+symbolic names resolved). In <strong>logical</strong> mode, all symbolic link components
+in the current directory path will be preserved.</p>
+</dd>
+<dt><strong><a name="_" class="item"><strong>%</strong></a></strong></dt>
+
+<dd>
+<p>Toggle show/hide whiteout files.</p>
+</dd>
+<dt><strong><a name="_2" class="item"><strong>.</strong></a></strong></dt>
+
+<dd>
+<p>Toggle show/hide dot files.</p>
+</dd>
+<dt><strong><a name="_" class="item"><strong>/</strong></a></strong></dt>
+
+<dd>
+<p>Identical to <strong>F</strong>ind (see above).</p>
+</dd>
+<dt><strong><a name="_" class="item"><strong>;</strong></a></strong></dt>
+
+<dd>
+<p>Toggle show/hide svn ignored files.</p>
+</dd>
+<dt><strong><a name="_" class="item"><strong>&lt;</strong></a></strong></dt>
+
+<dd>
+<p>Pan the menu and footer, in order to view all available commands.</p>
+</dd>
+<dt><strong><a name="_" class="item"><strong>=</strong></a></strong></dt>
+
+<dd>
+<p>Cycle through displaying identity information: username, hostname,
+and/or ttyname.</p>
+</dd>
+<dt><strong><a name="_" class="item"><strong>&gt;</strong></a></strong></dt>
+
+<dd>
+<p>Pan the menu and footer, in order to view all available commands.</p>
+</dd>
+<dt><strong><a name="" class="item"><strong>?</strong></a></strong></dt>
+
+<dd>
+<p>Display help. Identical to <strong>F1</strong>.</p>
+</dd>
+<dt><strong><a name="_2" class="item"><strong>@</strong></a></strong></dt>
+
+<dd>
+<p>Allows the user to enter a perl command to be executed in the context
+of <code>pfm</code>. Primarily used for debugging, but may for example be used
+for setting environment variables, <em>e.g.</em>:</p>
+<pre>
+    $ENV{LC_ALL} = 'C'</pre>
+</dd>
+<dt><strong><a name="f1_help" class="item"><strong>F1</strong> Help</a></strong></dt>
+
+<dd>
+<p>Display help, version number and license information.</p>
+</dd>
+<dt><strong><a name="f2_previous" class="item"><strong>F2</strong> Previous</a></strong></dt>
+
+<dd>
+<p><code>chdir()</code> back to the previous directory. In shell commands,
+the previous directory path may be referred to as <strong>=9</strong>.</p>
+</dd>
+<dt><strong><a name="f3_redraw" class="item"><strong>F3</strong> Redraw</a></strong></dt>
+
+<dd>
+<p>Fit the file list into the current window and refresh the display.</p>
+</dd>
+<dt><strong><a name="f4_color2" class="item"><strong>F4</strong> Color</a></strong></dt>
+
+<dd>
+<p>Change the current colorset. Multiple colorsets may be defined,
+see the <em class="file">.pfmrc</em> file itself for details.</p>
+</dd>
+<dt><strong><a name="f5_refresh" class="item"><strong>F5</strong> Refresh</a></strong></dt>
+
+<dd>
+<p>Current directory will be reread. Use this when the contents of the
+directory have changed. This command will erase all marks.</p>
+</dd>
+<dt><strong><a name="f6_sort" class="item"><strong>F6</strong> Sort</a></strong></dt>
+
+<dd>
+<p>Allows you to re-sort the directory listing. You will be presented
+a number of sort modes.</p>
+</dd>
+<dt><strong><a name="f7_swap" class="item"><strong>F7</strong> Swap</a></strong></dt>
+
+<dd>
+<p>Alternates the display between two directories. When switching for the first
+time, you are prompted for a directory path to show. When you switch back by
+pressing <strong>F7</strong> again, the contents of the alternate directory are displayed
+unchanged. Menu text changes color when in swap screen. In shell commands,
+the directory path from the alternate screen may be referred to as <strong>=5</strong>.
+If the 'persistentswap' option has been set in the config file, then
+leaving the swap mode will store the main directory path as swap path again.</p>
+</dd>
+<dt><strong><a name="f8_in_exclude" class="item"><strong>F8</strong> In/Exclude</a></strong></dt>
+
+<dd>
+<p>Toggles the mark (include flag) on an individual file.</p>
+</dd>
+<dt><strong><a name="f9_layout2" class="item"><strong>F9</strong> Layout</a></strong></dt>
+
+<dd>
+<p>Toggle the column layout. Layouts are defined in your <em class="file">.pfmrc</em>,
+in the 'defaultlayout' and 'columnlayouts' options. See the config
+file itself for information on changing the column layout.</p>
+<p>Note that a 'grand total' column in the layout will only be filled when
+the si<strong>Z</strong>e command is issued, not when reading the directory contents.</p>
+</dd>
+<dt><strong><a name="f10_multiple" class="item"><strong>F10</strong> Multiple</a></strong></dt>
+
+<dd>
+<p>Switch between single-file and multiple-file mode.</p>
+</dd>
+<dt><strong><a name="f11_restat" class="item"><strong>F11</strong> Restat</a></strong></dt>
+
+<dd>
+<p>Refresh (using lstat(2)) the displayed file data for the current file (or
+files, in multiple mode).</p>
+</dd>
+<dt><strong><a name="f12_mouse" class="item"><strong>F12</strong> Mouse</a></strong></dt>
+
+<dd>
+<p>Toggle mouse use. See below under <a href="#mouse_commands">MOUSE COMMANDS</a>.</p>
+</dd>
+</dl>
+<p>
+</p>
+<hr />
+<h1><a name="escape_modifiers">ESCAPE MODIFIERS</a></h1>
+<p>The above mentioned escapes <strong>=0</strong> to <strong>=9</strong> and <strong>=e</strong>, <strong>=E</strong>, <strong>=p</strong>
+and <strong>=v</strong> can make use of the following modifiers:</p>
+<dl>
+<dt><strong><a name="escape_prefix" class="item"><strong>={escape#prefix}</strong></a></strong></dt>
+
+<dt><strong><a name="escape_prefix2" class="item"><strong>={escape##prefix}</strong></a></strong></dt>
+
+<dd>
+<p><em>prefix</em> is a word which may use <strong>*</strong> characters as a wildcard.
+If the <em>prefix</em> matches the beginning of the value of the escape,
+then the result of the expansion is the expanded value of
+<em>escape</em> with the shortest (<strong>#</strong>) or longest (<strong>##</strong>) matching
+string deleted.</p>
+</dd>
+<dt><strong><a name="escape_suffix" class="item"><strong>={escape%suffix}</strong></a></strong></dt>
+
+<dt><strong><a name="escape_suffix2" class="item"><strong>={escape%%suffix}</strong></a></strong></dt>
+
+<dd>
+<p><em>suffix</em> is a word which may use <strong>*</strong> characters as a wildcard.
+If the <em>suffix</em> matches a trailing portion of the value of the
+escape, then the result of the expansion is the expanded
+value of <em>escape</em> with the shortest (<strong>%</strong>) or longest (<strong>%%</strong>)
+matching string deleted.</p>
+</dd>
+<dt><strong><a name="escape_string_replacement" class="item"><strong>={escape/string/replacement}</strong></a></strong></dt>
+
+<dt><strong><a name="escape_string_replacement2" class="item"><strong>={escape//string/replacement}</strong></a></strong></dt>
+
+<dd>
+<p>Find occurrences of <em>string</em> in the expanded value of <em>escape</em>
+and replace them with <em>replacement</em>.  For <strong>/</strong>, replace only the
+first occurrence; for <strong>//</strong>, replace all occurrences.</p>
+</dd>
+<dt><strong><a name="escape_letters" class="item"><strong>={escape^letters}</strong></a></strong></dt>
+
+<dt><strong><a name="escape_letters2" class="item"><strong>={escape^^letters}</strong></a></strong></dt>
+
+<dt><strong><a name="escape_letters3" class="item"><strong>={escape,letters}</strong></a></strong></dt>
+
+<dt><strong><a name="escape_letters4" class="item"><strong>={escape,,letters}</strong></a></strong></dt>
+
+<dd>
+<p>This expansion modifies the case of alphabetic characters in <em>escape</em>.
+The <strong>^</strong> operator converts letters in <em>letters</em> to uppercase;
+the <strong>,</strong> operator converts letters in <em>letters</em> to lowercase.
+The <strong>^^</strong> and <strong>,,</strong> expansions convert each matched character in the expanded
+value; the <strong>^</strong> and <strong>,</strong> expansions match and convert only the first
+character in the expanded value. If <em>letters</em> is omitted, it is treated like
+a <strong>?</strong>, which matches every letter.</p>
+</dd>
+</dl>
+<p>If a modification is done on <strong>=8</strong>, it is done on each of the expanded values.</p>
+<p>Examples:</p>
+<table border="0" cellspacing="4" align="center" width="50%">
+<tr><td colspan="2"><hr /></td></tr>
+<tr>
+	<td><b>escape</b></td>	<td><b>result</b></td>
+</tr>
+<tr><td colspan="2"><hr /></td></tr>
+<tr>
+	<td>=2</td>				<td>ActivateDebtor.php</td>
+</tr>
+<tr>
+	<td>={2}</td>			<td>ActivateDebtor.php</td>
+</tr>
+<tr>
+	<td>={2#Activate}</td>	<td>Debtor.php</td>
+</tr>
+<tr>
+	<td>={2#t}</td>			<td>ActivateDebtor.php</td>
+</tr>
+<tr>
+	<td>={2#*t}</td>		<td>ivateDebtor.php</td>
+</tr>
+<tr>
+	<td>={2##*t}</td>		<td>or.php</td>
+</tr>
+<tr>
+	<td>={2%hp}</td>		<td>ActivateDebtor.p</td>
+</tr>
+<tr>
+	<td>={2%t}</td>			<td>ActivateDebtor.php</td>
+</tr>
+<tr>
+	<td>={2%t*}</td>		<td>ActivateDeb</td>
+</tr>
+<tr>
+	<td>={2%%t*}</td>		<td>Ac</td>
+</tr>
+<tr>
+	<td>={2/at/}</td>		<td>ActiveDebtor.php</td>
+</tr>
+<tr>
+	<td>={2//t/}</td>		<td>AcivaeDebor.php</td>
+</tr>
+<tr>
+	<td>={2,d}</td>			<td>Activatedebtor.php</td>
+</tr>
+<tr>
+	<td>={2^ph}</td>		<td>ActivateDebtor.Php</td>
+</tr>
+<tr>
+	<td>={2^^ph}</td>		<td>ActivateDebtor.PHP</td>
+</tr>
+<tr>
+	<td>={2,,t}</td>		<td>ActivateDebtor.php</td>
+</tr>
+<tr>
+	<td>={2^^t}</td>		<td>AcTivaTeDebTor.php</td>
+</tr>
+<tr>
+	<td>={2,,}</td>			<td>activatedebtor.php</td>
+</tr>
+<tr>
+	<td>={2^^}</td>			<td>ACTIVATEDEBTOR.PHP</td>
+</tr>
+<tr>
+	<td>=8</td>				<td>UserId.php UserName.php</td>
+</tr>
+<tr>
+	<td>={8,}</td>			<td>userId.php userName.php</td>
+</tr>
+<tr>
+	<td>={8#User}</td>		<td>Id.php Name.php</td>
+</tr>
+<tr>
+	<td>=8.old</td>			<td>UserId.php.old UserName.php.old</td>
+</tr>
+<tr>
+	<td>={8#User}.bak</td>	<td>Id.php.bak Name.php.bak</td>
+</tr>
+<tr>
+	<td>Local={8/.php/}</td>		<td>LocalUserId LocalUserName</td>
+</tr>
+<tr><td colspan="2"><hr /></td></tr>
+</table><p>
+</p>
+<hr />
+<h1><a name="launching_files">LAUNCHING FILES</a></h1>
+<p>The <strong>ENTER</strong> key, when used on a non-directory file, will make <code>pfm</code>
+attempt to launch the file.</p>
+<p><code>pfm</code> can be configured to use any combination of four methods for
+determining the appropriate command. These methods are:</p>
+<dl>
+<dt><strong><a name="extension" class="item"><strong>extension</strong></a></strong></dt>
+
+<dd>
+<p>The filename extension will be translated to a file type (preferably a
+MIME type) using the 'extension[*.<em>extension</em>]' options in the config
+file.</p>
+<p>Example:</p>
+<pre>
+    extension[*.gif]: image/gif
+    extension[*.pdf]: application/pdf</pre>
+<p>Launch commands for every file type may be defined using the
+'launch[<em>filetype</em>]' options.</p>
+<p>Example:</p>
+<pre>
+    launch[image/gif]      : =v =2 &amp;
+    launch[application/pdf]: acroread =2 &amp;</pre>
+</dd>
+<dt><strong><a name="magic" class="item"><strong>magic</strong></a></strong></dt>
+
+<dd>
+<p>The <code>file(1)</code> command will be run on the current file. Its output will
+be translated to a file type using the 'magic[<em>regular expression</em>]'
+options in the config file.</p>
+<p>Example:</p>
+<pre>
+    magic[GIF image data]: image/gif
+    magic[PDF document]  : application/pdf</pre>
+<p>The file type will then be used to look up a launch command as described
+above.</p>
+</dd>
+<dt><strong><a name="xbit" class="item"><strong>xbit</strong></a></strong></dt>
+
+<dd>
+<p>The executable bits in the file permissions will be checked (after
+symbolic links have been followed). If the current file is executable,
+<code>pfm</code> will attempt to start the file as an executable command.</p>
+</dd>
+<dt><strong><a name="name" class="item"><strong>name</strong></a></strong></dt>
+
+<dd>
+<p>Some filenames have their own unique way of launching them. These can be
+configured using the 'launchname' config option:</p>
+<pre>
+    launchname[Makefile]   : make
+    launchname[Imakefile]  : xmkmf
+    launchname[Makefile.PL]: perl =2</pre>
+</dd>
+</dl>
+<p>To select which method or methods (<em>extension</em>, <em>magic</em>, <em>xbit</em>, and/or
+<em>name</em>) should be used for determining the file type, you should specify
+these using the 'launchby' option (separated by commas if there is more
+than one).</p>
+<p>Example:</p>
+<pre>
+    launchby:name,xbit,extension</pre>
+<p><code>pfm</code> will try these methods in succession until one succeeds, or all
+fail.</p>
+<p>If the file type cannot be determined, the current file will be displayed
+using your pager.</p>
+<p>The <strong>ENTER</strong> key will always behave as if <code>pfm</code> runs in single-file mode.
+It will <em>not</em> launch multiple files. Use <strong>Y</strong>our or c<strong>O</strong>mmand to launch
+multiple files.</p>
+<p>
+</p>
+<hr />
+<h1><a name="quoting_rules">QUOTING RULES</a></h1>
+<p><code>pfm</code> adds an extra layer of parsing to filenames and shell commands. It
+is therefore important to take notice of the rules that <code>pfm</code> uses.</p>
+<p>In versions prior to 1.93.1, the default escape character was <strong>\</strong>. Since
+this causes confusing results, this is no longer the default, and you are
+discouraged from using it.</p>
+<p>The following six types of input can be distinguished:</p>
+<dl>
+<dt><strong><a name="expression" class="item"><strong>a regular expression</strong> (only the <strong>I</strong>nclude and e<strong>X</strong>clude commands)</a></strong></dt>
+
+<dd>
+<p>The input is parsed as a regular expression.</p>
+</dd>
+<dt><strong><a name="time" class="item"><strong>a time</strong> (e.g. the <strong>T</strong>ime or <strong>I</strong>nclude - <strong>B</strong>efore commands)</a></strong></dt>
+
+<dd>
+<p>Characters not in the set <code>[0-9.]</code> are removed from the input.</p>
+</dd>
+<dt><strong><a name="pattern" class="item"><strong>a literal pattern</strong> (only the <strong>F</strong>ind command)</a></strong></dt>
+
+<dd>
+<p>The input is taken literally.</p>
+</dd>
+<dt><strong><a name="command" class="item"><strong>not a filename or shell command</strong> (e.g. in <strong>A</strong>ttribute or <strong>U</strong>ser)</a></strong></dt>
+
+<dd>
+<p>The input is taken literally.</p>
+</dd>
+<dt><strong><a name="filename" class="item"><strong>a filename</strong> (e.g. in <strong>C</strong>opy or tar<strong>G</strong>et).</a></strong></dt>
+
+<dd>
+<p>First of all, tilde expansion is performed.</p>
+<p>Next, any <code>=[0-9eEpv]</code> character sequence is expanded to the corresponding
+value.</p>
+<p>At the same time, any <code>=[^0-9eEpv]</code> character sequence is just replaced
+with the character itself.</p>
+<p>Finally, if the filename is to be processed by <code>pfm</code>, it is taken literally;
+if it is to be handed over to a shell, all metacharacters are replaced
+<em>escaped</em>.</p>
+</dd>
+<dt><strong><strong>a shell command</strong> (e.g. in c<strong>O</strong>mmand or <strong>P</strong>rint)</strong></dt>
+
+<dd>
+<p>First of all, tilde expansion is performed.</p>
+<p>Next, any <code>=[0-9eEpv]</code> character sequence is expanded to the corresponding
+value, <em>with shell metacharacters escaped</em>.</p>
+<p>At the same time, any <code>=[^0-9eEpv]</code> character sequence is just replaced
+with the character itself.</p>
+</dd>
+</dl>
+<p>In short:</p>
+<dl>
+<dt>
+<dd>
+<p><code>pfm</code> always escapes shell metacharacters in expanded <strong>=2</strong>
+<em>etc.</em> constructs.</p>
+</dd>
+<dt>
+<dd>
+<p>In filenames entered, shell metacharacters are taken literally.</p>
+</dd>
+<dt>
+<dd>
+<p>In shell commands entered, metacharacters that you want to be taken
+literally must be escaped one extra time.</p>
+</dd>
+</dl>
+<p>Examples:</p>
+<table border="0" cellspacing="4" align="center">
+<tr><td colspan="3"><hr /><td></tr>
+<tr>
+	<td>char(s) wanted in filename&nbsp;&nbsp;&nbsp;</td>
+	<td>char(s) to type in filename&nbsp;&nbsp;&nbsp;</td>
+	<td>char(s) to type in shell command&nbsp;&nbsp;&nbsp;</td>
+</tr>
+<tr><td colspan="3"><hr /><td></tr>
+<tr>
+	<td><i>any non-metachar</i></td>
+	<td><i>that char</i></td>
+	<td><i>that char</i></td>
+</tr>
+<tr>
+	<td>\</td>
+	<td>\</td>
+	<td>\\ or '\'</td>
+</tr>
+<tr>
+	<td>&quot;</td>
+	<td>&quot;</td>
+	<td>\&quot; <b>or</b> '&quot;'</td>
+</tr>
+<tr>
+	<td>=</td>
+	<td>==</td>
+	<td>==</td>
+</tr>
+<tr>
+	<td><i>space</i></td>
+	<td><i>space</i></td>
+	<td>\\<i>space</i>  <b>or</b> '<i>space</i>'</td>
+</tr>
+<tr>
+	<td><i>filename</i></td>
+	<td>=2</td>
+	<td>=2</td>
+</tr>
+<tr>
+	<td>\2</td>
+	<td>\2</td>
+	<td>\\2 <b>or</b> '\2'</td>
+</tr>
+<tr>
+	<td>=2</td>
+	<td>==2</td>
+	<td>==2</td>
+</tr>
+<tr><td colspan="3"><hr /><td></tr>
+</table><p>
+</p>
+<hr />
+<h1><a name="mouse_commands">MOUSE COMMANDS</a></h1>
+<p>When <code>pfm</code> is run in an xterm or other terminal (or emulator) that supports
+the use of a mouse, turning on mouse mode (either initially with the
+'defaultmousemode' option in the <em class="file">.pfmrc</em> file, or while running using
+the <strong>F12</strong> key) will give mouse access to the following commands:</p>
+<table border="0" cellspacing="4" align="center" width="70%">
+<tr><td colspan="7"><hr /></td></tr>
+<tr>
+	<th rowspan="3">button</th>
+	<th colspan="6">location clicked</th>
+</tr>
+<tr><td colspan="7"><hr /></td></tr>
+<tr>
+	<td>pathline</td>
+	<td>menu/footer</td>
+	<td>heading</td>
+	<td>fileline</td>
+	<td>filename</td>
+	<td>dirname</td>
+</tr>
+<tr><td colspan="7"><hr /></td></tr>
+<tr>
+	<td>1</td>
+	<td><i>chdir()</i></td>
+	<td><i>pfm command</i></td>
+	<td>sort</td>
+	<td>F8</td>
+	<td><b>S</b>how</td>
+	<td><b>S</b>how</td>
+</tr>
+<tr>
+	<td>2</td>
+	<td>c<b>O</b>mmand</td>
+	<td><i>pfm command</i></td>
+	<td>sort rev</td>
+	<td><b>S</b>how</td>
+	<td>ENTER</td>
+	<td><b>M</b>ore - <b>O</b>pen window</i></td>
+</tr>
+<tr>
+	<td>3</td>
+	<td>c<b>O</b>mmand</td>
+	<td><i>pfm command</i></td>
+	<td>sort rev</td>
+	<td><b>S</b>how</td>
+	<td>ENTER</td>
+	<td><b>M</b>ore - <b>O</b>pen window</i></td>
+</tr>
+<tr><td colspan="7"><hr /><td></tr>
+<tr>
+	<td>wheel up</td>
+	<td colspan="6" align="center"><i>five lines up</i></td>
+</tr>
+<tr>
+	<td>wheel down</td>
+	<td colspan="6" align="center"><i>five lines down</i></td>
+</tr>
+<tr><td colspan="7"><hr /></td></tr>
+</table><p>If the config option 'mouse_moves_cursor' has been set to 'yes', a mouse
+click on a non-directory will move the cursor to that file. Otherwise,
+the cursor will <em>only</em> move when a directory is clicked or the mouse
+wheel is used.</p>
+<p>The mouse wheel moves the cursor five lines per notch by default,
+or one line if shift is pressed. The actual number of lines can be
+configured in your <em class="file">.pfmrc</em> using 'mousewheeljumpsize'.</p>
+<p>Clicking button 1 on the current directory path will <code>chdir()</code> up to the
+clicked ancestor directory. If the current directory was clicked, or the
+device name, it will act like a <strong>M</strong>ore - <strong>S</strong>how command.</p>
+<p>Clicking button 2 on a directory name will open a new window like <strong>M</strong>ore
+- <strong>O</strong>pen window.</p>
+<p>Clicking on the column headings will sort the directory contents by that
+heading. Clicking again will sort the directory in reverse order.</p>
+<p>Clicking on &quot;Sort&quot; in the footer will cycle through a number of
+preconfigured sort modes as defined in the config option 'sortcycle'.</p>
+<p>Clicking on the menu or footer will execute the command that was clicked.</p>
+<p>Clicking on one of the identity lines in the info column will toggle the
+display like the <strong>=</strong> command does.</p>
+<p>Mouse use will be turned off during the execution of commands.</p>
+<p>
+</p>
+<hr />
+<h1><a name="working_directory_inheritance">WORKING DIRECTORY INHERITANCE</a></h1>
+<p>Upon exit, <code>pfm</code> will save its current working directory in the file
+<em class="file">$HOME/.pfm/cwd</em>, and its swap directory, if any, in <em class="file">$HOME/.pfm/swd</em>.
+This enables the user to have the calling process (shell) &quot;inherit&quot;
+<code>pfm</code>'s current working directory, and to reinstate the swap directory
+upon the next invocation.  To achieve this, you may call <code>pfm</code> using a
+function or alias like the following:</p>
+<p>Example for <code>ksh(1)</code>, <code>bash(1)</code> and zsh(1):</p>
+<pre>
+    pfm() {
+        if [ -s ~/.pfm/swd ]; then
+            swd=-s&quot;`cat ~/.pfm/swd`&quot;
+        fi
+        # providing $swd is optional
+        env pfm $swd &quot;$@&quot;
+        if [ -s ~/.pfm/cwd ]; then
+            cd &quot;`cat ~/.pfm/cwd`&quot;
+            rm -f ~/.pfm/cwd
+        fi
+    }</pre>
+<p>Example for <code>csh(1)</code> and tcsh(1):</p>
+<pre>
+    alias pfm ':                             \
+    if (-s ~/.pfm/swd) then                  \
+        set swd=-s&quot;`cat ~/.pfm/swd`&quot;         \
+    endif                                    \
+    : providing $swd is optional             \
+    env pfm $swd \!*                         \
+    if (-s ~/.pfm/cwd) then                  \
+        cd &quot;`cat ~/.pfm/cwd`&quot;                \
+        rm -f ~/.pfm/cwd                     \
+    endif'</pre>
+<p>
+</p>
+<hr />
+<h1><a name="environment">ENVIRONMENT</a></h1>
+<dl>
+<dt><strong><a name="ansi_colors_disabled" class="item"><strong>ANSI_COLORS_DISABLED</strong></a></strong></dt>
+
+<dd>
+<p>Detected as an indication that ANSI coloring escape sequences should not
+be used.</p>
+</dd>
+<dt><strong><a name="cdpath" class="item"><strong>CDPATH</strong></a></strong></dt>
+
+<dd>
+<p>A colon-separated list of directories specifying the search path when
+changing directories. There is always an implicit <strong>.</strong> entry at the start
+of this search path.</p>
+</dd>
+<dt><strong><a name="display" class="item"><strong>DISPLAY</strong></a></strong></dt>
+
+<dd>
+<p>The X display on which the 'windowcmd' will be opened.</p>
+</dd>
+<dt><strong><a name="editor" class="item"><strong>EDITOR</strong></a></strong></dt>
+
+<dd>
+<p>The editor to be used for the <strong>E</strong>dit command. Overridden by VISUAL.</p>
+</dd>
+<dt><strong><a name="lc_all" class="item"><strong>LC_ALL</strong></a></strong></dt>
+
+<dt><strong><a name="lc_collate" class="item"><strong>LC_COLLATE</strong></a></strong></dt>
+
+<dt><strong><a name="lc_ctype" class="item"><strong>LC_CTYPE</strong></a></strong></dt>
+
+<dt><strong><a name="lc_messages" class="item"><strong>LC_MESSAGES</strong></a></strong></dt>
+
+<dt><strong><a name="lc_numeric" class="item"><strong>LC_NUMERIC</strong></a></strong></dt>
+
+<dt><strong><a name="lc_time" class="item"><strong>LC_TIME</strong></a></strong></dt>
+
+<dt><strong><a name="lang" class="item"><strong>LANG</strong></a></strong></dt>
+
+<dd>
+<p>Determine locale settings, most notably for collation sequence, messages
+and date/time format. See <code>locale(7)</code>.</p>
+</dd>
+<dt><strong><a name="pager" class="item"><strong>PAGER</strong></a></strong></dt>
+
+<dd>
+<p>Identifies the pager with which to view text files. Defaults to <code>less(1)</code>
+for Linux systems or <code>more(1)</code> for Unix systems.</p>
+</dd>
+<dt><strong><a name="perl_rl" class="item"><strong>PERL_RL</strong></a></strong></dt>
+
+<dd>
+<p>Indicate whether and how the readline prompts should be highlighted.
+See Term::ReadLine(3pm). If unset, a good guess is made based on your
+config file 'framecolors[]' setting.</p>
+</dd>
+<dt><strong><a name="pfmrc" class="item"><strong>PFMRC</strong></a></strong></dt>
+
+<dd>
+<p>Specify a location of an alternate <em class="file">.pfmrc</em> file. If unset, the default
+location <em class="file">$HOME/.pfm/.pfmrc</em> is used. The cwd- and history-files cannot
+be displaced in this manner, and will always be located in the directory
+<em class="file">$HOME/.pfm/</em>.</p>
+</dd>
+<dt><strong><a name="printer" class="item"><strong>PRINTER</strong></a></strong></dt>
+
+<dd>
+<p>May be used to specify a printer to print to using the <strong>P</strong>rint command.</p>
+</dd>
+<dt><strong><a name="shell" class="item"><strong>SHELL</strong></a></strong></dt>
+
+<dd>
+<p>Your default login shell, spawned by <strong>M</strong>ore - s<strong>H</strong>ell.</p>
+</dd>
+<dt><strong><a name="visual" class="item"><strong>VISUAL</strong></a></strong></dt>
+
+<dd>
+<p>The editor to be used for the <strong>E</strong>dit command. Overrides EDITOR.</p>
+</dd>
+</dl>
+<p>
+</p>
+<hr />
+<h1><a name="files">FILES</a></h1>
+<p>The directory <em class="file">$HOME/.pfm/</em> and files therein. A number of input histories
+and the current working directory on exit are saved to this directory.</p>
+<p>The default location for the config file is <em class="file">$HOME/.pfm/.pfmrc</em>.</p>
+<p>
+</p>
+<hr />
+<h1><a name="exit_status">EXIT STATUS</a></h1>
+<dl>
+<dt><strong><a name="0" class="item">&nbsp;0</a></strong></dt>
+
+<dd>
+<p>Success (could also be a user requested exit, <em>e.g.</em> after
+<strong>--help</strong> or <strong>--version</strong>).</p>
+</dd>
+<dt><strong><a name="12" class="item">&nbsp;1</a></strong></dt>
+
+<dd>
+<p>Invalid commandline option.</p>
+</dd>
+<dt><strong><a name="22" class="item">&nbsp;2</a></strong></dt>
+
+<dd>
+<p>No valid layout found in the <em class="file">.pfmrc</em> file.</p>
+</dd>
+</dl>
+<p>
+</p>
+<hr />
+<h1><a name="diagnosis">DIAGNOSIS</a></h1>
+<p>If <code>pfm</code> reports that your config file might be outdated, you might be
+missing some of the newer configuration options (or default values for
+these). The best way to solve this is by having <code>pfm</code> generate a new
+config file, <em>e.g.</em> by running the following command and comparing the
+new config file with your original one:</p>
+<pre>
+    env PFMRC=~/.pfm/.pfmrc-new pfm</pre>
+<p>Alternatively, you may reply with <strong>y</strong> when <code>pfm</code> offers to update the
+config file for you.</p>
+<p>If a function key like <strong>F1</strong> or <strong>F10</strong> is intercepted by your windowing
+system or OS, and it is not feasible to change that mapping, then you can
+define an alternative key mapping (like Shift-<strong>F1</strong>, Shift-<strong>F10</strong>) in
+your <em class="file">.pfmrc</em>, <em>e.g.</em>:</p>
+<pre>
+    keydef[*]:k1=\eO1;2P:k10=\e[21;2~:</pre>
+<p>Or for a specific value of <strong>TERM</strong>:</p>
+<pre>
+    keydef[xterm]:k1=\eO1;2P:k10=\e[21;2~:</pre>
+<p>
+</p>
+<hr />
+<h1><a name="bugs_and_warnings">BUGS and WARNINGS</a></h1>
+<p>The smallest terminal size supported is 80x24. The display will be messed
+up if you resize your terminal window to a smaller size, unless you specify
+'force_minimum_size' in the config file and the terminal supports resizing;
+in that case <code>pfm</code> will resize the terminal to at least 80 columns and/or
+24 rows.</p>
+<p>The author once almost pressed <strong>ENTER</strong> when logged in as root and with
+the cursor on the file <em class="file">/sbin/reboot</em>. You have been warned.</p>
+<p>
+</p>
+<hr />
+<h1><a name="version">VERSION</a></h1>
+<p>
+This manual pertains to version 2.12.3.
+</p>
+<hr />
+<h1><a name="author_and_copyright">AUTHOR and COPYRIGHT</a></h1>
+Copyright &copy; Ren&eacute; Uittenbogaard
+(ruittenb&#64;users.sourceforge.net).<p>This program is free software; you can redistribute it and/or modify it
+under the terms described by the GNU General Public License version 3.</p>
+<p>This program was based on PFM.COM version 2.32, originally written for
+MS-DOS by Paul R. Culley and Henk de Heer. The name 'pfm' was adopted
+with kind permission of the original authors.</p>
+<p>Special thanks to Ewoud Kappers for useful suggestions and testing.</p>
+<p>Special thanks to Maurice Makaay for useful suggestions and assistance
+with debugging.</p>
+<p>
+</p>
+<hr />
+<h1><a name="see_also">SEE ALSO</a></h1>
+<p>The documentation on PFM.COM. The manual pages for <code>chmod(1)</code>, <code>cp(1)</code>,
+<code>file(1)</code>, <code>less(1)</code>, <code>ln(1)</code>, <code>locale(7)</code>, <code>lpr(1)</code>, <code>touch(1)</code>, <code>vi(1)</code>.</p>
+<p>For developers:</p>
+<p>Term::Screen(3pm),
+Term::ScreenColor(3pm),
+Term::ReadLine(3pm).</p>
+<p>App::PFM::Abstract(3pm),
+App::PFM::Application(3pm),
+App::PFM::Browser(3pm),
+App::PFM::CommandHandler(3pm),
+App::PFM::Config(3pm),
+App::PFM::Directory(3pm),
+App::PFM::Event(3pm),
+App::PFM::File(3pm),
+App::PFM::History(3pm),
+App::PFM::JobHandler(3pm),
+App::PFM::Job::Abstract(3pm),
+App::PFM::OS(3pm),
+App::PFM::Screen(3pm),
+App::PFM::State(3pm) and
+App::PFM::Util(3pm).</p>
+<p>The pfm project page: <a href="http://sourceforge.net/projects/p-f-m/">http://sourceforge.net/projects/p-f-m/</a></p>
+<p>The pfm homepage: <a href="http://p-f-m.sourceforge.net/">http://p-f-m.sourceforge.net/</a></p>
+
+</body>
+
+</html>

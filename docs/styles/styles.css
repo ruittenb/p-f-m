@@ -1,0 +1,41 @@
+/*
+	pfm homepage style sheet
+	Creator: Rene Uittenbogaard
+	Date: 2022-11-18
+*/
+
+/*
+* {
+	margin: 0;
+	padding: 0;
+}
+*/
+
+body {
+	background: #78B3B3;
+	font-family: Arial,Helvetica,sans-serif;
+	font-size: 12pt;
+	padding: 10px;
+}
+
+h1 {
+	margin: 10px auto 30px auto;
+}
+
+img {
+	border-width: 0;
+}
+
+hr {
+	color: #000052;
+}
+
+tr {
+	vertical-align: top;
+}
+
+a[href]        { color: #000052; }
+a[href]:active { color: #bb0000; }
+
+/* vim: set tabstop=4 shiftwidth=4 noexpandtab: */
+

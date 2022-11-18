@@ -1,0 +1,145 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Personal File Manager</title>
+        <meta charset="UTF-8">
+        <meta name="author" content="René Uittenbogaard">
+        <meta name="creator" content="René Uittenbogaard">
+        <meta name="keywords" content="personal file manager, pfm, pfm.com, terminal, curses, ncurses, readline, linux, unix">
+        <meta name="description" content="pfm is a terminal-based file manager">
+        <link type="text/css" rel="stylesheet" href="styles/styles.css">
+        <link type="text/css" rel="stylesheet" href="styles/lightbox.css">
+        <link rel="shortcut icon" href="images/favicon.ico">
+        <script src="js/jquery-1.11.0.min.js"></script>
+        <script src="js/lightbox.min.js"></script>
+    </head>
+    <body>
+        <h1>Personal File Manager for Unix/Linux</h1>
+        <table border="0" width="100%" cellspacing="3" cellpadding="2">
+            <tr>
+                <td colspan="2">
+                    <p>
+                        <b>pfm is a terminal (curses)-based file manager</b> written in <a href="http://www.perl.org/">Perl</a>, based on
+                        <a href="img/Screenshot-pfm-dos.png"
+                           title="Screenshot of PFM.COM for MS-DOS"
+                           data-lightbox="pfm-dos"
+                           data-title="Screenshot of PFM.COM for MS-DOS. Note the y2k bug."
+                        >PFM.COM for MS-DOS</a>
+                        (originally by Paul Culley and Henk de Heer).
+                        Permission to use the original name was kindly granted by the original authors.
+                    </p>
+                    <p>Some of its features:</p>
+                    <ul>
+                        <li>most commands are invoked with only one or two keypresses</li>
+                        <li>colored filenames according to extension or type</li>
+                        <li>support for executing user-defined commands (including wildcards) with only two keystrokes</li>
+                        <li>a single-file and multiple-file mode</li>
+                        <li>multilevel sorting</li>
+                        <li>use of <i>oldmarks</i> and <i>newmarks</i> for executing multiple commands on the same group of files</li>
+                        <li>supports bookmarks for directories</li>
+                        <li>highly configurable through its config file</li>
+                        <li>supports commandline history and completion through use of the readline library</li>
+                        <li>integration with versioning tools (git, subversion, CVS, Bazaar, Mercurial).</li>
+                    </ul>
+                    <p>For more documentation, see the <a href="pfm.1.html">manual page</a>.</p>
+                </td>
+                <td>
+                    <p>
+                        <a href="img/Screenshot-pfm-composite.png"
+                            data-lightbox="screenshot-1"
+                            data-title="pfm with Subversion integration showing multilevel sort and ACLs"
+                        ><img src="img/Screenshot-pfm-composite-small.png" alt="pfm with multilevel sort" title="pfm with multilevel sort"></a>
+                    </p>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2">
+                    <p>
+                        Bugs fixed in 2.12.3:
+                    </p><ul>
+                        <li>fixed bug in counting the number of running jobs</li>
+                        <li>fixed bug with CHLD signal handler on Darwin</li>
+                        <li>fixed documentation of event names fired by jobs</li>
+                        <li>fixed: <code><small>Use of uninitialized value in subroutine entry at
+                                    Term/ReadLine/Gnu.pm</small></code> after upgrade of Term::ReadLine::Gnu from 1.20 to 1.24</li>
+                        <li>fixed: handling a cd command that uses environment variables in <b>c(O)mmand</b></li>
+                    </ul>
+                    <p></p>
+                    <p>
+                        New features in 2.12.3:
+                    </p><ul>
+                        <li>support for the aufs layered filesystem</li>
+                        <li>support for the newer versions of subversion</li>
+                        <li>MIME types for .xz and .txz.</li>
+                        <li>display list of escapes in <b>(C)opy, (R)ename, (L)ink, tar(G)et</b> and <b>(P)rint</b>.</li>
+                        <li><b>shift-F8</b> for easy removal of oldmarks and newmarks.</li>
+                        <li><code>=0</code> escape (ln target path)</li>
+                        <li>expand &lt;prefix&gt;<code>=8</code>&lt;suffix&gt; to each of the marked
+                            filenames with the provided prefix and suffix applied.</li>
+                    </ul>
+                    <p></p>
+                </td>
+                <td>
+                    <p>
+                        <a href="img/Screenshot-pfm-bookmarks.png"
+                           data-lightbox="screenshot-1"
+                           data-title="Directory bookmarks in action"
+                        ><img src="img/Screenshot-pfm-bookmarks-small.png" alt="Directory bookmarks in action" title="Directory bookmarks in action"></a>
+                    </p>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2">
+                    <p>
+                        <b>Download the <a href="https://github.com/ruittenb/p-f-m">latest version (v2.12.6)</a>.</b>
+                    </p>
+                    <p>
+                        <b>This program is free software:</b> you can redistribute it and/or modify it under the terms described by the GNU
+                        <a href="http://www.gnu.org/licenses/gpl.html">General Public License version 2</a>.
+                    </p>
+                    <p>
+                        For hobbyists: the <a href="archive/PFM314.ZIP">original MS-DOS binary</a> is still available.
+                    </p>
+                </td>
+                <td>
+                    <p>
+                        <a href="img/Screenshot-pfm-kterm.png"
+                            data-lightbox="screenshot-1"
+                            data-title="Running in kterm"><img src="img/Screenshot-pfm-kterm-small.png" alt="running in kterm" title="running in kterm"></a>
+                    </p>
+                </td>
+            </tr>
+            <tr>
+                <!--
+                <td>
+                    <p>
+                        <a href="img/Screenshot-pfm-help.png"
+                           data-lightbox="screenshot-1"
+                           data-title="Help screen"
+                           ><img src="img/Screenshot-pfm-help-small.png"
+                                 alt="Help screen"
+                                 title="Help screen"
+                                 /></a>
+                    </p>
+                </td>
+                -->
+                <td>
+                    <p>
+                        <a href="img/Screenshot-pfm-macos.png" data-lightbox="screenshot-1" data-title="List of &#39;Your Commands&#39;. Running on MacOS"><img src="img/Screenshot-pfm-macos-small.png" alt="Your Commands" title="Your Commands"></a>
+                    </p>
+                </td>
+                <td>
+                    <p>
+                        <a href="img/Screenshot-pfm-filecompare.png" data-lightbox="screenshot-1" data-title="Overwrite prompt. Running in xfce-terminal. Note the ACL on the examples directory"><img src="img/Screenshot-pfm-filecompare-small.png" alt="overwrite prompt" title="overwrite prompt"></a>
+                    </p>
+                </td>
+                <td>
+                    <p>
+                        <a href="img/Screenshot-pfm-root-revterm-multisort.png" data-lightbox="screenshot-1" data-title="pfm in reverse video. Logged in as root"><img src="img/Screenshot-pfm-root-revterm-multisort-small.png" alt="pfm in reverse video" title="pfm in reverse video"></a>
+                    </p>
+                </td>
+            </tr>
+        </table>
+    </body>
+    <!-- vim: set tabstop=4 shiftwidth=4 expandtab: -->
+</html>
