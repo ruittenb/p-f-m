@@ -1,9 +1,11 @@
 
 # Personal File Manager
 
+pfm is a curses-based file manager in Perl. Most commands can be invoked with only one or two keys.
+
 - This package is available from https://github.com/ruittenb/p-f-m
 
-- The homepage for this project: https://ruittenb.github.io/p-f-m
+- The homepage for this project can be found at https://ruittenb.github.io/p-f-m
 
 ## Dependencies
 
