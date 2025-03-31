@@ -1,0 +1,72 @@
+
+   hex	bit macro	ls	oct			description
+-----------+-----------+-----+-----------------+---------------------------------
+   f000	S_IFMT			170000	mask for file type
+-----------+-----------+-----+-----------------+---------------------------------
+   0000					000000	SCO out-of-service inode; BSD unknown type; SVID-v2 and XPG2 have both 0 and 0100000 for ordinary file
+   1000	S_IFIFO	p|		010000	FIFO (named pipe)
+   2000	S_IFCHR	c%		020000	character special
+   2200	S_IFMPX	m		021000	multiplexed file (AIX, V7; obsolete)
+   3000	S_IFMPC	m		030000	multiplexed character special (V7)
+   4000	S_IFDIR	d/		040000	directory
+   0800	S_CDF		 +		004000	directory is a context dependent file (HP-UX)
+   5000	S_IFNAM			050000	XENIX named special file with two subtypes, distinguished by st_rdev values 1, 2
+   0001	S_INSEM	s		000001	XENIX semaphore subtype of IFNAM
+   0002	S_INSHD	m		000002	XENIX shared data subtype of IFNAM
+   6000	S_IFBLK	b#		060000	block special
+   7000	S_IFMPB	m		070000	multiplexed block special (V7)
+   8000	S_IFREG	-		100000	regular
+   9000	S_IFCMP			110000	VxFS compressed
+   9000	S_IFNWK	n:		110000	network special (HP-UX)
+   9000	S_IFCTG	C		110000	high performance ("contiguous data") file
+   a000	S_IFLNK	l@		120000	symbolic link
+   b000	S_IFSHAD			130000	shadow inode for ACL (Solaris, not seen by userspace)
+   c000	S_IFSOCK	s=		140000	socket
+   d000	S_IFDOOR	D>		150000	door (Solaris 2.5 and up)
+   e000	S_IFWHT	w%		160000	whiteout (BSD 4.4, not used for inode)
+   e000	S_IFPORT    P 		160000	event port (Solaris 10 and up)
+8000000	S_ISHIDDEN	 +	  1000000000	hidden directory (AIX)
+
+   ____	S_IFOFD	M		______	Cray DMF (data migration facility): off line, with data
+   ____	S_IFOFL	M		______	Cray DMF (data migration facility): off line, with no data
+
+
+Very complete:
+ - https://github.com/python/cpython/issues/55225#issuecomment-1093532804
+ - https://bugs.python.org/msg188321
+
+stat.h mostly complete:
+ - https://en.wikibooks.org/wiki/C_Programming/POSIX_Reference/sys/stat.h
+
+Doors:
+Event ports:
+ ! https://github.com/TritonDataCenter/illumos-joyent/blob/master/usr/src/uts/common/sys/stat.h#L401
+
+Solaris Doors for Linux
+ - http://www.rampant.org/doors/index.html
+ 
+V7 Multiplexed files:
+AIX hidden directories:
+ - https://man.cat-v.org/unix_7th/2/mpx
+ ! http://ps-2.kev009.com/aixps2/boo2pdf/SC23-2300-01_AIX_PS2_and_System370_Technical_Reference_Mar_1991.pdf#page=1195
+
+Context dependent files:
+ - http://cd.textfiles.com/transameritech2/EXTRAS/JOVE-4.6/ASK.C
+
+================================================================================
+
+Other letters are used for files whose type cannot be determined solely from st_mode:
+
+      'F' semaphore
+      'Q' message queue
+      'S' shared memory object
+      'T' typed memory object
+
+S_TYPEISMQ Test for a message queue
+S_TYPEISSEM Test for a semaphore
+S_TYPEISSHM Test for a shared memory object
+
+
+================================================================================
+
+# vim: set ts=6 sw=6 noet:
